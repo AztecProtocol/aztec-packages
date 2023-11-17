@@ -1,5 +1,6 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/types.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "config.hpp"
 #include "get_bytecode.hpp"
 #include "get_crs.hpp"
@@ -199,6 +200,22 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
     }
 }
 
+void writePk(const std::string& bytecodePath, const std::string& outputPath)
+{
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto acir_composer = init(constraint_system);
+    auto pk = acir_composer.init_proving_key(constraint_system);
+    auto serialized_pk = to_buffer(*pk);
+
+    if (outputPath == "-") {
+        writeRawBytesToStdout(serialized_pk);
+        vinfo("pk written to stdout");
+    } else {
+        write_file(outputPath, serialized_pk);
+        vinfo("pk written to: ", outputPath);
+    }
+}
+
 /**
  * @brief Writes a Solidity verifier contract for an ACIR circuit to a file
  *
@@ -363,6 +380,7 @@ int main(int argc, char* argv[])
         std::string witness_path = getOption(args, "-w", "./target/witness.gz");
         std::string proof_path = getOption(args, "-p", "./proofs/proof");
         std::string vk_path = getOption(args, "-k", "./target/vk");
+        std::string pk_path = getOption(args, "-r", "./target/pk");
         CRS_PATH = getOption(args, "-c", "./crs");
         bool recursive = flagPresent(args, "-r") || flagPresent(args, "--recursive");
 
@@ -393,6 +411,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk") {
             std::string output_path = getOption(args, "-o", "./target/vk");
             writeVk(bytecode_path, output_path);
+        } else if (command == "write_pk") {
+            std::string output_path = getOption(args, "-o", "./target/pk");
+            writePk(bytecode_path, output_path);
         } else if (command == "proof_as_fields") {
             std::string output_path = getOption(args, "-o", proof_path + "_fields.json");
             proofAsFields(proof_path, vk_path, output_path);
