@@ -35,17 +35,14 @@ impl PrivateKernelInputsOrdering {
         assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the ordering circuit");
     }
 
-    fn match_reads_to_commitments(
-        public_inputs: &mut KernelCircuitPublicInputsBuilder,
-        read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
-    ) {
+    fn match_reads_to_commitments(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         let new_commitments = public_inputs.end.new_commitments;
         let read_requests = public_inputs.end.read_requests;
 
         // match reads to commitments from the previous call(s)
         for rr_idx in 0..MAX_READ_REQUESTS_PER_TX {
             let read_request = read_requests.get_unchecked(rr_idx);
-            let read_commitment_hint = read_commitment_hints[rr_idx];
+            let read_commitment_hint = self.read_commitment_hints[rr_idx];
             //TODO(David): Shouldn't this just be a uint64?
             let hint_pos = read_commitment_hint as u64;
 
@@ -63,10 +60,7 @@ impl PrivateKernelInputsOrdering {
         public_inputs.end.read_requests = BoundedVec::new(0);
     }
 
-    fn match_nullifiers_to_commitments_and_squash(
-        public_inputs: &mut KernelCircuitPublicInputsBuilder,
-        nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-    ) {
+    fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
         let nullified_commitments = public_inputs.end.nullified_commitments.storage;
@@ -76,7 +70,7 @@ impl PrivateKernelInputsOrdering {
         for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
             // TODO - should not be able to squash the first nullifier.
             let nullified_commitment = nullified_commitments[n_idx];
-            let nullifier_commitment_hint = nullifier_commitment_hints[n_idx];
+            let nullifier_commitment_hint = self.nullifier_commitment_hints[n_idx];
             let hint_pos = nullifier_commitment_hint as u64;
 
             // Nullified_commitment of value `EMPTY_NULLIFIED_COMMITMENT` implies non-transient (persistable)
@@ -152,9 +146,9 @@ impl PrivateKernelInputsOrdering {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
         // len(nullified_commitments)`
 
-        PrivateKernelInputsOrdering::match_reads_to_commitments(&mut public_inputs, self.read_commitment_hints);
+        self.match_reads_to_commitments(&mut public_inputs);
 
-        PrivateKernelInputsOrdering::match_nullifiers_to_commitments_and_squash(&mut public_inputs, self.nullifier_commitment_hints);        
+        self.match_nullifiers_to_commitments_and_squash(&mut public_inputs);        
 
         PrivateKernelInputsOrdering::apply_commitment_nonces(&mut public_inputs); 
 
