@@ -40,6 +40,8 @@ export class Barretenberg extends BarretenbergApi {
   }
 }
 
+let barretenbergSyncSingleton: BarretenbergSync;
+
 export class BarretenbergSync extends BarretenbergApiSync {
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
@@ -49,5 +51,12 @@ export class BarretenbergSync extends BarretenbergApiSync {
     const wasm = new BarretenbergWasmMain();
     await wasm.init(1);
     return new BarretenbergSync(wasm);
+  }
+
+  static async getSingleton() {
+    if (!barretenbergSyncSingleton) {
+      barretenbergSyncSingleton = await BarretenbergSync.new();
+    }
+    return barretenbergSyncSingleton;
   }
 }

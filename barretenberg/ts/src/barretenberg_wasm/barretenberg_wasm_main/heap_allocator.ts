@@ -1,5 +1,4 @@
-import { Bufferable, serializeBufferable } from '../../serialize/index.js';
-import { BarretenbergWasm } from '../../barretenberg_wasm/index.js';
+import { type BarretenbergWasmMain } from './index.js';
 
 /**
  * Keeps track of heap allocations so they can be easily freed.
@@ -14,10 +13,10 @@ export class HeapAllocator {
   private inScratchRemaining = 1024;
   private outScratchRemaining = 1024;
 
-  constructor(private wasm: BarretenbergWasm) {}
+  constructor(private wasm: BarretenbergWasmMain) {}
 
-  copyToMemory(bufferable: Bufferable[]) {
-    return bufferable.map(serializeBufferable).map(buf => {
+  copyToMemory(buffers: Uint8Array[]) {
+    return buffers.map(buf => {
       if (buf.length <= this.inScratchRemaining) {
         const ptr = (this.inScratchRemaining -= buf.length);
         this.wasm.writeMemory(ptr, buf);
