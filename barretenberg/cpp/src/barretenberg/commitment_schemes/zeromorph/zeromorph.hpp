@@ -319,9 +319,9 @@ template <typename Curve> class ZeroMorphProver_ {
                       auto& multilinear_challenge,
                       auto& commitment_key,
                       auto& transcript,
-                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
-                      std::vector<FF>&& concatenated_evaluations = {},
-                      const std::vector<std::vector<std::span<FF>>>& concatenation_groups = {})
+                      const std::vector<Polynomial>& concatenated_polynomials = {},
+                      const std::vector<FF>& concatenated_evaluations = {},
+                      const std::vector<std::vector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         FF rho = transcript.get_challenge("rho");
@@ -630,14 +630,15 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
-    static std::array<Commitment, 2> verify(auto&& unshifted_commitments,
-                                            auto&& to_be_shifted_commitments,
-                                            auto&& unshifted_evaluations,
-                                            auto&& shifted_evaluations,
-                                            auto& multivariate_challenge,
-                                            auto& transcript,
-                                            std::vector<std::vector<Commitment>>&& concatenation_group_commitments = {},
-                                            std::vector<FF>&& concatenated_evaluations = {})
+    static std::array<Commitment, 2> verify(
+        auto&& unshifted_commitments,
+        auto&& to_be_shifted_commitments,
+        auto&& unshifted_evaluations,
+        auto&& shifted_evaluations,
+        auto& multivariate_challenge,
+        auto& transcript,
+        const std::vector<std::vector<Commitment>>& concatenation_group_commitments = {},
+        const std::vector<FF>& concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript.get_challenge("rho");
