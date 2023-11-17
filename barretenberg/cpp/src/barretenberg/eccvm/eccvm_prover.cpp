@@ -322,18 +322,18 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     // Get the challenge at which we evaluate the polynomials as univariates
     evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
 
-    cheat_translation_consistency_data.op = key->transcript_op.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.Py = key->transcript_Py.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
-    cheat_translation_consistency_data.z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
+    translation_evaluations.op = key->transcript_op.evaluate(evaluation_challenge_x);
+    translation_evaluations.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
+    translation_evaluations.Py = key->transcript_Py.evaluate(evaluation_challenge_x);
+    translation_evaluations.z1 = key->transcript_z1.evaluate(evaluation_challenge_x);
+    translation_evaluations.z2 = key->transcript_z2.evaluate(evaluation_challenge_x);
 
     // Add the univariate evaluations to the transcript
-    transcript.send_to_verifier("Translation:op", cheat_translation_consistency_data.op);
-    transcript.send_to_verifier("Translation:Px", cheat_translation_consistency_data.Px);
-    transcript.send_to_verifier("Translation:Py", cheat_translation_consistency_data.Py);
-    transcript.send_to_verifier("Translation:z1", cheat_translation_consistency_data.z1);
-    transcript.send_to_verifier("Translation:z2", cheat_translation_consistency_data.z2);
+    transcript.send_to_verifier("Translation:op", translation_evaluations.op);
+    transcript.send_to_verifier("Translation:Px", translation_evaluations.Px);
+    transcript.send_to_verifier("Translation:Py", translation_evaluations.Py);
+    transcript.send_to_verifier("Translation:z1", translation_evaluations.z1);
+    transcript.send_to_verifier("Translation:z2", translation_evaluations.z2);
     transcript.send_to_verifier("Translation:hack_evaluation", hack.evaluate(evaluation_challenge_x));
 
     // Get another challenge for batching the univariate claims

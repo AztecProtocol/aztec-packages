@@ -1,5 +1,5 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
-#include "barretenberg/goblin/cheat_translation_consistency_data.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
@@ -190,8 +190,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     auto translator_prover = translator_composer.create_prover(translator_builder);
     auto translator_verifier = translator_composer.create_verifier(translator_builder);
     auto translator_proof = translator_prover.construct_proof();
-    bool translator_verified =
-        translator_verifier.verify_proof(translator_proof, eccvm_prover.cheat_translation_consistency_data);
+    bool translator_verified = translator_verifier.verify_proof(translator_proof, eccvm_prover.translation_evaluations);
     EXPECT_TRUE(translator_verified);
 }
 
