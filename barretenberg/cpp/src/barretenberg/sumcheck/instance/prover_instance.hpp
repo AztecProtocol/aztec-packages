@@ -9,7 +9,7 @@
 
 namespace proof_system::honk {
 /**
- * @brief  An Instance is normally constructed from a finalised circuit and it's role is to compute all the polynomials
+ * @brief  An Instance is normally constructed from a finalized circuit and it's role is to compute all the polynomials
  * involved in creating a proof and, if requested, the verification key.
  * In case of folded Instance, this will be created from the FoldingResult, the aggregated work from the folding prover
  * and verifier. More specifically, a folded instance will be constructed from the complete set of folded polynomials
@@ -67,7 +67,7 @@ template <class Flavor> class ProverInstance_ {
 
     std::shared_ptr<VerificationKey> compute_verification_key();
 
-    void initialise_prover_polynomials();
+    void initialize_prover_polynomials();
 
     void compute_sorted_accumulator_polynomials(FF);
 
@@ -94,6 +94,9 @@ template <class Flavor> class ProverInstance_ {
     void compute_witness(Circuit&);
 
     void construct_ecc_op_wire_polynomials(auto&);
+
+    void construct_databus_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 

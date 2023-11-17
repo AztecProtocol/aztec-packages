@@ -162,7 +162,7 @@ template <typename Flavor> class RelationUtils {
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(
         ContainerOverSubrelations& univariate_accumulators,
-        FF& challenge,
+        const FF& challenge,
         const std::optional<PowUnivariate<FF>>& pow_univariate = std::nullopt)
     {
         auto running_challenge = FF(1);

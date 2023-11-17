@@ -9,7 +9,7 @@
 
 namespace proof_system::honk::sumcheck {
 
-template <typename FF_> class ECCVMLookupRelationBase {
+template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
     static constexpr size_t READ_TERMS = 4;
@@ -137,7 +137,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
         const auto positive_slice_value = -(precompute_round) + 15;
         const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
 
-        // todo optimise this?
+        // todo optimize this?
         if constexpr (write_index == 0) {
             return positive_term; // degree 1
         }
@@ -222,6 +222,6 @@ template <typename FF_> class ECCVMLookupRelationBase {
                            const FF& scaling_factor);
 };
 
-template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationBase<FF>>;
+template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationImpl<FF>>;
 
 } // namespace proof_system::honk::sumcheck

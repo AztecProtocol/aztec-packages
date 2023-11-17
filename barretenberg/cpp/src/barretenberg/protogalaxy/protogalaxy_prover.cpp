@@ -7,7 +7,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     auto idx = 0;
     for (auto it = instances.begin(); it != instances.end(); it++, idx++) {
         auto instance = *it;
-        instance->initialise_prover_polynomials();
+        instance->initialize_prover_polynomials();
 
         auto domain_separator = std::to_string(idx);
         const auto circuit_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
@@ -44,7 +44,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     // TODO(#https://github.com/AztecProtocol/barretenberg/issues/763): Fold alpha
     auto delta = transcript.get_challenge("delta");
     auto accumulator = get_accumulator();
-    auto instance_size = accumulator->prover_polynomials[0].size();
+    auto instance_size = accumulator->prover_polynomials.get_polynomial_size();
     const auto log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     auto deltas = compute_round_challenge_pows(log_instance_size, delta);
 
@@ -69,10 +69,10 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     for (size_t idx = ProverInstances::NUM; idx < combiner.size(); idx++) {
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
-    auto combiner_challenge = transcript.get_challenge("combiner_qoutient_challenge");
+    auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalise these formulas as well as computation
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize these formulas as well as computation
     // of Lagrange basis
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagrange_0_at_challenge = FF(1) - combiner_challenge;

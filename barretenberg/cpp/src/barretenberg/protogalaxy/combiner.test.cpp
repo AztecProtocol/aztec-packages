@@ -36,7 +36,7 @@
 //             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
 //             ProtoGalaxyProver prover;
 //             std::vector<FF> pow_betas = { FF(1), FF(2) };
-//             auto alpha = FF(0); // focus on the arithmetic relation only
+//             // auto alpha = FF(0); // focus on the arithmetic relation only
 
 //             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
 //                 auto instance = std::make_shared<ProverInstance>();
@@ -50,28 +50,27 @@
 
 //             ProverInstances instances{ instance_data };
 
-//             auto result = prover.compute_combiner(instances, pow_betas, alpha);
-//             auto expected_result =
-//                 barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 87706,
-//                                                                      13644570,
-//                                                                      76451738,
-//                                                                      226257946,
-//                                                                      static_cast<uint64_t>(500811930),
-//                                                                      static_cast<uint64_t>(937862426),
-//                                                                      static_cast<uint64_t>(1575158170),
-//                                                                      static_cast<uint64_t>(2450447898),
-//                                                                      static_cast<uint64_t>(3601480346),
-//                                                                      static_cast<uint64_t>(5066004250),
-//                                                                      static_cast<uint64_t>(6881768346),
-//                                                                      static_cast<uint64_t>(9086521370),
-//                                                                      static_cast<uint64_t>(11718012058) });
+//             auto result = prover.compute_combiner(instances, pow_betas);
+//             auto expected_result = barretenberg::Univariate<FF, 12>(std::array<FF, 12>{
+//                 87706,
+//                 13644570,
+//                 76451738,
+//                 226257946,
+//                 static_cast<uint64_t>(500811930),
+//                 static_cast<uint64_t>(937862426),
+//                 static_cast<uint64_t>(1575158170),
+//                 static_cast<uint64_t>(2450447898),
+//                 static_cast<uint64_t>(3601480346),
+//                 static_cast<uint64_t>(5066004250),
+//                 static_cast<uint64_t>(6881768346),
+//                 static_cast<uint64_t>(9086521370),
+//             });
 //             EXPECT_EQ(result, expected_result);
 //         } else {
 //             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
 //             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
 //             ProtoGalaxyProver prover;
 //             std::vector<FF> pow_betas = { FF(1), FF(2) };
-//             auto alpha = FF(0); // focus on the arithmetic relation only
 
 //             for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
 //                 auto instance = std::make_shared<ProverInstance>();
@@ -84,6 +83,7 @@
 //             }
 
 //             ProverInstances instances{ instance_data };
+//             // instances->alpha = FF(0); // focus on the arithmetic relation only
 
 //             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
 //                 polys.w_l[idx] = w_l;
@@ -129,9 +129,9 @@
 //             relation value:
 //                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
-//             auto result = prover.compute_combiner(instances, pow_betas, alpha);
-//             auto expected_result = barretenberg::Univariate<FF, 13>(
-//                 std::array<FF, 13>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660, 792 });
+//             auto result = prover.compute_combiner(instances, pow_betas);
+//             auto expected_result = barretenberg::Univariate<FF, 12>(
+//                 std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
 //             EXPECT_EQ(result, expected_result);
 //         }
@@ -140,54 +140,54 @@
 //     run_test(false);
 // };
 
-// TEST(Protogalaxy, CombinerOn4Instances)
-// {
-//     constexpr size_t NUM_INSTANCES = 4;
-//     using ProverInstance = ProverInstance_<Flavor>;
-//     using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
-//     using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
+// // TEST(Protogalaxy, CombinerOn4Instances)
+// // {
+// //     constexpr size_t NUM_INSTANCES = 4;
+// //     using ProverInstance = ProverInstance_<Flavor>;
+// //     using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
+// //     using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 
-//     const auto zero_all_selectors = [](auto& polys) {
-//         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
-//         std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
-//         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-//         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-//         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-//         std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-//         std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-//         std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
-//     };
+// //     const auto zero_all_selectors = [](auto& polys) {
+// //         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
+// //         std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+// //         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
+// //         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
+// //         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
+// //         std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
+// //         std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
+// //         std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+// //     };
 
-//     auto run_test = [&]() {
-//         std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
-//         std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
-//         ProtoGalaxyProver prover;
-//         auto alpha = FF(0); // focus on the arithmetic relation only
-//         std::vector<FF> pow_betas = { FF(1), FF(2) };
+// //     auto run_test = [&]() {
+// //         std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
+// //         std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
+// //         ProtoGalaxyProver prover;
+// //         std::vector<FF> pow_betas = { FF(1), FF(2) };
 
-//         for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
-//             auto instance = std::make_shared<ProverInstance>();
-//             auto [storage, prover_polynomials] = proof_system::honk::get_zero_prover_polynomials<Flavor>(
-//                 /*log_circuit_size=*/1);
-//             storage_arrays[idx] = std::move(storage);
-//             instance->prover_polynomials = prover_polynomials;
-//             instance_data[idx] = instance;
-//         }
+// //         for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+// //             auto instance = std::make_shared<ProverInstance>();
+// //             auto [storage, prover_polynomials] = proof_system::honk::get_zero_prover_polynomials<Flavor>(
+// //                 /*log_circuit_size=*/1);
+// //             storage_arrays[idx] = std::move(storage);
+// //             instance->prover_polynomials = prover_polynomials;
+// //             instance_data[idx] = instance;
+// //         }
 
-//         ProverInstances instances{ instance_data };
+// //         ProverInstances instances{ instance_data };
+// //         // instances.alpha = Univariate; // focus on the arithmetic relation only
 
-//         zero_all_selectors(instances[0]->prover_polynomials);
-//         zero_all_selectors(instances[1]->prover_polynomials);
-//         zero_all_selectors(instances[2]->prover_polynomials);
-//         zero_all_selectors(instances[3]->prover_polynomials);
+// //         zero_all_selectors(instances[0]->prover_polynomials);
+// //         zero_all_selectors(instances[1]->prover_polynomials);
+// //         zero_all_selectors(instances[2]->prover_polynomials);
+// //         zero_all_selectors(instances[3]->prover_polynomials);
 
-//         auto result = prover.compute_combiner(instances, pow_betas, alpha);
-//         std::array<FF, 37> zeroes;
-//         std::fill(zeroes.begin(), zeroes.end(), 0);
-//         auto expected_result = barretenberg::Univariate<FF, 37>(zeroes);
-//         EXPECT_EQ(result, expected_result);
-//     };
-//     run_test();
-// };
+// //         auto result = prover.compute_combiner(instances, pow_betas);
+// //         std::array<FF, 34> zeroes;
+// //         std::fill(zeroes.begin(), zeroes.end(), 0);
+// //         auto expected_result = barretenberg::Univariate<FF, 34>(zeroes);
+// //         EXPECT_EQ(result, expected_result);
+// //     };
+// //     run_test();
+// // };
 
 // } // namespace barretenberg::test_protogalaxy_prover
