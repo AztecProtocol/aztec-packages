@@ -3,7 +3,7 @@ import numpy as np
 
 # np.set_printoptions(formatter={'int': hex})
 
-EXTENDED_RELATION_LENGTH = 12
+EXTENDED_RELATION_LENGTH = 13
 
 class Row:
     def __init__(self, start):

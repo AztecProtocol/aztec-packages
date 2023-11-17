@@ -30,9 +30,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariateWithRandomization =
         Univariate<FF,
-                   (Flavor::NUMBER_OF_SUBRELATIONS - 1) * (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) *
-                           (ProverInstances::NUM - 1) +
-                       1>;
+                   (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
 
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
@@ -297,17 +295,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates univariate_accumulators,
                                                                     AlphaType alpha)
     {
-        auto running_challenge = AlphaType(1);
 
-        auto result = ExtendedUnivariateWithRandomization(0);
-        auto scale_and_sum = [&]<size_t, size_t>(auto& element) {
+        // First relation does not get multiplied by a batching challenge
+        auto result = std::get<0>(std::get<0>(univariate_accumulators))
+                          .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+        auto scale_and_sum = [&]<size_t outer_idx, size_t>(auto& element) {
             auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
-            extended *= running_challenge;
-            running_challenge *= alpha;
+            extended *= alpha;
             result += extended;
         };
 
-        Utils::apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
+        Utils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
         Utils::zero_univariates(univariate_accumulators);
 
         return result;
@@ -320,13 +318,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * polynomials and Lagrange basis and use batch_invert.
      *
      */
-    static Univariate<FF,
-                      (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
-                      ProverInstances::NUM>
-    compute_combiner_quotient(FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
+    static Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> compute_combiner_quotient(
+        FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
-        std::array<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1)>
-            combiner_quotient_evals = {};
+        std::array<FF, ProverInstances::BATCHED_EXTENDED_LENGTH - ProverInstances::NUM> combiner_quotient_evals = {};
 
         // Compute the combiner quotient polynomial as evaluations on points that are not in the vanishing set.
         //
@@ -339,8 +334,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
         }
 
-        Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1, ProverInstances::NUM>
-            combiner_quotient(combiner_quotient_evals);
+        Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> combiner_quotient(
+            combiner_quotient_evals);
         return combiner_quotient;
     }
 
@@ -376,7 +371,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
 
     // THIS SHOULD BE CALLED ACCUMULATED
-    static void accumulate_alpha(ProverInstances& instances)
+    static void fold_alpha(ProverInstances& instances)
     {
         Univariate<FF, ProverInstances::NUM> accumulated_alpha;
         size_t instance_idx = 0;

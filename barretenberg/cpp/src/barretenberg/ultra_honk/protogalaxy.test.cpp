@@ -231,4 +231,25 @@ TEST_F(ProtoGalaxyTests, FoldChallenges)
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
+TEST_F(ProtoGalaxyTests, FoldAlpha)
+{
+    using Instances = ProverInstances_<Flavor, 2>;
+    using Instance = typename Instances::Instance;
+
+    Builder builder1;
+    auto instance1 = std::make_shared<Instance>(builder1);
+    instance1->alpha = 2;
+
+    Builder builder2;
+    builder2.add_variable(3);
+    auto instance2 = std::make_shared<Instance>(builder2);
+    instance2->alpha = 4;
+
+    Instances instances{ { instance1, instance2 } };
+    ProtoGalaxyProver::fold_alpha(instances);
+
+    Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
+    EXPECT_EQ(instances.alpha, expected_alpha);
+}
+
 } // namespace protogalaxy_tests

@@ -31,7 +31,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     }
 
     fold_relation_parameters(instances);
-    accumulate_alpha(instances);
+    fold_alpha(instances);
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
