@@ -302,7 +302,6 @@ namespace proof_system::honk::flavor {
 class Ultra;
 class ECCVM;
 class GoblinUltra;
-template <size_t mini_circuit_size> class GoblinTranslator_;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
 } // namespace proof_system::honk::flavor
@@ -336,8 +335,6 @@ template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra,
                                     honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
                                     honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
-template <typename T> 
-concept IsTranslatorFlavor = IsAnyOf<T, honk::flavor::GoblinTranslator_<2048>>;
 
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 
