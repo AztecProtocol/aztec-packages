@@ -352,11 +352,13 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_zeromor
 {
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations,
+                     sumcheck_output.claimed_evaluations.get_unshifted(),
+                     sumcheck_output.claimed_evaluations.get_shifted(),
                      sumcheck_output.challenge,
                      commitment_key,
                      transcript,
                      prover_polynomials.get_concatenated_constraints(),
+                     sumcheck_output.claimed_evaluations.get_concatenated_constraints(),
                      prover_polynomials.get_concatenation_groups());
 }
 

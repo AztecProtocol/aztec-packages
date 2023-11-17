@@ -66,6 +66,8 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Polynomial quotient_W;
 
+    FF evaluation_challenge_x;
+
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;

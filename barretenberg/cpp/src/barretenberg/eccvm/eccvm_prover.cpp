@@ -320,7 +320,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     transcript.send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
 
     // Get the challenge at which we evaluate the polynomials as univariates
-    FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+    evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
 
     // Collect the polynomials and evaluations to be batched
     const size_t NUM_UNIVARIATES = 6; // 5 transcript polynomials plus the constant hack poly
