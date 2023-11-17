@@ -290,6 +290,8 @@ template <typename BuilderType> class UltraRecursive_ {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
+        std::vector<HandleType> get_unshifted_then_shifted_then_special() { return {}; }
+        std::vector<HandleType> get_concatenated_constraints() { return {}; }
     };
 
   public:
@@ -401,6 +403,8 @@ template <typename BuilderType> class UltraRecursive_ {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
+        std::vector<std::vector<CommitmentHandle>> get_concatenation_groups() { return {}; };
+
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
             this->q_m = verification_key->q_m;
