@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 namespace proof_system::honk::pcs::zeromorph {
 
@@ -324,7 +325,6 @@ template <typename Curve> class ZeroMorphProver_ {
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         FF rho = transcript.get_challenge("rho");
-        std::vector<FF> rhos = powers_of_challenge(rho, 200); // WORKTODO
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
         std::span<FF> u_challenge = multilinear_challenge;
@@ -339,20 +339,18 @@ template <typename Curve> class ZeroMorphProver_ {
         // evaluations produced by sumcheck of h_i = g_i_shifted.
         auto batched_evaluation = FF(0);
         Polynomial f_batched(N); // batched unshifted polynomials
-        size_t poly_idx = 0;     // TODO(#391) zip
-        for (auto& f_poly : f_polynomials) {
-            f_batched.add_scaled(f_poly, rhos[poly_idx]);
-            batched_evaluation += rhos[poly_idx] * f_evaluations[poly_idx];
-            ++poly_idx;
+        FF batching_scalar = FF(1);
+        for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
+            f_batched.add_scaled(f_poly, batching_scalar);
+            batched_evaluation += batching_scalar * f_eval;
+            batching_scalar *= rho;
         }
 
-        size_t offset = poly_idx;
-        poly_idx = 0;
         Polynomial g_batched(N); // batched to-be-shifted polynomials
-        for (auto& g_poly : g_polynomials) {
-            g_batched.add_scaled(g_poly, rhos[offset + poly_idx]);
-            batched_evaluation += rhos[offset + poly_idx] * g_shift_evaluations[poly_idx];
-            ++poly_idx;
+        for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
+            g_batched.add_scaled(g_poly, batching_scalar);
+            batched_evaluation += batching_scalar * g_shift_eval;
+            batching_scalar *= rho;
         };
 
         size_t num_groups = concatenation_groups.size();
@@ -367,16 +365,14 @@ template <typename Curve> class ZeroMorphProver_ {
             concatenation_groups_batched.push_back(Polynomial(N));
         }
         // for each group
-        offset += poly_idx;
-        poly_idx = 0;
         for (size_t i = 0; i < num_groups; ++i) {
-            concatenated_batched.add_scaled(concatenated_polynomials[i], rhos[offset + poly_idx]);
+            concatenated_batched.add_scaled(concatenated_polynomials[i], batching_scalar);
             // for each element in a group
             for (size_t j = 0; j < num_chunks_per_group; ++j) {
-                concatenation_groups_batched[j].add_scaled(concatenation_groups[i][j], rhos[offset + poly_idx]);
+                concatenation_groups_batched[j].add_scaled(concatenation_groups[i][j], batching_scalar);
             }
-            batched_evaluation += rhos[offset + poly_idx] * concatenated_evaluations[poly_idx];
-            ++poly_idx;
+            batched_evaluation += batching_scalar * concatenated_evaluations[i];
+            batching_scalar *= rho;
         }
 
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
@@ -665,25 +661,20 @@ template <typename Curve> class ZeroMorphVerifier_ {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript.get_challenge("rho");
 
-        // Compute powers of batching challenge rho
-        std::vector<FF> rhos = pcs::zeromorph::powers_of_challenge(rho, 200); // WORKTODO
-
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
-        size_t evaluation_idx = 0;
+        FF batching_scalar = FF(1);
         for (auto& value : unshifted_evaluations) {
-            batched_evaluation += value * rhos[evaluation_idx];
-            ++evaluation_idx;
+            batched_evaluation += value * batching_scalar;
+            batching_scalar *= rho;
         }
-
         for (auto& value : shifted_evaluations) {
-            batched_evaluation += value * rhos[evaluation_idx];
-            ++evaluation_idx;
+            batched_evaluation += value * batching_scalar;
+            batching_scalar *= rho;
         }
-
         for (auto& value : concatenated_evaluations) {
-            batched_evaluation += value * rhos[evaluation_idx];
-            ++evaluation_idx;
+            batched_evaluation += value * batching_scalar;
+            batching_scalar *= rho;
         }
 
         // Receive commitments [q_k]
