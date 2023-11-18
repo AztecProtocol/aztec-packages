@@ -2,19 +2,9 @@
 # Be very specific about what we include.
 *
 
-!docs/docs
-!docs/internal_notes
-!docs/scripts
-!docs/src
-!docs/static
-!docs/*.json
-!docs/*.js
-!docs/yarn.lock
-!docs/netlify.toml
-# rebuild patterns
-!**/*.cpp
-!**/*.hpp
-!**/*.ts
-!**/.release-please-manifest.json
-!**/noir-version.json
-!**/.nr
+!docs
+!l1-contracts/src
+!l1-contracts/test
+!barretenberg/cpp/src/barretenberg
+!circuits/cpp/src
+!.release-please-manifest.json
