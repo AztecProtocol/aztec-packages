@@ -143,11 +143,11 @@ describe('Private Execution test suite', () => {
 
   const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHash(data.map(f => f.toBuffer())));
 
-  beforeAll(async () => {
+  beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
-    ownerCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-    recipientCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(recipientPk, Fr.random());
+    ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+    recipientCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(recipientPk, Fr.random());
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;

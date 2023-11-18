@@ -51,7 +51,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     logger('Account contracts deployed');
 
     // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = await generatePublicKey(encryptionPrivateKey);
+    const encryptionPublicKey = generatePublicKey(encryptionPrivateKey);
 
     // Disregard sandbox accounts
     let keyAccounts: CompleteAddress[];

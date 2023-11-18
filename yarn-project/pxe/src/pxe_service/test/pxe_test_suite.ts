@@ -12,8 +12,8 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     }, 120_000);
 
     it('registers an account and returns it as an account only and not as a recipient', async () => {
-      const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+      const keyPair = ConstantKeyPair.random(new Grumpkin());
+      const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(
         await keyPair.getPrivateKey(),
         Fr.random(),
       );
@@ -52,8 +52,8 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     });
 
     it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
-      const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+      const keyPair = ConstantKeyPair.random(new Grumpkin());
+      const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(
         await keyPair.getPrivateKey(),
         Fr.random(),
       );
