@@ -6,10 +6,12 @@ const ZERO_BUFFER = Buffer.alloc(32);
 
 /**
  * Base field class.
+ * Conversions from Buffer to BigInt and vice-versa are not cheap.
+ * We allow construction with either form and lazily convert to other as needed.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
-  protected readonly valueBuffer: Buffer;
+  private asBuffer?: Buffer;
   private asBigInt?: bigint;
 
   /**
@@ -20,20 +22,29 @@ abstract class BaseField {
     return this.toBigInt();
   }
 
-  protected constructor(value: any) {
+  protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
     if (value instanceof BaseField) {
-      this.valueBuffer = value.valueBuffer;
+      this.asBuffer = value.asBuffer;
+      this.asBigInt = value.asBigInt;
     } else if (typeof value === 'number' || typeof value === 'boolean') {
-      this.valueBuffer = toBufferBE(BigInt(value), BaseField.SIZE_IN_BYTES);
+      this.asBuffer = toBufferBE(BigInt(value), BaseField.SIZE_IN_BYTES);
     } else if (typeof value === 'bigint') {
-      this.valueBuffer = toBufferBE(value, BaseField.SIZE_IN_BYTES);
+      this.asBigInt = value;
+    } else if (value instanceof Buffer) {
+      this.asBuffer = value;
     } else {
-      this.valueBuffer = value;
+      throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
     }
+    // Hack to init both to makes tests pass.
+    this.toBuffer();
+    this.toBigInt();
   }
 
   toBuffer(): Buffer {
-    return this.valueBuffer;
+    if (!this.asBuffer) {
+      this.asBuffer = toBufferBE(this.asBigInt!, 32);
+    }
+    return Buffer.from(this.asBuffer);
   }
 
   toString(): `0x${string}` {
@@ -42,7 +53,7 @@ abstract class BaseField {
 
   toBigInt(): bigint {
     if (!this.asBigInt) {
-      this.asBigInt = toBigIntBE(this.valueBuffer);
+      this.asBigInt = toBigIntBE(this.asBuffer!);
     }
     return this.asBigInt;
   }
@@ -53,11 +64,11 @@ abstract class BaseField {
   }
 
   equals(rhs: BaseField): boolean {
-    return this.valueBuffer.equals(rhs.valueBuffer);
+    return this.toBuffer().equals(rhs.toBuffer());
   }
 
   isZero(): boolean {
-    return this.valueBuffer.equals(ZERO_BUFFER);
+    return this.toBuffer().equals(ZERO_BUFFER);
   }
 
   toFriendlyJSON(): string {
@@ -69,11 +80,18 @@ abstract class BaseField {
   }
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+/* eslint-disable jsdoc/require-jsdoc */
+
+export interface Fr {
+  _branding: 'Fr';
+}
+
 /**
  * Fr field class.
  */
 export class Fr extends BaseField {
-  static ZERO = new this(0n);
+  static ZERO = new Fr(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static MAX_VALUE = this.MODULUS - 1n;
 
@@ -82,34 +100,44 @@ export class Fr extends BaseField {
   }
 
   static random() {
-    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % this.MODULUS;
-    return new this(r);
+    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % Fr.MODULUS;
+    return new Fr(r);
   }
 
   static zero() {
-    return new this(0n);
+    return Fr.ZERO;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(Fr.SIZE_IN_BYTES)));
+    return new Fr(toBigIntBE(reader.readBytes(Fr.SIZE_IN_BYTES)));
   }
 
   static fromBufferReduce(buffer: Buffer) {
-    return this.fromBuffer(toBufferBE(toBigIntBE(buffer) % this.MODULUS, 32));
+    return Fr.fromBuffer(toBufferBE(toBigIntBE(buffer) % Fr.MODULUS, 32));
   }
 
-  static fromString(address: string) {
-    const buffer = Buffer.from(address.replace(/^0x/i, ''), 'hex');
-    return this.fromBuffer(buffer);
+  static fromString(buf: string) {
+    const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
+    if (buffer.length !== Fr.SIZE_IN_BYTES) {
+      throw new Error(`Invalid length ${buffer.length}.`);
+    }
+    return Fr.fromBuffer(buffer);
   }
+}
+
+export interface Fq {
+  _branding: 'Fq';
 }
 
 /**
  * Fq field class.
  */
 export class Fq extends BaseField {
-  static ZERO = new this(0n);
+  // Brand property for nominal typing.
+  private readonly _fqBranding: void = undefined;
+
+  static ZERO = new Fq(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
   static MAX_VALUE = this.MODULUS - 1n;
 
@@ -118,25 +146,28 @@ export class Fq extends BaseField {
   }
 
   static random() {
-    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % this.MODULUS;
-    return new this(r);
+    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % Fq.MODULUS;
+    return new Fq(r);
   }
 
   static zero() {
-    return new this(0n);
+    return Fq.ZERO;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(Fr.SIZE_IN_BYTES)));
+    return new Fq(toBigIntBE(reader.readBytes(Fq.SIZE_IN_BYTES)));
   }
 
   static fromBufferReduce(buffer: Buffer) {
-    return this.fromBuffer(toBufferBE(toBigIntBE(buffer) % this.MODULUS, 32));
+    return Fq.fromBuffer(toBufferBE(toBigIntBE(buffer) % Fq.MODULUS, 32));
   }
 
-  static fromString(address: string) {
-    const buffer = Buffer.from(address.replace(/^0x/i, ''), 'hex');
-    return this.fromBuffer(buffer);
+  static fromString(buf: string) {
+    if (buf.length !== Fr.SIZE_IN_BYTES) {
+      throw new Error(`Invalid length ${buf.length}.`);
+    }
+    const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
+    return Fq.fromBuffer(buffer);
   }
 }
