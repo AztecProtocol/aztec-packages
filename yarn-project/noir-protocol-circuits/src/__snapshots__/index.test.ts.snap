@@ -6,7 +6,6 @@ exports[`Noir compatibility tests (interop_testing.nr) Complete Address matches 
 Point {
   "kind": "point",
   "x": Fr {
-    "__frBrand": undefined,
     "asBigInt": 1n,
     "asBuffer": {
       "data": [
@@ -47,7 +46,6 @@ Point {
     },
   },
   "y": Fr {
-    "__frBrand": undefined,
     "asBigInt": 2n,
     "asBuffer": {
       "data": [

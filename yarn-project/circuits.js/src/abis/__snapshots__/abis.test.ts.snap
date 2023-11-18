@@ -2,7 +2,6 @@
 
 exports[`abis wasm bindings compute globals hash 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 19996198784166720428914107076917074510032365849254400404611644441094528984289n,
   "asBuffer": {
     "data": [
@@ -46,7 +45,6 @@ Fr {
 
 exports[`abis wasm bindings compute private call stack item hash 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 3230879723118793997125108252427471059552102155544558929105689542823769599571n,
   "asBuffer": {
     "data": [
@@ -90,7 +88,6 @@ Fr {
 
 exports[`abis wasm bindings compute public call stack item hash 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 1369626479296628599511967895314683808250163038382688147156251959177959447826n,
   "asBuffer": {
     "data": [
@@ -134,7 +131,6 @@ Fr {
 
 exports[`abis wasm bindings compute secret message hash 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 6220068662483113241527007349428551778669520744131373768997518428761948042030n,
   "asBuffer": {
     "data": [
@@ -178,7 +174,6 @@ Fr {
 
 exports[`abis wasm bindings compute tx hash 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 11028384086470399424960241201065432836500251313078792361310973684322431200173n,
   "asBuffer": {
     "data": [
@@ -223,7 +218,6 @@ Fr {
 exports[`abis wasm bindings computes a complete address 1`] = `
 CompleteAddress {
   "address": AztecAddress {
-    "__frBrand": undefined,
     "asBigInt": 11147987456032716744065611270804907827731877483785437429582589518717493164615n,
     "asBuffer": {
       "data": [
@@ -264,7 +258,6 @@ CompleteAddress {
     },
   },
   "partialAddress": Fr {
-    "__frBrand": undefined,
     "asBigInt": 12921923968526873580423865450965452589013784321633824918807523389752605479568n,
     "asBuffer": {
       "data": [
@@ -307,7 +300,6 @@ CompleteAddress {
   "publicKey": Point {
     "kind": "point",
     "x": Fr {
-      "__frBrand": undefined,
       "asBigInt": 1n,
       "asBuffer": {
         "data": [
@@ -348,7 +340,6 @@ CompleteAddress {
       },
     },
     "y": Fr {
-      "__frBrand": undefined,
       "asBigInt": 2n,
       "asBuffer": {
         "data": [
@@ -394,7 +385,6 @@ CompleteAddress {
 
 exports[`abis wasm bindings computes a contract address from partial 1`] = `
 AztecAddress {
-  "__frBrand": undefined,
   "asBigInt": 15451914702384811781262267264665450579243110288870049455159710794697789874663n,
   "asBuffer": {
     "data": [
@@ -438,7 +428,6 @@ AztecAddress {
 
 exports[`abis wasm bindings computes a function leaf 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 8957681167943973616438847631514238173699549883609341685749385526208761312950n,
   "asBuffer": {
     "data": [
@@ -494,7 +483,6 @@ exports[`abis wasm bindings computes a function selector 1`] = `
 
 exports[`abis wasm bindings computes block hash with globals 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 7177915431153102916601456081755280584460785548870192083974540199919775120827n,
   "asBuffer": {
     "data": [
@@ -538,7 +526,6 @@ Fr {
 
 exports[`abis wasm bindings computes commitment nonce 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 7653394882992289714855533169019502055399179742531912347686813547951736946253n,
   "asBuffer": {
     "data": [
@@ -582,7 +569,6 @@ Fr {
 
 exports[`abis wasm bindings computes contract leaf 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 16936439505140127403707082829495438425474294111732402569080458144683824428771n,
   "asBuffer": {
     "data": [
@@ -626,7 +612,6 @@ Fr {
 
 exports[`abis wasm bindings computes function tree root 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 21090938391652199999535994101952511109725456907725564751008805452452294036010n,
   "asBuffer": {
     "data": [
@@ -670,7 +655,6 @@ Fr {
 
 exports[`abis wasm bindings computes public data tree index 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 9076808949980998475110411569159266589807853958487763065147292518713994520820n,
   "asBuffer": {
     "data": [
@@ -714,7 +698,6 @@ Fr {
 
 exports[`abis wasm bindings computes public data tree value 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 3n,
   "asBuffer": {
     "data": [
@@ -758,7 +741,6 @@ Fr {
 
 exports[`abis wasm bindings computes siloed commitment 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 7262347077404413274044670947879391583109741657896097604752287127491776887739n,
   "asBuffer": {
     "data": [
@@ -802,7 +784,6 @@ Fr {
 
 exports[`abis wasm bindings computes siloed nullifier 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 10521714890263159342521589827909786073566333899903358017581007142888032736115n,
   "asBuffer": {
     "data": [
@@ -846,7 +827,6 @@ Fr {
 
 exports[`abis wasm bindings computes unique commitment 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 13000121189816960667906065043973697710794195579570622293955220571859166513128n,
   "asBuffer": {
     "data": [
@@ -890,7 +870,6 @@ Fr {
 
 exports[`abis wasm bindings computes zero contract leaf 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 0n,
   "asBuffer": {
     "data": [
@@ -1014,7 +993,6 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
 
 exports[`abis wasm bindings hashes constructor info 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 8554563246648466207128694080427818093826588702256491720155365584899927973422n,
   "asBuffer": {
     "data": [
@@ -1058,7 +1036,6 @@ Fr {
 
 exports[`abis wasm bindings hashes empty function args 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 0n,
   "asBuffer": {
     "data": [
@@ -1102,7 +1079,6 @@ Fr {
 
 exports[`abis wasm bindings hashes function args 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 11839099223661714814196842233383119055519657007373713796026764119292399532830n,
   "asBuffer": {
     "data": [
@@ -1146,7 +1122,6 @@ Fr {
 
 exports[`abis wasm bindings hashes many function args 1`] = `
 Fr {
-  "__frBrand": undefined,
   "asBigInt": 9368119665570837995905174888524883816390941475336228173888734493993721486827n,
   "asBuffer": {
     "data": [
