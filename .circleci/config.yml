@@ -923,6 +923,9 @@ jobs:
       - *checkout
       - *setup_env
       - run:
+          name: "Copy docs dockerignore"
+          command: cp docs/Dockerfile.dockerignore .
+      - run:
           name: "Build docs"
           command: build docs
       - run:
