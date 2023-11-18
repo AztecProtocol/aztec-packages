@@ -94,7 +94,6 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<barretenberg::f
 
     /**
      * @brief There are so many wires that naming them has no sense, it is easier to access them with enums
-     *        WORKTODO: AHHH how is this easier??
      */
     enum WireIds : size_t {
         OP, // The first 4 wires contain the standard values from the EccQueue wire

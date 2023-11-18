@@ -16,12 +16,6 @@
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/translator_vm/goblin_translator_prover.hpp"
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
-#include <vector>
 
 namespace proof_system::honk {
 
