@@ -5,5 +5,5 @@ set -eu
 extract_repo docs /usr/src extracted-repo
 cd extracted-repo/src/docs
 npm install netlify-cli -g
-netlify deploy
+netlify deploy --site aztec-docs-dev
 #netlify deploy --prod
