@@ -628,28 +628,25 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
  * @param callStackItem - The call stack item.
  * @returns The call stack item hash.
  */
-export function computePublicCallStackItemHash(callStackItem: PublicCallStackItem): Fr {
-  // const value = wasmSyncCall(wasm, 'abis__compute_public_call_stack_item_hash', callStackItem, 32);
-  // return Fr.fromBuffer(value);
-
-  // TODO: This seems to be used in the C++ when isExecutionRequest is true. We need to create a new PublicCallStackItem?
-  // console.log(callStackItem.isExecutionRequest);
-  //   return {
-  //       .contract_address = call_stack_item.contract_address,
-  //       .function_data = call_stack_item.function_data,
-  //       .public_inputs = {
-  //           .call_context = call_stack_item.public_inputs.call_context,
-  //           .args_hash = call_stack_item.public_inputs.args_hash,
-  //       },
-  //       .is_execution_request = call_stack_item.is_execution_request,
-  //   };
+export function computePublicCallStackItemHash({
+  contractAddress,
+  functionData,
+  publicInputs,
+  isExecutionRequest,
+}: PublicCallStackItem): Fr {
+  if (isExecutionRequest) {
+    const { callContext, argsHash } = publicInputs;
+    publicInputs = PublicCircuitPublicInputs.empty();
+    publicInputs.callContext = callContext;
+    publicInputs.argsHash = argsHash;
+  }
 
   return Fr.fromBuffer(
     pedersenHash(
       [
-        callStackItem.contractAddress.toBuffer(),
-        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
-        computePublicInputsHash(callStackItem.publicInputs),
+        contractAddress.toBuffer(),
+        computeFunctionDataHash(functionData).toBuffer(),
+        computePublicInputsHash(publicInputs),
       ],
       GeneratorIndex.CALL_STACK_ITEM,
     ),
