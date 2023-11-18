@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace barretenberg {
-struct CheatGoblinTranslationConsistencyData {
+struct TranslationEvaluations {
     fq op, Px, Py, z1, z2;
     void print() const { info("op: ", op, "\n", "Px: ", Px, "\n", "Py: ", Py, "\n", "z1: ", z1, "\n", "z2: ", z2); };
 };

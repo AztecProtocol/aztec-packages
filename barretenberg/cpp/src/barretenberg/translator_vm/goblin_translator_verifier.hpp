@@ -11,7 +11,7 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using CheatGoblinTranslationConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
+    using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
     explicit GoblinTranslatorVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -21,7 +21,7 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     GoblinTranslatorVerifier_& operator=(GoblinTranslatorVerifier_&& other) noexcept;
     ~GoblinTranslatorVerifier_() = default;
 
-    bool verify_proof(const plonk::proof& proof, const CheatGoblinTranslationConsistencyData& translation_evaluations);
+    bool verify_proof(const plonk::proof& proof, const TranslationEvaluations& translation_evaluations);
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
     std::shared_ptr<VerificationKey> key;

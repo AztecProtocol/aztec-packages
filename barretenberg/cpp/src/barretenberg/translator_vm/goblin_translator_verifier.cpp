@@ -40,8 +40,8 @@ GoblinTranslatorVerifier_<Flavor>& GoblinTranslatorVerifier_<Flavor>::operator=(
  *
  */
 template <typename Flavor>
-bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
-    const plonk::proof& proof, const CheatGoblinTranslationConsistencyData& translation_evaluations)
+bool GoblinTranslatorVerifier_<Flavor>::verify_proof(const plonk::proof& proof,
+                                                     const TranslationEvaluations& translation_evaluations)
 {
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -311,35 +311,35 @@ bool GoblinTranslatorVerifier_<Flavor>::verify_proof(
 
     // info("in the verifier");
     // translation_evaluations.print();
-    const auto& reconstruct_value_from_eccvm_evaluations =
-        [&](const CheatGoblinTranslationConsistencyData& translation_evaluations, auto& relation_parameters) {
-            const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-            const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-            const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-            const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-            const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-            const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-            const BF& op = translation_evaluations.op;
-            const BF& Px = translation_evaluations.Px;
-            const BF& Py = translation_evaluations.Py;
-            const BF& z1 = translation_evaluations.z1;
-            const BF& z2 = translation_evaluations.z2;
+    const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
+                                                               auto& relation_parameters) {
+        const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
+        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+        const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
+        const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
+        const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
+        const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
+        const BF& op = translation_evaluations.op;
+        const BF& Px = translation_evaluations.Px;
+        const BF& Py = translation_evaluations.Py;
+        const BF& z1 = translation_evaluations.z1;
+        const BF& z2 = translation_evaluations.z2;
 
-            // info("translator vm verifier x: ", x);
-            // info("circuit_size: ", circuit_size);
+        // info("translator vm verifier x: ", x);
+        // info("circuit_size: ", circuit_size);
 
-            // info("translator verifier translation_evaluations.op: ",
-            // translation_evaluations.op); info("translator verifier translation_evaluations.Px:
-            // ", translation_evaluations.Px); info("translator verifier
-            // translation_evaluations.Py: ", translation_evaluations.Py); info("translator
-            // verifier translation_evaluations.z1: ", translation_evaluations.z1);
-            // info("translator verifier translation_evaluations.z2: ",
-            // translation_evaluations.z2);
+        // info("translator verifier translation_evaluations.op: ",
+        // translation_evaluations.op); info("translator verifier translation_evaluations.Px:
+        // ", translation_evaluations.Px); info("translator verifier
+        // translation_evaluations.Py: ", translation_evaluations.Py); info("translator
+        // verifier translation_evaluations.z1: ", translation_evaluations.z1);
+        // info("translator verifier translation_evaluations.z2: ",
+        // translation_evaluations.z2);
 
-            const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
-            // multiply by x here to deal with shift
-            return x * accumulated_result == eccvm_opening;
-        };
+        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
+        // multiply by x here to deal with shift
+        return x * accumulated_result == eccvm_opening;
+    };
 
     bool value_reconstructed = reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
 

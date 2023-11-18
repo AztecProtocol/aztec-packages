@@ -23,7 +23,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    using CheatGoblinTranslationConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
+    using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -45,7 +45,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Transcript transcript;
 
-    CheatGoblinTranslationConsistencyData translation_evaluations;
+    TranslationEvaluations translation_evaluations;
 
     std::vector<FF> public_inputs;
 

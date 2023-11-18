@@ -35,7 +35,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using TranslatorFlavor = flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = GoblinTranslatorComposer_<TranslatorFlavor>;
-    using TranslatorConsistencyData = barretenberg::CheatGoblinTranslationConsistencyData;
+    using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
