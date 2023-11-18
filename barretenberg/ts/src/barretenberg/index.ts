@@ -53,11 +53,11 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return new BarretenbergSync(wasm);
   }
 
-  static async getSingleton() {
+  static getSingleton() {
     if (!barretenbergSyncSingleton) {
       barretenbergSyncSingleton = BarretenbergSync.new();
     }
-    return await barretenbergSyncSingleton;
+    return barretenbergSyncSingleton;
   }
 
   getWasm() {
