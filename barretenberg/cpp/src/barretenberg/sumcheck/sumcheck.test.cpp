@@ -249,18 +249,16 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         };
 
         Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
-        info(Flavor::NUMBER_OF_SUBRELATIONS);
-        info(Flavor::MAX_TOTAL_RELATION_LENGTH);
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        auto alpha = prover_transcript.get_challenge("alpha");
-        auto output = sumcheck_prover.prove(full_polynomials, {}, alpha);
+        auto prover_alpha = prover_transcript.get_challenge("alpha");
+        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha);
 
         Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
-
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, verifier_transcript);
+        auto verifier_alpha = verifier_transcript.get_challenge("alpha");
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_transcript);
 
         auto verified = verifier_output.verified.value();
 
