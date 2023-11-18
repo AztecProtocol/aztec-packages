@@ -119,9 +119,6 @@ export class Fr extends BaseField {
 
   static fromString(buf: string) {
     const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
-    if (buffer.length !== Fr.SIZE_IN_BYTES) {
-      throw new Error(`Invalid length ${buffer.length}.`);
-    }
     return Fr.fromBuffer(buffer);
   }
 }
@@ -164,9 +161,6 @@ export class Fq extends BaseField {
   }
 
   static fromString(buf: string) {
-    if (buf.length !== Fr.SIZE_IN_BYTES) {
-      throw new Error(`Invalid length ${buf.length}.`);
-    }
     const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
     return Fq.fromBuffer(buffer);
   }
