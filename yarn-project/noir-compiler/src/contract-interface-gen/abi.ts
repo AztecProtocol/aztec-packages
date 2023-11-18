@@ -60,27 +60,20 @@ export function generateArtifact(compileResult: NoirCompilationResult) {
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-export function generateProgramArtifact({ name, program, debug }: NoirProgramCompilationArtifacts): ProgramArtifact {
-  // let parsedDebug: NoirDebugMetadata | undefined = undefined;
-  // if (debug) {
-  //   parsedDebug = {
-  //     debug_symbols: sortedFunctions.map(fn => {
-  //       const originalIndex = originalFunctions.indexOf(fn);
-  //       return Buffer.from(deflate(JSON.stringify(debug.debug_symbols[originalIndex]))).toString('base64');
-  //     }),
-  //     file_map: debug.file_map,
-  //   };
-  // }
-
+export function generateProgramArtifact(
+  { program }: NoirProgramCompilationArtifacts,
+  // eslint-disable-next-line camelcase
+  noir_version?: string,
+): ProgramArtifact {
   return {
+    // eslint-disable-next-line camelcase
+    noir_version,
     hash: program.hash,
     backend: program.backend,
     abi: program.abi,
 
-    // TODO: parse the debug
-    debug,
-
-    name,
+    // TODO: should we parse and write the debug?  it doesn't seem to be in the nargo output
+    // debug: someParsedDebug,
   };
 }
 
@@ -108,12 +101,11 @@ export function generateContractArtifact(
     };
   }
 
-  const artifact: ContractArtifact = {
+  return {
     name: contract.name,
     functions: sortedFunctions.map(generateFunctionArtifact),
     events: contract.events,
     debug: parsedDebug,
     aztecNrVersion,
   };
-  return artifact;
 }

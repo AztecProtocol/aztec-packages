@@ -84,16 +84,18 @@ function generateOutput(
 function generateProgramOutput(projectPath: string, contract: ProgramArtifact, options: options, log: LogFn) {
   const currentDir = process.cwd();
   const { outdir, typescript, interface: noirInterface } = options;
-  const artifactPath = resolve(projectPath, outdir, `main.json`);
-  log(`Writing ${'main.json'} artifact to ${path.relative(currentDir, artifactPath)}`);
+  const artifactPath = resolve(projectPath, outdir, `${contract.name ? contract.name : 'main'}.json`);
+  log(`Writing ${contract.name} artifact to ${path.relative(currentDir, artifactPath)}`);
   mkdirSync(path.dirname(artifactPath), { recursive: true });
   writeFileSync(artifactPath, JSON.stringify(contract, null, 2));
 
   if (noirInterface) {
+    log(`noirInterface generation not implemented for programs`);
     // not implemented
   }
 
   if (typescript) {
+    log(`typescript generation not implemented for programs`);
     // not implemented
   }
 }

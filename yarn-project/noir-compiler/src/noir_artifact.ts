@@ -70,9 +70,13 @@ export interface NoirCompiledCircuit {
  */
 export interface ProgramArtifact {
   /**
+   * version of noir used to compile
+   */
+  noir_version?: string;
+  /**
    * the name of the project, read from Nargo.toml
    */
-  name: string;
+  name?: string;
   /**
    * The hash of the contract.
    */
