@@ -43,7 +43,7 @@ export class GrumpkinScalar {
    * @returns A GrumpkinScalar instance with the value of the two Fr elements.
    */
   static fromHighLow(high: Fr, low: Fr): GrumpkinScalar {
-    return new GrumpkinScalar((high.value << GrumpkinScalar.HIGH_SHIFT) + low.value);
+    return new GrumpkinScalar((high.toBigInt() << GrumpkinScalar.HIGH_SHIFT) + low.toBigInt());
   }
 
   /**

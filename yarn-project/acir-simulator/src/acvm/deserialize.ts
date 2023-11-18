@@ -265,7 +265,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     witnessReader.readField(),
     witnessReader.readField(),
   );
-  const proverAddress = AztecAddress.fromField(witnessReader.readField());
+  const proverAddress = new AztecAddress(witnessReader.readField());
 
   return new PublicCircuitPublicInputs(
     callContext,

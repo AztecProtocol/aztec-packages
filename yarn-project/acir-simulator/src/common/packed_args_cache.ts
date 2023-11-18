@@ -10,7 +10,7 @@ export class PackedArgsCache {
   constructor(initialArguments: PackedArguments[] = []) {
     this.cache = new Map();
     for (const initialArg of initialArguments) {
-      this.cache.set(initialArg.hash.value, initialArg.args);
+      this.cache.set(initialArg.hash.toBigInt(), initialArg.args);
     }
   }
 

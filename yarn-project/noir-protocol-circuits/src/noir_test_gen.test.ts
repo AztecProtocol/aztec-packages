@@ -20,7 +20,7 @@ describe('Data generation for noir tests', () => {
   const selector = new FunctionSelector(1);
   const vkHash = Fr.ZERO;
   const acirHash = new Fr(12341234);
-  const contractAddress = AztecAddress.fromField(new Fr(12345));
+  const contractAddress = new AztecAddress(new Fr(12345));
   const portalContractAddress = EthAddress.fromField(new Fr(23456));
 
   let functionLeaf: Fr;

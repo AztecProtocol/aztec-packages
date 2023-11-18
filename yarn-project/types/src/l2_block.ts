@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak, sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -427,7 +427,7 @@ export class L2Block {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const globalVariables = reader.readObject(GlobalVariables);
-    const number = Number(globalVariables.blockNumber.value);
+    const number = Number(globalVariables.blockNumber.toBigInt());
     const startNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
@@ -565,7 +565,7 @@ export class L2Block {
       this.getL1ToL2MessagesHash(),
     );
 
-    return sha256ToField(buf);
+    return Fr.fromBufferReduce(sha256(buf));
   }
 
   /**

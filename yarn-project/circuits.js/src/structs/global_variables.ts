@@ -37,7 +37,12 @@ export class GlobalVariables {
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
-    return new GlobalVariables(reader.readFr(), reader.readFr(), reader.readFr(), reader.readFr());
+    return new GlobalVariables(
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+    );
   }
 
   static fromJSON(obj: any): GlobalVariables {
