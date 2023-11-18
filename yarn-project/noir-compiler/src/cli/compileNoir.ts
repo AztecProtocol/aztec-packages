@@ -12,6 +12,7 @@ import {
   compileUsingNoirWasm,
   generateNoirContractInterface,
   generateTypescriptContractInterface,
+  generateTypescriptProgramInterface,
 } from '../index.js';
 
 /**
@@ -81,13 +82,13 @@ function generateOutput(
  *
  * @param program - output from compiler, to serialize locally
  */
-function generateProgramOutput(projectPath: string, contract: ProgramArtifact, options: options, log: LogFn) {
+function generateProgramOutput(projectPath: string, program: ProgramArtifact, options: options, log: LogFn) {
   const currentDir = process.cwd();
   const { outdir, typescript, interface: noirInterface } = options;
-  const artifactPath = resolve(projectPath, outdir, `${contract.name ? contract.name : 'main'}.json`);
-  log(`Writing ${contract.name} artifact to ${path.relative(currentDir, artifactPath)}`);
+  const artifactPath = resolve(projectPath, outdir, `${program.name ? program.name : 'main'}.json`);
+  log(`Writing ${program.name} artifact to ${path.relative(currentDir, artifactPath)}`);
   mkdirSync(path.dirname(artifactPath), { recursive: true });
-  writeFileSync(artifactPath, JSON.stringify(contract, null, 2));
+  writeFileSync(artifactPath, JSON.stringify(program, null, 2));
 
   if (noirInterface) {
     log(`noirInterface generation not implemented for programs`);
@@ -95,8 +96,12 @@ function generateProgramOutput(projectPath: string, contract: ProgramArtifact, o
   }
 
   if (typescript) {
-    log(`typescript generation not implemented for programs`);
-    // not implemented
+    // just need type definitions, since a lib has just one entry point
+    const tsPath = resolve(projectPath, typescript, `../types/${program.name}_types.ts`);
+    log(`Writing ${program.name} typescript types to ${path.relative(currentDir, tsPath)}`);
+    const tsWrapper = generateTypescriptProgramInterface(program.abi);
+    mkdirpSync(path.dirname(tsPath));
+    writeFileSync(tsPath, tsWrapper);
   }
 }
 
