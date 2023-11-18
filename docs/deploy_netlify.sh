@@ -3,7 +3,7 @@
 set -eu
 
 extract_repo docs /usr/src extracted-repo
-cd extracted-repo/docs
+cd extracted-repo/src/docs
 npm install netlify-cli -g
 netlify deploy
 #netlify deploy --prod
