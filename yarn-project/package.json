@@ -66,4 +66,3 @@
     "ts-jest@^29.1.1": "patch:ts-jest@npm%3A29.1.1#./.yarn/patches/ts-jest-npm-29.1.1-04e888e48e.patch"
   }
 }
-
