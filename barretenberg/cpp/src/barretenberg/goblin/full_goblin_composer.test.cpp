@@ -47,12 +47,11 @@ class FullGoblinComposerTests : public ::testing::Test {
     static void generate_test_circuit(GoblinUltraBuilder& builder)
     {
         // Add some arbitrary ecc op gates
-        // ((a+ab) + c + cd) + e + ef
         for (size_t i = 0; i < 3; ++i) {
             auto point = Point::random_element();
             auto scalar = FF::random_element();
             builder.queue_ecc_add_accum(point);
-            builder.queue_ecc_mul_accum(point, scalar); // WORKTODO: name this add_multiple or something
+            builder.queue_ecc_mul_accum(point, scalar);
         }
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
@@ -148,6 +147,7 @@ class FullGoblinComposerTests : public ::testing::Test {
  */
 TEST_F(FullGoblinComposerTests, SimpleCircuit)
 {
+    // WORKTODO: put this in a class
     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a "first" circuit
@@ -194,49 +194,6 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     EXPECT_TRUE(translator_verified);
 }
 
-/**
- * @brief Check that ECCVM verification fails if ECC op queue operands are tampered with
- *
- */
-// TEST_F(FullGoblinComposerTests, SimpleCircuitFailureCase)
-// {
-//     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
-
-//     // Add mock data to op queue to simulate interaction with a "first" circuit
-//     perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
-//     // Construct a series of simple Goblin circuits; generate and verify their proofs
-//     size_t NUM_CIRCUITS = 3;
-//     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-//         auto builder = GoblinUltraBuilder(op_queue);
-
-//         generate_test_circuit(builder);
-
-//         // The same composer is used to manage Honk and Merge prover/verifier
-//         auto composer = GoblinUltraComposer();
-
-//         // Construct and verify Ultra Goblin Honk proof
-//         auto honk_verified = construct_and_verify_honk_proof(composer, builder);
-//         EXPECT_TRUE(honk_verified);
-
-//         // Construct and verify op queue merge proof
-//         auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
-//         EXPECT_TRUE(merge_verified);
-//     }
-
-//     // Construct an ECCVM circuit then generate and verify its proof
-//     {
-//         // Instantiate an ECCVM builder with the vm ops stored in the op queue
-//         auto builder = ECCVMBuilder(op_queue->raw_ops);
-
-//         // Fiddle with one of the operands to trigger a failure
-//         builder.vm_operations[0].z1 += 1;
-
-//         // Construct and verify ECCVM proof
-//         auto composer = ECCVMComposer();
-//         auto eccvm_verified = construct_and_verify_eccvm_proof(composer, builder);
-//         EXPECT_FALSE(eccvm_verified);
-//     }
-// }
+// WORKTODO: write more tests
 
 } // namespace test_full_goblin_composer
