@@ -11,8 +11,9 @@ import { ProgramArtifact } from './noir_artifact.js';
 
 export * from './versions.js';
 
+export { generateTypescriptContractInterface } from './contract-interface-gen/contractTypescript.js';
 export { generateNoirContractInterface } from './contract-interface-gen/noir.js';
-export { generateTypescriptContractInterface } from './contract-interface-gen/typescript.js';
+export { generateTypescriptProgramInterface } from './contract-interface-gen/programTypescript.js';
 export { generateContractArtifact };
 
 export * from './noir_artifact.js';
