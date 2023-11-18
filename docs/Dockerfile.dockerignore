@@ -1,13 +1,16 @@
 # The build context for docs is the root of the repository.
 # Be very specific about what we include.
 *
-!docs
-# normally git ignored
-**/node_modules
-**/.netlify
-**/docusaurus
-**/processed-docs
-**/processed-docs-cache
+
+!docs/docs
+!docs/internal_notes
+!docs/scripts
+!docs/src
+!docs/static
+!docs/*.json
+!docs/*.js
+!docs/yarn.lock
+!docs/netlify.toml
 # rebuild patterns
 !**/*.cpp
 !**/*.hpp
