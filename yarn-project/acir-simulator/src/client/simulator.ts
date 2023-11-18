@@ -75,7 +75,7 @@ export class AcirSimulator {
       );
     }
 
-    const curve = await Grumpkin.new();
+    const curve = new Grumpkin();
 
     const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(

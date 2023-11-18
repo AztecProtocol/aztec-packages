@@ -295,6 +295,62 @@
     "isAsync": false
   },
   {
+    "functionName": "aes_encrypt_buffer_cbc",
+    "inArgs": [
+      {
+        "name": "input",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "iv",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "key",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "length",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "r",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "aes_decrypt_buffer_cbc",
+    "inArgs": [
+      {
+        "name": "input",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "iv",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "key",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "length",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "r",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "srs_init_srs",
     "inArgs": [
       {
