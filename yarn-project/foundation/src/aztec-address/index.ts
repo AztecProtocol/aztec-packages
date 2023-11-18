@@ -1,6 +1,5 @@
 import { Fr } from '../fields/index.js';
 
-//
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol.
  * It provides methods to create, manipulate, and compare addresses.

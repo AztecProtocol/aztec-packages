@@ -1,4 +1,4 @@
-import { assert, hasOwnProperty } from './js_utils.js';
+import { assert } from './js_utils.js';
 
 /**
  * Represents a class compatible with our class conversion system.
