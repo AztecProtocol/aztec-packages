@@ -122,7 +122,7 @@ pub fn validate_inputs(public_call: PublicCallData){
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
     assert(this_call_stack_item.public_inputs.call_context.is_contract_deployment == false,
                       "Contract deployment cannot be a public function");
-    assert(!this_call_stack_item.contract_address.eq(Address::ZERO()),
+    assert(!this_call_stack_item.contract_address.eq(Address::zero()),
                       "Contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0,
                       "Function signature cannot be zero");

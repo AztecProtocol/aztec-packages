@@ -2,40 +2,28 @@ use crate::{
     abis::{
         call_context::CallContext,
         call_stack_item::PrivateCallStackItem,
-        combined_constant_data::CombinedConstantData,
-        combined_accumulated_data::CombinedAccumulatedDataBuilder,
         complete_address::CompleteAddress,
         function_data::FunctionData,
-        historical_block_data::HistoricalBlockData,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         membership_witness::{
             ContractLeafMembershipWitness,
             FunctionLeafMembershipWitness,
             ReadRequestMembershipWitness,
         },
-        previous_kernel_data::PreviousKernelData,
         private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsBuilder},
         private_kernel::private_call_data::PrivateCallData,
-        public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
     },
     address::{Address, EthAddress},
-    contrakt::{
-        deployment_data::ContractDeploymentData,
-    },
     hash::{
         NUM_FIELDS_PER_SHA256,
         compute_constructor_hash,
     },
     mocked::{Proof, VerificationKey},
-    point::Point,
     tests::{
         fixtures,
         testing_harness::{build_contract_deployment_data, build_tx_context},
     },
     transaction::{
         request::TxRequest,
-        context::TxContext,
     },
     utils::{
         bounded_vec::BoundedVec,
@@ -44,19 +32,7 @@ use crate::{
 use dep::aztec::{
     abi::hash_args,
     constants_gen::{
-        EMPTY_NULLIFIED_COMMITMENT,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_TX,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        RETURN_VALUES_LENGTH,
-        VK_TREE_HEIGHT,
     },
 };
 
@@ -86,7 +62,7 @@ impl PrivateCallDataBuilder {
         let contract_function = if is_constructor {
             fixtures::contract_functions::default_constructor
         } else {
-            fixtures::contract_functions::default_contract_function
+            fixtures::contract_functions::default_private_function
         };
         let function_data = contract_function.data;
 
@@ -106,7 +82,7 @@ impl PrivateCallDataBuilder {
         };
 
         let call_context = CallContext {
-            msg_sender: fixtures::MSG_SENDER,
+            msg_sender: fixtures::contracts::parent_contract.address,
             storage_contract_address: contract_address,
             portal_contract_address,
             function_selector: function_data.selector,
@@ -136,6 +112,24 @@ impl PrivateCallDataBuilder {
             portal_contract_address,
             acir_hash: contract_function.acir_hash,
         }
+    }
+
+    pub fn is_delegate_call(&mut self) -> Self {
+        self.public_inputs.call_context.is_delegate_call = true;
+        self.public_inputs.call_context.storage_contract_address = fixtures::contracts::parent_contract.address;
+        self.public_inputs.call_context.portal_contract_address = fixtures::contracts::parent_contract.portal_contract_address;
+        self.public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
+        *self
+    }
+
+    pub fn is_internal_call(&mut self) -> Self {
+        self.function_data.is_internal = true;
+        self.public_inputs.call_context.msg_sender = self.contract_address;
+        let contract_function = fixtures::contract_functions::default_internal_private_function;
+        self.function_data = contract_function.data;
+        self.function_leaf_membership_witness = contract_function.membership_witness;
+        self.acir_hash = contract_function.acir_hash;
+        *self
     }
 
     pub fn build_tx_request(self) -> TxRequest {
@@ -168,6 +162,16 @@ impl PrivateCallDataBuilder {
     pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
         self.public_inputs.unencrypted_logs_hash = hash;
         self.public_inputs.unencrypted_log_preimages_length = preimages_length;
+    }
+
+    pub fn get_call_stack_item_hash(self) -> Field {
+        let call_stack_item = PrivateCallStackItem {
+            contract_address: self.contract_address,
+            public_inputs: self.public_inputs.finish(),
+            is_execution_request: false,
+            function_data: self.function_data,
+        };
+        call_stack_item.hash()
     }
 
     pub fn finish(self) -> PrivateCallData {

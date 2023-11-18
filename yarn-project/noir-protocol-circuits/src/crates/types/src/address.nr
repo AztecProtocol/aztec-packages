@@ -6,7 +6,7 @@ struct Address {
 }
 
 impl Address {
-    pub fn ZERO() -> Self {
+    pub fn zero() -> Self {
         Self {
             inner: 0
         }
@@ -49,7 +49,7 @@ struct EthAddress{
 }
 
 impl EthAddress{
-    pub fn ZERO() -> Self {
+    pub fn zero() -> Self {
         Self {
             inner: 0
         }

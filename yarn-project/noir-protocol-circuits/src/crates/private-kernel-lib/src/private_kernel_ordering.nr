@@ -8,6 +8,7 @@ use dep::aztec::constants_gen::{
 use dep::std::unsafe;
 use dep::types::{
     abis::{
+        call_stack_item::CallStackItem,
         previous_kernel_data::PreviousKernelData,
         kernel_circuit_public_inputs::{
             KernelCircuitPublicInputsBuilder, 
@@ -19,7 +20,7 @@ use dep::types::{
         compute_unique_siloed_commitment,
     },
     utils::{
-        arrays::array_length,
+        arrays::{array_length, struct_array_length},
         bounded_vec::BoundedVec,
     },
 };
@@ -32,7 +33,8 @@ struct PrivateKernelInputsOrdering {
 
 impl PrivateKernelInputsOrdering {
     fn validate_inputs(self) {
-        assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the ordering circuit");
+        assert_eq(struct_array_length(self.previous_kernel.public_inputs.end.private_call_stack, |c: CallStackItem| c.is_empty()), 0, 
+            "Private call stack must be empty when executing the ordering circuit");
     }
 
     fn match_reads_to_commitments(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -403,7 +405,7 @@ mod tests {
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        builder.previous_kernel.end.private_call_stack.push(1);
+        builder.previous_kernel.push_private_call_stack_hash(1);
 
         builder.failed();
     }

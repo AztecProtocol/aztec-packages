@@ -1,8 +1,11 @@
 use crate::mocked::AggregationObject;
-use crate::abis::new_contract_data::NewContractData;
-use crate::abis::optionally_revealed_data::OptionallyRevealedData;
-use crate::abis::public_data_update_request::PublicDataUpdateRequest;
-use crate::abis::public_data_read::PublicDataRead;
+use crate::abis::{
+    call_stack_item::CallStackItem,
+    new_contract_data::NewContractData,
+    optionally_revealed_data::OptionallyRevealedData,
+    public_data_read::PublicDataRead,
+    public_data_update_request::PublicDataUpdateRequest,
+};
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_TX,
     MAX_NEW_COMMITMENTS_PER_TX,
@@ -29,7 +32,7 @@ struct CombinedAccumulatedData {
     new_nullifiers : [Field; MAX_NEW_NULLIFIERS_PER_TX],
     nullified_commitments : [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
-    private_call_stack : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack : [CallStackItem; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack : [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs : [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
@@ -60,8 +63,8 @@ struct FinalAccumulatedData{
     // For pending nullifiers, we have:
     // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
-    private_call_stack : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
-    public_call_stack : [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [CallStackItem; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs : [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
@@ -86,8 +89,8 @@ struct CombinedAccumulatedDataBuilder {
     new_nullifiers : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
     nullified_commitments : BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
 
-    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    private_call_stack: BoundedVec<CallStackItem, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],

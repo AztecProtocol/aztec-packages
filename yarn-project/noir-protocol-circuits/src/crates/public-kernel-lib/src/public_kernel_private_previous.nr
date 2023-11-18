@@ -212,7 +212,7 @@ mod tests {
     #[test(should_fail_with="Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.contract_address = Address::ZERO();
+        builder.public_call.contract_address = Address::zero();
 
         builder.failed();
     }

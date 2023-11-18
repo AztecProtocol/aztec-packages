@@ -80,6 +80,22 @@ pub fn validate_array<T>(array : [Field;T]) {
     assert((last_non_zero_pos as u64) <= (first_zero_pos as u64), "invalid array");
 }
 
+// TODO: Replace it with `validate_array`
+pub fn validate_struct_array<T, N>(array: [T; N], is_empty_item: fn(T) -> bool) {
+    let array_length = array.len();
+    let mut first_zero_pos = array_length;
+    let mut last_non_zero_pos = 0;
+    for i in 0..array_length {
+        let is_empty = is_empty_item(array[i]);
+        if !is_empty {
+            last_non_zero_pos = i;
+        } else if is_empty & (first_zero_pos == array_length) {
+            first_zero_pos = i;
+        }
+    }
+    assert((last_non_zero_pos as u64) <= (first_zero_pos as u64), "invalid array");
+}
+
 // Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array) 
 // should be true).
 pub fn array_length<N>(array : [Field; N]) -> Field {

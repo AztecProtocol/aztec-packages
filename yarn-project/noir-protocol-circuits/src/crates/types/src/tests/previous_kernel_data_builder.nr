@@ -1,5 +1,7 @@
 use crate::{
     abis::{
+        call_context::CallContext,
+        call_stack_item::CallStackItem,
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
         historical_block_data::HistoricalBlockData,
@@ -8,6 +10,7 @@ use crate::{
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
     },
+    address::{Address, EthAddress},
     hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
@@ -28,6 +31,8 @@ use dep::aztec::{
 };
 
 struct PreviousKernelDataBuilder {
+    contract_address: Address,
+    portal_contract_address: EthAddress,
     end: CombinedAccumulatedDataBuilder,
     block_data: HistoricalBlockData,
     tx_context: TxContext,
@@ -47,6 +52,8 @@ impl PreviousKernelDataBuilder {
         let tx_context = build_tx_context(false);
 
         PreviousKernelDataBuilder {
+            contract_address: fixtures::contracts::parent_contract.address,
+            portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
             end,
             block_data: fixtures::HISTORICAL_BLOCK_DATA,
             tx_context,
@@ -135,6 +142,23 @@ impl PreviousKernelDataBuilder {
     pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
         self.end.unencrypted_logs_hash = hash;
         self.end.unencrypted_log_preimages_length = preimages_length;
+    }
+
+    pub fn push_private_call_stack_item(&mut self, call_stack_item: CallStackItem) {
+        self.end.private_call_stack.push(call_stack_item);
+    }
+
+    pub fn push_private_call_stack_hash(&mut self, hash: Field) {
+        let mut caller_context: CallContext = dep::std::unsafe::zeroed();
+        caller_context.msg_sender = fixtures::MSG_SENDER;
+        caller_context.storage_contract_address = self.contract_address;
+        caller_context.portal_contract_address = self.portal_contract_address;
+        let call_stack_item = CallStackItem {
+            hash,
+            caller_contract_address: self.contract_address,
+            caller_context,
+        };
+        self.end.private_call_stack.push(call_stack_item);
     }
 
     pub fn finish(self) -> PreviousKernelData {

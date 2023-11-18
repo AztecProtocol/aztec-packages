@@ -293,7 +293,7 @@ mod tests {
     fn input_validation_malformed_arrays_private_call_stack() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.private_call_stack.push_array([0, 9123]);
+        builder.private_call.public_inputs.private_call_stack_hashes.push_array([0, 9123]);
         
         builder.failed();
     }

@@ -30,7 +30,7 @@ struct PrivateCircuitPublicInputs{
     new_nullifiers : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments : [Field; MAX_NEW_NULLIFIERS_PER_CALL],
 
-    private_call_stack : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    private_call_stack_hashes : [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack : [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_l2_to_l1_msgs : [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
@@ -62,7 +62,7 @@ impl PrivateCircuitPublicInputs{
         fields.push_array(self.new_commitments);
         fields.push_array(self.new_nullifiers);
         fields.push_array(self.nullified_commitments);
-        fields.push_array(self.private_call_stack);
+        fields.push_array(self.private_call_stack_hashes);
         fields.push_array(self.public_call_stack);
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.encrypted_logs_hash);
@@ -93,7 +93,7 @@ struct PrivateCircuitPublicInputsBuilder {
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
@@ -125,7 +125,7 @@ impl PrivateCircuitPublicInputsBuilder {
             new_nullifiers: self.new_nullifiers.storage,
             nullified_commitments: self.nullified_commitments.storage,
 
-            private_call_stack: self.private_call_stack.storage,
+            private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
 

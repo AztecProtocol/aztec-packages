@@ -7,6 +7,7 @@ use dep::aztec::constants_gen::{
 };
 use dep::types::{
     abis::{
+        call_stack_item::CallStackItem,
         combined_accumulated_data::CombinedAccumulatedData,
         complete_address::CompleteAddress,
         function_data::FunctionData,
@@ -31,9 +32,13 @@ use dep::types::{
         silo_nullifier,
         stdlib_recursion_verification_key_compress_native_vk,
     },
-    point::Point,
     utils::{
-        arrays::{array_to_bounded_vec, is_empty_array, struct_array_to_bounded_vec, validate_array},
+        arrays::{
+            array_to_bounded_vec,
+            is_empty_array,
+            struct_array_to_bounded_vec,
+            validate_array,
+        },
         bounded_vec::BoundedVec,
     },
 };
@@ -49,7 +54,7 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     validate_array(app_public_inputs.new_commitments);
     validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.nullified_commitments);
-    validate_array(app_public_inputs.private_call_stack);
+    validate_array(app_public_inputs.private_call_stack_hashes);
     validate_array(app_public_inputs.public_call_stack);
     validate_array(app_public_inputs.new_l2_to_l1_msgs);
     
@@ -105,7 +110,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
-    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
     public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
     public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
@@ -204,7 +209,10 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     public_inputs.end.nullified_commitments.push_vec(siloed_nullified_commitments);
 
     // Call stacks
-    let private_call_stack = array_to_bounded_vec(private_call_public_inputs.private_call_stack);
+    let caller_contract_address = private_call.call_stack_item.contract_address;
+    let caller_context = private_call_public_inputs.call_context;
+    let call_stack_items = private_call_public_inputs.private_call_stack_hashes.map(|hash| CallStackItem { hash, caller_contract_address, caller_context });
+    let private_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
 
     let public_call_stack = array_to_bounded_vec(private_call_public_inputs.public_call_stack);
@@ -247,6 +255,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;
+    let contract_address = private_call.call_stack_item.contract_address;
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash =
@@ -282,7 +291,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         public_inputs.end.new_nullifiers.push(new_contract_address_nullifier);
     } else {
         // non-contract deployments must specify contract address being interacted with
-        assert(storage_contract_address.to_field() != 0, "contract address cannot be 0");
+        assert(contract_address.to_field() != 0, "contract address cannot be 0");
 
          /* We need to compute the root of the contract tree, starting from the function's VK:
          * - Compute the vk_hash (done above)
@@ -291,12 +300,6 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
          * - Compute the contract_leaf: hash(contract_address, portal_contract_address, function_tree_root)
          * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
          */
-        
-        // Ensures that if the function is internal, only the contract itself can call it
-        if private_call.call_stack_item.function_data.is_internal {
-            let msg_sender = private_call_public_inputs.call_context.msg_sender;
-            assert(storage_contract_address.eq(msg_sender), "call is internal but msg_sender is not self");
-        }
 
         // The logic below ensures that the contract exists in the contracts tree
         let computed_function_tree_root = function_tree_root_from_siblings(private_call.call_stack_item.function_data.selector,
@@ -308,7 +311,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.function_leaf_membership_witness.sibling_path);
         
         let computed_contract_tree_root = contract_tree_root_from_siblings(computed_function_tree_root,
-                                                 storage_contract_address,
+                                                 contract_address,
                                                  portal_contract_address,
                                                  private_call.contract_leaf_membership_witness.leaf_index,
                                                  private_call.contract_leaf_membership_witness.sibling_path);
@@ -320,4 +323,30 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
 
 pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
     assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+}
+
+pub fn validate_call_stack(private_call: PrivateCallData, popped_private_call: CallStackItem) {
+    let call_stack_item = private_call.call_stack_item;
+    assert(popped_private_call.hash == call_stack_item.hash(), "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
+
+    let call_context = call_stack_item.public_inputs.call_context;
+    let caller_context = popped_private_call.caller_context;
+    let caller_contract_address = popped_private_call.caller_contract_address;
+
+    // Ensures that if the function is internal, only the contract itself can call it.
+    if call_stack_item.function_data.is_internal {
+        assert(call_context.msg_sender.eq(call_context.storage_contract_address), "call is internal but msg_sender is not self");
+    }
+
+    if call_context.is_delegate_call {
+        assert(call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate call");
+        assert(call_context.storage_contract_address.eq(caller_context.storage_contract_address), "call stack storage address does not match expected contract address for delegate call");
+        assert(call_context.portal_contract_address.eq(caller_context.portal_contract_address), "call stack portal address does not match expected portal address for delegate call");
+    } else {
+        assert(call_context.msg_sender.eq(caller_contract_address), "call stack msg_sender does not match caller contract address");
+        assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address");
+    }
+
+    // TODO:
+    // if call_context.is_static_call {}
 }
