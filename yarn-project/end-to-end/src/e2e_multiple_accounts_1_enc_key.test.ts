@@ -44,7 +44,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       const signingPrivateKey = GrumpkinScalar.random();
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitDeploy({ interval: 0.1 });
-      const { address } = await account.getCompleteAddress();
+      const { address } = account.getCompleteAddress();
       wallets.push(wallet);
       accounts.push(address);
     }

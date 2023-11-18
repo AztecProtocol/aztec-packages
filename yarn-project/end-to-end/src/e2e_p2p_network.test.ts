@@ -153,8 +153,8 @@ describe('e2e_p2p_network', () => {
     const pxeService = await createPXEService(node, rpcConfig, {}, true);
 
     const keyPair = ConstantKeyPair.random(new Grumpkin());
-    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(await keyPair.getPrivateKey(), Fr.random());
-    await pxeService.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(keyPair.getPrivateKey(), Fr.random());
+    await pxeService.registerAccount(keyPair.getPrivateKey(), completeAddress.partialAddress);
 
     const txs = await submitTxsTo(pxeService, completeAddress.address, numTxs, completeAddress.publicKey);
     return {

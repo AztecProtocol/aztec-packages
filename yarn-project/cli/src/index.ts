@@ -174,7 +174,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const actualPrivateKey = privateKey ?? GrumpkinScalar.random();
 
       const account = getSchnorrAccount(client, actualPrivateKey, actualPrivateKey, accountCreationSalt);
-      const { address, publicKey, partialAddress } = await account.getCompleteAddress();
+      const { address, publicKey, partialAddress } = account.getCompleteAddress();
       const tx = await account.deploy();
       const txHash = await tx.getTxHash();
       debugLogger(`Account contract tx sent with hash ${txHash}`);
