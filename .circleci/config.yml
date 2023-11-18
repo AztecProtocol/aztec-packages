@@ -931,7 +931,7 @@ jobs:
       - run:
           name: "Deploy docs"
           command: |
-            if [ "$CIRCLE_BRANCH" != "master" ]; then
+            if [ "$CIRCLE_BRANCH" == "master" ]; then
               echo "Deploying docs (on master)."
               docs/deploy_netlify.sh
             else
