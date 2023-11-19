@@ -38,7 +38,9 @@
       "inherits": "default",
       "environment": {
         "CC": "clang-16",
-        "CXX": "clang++-16"
+        "CXX": "clang++-16",
+        "CXXFLAGS":"-ftime-trace"
+
       }
     },
     {
