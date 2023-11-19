@@ -429,7 +429,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: new AztecAddress(1n),
+      origin: new AztecAddress(new Fr(1n)),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
@@ -448,7 +448,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: new AztecAddress(1n),
+      origin: new AztecAddress(new Fr(1n)),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
