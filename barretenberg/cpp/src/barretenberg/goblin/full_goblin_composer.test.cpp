@@ -34,7 +34,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
     using TranslatorFlavor = flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = GoblinTranslatorComposer_<TranslatorFlavor>;
+    using TranslatorComposer = GoblinTranslatorComposer;
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;

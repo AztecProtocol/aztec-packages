@@ -22,7 +22,7 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<fr> variables)
+std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<barretenberg::fr> variables)
 {
     std::vector<uint32_t> res;
     for (size_t i = 0; i < variables.size(); i++) {
@@ -74,7 +74,7 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
         op_queue.add_accumulate(P1);
         op_queue.mul_accumulate(P2, z);
     }
-    Fq batching_challenge = fq::random_element();
+    Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
     auto circuit_builder = proof_system::GoblinTranslatorCircuitBuilder(batching_challenge, x);
     circuit_builder.feed_ecc_op_queue_into_circuit(op_queue);

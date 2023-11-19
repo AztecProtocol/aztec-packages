@@ -8,9 +8,9 @@
 #include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
 
 namespace proof_system::honk {
-using namespace barretenberg;
-template <typename Flavor> class GoblinTranslatorComposer_ { // WORKTODO: untemplate
+class GoblinTranslatorComposer {
   public:
+    using Flavor = honk::flavor::GoblinTranslator;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -36,18 +36,18 @@ template <typename Flavor> class GoblinTranslatorComposer_ { // WORKTODO: untemp
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
     // We only need the standard crs factory. GoblinTranslator is not supposed to be used with Grumpkin
-    GoblinTranslatorComposer_() { crs_factory_ = srs::get_crs_factory(); }
+    GoblinTranslatorComposer() { crs_factory_ = srs::get_crs_factory(); }
 
-    GoblinTranslatorComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    GoblinTranslatorComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    GoblinTranslatorComposer_(GoblinTranslatorComposer_&& other) noexcept = default;
-    GoblinTranslatorComposer_(GoblinTranslatorComposer_ const& other) noexcept = default;
-    GoblinTranslatorComposer_& operator=(GoblinTranslatorComposer_&& other) noexcept = default;
-    GoblinTranslatorComposer_& operator=(GoblinTranslatorComposer_ const& other) noexcept = default;
-    ~GoblinTranslatorComposer_() = default;
+    GoblinTranslatorComposer(GoblinTranslatorComposer&& other) noexcept = default;
+    GoblinTranslatorComposer(GoblinTranslatorComposer const& other) noexcept = default;
+    GoblinTranslatorComposer& operator=(GoblinTranslatorComposer&& other) noexcept = default;
+    GoblinTranslatorComposer& operator=(GoblinTranslatorComposer const& other) noexcept = default;
+    ~GoblinTranslatorComposer() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_constructor);
@@ -69,6 +69,4 @@ template <typename Flavor> class GoblinTranslatorComposer_ { // WORKTODO: untemp
         return commitment_key;
     };
 };
-extern template class GoblinTranslatorComposer_<honk::flavor::GoblinTranslator>;
-using GoblinTranslatorComposer = GoblinTranslatorComposer_<honk::flavor::GoblinTranslator>;
 } // namespace proof_system::honk

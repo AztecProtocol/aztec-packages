@@ -18,15 +18,15 @@
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 
 namespace proof_system::honk {
-
+using Flavor = honk::flavor::GoblinTranslator; // WORKTODO remove
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
  * @tparam Flavor
  * @param circuit_constructor
  */
-template <typename Flavor>
-void GoblinTranslatorComposer_<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit_builder)
+
+void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& circuit_builder)
 {
     const size_t num_gates = circuit_builder.num_gates;
 
@@ -58,7 +58,7 @@ void GoblinTranslatorComposer_<Flavor>::compute_circuit_size_parameters(CircuitB
  *
  * @return std::vector<typename Flavor::Polynomial>
  * */
-template <typename Flavor>
+
 std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base_goblin_translator(
     const typename Flavor::CircuitBuilder& circuit_constructor, const size_t dyadic_circuit_size)
 {
@@ -88,15 +88,14 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base_goblin_
  * @brief Compute witness polynomials
  *
  */
-template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witness(CircuitBuilder& circuit_constructor)
+void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_constructor)
 {
     if (computed_witness) {
         return;
     }
 
     // Construct the conventional wire polynomials
-    auto wire_polynomials =
-        construct_wire_polynomials_base_goblin_translator<Flavor>(circuit_constructor, dyadic_circuit_size);
+    auto wire_polynomials = construct_wire_polynomials_base_goblin_translator(circuit_constructor, dyadic_circuit_size);
 
     // Most of the witness polynomials are the original wire polynomials
     proving_key->op = wire_polynomials[0];
@@ -200,8 +199,8 @@ template <typename Flavor> void GoblinTranslatorComposer_<Flavor>::compute_witne
  * @param circuit_builder
  * @return GoblinTranslatorProver_<Flavor>
  */
-template <typename Flavor>
-GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer_<Flavor>::create_prover(CircuitBuilder& circuit_builder)
+
+GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder)
 {
 
     // Compute total number of gates, dyadic circuit size, etc.
@@ -227,9 +226,8 @@ GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer_<Flavor>::create_prover
  * @param circuit_constructor
  * @return GoblinTranslatorVerifier_<Flavor>
  */
-template <typename Flavor>
-GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer_<Flavor>::create_verifier(
-    const CircuitBuilder& circuit_constructor)
+
+GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
@@ -249,8 +247,8 @@ GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer_<Flavor>::create_veri
  * @param circuit_builder
  * @return std::shared_ptr<typename Flavor::ProvingKey>
  */
-template <typename Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::compute_proving_key(
+
+std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer::compute_proving_key(
     const CircuitBuilder& circuit_builder)
 {
     if (proving_key) {
@@ -285,8 +283,8 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer_<Flavor>::
  *
  * @return Pointer to created circuit verification key.
  * */
-template <typename Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer_<Flavor>::compute_verification_key(
+
+std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer::compute_verification_key(
     const CircuitBuilder& circuit_constructor)
 {
     if (verification_key) {
@@ -312,6 +310,4 @@ std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer_<Flav
 
     return verification_key;
 }
-template class GoblinTranslatorComposer_<honk::flavor::GoblinTranslator>;
-
 } // namespace proof_system::honk
