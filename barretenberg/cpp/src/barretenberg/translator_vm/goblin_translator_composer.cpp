@@ -197,10 +197,10 @@ void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_construct
  *
  * @tparam Flavor
  * @param circuit_builder
- * @return GoblinTranslatorProver_<Flavor>
+ * @return GoblinTranslatorProver
  */
 
-GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder)
+GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder)
 {
 
     // Compute total number of gates, dyadic circuit size, etc.
@@ -213,7 +213,7 @@ GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer::create_prover(CircuitB
 
     compute_commitment_key(proving_key->circuit_size);
 
-    GoblinTranslatorProver_<Flavor> output_state(proving_key, commitment_key);
+    GoblinTranslatorProver output_state(proving_key, commitment_key);
 
     return output_state;
 }
@@ -224,14 +224,14 @@ GoblinTranslatorProver_<Flavor> GoblinTranslatorComposer::create_prover(CircuitB
  *
  * @tparam Flavor
  * @param circuit_constructor
- * @return GoblinTranslatorVerifier_<Flavor>
+ * @return GoblinTranslatorVerifier
  */
 
-GoblinTranslatorVerifier_<Flavor> GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_constructor)
+GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
-    GoblinTranslatorVerifier_<Flavor> output_state(verification_key);
+    GoblinTranslatorVerifier output_state(verification_key);
 
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);

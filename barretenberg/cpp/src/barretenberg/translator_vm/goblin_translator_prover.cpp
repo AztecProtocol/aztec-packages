@@ -20,16 +20,16 @@
 namespace proof_system::honk {
 
 /**
- * Create GoblinTranslatorProver_ from proving key, witness and manifest.
+ * Create GoblinTranslatorProver from proving key, witness and manifest.
  *
  * @param input_key Proving key.
  * @param input_manifest Input manifest
  *
  * @tparam settings Settings class.
  * */
-template <typename Flavor>
-GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typename Flavor::ProvingKey> input_key,
-                                                         std::shared_ptr<CommitmentKey> commitment_key)
+
+GoblinTranslatorProver::GoblinTranslatorProver(std::shared_ptr<typename Flavor::ProvingKey> input_key,
+                                               std::shared_ptr<CommitmentKey> commitment_key)
     : key(input_key)
     , commitment_key(commitment_key)
 {
@@ -250,7 +250,7 @@ GoblinTranslatorProver_<Flavor>::GoblinTranslatorProver_(std::shared_ptr<typenam
  * @brief Add circuit size and values used in the relations to the transcript
  *
  */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preamble_round()
+void GoblinTranslatorProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
@@ -270,7 +270,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_preambl
  * @brief Compute commitments to the first three wires
  *
  */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_and_sorted_constraints_commitments_round()
+void GoblinTranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     // Commit to all wire polynomials
     auto wire_polys = key->get_wires();
@@ -284,7 +284,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_wire_an
  * @brief Compute permutation and lookup grand product polynomials and commitments
  *
  */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_product_computation_round()
+void GoblinTranslatorProver::execute_grand_product_computation_round()
 {
     // Compute and store parameters required by relations in Sumcheck
     auto [gamma] = transcript.get_challenges("gamma");
@@ -334,7 +334,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_grand_p
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
  */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_relation_check_rounds()
+void GoblinTranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
@@ -348,7 +348,7 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_relatio
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
-template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_zeromorph_rounds()
+void GoblinTranslatorProver::execute_zeromorph_rounds()
 {
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
@@ -362,13 +362,13 @@ template <typename Flavor> void GoblinTranslatorProver_<Flavor>::execute_zeromor
                      prover_polynomials.get_concatenation_groups());
 }
 
-template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::export_proof()
+plonk::proof& GoblinTranslatorProver::export_proof()
 {
     proof.proof_data = transcript.proof_data;
     return proof;
 }
 
-template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::construct_proof()
+plonk::proof& GoblinTranslatorProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
@@ -391,5 +391,4 @@ template <typename Flavor> plonk::proof& GoblinTranslatorProver_<Flavor>::constr
     return export_proof();
 }
 
-template class GoblinTranslatorProver_<honk::flavor::GoblinTranslator>;
 } // namespace proof_system::honk

@@ -56,8 +56,8 @@ class GoblinTranslatorComposer {
 
     void compute_witness(CircuitBuilder& circuit_constructor);
 
-    GoblinTranslatorProver_<Flavor> create_prover(CircuitBuilder& circuit_constructor);
-    GoblinTranslatorVerifier_<Flavor> create_verifier(const CircuitBuilder& circuit_constructor);
+    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_constructor);
+    GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_constructor);
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {

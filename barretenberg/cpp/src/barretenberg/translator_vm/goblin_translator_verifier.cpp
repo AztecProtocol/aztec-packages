@@ -12,21 +12,17 @@ using namespace proof_system::honk::sumcheck;
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
 namespace proof_system::honk {
-template <typename Flavor>
-GoblinTranslatorVerifier_<Flavor>::GoblinTranslatorVerifier_(
-    std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
 {}
 
-template <typename Flavor>
-GoblinTranslatorVerifier_<Flavor>::GoblinTranslatorVerifier_(GoblinTranslatorVerifier_&& other) noexcept
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept
     : key(std::move(other.key))
     , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
-template <typename Flavor>
-GoblinTranslatorVerifier_<Flavor>& GoblinTranslatorVerifier_<Flavor>::operator=(
-    GoblinTranslatorVerifier_&& other) noexcept
+GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVerifier&& other) noexcept
 {
     key = other.key;
     pcs_verification_key = (std::move(other.pcs_verification_key));
@@ -39,9 +35,9 @@ GoblinTranslatorVerifier_<Flavor>& GoblinTranslatorVerifier_<Flavor>::operator=(
  * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
  *
  */
-template <typename Flavor>
-bool GoblinTranslatorVerifier_<Flavor>::verify_proof(const plonk::proof& proof,
-                                                     const TranslationEvaluations& translation_evaluations)
+
+bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
+                                            const TranslationEvaluations& translation_evaluations)
 {
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -347,7 +343,5 @@ bool GoblinTranslatorVerifier_<Flavor>::verify_proof(const plonk::proof& proof,
 
     return verified;
 }
-
-template class GoblinTranslatorVerifier_<honk::flavor::GoblinTranslator>;
 
 } // namespace proof_system::honk

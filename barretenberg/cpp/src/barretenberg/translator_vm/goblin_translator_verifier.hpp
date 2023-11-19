@@ -5,7 +5,8 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace proof_system::honk {
-template <typename Flavor> class GoblinTranslatorVerifier_ {
+class GoblinTranslatorVerifier {
+    using Flavor = honk::flavor::GoblinTranslator;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
@@ -14,12 +15,12 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
-    explicit GoblinTranslatorVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
-    GoblinTranslatorVerifier_(GoblinTranslatorVerifier_&& other) noexcept;
-    GoblinTranslatorVerifier_(const GoblinTranslatorVerifier_& other) = delete;
-    GoblinTranslatorVerifier_& operator=(const GoblinTranslatorVerifier_& other) = delete;
-    GoblinTranslatorVerifier_& operator=(GoblinTranslatorVerifier_&& other) noexcept;
-    ~GoblinTranslatorVerifier_() = default;
+    explicit GoblinTranslatorVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
+    GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept;
+    GoblinTranslatorVerifier(const GoblinTranslatorVerifier& other) = delete;
+    GoblinTranslatorVerifier& operator=(const GoblinTranslatorVerifier& other) = delete;
+    GoblinTranslatorVerifier& operator=(GoblinTranslatorVerifier&& other) noexcept;
+    ~GoblinTranslatorVerifier() = default;
 
     bool verify_proof(const plonk::proof& proof, const TranslationEvaluations& translation_evaluations);
     BF evaluation_input_x = 0;
@@ -30,9 +31,4 @@ template <typename Flavor> class GoblinTranslatorVerifier_ {
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     BaseTranscript<FF> transcript;
 };
-
-extern template class GoblinTranslatorVerifier_<honk::flavor::GoblinTranslator>;
-
-using GoblinTranslatorVerifier = GoblinTranslatorVerifier_<honk::flavor::GoblinTranslator>;
-
 } // namespace proof_system::honk
