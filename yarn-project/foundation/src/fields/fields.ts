@@ -109,7 +109,7 @@ function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T
 }
 
 function random<T extends BaseField>(f: DerivedField<T>): T {
-  return fromBufferReduce(randomBytes(32), f);
+  return fromBufferReduce(randomBytes(64), f);
 }
 
 function fromString<T extends BaseField>(buf: string, f: DerivedField<T>) {
