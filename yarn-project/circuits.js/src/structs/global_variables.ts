@@ -32,7 +32,7 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero());
+    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {

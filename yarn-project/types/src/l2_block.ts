@@ -158,7 +158,7 @@ export class L2Block {
     // of non-zero tx hashes --> tx hash is set to be the first nullifier in the tx.
     this.numberOfTxs = 0;
     for (let i = 0; i < this.newNullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-      if (!this.newNullifiers[i].equals(Fr.zero())) {
+      if (!this.newNullifiers[i].equals(Fr.ZERO)) {
         this.numberOfTxs++;
       }
     }

@@ -112,7 +112,7 @@ export class KernelProver {
       for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
         // Pretty sure this check was forever broken. I made some changes to Fr and this started triggering.
         // The conditional makes no sense to me anyway.
-        // if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
+        // if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.ZERO) {
         //   throw new Error(
         //     'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
         //   );

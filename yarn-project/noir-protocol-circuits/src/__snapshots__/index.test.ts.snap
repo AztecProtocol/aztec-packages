@@ -748,7 +748,6 @@ KernelCircuitPublicInputs {
       "hasData": false,
       "p0": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -789,7 +788,6 @@ KernelCircuitPublicInputs {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [
@@ -832,7 +830,6 @@ KernelCircuitPublicInputs {
       },
       "p1": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -873,7 +870,6 @@ KernelCircuitPublicInputs {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [
@@ -24384,7 +24380,6 @@ KernelCircuitPublicInputs {
       "hasData": false,
       "p0": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -24425,7 +24420,6 @@ KernelCircuitPublicInputs {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [
@@ -24468,7 +24462,6 @@ KernelCircuitPublicInputs {
       },
       "p1": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -24509,7 +24502,6 @@ KernelCircuitPublicInputs {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [
@@ -48020,7 +48012,6 @@ KernelCircuitPublicInputsFinal {
       "hasData": false,
       "p0": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -48061,7 +48052,6 @@ KernelCircuitPublicInputsFinal {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [
@@ -48104,7 +48094,6 @@ KernelCircuitPublicInputsFinal {
       },
       "p1": G1AffineElement {
         "x": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 1n,
           "asBuffer": {
             "data": [
@@ -48145,7 +48134,6 @@ KernelCircuitPublicInputsFinal {
           },
         },
         "y": Fq {
-          "_fqBranding": undefined,
           "asBigInt": 2n,
           "asBuffer": {
             "data": [

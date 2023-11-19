@@ -4,6 +4,14 @@ import { BufferReader } from '../serialize/buffer_reader.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+/* eslint-disable jsdoc/require-jsdoc */
+
+type DerivedField<T extends BaseField> = {
+  new (value: any): T;
+  MODULUS: bigint;
+};
+
 /**
  * Base field class.
  * Conversions from Buffer to BigInt and vice-versa are not cheap.
@@ -23,22 +31,29 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (value instanceof BaseField) {
+    if (value instanceof Buffer) {
+      this.asBuffer =
+        value.length === 32 ? value : Buffer.concat([Buffer.alloc(BaseField.SIZE_IN_BYTES - value.length), value]);
+    } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
+      this.asBigInt = BigInt(value);
+      if (this.asBigInt >= this.modulus()) {
+        throw new Error('Value >= to field modulus.');
+      }
+    } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
       this.asBigInt = value.asBigInt;
-    } else if (typeof value === 'number' || typeof value === 'boolean') {
-      this.asBuffer = toBufferBE(BigInt(value), BaseField.SIZE_IN_BYTES);
-    } else if (typeof value === 'bigint') {
-      this.asBigInt = value;
-    } else if (value instanceof Buffer) {
-      this.asBuffer = value;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
     }
+
     // Hack to init both to makes tests pass.
+    // Loads of our tests are just doing deep equality rather than calling e.g. toBigInt() first.
+    // This ensures the deep equality passes regardless of the internal representation.
     this.toBuffer();
     this.toBigInt();
   }
+
+  protected abstract modulus(): bigint;
 
   toBuffer(): Buffer {
     if (!this.asBuffer) {
@@ -52,8 +67,11 @@ abstract class BaseField {
   }
 
   toBigInt(): bigint {
-    if (!this.asBigInt) {
+    if (this.asBigInt === undefined) {
       this.asBigInt = toBigIntBE(this.asBuffer!);
+      if (this.asBigInt >= this.modulus()) {
+        throw new Error('Value >= to field modulus.');
+      }
     }
     return this.asBigInt;
   }
@@ -80,9 +98,28 @@ abstract class BaseField {
   }
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-/* eslint-disable jsdoc/require-jsdoc */
+// Free functions for calling from static constructors.
+function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f: DerivedField<T>) {
+  const reader = BufferReader.asReader(buffer);
+  return new f(reader.readBytes(BaseField.SIZE_IN_BYTES));
+}
 
+function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T>) {
+  return new f(toBigIntBE(buffer) % f.MODULUS);
+}
+
+function random<T extends BaseField>(f: DerivedField<T>): T {
+  return fromBufferReduce(randomBytes(32), f);
+}
+
+function fromString<T extends BaseField>(buf: string, f: DerivedField<T>) {
+  const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
+  return new f(buffer);
+}
+
+/**
+ * Branding to ensure Fr and Fq are not interchangeable types.
+ */
 export interface Fr {
   _branding: 'Fr';
 }
@@ -93,36 +130,40 @@ export interface Fr {
 export class Fr extends BaseField {
   static ZERO = new Fr(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
-  static MAX_VALUE = this.MODULUS - 1n;
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
     super(value);
   }
 
+  protected modulus() {
+    return Fr.MODULUS;
+  }
+
   static random() {
-    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % Fr.MODULUS;
-    return new Fr(r);
+    return random(Fr);
   }
 
   static zero() {
     return Fr.ZERO;
   }
 
+  // TODO: Split into 2.
   static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new Fr(toBigIntBE(reader.readBytes(Fr.SIZE_IN_BYTES)));
+    return fromBuffer(buffer, Fr);
   }
 
   static fromBufferReduce(buffer: Buffer) {
-    return Fr.fromBuffer(toBufferBE(toBigIntBE(buffer) % Fr.MODULUS, 32));
+    return fromBufferReduce(buffer, Fr);
   }
 
   static fromString(buf: string) {
-    const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
-    return Fr.fromBuffer(buffer);
+    return fromString(buf, Fr);
   }
 }
 
+/**
+ * Branding to ensure Fr and Fq are not interchangeable types.
+ */
 export interface Fq {
   _branding: 'Fq';
 }
@@ -131,37 +172,35 @@ export interface Fq {
  * Fq field class.
  */
 export class Fq extends BaseField {
-  // Brand property for nominal typing.
-  private readonly _fqBranding: void = undefined;
-
   static ZERO = new Fq(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
-  static MAX_VALUE = this.MODULUS - 1n;
 
   constructor(value: number | bigint | boolean | Fq | Buffer) {
     super(value);
   }
 
+  protected modulus() {
+    return Fq.MODULUS;
+  }
+
   static random() {
-    const r = toBigIntBE(randomBytes(BaseField.SIZE_IN_BYTES)) % Fq.MODULUS;
-    return new Fq(r);
+    return random(Fq);
   }
 
   static zero() {
     return Fq.ZERO;
   }
 
+  // TODO: Split into 2.
   static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new Fq(toBigIntBE(reader.readBytes(Fq.SIZE_IN_BYTES)));
+    return fromBuffer(buffer, Fq);
   }
 
   static fromBufferReduce(buffer: Buffer) {
-    return Fq.fromBuffer(toBufferBE(toBigIntBE(buffer) % Fq.MODULUS, 32));
+    return fromBufferReduce(buffer, Fq);
   }
 
   static fromString(buf: string) {
-    const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
-    return Fq.fromBuffer(buffer);
+    return fromString(buf, Fq);
   }
 }

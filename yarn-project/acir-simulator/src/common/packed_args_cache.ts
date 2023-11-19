@@ -29,7 +29,7 @@ export class PackedArgsCache {
    * @returns The unpacked arguments.
    */
   public unpack(hash: Fr): Fr[] {
-    if (hash.equals(Fr.zero())) {
+    if (hash.equals(Fr.ZERO)) {
       return [];
     }
     const packedArgs = this.cache.get(hash.value);
@@ -46,7 +46,7 @@ export class PackedArgsCache {
    */
   public pack(args: Fr[]) {
     if (args.length === 0) {
-      return Fr.zero();
+      return Fr.ZERO;
     }
     const packedArguments = PackedArguments.fromArgs(args);
     this.cache.set(packedArguments.hash.value, packedArguments.args);
