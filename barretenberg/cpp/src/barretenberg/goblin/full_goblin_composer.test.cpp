@@ -8,8 +8,6 @@
 
 #include <gtest/gtest.h>
 
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
 using namespace proof_system::honk;
 
 namespace test_full_goblin_composer {

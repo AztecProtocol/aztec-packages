@@ -9,8 +9,6 @@
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
 namespace proof_system::honk {
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
@@ -305,8 +303,6 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
         return reconstructed;
     };
 
-    // info("in the verifier");
-    // translation_evaluations.print();
     const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
                                                                auto& relation_parameters) {
         const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
@@ -320,17 +316,6 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
         const BF& Py = translation_evaluations.Py;
         const BF& z1 = translation_evaluations.z1;
         const BF& z2 = translation_evaluations.z2;
-
-        // info("translator vm verifier x: ", x);
-        // info("circuit_size: ", circuit_size);
-
-        // info("translator verifier translation_evaluations.op: ",
-        // translation_evaluations.op); info("translator verifier translation_evaluations.Px:
-        // ", translation_evaluations.Px); info("translator verifier
-        // translation_evaluations.Py: ", translation_evaluations.Py); info("translator
-        // verifier translation_evaluations.z1: ", translation_evaluations.z1);
-        // info("translator verifier translation_evaluations.z2: ",
-        // translation_evaluations.z2);
 
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
         // multiply by x here to deal with shift
