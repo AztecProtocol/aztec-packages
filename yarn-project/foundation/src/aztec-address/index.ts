@@ -8,12 +8,19 @@ import { Fr } from '../fields/index.js';
  * This class also provides helper functions to convert addresses from strings, buffers, and other formats.
  */
 export class AztecAddress extends Fr {
-  constructor(value: Buffer | Fr) {
-    const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
+  constructor(buffer: Buffer) {
     if (buffer.length !== 32) {
       throw new Error(`Invalid length ${buffer.length}.`);
     }
     super(buffer);
+  }
+
+  static fromField(fr: Fr) {
+    return new AztecAddress(fr.toBuffer());
+  }
+
+  static fromBigInt(value: bigint) {
+    return AztecAddress.fromField(new Fr(value));
   }
 
   static fromString(buf: string) {

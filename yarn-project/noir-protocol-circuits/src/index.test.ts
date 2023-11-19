@@ -429,7 +429,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: new AztecAddress(new Fr(1n)),
+      origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
@@ -448,7 +448,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
       new EthAddress(numberToBuffer(1)),
     );
     const txRequest = TxRequest.from({
-      origin: new AztecAddress(new Fr(1n)),
+      origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, true, deploymentData, Fr.ZERO, Fr.ZERO),
@@ -465,7 +465,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
   });
 
   it('Public call stack item matches noir', () => {
-    const contractAddress = new AztecAddress(new Fr(1));
+    const contractAddress = AztecAddress.fromBigInt(1n);
     const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
     const appPublicInputs = PublicCircuitPublicInputs.empty();
     appPublicInputs.newCommitments[0] = new Fr(1);
@@ -475,7 +475,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
   });
 
   it('Public call stack item request matches noir', () => {
-    const contractAddress = new AztecAddress(new Fr(1));
+    const contractAddress = AztecAddress.fromBigInt(1n);
     const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
     const appPublicInputs = PublicCircuitPublicInputs.empty();
     appPublicInputs.newCommitments[0] = new Fr(1);

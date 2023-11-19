@@ -180,7 +180,7 @@ export function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
  * @returns The aztec address.
  */
 export function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
-  return new AztecAddress(mapFieldFromNoir(address.inner));
+  return AztecAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
 /**

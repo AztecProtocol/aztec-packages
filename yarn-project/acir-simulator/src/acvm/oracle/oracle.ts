@@ -41,7 +41,7 @@ export class Oracle {
 
   async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
     const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
-      new AztecAddress(fromACVMField(address)),
+      AztecAddress.fromField(fromACVMField(address)),
     );
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
   }
@@ -190,7 +190,7 @@ export class Oracle {
     [argsHash]: ACVMField[],
   ): Promise<ACVMField[]> {
     const callStackItem = await this.typedOracle.callPrivateFunction(
-      new AztecAddress(fromACVMField(contractAddress)),
+      AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
     );
@@ -203,7 +203,7 @@ export class Oracle {
     [argsHash]: ACVMField[],
   ): Promise<ACVMField[]> {
     const returnValues = await this.typedOracle.callPublicFunction(
-      new AztecAddress(fromACVMField(contractAddress)),
+      AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
     );
