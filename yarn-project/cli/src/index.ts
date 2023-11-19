@@ -135,7 +135,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       if (options.mnemonic) {
         const acc = mnemonicToAccount(options.mnemonic);
         // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
-        const key = GrumpkinScalar.fromBufferWithReduction(Buffer.from(acc.getHdKey().privateKey!));
+        const key = GrumpkinScalar.fromBufferReduce(Buffer.from(acc.getHdKey().privateKey!));
         publicKey = generatePublicKey(key);
       } else {
         const key = GrumpkinScalar.random();

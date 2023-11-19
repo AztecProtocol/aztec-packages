@@ -66,6 +66,9 @@ abstract class BaseField {
 
   protected abstract modulus(): bigint;
 
+  /**
+   * We return a copy of the Buffer to ensure this remains immutable.
+   */
   toBuffer(): Buffer {
     if (!this.asBuffer) {
       this.asBuffer = toBufferBE(this.asBigInt!, 32);
@@ -200,6 +203,16 @@ export interface Fq {
 export class Fq extends BaseField {
   static ZERO = new Fq(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
+  private static HIGH_SHIFT = BigInt((BaseField.SIZE_IN_BYTES / 2) * 8);
+  private static LOW_MASK = (1n << Fq.HIGH_SHIFT) - 1n;
+
+  get low(): Fr {
+    return new Fr(this.toBigInt() & Fq.LOW_MASK);
+  }
+
+  get high(): Fr {
+    return new Fr(this.toBigInt() >> Fq.HIGH_SHIFT);
+  }
 
   constructor(value: number | bigint | boolean | Fq | Buffer) {
     super(value);
@@ -228,4 +241,16 @@ export class Fq extends BaseField {
   static fromString(buf: string) {
     return fromString(buf, Fq);
   }
+
+  static fromHighLow(high: Fr, low: Fr): Fq {
+    return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
+  }
 }
+
+/**
+ * GrumpkinScalar is an Fq.
+ * @remarks Called GrumpkinScalar because it is used to represent elements in Grumpkin's scalar field as defined in
+ *          the Aztec Yellow Paper.
+ */
+export type GrumpkinScalar = Fq;
+export const GrumpkinScalar = Fq;
