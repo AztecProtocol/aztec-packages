@@ -38,6 +38,7 @@ export interface DBOracle extends CommitmentsDB {
   /**
    * Retrieve a capsule from the capsule dispenser.
    * @returns A promise that resolves to an array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    */
   popCapsule(): Promise<Fr[]>;
 

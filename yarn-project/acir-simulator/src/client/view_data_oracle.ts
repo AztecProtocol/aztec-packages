@@ -59,6 +59,7 @@ export class ViewDataOracle extends TypedOracle {
   /**
    * Pops a capsule from the capsule dispenser
    * @returns The capsule values
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    */
   public popCapsule(): Promise<Fr[]> {
     return this.db.popCapsule();
@@ -66,7 +67,7 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Gets some notes for a contract address and storage slot.
-   * Returns a flattened array containing real-note-count and note preimages.
+   * Returns a flattened array containing filtered notes.
    *
    * @remarks
    * Check for pending notes with matching slot.

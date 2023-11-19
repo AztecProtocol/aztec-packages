@@ -45,6 +45,7 @@ export interface PXE {
   /**
    * Adding a capsule to the capsule dispenser.
    * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    */
   addCapsule(capsule: Fr[]): Promise<void>;
 

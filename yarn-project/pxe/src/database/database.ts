@@ -26,12 +26,14 @@ export interface Database extends ContractDatabase {
 
   /**
    * Adding a capsule to the capsule dispenser.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    * @param capsule - An array of field elements representing the capsule.
    */
   addCapsule(capsule: Fr[]): Promise<void>;
 
   /**
    * Get the next capsule from the capsule dispenser.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    * @returns A promise that resolves to an array of field elements representing the capsule.
    */
   popCapsule(): Promise<Fr[] | undefined>;
