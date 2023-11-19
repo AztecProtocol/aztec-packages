@@ -11,12 +11,14 @@ namespace proof_system::honk {
 class GoblinTranslatorComposer {
   public:
     using Flavor = honk::flavor::GoblinTranslator;
+    using Curve = typename Flavor::Curve;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using Polynomial = typename Flavor::Polynomial;
     static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
 
     static constexpr std::string_view NAME_STRING = "GoblinTranslator";
@@ -25,7 +27,7 @@ class GoblinTranslatorComposer {
     std::shared_ptr<VerificationKey> verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
+    std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory_;
 
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -43,21 +45,15 @@ class GoblinTranslatorComposer {
         , verification_key(std::move(v_key))
     {}
 
-    GoblinTranslatorComposer(GoblinTranslatorComposer&& other) noexcept = default;
-    GoblinTranslatorComposer(GoblinTranslatorComposer const& other) noexcept = default;
-    GoblinTranslatorComposer& operator=(GoblinTranslatorComposer&& other) noexcept = default;
-    GoblinTranslatorComposer& operator=(GoblinTranslatorComposer const& other) noexcept = default;
-    ~GoblinTranslatorComposer() = default;
+    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_builder);
+    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_builder);
 
-    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    void compute_circuit_size_parameters(CircuitBuilder& circuit_builder);
 
-    void compute_circuit_size_parameters(CircuitBuilder& circuit_constructor);
+    void compute_witness(CircuitBuilder& circuit_builder);
 
-    void compute_witness(CircuitBuilder& circuit_constructor);
-
-    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_constructor);
-    GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_constructor);
+    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_builder);
+    GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_builder);
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {

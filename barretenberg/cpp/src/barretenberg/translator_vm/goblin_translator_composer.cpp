@@ -1,29 +1,32 @@
 /**
  * @file goblin_translator_composer.cpp
- * @brief Contains the logic for transfroming a Goblin Translator Circuit Builder object into a witness  and methods to
+ * @brief Contains the logic for transfroming a Goblin Translator Circuit Builder object into a witness and methods to
  * create prover and verifier objects
  * @date 2023-10-05
- *
- *
  */
 #include "goblin_translator_composer.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 
 namespace proof_system::honk {
-using Flavor = honk::flavor::GoblinTranslator; // WORKTODO remove
+using Flavor = honk::flavor::GoblinTranslator;
+using Curve = typename Flavor::Curve;
+using CircuitBuilder = typename Flavor::CircuitBuilder;
+using ProvingKey = typename Flavor::ProvingKey;
+using VerificationKey = typename Flavor::VerificationKey;
+using PCS = typename Flavor::PCS;
+using CommitmentKey = typename Flavor::CommitmentKey;
+using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+using Polynomial = typename Flavor::Polynomial;
+
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
  * @tparam Flavor
- * @param circuit_constructor
+ * @param circuit_builder
  */
 
 void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& circuit_builder)
@@ -53,30 +56,30 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
  * 4 wires, which we've commited to
  *
  * @tparam Flavor provides the circuit constructor type and the number of wires.
- * @param circuit_constructor
+ * @param circuit_builder
  * @param dyadic_circuit_size Power of 2 circuit size
  *
- * @return std::vector<typename Flavor::Polynomial>
+ * @return std::vector<Polynomial>
  * */
 
-std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base_goblin_translator(
-    const typename Flavor::CircuitBuilder& circuit_constructor, const size_t dyadic_circuit_size)
+std::vector<Polynomial> construct_wire_polynomials_base_goblin_translator(const CircuitBuilder& circuit_builder,
+                                                                          const size_t dyadic_circuit_size)
 {
-    const size_t num_gates = circuit_constructor.num_gates;
+    const size_t num_gates = circuit_builder.num_gates;
 
-    std::vector<typename Flavor::Polynomial> wire_polynomials;
+    std::vector<Polynomial> wire_polynomials;
 
     // Populate the wire polynomials with values from conventional wires
     for (size_t wire_idx = 0; wire_idx < Flavor::NUM_WIRES; ++wire_idx) {
 
         // Expect all values to be set to 0 initially
-        // TODO(kesha): fix for sparse polynomials;
-        typename Flavor::Polynomial w_lagrange(dyadic_circuit_size);
+        // TODO(kesha): fix for sparse polynomials; WORKTODO: what's this?
+        Polynomial w_lagrange(dyadic_circuit_size);
 
         // Insert conventional gate wire values into the wire polynomial
         for (size_t i = 0; i < num_gates; ++i) {
-            auto& wire = circuit_constructor.wires[wire_idx];
-            w_lagrange[i] = circuit_constructor.get_variable(wire[i]);
+            auto& wire = circuit_builder.wires[wire_idx];
+            w_lagrange[i] = circuit_builder.get_variable(wire[i]);
         }
 
         wire_polynomials.push_back(std::move(w_lagrange));
@@ -88,14 +91,14 @@ std::vector<typename Flavor::Polynomial> construct_wire_polynomials_base_goblin_
  * @brief Compute witness polynomials
  *
  */
-void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_constructor)
+void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_builder)
 {
     if (computed_witness) {
         return;
     }
 
     // Construct the conventional wire polynomials
-    auto wire_polynomials = construct_wire_polynomials_base_goblin_translator(circuit_constructor, dyadic_circuit_size);
+    auto wire_polynomials = construct_wire_polynomials_base_goblin_translator(circuit_builder, dyadic_circuit_size);
 
     // Most of the witness polynomials are the original wire polynomials
     proving_key->op = wire_polynomials[0];
@@ -223,13 +226,13 @@ GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& c
  * initialize verifier with it and an initial manifest and initialize commitment_scheme.
  *
  * @tparam Flavor
- * @param circuit_constructor
+ * @param circuit_builder
  * @return GoblinTranslatorVerifier
  */
 
-GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_constructor)
+GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_builder)
 {
-    auto verification_key = compute_verification_key(circuit_constructor);
+    auto verification_key = compute_verification_key(circuit_builder);
 
     GoblinTranslatorVerifier output_state(verification_key);
 
@@ -245,7 +248,7 @@ GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const Circuit
  *
  * @tparam Flavor
  * @param circuit_builder
- * @return std::shared_ptr<typename Flavor::ProvingKey>
+ * @return std::shared_ptr<ProvingKey>
  */
 
 std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer::compute_proving_key(
@@ -284,19 +287,18 @@ std::shared_ptr<typename Flavor::ProvingKey> GoblinTranslatorComposer::compute_p
  * @return Pointer to created circuit verification key.
  * */
 
-std::shared_ptr<typename Flavor::VerificationKey> GoblinTranslatorComposer::compute_verification_key(
-    const CircuitBuilder& circuit_constructor)
+std::shared_ptr<VerificationKey> GoblinTranslatorComposer::compute_verification_key(
+    const CircuitBuilder& circuit_builder)
 {
     if (verification_key) {
         return verification_key;
     }
 
     if (!proving_key) {
-        compute_proving_key(circuit_constructor);
+        compute_proving_key(circuit_builder);
     }
 
-    verification_key =
-        std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
+    verification_key = std::make_shared<VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
 
     verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
     verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
