@@ -50,7 +50,7 @@ class GoblinTranslatorComposer {
 
     void compute_circuit_size_parameters(CircuitBuilder& circuit_builder);
 
-    void compute_witness(CircuitBuilder& circuit_builder);
+    void compute_witness(const CircuitBuilder& circuit_builder);
 
     GoblinTranslatorProver create_prover(CircuitBuilder& circuit_builder);
     GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_builder);
@@ -64,5 +64,8 @@ class GoblinTranslatorComposer {
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
         return commitment_key;
     };
+
+  private:
+    void construct_wire_polynomials_base_goblin_translator(const CircuitBuilder& circuit_builder);
 };
 } // namespace proof_system::honk
