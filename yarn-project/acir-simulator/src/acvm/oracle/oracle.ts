@@ -57,7 +57,9 @@ export class Oracle {
 
   async popCapsule(): Promise<ACVMField[]> {
     const capsule = await this.typedOracle.popCapsule();
-    if (!capsule) throw new Error(`No capsules available`);
+    if (!capsule) {
+      throw new Error(`No capsules available`);
+    }
     return capsule.map(toACVMField);
   }
 

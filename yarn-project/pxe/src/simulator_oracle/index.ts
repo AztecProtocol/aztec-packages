@@ -49,7 +49,9 @@ export class SimulatorOracle implements DBOracle {
 
   async popCapsule(): Promise<Fr[]> {
     const capsule = await this.db.popCapsule();
-    if (!capsule) throw new Error(`No capsules available`);
+    if (!capsule) {
+      throw new Error(`No capsules available`);
+    }
     return capsule;
   }
 
