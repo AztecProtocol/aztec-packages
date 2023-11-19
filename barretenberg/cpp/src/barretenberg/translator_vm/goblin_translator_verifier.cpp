@@ -1,9 +1,7 @@
 #include "./goblin_translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/honk/proof_system/power_polynomial.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 using namespace barretenberg;

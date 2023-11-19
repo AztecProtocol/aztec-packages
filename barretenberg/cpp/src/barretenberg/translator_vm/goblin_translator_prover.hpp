@@ -1,10 +1,8 @@
 #pragma once
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {
 
@@ -51,8 +49,6 @@ class GoblinTranslatorProver {
     std::shared_ptr<CommitmentKey> commitment_key;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-
-    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 
   private:
     plonk::proof proof;

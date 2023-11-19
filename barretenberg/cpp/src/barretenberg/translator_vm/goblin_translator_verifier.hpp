@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace proof_system::honk {
 class GoblinTranslatorVerifier {

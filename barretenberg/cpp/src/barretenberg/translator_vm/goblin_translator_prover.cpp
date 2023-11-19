@@ -1,21 +1,10 @@
 #include "goblin_translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/proof_system/power_polynomial.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <memory>
-#include <span>
-#include <string>
-#include <utility>
-#include <vector>
 
 namespace proof_system::honk {
 
@@ -350,6 +339,7 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
  * */
 void GoblinTranslatorProver::execute_zeromorph_rounds()
 {
+    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),

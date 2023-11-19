@@ -18,8 +18,8 @@ class GoblinTranslator {
   public:
     static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = GoblinTranslatorCircuitBuilder;
-    using PCS = pcs::kzg::KZG<curve::BN254>;
     using Curve = curve::BN254;
+    using PCS = pcs::kzg::KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;
@@ -92,7 +92,27 @@ class GoblinTranslator {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+    // using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
+
+    // template <typename Tuple, std::size_t Index = 0> static constexpr auto
+    // create_sumcheck_tuple_of_tuples_of_univariates()
+    // {
+    //     if constexpr (Index >= std::tuple_size<Tuple>::value) {
+    //         return std::tuple<>{}; // Return empty when reach end of the tuple
+    //     } else {
+    //         using UnivariateTuple = typename std::tuple_element_t<Index,
+    //         Tuple>::SumcheckTupleOfUnivariatesOverSubrelations; return std::tuple_cat(std::tuple<UnivariateTuple>{},
+    //                               create_sumcheck_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
+    //     }
+    // }
+    using SumcheckTupleOfTuplesOfUnivariates =
+        std::tuple<typename GoblinTranslatorPermutationRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename GoblinTranslatorGenPermSortRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename GoblinTranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename GoblinTranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename GoblinTranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
+                   typename GoblinTranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+    // static_assert(std::same_as<SumcheckTupleOfTuplesOfUnivariates, OtherSumcheckTupleOfTuplesOfUnivariates>);
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:

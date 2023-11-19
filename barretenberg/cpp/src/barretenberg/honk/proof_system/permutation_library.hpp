@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
 #include <typeinfo>
 
 namespace proof_system::honk::permutation_library {
