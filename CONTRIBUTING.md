@@ -21,3 +21,6 @@ Any non-trivial code contribution must be first discussed with the maintainers i
 When opening the pull request you will be presented with a template and a series of instructions. Read through it carefully and follow all the steps. Expect a review and feedback from the maintainers afterward.
 
 If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue)!
+
+## Trivial changes
+We now have a policy about trivial changes. We regret this, but have felt it is the right call on balance to deal with a precendent set with using github commit counts for airdrops. We will revisit this
