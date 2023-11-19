@@ -68,7 +68,7 @@ std::vector<Polynomial> construct_wire_polynomials_base_goblin_translator(const 
     const size_t num_gates = circuit_builder.num_gates;
 
     std::vector<Polynomial> wire_polynomials;
-
+    // WORKTODO: note double(?) inefficiency here
     // Populate the wire polynomials with values from conventional wires
     for (size_t wire_idx = 0; wire_idx < Flavor::NUM_WIRES; ++wire_idx) {
 
