@@ -170,7 +170,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
-    // WORKTODO: feed BN254 commitments to ECCVM
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
     auto eccvm_builder = ECCVMBuilder(op_queue);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
@@ -180,7 +180,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     EXPECT_TRUE(eccvm_verified);
 
     // Execute the Translator
-    auto batching_challenge = Fbase::random_element(); // WORKTODO: where is this derived?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
+    auto batching_challenge = Fbase::random_element();
     auto evaluation_input = eccvm_prover.evaluation_challenge_x;
     auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
     auto translator_composer = TranslatorComposer();
