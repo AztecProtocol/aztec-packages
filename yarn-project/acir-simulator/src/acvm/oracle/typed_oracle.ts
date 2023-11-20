@@ -72,6 +72,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
   getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
     throw new Error('Not available.');
   }
