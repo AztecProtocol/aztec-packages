@@ -1076,22 +1076,22 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
 
     auto& engine = numeric::random::get_debug_engine();
 
-    proof_system::ECCOpQueue op_queue;
+    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
     // Generate random EccOpQueue actions
     for (size_t i = 0; i < ((Flavor::MINI_CIRCUIT_SIZE >> 1) - 1); i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
-            op_queue.empty_row();
+            op_queue->empty_row();
             break;
         case 1:
-            op_queue.eq();
+            op_queue->eq();
             break;
         case 2:
-            op_queue.add_accumulate(GroupElement::random_element(&engine));
+            op_queue->add_accumulate(GroupElement::random_element(&engine));
             break;
         case 3:
-            op_queue.mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
+            op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
             break;
         }
     }
