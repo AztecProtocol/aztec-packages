@@ -171,7 +171,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
 
     // Execute the ECCVM
     // WORKTODO: feed BN254 commitments to ECCVM
-    auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
+    auto eccvm_builder = ECCVMBuilder(op_queue);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
     auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);

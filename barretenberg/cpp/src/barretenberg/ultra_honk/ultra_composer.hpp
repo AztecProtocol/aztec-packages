@@ -77,7 +77,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         op_queue->set_size_data();
         // Merge requires a commitment key with size equal to that of the current op queue transcript T_i since the
         // shift of the current contribution t_i will be of degree equal to deg(T_i)
-        auto commitment_key = compute_commitment_key(op_queue->get_current_size()); // WORKTODO
+        auto commitment_key = compute_commitment_key(op_queue->get_current_size());
         return MergeProver_<Flavor>(commitment_key, op_queue);
     }
 
