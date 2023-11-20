@@ -24,14 +24,14 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      *      v2 := (w_2 + q_2)^5
      *      v3 := (w_3 + q_3)^5
      *      v4 := (w_4 + q_4)^5
-     *      t0 := v1 + v2                                             (1, 1, 0, 0)
-     *      t1 := v3 + v4                                             (0, 0, 1, 1)
-     *      t2 := v2 + v2 + t1 = 2 * v2 + v3 + v4                  (0, 2, 1, 1)
-     *      t3 := v4 + v4 + t0 = v1 + v2 + 2 * v4                  (1, 1, 0, 2)
-     *      t4 := 4 * t1 + t3 = v1 + v2 + 4 * v3 + 6 * v4    (1, 1, 4, 6)
-     *      t5 := 4 * t0 + t2 = 4 * v1 + 6 * v2 + v3 + v4    (4, 6, 1, 1)
+     *      t0 := v1 + v2                                           (1, 1, 0, 0)
+     *      t1 := v3 + v4                                           (0, 0, 1, 1)
+     *      t2 := v2 + v2 + t1 = 2 * v2 + v3 + v4                   (0, 2, 1, 1)
+     *      t3 := v4 + v4 + t0 = v1 + v2 + 2 * v4                   (1, 1, 0, 2)
+     *      t4 := 4 * t1 + t3 = v1 + v2 + 4 * v3 + 6 * v4           (1, 1, 4, 6)
+     *      t5 := 4 * t0 + t2 = 4 * v1 + 6 * v2 + v3 + v4           (4, 6, 1, 1)
      *      t6 := t3 + t5 = 5 * v1 + 7 * v2 + 1 * v3 + 3 * v4       (5, 7, 1, 3)
-     *      t7 := t2 + t4                                               (1, 3, 5, 7)
+     *      t7 := t2 + t4                                           (1, 3, 5, 7)
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -60,7 +60,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto q_o = View(in.q_o);
         auto q_4 = View(in.q_4);
 
-        // add round constants
+        // add round constants which are loaded in selectors
         w_l += q_l;
         w_r += q_r;
         w_o += q_o;
