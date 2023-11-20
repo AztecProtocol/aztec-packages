@@ -39,7 +39,7 @@ class FullGoblinComposerTests : public ::testing::Test {
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
-     *g
+     *
      * @param builder
      */
     static void generate_test_circuit(GoblinUltraBuilder& builder)
@@ -192,4 +192,5 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
     EXPECT_TRUE(accumulator_construction_verified && translation_verified);
 }
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
 } // namespace test_full_goblin_composer

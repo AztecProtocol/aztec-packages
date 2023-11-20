@@ -92,19 +92,6 @@ class GoblinTranslator {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    // using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-
-    // template <typename Tuple, std::size_t Index = 0> static constexpr auto
-    // create_sumcheck_tuple_of_tuples_of_univariates()
-    // {
-    //     if constexpr (Index >= std::tuple_size<Tuple>::value) {
-    //         return std::tuple<>{}; // Return empty when reach end of the tuple
-    //     } else {
-    //         using UnivariateTuple = typename std::tuple_element_t<Index,
-    //         Tuple>::SumcheckTupleOfUnivariatesOverSubrelations; return std::tuple_cat(std::tuple<UnivariateTuple>{},
-    //                               create_sumcheck_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
-    //     }
-    // }
     using SumcheckTupleOfTuplesOfUnivariates =
         std::tuple<typename GoblinTranslatorPermutationRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename GoblinTranslatorGenPermSortRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
