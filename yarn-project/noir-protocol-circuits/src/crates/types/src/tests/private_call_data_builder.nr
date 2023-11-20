@@ -1,26 +1,22 @@
 use crate::{
     abis::{
-        call_context::CallContext,
         call_stack_item::PrivateCallStackItem,
-        complete_address::CompleteAddress,
         function_data::FunctionData,
         membership_witness::{
             ContractLeafMembershipWitness,
             FunctionLeafMembershipWitness,
             ReadRequestMembershipWitness,
         },
-        private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsBuilder},
+        private_circuit_public_inputs::{PrivateCircuitPublicInputs},
         private_kernel::private_call_data::PrivateCallData,
     },
     address::{Address, EthAddress},
-    hash::{
-        NUM_FIELDS_PER_SHA256,
-        compute_constructor_hash,
-    },
+    hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
-        testing_harness::{build_contract_deployment_data, build_tx_context},
+        private_circuit_public_inputs_builder::PrivateCircuitPublicInputsBuilder,
+        testing_harness::build_tx_context,
     },
     transaction::{
         request::TxRequest,
@@ -30,7 +26,6 @@ use crate::{
     },
 };
 use dep::aztec::{
-    abi::hash_args,
     constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
     },
@@ -54,53 +49,18 @@ struct PrivateCallDataBuilder {
 
 impl PrivateCallDataBuilder {
     pub fn new(is_constructor: bool) -> Self {
-        let args_hash = hash_args([]);
+        let public_inputs = PrivateCircuitPublicInputsBuilder::new(is_constructor);
 
         let contract_data = fixtures::contracts::default_contract;
-        let portal_contract_address = contract_data.portal_contract_address;
-
         let contract_function = if is_constructor {
             fixtures::contract_functions::default_constructor
         } else {
             fixtures::contract_functions::default_private_function
         };
         let function_data = contract_function.data;
-
-        let contract_deployment_data = build_contract_deployment_data(is_constructor);
-
-        let contract_address = if is_constructor {
-            let constructor = fixtures::contract_functions::default_constructor;
-            let constructor_hash = compute_constructor_hash(constructor.data, args_hash, constructor.vk_hash);
-            CompleteAddress::compute(
-                contract_deployment_data.deployer_public_key,
-                contract_deployment_data.contract_address_salt,
-                contract_deployment_data.function_tree_root,
-                constructor_hash,
-            ).address
-        } else {
-            contract_data.address
-        };
-
-        let call_context = CallContext {
-            msg_sender: fixtures::contracts::parent_contract.address,
-            storage_contract_address: contract_address,
-            portal_contract_address,
-            function_selector: function_data.selector,
-            is_delegate_call: false,
-            is_static_call: false,
-            is_contract_deployment: is_constructor,
-        };
-
-        let mut public_inputs: PrivateCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
-        public_inputs.call_context = call_context;
-        public_inputs.args_hash = args_hash;
-        public_inputs.historical_block_data = fixtures::HISTORICAL_BLOCK_DATA;
-        public_inputs.contract_deployment_data = contract_deployment_data;
-        public_inputs.chain_id = 0;
-        public_inputs.version = 1;
-
+        
         PrivateCallDataBuilder {
-            contract_address,
+            contract_address: public_inputs.call_context.storage_contract_address,
             public_inputs,
             is_execution_request: false,
             function_data,
@@ -109,7 +69,7 @@ impl PrivateCallDataBuilder {
             function_leaf_membership_witness: contract_function.membership_witness,
             contract_leaf_membership_witness: contract_data.membership_witness,
             read_request_membership_witnesses: dep::std::unsafe::zeroed(),
-            portal_contract_address,
+            portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash,
         }
     }
