@@ -7,7 +7,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm_types.js';
-import { fromACVMField } from '../deserialize.js';
+import { fromACVMField, frToNumber } from '../deserialize.js';
 import {
   toACVMField,
   toAcvmCallPrivateStackItem,
@@ -44,6 +44,18 @@ export class Oracle {
       AztecAddress.fromField(fromACVMField(address)),
     );
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
+  }
+
+  async getSiblingPath([blockNumber]: ACVMField[], [treeId]: ACVMField[], [leaf]: ACVMField[]): Promise<ACVMField[]> {
+    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
+    const parsedTreeId = frToNumber(fromACVMField(treeId));
+    const parsedLeaf = fromACVMField(leaf);
+
+    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeaf);
+    if (!path) {
+      throw new Error(`Leaf ${leaf} not found in note hash tree.`);
+    }
+    return path.map(toACVMField);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {

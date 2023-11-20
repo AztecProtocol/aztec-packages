@@ -3,7 +3,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { CompleteAddress, Note, PublicKey, UnencryptedL2Log } from '@aztec/types';
+import { CompleteAddress, Note, MerkleTreeId, PublicKey, UnencryptedL2Log } from '@aztec/types';
 
 /**
  * Information about a note needed during execution.
@@ -73,6 +73,10 @@ export abstract class TypedOracle {
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
+  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leaf: Fr): Promise<Fr[] | undefined> {
     throw new Error('Not available.');
   }
 

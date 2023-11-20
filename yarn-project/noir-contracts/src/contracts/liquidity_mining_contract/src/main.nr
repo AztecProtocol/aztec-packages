@@ -2,6 +2,7 @@ mod types;
 
 // A demonstration of private liquidity mining.
 contract LiquidityMining {
+    use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{
             map::Map,
@@ -14,6 +15,8 @@ contract LiquidityMining {
             note_header::NoteHeader,
             utils as note_utils,
         },
+        constants_gen::NOTE_HASH_TREE_HEIGHT,
+        oracle::get_sibling_path::get_sibling_path,
         // oracle::debug_log::debug_log_format,
     };
 
@@ -85,9 +88,17 @@ contract LiquidityMining {
         let note_commitment = note_utils::compute_unique_siloed_note_hash(LPNoteMethods, note);
 
         // 1.h)
+        let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
+        let note_hash_tree_id = 2;
+        let note_sibling_path: [Field; NOTE_HASH_TREE_HEIGHT + 1] = get_sibling_path(ignored_block_number, note_hash_tree_id, note_commitment);
 
         // 1.i)
+        // This should be tree root at the latest block and should correspond to the sibling path we obtain from oracle
         let note_hash_tree_root = context.block_data.note_hash_tree_root;
+        assert(
+            note_hash_tree_root == compute_merkle_root(note_commitment, p.index, note_sibling_path), 
+            "Before root don't match"
+        );
 
         // Remove/nullify the note
         balances.remove(note);
