@@ -188,7 +188,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     auto translator_prover = translator_composer.create_prover(translator_builder);
     auto translator_verifier = translator_composer.create_verifier(translator_builder);
     auto translator_proof = translator_prover.construct_proof();
-    bool translator_verified = translator_verifier.verify_proof(translator_proof, eccvm_prover.translation_evaluations);
-    EXPECT_TRUE(translator_verified);
+    bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
+    bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
+    EXPECT_TRUE(accumulator_construction_verified && translation_verified);
 }
 } // namespace test_full_goblin_composer

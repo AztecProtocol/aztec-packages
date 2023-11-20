@@ -36,7 +36,7 @@ void prove_and_verify(auto& circuit_constructor, auto& composer, bool expected_r
     auto prover = composer.create_prover(circuit_constructor);
     auto verifier = composer.create_verifier(circuit_constructor);
     auto proof = prover.construct_proof();
-    bool verified = verifier.verify_proof(proof, { /* WORKTODO: Move last piece of translation out. */ });
+    bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
 };
 
@@ -69,10 +69,10 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     auto z = scalar::random_element();
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    proof_system::ECCOpQueue op_queue;
+    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
     for (size_t i = 0; i < 500; i++) {
-        op_queue.add_accumulate(P1);
-        op_queue.mul_accumulate(P2, z);
+        op_queue->add_accumulate(P1);
+        op_queue->mul_accumulate(P2, z);
     }
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();

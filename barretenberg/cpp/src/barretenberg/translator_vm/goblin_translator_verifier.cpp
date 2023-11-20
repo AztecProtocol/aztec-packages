@@ -29,22 +29,13 @@ GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVe
 
 /**
  * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
- *
  */
-
-bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
-                                            const TranslationEvaluations& translation_evaluations)
+bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 {
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
     using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-
-    const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
-    RelationParameters<FF> relation_parameters;
 
     transcript = BaseTranscript<FF>{ proof.proof_data };
 
@@ -55,37 +46,12 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
     evaluation_input_x = transcript.template receive_from_prover<BF>("evaluation_input_x");
     batching_challenge_v = transcript.template receive_from_prover<BF>("batching_challenge_v");
-    const auto uint_accumulated_result = uint256_t(transcript.template receive_from_prover<BF>("accumulated_result"));
-    auto uint_evaluation_input = uint256_t(evaluation_input_x);
-    relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
-                                               uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
-                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
-                                               uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
-                                               uint_evaluation_input };
-    relation_parameters.accumulated_result = {
-        uint_accumulated_result.slice(0, NUM_LIMB_BITS),
-        uint_accumulated_result.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
-        uint_accumulated_result.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
-        uint_accumulated_result.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
-    };
-    std::vector<uint256_t> uint_batching_challenge_powers;
-    uint_batching_challenge_powers.emplace_back(batching_challenge_v);
-    auto running_power = batching_challenge_v * batching_challenge_v;
-    uint_batching_challenge_powers.emplace_back(running_power);
-    running_power *= batching_challenge_v;
-    uint_batching_challenge_powers.emplace_back(running_power);
-    running_power *= batching_challenge_v;
-    uint_batching_challenge_powers.emplace_back(running_power);
 
-    for (size_t i = 0; i < 4; i++) {
-        relation_parameters.batching_challenge_v[i] = {
-            uint_batching_challenge_powers[i].slice(0, NUM_LIMB_BITS),
-            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
-            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
-            uint_batching_challenge_powers[i].slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
-            uint_batching_challenge_powers[i]
-        };
-    }
+    const auto uint_accumulated_result = uint256_t(transcript.template receive_from_prover<BF>("accumulated_result"));
+    auto uint_evaluation_input = static_cast<uint256_t>(evaluation_input_x);
+
+    put_translation_data_in_relation_parameters(uint_evaluation_input, batching_challenge_v, uint_accumulated_result);
+
     if (circuit_size != key->circuit_size) {
         return false;
     }
@@ -276,7 +242,12 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    const auto reconstruct_from_array = [](const auto& arr) {
+    return verified;
+}
+
+bool GoblinTranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)
+{
+    const auto reconstruct_from_array = [&](const auto& arr) {
         const BF elt_0 = (static_cast<uint256_t>(arr[0]));
         const BF elt_1 = (static_cast<uint256_t>(arr[1]) << 68);
         const BF elt_2 = (static_cast<uint256_t>(arr[2]) << 136);
@@ -304,11 +275,9 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof,
         return x * accumulated_result == eccvm_opening;
     };
 
-    bool value_reconstructed = reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-
-    verified &= value_reconstructed;
-
-    return verified;
+    bool is_value_reconstructed =
+        reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
+    return is_value_reconstructed;
 }
 
 } // namespace proof_system::honk
