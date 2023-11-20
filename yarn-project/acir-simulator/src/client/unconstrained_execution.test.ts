@@ -28,12 +28,14 @@ describe('Unconstrained Execution test suite', () => {
       return new Note([new Fr(amount), owner.toField(), Fr.random()]);
     };
 
-    beforeEach(async () => {
-      const ownerCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+    beforeEach(() => {
+      const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
       owner = ownerCompleteAddress.address;
 
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(owner)) {
+          return Promise.resolve(ownerCompleteAddress);
+        }
         throw new Error(`Unknown address ${address}`);
       });
     });

@@ -45,7 +45,9 @@ export class AcirSimulator {
    * @returns ACVM WasmBlackBoxFunctionSolver
    */
   public static getSolver(): Promise<WasmBlackBoxFunctionSolver> {
-    if (!this.solver) this.solver = createBlackBoxSolver();
+    if (!this.solver) {
+      this.solver = createBlackBoxSolver();
+    }
     return this.solver;
   }
 
@@ -75,7 +77,7 @@ export class AcirSimulator {
       );
     }
 
-    const curve = await Grumpkin.new();
+    const curve = new Grumpkin();
 
     const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
@@ -94,7 +96,7 @@ export class AcirSimulator {
       callContext,
       historicBlockData,
       request.authWitnesses,
-      await PackedArgsCache.create(request.packedArguments),
+      PackedArgsCache.create(request.packedArguments),
       new ExecutionNoteCache(),
       new SideEffectCounter(),
       this.db,

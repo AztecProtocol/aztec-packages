@@ -58,7 +58,9 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
 const getAztecNodeUrl = () => {
-  if (AZTEC_NODE_URL) return AZTEC_NODE_URL;
+  if (AZTEC_NODE_URL) {
+    return AZTEC_NODE_URL;
+  }
 
   // If AZTEC_NODE_URL is not set, we assume that the PXE is running on the same host as the Aztec Node and use the default port
   const url = new URL(PXE_URL);
@@ -196,7 +198,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxeClient!);
+  const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
   return {
     aztecNode,
@@ -287,11 +289,15 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxe!);
+  const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
-    if (aztecNode instanceof AztecNodeService) await aztecNode?.stop();
-    if (pxe instanceof PXEService) await pxe?.stop();
+    if (aztecNode instanceof AztecNodeService) {
+      await aztecNode?.stop();
+    }
+    if (pxe instanceof PXEService) {
+      await pxe?.stop();
+    }
   };
 
   return {
