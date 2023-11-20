@@ -484,7 +484,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
     prover_polynomials.z_perm_shift =
-        polynomial_container[90].shifted(); // WORKTODO: magic number; use an existing structure
+        polynomial_container[90].shifted(); // TODO(https://github.com/AztecProtocol/barretenberg/issues/784)
 
     using Relations = typename Flavor::Relations;
 
@@ -559,7 +559,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
                   polynomial_pointers[i + 1]->begin());
     });
 
-    // WORKTODO: rewrite these tests using AllPolynomials
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/784)
     enum ORDERED_RANGE_CONSTRAINTS : size_t { C0 = 85, C1, C2, C3, C4 };
 
     // Get shifted polynomials
