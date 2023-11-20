@@ -1,11 +1,10 @@
 import { AccountWallet, CheatCodes, CompleteAddress, DebugLogger } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { LiquidityMiningContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
 import levelup from 'levelup';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown, type MemDown } from 'memdown';
 
 import { setup } from './fixtures/utils.js';
 
@@ -32,7 +31,7 @@ describe('e2e_liquidity_mining', () => {
     contract = await LiquidityMiningContract.deploy(wallets[0]).send().deployed();
 
     const db = levelup(createMemDown());
-    const hasher = new Pedersen(await CircuitsWasm.get());
+    const hasher = new Pedersen();
     const depth = 254;
     simulatorTree = await newTree(SparseTree, db, hasher, 'test', depth);
   }, 100_000);
