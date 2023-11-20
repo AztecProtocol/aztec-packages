@@ -1,11 +1,16 @@
-import { AccountWallet, AztecAddress, computeAuthWitMessageHash } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger } from '@aztec/foundation/log';
+import {
+  AccountWallet,
+  AztecAddress,
+  DebugLogger,
+  EthAddress,
+  Fr,
+  TxStatus,
+  computeAuthWitMessageHash,
+  sleep,
+} from '@aztec/aztec.js';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
-import { TxStatus } from '@aztec/types';
 
-import { delay, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
@@ -54,7 +59,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
@@ -64,7 +69,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
+    await sleep(5000); /// waiting 5 seconds.
 
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     const unrelatedMintAmount = 99n;
@@ -83,7 +88,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitMessageHash(
+    const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );
@@ -110,14 +115,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
+    await sleep(5000); /// waiting 5 seconds.
 
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     const unrelatedMintAmount = 99n;
@@ -162,14 +167,14 @@ describe('e2e_public_cross_chain_messaging', () => {
 
   it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
+    await sleep(5000); /// waiting 5 seconds.
 
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     await crossChainTestHarness.mintTokensPublicOnL2(0n);

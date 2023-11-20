@@ -59,9 +59,9 @@ describe('e2e_cross_chain_messaging', () => {
     const bridgeAmount = 100n;
 
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
     const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
@@ -99,7 +99,7 @@ describe('e2e_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitMessageHash(
+    const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn(ownerAddress, withdrawAmount, nonce).request(),
     );
@@ -124,9 +124,9 @@ describe('e2e_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
     const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
@@ -182,7 +182,7 @@ describe('e2e_cross_chain_messaging', () => {
     );
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
-  }, 50_000);
+  }, 120_000);
 
   it("Bridge can't withdraw my funds if I don't give approval", async () => {
     const mintAmountToUser1 = 100n;
@@ -190,7 +190,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const expectedBurnMessageHash = await computeAuthWitMessageHash(
+    const expectedBurnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn(user1Wallet.getAddress(), withdrawAmount, nonce).request(),
     );
@@ -201,7 +201,7 @@ describe('e2e_cross_chain_messaging', () => {
         .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedBurnMessageHash.toString('hex')}`);
-  });
+  }, 120_000);
 
   it("Can't claim funds publicly if they were deposited privately", async () => {
     // 1. Mint tokens on L1
@@ -210,7 +210,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     // 2. Deposit tokens to the TokenPortal privately
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
       Fr.random(),
@@ -234,5 +234,5 @@ describe('e2e_cross_chain_messaging', () => {
     ).rejects.toThrowError(
       "Failed to solve brillig function, reason: explicit trap hit in brillig 'l1_to_l2_message_data.message.content == content'",
     );
-  });
+  }, 120_000);
 });

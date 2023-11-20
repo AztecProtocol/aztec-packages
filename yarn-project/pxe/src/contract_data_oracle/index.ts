@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { AztecAddress, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { ContractDatabase, StateInfoProvider } from '@aztec/types';
 
@@ -42,6 +42,19 @@ export class ContractDataOracle {
   public async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
     return tree.getFunctionArtifact(selector);
+  }
+
+  /**
+   * Retrieves the artifact of a specified function within a given contract.
+   * The function is identified by its name, which is unique within a contract.
+   *
+   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param functionName - The name of the function.
+   * @returns The corresponding function's artifact as an object.
+   */
+  public async getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string) {
+    const contract = await this.db.getContract(contractAddress);
+    return contract?.functions.find(f => f.name === functionName);
   }
 
   /**
@@ -142,8 +155,7 @@ export class ContractDataOracle {
         throw new Error(`Unknown contract: ${contractAddress}`);
       }
 
-      const wasm = await CircuitsWasm.get();
-      tree = new ContractTree(contract, this.stateProvider, wasm);
+      tree = new ContractTree(contract, this.stateProvider);
       this.trees.push(tree);
     }
     return tree;

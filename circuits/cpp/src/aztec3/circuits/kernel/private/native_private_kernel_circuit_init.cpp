@@ -20,7 +20,7 @@ using aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::is_array_empty;
 
 
-void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
+void initialize_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
     // Define the constants data.
@@ -155,7 +155,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuit
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(private_inputs, public_inputs);
+    initialize_end_values(private_inputs, public_inputs);
 
     validate_inputs(builder, private_inputs);
 
@@ -167,7 +167,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuit
 
     common_validate_read_requests(
         builder,
-        public_inputs.constants.block_data.private_data_tree_root,
+        public_inputs.constants.block_data.note_hash_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 

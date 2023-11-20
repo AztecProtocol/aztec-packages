@@ -37,7 +37,7 @@ export class TestKeyStore implements KeyStore {
 
   public getAccountPrivateKey(pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
     const account = this.getAccount(pubKey);
-    return account.getPrivateKey();
+    return Promise.resolve(account.getPrivateKey());
   }
 
   /**
@@ -51,7 +51,9 @@ export class TestKeyStore implements KeyStore {
   private getAccount(pubKey: PublicKey) {
     const account = this.accounts.find(a => a.getPublicKey().equals(pubKey));
     if (!account) {
-      throw new Error('Unknown account.');
+      throw new Error(
+        'Unknown account.\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error',
+      );
     }
     return account;
   }

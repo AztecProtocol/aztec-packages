@@ -8,7 +8,14 @@ import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 
 <Disclaimer/>
 
-The following section will try to outline what _private_ and _public_ functions can do, and give some intuition to why they have the limitations they have.
+Aztec operates on a model of private and public functions that are able to work together. Private functions work by providing evidence of correct execution generated locally through kernel proofs. Public functions, on the other hand, are able to utilize the latest state to manage updates and perform alterations.
+
+On this page, you’ll learn:
+
+- How private and public functions work
+- The role of public functions in managing state alterations and updates
+- Communication and interactions between private and public functions
+- How the sequencer manages the order of operations of private functions
 
 ### Objectives
 
@@ -47,7 +54,7 @@ Multiple of these transactions are then ordered into a L2 block by the sequencer
 Be mindful that if part of a transaction is reverting, say the public part of a call, it will revert the entire transaction. Similarly to Ethereum, it might be possible for the block builder to create a block such that your valid transaction reverts because of altered state, e.g., trade incurring too much slippage or the like.
 :::
 
-To summarise:
+To summarize:
 
 - _Private_ function calls are fully "prepared" and proven by the user, which provides the kernel proof along with new commitments and nullifiers to the sequencer.
 - _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to the _private_ functions.

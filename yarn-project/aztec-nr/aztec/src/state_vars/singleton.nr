@@ -11,20 +11,20 @@ use crate::oracle::{
     get_secret_key::get_secret_key,
     notes::check_nullifier_exists,
 };
-use dep::std::hash::pedersen_with_separator;
+use crate::hash::pedersen_hash;
 
 pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
     if owner.is_some() {
         let secret = get_secret_key(owner.unwrap_unchecked());
-        pedersen_with_separator(
+        pedersen_hash(
             [storage_slot, secret.low, secret.high],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-        )[0]
+        )
     } else {
-        pedersen_with_separator(
+        pedersen_hash(
             [storage_slot],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-        )[0]
+        )
     }
 }
 
@@ -63,7 +63,12 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:is_initialized
 
     // docs:start:initialize
-    pub fn initialize(self, note: &mut Note, owner: Option<Field>) {
+    pub fn initialize(
+        self,
+        note: &mut Note,
+        owner: Option<Field>,
+        broadcast: bool,
+    ) {
         let context = self.context.unwrap();
 
         // Nullify the storage slot.
@@ -71,12 +76,16 @@ impl<Note, N> Singleton<Note, N> {
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
 
-        create_note(context, self.storage_slot, note, self.note_interface);
+        create_note(context, self.storage_slot, note, self.note_interface, broadcast);
     }
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(self, new_note: &mut Note) {
+    pub fn replace(
+        self,
+        new_note: &mut Note,
+        broadcast: bool,
+    ) {
         let context = self.context.unwrap();
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -84,12 +93,12 @@ impl<Note, N> Singleton<Note, N> {
         destroy_note(context, prev_note, self.note_interface);
 
         // Add replacement note.
-        create_note(context, self.storage_slot, new_note, self.note_interface);
+        create_note(context, self.storage_slot, new_note, self.note_interface, broadcast);
     }
     // docs:end:replace
 
     // docs:start:get_note
-    pub fn get_note(self) -> Note {
+    pub fn get_note(self, broadcast: bool) -> Note {
         let context = self.context.unwrap();
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
@@ -98,14 +107,16 @@ impl<Note, N> Singleton<Note, N> {
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(context, self.storage_slot, &mut note, self.note_interface);
+        create_note(context, self.storage_slot, &mut note, self.note_interface, broadcast);
 
         note
     }
     // docs:end:get_note
 
+    // docs:start:view_note
     unconstrained pub fn view_note(self) -> Note {
         let options = NoteViewerOptions::new().set_limit(1);
         view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
     }
+    // docs:end:view_note
 }

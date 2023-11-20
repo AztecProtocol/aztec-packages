@@ -87,7 +87,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
 
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
+    std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     new_nullifiers[0] = NT::fr::random_element();
@@ -128,7 +128,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
 
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
+    std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     new_nullifiers[0] = NT::fr::random_element();
@@ -177,7 +177,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
+    std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
@@ -332,7 +332,7 @@ TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_m
     auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
-    // nullifier and commitment present at output (will become persistant)
+    // nullifier and commitment present at output (will become persistent)
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
     ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);
 }
@@ -363,7 +363,7 @@ TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_m
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 0);
-    // nullifier present at output (will become persistant)
+    // nullifier present at output (will become persistent)
     ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);
 }
 
@@ -381,7 +381,7 @@ TEST_F(native_private_kernel_ordering_tests, 0th_nullifier_zero_fails)
 
     ASSERT_TRUE(builder.failed());
     auto failure = builder.get_first_failure();
-    ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLLIFIER_IS_ZERO);
+    ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__0TH_NULLIFIER_IS_ZERO);
 }
 
 TEST_F(native_private_kernel_ordering_tests, input_validation_malformed_end_arrays_read_requests)

@@ -72,6 +72,10 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
         pageLogger.error(err.toString());
       });
       await page.goto(`http://localhost:${PORT}/index.html`);
+      while (!(await page.evaluate(() => !!window.AztecJs))) {
+        pageLogger('Waiting for window.AztecJs...');
+        await AztecJs.sleep(1000);
+      }
     }, 120_000);
 
     afterAll(async () => {
@@ -95,7 +99,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
           const account = getUnsafeSchnorrAccount(pxe, privateKey);
           await account.waitDeploy();
-          const completeAddress = await account.getCompleteAddress();
+          const completeAddress = account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
           console.log(`Created Account: ${addressString}`);
           return addressString;
@@ -171,11 +175,12 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           const {
             GrumpkinScalar,
             DeployMethod,
-            createPXEClient: createPXEClient,
+            createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
-            NotePreimage,
+            ExtendedNote,
+            Note,
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
@@ -198,12 +203,19 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
           const token = await Contract.at(receipt.contractAddress!, TokenContractArtifact, owner);
           const secret = Fr.random();
-          const secretHash = await computeMessageSecretHash(secret);
+          const secretHash = computeMessageSecretHash(secret);
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
           const storageSlot = new Fr(5);
-          const preimage = new NotePreimage([new Fr(initialBalance), secretHash]);
-          await pxe.addNote(ownerAddress, token.address, storageSlot, preimage, mintPrivateReceipt.txHash);
+          const note = new Note([new Fr(initialBalance), secretHash]);
+          const extendedNote = new ExtendedNote(
+            note,
+            ownerAddress,
+            token.address,
+            storageSlot,
+            mintPrivateReceipt.txHash,
+          );
+          await pxe.addNote(extendedNote);
 
           await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
 

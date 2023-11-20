@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -28,7 +28,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 # We enable -O1 level optimsations, even when compiling debug wasm, otherwise we get "local count too large" at runtime.
-# We prioritise reducing size of final artifacts in release with -Oz.
+# We prioritize reducing size of final artifacts in release with -Oz.
 if(WASM)
     set(CMAKE_CXX_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
@@ -48,26 +48,34 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
-add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
-add_subdirectory(barretenberg/numeric)
-add_subdirectory(barretenberg/srs)
-add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/crypto)
+add_subdirectory(barretenberg/dsl)
+add_subdirectory(barretenberg/ecc)
+add_subdirectory(barretenberg/eccvm)
+add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/examples)
+add_subdirectory(barretenberg/flavor)
+add_subdirectory(barretenberg/grumpkin_srs_gen)
+add_subdirectory(barretenberg/goblin)
+add_subdirectory(barretenberg/honk)
+add_subdirectory(barretenberg/join_split_example)
+add_subdirectory(barretenberg/numeric)
+add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/polynomials)
 add_subdirectory(barretenberg/proof_system)
-add_subdirectory(barretenberg/transcript)
-add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/plonk)
-add_subdirectory(barretenberg/stdlib)
-add_subdirectory(barretenberg/join_split_example)
-add_subdirectory(barretenberg/dsl)
-add_subdirectory(barretenberg/examples)
+add_subdirectory(barretenberg/protogalaxy)
+add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
+add_subdirectory(barretenberg/srs)
+add_subdirectory(barretenberg/stdlib)
+add_subdirectory(barretenberg/sumcheck)
+add_subdirectory(barretenberg/transcript)
+add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/grumpkin_srs_gen)
-add_subdirectory(barretenberg/bb)
 
 
 if(SMT)
@@ -89,18 +97,17 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 add_library(
     barretenberg
     STATIC
-    $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>
     $<TARGET_OBJECTS:crypto_ecdsa_objects>
-    $<TARGET_OBJECTS:crypto_generators_objects>
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
+    $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:examples_objects>
     $<TARGET_OBJECTS:honk_objects>
@@ -123,8 +130,8 @@ add_library(
 )
 
 if(WASM)
-    # With binaryen installed, it seems its wasm backend optimiser gets invoked automatically.
-    # Due to either a bug in the optimiser, or non-standards compliant c++ in crypto/aes, tests start failing with
+    # With binaryen installed, it seems its wasm backend optimizer gets invoked automatically.
+    # Due to either a bug in the optimizer, or non-standards compliant c++ in crypto/aes, tests start failing with
     # -O3 level optimizations. We force down to -O2 for current workaround.
     # TODO: Time has passed, check if this is still needed.
     # UPDATE: Uninstall binaryen and any need downstream.
@@ -135,19 +142,17 @@ if(WASM)
     # to implement the functions in env.
     add_executable(
         barretenberg.wasm
-        $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:common_objects>
         $<TARGET_OBJECTS:crypto_aes128_objects>
         $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_blake3s_objects>
         $<TARGET_OBJECTS:crypto_ecdsa_objects>
-        $<TARGET_OBJECTS:crypto_generators_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
         $<TARGET_OBJECTS:crypto_schnorr_objects>
         $<TARGET_OBJECTS:crypto_sha256_objects>
+        $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:ecc_objects>
         $<TARGET_OBJECTS:examples_objects>
         $<TARGET_OBJECTS:honk_objects>
@@ -167,6 +172,7 @@ if(WASM)
         $<TARGET_OBJECTS:stdlib_schnorr_objects>
         $<TARGET_OBJECTS:stdlib_sha256_objects>
         $<TARGET_OBJECTS:transcript_objects>
+        $<TARGET_OBJECTS:wasi_objects>
     )
 
     add_executable(
@@ -178,7 +184,6 @@ if(WASM)
         $<TARGET_OBJECTS:ecc_objects>
         $<TARGET_OBJECTS:crypto_blake2s_objects>
         $<TARGET_OBJECTS:crypto_keccak_objects>
-        $<TARGET_OBJECTS:crypto_generators_objects>
         $<TARGET_OBJECTS:crypto_schnorr_objects>
         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>

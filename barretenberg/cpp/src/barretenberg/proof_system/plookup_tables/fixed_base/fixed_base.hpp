@@ -2,7 +2,8 @@
 
 #include "../types.hpp"
 #include "./fixed_base_params.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen_refactor.hpp"
+#include "barretenberg/crypto/generators/generator_data.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace plookup::fixed_base {
@@ -18,7 +19,12 @@ class table : public FixedBaseParams {
     using single_lookup_table = std::vector<affine_element>;
     using fixed_base_scalar_mul_tables = std::vector<single_lookup_table>;
     using all_multi_tables = std::array<fixed_base_scalar_mul_tables, NUM_FIXED_BASE_MULTI_TABLES>;
-    using native_pedersen = crypto::pedersen_hash_refactor<curve::Grumpkin>;
+
+    static constexpr affine_element LHS_GENERATOR_POINT =
+        crypto::generator_data<curve::Grumpkin>::precomputed_generators[0];
+
+    static constexpr affine_element RHS_GENERATOR_POINT =
+        crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
 
     static inline single_lookup_table generate_single_lookup_table(const affine_element& base_point,
                                                                    const affine_element& offset_generator);
@@ -32,20 +38,15 @@ class table : public FixedBaseParams {
     // i.e. we treat 1 scalar mul as two independent scalar muls over (roughly) half-width input scalars.
     // The base_point members describe the fixed-base points that correspond to the two independent scalar muls,
     // for our two supported points
-    inline static const affine_element lhs_base_point_lo = native_pedersen::get_lhs_generator();
+    inline static const affine_element lhs_base_point_lo = LHS_GENERATOR_POINT;
     inline static const affine_element lhs_base_point_hi = element(lhs_base_point_lo) * MAX_LO_SCALAR;
-    inline static const affine_element rhs_base_point_lo = native_pedersen::get_rhs_generator();
+    inline static const affine_element rhs_base_point_lo = RHS_GENERATOR_POINT;
     inline static const affine_element rhs_base_point_hi = element(rhs_base_point_lo) * MAX_LO_SCALAR;
 
     // fixed_base_tables = lookup tables of precomputed base points required for our lookup arguments.
     // N.B. these "tables" are not plookup tables, just regular ol' software lookup tables.
     // Used to build the proper plookup table and in the `BasicTable::get_values_from_key` method
-    inline static const all_multi_tables fixed_base_tables = {
-        table::generate_tables<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-        table::generate_tables<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-        table::generate_tables<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-        table::generate_tables<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
-    };
+    static const all_multi_tables fixed_base_tables;
 
     /**
      * @brief offset generators!
@@ -62,13 +63,7 @@ class table : public FixedBaseParams {
      * The final scalar multiplication output will have a precisely-known contribution from the offset generators,
      * which can then be subtracted off with a single point subtraction.
      **/
-    inline static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>
-        fixed_base_table_offset_generators = {
-            table::generate_generator_offset<BITS_PER_LO_SCALAR>(lhs_base_point_lo),
-            table::generate_generator_offset<BITS_PER_HI_SCALAR>(lhs_base_point_hi),
-            table::generate_generator_offset<BITS_PER_LO_SCALAR>(rhs_base_point_lo),
-            table::generate_generator_offset<BITS_PER_HI_SCALAR>(rhs_base_point_hi),
-        };
+    static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES> fixed_base_table_offset_generators;
 
     static bool lookup_table_exists_for_point(const affine_element& input);
     static std::optional<std::array<MultiTableId, 2>> get_lookup_table_ids_for_point(const affine_element& input);

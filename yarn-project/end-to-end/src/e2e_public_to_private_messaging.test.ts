@@ -1,8 +1,6 @@
-import { AztecAddress } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
+import { AztecAddress, DebugLogger, EthAddress, sleep } from '@aztec/aztec.js';
 
-import { delay, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_to_private_messaging', () => {
@@ -46,14 +44,14 @@ describe('e2e_public_to_private_messaging', () => {
     const bridgeAmount = 100n;
     const shieldAmount = 50n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
+    await sleep(5000); /// waiting 5 seconds.
 
     // Perform another unrelated transaction on L2 to progress the rollup.
     const initialBalance = 1n;

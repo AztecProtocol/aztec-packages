@@ -1,6 +1,4 @@
-import { CircuitsWasm } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { IWasmModule } from '@aztec/foundation/wasm';
 import { Hasher, SiblingPath } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
@@ -36,12 +34,10 @@ treeTestSuite('SparseTree', createDb, createFromName);
 standardBasedTreeTestSuite('SparseTree', createDb);
 
 describe('SparseTreeSpecific', () => {
-  let wasm: IWasmModule;
   let pedersen: Pedersen;
 
-  beforeEach(async () => {
-    wasm = await CircuitsWasm.get();
-    pedersen = new Pedersen(wasm);
+  beforeEach(() => {
+    pedersen = new Pedersen();
   });
 
   it('throws when index is bigger than (2^DEPTH - 1) ', async () => {
@@ -95,11 +91,11 @@ describe('SparseTreeSpecific', () => {
     const db = levelup(createMemDown());
     const tree = await createDb(db, pedersen, 'test', 3);
 
-    const level2ZeroHash = pedersen.compress(INITIAL_LEAF, INITIAL_LEAF);
-    const level1ZeroHash = pedersen.compress(level2ZeroHash, level2ZeroHash);
+    const level2ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
+    const level1ZeroHash = pedersen.hash(level2ZeroHash, level2ZeroHash);
 
     expect(tree.getNumLeaves(false)).toEqual(0n);
-    expect(tree.getRoot(false)).toEqual(pedersen.compress(level1ZeroHash, level1ZeroHash));
+    expect(tree.getRoot(false)).toEqual(pedersen.hash(level1ZeroHash, level1ZeroHash));
 
     // Insert leaf at index 3
     let level1LeftHash: Buffer;
@@ -107,9 +103,9 @@ describe('SparseTreeSpecific', () => {
     {
       await tree.updateLeaf(leafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(1n);
-      const level2Hash = pedersen.compress(INITIAL_LEAF, leafAtIndex3);
-      level1LeftHash = pedersen.compress(level2ZeroHash, level2Hash);
-      const root = pedersen.compress(level1LeftHash, level1ZeroHash);
+      const level2Hash = pedersen.hash(INITIAL_LEAF, leafAtIndex3);
+      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
+      const root = pedersen.hash(level1LeftHash, level1ZeroHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(3n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level2ZeroHash, level1ZeroHash]),
@@ -122,9 +118,9 @@ describe('SparseTreeSpecific', () => {
       const leafAtIndex6 = randomBytes(32);
       await tree.updateLeaf(leafAtIndex6, 6n);
       expect(tree.getNumLeaves(true)).toEqual(2n);
-      const level2Hash = pedersen.compress(leafAtIndex6, INITIAL_LEAF);
-      level1RightHash = pedersen.compress(level2ZeroHash, level2Hash);
-      const root = pedersen.compress(level1LeftHash, level1RightHash);
+      const level2Hash = pedersen.hash(leafAtIndex6, INITIAL_LEAF);
+      level1RightHash = pedersen.hash(level2ZeroHash, level2Hash);
+      const root = pedersen.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(6n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [INITIAL_LEAF, level2ZeroHash, level1LeftHash]),
@@ -136,9 +132,9 @@ describe('SparseTreeSpecific', () => {
     {
       await tree.updateLeaf(leafAtIndex2, 2n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
-      const level2Hash = pedersen.compress(leafAtIndex2, leafAtIndex3);
-      level1LeftHash = pedersen.compress(level2ZeroHash, level2Hash);
-      const root = pedersen.compress(level1LeftHash, level1RightHash);
+      const level2Hash = pedersen.hash(leafAtIndex2, leafAtIndex3);
+      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
+      const root = pedersen.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(2n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [leafAtIndex3, level2ZeroHash, level1RightHash]),
@@ -150,9 +146,9 @@ describe('SparseTreeSpecific', () => {
       const updatedLeafAtIndex3 = randomBytes(32);
       await tree.updateLeaf(updatedLeafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
-      const level2Hash = pedersen.compress(leafAtIndex2, updatedLeafAtIndex3);
-      level1LeftHash = pedersen.compress(level2ZeroHash, level2Hash);
-      const root = pedersen.compress(level1LeftHash, level1RightHash);
+      const level2Hash = pedersen.hash(leafAtIndex2, updatedLeafAtIndex3);
+      level1LeftHash = pedersen.hash(level2ZeroHash, level2Hash);
+      const root = pedersen.hash(level1LeftHash, level1RightHash);
       expect(tree.getRoot(true)).toEqual(root);
       expect(await tree.getSiblingPath(3n, true)).toEqual(
         new SiblingPath(TEST_TREE_DEPTH, [leafAtIndex2, level2ZeroHash, level1RightHash]),

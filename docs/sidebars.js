@@ -46,7 +46,6 @@ const sidebars = {
       },
       items: [
         "about_aztec/roadmap/features_initial_ldt",
-        "about_aztec/roadmap/engineering_roadmap",
         "about_aztec/roadmap/cryptography_roadmap",
       ],
     },
@@ -55,7 +54,7 @@ const sidebars = {
 
     {
       type: "html",
-      value: '<span class="sidebar-divider" />',
+      value: '<span clasuns="sidebar-divider" />',
     },
 
     // SPECIFICATION
@@ -75,7 +74,17 @@ const sidebars = {
         id: "concepts/foundation/main",
       },
       items: [
-        "concepts/foundation/state_model",
+        {
+          label: "State Model",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "concepts/foundation/state_model/main",
+          },
+          items: [
+            "concepts/foundation/state_model/storage_slots"
+          ]
+        },
         {
           label: "Accounts",
           type: "category",
@@ -199,8 +208,8 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
-        "dev_docs/getting_started/sandbox",
-        "dev_docs/getting_started/updating",
+        "dev_docs/getting_started/aztecjs-getting-started",
+        "dev_docs/getting_started/aztecnr-getting-started",
       ],
     },
 
@@ -245,7 +254,7 @@ const sidebars = {
           ],
         },
         {
-          label: "Build Uniswap with Portals",
+          label: "Swap on L1 Uniswap from L2 with Portals",
           type: "category",
           link: {
             type: "doc",
@@ -268,6 +277,15 @@ const sidebars = {
     },
 
     {
+      label: "Aztec Sandbox and CLI",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/cli/main",
+      },
+      items: ["dev_docs/cli/cli-commands", "dev_docs/cli/sandbox-reference"],
+    },
+    {
       label: "Aztec.nr Contracts",
       type: "category",
       link: {
@@ -286,7 +304,17 @@ const sidebars = {
             id: "dev_docs/contracts/syntax/main",
           },
           items: [
-            "dev_docs/contracts/syntax/storage",
+            {
+              label: "Storage",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "dev_docs/contracts/syntax/storage/main",
+              },
+              items: [
+                "dev_docs/contracts/syntax/storage/storage_slots",
+              ]
+            },
             "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
             "dev_docs/contracts/syntax/context",
@@ -310,29 +338,29 @@ const sidebars = {
             "dev_docs/contracts/portals/outbox",
           ],
         },
-        "dev_docs/contracts/common_errors",
         {
-           label: "Resources",
-           type: "category",
-           items: [
-             //"dev_docs/contracts/resources/style_guide",
-             {
-               label: "Common Patterns",
-               type: "category",
-        //       link: {
-        //         type: "doc",
-        //         id: "dev_docs/contracts/resources/common_patterns/main",
-        //       },
-               items: [
+          label: "Resources",
+          type: "category",
+          items: [
+            "dev_docs/contracts/resources/dependencies",
+            //"dev_docs/contracts/resources/style_guide",
+            {
+              label: "Common Patterns",
+              type: "category",
+              //       link: {
+              //         type: "doc",
+              //         id: "dev_docs/contracts/resources/common_patterns/main",
+              //       },
+              items: [
                 "dev_docs/contracts/resources/common_patterns/authwit",
-        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
-        //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
-        //         "dev_docs/contracts/resources/common_patterns/access_control",
-        //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
-               ],
-             },
-           ],
-         },
+                //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
+                //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
+                //         "dev_docs/contracts/resources/common_patterns/access_control",
+                //         "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
+              ],
+            },
+          ],
+        },
         // {
         //   label: "Security Considerations",
         //   type: "category",
@@ -351,7 +379,28 @@ const sidebars = {
       ],
     },
 
-    "dev_docs/cli/main",
+    {
+      label: "Aztec.js",
+      type: "doc",
+      id: "dev_docs/aztecjs/main",
+    },
+    {
+      label: "Debugging",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/debugging/main",
+      },
+      items: [
+        "dev_docs/debugging/aztecnr-errors",
+        "dev_docs/debugging/sandbox-errors",
+      ],
+    },
+    {
+      label: "Updating",
+      type: "doc",
+      id: "dev_docs/updating",
+    },
 
     {
       label: "Testing",
@@ -382,7 +431,6 @@ const sidebars = {
       type: "category",
       items: [],
     },*/
-    "dev_docs/sandbox_errors/main",
     "dev_docs/privacy/main",
     "dev_docs/limitations/main",
 

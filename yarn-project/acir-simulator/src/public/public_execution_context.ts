@@ -93,7 +93,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param args - Arguments to pack
    */
   public packArguments(args: Fr[]): Promise<Fr> {
-    return this.packedArgsCache.pack(args);
+    return Promise.resolve(this.packedArgsCache.pack(args));
   }
 
   /**
@@ -185,7 +185,9 @@ export class PublicExecutionContext extends TypedOracle {
     }
 
     const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
-    if (!acir) throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
+    if (!acir) {
+      throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
+    }
 
     const functionData = new FunctionData(functionSelector, isInternal, false, false);
 

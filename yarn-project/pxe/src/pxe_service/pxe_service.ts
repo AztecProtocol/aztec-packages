@@ -8,7 +8,6 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
@@ -22,7 +21,7 @@ import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import NoirVersion from '@aztec/noir-compiler/noir-version';
+import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
 import {
   AuthWitness,
   AztecNode,
@@ -30,6 +29,7 @@ import {
   ContractData,
   DeployedContract,
   ExtendedContractData,
+  ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
   KeyStore,
@@ -38,7 +38,7 @@ import {
   LogFilter,
   MerkleTreeId,
   NodeInfo,
-  NotePreimage,
+  NoteFilter,
   PXE,
   SimulationError,
   Tx,
@@ -55,6 +55,7 @@ import {
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -119,7 +120,7 @@ export class PXEService implements PXE {
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
+    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
@@ -185,101 +186,106 @@ export class PXEService implements PXE {
     return (await this.db.getContracts()).map(c => c.completeAddress.address);
   }
 
-  public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
     if ((await this.getContractData(contract)) === undefined) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, storageSlot.value);
+    return await this.node.getPublicStorageAt(contract, slot);
   }
 
-  public async getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
-      throw new Error(`Contract ${contract.toString()} is not deployed`);
-    }
-    const notes = await this.db.getNoteSpendingInfo(contract, storageSlot);
-    const ownerCompleteAddress = await this.db.getCompleteAddress(owner);
-    if (!ownerCompleteAddress) throw new Error(`Owner ${owner} not registered in PXE`);
-    const { publicKey: ownerPublicKey } = ownerCompleteAddress;
-    const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
-    return ownerNotes.map(n => n.notePreimage);
+  public async getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getNotes(filter);
+
+    // TODO(benesjan): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
+    // key derivation will affect all this
+    const extendedNotes = noteDaos.map(async dao => {
+      let owner = filter.owner;
+      if (owner === undefined) {
+        const completeAddresses = (await this.db.getCompleteAddresses()).find(address =>
+          address.publicKey.equals(dao.publicKey),
+        );
+        if (completeAddresses === undefined) {
+          throw new Error(`Cannot find complete address for public key ${dao.publicKey.toString()}`);
+        }
+        owner = completeAddresses.address;
+      }
+      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.txHash);
+    });
+    return Promise.all(extendedNotes);
   }
 
-  public async addNote(
-    account: AztecAddress,
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    preimage: NotePreimage,
-    txHash: TxHash,
-    nonce?: Fr,
-  ) {
-    const { publicKey } = (await this.db.getCompleteAddress(account)) ?? {};
+  public async addNote(note: ExtendedNote) {
+    const { publicKey } = (await this.db.getCompleteAddress(note.owner)) ?? {};
     if (!publicKey) {
       throw new Error('Unknown account.');
     }
 
-    if (!nonce) {
-      [nonce] = await this.getNoteNonces(contractAddress, storageSlot, preimage, txHash);
-    }
-    if (!nonce) {
-      throw new Error(`Cannot find the note in tx: ${txHash}.`);
+    const nonces = await this.getNoteNonces(note);
+    if (nonces.length === 0) {
+      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
 
-    const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-      await this.simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage.items);
+    for (const nonce of nonces) {
+      const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+        await this.simulator.computeNoteHashAndNullifier(note.contractAddress, nonce, note.storageSlot, note.note);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
-    const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-    const index = await this.node.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, noteHashToLookUp.toBuffer());
-    if (index === undefined) {
-      throw new Error('Note does not exist.');
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
+      const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
+      const index = await this.node.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp);
+      if (index === undefined) {
+        throw new Error('Note does not exist.');
+      }
+
+      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
+      const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
+      if (nullifierIndex !== undefined) {
+        throw new Error('The note has been destroyed.');
+      }
+
+      await this.db.addNote(
+        new NoteDao(
+          note.note,
+          note.contractAddress,
+          note.storageSlot,
+          note.txHash,
+          nonce,
+          innerNoteHash,
+          siloedNullifier,
+          index,
+          publicKey,
+        ),
+      );
     }
-
-    const wasm = await CircuitsWasm.get();
-    const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier!);
-    const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBuffer());
-    if (nullifierIndex !== undefined) {
-      throw new Error('The note has been destroyed.');
-    }
-
-    await this.db.addNoteSpendingInfo({
-      contractAddress,
-      storageSlot,
-      notePreimage: preimage,
-      nonce,
-      innerNoteHash,
-      siloedNullifier,
-      index,
-      publicKey,
-    });
   }
 
-  public async getNoteNonces(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    preimage: NotePreimage,
-    txHash: TxHash,
-  ): Promise<Fr[]> {
-    const tx = await this.node.getTx(txHash);
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   */
+  private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    const tx = await this.node.getTx(note.txHash);
     if (!tx) {
-      throw new Error(`Unknown tx: ${txHash}`);
+      throw new Error(`Unknown tx: ${note.txHash}`);
     }
-
-    const wasm = await CircuitsWasm.get();
 
     const nonces: Fr[] = [];
     const firstNullifier = tx.newNullifiers[0];
     const commitments = tx.newCommitments;
     for (let i = 0; i < commitments.length; ++i) {
       const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) break;
+      if (commitment.equals(Fr.ZERO)) {
+        break;
+      }
 
-      const nonce = computeCommitmentNonce(wasm, firstNullifier, i);
+      const nonce = computeCommitmentNonce(firstNullifier, i);
       const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
-        contractAddress,
+        note.contractAddress,
         nonce,
-        storageSlot,
-        preimage.items,
+        note.storageSlot,
+        note.note,
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.
@@ -317,7 +323,9 @@ export class PXEService implements PXE {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    if (simulatePublic) await this.#simulatePublicCalls(tx);
+    if (simulatePublic) {
+      await this.#simulatePublicCalls(tx);
+    }
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -395,7 +403,9 @@ export class PXEService implements PXE {
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
-      throw new Error(`Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...)`);
+      throw new Error(
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/dev_docs/contracts/common_errors#unknown-contract-error`,
+      );
     }
 
     const functionDao = contract.functions.find(f => f.name === functionName);
@@ -419,7 +429,7 @@ export class PXEService implements PXE {
 
     const nodeInfo: NodeInfo = {
       sandboxVersion: this.sandboxVersion,
-      compatibleNargoVersion: NoirVersion.tag,
+      compatibleNargoVersion: NoirWasmVersion,
       chainId,
       protocolVersion: version,
       l1ContractAddresses: contractAddresses,
@@ -616,7 +626,7 @@ export class PXEService implements PXE {
     publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
-    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());
+    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().hash();
     const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
     const { publicCallStack } = publicInputs.end;
 

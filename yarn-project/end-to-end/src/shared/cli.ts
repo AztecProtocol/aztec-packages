@@ -60,7 +60,9 @@ export const cliTestSuite = (
     const findInLogs = (regex: RegExp) => {
       for (const log of logs) {
         const match = regex.exec(log);
-        if (match) return match;
+        if (match) {
+          return match;
+        }
       }
     };
 
@@ -68,7 +70,9 @@ export const cliTestSuite = (
       const matches = [];
       for (const log of logs) {
         const match = regex.exec(log);
-        if (match) matches.push(match);
+        if (match) {
+          matches.push(match);
+        }
       }
       return matches;
     };
@@ -91,7 +95,7 @@ export const cliTestSuite = (
       const newCompleteAddress = accountsAfter[accountsAfter.length - 1];
 
       // Test get-accounts
-      debug('Check that account was added to the list of accs in RPC');
+      debug('Check that account was added to the list of accounts in RPC');
       await run('get-accounts');
       const fetchedAddresses = findMultipleInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/);
       const foundFetchedAddress = fetchedAddresses.find(match => match.groups?.address === newAddress.toString());
@@ -131,7 +135,7 @@ export const cliTestSuite = (
       expect(checkResult).toEqual(deployedContract?.contractAddress.toString());
 
       const secret = Fr.random();
-      const secretHash = await computeMessageSecretHash(secret);
+      const secretHash = computeMessageSecretHash(secret);
 
       debug('Mint initial tokens.');
       await run(
@@ -142,7 +146,7 @@ export const cliTestSuite = (
       const txHashes = findMultipleInLogs(/Transaction Hash: ([0-9a-f]{64})/i);
       const mintPrivateTxHash = txHashes[txHashes.length - 1][1];
       await run(
-        `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --preimage ${INITIAL_BALANCE} ${secretHash}`,
+        `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --note ${INITIAL_BALANCE} ${secretHash}`,
       );
 
       debug('Redeem tokens.');

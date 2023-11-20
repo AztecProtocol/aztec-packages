@@ -107,7 +107,7 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
  */
 export function toACVMHistoricBlockData(historicBlockData: HistoricBlockData): ACVMField[] {
   return [
-    toACVMField(historicBlockData.privateDataTreeRoot),
+    toACVMField(historicBlockData.noteHashTreeRoot),
     toACVMField(historicBlockData.nullifierTreeRoot),
     toACVMField(historicBlockData.contractTreeRoot),
     toACVMField(historicBlockData.l1ToL2MessagesTreeRoot),
@@ -187,12 +187,12 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
  * @param item - The public call stack item to serialize to be passed onto Noir.
  * @returns The fields expected by the enqueue_public_function_call_oracle Aztec.nr function.
  */
-export async function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): Promise<ACVMField[]> {
+export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
   return [
     toACVMField(item.contractAddress),
     ...toACVMFunctionData(item.functionData),
     ...toACVMCallContext(item.callContext),
-    toACVMField(await item.getArgsHash()),
+    toACVMField(item.getArgsHash()),
   ];
 }
 

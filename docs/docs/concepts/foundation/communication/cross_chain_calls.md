@@ -8,7 +8,18 @@ import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 
 <Disclaimer />
 
-In the following section, we will look at cross-chain communication, mixing L1 and L2 for composability and profits.
+In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible. You can learn more about why in the previous section.
+
+Traditional L1 <-> L2 communication might involve direct calls between L2 nd L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
+
+Portals are the solution to this problem, acting as bridges for communication between the two layers. These portals can transmit messages from public functions in L1 to private functions in L2 and vice versa, thus enabling messaging while maintaining privacy.
+
+This page covers:
+
+- How portals enable privacy communication between L1 and L2
+- How messages are sent, received, and processed
+- Message Boxes and how they work
+- How and why linking of contracts between L1 and L2 occurs
 
 # Objective
 
@@ -62,7 +73,7 @@ In a logical sense, a Message Box functions as a one-way message passing mechani
 - At some point, a rollup will be executed, in this step messages are "moved" from pending on Domain A, to ready on Domain B. Note that consuming the message is "pulling & deleting" (or nullifying). The action is atomic, so a message that is consumed from the pending set MUST be added to the ready set, or the state transition should fail. A further constraint on moving messages along the way, is that only messages where the `sender` and `recipient` pair exists in a leaf in the contracts tree are allowed!
 - When the message have been added to the ready set, the `recipient` can consume the message as part of a function call.
 
-Something that might seem weird when comparing to other cross-chain setups, is that we are "pulling" messages, and that the message don't need to be calldata for a function call. For _Abritrum_ and the like, execution is happening FROM the "message bridge", which then calls the L1 contract. For us, you call the L1 contract, and it should then consume messages from the message box.
+Something that might seem weird when comparing to other cross-chain setups, is that we are "pulling" messages, and that the message don't need to be calldata for a function call. For _Arbitrum_ and the like, execution is happening FROM the "message bridge", which then calls the L1 contract. For us, you call the L1 contract, and it should then consume messages from the message box.
 Why? _Privacy_! When pushing, we would be needing full `calldata`. Which for functions with private inputs is not really something we want as that calldata for L1 -> L2 transactions are committed to on L1, e.g., publicly sharing the inputs to a private function.
 
 By instead pulling, we can have the "message" be something that is derived from the arguments instead. This way, a private function to perform second half of a deposit, could leak the "value" deposited and "who" made the deposit (as this is done on L1), but the new owner can be hidden on L2.

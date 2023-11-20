@@ -1,8 +1,7 @@
 #pragma once
 
 #include "barretenberg/plonk/proof_system/types/program_settings.hpp"
-
-#include "../transcript/transcript.hpp"
+#include "barretenberg/stdlib/recursion/transcript/transcript.hpp"
 
 namespace proof_system::plonk {
 namespace stdlib {
@@ -21,14 +20,13 @@ template <typename Curve> class recursive_ultra_verifier_settings : public plonk
 
     typedef proof_system::plonk::VerifierPlookupArithmeticWidget<fr_ct, g1, Transcript_pt, base_settings>
         PlookupArithmeticWidget;
-    typedef proof_system::plonk::VerifierLogicWidget<fr_ct, g1, Transcript_pt, base_settings> LogicWidget;
     typedef proof_system::plonk::VerifierGenPermSortWidget<fr_ct, g1, Transcript_pt, base_settings> GenPermSortWidget;
     typedef proof_system::plonk::VerifierEllipticWidget<fr_ct, g1, Transcript_pt, base_settings> EllipticWidget;
     typedef proof_system::plonk::VerifierPlookupAuxiliaryWidget<fr_ct, g1, Transcript_pt, base_settings>
         PlookupAuxiliaryWidget;
 
     static constexpr size_t num_challenge_bytes = 16;
-    static constexpr transcript::HashType hash_type = transcript::HashType::PlookupPedersenBlake3s;
+    static constexpr transcript::HashType hash_type = transcript::HashType::PedersenBlake3s;
     // idpolys is a flag that describes whether we're using Vitalik's trick of using trivial identity permutation
     // polynomials (id_poly = false); OR whether the identity permutation polynomials are circuit-specific and stored in
     // the proving/verification key (id_poly = true).
@@ -99,7 +97,6 @@ class recursive_ultra_to_standard_verifier_settings : public recursive_ultra_ver
 
     typedef proof_system::plonk::VerifierPlookupArithmeticWidget<fr_ct, g1, Transcript_pt, base_settings>
         PlookupArithmeticWidget;
-    typedef proof_system::plonk::VerifierLogicWidget<fr_ct, g1, Transcript_pt, base_settings> LogicWidget;
     typedef proof_system::plonk::VerifierGenPermSortWidget<fr_ct, g1, Transcript_pt, base_settings> GenPermSortWidget;
     typedef proof_system::plonk::VerifierEllipticWidget<fr_ct, g1, Transcript_pt, base_settings> EllipticWidget;
     typedef proof_system::plonk::VerifierPlookupAuxiliaryWidget<fr_ct, g1, Transcript_pt, base_settings>

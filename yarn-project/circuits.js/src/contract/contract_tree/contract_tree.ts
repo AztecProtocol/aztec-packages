@@ -1,4 +1,4 @@
-import { CircuitsWasm, ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
+import { ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
 import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 
@@ -11,9 +11,9 @@ import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
  * @param wasm - An instance of CircuitsWasm class used for hashing.
  * @returns A Promise resolving to a Buffer containing the hash of the verification key.
  */
-export function hashVKStr(vk: string, wasm: CircuitsWasm) {
+export function hashVKStr(vk: string) {
   // TODO - check consistent encoding
-  return hashVK(wasm, Buffer.from(vk, 'hex'));
+  return hashVK(Buffer.from(vk, 'hex'));
 }
 
 /**
@@ -64,7 +64,7 @@ export function isConstrained({
  * @param wasm - CircuitsWasm instance used for hashing and computations.
  * @returns An array of Fr instances representing the generated function leaves.
  */
-export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: CircuitsWasm) {
+export function generateFunctionLeaves(functions: ContractFunctionDao[]) {
   const targetFunctions = functions.filter(isConstrained);
   const result: Fr[] = [];
   for (let i = 0; i < targetFunctions.length; i++) {
@@ -73,7 +73,9 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: C
     const isInternal = f.isInternal;
     const isPrivate = f.functionType === FunctionType.SECRET;
     // All non-unconstrained functions have vks
-    const vkHash = hashVKStr(f.verificationKey!, wasm);
+    // TODO we'd need to have a defined length of the VK for this to be computed in noir
+    // const vkHash = hashVKStr(f.verificationKey!, wasm);
+    const vkHash = Buffer.alloc(32, 0);
     // TODO
     // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
     // const acirHash = keccak(Buffer.from(f.bytecode, 'hex'));
@@ -86,7 +88,7 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: C
       Fr.fromBuffer(vkHash),
       Fr.fromBuffer(acirHash),
     );
-    const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
+    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
     result.push(fnLeaf);
   }
   return result;

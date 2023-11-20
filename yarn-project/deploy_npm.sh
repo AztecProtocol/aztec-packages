@@ -58,7 +58,7 @@ function deploy_package() {
       # Tag the existing version
       npm dist-tag add $PACKAGE_NAME@$VERSION $DIST_TAG
     else
-      # Publish new verison
+      # Publish new version
       npm publish $TAG_ARG --access public
     fi
   else
@@ -73,6 +73,7 @@ function deploy_package() {
   fi
 }
 
+# New packages here should be added after the last package that they depend on
 deploy_package foundation
 deploy_package circuits.js
 deploy_package types
@@ -83,6 +84,7 @@ deploy_package noir-compiler
 deploy_package noir-contracts
 deploy_package cli
 deploy_package merkle-tree
+deploy_package noir-protocol-circuits
 deploy_package acir-simulator
 deploy_package key-store
 deploy_package pxe

@@ -20,7 +20,7 @@ describe('Synchronizer', () => {
     blockData = HistoricBlockData.random();
     roots = {
       [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
-      [MerkleTreeId.PRIVATE_DATA_TREE]: blockData.privateDataTreeRoot,
+      [MerkleTreeId.NOTE_HASH_TREE]: blockData.noteHashTreeRoot,
       [MerkleTreeId.NULLIFIER_TREE]: blockData.nullifierTreeRoot,
       [MerkleTreeId.PUBLIC_DATA_TREE]: blockData.publicDataTreeRoot,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockData.l1ToL2MessagesTreeRoot,
@@ -102,10 +102,10 @@ describe('Synchronizer', () => {
     aztecNode.getBlockNumber.mockResolvedValueOnce(1);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(await Grumpkin.new());
+    const keyStore = new TestKeyStore(new Grumpkin());
     const privateKey = GrumpkinScalar.random();
     keyStore.addAccount(privateKey);
-    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
+    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
     await database.addCompleteAddress(completeAddress);
 
     // Add the account which will add the note processor to the synchronizer

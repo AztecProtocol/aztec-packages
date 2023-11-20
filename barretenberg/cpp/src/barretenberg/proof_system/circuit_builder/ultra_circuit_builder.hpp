@@ -1,12 +1,12 @@
 #pragma once
-#include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
-#include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
+// #include "barretenberg/plonk/proof_system/constants.hpp"
+// #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
+// #include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
+#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "barretenberg/proof_system/types/merkle_hash_type.hpp"
 #include "barretenberg/proof_system/types/pedersen_commitment_type.hpp"
 #include "circuit_builder_base.hpp"
@@ -14,10 +14,29 @@
 
 namespace proof_system {
 
+template <typename FF> struct non_native_field_witnesses {
+    // first 4 array elements = limbs
+    // 5th element = prime basis limb
+    std::array<uint32_t, 5> a;
+    std::array<uint32_t, 5> b;
+    std::array<uint32_t, 5> q;
+    std::array<uint32_t, 5> r;
+    std::array<FF, 5> neg_modulus;
+    FF modulus;
+};
+
 using namespace barretenberg;
 
-template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<arithmetization::Ultra<FF>> {
+template <typename Arithmetization>
+class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization::FF> {
   public:
+    using FF = typename Arithmetization::FF;
+    static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
+    // Keeping NUM_WIRES, at least temporarily, for backward compatibility
+    static constexpr size_t program_width = Arithmetization::NUM_WIRES;
+    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
+    std::vector<std::string> selector_names = Arithmetization::selector_names;
+
     static constexpr std::string_view NAME_STRING = "UltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::LOOKUP_PEDERSEN;
@@ -36,17 +55,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     static constexpr size_t NUM_RESERVED_GATES = 4;
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
-
-    struct non_native_field_witnesses {
-        // first 4 array elements = limbs
-        // 5th element = prime basis limb
-        std::array<uint32_t, 5> a;
-        std::array<uint32_t, 5> b;
-        std::array<uint32_t, 5> q;
-        std::array<uint32_t, 5> r;
-        std::array<FF, 5> neg_modulus;
-        FF modulus;
-    };
 
     enum AUX_SELECTORS {
         NONE,
@@ -212,12 +220,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         }
     };
 
-    inline std::vector<std::string> ultra_selector_names()
-    {
-        std::vector<std::string> result{ "q_m",     "q_c",    "q_1",        "q_2",   "q_3",       "q_4",
-                                         "q_arith", "q_sort", "q_elliptic", "q_aux", "table_type" };
-        return result;
-    }
     struct non_native_field_multiplication_cross_terms {
         uint32_t lo_0_idx;
         uint32_t lo_1_idx;
@@ -278,7 +280,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             cached_partial_non_native_field_multiplications;
 
         size_t num_gates;
-        bool circuit_finalised = false;
+        bool circuit_finalized = false;
         /**
          * @brief Stores the state of everything logic-related in the builder.
          *
@@ -325,7 +327,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             stored_state.memory_read_records = builder.memory_read_records;
             stored_state.memory_write_records = builder.memory_write_records;
             stored_state.range_lists = builder.range_lists;
-            stored_state.circuit_finalised = builder.circuit_finalised;
+            stored_state.circuit_finalized = builder.circuit_finalized;
             stored_state.num_gates = builder.num_gates;
             stored_state.cached_partial_non_native_field_multiplications =
                 builder.cached_partial_non_native_field_multiplications;
@@ -362,7 +364,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             stored_state.memory_read_records = builder->memory_read_records;
             stored_state.memory_write_records = builder->memory_write_records;
             stored_state.range_lists = builder->range_lists;
-            stored_state.circuit_finalised = builder->circuit_finalised;
+            stored_state.circuit_finalized = builder->circuit_finalized;
             stored_state.num_gates = builder->num_gates;
             stored_state.cached_partial_non_native_field_multiplications =
                 builder->cached_partial_non_native_field_multiplications;
@@ -397,7 +399,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             builder->memory_read_records = memory_read_records;
             builder->memory_write_records = memory_write_records;
             builder->range_lists = range_lists;
-            builder->circuit_finalised = circuit_finalised;
+            builder->circuit_finalized = circuit_finalized;
             builder->num_gates = num_gates;
             builder->cached_partial_non_native_field_multiplications = cached_partial_non_native_field_multiplications;
             builder->w_l.resize(num_gates);
@@ -519,32 +521,35 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             if (!(num_gates == builder.num_gates)) {
                 return false;
             }
-            if (!(circuit_finalised == builder.circuit_finalised)) {
+            if (!(circuit_finalized == builder.circuit_finalized)) {
                 return false;
             }
             return true;
         }
     };
 
+    std::array<std::vector<uint32_t, barretenberg::ContainerSlabAllocator<uint32_t>>, NUM_WIRES> wires;
+    Arithmetization selectors;
+
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l = std::get<0>(this->wires);
-    WireVector& w_r = std::get<1>(this->wires);
-    WireVector& w_o = std::get<2>(this->wires);
-    WireVector& w_4 = std::get<3>(this->wires);
+    WireVector& w_l = std::get<0>(wires);
+    WireVector& w_r = std::get<1>(wires);
+    WireVector& w_o = std::get<2>(wires);
+    WireVector& w_4 = std::get<3>(wires);
 
-    SelectorVector& q_m = this->selectors.q_m;
-    SelectorVector& q_c = this->selectors.q_c;
-    SelectorVector& q_1 = this->selectors.q_1;
-    SelectorVector& q_2 = this->selectors.q_2;
-    SelectorVector& q_3 = this->selectors.q_3;
-    SelectorVector& q_4 = this->selectors.q_4;
-    SelectorVector& q_arith = this->selectors.q_arith;
-    SelectorVector& q_sort = this->selectors.q_sort;
-    SelectorVector& q_elliptic = this->selectors.q_elliptic;
-    SelectorVector& q_aux = this->selectors.q_aux;
-    SelectorVector& q_lookup_type = this->selectors.q_lookup_type;
+    SelectorVector& q_m = selectors.q_m();
+    SelectorVector& q_c = selectors.q_c();
+    SelectorVector& q_1 = selectors.q_1();
+    SelectorVector& q_2 = selectors.q_2();
+    SelectorVector& q_3 = selectors.q_3();
+    SelectorVector& q_4 = selectors.q_4();
+    SelectorVector& q_arith = selectors.q_arith();
+    SelectorVector& q_sort = selectors.q_sort();
+    SelectorVector& q_elliptic = selectors.q_elliptic();
+    SelectorVector& q_aux = selectors.q_aux();
+    SelectorVector& q_lookup_type = selectors.q_lookup_type();
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -579,12 +584,13 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
-    bool circuit_finalised = false;
+    bool circuit_finalized = false;
 
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
-        : CircuitBuilderBase<arithmetization::Ultra<FF>>(ultra_selector_names(), size_hint)
+        : CircuitBuilderBase<FF>(size_hint)
     {
+        selectors.reserve(size_hint);
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);
         w_o.reserve(size_hint);
@@ -594,8 +600,10 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = delete;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
-        : CircuitBuilderBase<arithmetization::Ultra<FF>>(std::move(other))
+        : CircuitBuilderBase<FF>(std::move(other))
     {
+        wires = other.wires;
+        selectors = other.selectors;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
@@ -606,12 +614,14 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         memory_read_records = other.memory_read_records;
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalised = other.circuit_finalised;
+        circuit_finalized = other.circuit_finalized;
     };
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = delete;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
     {
-        CircuitBuilderBase<arithmetization::Ultra<FF>>::operator=(std::move(other));
+        CircuitBuilderBase<FF>::operator=(std::move(other));
+        wires = other.wires;
+        selectors = other.selectors;
         constant_variable_indices = other.constant_variable_indices;
 
         lookup_tables = other.lookup_tables;
@@ -622,7 +632,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         memory_read_records = other.memory_read_records;
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalised = other.circuit_finalised;
+        circuit_finalized = other.circuit_finalized;
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;
@@ -723,7 +733,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             romcount += 1; // we add an addition gate after procesing a rom array
         }
 
-        constexpr size_t gate_width = CircuitBuilderBase<arithmetization::Ultra<FF>>::program_width;
         // each RAM gate adds +2 extra gates due to the ram reads being copied to a sorted list set,
         // as well as an extra gate to validate timestamps
         std::vector<size_t> ram_timestamps;
@@ -744,12 +753,12 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
             // if a range check of length `max_timestamp` already exists, we are double counting.
             // We record `ram_timestamps` to detect and correct for this error when we process range lists.
             ram_timestamps.push_back(max_timestamp);
-            size_t padding = (gate_width - (max_timestamp % gate_width)) % gate_width;
-            if (max_timestamp == gate_width)
-                padding += gate_width;
+            size_t padding = (NUM_WIRES - (max_timestamp % NUM_WIRES)) % NUM_WIRES;
+            if (max_timestamp == NUM_WIRES)
+                padding += NUM_WIRES;
             const size_t ram_range_check_list_size = max_timestamp + padding;
 
-            size_t ram_range_check_gate_count = (ram_range_check_list_size / gate_width);
+            size_t ram_range_check_gate_count = (ram_range_check_list_size / NUM_WIRES);
             ram_range_check_gate_count += 1; // we need to add 1 extra addition gates for every distinct range list
 
             ram_range_sizes.push_back(ram_range_check_gate_count);
@@ -757,9 +766,9 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         }
         for (const auto& list : range_lists) {
             auto list_size = list.second.variable_indices.size();
-            size_t padding = (gate_width - (list.second.variable_indices.size() % gate_width)) % gate_width;
-            if (list.second.variable_indices.size() == gate_width)
-                padding += gate_width;
+            size_t padding = (NUM_WIRES - (list.second.variable_indices.size() % NUM_WIRES)) % NUM_WIRES;
+            if (list.second.variable_indices.size() == NUM_WIRES)
+                padding += NUM_WIRES;
             list_size += padding;
 
             for (size_t i = 0; i < ram_timestamps.size(); ++i) {
@@ -767,7 +776,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
                     ram_range_exists[i] = true;
                 }
             }
-            rangecount += (list_size / gate_width);
+            rangecount += (list_size / NUM_WIRES);
             rangecount += 1; // we need to add 1 extra addition gates for every distinct range list
         }
         // update rangecount to include the ram range checks the composer will eventually be creating
@@ -798,8 +807,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
      */
     size_t get_num_gates() const override
     {
-        // if circuit finalised already added extra gates
-        if (circuit_finalised) {
+        // if circuit finalized already added extra gates
+        if (circuit_finalized) {
             return this->num_gates;
         }
         size_t count = 0;
@@ -937,8 +946,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_field_witnesses& input, const bool range_constrain_quotient_and_remainder = true);
-    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses& input);
+        const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder = true);
+    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     typedef std::pair<uint32_t, FF> scaled_witness;
     typedef std::tuple<scaled_witness, scaled_witness, FF> add_simple;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -1039,6 +1048,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     bool check_circuit();
 };
-extern template class UltraCircuitBuilder_<barretenberg::fr>;
-using UltraCircuitBuilder = UltraCircuitBuilder_<barretenberg::fr>;
+extern template class UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
+extern template class UltraCircuitBuilder_<arithmetization::UltraHonk<barretenberg::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
 } // namespace proof_system

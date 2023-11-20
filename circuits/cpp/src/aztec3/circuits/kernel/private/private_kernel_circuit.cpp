@@ -49,7 +49,7 @@ CT::AggregationObject verify_proofs(Builder& builder, PrivateKernelInputsInner<C
  * as well as signed TX request and the private call information
  * @param public_inputs should be empty here since it is being initialized in this call
  */
-void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
+void initialize_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
                            KernelCircuitPublicInputs<CT>& public_inputs)
 {
     // TODO: Ensure public inputs is empty here
@@ -104,7 +104,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
         // input storage contract address must be 0 if its a constructor call and non-zero otherwise
         auto is_contract_deployment = public_inputs.constants.tx_context.is_contract_deployment_tx;
 
-        auto private_call_vk_hash = private_inputs.private_call.vk->compress(GeneratorIndex::VK);
+        auto private_call_vk_hash = private_inputs.private_call.vk->hash();
         auto constructor_hash = compute_constructor_hash<CT>(private_inputs.private_call.call_stack_item.function_data,
                                                              private_call_public_inputs.args_hash,
                                                              private_call_vk_hash);
@@ -180,7 +180,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     //         l1_call_stack[i] = CT::fr::conditional_assign(
     //             new_l2_to_l1_msgs[i] == 0,
     //             0,
-    //             CT::compress({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
+    //             CT::hash({ portal_contract_address, new_l2_to_l1_msgs[i] }, GeneratorIndex::L2_TO_L1_MSG));
     //     }
     // }
 }
@@ -317,7 +317,7 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& builder,
     KernelCircuitPublicInputs<CT> public_inputs = KernelCircuitPublicInputs<NT>{}.to_circuit_type(builder);
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(private_inputs, public_inputs);
+    initialize_end_values(private_inputs, public_inputs);
 
     validate_inputs(private_inputs, first_iteration);
 

@@ -15,7 +15,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -25,14 +25,13 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "testTimeout": 15000
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
     "levelup": "^5.1.1",
@@ -42,7 +41,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.2",
     "@types/memdown": "^3.0.1",

@@ -1,12 +1,12 @@
 # aztec-sandbox
 
-Aztec Sandbox is a package that allows for a simple development environment on Aztec stack. It creates an Private eXecution Environment (PXE) that listens for HTTP requests on `localhost:8080` by default. When started, it deploys all necessary L1 Aztec contracts and then starts listening for RPC requests.
+Aztec Sandbox is a package that allows for a simple development environment on Aztec stack. It creates a Private eXecution Environment (PXE) that listens for HTTP requests on `localhost:8080` by default. When started, it deploys all necessary L1 Aztec contracts and then starts listening for RPC requests.
 
 ## How to run:
 
 ### Docker Compose
 
-The easiesty way to run is by using `docker compose up`. This will create two containers:
+The easiest way to run is by using `docker compose up`. This will create two containers:
 
 1. The sandbox listening on port `8080`
 2. An anvil instance listening on port `8545`
@@ -46,7 +46,12 @@ From the `aztec-sandbox` directory, you can run the two existing examples:
   - `yarn run:example:token`
 - An L1 / L2 uniswap token trade.
   - `yarn run:example:uniswap`
-  - To run this example, you need to use the `docker-compose-fork.yml` configuration.
+  - To run this example, you need to set the following vars:
+
+```
+export FORK_BLOCK_NUMBER=17514288
+export FORK_URL=<YOUR_RPC_URL e.g. https://mainnet.infura.io/v3/API_KEY>
+```
 
 ## Publishing
 

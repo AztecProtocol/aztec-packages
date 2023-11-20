@@ -16,7 +16,7 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 
 - Gather metrics about everything, to guide future decisions.
 
-## Standardisation efforts
+## Standardization efforts
 
 - Recommended Aztec smart contract coding patterns
 - Access Control (whitelists/blacklists) - probably needs the Slow Updates tree (or something similar).
@@ -52,7 +52,7 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
     - Just emit the initially-enqueued public function request data? (The 'inputs' of the tx);
         - I.e. contract address, function selector, args, call_context.
     - OR, Just emit the final state transitions? (The 'outputs' of the tx)
-        - I.e. the leaf indices and new values of the public data tree; and the new commitments/nullifiers of the private data tree; and logs; and l2->L1 messages.
+        - I.e. the leaf indices and new values of the public data tree; and the new commitments/nullifiers of the note hash tree; and logs; and l2->L1 messages.
 
 ## Proper specs
 
@@ -230,7 +230,7 @@ An investigation into how formal verification techniques might improve the secur
 
 ## Hashes
 
-- An improved, standardised Pedersen hash in barretenberg.
+- An improved, standardized Pedersen hash in barretenberg.
 - Poseidon hashing in barretenberg.
 
 ## Tree epochs

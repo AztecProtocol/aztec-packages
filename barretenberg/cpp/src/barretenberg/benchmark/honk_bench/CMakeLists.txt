@@ -2,11 +2,14 @@
 set(BENCHMARK_SOURCES
   standard_plonk.bench.cpp
   ultra_honk.bench.cpp
+  ultra_honk_rounds.bench.cpp
   ultra_plonk.bench.cpp
+  ultra_plonk_rounds.bench.cpp
 )
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
+  ultra_honk
   stdlib_sha256
   stdlib_keccak
   stdlib_merkle_tree
@@ -20,16 +23,3 @@ foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
   target_link_libraries(${BENCHMARK_NAME}_bench ${LINKED_LIBRARIES})
   add_custom_target(run_${BENCHMARK_NAME} COMMAND ${BENCHMARK_NAME} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endforeach()
-
-add_executable(
-    honk_bench_main_simple
-    main.simple.cpp
-)
-
-target_link_libraries(
-    honk_bench_main_simple
-    PRIVATE
-    stdlib_sha256
-    stdlib_keccak
-    stdlib_merkle_tree
-)

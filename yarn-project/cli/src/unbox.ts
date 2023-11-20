@@ -14,9 +14,8 @@ import JSZip from 'jszip';
 import fetch from 'node-fetch';
 import * as path from 'path';
 
-const GITHUB_OWNER = 'AztecProtocol';
-const GITHUB_REPO = 'aztec-packages';
-const GITHUB_TAG_PREFIX = 'aztec-packages';
+import { GITHUB_OWNER, GITHUB_REPO, GITHUB_TAG_PREFIX } from './github.js';
+
 const BOXES_PATH = 'yarn-project/boxes';
 
 /**
@@ -101,7 +100,7 @@ async function downloadContractAndBoxFromGithub(
   log: LogFn,
 ): Promise<void> {
   // small string conversion, in the ABI the contract name looks like PrivateToken
-  // but in the repostory it looks like private_token
+  // but in the repository it looks like private_token
 
   log(`Downloading @aztec/boxes/${contractName}/ to ${outputPath}...`);
   // Step 1: Fetch the monorepo ZIP from GitHub, matching the CLI version
@@ -165,7 +164,7 @@ async function updatePackagingConfigurations(
  * @param log - logger
  */
 async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Promise<void> {
-  const SUPPORTED_DEPS = ['aztec', 'value_note'];
+  const SUPPORTED_DEPS = ['aztec', 'value_note', 'safe_math', 'authwit'];
 
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
@@ -178,7 +177,11 @@ async function updateNargoToml(tag: string, outputPath: string, log: LogFn): Pro
     if (key) {
       // Replace the line, which was configured for compiling within the `aztec-packages` monorepo.  We replace
       // the local path with `git` and `directory` fields with a `tag` field, which points to the tagged release
-      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key}" }`;
+      // note that the key has a "_" in the name, but we use "-" in the github repo folder
+      return `${key} = { git="https://github.com/AztecProtocol/aztec-packages/", tag="${tag}", directory="yarn-project/aztec-nr/${key.replace(
+        '_',
+        '-',
+      )}" }`;
     }
     return line;
   });
@@ -253,7 +256,7 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
 
   // modify the version of the sandbox to pull - it's set to "latest" version in the monorepo,
   // but we need to replace with the same tagVersion as the cli and the other aztec npm packages
-  // similarly, make sure we spinup the sandbox with the same version.
+  // similarly, make sure we spin up the sandbox with the same version.
   packageData.scripts['install:sandbox'] = packageData.scripts['install:sandbox'].replace(
     'latest',
     `${packageVersion}`,
@@ -316,7 +319,7 @@ export async function unboxContract(
 
   if (!contractNames.includes(contractName)) {
     log(
-      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are: 
+      `The noir contract named "${contractName}" was not found in "@aztec/boxes" package.  Valid options are:
         ${contractNames.join('\n\t')}
       We recommend "token" as a default.`,
     );

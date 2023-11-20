@@ -1,13 +1,12 @@
 // Test suite for testing proper ordering of side effects
-import { Wallet } from '@aztec/aztec.js';
-import { FunctionSelector } from '@aztec/circuits.js';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
-import { toBigInt } from '@aztec/foundation/serialize';
+import { Fr, FunctionSelector, PXE, TxStatus, Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
-import { PXE, TxStatus } from '@aztec/types';
+
+import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+
+jest.setTimeout(30_000);
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 describe('e2e_ordering', () => {
@@ -66,7 +65,7 @@ describe('e2e_ordering', () => {
           expect(enqueuedPublicCalls.length).toEqual(2);
 
           // The call stack hashes in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
-          const hashes = await Promise.all(enqueuedPublicCalls.map(c => c.toPublicCallStackItem().then(i => i.hash())));
+          const hashes = await Promise.all(enqueuedPublicCalls.map(c => c.toPublicCallStackItem().hash()));
           expect(tx.data.end.publicCallStack.slice(0, 2)).toEqual(hashes);
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
@@ -76,8 +75,8 @@ describe('e2e_ordering', () => {
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
-          expect(value).toEqual(expectedOrder[1]); // final state should match last value set
+          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          expect(value?.value).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
     });
@@ -100,8 +99,8 @@ describe('e2e_ordering', () => {
           const receipt = await tx.wait();
           expect(receipt.status).toBe(TxStatus.MINED);
 
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
-          expect(value).toEqual(expectedOrder[1]); // final state should match last value set
+          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          expect(value?.value).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
 

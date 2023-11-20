@@ -5,18 +5,23 @@ import {
   EthAddress,
   Fr,
   GrumpkinScalar,
-  NotePreimage,
+  Note,
   generatePublicKey,
   getSchnorrAccount,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
+import {
+  FunctionSelector,
+  StructType,
+  decodeFunctionSignature,
+  decodeFunctionSignatureWithParameterNames,
+} from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, LogFilter } from '@aztec/types';
+import { CompleteAddress, ContractData, ExtendedNote, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
@@ -27,7 +32,9 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { GITHUB_TAG_PREFIX } from './github.js';
 import { unboxContract } from './unbox.js';
+import { update } from './update/update.js';
 import {
   deployAztecContracts,
   getContractArtifact,
@@ -65,9 +72,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(version);
+  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(cliVersion);
 
   const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
     .env('PXE_URL')
@@ -122,18 +129,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '-m, --mnemonic',
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
-    .action(async options => {
+    .action(options => {
       let privKey;
       let publicKey;
       if (options.mnemonic) {
         const acc = mnemonicToAccount(options.mnemonic);
         // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
         const key = GrumpkinScalar.fromBufferWithReduction(Buffer.from(acc.getHdKey().privateKey!));
-        publicKey = await generatePublicKey(key);
+        publicKey = generatePublicKey(key);
       } else {
         const key = GrumpkinScalar.random();
         privKey = key.toString(true);
-        publicKey = await generatePublicKey(key);
+        publicKey = generatePublicKey(key);
       }
       log(`\nPrivate Key: ${privKey}\nPublic Key: ${publicKey.toString()}\n`);
     });
@@ -167,7 +174,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const actualPrivateKey = privateKey ?? GrumpkinScalar.random();
 
       const account = getSchnorrAccount(client, actualPrivateKey, actualPrivateKey, accountCreationSalt);
-      const { address, publicKey, partialAddress } = await account.getCompleteAddress();
+      const { address, publicKey, partialAddress } = account.getCompleteAddress();
       const tx = await account.deploy();
       const txHash = await tx.getTxHash();
       debugLogger(`Account contract tx sent with hash ${txHash}`);
@@ -181,7 +188,33 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log(`\nNew account:\n`);
       log(`Address:         ${address.toString()}`);
       log(`Public key:      ${publicKey.toString()}`);
-      if (!privateKey) log(`Private key:     ${actualPrivateKey.toString(true)}`);
+      if (!privateKey) {
+        log(`Private key:     ${actualPrivateKey.toString(true)}`);
+      }
+      log(`Partial address: ${partialAddress.toString()}`);
+    });
+
+  program
+    .command('register-account')
+    .description(
+      'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+    )
+    .summary('Registers an aztec account that can be used for sending transactions.')
+    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
+    .requiredOption(
+      '-pa, --partial-address <partialAddress>',
+      'The partially computed address of the account contract.',
+      parsePartialAddress,
+    )
+    .addOption(pxeOption)
+    .action(async ({ rpcUrl, privateKey, partialAddress }) => {
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+
+      const { address, publicKey } = await client.registerAccount(privateKey, partialAddress);
+
+      log(`\nRegistered account:\n`);
+      log(`Address:         ${address.toString()}`);
+      log(`Public key:      ${publicKey.toString()}`);
       log(`Partial address: ${partialAddress.toString()}`);
     });
 
@@ -200,6 +233,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       parsePublicKey,
     )
     .option(
+      '-p, --portal-address <hex string>',
+      'Optional L1 portal address to link the contract to.',
+      parseEthereumAddress,
+    )
+    .option(
       '-s, --salt <hex string>',
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseSaltFromHexString,
@@ -207,15 +245,25 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (artifactPath, { rpcUrl, publicKey, args: rawArgs, salt, wait }) => {
+    .action(async (artifactPath, { rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait }) => {
       const contractArtifact = await getContractArtifact(artifactPath, log);
       const constructorArtifact = contractArtifact.functions.find(({ name }) => name === 'constructor');
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const nodeInfo = await client.getNodeInfo();
+      const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.sandboxVersion}`;
+      if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
+        log(
+          `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
+        );
+      }
+
       const deployer = new ContractDeployer(contractArtifact, client, publicKey);
 
       const constructor = getFunctionArtifact(contractArtifact, 'constructor');
-      if (!constructor) throw new Error(`Constructor not found in contract ABI`);
+      if (!constructor) {
+        throw new Error(`Constructor not found in contract ABI`);
+      }
 
       debugLogger(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
       const args = encodeArgs(rawArgs, constructorArtifact!.parameters);
@@ -223,8 +271,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
       const deploy = deployer.deploy(...args);
 
-      await deploy.create({ contractAddressSalt: salt });
-      const tx = deploy.send({ contractAddressSalt: salt });
+      await deploy.create({ contractAddressSalt: salt, portalContract: portalAddress });
+      const tx = deploy.send({ contractAddressSalt: salt, portalContract: portalAddress });
       const txHash = await tx.getTxHash();
       debugLogger(`Deploy tx sent with hash ${txHash}`);
       if (wait) {
@@ -251,8 +299,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const address = options.contractAddress;
       const isDeployed = await isContractDeployed(client, address);
-      if (isDeployed) log(`\nContract found at ${address.toString()}\n`);
-      else log(`\nNo contract found at ${address.toString()}\n`);
+      if (isDeployed) {
+        log(`\nContract found at ${address.toString()}\n`);
+      } else {
+        log(`\nNo contract found at ${address.toString()}\n`);
+      }
     });
 
   program
@@ -348,8 +399,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (follow) {
-        if (txHash) throw Error('Cannot use --follow with --tx-hash');
-        if (toBlock) throw Error('Cannot use --follow with --to-block');
+        if (txHash) {
+          throw Error('Cannot use --follow with --tx-hash');
+        }
+        if (toBlock) {
+          throw Error('Cannot use --follow with --to-block');
+        }
       }
 
       const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress, selector };
@@ -363,9 +418,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
             .filter(([, value]) => value !== undefined)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
-          if (!follow) log(`No logs found for filter: {${filterOptions}}`);
+          if (!follow) {
+            log(`No logs found for filter: {${filterOptions}}`);
+          }
         } else {
-          if (!follow && !filter.afterLog) log('Logs found: \n');
+          if (!follow && !filter.afterLog) {
+            log('Logs found: \n');
+          }
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
           // Set the continuation parameter for the following requests
           filter.afterLog = logs[logs.length - 1].id;
@@ -377,7 +436,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log('Fetching logs...');
         while (true) {
           const maxLogsHit = await fetchLogs();
-          if (!maxLogsHit) await sleep(1000);
+          if (!maxLogsHit) {
+            await sleep(1000);
+          }
         }
       } else {
         while (await fetchLogs()) {
@@ -399,7 +460,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .addOption(pxeOption)
     .action(async ({ address, publicKey, partialAddress, rpcUrl }) => {
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      await client.registerRecipient(await CompleteAddress.create(address, publicKey, partialAddress));
+      await client.registerRecipient(CompleteAddress.create(address, publicKey, partialAddress));
       log(`\nRegistered details for account with address: ${address}\n`);
     });
 
@@ -551,12 +612,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
     .argument('<storageSlot>', 'The storage slot of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-p, --preimage [notePreimage...]', 'Note preimage.', [])
+    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
     .addOption(pxeOption)
     .action(async (address, contractAddress, storageSlot, txHash, options) => {
-      const preimage = new NotePreimage(parseFields(options.preimage));
+      const note = new Note(parseFields(options.note));
+      const extendedNote = new ExtendedNote(note, address, contractAddress, storageSlot, txHash);
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      await client.addNote(address, contractAddress, storageSlot, preimage, txHash);
+      await client.addNote(extendedNote);
     });
 
   // Helper for users to decode hex strings into structs if needed.
@@ -614,7 +676,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
-      await unboxContract(contractName, unboxTo, version, log);
+      await unboxContract(contractName, unboxTo, cliVersion, log);
     });
 
   program
@@ -648,9 +710,34 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log(`No external functions found for contract ${contractArtifact.name}`);
       }
       for (const fn of contractFns) {
-        const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
-        log(`${fn.functionType} ${signature}`);
+        const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
+        const signature = decodeFunctionSignature(fn.name, fn.parameters);
+        const selector = FunctionSelector.fromSignature(signature);
+        log(
+          `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}`,
+        );
       }
+    });
+
+  program
+    .command('compute-selector')
+    .description('Given a function signature, it computes a selector')
+    .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
+    .action((functionSignature: string) => {
+      const selector = FunctionSelector.fromSignature(functionSignature);
+      log(`${selector}`);
+    });
+
+  program
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--sandbox-version <semver>', 'The sandbox version to update to. Defaults to latest', 'latest')
+    .addOption(pxeOption)
+    .action(async (projectPath: string, options) => {
+      const { contract } = options;
+      await update(projectPath, contract, options.rpcUrl, options.sandboxVersion, log, debugLogger);
     });
 
   compileContract(program, 'compile', log);

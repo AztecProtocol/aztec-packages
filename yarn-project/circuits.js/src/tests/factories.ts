@@ -14,7 +14,6 @@ import {
   CONTRACT_TREE_HEIGHT,
   CallContext,
   CircuitType,
-  CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -58,6 +57,8 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -65,8 +66,6 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -409,7 +408,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
     new Fr(start),
-    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
+    makeTuple(NOTE_HASH_TREE_HEIGHT, fr, start + 1),
     false,
     new Fr(0),
   );
@@ -421,7 +420,7 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
  * @returns Non-transient empty read request membership witness.
  */
 export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(PRIVATE_DATA_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero), false, new Fr(0));
 }
 
 /**
@@ -515,7 +514,7 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
  * @param seed - The seed to use for generating the public call data.
  * @returns A public call data.
  */
-export async function makePublicCallData(seed = 1, full = false): Promise<PublicCallData> {
+export function makePublicCallData(seed = 1, full = false): PublicCallData {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed, full),
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallStackItem, seed + 0x300),
@@ -541,10 +540,9 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
   }
 
   // publicCallStack should be a hash of the preimages:
-  const wasm = await CircuitsWasm.get();
   publicCallData.callStackItem.publicInputs.publicCallStack = mapTuple(
     publicCallData.publicCallStackPreimages,
-    preimage => computeCallStackItemHash(wasm!, preimage),
+    preimage => computeCallStackItemHash(preimage),
   );
 
   return publicCallData;
@@ -555,9 +553,9 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
  * @param seed - The seed to use for generating the witnessed public call data.
  * @returns A witnessed public call data.
  */
-export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
+export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
   return new WitnessedPublicCallData(
-    await makePublicCallData(seed),
+    makePublicCallData(seed),
     range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
       makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
     ),
@@ -571,8 +569,8 @@ export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPu
  * @param seed - The seed to use for generating the public kernel inputs.
  * @returns Public kernel inputs.
  */
-export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInputs> {
-  return new PublicKernelInputs(makePreviousKernelData(seed), await makePublicCallData(seed + 0x1000));
+export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
+  return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**
@@ -581,20 +579,21 @@ export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInpu
  * @param tweak - An optional function to tweak the output before computing hashes.
  * @returns Public kernel inputs.
  */
-export async function makePublicKernelInputsWithTweak(
+export function makePublicKernelInputsWithTweak(
   seed = 1,
   tweak?: (publicKernelInputs: PublicKernelInputs) => void,
-): Promise<PublicKernelInputs> {
+): PublicKernelInputs {
   const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
   const publicKernelInputs = new PublicKernelInputs(
     makePreviousKernelData(seed, kernelCircuitPublicInputs),
-    await makePublicCallData(seed + 0x1000),
+    makePublicCallData(seed + 0x1000),
   );
-  if (tweak) tweak(publicKernelInputs);
+  if (tweak) {
+    tweak(publicKernelInputs);
+  }
   // Set the call stack item for this circuit iteration at the top of the call stack
-  const wasm = await CircuitsWasm.get();
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
-    computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
+    computeCallStackItemHash(publicKernelInputs.publicCall.callStackItem);
   return publicKernelInputs;
 }
 
@@ -858,16 +857,16 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     endAggregationObject: makeAggregationObject(seed),
     globalVariables: globalVariables ?? makeGlobalVariables((seed += 0x100)),
-    startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startPublicDataTreeRoot: fr((seed += 0x100)),
     endPublicDataTreeRoot: fr((seed += 0x100)),
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
@@ -898,7 +897,7 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
 export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
 
-  const startPrivateDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
+  const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
@@ -916,7 +915,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x2000,
   );
 
-  const newCommitmentsSubtreeSiblingPath = makeTuple(PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
+  const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
@@ -941,7 +940,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   return BaseRollupInputs.from({
     kernelData,
     lowNullifierMembershipWitness,
-    startPrivateDataTreeSnapshot,
+    startNoteHashTreeSnapshot,
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,

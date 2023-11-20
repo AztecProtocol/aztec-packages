@@ -2,13 +2,14 @@ import {
   AccountWallet,
   Fr,
   GrumpkinScalar,
-  NotePreimage,
+  Note,
   computeMessageSecretHash,
   createPXEClient,
   getUnsafeSchnorrAccount,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
+import { ExtendedNote } from '@aztec/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
@@ -39,7 +40,7 @@ async function main() {
   logger(`Created Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
 
   logger('Deploying Token...');
-  const token = await TokenContract.deploy(pxe, alice).send().deployed();
+  const token = await TokenContract.deploy(aliceWallet, alice).send().deployed();
   logger('Token deployed');
 
   // Create the contract abstraction and link it to Alice's and Bob's wallet for future signing
@@ -51,13 +52,14 @@ async function main() {
 
   // Create a secret and a corresponding hash that will be used to mint funds privately
   const aliceSecret = Fr.random();
-  const aliceSecretHash = await computeMessageSecretHash(aliceSecret);
+  const aliceSecretHash = computeMessageSecretHash(aliceSecret);
   const receipt = await tokenAlice.methods.mint_private(ALICE_MINT_BALANCE, aliceSecretHash).send().wait();
 
   // Add the newly created "pending shield" note to PXE
   const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-  const preimage = new NotePreimage([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
-  await pxe.addNote(alice.address, token.address, pendingShieldsStorageSlot, preimage, receipt.txHash);
+  const note = new Note([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
+  const extendedNote = new ExtendedNote(note, alice.address, token.address, pendingShieldsStorageSlot, receipt.txHash);
+  await pxe.addNote(extendedNote);
 
   // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
   // to a "token note")

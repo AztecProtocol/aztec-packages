@@ -1,7 +1,17 @@
-use dep::aztec::note::note_interface::NoteInterface;
-use dep::aztec::note::note_header::NoteHeader;
-use dep::aztec::note::utils::compute_unique_siloed_note_hash;
-use dep::aztec::oracle::get_secret_key::get_secret_key;
+use dep::aztec::{
+    note::{
+        note_header::NoteHeader,
+        note_interface::NoteInterface,
+        utils::compute_unique_siloed_note_hash,
+    },
+    oracle::{
+        get_secret_key::get_secret_key,
+        get_public_key::get_public_key,
+    },
+    log::emit_encrypted_log,
+    hash::pedersen_hash,
+    context::PrivateContext,
+};
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
 
@@ -54,34 +64,46 @@ impl EcdsaPublicKeyNote {
         let unique_siloed_note_hash = compute_unique_siloed_note_hash(EcdsaPublicKeyNoteInterface, self);
         let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
-        dep::std::hash::pedersen([
+        pedersen_hash([
             unique_siloed_note_hash,
             secret.low,
             secret.high,
-        ])[0]
+        ],0)
     }
 
     pub fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
+
+    // Broadcasts the note as an encrypted log on L1.
+    pub fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+        let encryption_pub_key = get_public_key(self.owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            encryption_pub_key,
+            self.serialize(),
+        );
+    }
 }
 
-fn deserialize(preimage: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+fn deserialize(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
     let mut x: [u8; 32] = [0;32];
     let mut y: [u8; 32] = [0;32];
 
-    let part_x = preimage[0].to_be_bytes(32);
+    let part_x = serialized_note[0].to_be_bytes(32);
     for i in 0..31 { x[i] = part_x[i + 1]; }
-    x[31] = preimage[1].to_be_bytes(32)[31];
+    x[31] = serialized_note[1].to_be_bytes(32)[31];
 
-    let part_y = preimage[2].to_be_bytes(32);
+    let part_y = serialized_note[2].to_be_bytes(32);
     for i in 0..31 { y[i] = part_y[i + 1]; }
-    y[31] = preimage[3].to_be_bytes(32)[31];
+    y[31] = serialized_note[3].to_be_bytes(32)[31];
 
     EcdsaPublicKeyNote {
         x,
         y,
-        owner: preimage[4],
+        owner: serialized_note[4],
         header: NoteHeader::empty(),
     }
 }
@@ -92,7 +114,7 @@ fn serialize(note: EcdsaPublicKeyNote) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
 
 fn compute_note_hash(note: EcdsaPublicKeyNote) -> Field {
     // TODO(#1205) Should use a non-zero generator index.
-    dep::std::hash::pedersen(note.serialize())[0]
+    pedersen_hash(note.serialize(),0)
 }
 
 fn compute_nullifier(note: EcdsaPublicKeyNote) -> Field {
@@ -107,6 +129,11 @@ fn set_header(note: &mut EcdsaPublicKeyNote, header: NoteHeader) {
     note.set_header(header);
 }
 
+// Broadcasts the note as an encrypted log on L1.
+fn broadcast(context: &mut PrivateContext, slot: Field, note: EcdsaPublicKeyNote) {
+    note.broadcast(context, slot);
+}
+
 global EcdsaPublicKeyNoteInterface = NoteInterface {
     deserialize,
     serialize,
@@ -114,4 +141,5 @@ global EcdsaPublicKeyNoteInterface = NoteInterface {
     compute_nullifier,
     get_header,
     set_header,
+    broadcast,
 };

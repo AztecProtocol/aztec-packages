@@ -1,4 +1,4 @@
-import { CircuitsWasm, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -40,7 +40,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param address - Address to fetch the complete address for.
    * @returns A complete address associated with the input address.
    */
-  public getPublicKey(address: AztecAddress): Promise<CompleteAddress> {
+  public getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     return this.db.getCompleteAddress(address);
   }
 
@@ -57,16 +57,13 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Gets some notes for a contract address and storage slot.
-   * Returns a flattened array containing real-note-count and note preimages.
+   * Gets some notes for a storage slot.
    *
    * @remarks
-   *
-   * Check for pending notes with matching address/slot.
+   * Check for pending notes with matching slot.
    * Real notes coming from DB will have a leafIndex which
-   * represents their index in the private data tree.
+   * represents their index in the note hash tree.
    *
-   * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param numSelects - The number of valid selects in selectBy and selectValues.
    * @param selectBy - An array of indices of the fields to selects.
@@ -75,11 +72,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
    * @param offset - The starting index for pagination.
-   * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
-   * count - number of real (non-padding) notes retrieved,
-   * contractAddress - the contract address,
-   * preimages - the real note preimages retrieved, and
-   * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
+   * @returns Array of note data.
    */
   public async getNotes(
     storageSlot: Fr,
@@ -106,8 +99,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async checkNullifierExists(innerNullifier: Fr) {
-    const wasm = await CircuitsWasm.get();
-    const nullifier = siloNullifier(wasm, this.contractAddress, innerNullifier!);
+    const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
     const index = await this.db.getNullifierIndex(nullifier);
     return index !== undefined;
   }
@@ -143,16 +135,15 @@ export class ViewDataOracle extends TypedOracle {
     }
 
     const values = [];
-    for (let i = 0; i < Number(numberOfElements); i++) {
-      const storageSlot = startStorageSlot.value + BigInt(i);
+    for (let i = 0n; i < numberOfElements; i++) {
+      const storageSlot = new Fr(startStorageSlot.value + i);
       const value = await this.aztecNode.getPublicStorageAt(this.contractAddress, storageSlot);
       if (value === undefined) {
-        throw new Error(`Oracle storage read undefined: slot=${storageSlot.toString(16)}`);
+        throw new Error(`Oracle storage read undefined: slot=${storageSlot.toString()}`);
       }
 
-      const frValue = Fr.fromBuffer(value);
-      this.log(`Oracle storage read: slot=${storageSlot.toString(16)} value=${frValue}`);
-      values.push(frValue);
+      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      values.push(value);
     }
     return values;
   }

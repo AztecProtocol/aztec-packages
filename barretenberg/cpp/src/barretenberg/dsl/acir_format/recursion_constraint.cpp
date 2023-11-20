@@ -1,8 +1,8 @@
 #include "recursion_constraint.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include "barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
-#include "barretenberg/transcript/transcript_wrappers.hpp"
 
 namespace acir_format {
 
@@ -127,7 +127,7 @@ void create_recursion_constraints(Builder& builder,
         &builder, vkey, transcript, previous_aggregation);
 
     // Assign correct witness value to the verification key hash
-    vkey->compress().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
+    vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
     ASSERT(result.public_inputs.size() == input.public_inputs.size());
 
@@ -187,7 +187,7 @@ std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<ver
         .contains_recursive_proof = vkey->contains_recursive_proof,
         .recursive_proof_public_input_indices = vkey->recursive_proof_public_input_indices,
     };
-    output.emplace_back(vkey_data.compress_native(0)); // key_hash
+    output.emplace_back(vkey_data.hash_native(0)); // key_hash
     return output;
 }
 

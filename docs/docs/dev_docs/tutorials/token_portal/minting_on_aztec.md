@@ -6,20 +6,21 @@ In this step we will start writing our Aztec.nr bridge smart contract and write 
 
 ## Initial contract setup
 
-In our `token-bridge` nargo project in `aztec-contracts`, under `src` there is an example `main.nr` file. Delete all the code in here and paste this to define imports and initialize the constructor:
+In our `token-bridge` Noir project in `aztec-contracts`, under `src` there is an example `main.nr` file. Delete all the code in here and paste this to define imports and initialize the constructor:
 
 ```rust
 mod util;
-#include_code token_bridge_imports /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust raw
+#include_code token_bridge_imports /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr raw
   use crate::token_interface::Token;
   use crate::util::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
-#include_code token_bridge_storage_and_constructor /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr rust raw
+#include_code token_bridge_storage_and_constructor /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr raw
 ```
+
 This imports Aztec-related dependencies and our two helper files `token_interface.nr` and `util.nr`.
 (The code above will give errors right now - this is because we haven't implemented util and token_interface yet.)
 
 In `token_interface.nr`, add this:
-#include_code token_brodge_token_interface /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/token_interface.nr rust
+#include_code token_bridge_token_interface /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/token_interface.nr rust
 
 We will write `util.nr` as needed.
 

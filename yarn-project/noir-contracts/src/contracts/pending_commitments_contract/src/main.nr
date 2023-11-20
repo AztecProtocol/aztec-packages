@@ -11,7 +11,6 @@ contract PendingCommitments {
         value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
     use dep::aztec::{
-        constants_gen::ARGS_LENGTH,
         context::{PrivateContext, PublicContext, Context},
         log::emit_encrypted_log,
         note::{
@@ -19,7 +18,6 @@ contract PendingCommitments {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        oracle::get_public_key::get_public_key,
         state_vars::{map::Map, set::Set},
     };
 
@@ -60,15 +58,8 @@ contract PendingCommitments {
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
-        // Insert note and emit encrypted note preimage via oracle call
-        owner_balance.insert(&mut note);
-        emit_encrypted_log(
-            &mut context,
-            context.inputs.call_context.storage_contract_address,
-            owner_balance.storage_slot,
-            get_public_key(owner),
-            note.serialize(),
-        );
+        // Insert note
+        owner_balance.insert(&mut note, true);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -100,21 +91,14 @@ contract PendingCommitments {
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
 
-        // Insert note and emit encrypted note preimage via oracle call
+        // Insert note
         let mut note = ValueNote::new(amount, owner);
-        owner_balance.insert(&mut note);
-        emit_encrypted_log(
-            &mut context,
-            context.inputs.call_context.storage_contract_address,
-            owner_balance.storage_slot,
-            get_public_key(owner),
-            note.serialize(),
-        );
+        owner_balance.insert(&mut note, true);
 
         0
     }
 
-    // Dumy nested/inner function (to pass a function which does nothing)
+    // Dummy nested/inner function (to pass a function which does nothing)
     #[aztec(private)]
     fn dummy(
         amount: Field,
@@ -132,15 +116,8 @@ contract PendingCommitments {
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
-        // Insert note and emit encrypted note preimage via oracle call
-        owner_balance.insert(&mut note);
-        emit_encrypted_log(
-            &mut context,
-            context.inputs.call_context.storage_contract_address,
-            owner_balance.storage_slot,
-            get_public_key(owner),
-            note.serialize(),
-        );
+        // Insert note
+        owner_balance.insert(&mut note, true);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -190,15 +167,10 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
         get_note_zero_fn_selector: Field,
     ) {
-        // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
-
         // nested call to create/insert note
-        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, [amount, owner]);
         // nested call to read and nullify that note
-        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, [amount, owner]);
          // nested call to confirm that balance is zero
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
     }
@@ -212,9 +184,7 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
@@ -236,9 +206,7 @@ contract PendingCommitments {
         get_then_nullify_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
@@ -259,9 +227,7 @@ contract PendingCommitments {
         get_note_zero_fn_selector: Field,
     ) {
         // args for nested calls
-        let mut args = [0; ARGS_LENGTH];
-        args[0] = amount;
-        args[1] = owner;
+        let args = [amount, owner];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
@@ -290,8 +256,8 @@ contract PendingCommitments {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }

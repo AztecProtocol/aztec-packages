@@ -52,10 +52,10 @@ module.exports = {
   },
   root: true,
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc'],
+  plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc', 'no-only-tests'],
   overrides: [
     {
-      files: ['*.ts', '*.tsx'],
+      files: ['*.cts', '*.mts', '*.ts', '*.tsx'],
       parserOptions: {
         // hacky workaround for CI not having the same tsconfig setup
         project: true,
@@ -82,6 +82,7 @@ module.exports = {
     'require-await': 2,
     'no-console': 'error',
     'no-constant-condition': 'off',
+    curly: ['error', 'all'],
     camelcase: 2,
     'no-restricted-imports': [
       'error',
@@ -110,6 +111,7 @@ module.exports = {
       },
     ],
     'import/no-extraneous-dependencies': 'error',
+    'import/no-cycle': 'warn',
     'tsdoc/syntax': JSDOC_RULES_LEVEL,
     'jsdoc/require-jsdoc': [
       JSDOC_RULES_LEVEL,
@@ -129,6 +131,8 @@ module.exports = {
     'jsdoc/require-property-description': [JSDOC_RULES_LEVEL, { contexts }],
     'jsdoc/require-property-name': [JSDOC_RULES_LEVEL, { contexts }],
     'jsdoc/require-returns': 'off',
+    // this unfortunately doesn't block `fit` and `fdescribe`
+    'no-only-tests/no-only-tests': ['error'],
   },
   ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs'],
 };

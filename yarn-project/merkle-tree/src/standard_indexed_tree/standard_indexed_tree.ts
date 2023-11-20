@@ -110,7 +110,9 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
-    if (!leaf) return Promise.resolve(undefined);
+    if (!leaf) {
+      return Promise.resolve(undefined);
+    }
     return Promise.resolve(toBufferBE(leaf.value, 32));
   }
 
@@ -453,7 +455,9 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
         // check the pending low nullifiers for a low nullifier that works
         // This is the case where the next value is less than the pending
         for (let j = 0; j < pendingInsertionSubtree.length; j++) {
-          if (pendingInsertionSubtree[j].value === 0n) continue;
+          if (pendingInsertionSubtree[j].value === 0n) {
+            continue;
+          }
 
           if (
             pendingInsertionSubtree[j].value < newValue &&
@@ -573,7 +577,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     if (!hash0Leaf && leaf.value == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
-      encodedLeaf = this.hasher.compressInputs(
+      encodedLeaf = this.hasher.hashInputs(
         [leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)),
       );
     }

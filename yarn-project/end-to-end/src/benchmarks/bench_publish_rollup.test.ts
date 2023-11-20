@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js';
 import { BenchmarkingContract } from '@aztec/noir-contracts/types';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { BENCHMARK_BLOCK_SIZES } from '@aztec/types/stats';
@@ -24,7 +24,7 @@ describe('benchmarks/publish_rollup', () => {
       // Simulate and simultaneously send ROLLUP_SIZE txs. These should not yet be processed since sequencer is stopped.
       context.logger(`Assembling rollup with ${txCount} txs`);
       const sentTxs = await sendTxs(txCount, context, contract);
-
+      context.logger.info(`Sent ${txCount} txs`);
       // Restart sequencer to process all txs together
       sequencer.restart();
 
@@ -56,6 +56,6 @@ describe('benchmarks/publish_rollup', () => {
       await pxe.stop();
       await node.stop();
     },
-    10 * 60_000,
+    20 * 60_000,
   );
 });

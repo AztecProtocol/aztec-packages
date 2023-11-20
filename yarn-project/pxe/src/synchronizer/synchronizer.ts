@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -39,7 +39,9 @@ export class Synchronizer {
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
   public async start(from = INITIAL_L2_BLOCK_NUM, limit = 1, retryInterval = 1000) {
-    if (this.running) return;
+    if (this.running) {
+      return;
+    }
     this.running = true;
 
     if (from < this.synchedToBlock + 1) {
@@ -197,12 +199,13 @@ export class Synchronizer {
 
   private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockNumber) return;
+    if (block.number < this.initialSyncBlockNumber) {
+      return;
+    }
 
-    const wasm = await CircuitsWasm.get();
-    const globalsHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
+    const globalsHash = computeGlobalsHash(latestBlock.block.globalVariables);
     const blockData = new HistoricBlockData(
-      block.endPrivateDataTreeSnapshot.root,
+      block.endNoteHashTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,
       block.endL1ToL2MessagesTreeSnapshot.root,
@@ -240,8 +243,11 @@ export class Synchronizer {
    * @returns A promise that resolves once the account is added to the Synchronizer.
    */
   public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
-    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
-    if (processor) return;
+    const predicate = (x: NoteProcessor) => x.publicKey.equals(publicKey);
+    const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
+    if (processor) {
+      return;
+    }
 
     this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node, startingBlock));
   }
@@ -259,7 +265,8 @@ export class Synchronizer {
     if (!completeAddress) {
       throw new Error(`Checking if account is synched is not possible for ${account} because it is not registered.`);
     }
-    const processor = this.noteProcessors.find(x => x.publicKey.equals(completeAddress.publicKey));
+    const findByPublicKey = (x: NoteProcessor) => x.publicKey.equals(completeAddress.publicKey);
+    const processor = this.noteProcessors.find(findByPublicKey) ?? this.noteProcessorsToCatchUp.find(findByPublicKey);
     if (!processor) {
       throw new Error(
         `Checking if account is synched is not possible for ${account} because it is only registered as a recipient.`,

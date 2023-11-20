@@ -1,12 +1,6 @@
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
-#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/flavor/goblin_translator.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
@@ -76,5 +70,41 @@ void ultra_arithmetic_relation(::benchmark::State& state) noexcept
     execute_relation<honk::flavor::Ultra, UltraArithmeticRelation<FF>>(state);
 }
 BENCHMARK(ultra_arithmetic_relation);
+
+void translator_decomposition_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorDecompositionRelation<FF>>(state);
+}
+BENCHMARK(translator_decomposition_relation);
+
+void translator_opcode_constraint_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorOpcodeConstraintRelation<FF>>(state);
+}
+BENCHMARK(translator_opcode_constraint_relation);
+
+void translator_accumulator_transfer_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorAccumulatorTransferRelation<FF>>(state);
+}
+BENCHMARK(translator_accumulator_transfer_relation);
+
+void translator_gen_perm_sort_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorGenPermSortRelation<FF>>(state);
+}
+BENCHMARK(translator_gen_perm_sort_relation);
+
+void translator_non_native_field_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorNonNativeFieldRelation<FF>>(state);
+}
+BENCHMARK(translator_non_native_field_relation);
+
+void translator_permutation_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::GoblinTranslator, GoblinTranslatorPermutationRelation<FF>>(state);
+}
+BENCHMARK(translator_permutation_relation);
 
 } // namespace proof_system::benchmark::relations

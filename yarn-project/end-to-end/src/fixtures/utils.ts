@@ -1,18 +1,25 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
+  AztecNode,
   CheatCodes,
   CompleteAddress,
   DebugLogger,
+  DeployL1Contracts,
   EthCheatCodes,
+  L1ContractArtifactsForDeployment,
+  L2BlockL2Logs,
+  LogType,
+  PXE,
   SentTx,
   createAccounts,
+  createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
+  deployL1Contracts,
   getSandboxAccountsWallets,
+  retryUntil,
 } from '@aztec/aztec.js';
-import { DeployL1Contracts, L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/ethereum';
-import { retryUntil } from '@aztec/foundation/retry';
 import {
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
@@ -28,7 +35,7 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecNode, L2BlockL2Logs, LogType, PXE, createAztecNodeRpcClient } from '@aztec/types';
+import { SequencerClient } from '@aztec/sequencer-client';
 
 import * as path from 'path';
 import {
@@ -51,7 +58,9 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
 const getAztecNodeUrl = () => {
-  if (AZTEC_NODE_URL) return AZTEC_NODE_URL;
+  if (AZTEC_NODE_URL) {
+    return AZTEC_NODE_URL;
+  }
 
   // If AZTEC_NODE_URL is not set, we assume that the PXE is running on the same host as the Aztec Node and use the default port
   const url = new URL(PXE_URL);
@@ -165,7 +174,7 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
   // we are setting up against the sandbox, l1 contracts are already deployed
   const aztecNodeUrl = getAztecNodeUrl();
   logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
-  const aztecNode = createAztecNodeRpcClient(aztecNodeUrl);
+  const aztecNode = createAztecNodeClient(aztecNodeUrl);
   logger(`Creating PXE client to remote host ${PXE_URL}`);
   const pxeClient = createPXEClient(PXE_URL);
   await waitForPXE(pxeClient, logger);
@@ -189,10 +198,11 @@ async function setupWithSandbox(account: Account, config: AztecNodeConfig, logge
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxeClient!);
+  const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
   return {
     aztecNode,
+    sequencer: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
     accounts: await pxeClient!.getRegisteredAccounts(),
@@ -212,6 +222,8 @@ type SetupOptions = { /** State load */ stateLoad?: string } & Partial<AztecNode
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode | undefined;
+  /** A client to the sequencer service */
+  sequencer: SequencerClient | undefined;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
@@ -273,14 +285,19 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
 
   logger('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(config);
+  const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, logger);
 
-  const cheatCodes = await CheatCodes.create(config.rpcUrl, pxe!);
+  const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
   const teardown = async () => {
-    if (aztecNode instanceof AztecNodeService) await aztecNode?.stop();
-    if (pxe instanceof PXEService) await pxe?.stop();
+    if (aztecNode instanceof AztecNodeService) {
+      await aztecNode?.stop();
+    }
+    if (pxe instanceof PXEService) {
+      await pxe?.stop();
+    }
   };
 
   return {
@@ -293,6 +310,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
     wallets,
     logger,
     cheatCodes,
+    sequencer,
     teardown,
   };
 }

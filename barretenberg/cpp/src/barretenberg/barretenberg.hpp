@@ -1,6 +1,7 @@
 #pragma once
 
 // External Barretenberg C++ API
+#include "common/bbmalloc.hpp"
 #include "common/container.hpp"
 #include "common/map.hpp"
 #include "common/mem.hpp"
@@ -35,7 +36,6 @@
 #include "serialize/test_helper.hpp"
 #include "srs/global_crs.hpp"
 #include "stdlib/commitment/pedersen/pedersen.hpp"
-#include "stdlib/commitment/pedersen/pedersen_plookup.hpp"
 #include "stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "stdlib/encryption/schnorr/schnorr.hpp"
 #include "stdlib/hash/blake2s/blake2s.hpp"
@@ -48,6 +48,7 @@
 #include "stdlib/merkle_tree/merkle_tree.hpp"
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/728):
 //     Consider moving nullifier tree logic out of barretenberg into aztec repo
+#include "barretenberg/plonk/transcript/manifest.hpp"
 #include "stdlib/merkle_tree/nullifier_tree/nullifier_leaf.hpp"
 #include "stdlib/merkle_tree/nullifier_tree/nullifier_memory_tree.hpp"
 #include "stdlib/merkle_tree/nullifier_tree/nullifier_tree.hpp"
@@ -60,9 +61,8 @@
 #include "stdlib/primitives/curves/bn254.hpp"
 #include "stdlib/primitives/field/array.hpp"
 #include "stdlib/primitives/field/field.hpp"
-#include "stdlib/primitives/group/group.hpp"
+#include "stdlib/primitives/group/cycle_group.hpp"
 #include "stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
-#include "stdlib/primitives/point/point.hpp"
 #include "stdlib/primitives/uint/uint.hpp"
 #include "stdlib/primitives/witness/witness.hpp"
 #include "stdlib/recursion/aggregation_state/aggregation_state.hpp"
@@ -70,4 +70,3 @@
 #include "stdlib/recursion/verification_key/verification_key.hpp"
 #include "stdlib/recursion/verifier/program_settings.hpp"
 #include "stdlib/recursion/verifier/verifier.hpp"
-#include "transcript/manifest.hpp"

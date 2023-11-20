@@ -16,7 +16,9 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
 
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   let parameters = fn.abi.parameters;
-  if (functionType !== FunctionType.UNCONSTRAINED) parameters = parameters.slice(1);
+  if (functionType !== FunctionType.UNCONSTRAINED) {
+    parameters = parameters.slice(1);
+  }
 
   // If the function is secret, the return is the public inputs, which should be omitted
   const returnTypes = functionType === FunctionType.SECRET ? [] : [fn.abi.return_type];
@@ -37,7 +39,10 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-export function generateContractArtifact({ contract, debug }: NoirCompilationArtifacts): ContractArtifact {
+export function generateContractArtifact(
+  { contract, debug }: NoirCompilationArtifacts,
+  aztecNrVersion?: string,
+): ContractArtifact {
   const originalFunctions = contract.functions;
   // TODO why sort? we should have idempotent compilation so this should not be needed.
   const sortedFunctions = [...contract.functions].sort((fnA, fnB) => fnA.name.localeCompare(fnB.name));
@@ -58,5 +63,6 @@ export function generateContractArtifact({ contract, debug }: NoirCompilationArt
     functions: sortedFunctions.map(generateFunctionArtifact),
     events: contract.events,
     debug: parsedDebug,
+    aztecNrVersion,
   };
 }

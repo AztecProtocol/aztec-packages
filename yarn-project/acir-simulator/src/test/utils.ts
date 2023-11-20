@@ -1,6 +1,6 @@
-import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
-import { ContractArtifact, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
 
@@ -14,21 +14,19 @@ import { FunctionArtifactWithDebugMetadata } from '../index.js';
  * @param secret - The secret to unlock the message.
  * @returns The L1 to L2 message.
  */
-export const buildL1ToL2Message = async (
+export const buildL1ToL2Message = (
   selector: string,
   contentPreimage: Fr[],
   targetContract: AztecAddress,
   secret: Fr,
-): Promise<L1ToL2Message> => {
-  const wasm = await CircuitsWasm.get();
-
+) => {
   // Write the selector into a buffer.
   const selectorBuf = Buffer.from(selector, 'hex');
 
   const contentBuf = Buffer.concat([selectorBuf, ...contentPreimage.map(field => field.toBuffer())]);
   const content = sha256ToField(contentBuf);
 
-  const secretHash = computeSecretMessageHash(wasm, secret);
+  const secretHash = computeSecretMessageHash(secret);
 
   // Eventually the kernel will need to prove the kernel portal pair exists within the contract tree,
   // EthAddress.random() will need to be replaced when this happens
@@ -46,13 +44,26 @@ export const getFunctionArtifact = (
   artifact: ContractArtifact,
   functionName: string,
 ): FunctionArtifactWithDebugMetadata => {
-  const functionIndex = artifact.functions.findIndex(f => f.name === functionName);
-  if (functionIndex < 0) {
+  const functionArtifact = artifact.functions.find(f => f.name === functionName);
+  if (!functionArtifact) {
     throw new Error(`Unknown function ${functionName}`);
   }
-  const functionArtifact = artifact.functions[functionIndex];
 
   const debug = getFunctionDebugMetadata(artifact, functionName);
+  return { ...functionArtifact, debug };
+};
 
+export const getFunctionArtifactWithSelector = (
+  artifact: ContractArtifact,
+  functionSelector: FunctionSelector,
+): FunctionArtifactWithDebugMetadata => {
+  const functionArtifact = artifact.functions.find(f =>
+    functionSelector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
+  );
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionSelector}`);
+  }
+
+  const debug = getFunctionDebugMetadata(artifact, functionArtifact.name);
   return { ...functionArtifact, debug };
 };

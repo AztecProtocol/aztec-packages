@@ -14,7 +14,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
 - [Aztec Boxes](./yarn-project/boxes/): A minimal framework for building full stack applications for Aztec (using React).
 - [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
-- [End to end tests](./yarn-project/end-to-end/): Integration tests writted in Typescript--a good reference for how to use the packages for specific tasks.
+- [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 
 ## Issues Board
 
@@ -29,7 +29,11 @@ To build the C++ code, follow the [instructions in the circuits subdirectory](./
 To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
 
 To build noir code, make sure that you are using the version from `yarn-project/noir-compiler/src/noir-version.json`.
-Install nargo by running `noirup -v TAG_FROM_THE_FILE`.
+
+Install nargo by running 
+```
+noirup -v TAG_FROM_THE_FILE
+```
 
 ## Continuous Integration
 

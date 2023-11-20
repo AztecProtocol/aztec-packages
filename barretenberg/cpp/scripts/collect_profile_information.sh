@@ -1,8 +1,14 @@
 #!/bin/bash
 set -eu
 
-PRESET=${1:-xray-1thread} # can also be 'xray'
+# can also be 'xray-1thread'
+PRESET=${1:-xray}
+# pass "" to run and 1 to reuse old results
 ONLY_PROCESS=${2:-}
+# pass the executable name from build/bin
+EXECUTABLE=${3:-ultra_honk_rounds_bench}
+# by default run the executable, but we can provide an alt command e.g. use taskset and benchmark flags
+COMMAND=${4:-./bin/$EXECUTABLE}
 
 # Move above script dir.
 cd $(dirname $0)/..
@@ -15,10 +21,10 @@ cd build-$PRESET
 
 if [ -z "$ONLY_PROCESS" ]; then
   # Clear old profile data.
-  rm -f xray-log.honk_bench_main_simple.*
+  rm -f xray-log.$EXECUTABLE.*
 
   # Run benchmark with profiling.
-  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" ./bin/honk_bench_main_simple
+  XRAY_OPTIONS="patch_premain=true xray_mode=xray-basic verbosity=1" $COMMAND
 fi
 
 function shorten_cpp_names() {
@@ -37,8 +43,8 @@ function shorten_cpp_names() {
 }
 
 # Process benchmark file.
-llvm-xray-16 stack xray-log.honk_bench_main_simple.* \
-  --instr_map=./bin/honk_bench_main_simple --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
+llvm-xray-16 stack xray-log.$EXECUTABLE.* \
+  --instr_map=./bin/$EXECUTABLE --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
   | node ../scripts/llvm_xray_stack_flame_corrector.js \
   | shorten_cpp_names \
   | ../scripts/flamegraph.pl --width 1200 --fontsize 10 \

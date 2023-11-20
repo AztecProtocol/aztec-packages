@@ -1,9 +1,13 @@
+#include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/types.hpp"
 #include "config.hpp"
 #include "get_bytecode.hpp"
 #include "get_crs.hpp"
 #include "get_witness.hpp"
 #include "log.hpp"
+#include <barretenberg/common/benchmark.hpp>
 #include <barretenberg/common/container.hpp>
+#include <barretenberg/common/timer.hpp>
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
@@ -15,6 +19,9 @@
 using namespace barretenberg;
 std::string CRS_PATH = "./crs";
 bool verbose = false;
+
+const std::filesystem::path current_path = std::filesystem::current_path();
+const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
@@ -67,9 +74,23 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
+
     auto acir_composer = init(constraint_system);
 
+    Timer pk_timer;
+    acir_composer.init_proving_key(constraint_system);
+    write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
+    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
+
+    Timer proof_timer;
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
+    write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
+
+    Timer vk_timer;
+    acir_composer.init_verification_key();
+    write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
+
     auto verified = acir_composer.verify_proof(proof, recursive);
 
     vinfo("verified: ", verified);
@@ -149,7 +170,6 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
 
     vinfo("verified: ", verified);
-
     return verified;
 }
 
@@ -300,7 +320,7 @@ void acvmInfo(const std::string& output_path)
         "width" : 3
     },
     "opcodes_supported" : ["arithmetic", "directive", "brillig", "memory_init", "memory_op"],
-    "black_box_functions_supported" : ["and", "xor", "range", "sha256", "blake2s", "keccak256", "schnorr_verify", "pedersen", "hash_to_field_128_security", "ecdsa_secp256k1", "ecdsa_secp256r1", "fixed_base_scalar_mul", "recursive_aggregation"]
+    "black_box_functions_supported" : ["and", "xor", "range", "sha256", "blake2s", "keccak256", "schnorr_verify", "pedersen", "pedersen_hash", "hash_to_field_128_security", "ecdsa_secp256k1", "ecdsa_secp256r1", "fixed_base_scalar_mul", "recursive_aggregation"]
     })";
 
     size_t length = strlen(jsonData);

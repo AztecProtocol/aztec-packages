@@ -18,7 +18,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "start": "node --no-warnings ./dest/bin/index.js"
   },
@@ -28,7 +28,7 @@
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src"
@@ -42,6 +42,7 @@
     "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "@libp2p/peer-id-factory": "^3.0.4",
+    "@ltd/j-toml": "^1.38.0",
     "commander": "^9.0.0",
     "jszip": "^3.10.1",
     "lodash.startcase": "^4.4.0",
@@ -52,7 +53,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.startcase": "^4.4.7",
     "@types/node": "^18.7.23",

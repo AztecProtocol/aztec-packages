@@ -4,7 +4,6 @@ contract Escrow {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        log::emit_encrypted_log,
         note::{
             note_getter_options::NoteGetterOptions,
             note_header::NoteHeader,
@@ -45,14 +44,7 @@ contract Escrow {
         let mut note = AddressNote::new(owner, this);
 
         // Insert the owner into storage
-        storage.owners.insert(&mut note);
-        emit_encrypted_log(
-            &mut context,
-            this,
-            storage.owners.storage_slot,
-            get_public_key(this),
-            note.serialize(),
-        );
+        storage.owners.insert(&mut note, true);
     }
     // docs:end:constructor
 
@@ -79,9 +71,9 @@ contract Escrow {
         );
     }
 
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         assert(storage_slot == 1);
-        note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, serialized_note)
     }
 }
