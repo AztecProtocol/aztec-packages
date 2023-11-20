@@ -80,8 +80,9 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     // auto lagrange_1_at_challenge = combiner_challenge;
     auto new_target_sum = compressed_perturbator * lagrange_0_at_challenge +
                           vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-
-    // for (size_t idx = 0; idx < accumulator->prover_polynomials.size(); idx++) {
+    // auto accumulator_prover_polynomials_view = accumulator->prover_polynomials.pointer_view();
+    // auto instance_prover_polynomials_view = instances[0]->prover_polynomials.pointer_view();
+    // for (size_t idx = 0; idx < a; idx++) {
     //     auto accumulator_poly = accumulator->prover_polynomials[idx];
     //     auto instance_poly = accumulator->prover_polynomials[idx];
     //     assert(accumulator_poly.size() == instance_poly.size());
@@ -94,8 +95,8 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     ProverFoldingResult<Flavor> res;
     res.params.target_sum = new_target_sum;
     res.folding_data = transcript.proof_data;
-    // res.folded_prover_polynomials = accumulator->prover_polynomials;
-    // res.params.gate_separation_challenges = betas_star;
+    res.folded_prover_polynomials = accumulator->prover_polynomials;
+    res.params.gate_separation_challenges = betas_star;
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

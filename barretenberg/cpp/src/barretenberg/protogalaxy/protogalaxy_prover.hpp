@@ -54,14 +54,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     void prepare_for_folding();
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/honk/proof_system/protogalaxy_prover.hpp
-    static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF> betas, const size_t instance_size)
-=======
     /**
      * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
      */
     static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF>& betas, const size_t instance_size)
->>>>>>> origin/mm/pg-fold-alpha:barretenberg/cpp/src/barretenberg/protogalaxy/protogalaxy_prover.hpp
     {
         std::vector<FF> pow_betas(instance_size);
         for (size_t i = 0; i < instance_size; i++) {

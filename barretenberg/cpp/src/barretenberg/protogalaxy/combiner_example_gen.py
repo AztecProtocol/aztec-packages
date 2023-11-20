@@ -105,10 +105,6 @@ def compute_first_example():
         zeta_pow *= zeta
         print(zeta_pow)
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/honk/proof_system/combiner_example_gen.py
-    # accumulator *= extend_one_entity([1, 2])
-=======
->>>>>>> origin/mm/pg-fold-alpha:barretenberg/cpp/src/barretenberg/protogalaxy/combiner_example_gen.py
     return accumulator
 
 
@@ -138,10 +134,6 @@ def compute_second_example():
         result += rel(w_l, w_r, w_o, q_m, q_l, q_r, q_o, q_c)
         result *= 2
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/honk/proof_system/combiner_example_gen.py
-        # result *= extend_one_entity([1, 2])
-=======
->>>>>>> origin/mm/pg-fold-alpha:barretenberg/cpp/src/barretenberg/protogalaxy/combiner_example_gen.py
         return result
 
 if __name__ == "__main__":
