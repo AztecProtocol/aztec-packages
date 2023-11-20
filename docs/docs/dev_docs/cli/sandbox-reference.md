@@ -134,7 +134,18 @@ PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 PXE_BLOCK_POLLING_INTERVAL_MS=50 # Interval to check for new L2 blocks. (default: 50)
 PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
+```
 
+**P2P Bootstrap Node**
+
+The P2P Bootstrap node is a standalone app whose purpose is to assist new P2P network participants in acquiring peers.
+
+```sh
+P2P_TCP_LISTEN_IP='0.0.0.0' # The IP Address on which to listen for connections.
+P2P_TCP_LISTEN_PORT=40400 # The port on which to listen for connections.
+PEER_ID_PRIVATE_KEY='' # The private key to be used by the peer for secure communications with other peers. This key will also be used to derive the Peer ID.
+P2P_ANNOUNCE_HOSTNAME='' # The IPAddress/Hostname that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_IP if e.g. the node is behind a NAT.
+P2P_ANNOUNCE_PORT='' # The port that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_PORT if e.g. the node is behind a NAT.
 ```
 
 ## Otterscan
