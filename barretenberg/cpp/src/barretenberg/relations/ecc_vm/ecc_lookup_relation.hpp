@@ -40,6 +40,20 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         return row_has_write + row_has_read - (row_has_write * row_has_read);
     }
 
+    template <typename Accumulator, size_t index, typename AllEntities>
+    static Accumulator lookup_read_counts(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+
+        if constexpr (index == 0) {
+            return Accumulator(View(in.lookup_read_counts_0));
+        }
+        if constexpr (index == 1) {
+            return Accumulator(View(in.lookup_read_counts_1));
+        }
+        return Accumulator(1);
+    }
+
     template <typename Accumulator, size_t read_index, typename AllEntities>
     static Accumulator compute_read_term_predicate(const AllEntities& in)
 
@@ -137,7 +151,7 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto positive_slice_value = -(precompute_round) + 15;
         const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
 
-        // todo optimise this?
+        // todo optimize this?
         if constexpr (write_index == 0) {
             return positive_term; // degree 1
         }

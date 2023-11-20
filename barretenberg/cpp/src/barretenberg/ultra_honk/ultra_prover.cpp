@@ -16,7 +16,7 @@ UltraProver_<Flavor>::UltraProver_(std::shared_ptr<Instance> inst)
     : instance(std::move(inst))
     , commitment_key(instance->commitment_key)
 {
-    instance->initialise_prover_polynomials();
+    instance->initialize_prover_polynomials();
 }
 
 /**
@@ -78,7 +78,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
 
     instance->compute_sorted_accumulator_polynomials(eta);
 
-    // Commit to the sorted withness-table accumulator and the finalised (i.e. with memory records) fourth wire
+    // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
     auto sorted_accum_commitment = commitment_key->commit(instance->proving_key->sorted_accum);
     auto w_4_commitment = commitment_key->commit(instance->proving_key->w_4);
@@ -87,15 +87,32 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
 }
 
 /**
+ * @brief Compute log derivative inverse polynomial and its commitment, if required
+ *
+ */
+template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_log_derivative_inverse_round()
+{
+    // Compute and store challenges beta and gamma
+    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
+
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        instance->compute_logderivative_inverse(beta, gamma);
+
+        auto lookup_inverses_commitment = commitment_key->commit(instance->proving_key->lookup_inverses);
+        transcript.send_to_verifier(commitment_labels.lookup_inverses, lookup_inverses_commitment);
+    }
+}
+
+/**
  * @brief Compute permutation and lookup grand product polynomials and their commitments
  *
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_computation_round()
 {
-    // Compute and store parameters required by relations in Sumcheck
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
 
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->compute_grand_product_polynomials(relation_parameters.beta, relation_parameters.gamma);
 
     auto z_perm_commitment = commitment_key->commit(instance->proving_key->z_perm);
     auto z_lookup_commitment = commitment_key->commit(instance->proving_key->z_lookup);
@@ -125,7 +142,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_round
 {
     ZeroMorph::prove(instance->prover_polynomials.get_unshifted(),
                      instance->prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations,
+                     sumcheck_output.claimed_evaluations.get_unshifted(),
+                     sumcheck_output.claimed_evaluations.get_shifted(),
                      sumcheck_output.challenge,
                      commitment_key,
                      transcript);
@@ -149,6 +167,8 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
     execute_sorted_list_accumulator_round();
 
     // Fiat-Shamir: beta & gamma
+    execute_log_derivative_inverse_round();
+
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
