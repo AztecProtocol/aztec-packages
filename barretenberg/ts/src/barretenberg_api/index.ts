@@ -382,12 +382,15 @@ export class BarretenbergApi {
   }
 
   async acirGetProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array): Promise<Uint8Array> {
-    const result = await this.binder.callWasmExport(
+    const inArgs = [acirComposerPtr, constraintSystemBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
       'acir_get_proving_key',
-      [acirComposerPtr, constraintSystemBuf],
-      [BufferDeserializer()],
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
     );
-    return result[0];
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
   }
 
   async acirVerifyProof(acirComposerPtr: Ptr, proofBuf: Uint8Array, isRecursive: boolean): Promise<boolean> {
