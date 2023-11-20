@@ -78,7 +78,9 @@ async function main() {
 
   const createShutdown = (cb?: () => Promise<void>) => async () => {
     logger.info('Shutting down...');
-    if (cb) await cb();
+    if (cb) {
+      await cb();
+    }
     process.exit(0);
   };
 
