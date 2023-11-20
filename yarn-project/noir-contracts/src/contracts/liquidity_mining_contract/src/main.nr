@@ -76,9 +76,18 @@ contract LiquidityMining {
     ) {
         let balances = storage.balances.at(owner.address);
 
+        // 1.f)
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
         let note = notes[0].unwrap();
+
+        // 1.g)
+        let note_commitment = note_utils::compute_unique_siloed_note_hash(LPNoteMethods, note);
+
+        // 1.h)
+
+        // 1.i)
+        let note_hash_tree_root = context.block_data.note_hash_tree_root;
 
         // Remove/nullify the note
         balances.remove(note);
