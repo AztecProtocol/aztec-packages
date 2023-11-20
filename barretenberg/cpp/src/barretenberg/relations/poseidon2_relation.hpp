@@ -18,16 +18,19 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     /**
      * @brief Expression for the poseidon2 external gate.
      * @details This relation is defined as:
-     * q_pos2 * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) + \alpha^2 * (t7 - w_3_shift) + \alpha^3 * (t4 -
-     * w_4_shift) ) = 0
-     * where:
-     *      t0 := w_1 + w_2                                             (1, 1, 0, 0)
-     *      t1 := w_3 + w_4                                             (0, 0, 1, 1)
-     *      t2 := w_2 + w_2 + t1 = 2 * w_2 + w_3 + w_4                  (0, 2, 1, 1)
-     *      t3 := w_4 + w_4 + t0 = w_1 + w_2 + 2 * w_4                  (1, 1, 0, 2)
-     *      t4 := 2 * (t1 + t1) + t3 = w_1 + w_2 + 4 * w_3 + 6 * w_4    (1, 1, 4, 6)
-     *      t5 := 2 * (t0 + t0) + t2 = 4 * w_1 + 6 * w_2 + w_3 + w_4    (4, 6, 1, 1)
-     *      t6 := t3 + t5 = 5 * w_1 + 7 * w_2 + 1 * w_3 + 3 * w_4       (5, 7, 1, 3)
+     * q_pos2 * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) +
+     * \alpha^2 * (t7 - w_3_shift) + \alpha^3 * (t4 - w_4_shift) ) = 0 where:
+     *      v1 := (w_1 + q_1)^5
+     *      v2 := (w_2 + q_2)^5
+     *      v3 := (w_3 + q_3)^5
+     *      v4 := (w_4 + q_4)^5
+     *      t0 := v1 + v2                                             (1, 1, 0, 0)
+     *      t1 := v3 + v4                                             (0, 0, 1, 1)
+     *      t2 := v2 + v2 + t1 = 2 * v2 + v3 + v4                  (0, 2, 1, 1)
+     *      t3 := v4 + v4 + t0 = v1 + v2 + 2 * v4                  (1, 1, 0, 2)
+     *      t4 := 4 * t1 + t3 = v1 + v2 + 4 * v3 + 6 * v4    (1, 1, 4, 6)
+     *      t5 := 4 * t0 + t2 = 4 * v1 + 6 * v2 + v3 + v4    (4, 6, 1, 1)
+     *      t6 := t3 + t5 = 5 * v1 + 7 * v2 + 1 * v3 + 3 * v4       (5, 7, 1, 3)
      *      t7 := t2 + t4                                               (1, 3, 5, 7)
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -52,13 +55,38 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto w_o_shift = View(in.w_o_shift);
         auto w_4_shift = View(in.w_4_shift);
         auto q_pos2_ext = View(in.q_pos2_ext);
+        auto q_l = View(in.q_l);
+        auto q_r = View(in.q_r);
+        auto q_o = View(in.q_o);
+        auto q_4 = View(in.q_4);
 
-        auto t0 = w_l + w_r; // A + B
-        auto t1 = w_o + w_4; // C + D
-        auto t2 = w_r + w_r; // 2B
-        t2 += t1;            // 2B + C + D
-        auto t3 = w_4 + w_4; // 2D
-        t3 += t0;            // 2D + A + B
+        // add round constants
+        w_l += q_l;
+        w_r += q_r;
+        w_o += q_o;
+        w_4 += q_4;
+
+        // apply s-box round
+        auto v1 = w_l * w_l;
+        v1 *= v1;
+        v1 *= w_l;
+        auto v2 = w_r * w_r;
+        v2 *= v2;
+        v2 *= w_r;
+        auto v3 = w_o * w_o;
+        v3 *= v3;
+        v3 *= w_o;
+        auto v4 = w_4 * w_4;
+        v4 *= v4;
+        v4 *= w_4;
+
+        // matrix mul with 14 additions
+        auto t0 = v1 + v2; // A + B
+        auto t1 = v3 + v4; // C + D
+        auto t2 = v2 + v2; // 2B
+        t2 += t1;          // 2B + C + D
+        auto t3 = v4 + v4; // 2D
+        t3 += t0;          // 2D + A + B
         auto t4 = t1 + t1;
         t4 += t4;
         t4 += t3; // A + B + 4C + 6D
