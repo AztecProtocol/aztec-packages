@@ -30,9 +30,6 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
 
-    info("Initial: num gates = ", builder->get_num_gates());
-    size_t prev_num_gates = builder->get_num_gates();
-
     transcript = Transcript<Builder>{ builder, proof.proof_data };
 
     auto commitments = VerifierCommitments(key);
@@ -57,7 +54,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     commitments.w_r = transcript.template receive_from_prover<Commitment>(commitment_labels.w_r);
     commitments.w_o = transcript.template receive_from_prover<Commitment>(commitment_labels.w_o);
 
-    // If Goblin, get commitments to ECC op wire polynomials
+    // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
         commitments.ecc_op_wire_1 =
             transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_1);
@@ -67,6 +64,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_3);
         commitments.ecc_op_wire_4 =
             transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_4);
+        commitments.calldata = transcript.template receive_from_prover<Commitment>(commitment_labels.calldata);
+        commitments.calldata_read_counts =
+            transcript.template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
     }
 
     // Get challenge for sorted list batching and wire four memory records
@@ -79,6 +79,12 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Get permutation challenges
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+
+    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        commitments.lookup_inverses =
+            transcript.template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+    }
 
     const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(pub_inputs_offset.get_value()));
@@ -99,16 +105,13 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto sumcheck = Sumcheck(key->circuit_size);
     auto [multivariate_challenge, claimed_evaluations, verified] = sumcheck.verify(relation_parameters, transcript);
 
-    info("Sumcheck: num gates = ",
-         builder->get_num_gates() - prev_num_gates,
-         ", (total = ",
-         builder->get_num_gates(),
-         ")");
-    prev_num_gates = builder->get_num_gates();
-
     // Execute ZeroMorph multilinear PCS evaluation verifier
-    auto pairing_points = ZeroMorph::verify(commitments, claimed_evaluations, multivariate_challenge, transcript);
-
+    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+                                            commitments.get_to_be_shifted(),
+                                            claimed_evaluations.get_unshifted(),
+                                            claimed_evaluations.get_shifted(),
+                                            multivariate_challenge,
+                                            transcript);
     return pairing_points;
 }
 

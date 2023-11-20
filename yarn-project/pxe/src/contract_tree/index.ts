@@ -1,6 +1,5 @@
 import {
   CONTRACT_TREE_HEIGHT,
-  CircuitsWasm,
   EthAddress,
   FUNCTION_TREE_HEIGHT,
   Fr,
@@ -8,7 +7,6 @@ import {
   MembershipWitness,
   NewContractConstructor,
   NewContractData,
-  computeFunctionTree,
   computeFunctionTreeData,
   generateFunctionLeaves,
   hashVKStr,
@@ -18,6 +16,7 @@ import {
 import {
   computeCompleteAddress,
   computeContractLeaf,
+  computeFunctionTree,
   computeFunctionTreeRoot,
   computeVarArgsHash,
   hashConstructor,
@@ -44,7 +43,6 @@ export class ContractTree {
      */
     public readonly contract: ContractDao,
     private stateInfoProvider: StateInfoProvider,
-    private wasm: CircuitsWasm,
     /**
      * Data associated with the contract constructor for a new contract.
      */
@@ -66,7 +64,7 @@ export class ContractTree {
    * @param node - An instance of the AztecNode class representing the current node.
    * @returns A new ContractTree instance containing the contract data and computed values.
    */
-  public static async new(
+  public static new(
     artifact: ContractArtifact,
     args: Fr[],
     portalContract: EthAddress,
@@ -74,7 +72,6 @@ export class ContractTree {
     from: PublicKey,
     node: AztecNode,
   ) {
-    const wasm = await CircuitsWasm.get();
     const constructorArtifact = artifact.functions.find(isConstructor);
     if (!constructorArtifact) {
       throw new Error('Constructor not found.');
@@ -87,14 +84,14 @@ export class ContractTree {
       ...f,
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
     }));
-    const leaves = generateFunctionLeaves(functions, wasm);
-    const root = computeFunctionTreeRoot(wasm, leaves);
+    const leaves = generateFunctionLeaves(functions);
+    const root = computeFunctionTreeRoot(leaves);
     const functionData = FunctionData.fromAbi(constructorArtifact);
-    const vkHash = hashVKStr(constructorArtifact.verificationKey, wasm);
-    const argsHash = await computeVarArgsHash(wasm, args);
-    const constructorHash = hashConstructor(wasm, functionData, argsHash, vkHash);
+    const vkHash = hashVKStr(constructorArtifact.verificationKey);
+    const argsHash = computeVarArgsHash(args);
+    const constructorHash = hashConstructor(functionData, argsHash, vkHash);
 
-    const completeAddress = computeCompleteAddress(wasm, from, contractAddressSalt, root, constructorHash);
+    const completeAddress = computeCompleteAddress(from, contractAddressSalt, root, constructorHash);
 
     const contractDao: ContractDao = {
       ...artifact,
@@ -106,7 +103,7 @@ export class ContractTree {
       functionData,
       vkHash,
     };
-    return new ContractTree(contractDao, node, wasm, NewContractConstructor);
+    return new ContractTree(contractDao, node, NewContractConstructor);
   }
 
   /**
@@ -172,7 +169,7 @@ export class ContractTree {
   public getFunctionTreeRoot() {
     if (!this.functionTreeRoot) {
       const leaves = this.getFunctionLeaves();
-      this.functionTreeRoot = computeFunctionTreeRoot(this.wasm, leaves);
+      this.functionTreeRoot = computeFunctionTreeRoot(leaves);
     }
     return Promise.resolve(this.functionTreeRoot);
   }
@@ -197,7 +194,7 @@ export class ContractTree {
 
     if (!this.functionTree) {
       const leaves = this.getFunctionLeaves();
-      this.functionTree = computeFunctionTree(this.wasm, leaves);
+      this.functionTree = computeFunctionTree(leaves);
     }
     const functionTreeData = computeFunctionTreeData(this.functionTree, functionIndex);
     return Promise.resolve(
@@ -218,7 +215,7 @@ export class ContractTree {
    */
   private getFunctionLeaves() {
     if (!this.functionLeaves) {
-      this.functionLeaves = generateFunctionLeaves(this.contract.functions, this.wasm);
+      this.functionLeaves = generateFunctionLeaves(this.contract.functions);
     }
     return this.functionLeaves;
   }
@@ -228,7 +225,7 @@ export class ContractTree {
       const { completeAddress, portalContract } = this.contract;
       const root = await this.getFunctionTreeRoot();
       const newContractData = new NewContractData(completeAddress.address, portalContract, root);
-      const commitment = computeContractLeaf(this.wasm, newContractData);
+      const commitment = computeContractLeaf(newContractData);
       this.contractIndex = await this.stateInfoProvider.findLeafIndex(MerkleTreeId.CONTRACT_TREE, commitment);
       if (this.contractIndex === undefined) {
         throw new Error(

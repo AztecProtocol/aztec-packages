@@ -43,7 +43,7 @@ describe('guides/dapp/testing', () => {
 
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
@@ -76,7 +76,7 @@ describe('guides/dapp/testing', () => {
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
@@ -99,7 +99,7 @@ describe('guides/dapp/testing', () => {
         pxe = createPXEClient(PXE_URL);
         owner = await createAccount(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
-        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
       }, 30_000);
 
       it('warps time to 1h into the future', async () => {
@@ -130,7 +130,7 @@ describe('guides/dapp/testing', () => {
         const ownerAddress = owner.getAddress();
         const mintAmount = 100n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
@@ -141,7 +141,7 @@ describe('guides/dapp/testing', () => {
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
         // The balances mapping is defined on storage slot 3 and is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(3n, ownerAddress);
         // docs:end:calc-slot
@@ -252,7 +252,7 @@ describe('guides/dapp/testing', () => {
 
         const mintAmount = 20n;
         const secret = Fr.random();
-        const secretHash = await computeMessageSecretHash(secret);
+        const secretHash = computeMessageSecretHash(secret);
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);

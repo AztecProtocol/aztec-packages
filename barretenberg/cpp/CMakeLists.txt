@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.14.1 # x-release-please-version
+    VERSION 0.15.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -95,7 +95,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         message(WARNING "GCC <10 is not supported")
     endif()
 else()
-    message(WARNING "Unsuported compiler, use Clang >14 or GCC >10")
+    message(WARNING "Unsupported compiler, use Clang >14 or GCC >10")
 endif()
 
 if(COVERAGE)

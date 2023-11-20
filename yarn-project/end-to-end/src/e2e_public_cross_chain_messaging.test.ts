@@ -59,7 +59,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
@@ -88,7 +88,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitMessageHash(
+    const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );
@@ -104,7 +104,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
 
-    expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
+    expect(await outbox.read.contains([entryKey.toString()])).toBeFalsy();
   }, 120_000);
   // docs:end:e2e_public_cross_chain
 
@@ -115,7 +115,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
@@ -167,7 +167,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
   it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);

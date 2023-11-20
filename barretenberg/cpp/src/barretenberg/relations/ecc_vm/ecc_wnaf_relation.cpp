@@ -5,7 +5,7 @@
 namespace proof_system::honk::sumcheck {
 
 /**
- * @brief ECCVMWnafRelationBase evaluates relations that convert scalar multipliers into 4-bit WNAF slices
+ * @brief ECCVMWnafRelationImpl evaluates relations that convert scalar multipliers into 4-bit WNAF slices
  * @details Each WNAF slice is a 4-bit slice representing one of 16 integers { -15, -13, ..., 15 }
  * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s4lo)
  * One 128-bit scalar multiplier is processed across 8 rows, indexed by a round variable.
@@ -36,7 +36,7 @@ namespace proof_system::honk::sumcheck {
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void ECCVMWnafRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator,
+void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator,
                                            const AllEntities& in,
                                            const Parameters& /*unused*/,
                                            const FF& scaling_factor)
@@ -152,7 +152,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulato
      * If q_transition = 1, round value at current row = 7
      * If q_transition = 1, round value at next row = 0
      * Question: is this sufficient? We don't actually range constrain `round` (expensive if we don't need to!).
-     * Let us analyse...
+     * Let us analyze...
      * 1. When `q_transition = 1`, we use a set membership check to map the tuple of (pc, scalar_sum) into a set.
      * We compare this set with an equivalent set generated from the transcript columns. The sets must match.
      * 2. Only case where, at row `i`, a Prover can set `round` to value > 7 is if `q_transition = 0` for all j > i.
@@ -216,8 +216,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulato
     // the set equivalence relation
 }
 
-template class ECCVMWnafRelationBase<barretenberg::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationBase, flavor::ECCVM);
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationBase, flavor::ECCVMGrumpkin);
+template class ECCVMWnafRelationImpl<grumpkin::fr>;
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationImpl, flavor::ECCVM);
 
 } // namespace proof_system::honk::sumcheck

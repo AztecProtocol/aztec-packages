@@ -7,7 +7,7 @@ namespace proof_system::honk::sumcheck {
 /**
  * @brief Performs list-equivalence checks for the ECCVM
  *
- * @details ECCVMSetRelationBase validates the correctness of the inputs/outputs of the three main algorithms evaluated
+ * @details ECCVMSetRelationImpl validates the correctness of the inputs/outputs of the three main algorithms evaluated
  * by the ECCVM.
  *
  * First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
@@ -30,11 +30,11 @@ namespace proof_system::honk::sumcheck {
  * @param in
  * @param relation_params
  * @param index
- * @return ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes>
+ * @return ECCVMSetRelationImpl<FF>::template Accumulator<AccumulatorTypes>
  */
 template <typename FF>
 template <typename Accumulator, typename AllEntities, typename Parameters>
-Accumulator ECCVMSetRelationBase<FF>::compute_permutation_numerator(const AllEntities& in, const Parameters& params)
+Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_numerator(const AllEntities& in, const Parameters& params)
 {
     using View = typename Accumulator::View;
 
@@ -227,7 +227,7 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_numerator(const AllEnt
 
 template <typename FF>
 template <typename Accumulator, typename AllEntities, typename Parameters>
-Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllEntities& in, const Parameters& params)
+Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_denominator(const AllEntities& in, const Parameters& params)
 {
     using View = typename Accumulator::View;
 
@@ -280,16 +280,16 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllE
     }
 
     /**
-     * @brief Second term: tuple of (transcript_pc, transcript_x, transcript_y, z1) OR (transcript_pc, \lambda *
-     * transcript_x, -transcript_y, z2) for each scalar multiplication in ECCVMTranscriptRelation columns. (the latter
+     * @brief Second term: tuple of (transcript_pc, transcript_Px, transcript_Py, z1) OR (transcript_pc, \lambda *
+     * transcript_Px, -transcript_Py, z2) for each scalar multiplication in ECCVMTranscriptRelation columns. (the latter
      * term uses the curve endomorphism: \lambda = cube root of unity). These values must be equivalent to the second
      * term values in `compute_permutation_numerator`
      */
     {
         const auto& transcript_pc = View(in.transcript_pc);
 
-        auto transcript_x = View(in.transcript_x);
-        auto transcript_y = View(in.transcript_y);
+        auto transcript_Px = View(in.transcript_Px);
+        auto transcript_Py = View(in.transcript_Py);
         auto z1 = View(in.transcript_z1);
         auto z2 = View(in.transcript_z2);
         auto z1_zero = View(in.transcript_z1zero);
@@ -300,9 +300,9 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllE
         auto lookup_second = (-z2_zero + 1);
         FF endomorphism_base_field_shift = FF::cube_root_of_unity();
 
-        auto transcript_input1 = transcript_pc + transcript_x * beta + transcript_y * beta_sqr + z1 * beta_cube;
-        auto transcript_input2 = (transcript_pc - 1) + transcript_x * endomorphism_base_field_shift * beta -
-                                 transcript_y * beta_sqr + z2 * beta_cube;
+        auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube;
+        auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -
+                                 transcript_Py * beta_sqr + z2 * beta_cube;
 
         // | q_mul | z2_zero | z1_zero | lookup                 |
         // | ----- | ------- | ------- | ---------------------- |
@@ -364,7 +364,7 @@ Accumulator ECCVMSetRelationBase<FF>::compute_permutation_denominator(const AllE
  */
 template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void ECCVMSetRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator,
+void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator,
                                           const AllEntities& in,
                                           const Parameters& params,
                                           const FF& scaling_factor)
@@ -393,10 +393,8 @@ void ECCVMSetRelationBase<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<1>(accumulator) += (lagrange_last * z_perm_shift) * scaling_factor;
 }
 
-template class ECCVMSetRelationBase<barretenberg::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationBase, flavor::ECCVM);
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationBase, flavor::ECCVMGrumpkin);
-DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationBase, flavor::ECCVM);
-DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationBase, flavor::ECCVMGrumpkin);
+template class ECCVMSetRelationImpl<grumpkin::fr>;
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
+DEFINE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
 
 } // namespace proof_system::honk::sumcheck

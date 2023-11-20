@@ -1,16 +1,14 @@
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
-  CircuitsWasm,
   EthAddress,
   FunctionLeafPreimage,
   FunctionSelector,
   NOTE_HASH_TREE_HEIGHT,
   NewContractData,
-  computeFunctionTree,
   computeFunctionTreeData,
 } from '@aztec/circuits.js';
-import { computeContractLeaf, computeFunctionLeaf } from '@aztec/circuits.js/abis';
+import { computeContractLeaf, computeFunctionLeaf, computeFunctionTree } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { Pedersen, StandardTree } from '@aztec/merkle-tree';
 import { MerkleTreeId } from '@aztec/types';
@@ -22,28 +20,22 @@ describe('Data generation for noir tests', () => {
   const selector = new FunctionSelector(1);
   const vkHash = Fr.ZERO;
   const acirHash = new Fr(12341234);
-  const contractAddress = AztecAddress.fromField(new Fr(12345));
+  const contractAddress = AztecAddress.fromBigInt(12345n);
   const portalContractAddress = EthAddress.fromField(new Fr(23456));
 
   let functionLeaf: Fr;
   let functionTreeRoot: Fr;
 
-  let wasm: CircuitsWasm;
-
-  beforeAll(async () => {
-    wasm = await CircuitsWasm.get();
-  });
-
   it('Computes function leaf', () => {
     const functionLeafPreimage = new FunctionLeafPreimage(selector, false, true, vkHash, acirHash);
 
-    functionLeaf = computeFunctionLeaf(wasm, functionLeafPreimage);
+    functionLeaf = computeFunctionLeaf(functionLeafPreimage);
 
     expect(functionLeaf.toString()).toMatchSnapshot();
   });
 
   it('Computes function tree data', () => {
-    const tree = computeFunctionTree(wasm, [functionLeaf]);
+    const tree = computeFunctionTree([functionLeaf]);
 
     const functionTreeData = computeFunctionTreeData(tree, 0);
 
@@ -57,14 +49,13 @@ describe('Data generation for noir tests', () => {
 
   it('Computes the contract tree root', async () => {
     const contractLeaf = computeContractLeaf(
-      wasm,
       new NewContractData(contractAddress, portalContractAddress, functionTreeRoot),
     );
     const db = levelup((memdown as any)());
 
     const tree = new StandardTree(
       db,
-      new Pedersen(wasm),
+      new Pedersen(),
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
@@ -86,7 +77,7 @@ describe('Data generation for noir tests', () => {
 
     const noteHashTree = new StandardTree(
       db,
-      new Pedersen(wasm),
+      new Pedersen(),
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );

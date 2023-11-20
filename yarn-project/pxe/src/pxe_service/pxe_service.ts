@@ -8,7 +8,6 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
@@ -121,7 +120,7 @@ export class PXEService implements PXE {
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
+    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
@@ -238,8 +237,7 @@ export class PXEService implements PXE {
         throw new Error('Note does not exist.');
       }
 
-      const wasm = await CircuitsWasm.get();
-      const siloedNullifier = siloNullifier(wasm, note.contractAddress, innerNullifier!);
+      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
       const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
       if (nullifierIndex !== undefined) {
         throw new Error('The note has been destroyed.');
@@ -273,16 +271,16 @@ export class PXEService implements PXE {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
 
-    const wasm = await CircuitsWasm.get();
-
     const nonces: Fr[] = [];
     const firstNullifier = tx.newNullifiers[0];
     const commitments = tx.newCommitments;
     for (let i = 0; i < commitments.length; ++i) {
       const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) break;
+      if (commitment.equals(Fr.ZERO)) {
+        break;
+      }
 
-      const nonce = computeCommitmentNonce(wasm, firstNullifier, i);
+      const nonce = computeCommitmentNonce(firstNullifier, i);
       const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         note.contractAddress,
         nonce,
@@ -325,7 +323,9 @@ export class PXEService implements PXE {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    if (simulatePublic) await this.#simulatePublicCalls(tx);
+    if (simulatePublic) {
+      await this.#simulatePublicCalls(tx);
+    }
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -626,7 +626,7 @@ export class PXEService implements PXE {
     publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
-    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());
+    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().hash();
     const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
     const { publicCallStack } = publicInputs.end;
 

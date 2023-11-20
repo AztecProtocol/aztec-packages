@@ -46,8 +46,12 @@
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
       "inherits": "clang16",
+      "binaryDir": "build",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4",
+        "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "OFF",
@@ -134,6 +138,23 @@
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
         "LDFLAGS": "-fsanitize=thread"
+      }
+    },
+    {
+      "name": "msan",
+      "displayName": "Debugging build with memory sanitizer on Clang-16",
+      "description": "Build with thread sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-msan",
+      "generator": "Unix Makefiles",
+      "environment": {
+        "CFLAGS": "-fsanitize=memory",
+        "CXXFLAGS": "-fsanitize=memory",
+        "LDFLAGS": "-fsanitize=memory"
+      },
+      "cacheVariables": {
+        "BENCHMARK": "OFF",
+        "TESTING": "OFF"
       }
     },
     {
@@ -304,6 +325,11 @@
       "name": "smt-verification",
       "inherits": "clang16",
       "configurePreset": "smt-verification"
+    },
+    {
+      "name": "msan",
+      "inherits": "default",
+      "configurePreset": "msan"
     },
     {
       "name": "tsan",

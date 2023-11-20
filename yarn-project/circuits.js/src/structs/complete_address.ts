@@ -4,7 +4,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 import { computeContractAddressFromPartial } from '../abis/abis.js';
 import { Grumpkin } from '../barretenberg/index.js';
-import { CircuitsWasm, GrumpkinPrivateKey, PartialAddress, PublicKey } from '../index.js';
+import { GrumpkinPrivateKey, PartialAddress, PublicKey } from '../index.js';
 
 /**
  * A complete address is a combination of an Aztec address, a public key and a partial address.
@@ -30,13 +30,8 @@ export class CompleteAddress {
   /** Size in bytes of an instance */
   static readonly SIZE_IN_BYTES = 32 * 4;
 
-  static async create(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<CompleteAddress> {
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
+  static create(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialAddress) {
+    const expectedAddress = computeContractAddressFromPartial(publicKey, partialAddress);
     if (!expectedAddress.equals(address)) {
       throw new Error(
         `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
@@ -45,22 +40,17 @@ export class CompleteAddress {
     return new CompleteAddress(address, publicKey, partialAddress);
   }
 
-  static async random(): Promise<CompleteAddress> {
+  static random() {
     const partialAddress = Fr.random();
     const pubKey = Point.random();
-    const wasm = await CircuitsWasm.get();
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+    const address = computeContractAddressFromPartial(pubKey, partialAddress);
     return new CompleteAddress(address, pubKey, partialAddress);
   }
 
-  static async fromPrivateKeyAndPartialAddress(
-    privateKey: GrumpkinPrivateKey,
-    partialAddress: Fr,
-  ): Promise<CompleteAddress> {
-    const wasm = await CircuitsWasm.get();
-    const grumpkin = new Grumpkin(wasm);
+  static fromPrivateKeyAndPartialAddress(privateKey: GrumpkinPrivateKey, partialAddress: Fr): CompleteAddress {
+    const grumpkin = new Grumpkin();
     const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+    const address = computeContractAddressFromPartial(pubKey, partialAddress);
     return new CompleteAddress(address, pubKey, partialAddress);
   }
 

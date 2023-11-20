@@ -6,9 +6,15 @@ import { fetchCode } from '../fetch_code/index.js';
 import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
 import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
+import { HeapAllocator } from './heap_allocator.js';
 
 const debug = createDebug('bb.js:wasm');
 
+/**
+ * This is the "main thread" implementation of BarretenbergWasm.
+ * It spawns a bunch of "child thread" implementations.
+ * In a browser context, this still runs on a worker, as it will block waiting on child threads.
+ */
 export class BarretenbergWasmMain extends BarretenbergWasmBase {
   static MAX_THREADS = 32;
   private workers: Worker[] = [];
@@ -100,6 +106,38 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     };
     /* eslint-enable camelcase */
   }
+
+  callWasmExport(funcName: string, inArgs: Uint8Array[], outLens: (number | undefined)[]) {
+    const alloc = new HeapAllocator(this);
+    const inPtrs = alloc.copyToMemory(inArgs);
+    const outPtrs = alloc.getOutputPtrs(outLens);
+    this.call(funcName, ...inPtrs, ...outPtrs);
+    const outArgs = this.getOutputArgs(outLens, outPtrs, alloc);
+    alloc.freeAll();
+    return outArgs;
+  }
+
+  private getOutputArgs(outLens: (number | undefined)[], outPtrs: number[], alloc: HeapAllocator) {
+    return outLens.map((len, i) => {
+      if (len) {
+        return this.getMemorySlice(outPtrs[i], outPtrs[i] + len);
+      }
+      const slice = this.getMemorySlice(outPtrs[i], outPtrs[i] + 4);
+      const ptr = new DataView(slice.buffer, slice.byteOffset, slice.byteLength).getUint32(0, true);
+
+      // Add our heap buffer to the dealloc list.
+      alloc.addOutputPtr(ptr);
+
+      // The length will be found in the first 4 bytes of the buffer, big endian. See to_heap_buffer.
+      const lslice = this.getMemorySlice(ptr, ptr + 4);
+      const length = new DataView(lslice.buffer, lslice.byteOffset, lslice.byteLength).getUint32(0, false);
+
+      return this.getMemorySlice(ptr + 4, ptr + 4 + length);
+    });
+  }
 }
 
+/**
+ * The comlink type that asyncifies the BarretenbergWasmMain api.
+ */
 export type BarretenbergWasmMainWorker = Remote<BarretenbergWasmMain>;

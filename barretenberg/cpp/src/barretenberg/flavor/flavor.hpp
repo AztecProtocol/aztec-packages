@@ -15,7 +15,7 @@
  * relationships between these. We aim for a more uniform treatment, to enfore identical and informative naming, and to
  * prevent the developer having to think very much about the ordering of protocol entities in disparate places.
  *
- * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compatness, but which feels
+ * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compactness, but which feels
  * needlessly manual and low-level. In the past, this contained even more boolean parameters, making it quite hard to
  * parse. A typical construction is to loop over the polynomial manifest by extracting a globally-defined
  * "FOO_MANIFEST_SIZE" (the use of "manifest" here is distinct from the manifests in the transcript) to loop
@@ -64,6 +64,7 @@
  */
 
 #pragma once
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -74,6 +75,22 @@
 
 namespace proof_system::honk::flavor {
 
+#define DEFINE_POINTER_VIEW(ExpectedSize, ...)                                                                         \
+    [[nodiscard]] auto pointer_view()                                                                                  \
+    {                                                                                                                  \
+        std::array view{ __VA_ARGS__ };                                                                                \
+        static_assert(view.size() == ExpectedSize,                                                                     \
+                      "Expected array size to match given size (first parameter) in DEFINE_POINTER_VIEW");             \
+        return view;                                                                                                   \
+    }                                                                                                                  \
+    [[nodiscard]] auto pointer_view() const                                                                            \
+    {                                                                                                                  \
+        std::array view{ __VA_ARGS__ };                                                                                \
+        static_assert(view.size() == ExpectedSize,                                                                     \
+                      "Expected array size to match given size (first parameter) in DEFINE_POINTER_VIEW");             \
+        return view;                                                                                                   \
+    }
+
 /**
  * @brief Base data class template, a wrapper for std::array, from which every flavor class ultimately derives.
  *
@@ -83,14 +100,7 @@ namespace proof_system::honk::flavor {
  */
 template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Entities_ {
   public:
-    using ArrayType = std::array<DataType, NUM_ENTITIES>;
-    ArrayType _data;
-
     virtual ~Entities_() = default;
-
-    DataType& operator[](size_t idx) { return _data[idx]; };
-    typename ArrayType::iterator begin() { return _data.begin(); };
-    typename ArrayType::iterator end() { return _data.end(); };
 
     constexpr size_t size() { return NUM_ENTITIES; };
 };
@@ -137,13 +147,11 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
-    typename PrecomputedPolynomials::ArrayType& _precomputed_polynomials = PrecomputedPolynomials::_data;
-    typename WitnessPolynomials::ArrayType& _witness_polynomials = WitnessPolynomials::_data;
-
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
+    auto precomputed_polynomials_pointer_view() { return PrecomputedPolynomials::pointer_view(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -152,12 +160,12 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto& poly : _precomputed_polynomials) {
-            poly = Polynomial(circuit_size);
+        for (auto* poly : PrecomputedPolynomials::pointer_view()) {
+            *poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto& poly : _witness_polynomials) {
-            poly = Polynomial(circuit_size);
+        for (auto* poly : WitnessPolynomials::pointer_view()) {
+            *poly = Polynomial(circuit_size);
         }
     };
 };
@@ -293,7 +301,6 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 namespace proof_system::honk::flavor {
 class Ultra;
 class ECCVM;
-class ECCVMGrumpkin;
 class GoblinUltra;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
@@ -335,11 +342,11 @@ concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircui
                                        honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
                                        honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
-template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 // clang-format on
 } // namespace proof_system

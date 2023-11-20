@@ -12,7 +12,7 @@ import {
   Wallet,
   computeMessageSecretHash,
   deployL1Contract,
-  sha256ToField,
+  sha256,
 } from '@aztec/aztec.js';
 import {
   OutboxAbi,
@@ -89,7 +89,9 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
   const deployReceipt = await deployTx.wait();
-  if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
+  if (deployReceipt.status !== TxStatus.MINED) {
+    throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
+  }
   const token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
 
   // deploy l2 token bridge and attach to the portal
@@ -97,17 +99,23 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     .send({ portalContract: tokenPortalAddress })
     .deployed();
 
-  if ((await token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
+  if ((await token.methods.admin().view()) !== owner.toBigInt()) {
+    throw new Error(`Token admin is not ${owner}`);
+  }
 
-  if ((await bridge.methods.token().view()) !== token.address.toBigInt())
+  if ((await bridge.methods.token().view()) !== token.address.toBigInt()) {
     throw new Error(`Bridge token is not ${token.address}`);
+  }
 
   // make the bridge a minter on the token:
   const makeMinterTx = token.methods.set_minter(bridge.address, true).send();
   const makeMinterReceipt = await makeMinterTx.wait();
-  if (makeMinterReceipt.status !== TxStatus.MINED)
+  if (makeMinterReceipt.status !== TxStatus.MINED) {
     throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
-  if ((await token.methods.is_minter(bridge.address).view()) === 1n) throw new Error(`Bridge is not a minter`);
+  }
+  if ((await token.methods.is_minter(bridge.address).view()) === 1n) {
+    throw new Error(`Bridge is not a minter`);
+  }
 
   // initialize portal
   await tokenPortal.write.initialize(
@@ -202,11 +210,11 @@ export class CrossChainTestHarness {
     public ownerAddress: AztecAddress,
   ) {}
 
-  async generateClaimSecret(): Promise<[Fr, Fr]> {
+  generateClaimSecret(): [Fr, Fr] {
     this.logger("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
-    this.logger('Generated claim secret: ' + secretHash.toString(true));
+    const secretHash = computeMessageSecretHash(secret);
+    this.logger('Generated claim secret: ' + secretHash.toString());
     return [secret, secretHash];
   }
 
@@ -232,7 +240,7 @@ export class CrossChainTestHarness {
       bridgeAmount,
       this.ethAccount.toString(),
       deadline,
-      secretHash.toString(true),
+      secretHash.toString(),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
@@ -254,11 +262,11 @@ export class CrossChainTestHarness {
 
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [
-      secretHashForRedeemingMintedNotes.toString(true),
+      secretHashForRedeemingMintedNotes.toString(),
       bridgeAmount,
       this.ethAccount.toString(),
       deadline,
-      secretHashForL2MessageConsumption.toString(true),
+      secretHashForL2MessageConsumption.toString(),
     ] as const;
     const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
@@ -362,24 +370,28 @@ export class CrossChainTestHarness {
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
 
-    const content = sha256ToField(
-      Buffer.concat([
-        Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
-        this.ethAccount.toBuffer32(),
-        new Fr(withdrawAmount).toBuffer(),
-        callerOnL1.toBuffer32(),
-      ]),
+    const content = Fr.fromBufferReduce(
+      sha256(
+        Buffer.concat([
+          Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+          this.ethAccount.toBuffer32(),
+          new Fr(withdrawAmount).toBuffer(),
+          callerOnL1.toBuffer32(),
+        ]),
+      ),
     );
-    const entryKey = sha256ToField(
-      Buffer.concat([
-        this.l2Bridge.address.toBuffer(),
-        new Fr(1).toBuffer(), // aztec version
-        this.tokenPortalAddress.toBuffer32() ?? Buffer.alloc(32, 0),
-        new Fr(this.publicClient.chain.id).toBuffer(), // chain id
-        content.toBuffer(),
-      ]),
+    const entryKey = Fr.fromBufferReduce(
+      sha256(
+        Buffer.concat([
+          this.l2Bridge.address.toBuffer(),
+          new Fr(1).toBuffer(), // aztec version
+          this.tokenPortalAddress.toBuffer32() ?? Buffer.alloc(32, 0),
+          new Fr(this.publicClient.chain.id).toBuffer(), // chain id
+          content.toBuffer(),
+        ]),
+      ),
     );
-    expect(await this.outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
+    expect(await this.outbox.read.contains([entryKey.toString()])).toBeFalsy();
 
     return entryKey;
   }
@@ -393,7 +405,7 @@ export class CrossChainTestHarness {
       false,
     ]);
 
-    expect(withdrawEntryKey).toBe(entryKey.toString(true));
+    expect(withdrawEntryKey).toBe(entryKey.toString());
     expect(await this.outbox.read.contains([withdrawEntryKey])).toBeTruthy();
 
     await this.walletClient.writeContract(withdrawRequest);

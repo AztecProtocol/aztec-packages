@@ -253,8 +253,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
      multiplication?
      *          transcript_pc: point counter for transcript columns
      *          transcript_msm_count: counts number of muls processed in an ongoing multiscalar multiplication
-     *          transcript_x: input transcript point, x-coordinate
-     *          transcript_y: input transcriot point, y-coordinate
+     *          transcript_Px: input transcript point, x-coordinate
+     *          transcript_Py: input transcriot point, y-coordinate
      *          transcript_op: input transcript opcode value
      *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
      *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
@@ -338,8 +338,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
         AllPolynomials polys;
-        for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
-            polys[j] = Polynomial(num_rows_pow2);
+        for (auto* poly : polys.pointer_view()) {
+            *poly = Polynomial(num_rows_pow2);
         }
 
         polys.lagrange_first[0] = 1;
@@ -365,8 +365,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             polys.transcript_msm_transition[i] = transcript_state[i].msm_transition;
             polys.transcript_pc[i] = transcript_state[i].pc;
             polys.transcript_msm_count[i] = transcript_state[i].msm_count;
-            polys.transcript_x[i] = transcript_state[i].base_x;
-            polys.transcript_y[i] = transcript_state[i].base_y;
+            polys.transcript_Px[i] = transcript_state[i].base_x;
+            polys.transcript_Py[i] = transcript_state[i].base_y;
             polys.transcript_z1[i] = transcript_state[i].z1;
             polys.transcript_z2[i] = transcript_state[i].z2;
             polys.transcript_z1zero[i] = transcript_state[i].z1_zero;
@@ -502,7 +502,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         };
 
         auto polynomials = compute_polynomials();
-        const size_t num_rows = polynomials[0].size();
+        const size_t num_rows = polynomials.get_polynomial_size();
         proof_system::honk::lookup_library::compute_logderivative_inverse<Flavor,
                                                                           honk::sumcheck::ECCVMLookupRelation<FF>>(
             polynomials, params, num_rows);
@@ -568,7 +568,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     [[nodiscard]] size_t get_num_gates() const
     {
-        // TODO(@zac-williamson) once we have a stable base to work off of, optimise this method!
+        // TODO(@zac-williamson) once we have a stable base to work off of, optimize this method!
         // (issue #2218)
         const auto msms = get_msms();
         const auto flattened_muls = get_flattened_scalar_muls(msms);

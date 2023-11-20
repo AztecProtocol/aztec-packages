@@ -8,7 +8,6 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
   CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -38,7 +37,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
-import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
@@ -160,7 +159,9 @@ export class PublicProcessor {
 
   protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
-    if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
+    if (!tx.enqueuedPublicFunctionCalls) {
+      throw new Error(`Missing preimages for enqueued public calls`);
+    }
 
     let kernelOutput = new KernelCircuitPublicInputs(
       CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
@@ -197,11 +198,13 @@ export class PublicProcessor {
 
         [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
 
-        if (!enqueuedExecutionResult) enqueuedExecutionResult = result;
+        if (!enqueuedExecutionResult) {
+          enqueuedExecutionResult = result;
+        }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
-      await this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
+      this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
@@ -249,10 +252,9 @@ export class PublicProcessor {
     this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
-    const wasm = await CircuitsWasm.get();
 
     const publicCallStack = mapTuple(callStackPreimages, item =>
-      item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
+      item.isEmpty() ? Fr.ZERO : computeCallStackItemHash(item),
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
@@ -262,7 +264,7 @@ export class PublicProcessor {
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
-      argsHash: await computeVarArgsHash(wasm, result.execution.args),
+      argsHash: computeVarArgsHash(result.execution.args),
       newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
@@ -302,8 +304,8 @@ export class PublicProcessor {
       );
     }
 
-    // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    // note this was previously padArrayStart in the cpp kernel, logic was updated in noir translation
+    return padArrayEnd(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -345,14 +347,10 @@ export class PublicProcessor {
    * @param publicInputs - to be patched here: public inputs to the kernel iteration up to this point
    * @param execResult - result of the top/first execution for this enqueued public call
    */
-  private async patchPublicStorageActionOrdering(
-    publicInputs: KernelCircuitPublicInputs,
-    execResult: PublicExecutionResult,
-  ) {
+  private patchPublicStorageActionOrdering(publicInputs: KernelCircuitPublicInputs, execResult: PublicExecutionResult) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
-    const wasm = await CircuitsWasm.get();
-    const simPublicDataReads = collectPublicDataReads(wasm, execResult);
-    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(wasm, execResult);
+    const simPublicDataReads = collectPublicDataReads(execResult);
+    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
 
     const { publicDataReads, publicDataUpdateRequests } = publicInputs.end; // from kernel
 

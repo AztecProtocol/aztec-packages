@@ -10,7 +10,7 @@ using namespace proof_system::honk;
 
 class GoblinUltraTranscriptTests : public ::testing::Test {
   public:
-    // static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = proof_system::honk::flavor::GoblinUltra;
     using FF = Flavor::FF;
@@ -26,7 +26,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_goblin_ultra_honk_manifest(size_t circuit_size)
+    static TranscriptManifest construct_goblin_ultra_honk_manifest(size_t circuit_size)
     {
         TranscriptManifest manifest_expected;
 
@@ -51,6 +51,8 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "ECC_OP_WIRE_2", size_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_3", size_G);
         manifest_expected.add_entry(round, "ECC_OP_WIRE_4", size_G);
+        manifest_expected.add_entry(round, "CALLDATA", size_G);
+        manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", size_G);
         manifest_expected.add_challenge(round, "eta");
 
         round++;
@@ -59,6 +61,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", size_G);
         manifest_expected.add_entry(round, "Z_PERM", size_G);
         manifest_expected.add_entry(round, "Z_LOOKUP", size_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha", "Sumcheck:zeta");

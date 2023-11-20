@@ -1,186 +1,162 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { IWasmModule } from '@aztec/foundation/wasm';
+import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import {
-  abisComputeBlockHash,
-  abisComputeBlockHashWithGlobals,
-  abisComputeCommitmentNonce,
-  abisComputeCompleteAddress,
-  abisComputeGlobalsHash,
-  abisComputePublicDataTreeIndex,
-  abisComputePublicDataTreeValue,
-  abisComputeUniqueCommitment,
-  abisSiloCommitment,
-  abisSiloNullifier,
-} from '../cbind/circuits.gen.js';
-import {
   AztecAddress,
+  CallContext,
   CompleteAddress,
+  ContractDeploymentData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   FUNCTION_SELECTOR_NUM_BYTES,
+  FUNCTION_TREE_HEIGHT,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
+  GeneratorIndex,
   GlobalVariables,
   NewContractData,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
   PrivateCallStackItem,
+  PrivateCircuitPublicInputs,
   PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicKey,
+  TxContext,
   TxRequest,
-  Vector,
+  VerificationKey,
 } from '../index.js';
-import { serializeBufferArrayToVector } from '../utils/serialize.js';
-
-/**
- * Synchronously calls a wasm function.
- * @param wasm - The wasm wrapper.
- * @param fnName - The name of the function to call.
- * @param input - The input buffer or object serializable to a buffer.
- * @param expectedOutputLength - The expected length of the output buffer.
- * @returns The output buffer.
- */
-export function wasmSyncCall(
-  wasm: IWasmModule,
-  fnName: string,
-  input:
-    | Buffer
-    | {
-        /**
-         * Signature of the target serialization function.
-         */
-        toBuffer: () => Buffer;
-      },
-  expectedOutputLength: number,
-): Buffer {
-  const inputData: Buffer = input instanceof Buffer ? input : input.toBuffer();
-  const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
-  const inputBuf = wasm.call('bbmalloc', inputData.length);
-  wasm.writeMemory(inputBuf, inputData);
-  wasm.call(fnName, inputBuf, outputBuf);
-  const buf = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
-  wasm.call('bbfree', outputBuf);
-  wasm.call('bbfree', inputBuf);
-  return buf;
-}
-
-/**
- * Writes input buffers to wasm memory, calls a wasm function, and returns the output buffer.
- * @param wasm - A module providing low-level wasm access.
- * @param fnName - The name of the function to call.
- * @param inputBuffers - Buffers to write to wasm memory.
- * @param expectedOutputLength - The expected length of the output buffer.
- * @returns The output buffer.
- */
-export function inputBuffersToOutputBuffer(
-  wasm: IWasmModule,
-  fnName: string,
-  inputBuffers: Buffer[],
-  expectedOutputLength: number,
-) {
-  const offsets: number[] = [];
-  const totalLength = inputBuffers.reduce((total, cur) => {
-    offsets.push(total);
-    return total + cur.length;
-  }, 0);
-
-  const outputBuf = wasm.call('bbmalloc', expectedOutputLength);
-  const inputBuf = wasm.call('bbmalloc', totalLength);
-  wasm.writeMemory(inputBuf, Buffer.concat(inputBuffers));
-  const args = offsets.map(offset => inputBuf + offset);
-  wasm.call(fnName, ...args, outputBuf);
-  const output = Buffer.from(wasm.getMemorySlice(outputBuf, outputBuf + expectedOutputLength));
-  wasm.call('bbfree', inputBuf);
-  wasm.call('bbfree', outputBuf);
-  return output;
-}
+import { boolToBuffer } from '../utils/serialize.js';
+import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 /**
  * Computes a hash of a transaction request.
- * @param wasm - A module providing low-level wasm access.
  * @param txRequest - The transaction request.
  * @returns The hash of the transaction request.
  */
-export function hashTxRequest(wasm: IWasmModule, txRequest: TxRequest): Buffer {
-  return wasmSyncCall(wasm, 'abis__hash_tx_request', txRequest, 32);
+export function hashTxRequest(txRequest: TxRequest): Buffer {
+  return computeTxHash(txRequest).toBuffer();
 }
 
 /**
  * Computes a function selector from a given function signature.
- * @param wasm - A module providing low-level wasm access.
  * @param funcSig - The function signature.
  * @returns The function selector.
  */
-export function computeFunctionSelector(wasm: IWasmModule, funcSig: string): Buffer {
-  return wasmSyncCall(
-    wasm,
-    'abis__compute_function_selector',
-    // Important - explicit C-string compatibility with a null terminator!
-    // In the future we want to move away from this fiddly C-string processing.
-    Buffer.from(funcSig + '\0'),
-    FUNCTION_SELECTOR_NUM_BYTES,
-  );
+export function computeFunctionSelector(funcSig: string): Buffer {
+  return keccak(Buffer.from(funcSig)).subarray(0, FUNCTION_SELECTOR_NUM_BYTES);
 }
 
 /**
  * Computes a hash of a given verification key.
- * @param wasm - A module providing low-level wasm access.
  * @param vkBuf - The verification key.
  * @returns The hash of the verification key.
  */
-export function hashVK(wasm: IWasmModule, vkBuf: Buffer) {
-  return wasmSyncCall(wasm, 'abis__hash_vk', vkBuf, 32);
+export function hashVK(vkBuf: Buffer) {
+  const vk = VerificationKey.fromBuffer(vkBuf);
+  const toHash = Buffer.concat([
+    numToUInt8(vk.circuitType),
+    numToUInt16BE(5), // fr::coset_generator(0)?
+    numToUInt32BE(vk.circuitSize),
+    numToUInt32BE(vk.numPublicInputs),
+    ...Object.values(vk.commitments)
+      .map(e => [e.y.toBuffer(), e.x.toBuffer()])
+      .flat(),
+    // Montgomery form of fr::one()? Not sure. But if so, why?
+    Buffer.from('1418144d5b080fcac24cdb7649bdadf246a6cb2426e324bedb94fb05118f023a', 'hex'),
+  ]);
+  return pedersenHashBuffer(toHash);
+  // barretenberg::evaluation_domain eval_domain = barretenberg::evaluation_domain(circuit_size);
+
+  // std::vector<uint8_t> preimage_data;
+
+  // preimage_data.push_back(static_cast<uint8_t>(proof_system::CircuitType(circuit_type)));
+
+  // const uint256_t domain = eval_domain.domain; // montgomery form of circuit_size
+  // const uint256_t generator = eval_domain.generator; //coset_generator(0)
+  // const uint256_t public_inputs = num_public_inputs;
+
+  // write(preimage_data, static_cast<uint16_t>(uint256_t(generator))); // maybe 1?
+  // write(preimage_data, static_cast<uint32_t>(uint256_t(domain))); // try circuit_size
+  // write(preimage_data, static_cast<uint32_t>(public_inputs));
+  // for (const auto& [tag, selector] : commitments) {
+  //     write(preimage_data, selector.y);
+  //     write(preimage_data, selector.x);
+  // }
+
+  // write(preimage_data, eval_domain.root);  // fr::one()
+
+  // return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
 /**
  * Computes a function leaf from a given preimage.
- * @param wasm - A module providing low-level wasm access.
  * @param fnLeaf - The function leaf preimage.
  * @returns The function leaf.
  */
-export function computeFunctionLeaf(wasm: IWasmModule, fnLeaf: FunctionLeafPreimage): Fr {
-  return Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_function_leaf', fnLeaf, 32));
+export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        numToUInt32BE(fnLeaf.functionSelector.value, 32),
+        boolToBuffer(fnLeaf.isInternal, 32),
+        boolToBuffer(fnLeaf.isPrivate, 32),
+        fnLeaf.vkHash.toBuffer(),
+        fnLeaf.acirHash.toBuffer(),
+      ],
+      GeneratorIndex.FUNCTION_LEAF,
+    ),
+  );
+}
+
+// The "zero leaf" of the function tree is the hash of 5 zero fields.
+// TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+
+/**
+ * Computes a function tree from function leaves.
+ * @param fnLeaves - The function leaves to be included in the contract function tree.
+ * @returns All nodes of the tree.
+ */
+export function computeFunctionTree(fnLeaves: Fr[]) {
+  const leaves = fnLeaves.map(fr => fr.toBuffer());
+  return functionTreeRootCalculator.computeTree(leaves).map(b => Fr.fromBuffer(b));
 }
 
 /**
  * Computes a function tree root from function leaves.
- * @param wasm - A module providing low-level wasm access.
  * @param fnLeaves - The function leaves to be included in the contract function tree.
  * @returns The function tree root.
  */
-export function computeFunctionTreeRoot(wasm: IWasmModule, fnLeaves: Fr[]) {
-  const inputVector = serializeBufferArrayToVector(fnLeaves.map(fr => fr.toBuffer()));
-  const result = wasmSyncCall(wasm, 'abis__compute_function_tree_root', inputVector, 32);
-  return Fr.fromBuffer(result);
+export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
+  const leaves = fnLeaves.map(fr => fr.toBuffer());
+  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(leaves));
 }
 
 /**
  * Computes a constructor hash.
- * @param wasm - A module providing low-level wasm access.
  * @param functionData - Constructor's function data.
  * @param argsHash - Constructor's arguments hashed.
  * @param constructorVKHash - Hash of the constructor's verification key.
  * @returns The constructor hash.
  */
-export function hashConstructor(
-  wasm: IWasmModule,
-  functionData: FunctionData,
-  argsHash: Fr,
-  constructorVKHash: Buffer,
-): Fr {
-  const result = inputBuffersToOutputBuffer(
-    wasm,
-    'abis__hash_constructor',
-    [functionData.toBuffer(), argsHash.toBuffer(), constructorVKHash],
-    32,
+export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [computeFunctionDataHash(functionData).toBuffer(), argsHash.toBuffer(), constructorVKHash],
+      GeneratorIndex.CONSTRUCTOR,
+    ),
   );
-  return Fr.fromBuffer(result);
 }
 
 /**
  * Computes a complete address.
- * @param wasm - A module providing low-level wasm access.
  * @param deployerPubKey - The pubkey of the contract deployer.
  * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
@@ -188,86 +164,100 @@ export function hashConstructor(
  * @returns The complete address.
  */
 export function computeCompleteAddress(
-  wasm: IWasmModule,
   deployerPubKey: PublicKey,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
   constructorHash: Fr,
 ): CompleteAddress {
-  return abisComputeCompleteAddress(wasm, deployerPubKey, contractAddrSalt, fnTreeRoot, constructorHash);
+  const partialAddress = computePartialAddress(contractAddrSalt, fnTreeRoot, constructorHash);
+  return new CompleteAddress(
+    computeContractAddressFromPartial(deployerPubKey, partialAddress),
+    deployerPubKey,
+    partialAddress,
+  );
+}
+
+/**
+ *
+ */
+function computePartialAddress(contractAddrSalt: Fr, fnTreeRoot: Fr, constructorHash: Fr) {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        Fr.ZERO.toBuffer(),
+        Fr.ZERO.toBuffer(),
+        contractAddrSalt.toBuffer(),
+        fnTreeRoot.toBuffer(),
+        constructorHash.toBuffer(),
+      ],
+      GeneratorIndex.PARTIAL_ADDRESS,
+    ),
+  );
 }
 
 /**
  * Computes a contract address from its partial address and the pubkey.
- * @param wasm - A module providing low-level wasm access.
  * @param partial - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
  * @returns The partially constructed contract address.
  */
-export function computeContractAddressFromPartial(
-  wasm: IWasmModule,
-  pubKey: PublicKey,
-  partialAddress: Fr,
-): AztecAddress {
-  const result = inputBuffersToOutputBuffer(
-    wasm,
-    'abis__compute_contract_address_from_partial',
-    [pubKey.toBuffer(), partialAddress.toBuffer()],
-    32,
+export function computeContractAddressFromPartial(pubKey: PublicKey, partialAddress: Fr): AztecAddress {
+  const result = pedersenHash(
+    [pubKey.x.toBuffer(), pubKey.y.toBuffer(), partialAddress.toBuffer()],
+    GeneratorIndex.CONTRACT_ADDRESS,
   );
   return new AztecAddress(result);
 }
 
 /**
  * Computes a commitment nonce, which will be used to create a unique commitment.
- * @param wasm - A module providing low-level wasm access.
  * @param nullifierZero - The first nullifier in the tx.
  * @param commitmentIndex - The index of the commitment.
  * @returns A commitment nonce.
  */
-export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, commitmentIndex: number): Fr {
-  return abisComputeCommitmentNonce(wasm, nullifierZero, new Fr(commitmentIndex));
+export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
+  return Fr.fromBuffer(
+    pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.COMMITMENT_NONCE),
+  );
 }
 
 /**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
- * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address
  * @param innerCommitment - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, innerCommitment: Fr): Fr {
-  return abisSiloCommitment(wasm, contract, innerCommitment);
+export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
+  return Fr.fromBuffer(
+    pedersenHash([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT),
+  );
 }
 
 /**
  * Computes a unique commitment. It includes a nonce which contains data that guarantees the commitment will be unique.
- * @param wasm - A module providing low-level wasm access.
  * @param nonce - The contract address.
  * @param siloedCommitment - An siloed commitment.
  * @returns A unique commitment.
  */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedCommitment: Fr): Fr {
-  return abisComputeUniqueCommitment(wasm, nonce, siloedCommitment);
+export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
+  return Fr.fromBuffer(pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT));
 }
 
 /**
  * Computes a siloed nullifier, given the contract address and the inner nullifier.
  * A siloed nullifier effectively namespaces a nullifier to a specific contract.
- * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address.
  * @param innerNullifier - The nullifier to silo.
  * @returns A siloed nullifier.
  */
-export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
-  return abisSiloNullifier(wasm, contract, innerNullifier);
+export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
+  return Fr.fromBuffer(pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER));
 }
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * @param wasm - A module providing low-level wasm access.
  * @param globals - The global variables to put into the block hash.
  * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
@@ -277,7 +267,6 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * @returns The block hash.
  */
 export function computeBlockHashWithGlobals(
-  wasm: IWasmModule,
   globals: GlobalVariables,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
@@ -285,9 +274,8 @@ export function computeBlockHashWithGlobals(
   l1ToL2DataTreeRoot: Fr,
   publicDataTreeRoot: Fr,
 ): Fr {
-  return abisComputeBlockHashWithGlobals(
-    wasm,
-    globals,
+  return computeBlockHash(
+    computeGlobalsHash(globals),
     noteHashTreeRoot,
     nullifierTreeRoot,
     contractTreeRoot,
@@ -298,7 +286,6 @@ export function computeBlockHashWithGlobals(
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * @param wasm - A module providing low-level wasm access.
  * @param globalsHash - The global variables hash to put into the block hash.
  * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
@@ -308,7 +295,6 @@ export function computeBlockHashWithGlobals(
  * @returns The block hash.
  */
 export function computeBlockHash(
-  wasm: IWasmModule,
   globalsHash: Fr,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
@@ -316,48 +302,61 @@ export function computeBlockHash(
   l1ToL2DataTreeRoot: Fr,
   publicDataTreeRoot: Fr,
 ): Fr {
-  return abisComputeBlockHash(
-    wasm,
-    globalsHash,
-    noteHashTreeRoot,
-    nullifierTreeRoot,
-    contractTreeRoot,
-    l1ToL2DataTreeRoot,
-    publicDataTreeRoot,
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        globalsHash.toBuffer(),
+        noteHashTreeRoot.toBuffer(),
+        nullifierTreeRoot.toBuffer(),
+        contractTreeRoot.toBuffer(),
+        l1ToL2DataTreeRoot.toBuffer(),
+        publicDataTreeRoot.toBuffer(),
+      ],
+      GeneratorIndex.BLOCK_HASH,
+    ),
   );
 }
 
 /**
  * Computes the globals hash given the globals.
- * @param wasm - A module providing low-level wasm access.
  * @param globals - The global variables to put into the block hash.
  * @returns The globals hash.
  */
-export function computeGlobalsHash(wasm: IWasmModule, globals: GlobalVariables): Fr {
-  return abisComputeGlobalsHash(wasm, globals);
+export function computeGlobalsHash(globals: GlobalVariables): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        globals.chainId.toBuffer(),
+        globals.version.toBuffer(),
+        globals.blockNumber.toBuffer(),
+        globals.timestamp.toBuffer(),
+      ],
+      GeneratorIndex.GLOBAL_VARIABLES,
+    ),
+  );
 }
 
 /**
  * Computes a public data tree value ready for insertion.
- * @param wasm - A module providing low-level wasm access.
  * @param value - Raw public data tree value to hash into a tree-insertion-ready value.
  * @returns Value hash into a tree-insertion-ready value.
 
  */
-export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
-  return abisComputePublicDataTreeValue(wasm, value);
+export function computePublicDataTreeValue(value: Fr): Fr {
+  return value;
 }
 
 /**
  * Computes a public data tree index from contract address and storage slot.
- * @param wasm - A module providing low-level wasm access.
  * @param contractAddress - Contract where insertion is occurring.
  * @param storageSlot - Storage slot where insertion is occurring.
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return abisComputePublicDataTreeIndex(wasm, contractAddress, storageSlot);
+export function computePublicDataTreeIndex(contractAddress: AztecAddress, storageSlot: Fr): Fr {
+  return Fr.fromBuffer(
+    pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
+  );
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;
@@ -365,93 +364,296 @@ const ARGS_HASH_CHUNK_COUNT = 16;
 
 /**
  * Computes the hash of a list of arguments.
- * @param wasm - A module providing low-level wasm access.
  * @param args - Arguments to hash.
  * @returns Pedersen hash of the arguments.
  */
-export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
-  if (args.length === 0) return Promise.resolve(Fr.ZERO);
-  if (args.length > ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT)
+export function computeVarArgsHash(args: Fr[]) {
+  if (args.length === 0) {
+    return Fr.ZERO;
+  }
+  if (args.length > ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT) {
     throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT} arguments`);
-
-  const wasmComputeVarArgs = (args: Fr[]) =>
-    Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_var_args_hash', new Vector(args), 32));
+  }
 
   let chunksHashes = chunk(args, ARGS_HASH_CHUNK_SIZE).map(c => {
     if (c.length < ARGS_HASH_CHUNK_SIZE) {
       c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_SIZE);
     }
-    return wasmComputeVarArgs(c);
+    return Fr.fromBuffer(
+      pedersenHash(
+        c.map(a => a.toBuffer()),
+        GeneratorIndex.FUNCTION_ARGS,
+      ),
+    );
   });
 
   if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return Promise.resolve(wasmComputeVarArgs(chunksHashes));
+  return Fr.fromBuffer(
+    pedersenHash(
+      chunksHashes.map(a => a.toBuffer()),
+      GeneratorIndex.FUNCTION_ARGS,
+    ),
+  );
 }
 
 /**
  * Computes a contract leaf of the given contract.
- * @param wasm - Relevant WASM wrapper.
  * @param cd - The contract data of the deployed contract.
  * @returns The contract leaf.
  */
-export function computeContractLeaf(wasm: IWasmModule, cd: NewContractData): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_contract_leaf', cd, 32);
-  return Fr.fromBuffer(value);
+export function computeContractLeaf(cd: NewContractData): Fr {
+  if (cd.contractAddress.isZero() && cd.portalContractAddress.isZero() && cd.functionTreeRoot.isZero()) {
+    return new Fr(0);
+  }
+  return Fr.fromBuffer(
+    pedersenHash(
+      [cd.contractAddress.toBuffer(), cd.portalContractAddress.toBuffer(), cd.functionTreeRoot.toBuffer()],
+      GeneratorIndex.CONTRACT_LEAF,
+    ),
+  );
 }
 
 /**
  * Computes tx hash of a given transaction request.
- * @param wasm - Relevant WASM wrapper.
  * @param txRequest - The signed transaction request.
  * @returns The transaction hash.
  */
-export function computeTxHash(wasm: IWasmModule, txRequest: TxRequest): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_transaction_hash', txRequest, 32);
-  return Fr.fromBuffer(value);
+export function computeTxHash(txRequest: TxRequest): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        txRequest.origin.toBuffer(),
+        computeFunctionDataHash(txRequest.functionData).toBuffer(),
+        txRequest.argsHash.toBuffer(),
+        computeTxContextHash(txRequest.txContext).toBuffer(),
+      ],
+      GeneratorIndex.TX_REQUEST,
+    ),
+  );
+}
+
+/**
+ *
+ */
+function computeFunctionDataHash(functionData: FunctionData): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        functionData.selector.toBuffer(32),
+        new Fr(functionData.isInternal).toBuffer(),
+        new Fr(functionData.isPrivate).toBuffer(),
+        new Fr(functionData.isConstructor).toBuffer(),
+      ],
+      GeneratorIndex.FUNCTION_DATA,
+    ),
+  );
+}
+
+/**
+ *
+ */
+function computeTxContextHash(txContext: TxContext): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        new Fr(txContext.isFeePaymentTx).toBuffer(),
+        new Fr(txContext.isRebatePaymentTx).toBuffer(),
+        new Fr(txContext.isContractDeploymentTx).toBuffer(),
+        computeContractDeploymentDataHash(txContext.contractDeploymentData).toBuffer(),
+        txContext.chainId.toBuffer(),
+        txContext.version.toBuffer(),
+      ],
+      GeneratorIndex.TX_CONTEXT,
+    ),
+  );
+}
+
+/**
+ *
+ */
+function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        data.deployerPublicKey.x.toBuffer(),
+        data.deployerPublicKey.y.toBuffer(),
+        data.constructorVkHash.toBuffer(),
+        data.functionTreeRoot.toBuffer(),
+        data.contractAddressSalt.toBuffer(),
+        data.portalContractAddress.toBuffer(),
+      ],
+      GeneratorIndex.CONTRACT_DEPLOYMENT_DATA,
+    ),
+  );
 }
 
 /**
  * Computes a call stack item hash.
- * @param wasm - Relevant WASM wrapper.
  * @param callStackItem - The call stack item.
  * @returns The call stack item hash.
  */
-export function computeCallStackItemHash(
-  wasm: IWasmModule,
-  callStackItem: PrivateCallStackItem | PublicCallStackItem,
-): Fr {
+export function computeCallStackItemHash(callStackItem: PrivateCallStackItem | PublicCallStackItem): Fr {
   if (callStackItem instanceof PrivateCallStackItem) {
-    return computePrivateCallStackItemHash(wasm, callStackItem);
+    return computePrivateCallStackItemHash(callStackItem);
   } else if (callStackItem instanceof PublicCallStackItem) {
-    return computePublicCallStackItemHash(wasm, callStackItem);
+    return computePublicCallStackItemHash(callStackItem);
   } else {
     throw new Error(`Unexpected call stack item type`);
   }
 }
 
 /**
- * Computes a call stack item hash.
- * @param wasm - Relevant WASM wrapper.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
+ *
  */
-export function computePrivateCallStackItemHash(wasm: IWasmModule, callStackItem: PrivateCallStackItem): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_private_call_stack_item_hash', callStackItem, 32);
-  return Fr.fromBuffer(value);
+function computeCallContextHash(input: CallContext) {
+  return pedersenHash(
+    [
+      input.msgSender.toBuffer(),
+      input.storageContractAddress.toBuffer(),
+      input.portalContractAddress.toBuffer(),
+      input.functionSelector.toBuffer(),
+      boolToBuffer(input.isDelegateCall, 32),
+      boolToBuffer(input.isStaticCall, 32),
+      boolToBuffer(input.isContractDeployment, 32),
+    ],
+    GeneratorIndex.CALL_CONTEXT,
+  );
+}
+
+/**
+ *
+ */
+function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
+  const toHash = [
+    computeCallContextHash(input.callContext),
+    input.argsHash.toBuffer(),
+    ...input.returnValues.map(fr => fr.toBuffer()),
+    ...input.readRequests.map(fr => fr.toBuffer()),
+    ...input.pendingReadRequests.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(fr => fr.toBuffer()),
+    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
+    ...input.privateCallStack.map(fr => fr.toBuffer()),
+    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
+    ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
+    input.encryptedLogPreimagesLength.toBuffer(),
+    input.unencryptedLogPreimagesLength.toBuffer(),
+    input.historicBlockData.noteHashTreeRoot.toBuffer(),
+    input.historicBlockData.nullifierTreeRoot.toBuffer(),
+    input.historicBlockData.contractTreeRoot.toBuffer(),
+    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.historicBlockData.blocksTreeRoot.toBuffer(),
+    input.historicBlockData.publicDataTreeRoot.toBuffer(),
+    input.historicBlockData.globalVariablesHash.toBuffer(),
+    computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
+    input.chainId.toBuffer(),
+    input.version.toBuffer(),
+  ];
+  if (toHash.length != PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
+    throw new Error('Incorrect number of input fields when hashing PrivateCircuitPublicInputs');
+  }
+  return pedersenHash(toHash, GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS);
 }
 
 /**
  * Computes a call stack item hash.
- * @param wasm - Relevant WASM wrapper.
  * @param callStackItem - The call stack item.
  * @returns The call stack item hash.
  */
-export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem: PublicCallStackItem): Fr {
-  const value = wasmSyncCall(wasm, 'abis__compute_public_call_stack_item_hash', callStackItem, 32);
-  return Fr.fromBuffer(value);
+export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackItem): Fr {
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        callStackItem.contractAddress.toBuffer(),
+        computeFunctionDataHash(callStackItem.functionData).toBuffer(),
+        computePrivateInputsHash(callStackItem.publicInputs),
+      ],
+      GeneratorIndex.CALL_STACK_ITEM,
+    ),
+  );
+}
+
+/**
+ *
+ */
+function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
+  return pedersenHash(
+    [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
+    GeneratorIndex.PUBLIC_DATA_UPDATE_REQUEST,
+  );
+}
+
+/**
+ *
+ */
+function computeContractStorageReadsHash(input: ContractStorageRead) {
+  return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
+}
+
+/**
+ *
+ */
+function computePublicInputsHash(input: PublicCircuitPublicInputs) {
+  const toHash = [
+    computeCallContextHash(input.callContext),
+    input.argsHash.toBuffer(),
+    ...input.returnValues.map(fr => fr.toBuffer()),
+    ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
+    ...input.contractStorageReads.map(computeContractStorageReadsHash),
+    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(fr => fr.toBuffer()),
+    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
+    input.unencryptedLogPreimagesLength.toBuffer(),
+    input.historicBlockData.noteHashTreeRoot.toBuffer(),
+    input.historicBlockData.nullifierTreeRoot.toBuffer(),
+    input.historicBlockData.contractTreeRoot.toBuffer(),
+    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.historicBlockData.blocksTreeRoot.toBuffer(),
+    input.historicBlockData.publicDataTreeRoot.toBuffer(),
+    input.historicBlockData.globalVariablesHash.toBuffer(),
+    input.proverAddress.toBuffer(),
+  ];
+  if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
+    throw new Error('Incorrect number of input fields when hashing PublicCircuitPublicInputs');
+  }
+  return pedersenHash(toHash, GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS);
+}
+
+/**
+ * Computes a call stack item hash.
+ * @param callStackItem - The call stack item.
+ * @returns The call stack item hash.
+ */
+export function computePublicCallStackItemHash({
+  contractAddress,
+  functionData,
+  publicInputs,
+  isExecutionRequest,
+}: PublicCallStackItem): Fr {
+  if (isExecutionRequest) {
+    const { callContext, argsHash } = publicInputs;
+    publicInputs = PublicCircuitPublicInputs.empty();
+    publicInputs.callContext = callContext;
+    publicInputs.argsHash = argsHash;
+  }
+
+  return Fr.fromBuffer(
+    pedersenHash(
+      [
+        contractAddress.toBuffer(),
+        computeFunctionDataHash(functionData).toBuffer(),
+        computePublicInputsHash(publicInputs),
+      ],
+      GeneratorIndex.CALL_STACK_ITEM,
+    ),
+  );
 }
 
 /**
@@ -459,7 +661,6 @@ export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem:
  * @param secretMessage - The secret message.
  * @returns
  */
-export function computeSecretMessageHash(wasm: IWasmModule, secretMessage: Fr) {
-  const value = wasmSyncCall(wasm, 'abis__compute_message_secret_hash', secretMessage, 32);
-  return Fr.fromBuffer(value);
+export function computeSecretMessageHash(secretMessage: Fr) {
+  return Fr.fromBuffer(pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
 }

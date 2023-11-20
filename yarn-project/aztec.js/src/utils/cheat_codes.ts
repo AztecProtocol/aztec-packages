@@ -1,7 +1,6 @@
-import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak } from '@aztec/foundation/crypto';
+import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Note, PXE } from '@aztec/types';
 
@@ -22,9 +21,9 @@ export class CheatCodes {
     public aztec: AztecCheatCodes,
   ) {}
 
-  static async create(rpcUrl: string, pxe: PXE): Promise<CheatCodes> {
+  static create(rpcUrl: string, pxe: PXE): CheatCodes {
     const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    const aztecCheatCodes = new AztecCheatCodes(pxe, await CircuitsWasm.get(), ethCheatCodes);
+    const aztecCheatCodes = new AztecCheatCodes(pxe, ethCheatCodes);
     return new CheatCodes(ethCheatCodes, aztecCheatCodes);
   }
 }
@@ -88,7 +87,9 @@ export class EthCheatCodes {
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
-    if (res.error) throw new Error(`Error mining: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error mining: ${res.error.message}`);
+    }
     this.logger(`Mined ${numberOfBlocks} blocks`);
   }
 
@@ -98,7 +99,9 @@ export class EthCheatCodes {
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
     const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
-    if (res.error) throw new Error(`Error setting next block timestamp: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error setting next block timestamp: ${res.error.message}`);
+    }
     this.logger(`Set next block timestamp to ${timestamp}`);
   }
 
@@ -108,7 +111,9 @@ export class EthCheatCodes {
    */
   public async dumpChainState(fileName: string): Promise<void> {
     const res = await this.rpcCall('hardhat_dumpState', []);
-    if (res.error) throw new Error(`Error dumping state: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error dumping state: ${res.error.message}`);
+    }
     const jsonContent = JSON.stringify(res.result);
     fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
     this.logger(`Dumped state to ${fileName}`);
@@ -121,7 +126,9 @@ export class EthCheatCodes {
   public async loadChainState(fileName: string): Promise<void> {
     const data = JSON.parse(fs.readFileSync(`${fileName}.json`, 'utf8'));
     const res = await this.rpcCall('hardhat_loadState', [data]);
-    if (res.error) throw new Error(`Error loading state: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error loading state: ${res.error.message}`);
+    }
     this.logger(`Loaded state from ${fileName}`);
   }
 
@@ -145,7 +152,9 @@ export class EthCheatCodes {
   public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
     const res = await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
-    if (res.error) throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
+    }
     this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
 
@@ -167,7 +176,9 @@ export class EthCheatCodes {
    */
   public async startImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error impersonating ${who}: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error impersonating ${who}: ${res.error.message}`);
+    }
     this.logger(`Impersonating ${who}`);
   }
 
@@ -177,7 +188,9 @@ export class EthCheatCodes {
    */
   public async stopImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
+    }
     this.logger(`Stopped impersonating ${who}`);
   }
 
@@ -188,7 +201,9 @@ export class EthCheatCodes {
    */
   public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
     const res = await this.rpcCall('hardhat_setCode', [contract.toString(), bytecode]);
-    if (res.error) throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
+    }
     this.logger(`Set bytecode for ${contract} to ${bytecode}`);
   }
 
@@ -213,10 +228,6 @@ export class AztecCheatCodes {
      */
     public pxe: PXE,
     /**
-     * The circuits wasm module used for pedersen hashing
-     */
-    public wasm: CircuitsWasm,
-    /**
      * The eth cheat codes.
      */
     public eth: EthCheatCodes,
@@ -235,12 +246,7 @@ export class AztecCheatCodes {
   public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
     // aztec3-packages/yarn-project/aztec-nr/aztec/src/state_vars/map.nr
-    return Fr.fromBuffer(
-      pedersenHashInputs(
-        this.wasm,
-        [new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer()),
-      ),
-    );
+    return Fr.fromBuffer(pedersenHash([new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer())));
   }
 
   /**

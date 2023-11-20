@@ -1,4 +1,5 @@
 #include "prover_instance.hpp"
+#include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
@@ -59,9 +60,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
     proving_key->w_o = wire_polynomials[2];
     proving_key->w_4 = wire_polynomials[3];
 
-    // If Goblin, construct the ECC op queue wire polynomials
+    // If Goblin, construct the ECC op queue wire and databus polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
         construct_ecc_op_wire_polynomials(wire_polynomials);
+        construct_databus_polynomials(circuit);
     }
 
     // Construct the sorted concatenated list polynomials for the lookup argument
@@ -184,6 +186,30 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
     proving_key->ecc_op_wire_4 = op_wire_polynomials[3];
 }
 
+/**
+ * @brief
+ * @details
+ *
+ * @tparam Flavor
+ * @param circuit
+ */
+template <class Flavor>
+void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
+    requires IsGoblinFlavor<Flavor>
+{
+    polynomial public_calldata(dyadic_circuit_size);
+    polynomial calldata_read_counts(dyadic_circuit_size);
+
+    // Note: We do not utilize a zero row for databus columns
+    for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
+        public_calldata[idx] = circuit.get_variable(circuit.public_calldata[idx]);
+        calldata_read_counts[idx] = circuit.get_variable(circuit.calldata_read_counts[idx]);
+    }
+
+    proving_key->calldata = public_calldata;
+    proving_key->calldata_read_counts = calldata_read_counts;
+}
+
 template <class Flavor>
 std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_proving_key(Circuit& circuit)
 {
@@ -250,12 +276,18 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         proving_key->num_ecc_op_gates = num_ecc_op_gates;
+        // Construct simple ID polynomial for databus indexing
+        typename Flavor::Polynomial databus_id(proving_key->circuit_size);
+        for (size_t i = 0; i < databus_id.size(); ++i) {
+            databus_id[i] = i;
+        }
+        proving_key->databus_id = databus_id;
     }
 
     return proving_key;
 }
 
-template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomials()
+template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
 {
     prover_polynomials.q_c = proving_key->q_c;
     prover_polynomials.q_l = proving_key->q_l;
@@ -300,7 +332,20 @@ template <class Flavor> void ProverInstance_<Flavor>::initialise_prover_polynomi
         prover_polynomials.ecc_op_wire_3 = proving_key->ecc_op_wire_3;
         prover_polynomials.ecc_op_wire_4 = proving_key->ecc_op_wire_4;
         prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op;
+        // DataBus polynomials
+        prover_polynomials.calldata = proving_key->calldata;
+        prover_polynomials.calldata_read_counts = proving_key->calldata_read_counts;
+        prover_polynomials.lookup_inverses = proving_key->lookup_inverses;
+        prover_polynomials.q_busread = proving_key->q_busread;
+        prover_polynomials.databus_id = proving_key->databus_id;
     }
+
+    // These polynomials have not yet been computed; initialize them so prover_polynomials is "full" and we can use
+    // utilities like get_row()
+    prover_polynomials.z_perm = proving_key->z_perm;
+    prover_polynomials.z_lookup = proving_key->z_lookup;
+    prover_polynomials.z_perm_shift = proving_key->z_perm.shifted();
+    prover_polynomials.z_lookup_shift = proving_key->z_lookup.shifted();
 
     std::span<FF> public_wires_source = prover_polynomials.w_r;
 
@@ -401,6 +446,25 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
     }
 }
 
+/**
+ * @brief Compute the inverse polynomial used in the log derivative lookup argument
+ *
+ * @tparam Flavor
+ * @param beta
+ * @param gamma
+ */
+template <class Flavor>
+void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
+    requires IsGoblinFlavor<Flavor>
+{
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
+
+    // Compute permutation and lookup grand product polynomials
+    lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+        prover_polynomials, relation_parameters, proving_key->circuit_size);
+}
+
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta =
@@ -460,18 +524,13 @@ std::shared_ptr<typename Flavor::VerificationKey> ProverInstance_<Flavor>::compu
     verification_key->table_3 = commitment_key->commit(proving_key->table_3);
     verification_key->table_4 = commitment_key->commit(proving_key->table_4);
 
-    // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to this polynomial
-    // due to its simple structure. Handling it in the same way as the lagrange polys for now for simplicity.
+    // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to these polynomials
+    // due to their simple structure.
     if constexpr (IsGoblinFlavor<Flavor>) {
         verification_key->lagrange_ecc_op = commitment_key->commit(proving_key->lagrange_ecc_op);
+        verification_key->q_busread = commitment_key->commit(proving_key->q_busread);
+        verification_key->databus_id = commitment_key->commit(proving_key->databus_id);
     }
-
-    // // See `add_recusrive_proof()` for how this recursive data is assigned.
-    // verification_key->recursive_proof_public_input_indices =
-    //     std::vector<uint32_t>(recursive_proof_public_input_indices.begin(),
-    //     recursive_proof_public_input_indices.end());
-
-    // verification_key->contains_recursive_proof = contains_recursive_proof;
 
     return verification_key;
 }
