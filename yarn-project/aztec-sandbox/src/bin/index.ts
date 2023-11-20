@@ -28,7 +28,7 @@ enum SandboxMode {
 }
 
 const {
-  AZTEC_NODE_URL = 'http://localhost:8080',
+  AZTEC_NODE_URL = 'http://localhost:8079',
   AZTEC_NODE_PORT = 8079,
   PXE_PORT = 8080,
   MODE = 'sandbox',
@@ -139,7 +139,7 @@ async function main() {
   } else if (mode === SandboxMode.PXE) {
     // Code path for starting PXE only
 
-    // Create a Node to connect to the PXE
+    // Create a Node client to connect to the PXE
     const node = createAztecNodeClient(AZTEC_NODE_URL);
 
     const pxe = await createAztecPXE(node);
