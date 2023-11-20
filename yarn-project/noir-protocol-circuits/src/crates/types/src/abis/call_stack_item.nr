@@ -89,4 +89,10 @@ impl CallStackItem {
     pub fn is_empty(self) -> bool {
         self.hash == 0
     }
+
+    pub fn eq(self, call_stack_item: CallStackItem) -> bool {
+        (call_stack_item.hash == self.hash)
+            & (call_stack_item.caller_contract_address.eq(self.caller_contract_address))
+            & (call_stack_item.caller_context.eq(self.caller_context))
+    }
 }

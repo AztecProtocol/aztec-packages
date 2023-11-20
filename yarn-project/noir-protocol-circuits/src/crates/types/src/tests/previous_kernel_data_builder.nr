@@ -149,16 +149,25 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn push_private_call_stack_hash(&mut self, hash: Field) {
+        let call_stack_item = self.generate_call_stack_item(hash);
+        self.end.private_call_stack.push(call_stack_item);
+    }
+
+    pub fn push_public_call_stack_hash(&mut self, hash: Field) {
+        let call_stack_item = self.generate_call_stack_item(hash);
+        self.end.public_call_stack.push(call_stack_item);
+    }
+
+    fn generate_call_stack_item(self, hash: Field) -> CallStackItem {
         let mut caller_context: CallContext = dep::std::unsafe::zeroed();
         caller_context.msg_sender = fixtures::MSG_SENDER;
         caller_context.storage_contract_address = self.contract_address;
         caller_context.portal_contract_address = self.portal_contract_address;
-        let call_stack_item = CallStackItem {
+        CallStackItem {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,
-        };
-        self.end.private_call_stack.push(call_stack_item);
+        }
     }
 
     pub fn finish(self) -> PreviousKernelData {

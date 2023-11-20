@@ -1,6 +1,7 @@
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 use dep::types::{
     abis::{
+        call_stack_item::CallStackItem,
         new_contract_data::NewContractData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
@@ -27,6 +28,18 @@ pub fn compute_public_data_reads<N>(contract_address: Address, read_requests: [S
         }
     }
     public_data_reads
+}
+
+pub fn assert_eq_call_stack_items<N, S>(
+    call_stack_items: [CallStackItem; N],
+    expected: [CallStackItem; S],
+) {
+    assert(struct_array_eq(
+        call_stack_items,
+        expected,
+        |c1: CallStackItem, c2: CallStackItem| c1.eq(c2),
+        |c: CallStackItem| c.is_empty(),
+    ));
 }
 
 pub fn compute_public_data_update_requests<N>(

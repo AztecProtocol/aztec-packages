@@ -34,11 +34,9 @@ impl PublicKernelPublicPreviousInputs {
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
-        // validate the kernel execution common to all invocation circumstances
-        common::validate_kernel_execution(self.public_call);
-
-        // validate our public call hash
-        common::validate_this_public_call_hash(self.public_call, &mut public_inputs);
+        // Pops the item from the call stack and validates it against the current execution.
+        let popped_public_call = public_inputs.end.public_call_stack.pop();
+        common::validate_call_stack(self.public_call, popped_public_call);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
@@ -100,6 +98,11 @@ mod tests {
             }
         }
 
+        pub fn is_delegate_call(&mut self) -> Self {
+            let _ = self.public_call.is_delegate_call();
+            *self
+        }
+
         pub fn get_current_public_data_reads(self) -> [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_CALL] {
             let read_requests = self.public_call.public_inputs.contract_storage_reads.storage;
             compute_public_data_reads(self.public_call.contract_address, read_requests)
@@ -112,11 +115,12 @@ mod tests {
             )
         }
 
-        pub fn execute(self) -> KernelCircuitPublicInputs {
-            let mut previous_kernel = self.previous_kernel.finish();
+        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
-            previous_kernel.public_inputs.end.public_call_stack[0] = public_call.call_stack_item.hash();
+            let hash = public_call.call_stack_item.hash();
+            self.previous_kernel.push_public_call_stack_hash(hash);
+            let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PublicKernelPublicPreviousInputs {
                 previous_kernel,
@@ -126,18 +130,18 @@ mod tests {
             kernel.public_kernel_public_previous()
         }
 
-        pub fn succeeded(self) {
+        pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
 
-        pub fn failed(self) {
+        pub fn failed(&mut self) {
             let _ = self.execute();
         }
     }
 
     #[test]
     fn public_kernel_circuit_with_public_previous_kernel_should_succeed() {
-        let builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
         builder.succeeded();
     }
 
@@ -258,9 +262,9 @@ mod tests {
 
     #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
     fn previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
-        let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
-        builder.public_call.public_inputs.call_context.is_delegate_call = true;
-        builder.public_call.public_inputs.call_context.storage_contract_address = builder.public_call.contract_address;
+        let mut builder = PublicKernelPublicPreviousInputsBuilder::new().is_delegate_call();
+
+        builder.public_call.contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
 
         builder.failed();
     }

@@ -261,7 +261,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate call")]
+    #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate calls")]
     fn incorrect_msg_sender_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
@@ -271,7 +271,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack storage address does not match expected contract address for delegate call")]
+    #[test(should_fail_with="call stack storage address does not match expected contract address for delegate calls")]
     fn incorrect_storage_address_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
@@ -281,12 +281,21 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack portal address does not match expected portal address for delegate call")]
+    #[test(should_fail_with="call stack portal address does not match expected portal address for delegate calls")]
     fn incorrect_portal_address_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
         // Set the portal contract address to be the portal contract address of the delegated contract.
         builder.private_call.public_inputs.call_context.portal_contract_address = builder.private_call.portal_contract_address;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
+    fn incorrect_storage_contract_for_delegate_calls_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
+
+        builder.private_call.contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
 
         builder.failed();
     }
@@ -367,7 +376,7 @@ mod tests {
     fn input_validation_malformed_arrays_public_call_stack() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.public_call_stack.push_array([0, 888]);
+        builder.private_call.public_inputs.public_call_stack_hashes.push_array([0, 888]);
         
         builder.failed();
     }

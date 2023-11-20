@@ -55,7 +55,7 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.nullified_commitments);
     validate_array(app_public_inputs.private_call_stack_hashes);
-    validate_array(app_public_inputs.public_call_stack);
+    validate_array(app_public_inputs.public_call_stack_hashes);
     validate_array(app_public_inputs.new_l2_to_l1_msgs);
     
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
@@ -111,7 +111,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
     public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
-    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+    public_inputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
     public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
     public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
@@ -211,11 +211,13 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Call stacks
     let caller_contract_address = private_call.call_stack_item.contract_address;
     let caller_context = private_call_public_inputs.call_context;
+    // Private call stack.
     let call_stack_items = private_call_public_inputs.private_call_stack_hashes.map(|hash| CallStackItem { hash, caller_contract_address, caller_context });
-    let private_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
+    let private_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.hash == 0, CallStackItem::empty());
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
-
-    let public_call_stack = array_to_bounded_vec(private_call_public_inputs.public_call_stack);
+    // Public call stack.
+    let call_stack_items = private_call_public_inputs.public_call_stack_hashes.map(|hash| CallStackItem { hash, caller_contract_address, caller_context });
+    let public_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.hash == 0, CallStackItem::empty());
     public_inputs.end.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages
@@ -339,9 +341,11 @@ pub fn validate_call_stack(private_call: PrivateCallData, popped_private_call: C
     }
 
     if call_context.is_delegate_call {
-        assert(call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate call");
-        assert(call_context.storage_contract_address.eq(caller_context.storage_contract_address), "call stack storage address does not match expected contract address for delegate call");
-        assert(call_context.portal_contract_address.eq(caller_context.portal_contract_address), "call stack portal address does not match expected portal address for delegate call");
+        assert(call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls");
+        assert(call_context.storage_contract_address.eq(caller_context.storage_contract_address), "call stack storage address does not match expected contract address for delegate calls");
+        assert(call_context.portal_contract_address.eq(caller_context.portal_contract_address), "call stack portal address does not match expected portal address for delegate calls");
+        assert(!call_stack_item.contract_address.eq(call_context.storage_contract_address),
+            "curent contract address must not match storage contract address for delegate calls");
     } else {
         assert(call_context.msg_sender.eq(caller_contract_address), "call stack msg_sender does not match caller contract address");
         assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address");

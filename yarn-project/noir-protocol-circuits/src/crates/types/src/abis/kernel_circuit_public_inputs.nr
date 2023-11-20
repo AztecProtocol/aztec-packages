@@ -1,8 +1,10 @@
-use crate::abis::combined_constant_data::CombinedConstantData;
-use crate::abis::combined_accumulated_data::{
-    CombinedAccumulatedData,
-    FinalAccumulatedData,
-    CombinedAccumulatedDataBuilder,
+use crate::abis::{
+    combined_accumulated_data::{
+        CombinedAccumulatedData,
+        FinalAccumulatedData,
+        CombinedAccumulatedDataBuilder,
+    },
+    combined_constant_data::CombinedConstantData,
 };
 
 struct KernelCircuitPublicInputs {

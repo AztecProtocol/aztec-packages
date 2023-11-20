@@ -18,7 +18,7 @@ impl PublicKernelPrivatePreviousInputs {
         let private_call_stack = self.previous_kernel.public_inputs.end.private_call_stack;
         for i in 0..private_call_stack.len() {
             let private_call = private_call_stack[i];
-            assert(private_call == 0,
+            assert(private_call.is_empty(),
                 "Private call stack must be empty when executing in the public kernel");
         }
 
@@ -40,11 +40,9 @@ impl PublicKernelPrivatePreviousInputs {
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
 
-        // validate the kernel execution common to all invocation circumstances
-        common::validate_kernel_execution(self.public_call);
-
-        // validate our public call hash
-        common::validate_this_public_call_hash(self.public_call,&mut public_inputs);
+        // Pops the item from the call stack and validates it against the current execution.
+        let popped_public_call = public_inputs.end.public_call_stack.pop();
+        common::validate_call_stack(self.public_call, popped_public_call);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
@@ -58,6 +56,7 @@ mod tests {
     use crate::{
         public_kernel_private_previous::PublicKernelPrivatePreviousInputs,
         utils::{
+            assert_eq_call_stack_items,
             assert_eq_new_contracts,
             assert_eq_public_data_reads,
             assert_eq_public_data_update_requests,
@@ -67,6 +66,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
+            call_stack_item::CallStackItem,
             function_selector::FunctionSelector,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             new_contract_data::NewContractData,
@@ -110,6 +110,17 @@ mod tests {
             }
         }
 
+        pub fn is_delegate_call(&mut self) -> Self {
+            let _ = self.public_call.is_delegate_call();
+            *self
+        }
+
+        pub fn is_internal_call(&mut self) -> Self {
+            let _ = self.public_call.is_internal_call();
+            self.previous_kernel.contract_address = self.public_call.contract_address;
+            *self
+        }
+
         pub fn get_current_public_data_reads(self) -> [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_CALL] {
             let read_requests = self.public_call.public_inputs.contract_storage_reads.storage;
             compute_public_data_reads(self.public_call.contract_address, read_requests)
@@ -122,11 +133,12 @@ mod tests {
             )
         }
 
-        pub fn execute(self) -> KernelCircuitPublicInputs {
-            let mut previous_kernel = self.previous_kernel.finish();
+        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
-            previous_kernel.public_inputs.end.public_call_stack[0] = public_call.call_stack_item.hash();
+            let hash = public_call.call_stack_item.hash();
+            self.previous_kernel.push_public_call_stack_hash(hash);
+            let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PublicKernelPrivatePreviousInputs {
                 previous_kernel,
@@ -136,11 +148,11 @@ mod tests {
             kernel.public_kernel_private_previous()
         }
 
-        pub fn succeeded(self) {
+        pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
 
-        pub fn failed(self) {
+        pub fn failed(&mut self) {
             let _ = self.execute();
         }
     }
@@ -199,12 +211,20 @@ mod tests {
         builder.failed();
     }
 
+    #[test]
+    fn internal_call_succeeds() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_internal_call();
+        builder.succeeded();
+    }
+
     #[test(should_fail_with="msg_sender must be self for internal calls")]
     fn invalid_is_internal() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.function_data.is_internal = true;
-        builder.public_call.public_inputs.call_context.msg_sender = Address::from_field(1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = Address::from_field(2);
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_internal_call();
+
+        // Tweak the (storage) contract_address to be different to msg_sender.
+        let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
+        builder.public_call.contract_address = Address::from_field(msg_sender + 1);
+        builder.public_call.public_inputs.call_context.storage_contract_address = Address::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -236,10 +256,12 @@ mod tests {
     #[test(should_fail_with="calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack")]
     fn inconsistent_call_hash_should_fail() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        let mut previous_kernel = builder.previous_kernel.finish();
         let public_call = builder.public_call.finish();
+
+        let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
-        previous_kernel.public_inputs.end.public_call_stack[0] = public_call.call_stack_item.hash() + 1;
+        builder.previous_kernel.push_public_call_stack_hash(hash + 1);
+        let previous_kernel = builder.previous_kernel.finish();
 
         let kernel = PublicKernelPrivatePreviousInputs {
             previous_kernel,
@@ -249,105 +271,74 @@ mod tests {
         let _ = kernel.public_kernel_private_previous();
     }
 
-    #[test(should_fail_with="call_stack_storage_address does not match expected_storage_address")]
-    fn incorrect_storage_contract_address_fails_for_regular_calls() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_call_stack_items(1);
-        // Tweak the storage contract address of the preimage at index 0.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(0);
-        preimage.public_inputs.call_context.storage_contract_address.inner += 1;
-        builder.public_call.update_call_stack(0, preimage, true);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="call_stack_msg_sender does not match expected_msg_sender")]
+    #[test(should_fail_with="call stack msg_sender does not match caller contract address")]
     fn incorrect_msg_sender_fails_for_regular_calls() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_call_stack_items(1);
-        // Tweak the msg_sender of the preimage at index 0.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(0);
-        preimage.public_inputs.call_context.msg_sender.inner += 1;
-        builder.public_call.update_call_stack(0, preimage, true);
+
+        // Set the msg_sender to a wrong value.
+        builder.public_call.public_inputs.call_context.msg_sender.inner += 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="call stack storage address does not match expected contract address")]
+    fn incorrect_storage_contract_address_fails_for_regular_calls() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
+
+        // Set the storage contract address to a wrong value.
+        builder.public_call.public_inputs.call_context.storage_contract_address.inner += 1;
 
         builder.failed();
     }
 
     #[test]
-    fn public_kernel_circuit_succeeds_for_mixture_of_regular_and_delegate_calls() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_call_stack_items(1);
-        builder.public_call.append_delegate_call_stack_items(1);
-        builder.public_call.append_call_stack_items(1);
-        builder.public_call.append_delegate_call_stack_items(1);
-
+    fn delegate_call_succeeds() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
         builder.succeeded();
     }
 
-    #[test(should_fail_with="call_stack_msg_sender does not match expected_msg_sender")]
-    fn public_kernel_circuit_fails_on_incorrect_msg_sender_in_delegate_call() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_delegate_call_stack_items(1);
-        // Tweak the msg_sender of the preimage at index 0.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(0);
-        preimage.public_inputs.call_context.msg_sender.inner += 1;
-        builder.public_call.update_call_stack(0, preimage, true);
+    #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate calls")]
+    fn incorrect_msg_sender_for_delegate_calls_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
+
+        // Set the msg_sender to be the caller contract.
+        builder.public_call.public_inputs.call_context.msg_sender = builder.previous_kernel.contract_address;
 
         builder.failed();
     }
 
-    #[test(should_fail_with=""call_stack_storage_address doesnt match expected_storage_address")]
+    #[test(should_fail_with="call stack storage address does not match expected contract address for delegate calls")]
     fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_delegate_call_stack_items(1);
-        // Tweak the storage contract address of the preimage at index 0.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(0);
-        preimage.public_inputs.call_context.storage_contract_address.inner += 1;
-        builder.public_call.update_call_stack(0, preimage, true);
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
+
+        // Set the storage contract address to be the contract address.
+        builder.public_call.public_inputs.call_context.storage_contract_address = builder.public_call.contract_address;
 
         builder.failed();
     }
 
-    #[test(should_fail_with=""call_stack_portal_contract_address doesnt match expected_portal_address")]
+    #[test(should_fail_with="call stack portal address does not match expected portal address for delegate calls")]
     fn public_kernel_circuit_fails_on_incorrect_portal_contract_in_delegate_call() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_delegate_call_stack_items(1);
-        // Tweak the portal contract address of the preimage at index 0.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(0);
-        preimage.public_inputs.call_context.portal_contract_address.inner += 1;
-        builder.public_call.update_call_stack(0, preimage, true);
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
+
+        // Set the portal contract address to be the portal contract address of the delegated contract.
+        builder.public_call.public_inputs.call_context.portal_contract_address = builder.public_call.portal_contract_address;
 
         builder.failed();
     }
 
-    #[test]
-    fn public_kernel_circuit_only_checks_non_empty_call_stacks() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_call_stack_items(4);
+    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
+    fn previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
 
-        // Tweak the msg_sender of the preimage at index 1.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(1);
-        preimage.public_inputs.call_context.msg_sender.inner += 1;
-        builder.public_call.update_call_stack(1, preimage, true);
+        builder.public_call.contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
 
-        // Tweak the storage contract address of the preimage at index 2.
-        let mut preimage = builder.public_call.public_call_stack_preimages.get(2);
-        preimage.public_inputs.call_context.storage_contract_address.inner += 1;
-        builder.public_call.update_call_stack(2, preimage, true);
-
-        // Set all but the first call stack item to have a zero call stack hash.
-        // These call stack items will have incorrect data but will be ignored as the hash is zero.
-        let public_call_stack = builder.public_call.public_inputs.public_call_stack;
-        let mut new_public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> = BoundedVec::new(0);
-        new_public_call_stack.push(public_call_stack.get(0));
-        builder.public_call.public_inputs.public_call_stack = new_public_call_stack;
-
-        builder.succeeded();
+        builder.failed();
     }
 
     #[test]
     fn public_kernel_circuit_with_private_previous_kernel_should_succeed() {
-        let builder = PublicKernelPrivatePreviousInputsBuilder::new();
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
         builder.succeeded();
     }
 
@@ -363,10 +354,14 @@ mod tests {
         ];
         builder.previous_kernel.end.new_contracts.push_array(new_contracts);
 
-        builder.public_call.append_call_stack_items(2);
-        builder.public_call.append_delegate_call_stack_items(1);
-        let storage = builder.public_call.public_inputs.public_call_stack.storage;
-        let public_call_stack = [storage[0], storage[1], storage[2]];
+        builder.public_call.append_public_call_stack_hashes(2);
+        let hashes = builder.public_call.public_inputs.public_call_stack_hashes.storage;
+        let caller_contract_address = builder.public_call.contract_address;
+        let caller_context = builder.public_call.public_inputs.call_context;
+        let public_call_stack = [
+            CallStackItem { hash: hashes[0], caller_contract_address, caller_context },
+            CallStackItem { hash: hashes[1], caller_contract_address, caller_context },
+        ];
 
         builder.public_call.append_update_requests(2);
         let storage = builder.get_current_public_data_update_requests();
@@ -378,9 +373,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(array_eq(public_inputs.end.private_call_stack, []));
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
-        assert(array_eq(public_inputs.end.public_call_stack, public_call_stack));
+        assert_eq_call_stack_items(public_inputs.end.private_call_stack, []);
+        assert_eq_call_stack_items(public_inputs.end.public_call_stack, public_call_stack);
         assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, update_requests);
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
     }
@@ -388,7 +383,7 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing in the public kernel")]
     fn private_previous_kernel_non_empty_private_call_stack_should_fail() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.previous_kernel.end.private_call_stack.push(1);
+        builder.previous_kernel.push_private_call_stack_hash(1);
 
         builder.failed();
     }
@@ -420,15 +415,6 @@ mod tests {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
         builder.public_call.append_update_requests(1);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
-    fn previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.public_inputs.call_context.is_delegate_call = true;
-        builder.public_call.public_inputs.call_context.storage_contract_address = builder.public_call.contract_address;
 
         builder.failed();
     }
