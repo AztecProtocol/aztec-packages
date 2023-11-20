@@ -42,6 +42,8 @@ struct BaseRollupInputs {
     start_public_data_tree_root: Field,
     start_historic_blocks_tree_snapshot: AppendOnlyTreeSnapshot,
 
+    sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+    sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
 
@@ -181,162 +183,25 @@ impl BaseRollupInputs {
         calculate_subtree(commitment_tree_leaves)
     }
 
-    unconstrained fn find_leaf_index(self, leaves: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX * 2], nullifier: Field, nullifier_index: u64) -> u64 {
-        let mut matched = false;
-        let mut index = 0;
-        for k in 0..nullifier_index {
-            if !matched {
-                if (!leaves[k].is_empty()) {
-                    if (full_field_less_than(leaves[k].leaf_value, nullifier) &
-                    (full_field_greater_than(leaves[k].next_value, nullifier) |
-                    (leaves[k].next_value == 0))) {
-                        matched = true;
-                        index = k;
-                    }
-                }
-            }
-
-        
-        }
-        // if not matched, our subtree will misformed - we must reject
-        assert(matched, "Nullifier subtree is malformed");
-        index
-    }
-
-    // TODO this should be done in circuit. Ideally using the sorting strategy.
+    //TODO: This should be done in-circuit
     unconstrained fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
-        // The below monologue is by Madiaa. fwiw, the plan was not simple.
-        //
-        // LADIES AND GENTLEMEN The P L A N ( is simple )
-        // 1. Get the previous nullifier set setup
-        // 2. Check for the first added nullifier that it doesnt exist
-        // 3. Update the nullifier set
-        // 4. Calculate a new root with the sibling path
-        // 5. Use that for the next nullifier check.
-        // 6. Iterate for all of em
-        // 7. le bosh (profit)
+        let mut new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
 
-        // BOYS AND GIRLS THE P L A N ( once the first plan is complete )
-        // GENERATE OUR NEW NULLIFIER SUBTREE
-        // 1. We need to point the new nullifiers to point to the index that the previous nullifier replaced
-        // 2. If we receive the 0 nullifier leaf (where all values are 0, we skip insertion and leave a sparse subtree)
-
-        // New nullifier subtree
-        let mut nullifier_insertion_subtree = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX * 2];
-
-        // This will update on each iteration
-        let mut current_nullifier_tree_root = self.start_nullifier_tree_snapshot.root;
-
-        // This will increase with every insertion
-        let start_insertion_index = self.start_nullifier_tree_snapshot.next_available_leaf_index;
-        let mut new_index = start_insertion_index;
-
-        // For each kernel circuit
         for i in 0..2 {
-            let new_nullifiers = self.kernel_data[i].public_inputs.end.new_nullifiers;
-            // For each of our nullifiers
-            for j in 0..MAX_NEW_NULLIFIERS_PER_TX { 
-                // Witness containing index and path
-                let nullifier_index = i * MAX_NEW_NULLIFIERS_PER_TX + j;
-
-                let witness = self.low_nullifier_membership_witness[nullifier_index];
-                // Preimage of the lo-index required for a non-membership proof
-                let low_nullifier_preimage = self.low_nullifier_leaf_preimages[nullifier_index];
-                // Newly created nullifier
-                let nullifier = new_nullifiers[j];
-
-                // TODO(maddiaa): reason about this more strongly, can this cause issues?
-                if (nullifier != 0) {
-                    // Create the nullifier leaf of the new nullifier to be inserted
-                    let mut new_nullifier_leaf = NullifierLeafPreimage {
-                        leaf_value : nullifier,
-                        next_value : low_nullifier_preimage.next_value,
-                        next_index : low_nullifier_preimage.next_index,
-                    };
-
-                    // Assuming populated premier subtree
-                    if (low_nullifier_preimage.is_empty()) {
-                        // check previous nullifier leaves
-                        let index = self.find_leaf_index(nullifier_insertion_subtree, nullifier, nullifier_index as u64);
-                        let same_batch_nullifier = nullifier_insertion_subtree[index];
-                        assert(!same_batch_nullifier.is_empty(), "Same batch batch nullifier is empty");
-                        assert(full_field_less_than(same_batch_nullifier.leaf_value, nullifier), "Invalid hint");
-                        assert(full_field_greater_than(same_batch_nullifier.next_value, nullifier) | (same_batch_nullifier.next_value == 0), "Invalid hint");
-  
-                        new_nullifier_leaf.next_index = nullifier_insertion_subtree[index].next_index;
-                        new_nullifier_leaf.next_value = nullifier_insertion_subtree[index].next_value;
-
-                        // Update child
-                        nullifier_insertion_subtree[index].next_index = new_index;
-                        nullifier_insertion_subtree[index].next_value = nullifier;
-                    } else {
-                        let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
-                        let is_next_greater_than = full_field_greater_than(low_nullifier_preimage.next_value, nullifier);
-
-                        if (!(is_less_than_nullifier & is_next_greater_than)) {
-                            if ((low_nullifier_preimage.next_index != 0) & (low_nullifier_preimage.next_value != 0)) {
-                                assert(false, "invalid nullifier range");
-                            }
-                        }
-
-                        // Recreate the original low nullifier from the preimage
-                        let original_low_nullifier = NullifierLeafPreimage{
-                            leaf_value : low_nullifier_preimage.leaf_value,
-                            next_value : low_nullifier_preimage.next_value,
-                            next_index : low_nullifier_preimage.next_index,
-                        };
-
-                        // perform membership check for the low nullifier against the original root
-                        components::assert_check_membership(
-                            original_low_nullifier.hash(),
-                            witness.leaf_index,
-                            witness.sibling_path,
-                            current_nullifier_tree_root,
-                        );
-
-                        // Calculate the new value of the low_nullifier_leaf
-                        let updated_low_nullifier = NullifierLeafPreimage{ 
-                                    leaf_value : low_nullifier_preimage.leaf_value,
-                                    next_value : nullifier,
-                                    next_index : new_index 
-                        };
-
-                        // We need another set of witness values for this
-                        current_nullifier_tree_root = components::root_from_sibling_path(
-                            updated_low_nullifier.hash(), witness.leaf_index, witness.sibling_path);
-                    }
-                    nullifier_insertion_subtree[nullifier_index] = new_nullifier_leaf;
-                }
-                
-                // increment insertion index
-                new_index = new_index + 1;
+            for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
+                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j];
             }
-        }
+        };
 
-        // Check that the new subtree is to be inserted at the next location, and is empty currently
-        let empty_nullifier_subtree_root = calculate_empty_tree_root(NULLIFIER_SUBTREE_HEIGHT);
-        let leafIndexNullifierSubtreeDepth = self.start_nullifier_tree_snapshot.next_available_leaf_index >> (NULLIFIER_SUBTREE_HEIGHT as u32);
-        components::assert_check_membership(
-            empty_nullifier_subtree_root,
-            leafIndexNullifierSubtreeDepth as Field,
+        crate::indexed_tree::batch_insert(
+            self.start_nullifier_tree_snapshot,
+            new_nullifiers,
+            self.sorted_new_nullifiers,
+            self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,
-            current_nullifier_tree_root,
-        );
-
-        // Create new nullifier subtree to insert into the whole nullifier tree
-        let nullifier_sibling_path = self.new_nullifiers_subtree_sibling_path;
-        let nullifier_subtree_root = self.create_nullifier_subtree(nullifier_insertion_subtree);
-
-        // Calculate the new root
-        // We are inserting a subtree rather than a full tree here
-        let subtree_index = start_insertion_index >> (NULLIFIER_SUBTREE_HEIGHT as u32);
-        let new_root = components::root_from_sibling_path(nullifier_subtree_root, subtree_index as Field, nullifier_sibling_path);
-
-        // Return the new state of the nullifier tree
-        AppendOnlyTreeSnapshot {
-            next_available_leaf_index: new_index,
-            root: new_root,
-        }
+            self.low_nullifier_leaf_preimages,
+            self.low_nullifier_membership_witness,
+        )
     }
 
     fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
@@ -596,32 +461,4 @@ global CALL_DATA_HASH_FULL_FIELDS = 330;
 #[test]
 fn consistent_call_data_hash_full_fields() {
     assert_eq(CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect");
-}
-
-
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
-}
-
-fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(rhs, lhs)
-}
-
-#[test]
-fn test_u256_less_than() {
-    assert(full_field_less_than(1, 1000));
-    assert(!full_field_less_than(1000, 1000));
-    assert(!full_field_less_than(1000, 1));
-    assert(full_field_less_than(0, 0-1));
-    assert(!full_field_less_than(0-1, 0));
-}
-
-#[test]
-fn test_u256_greater_than() {
-    assert(full_field_greater_than(1000, 1));
-    assert(!full_field_greater_than(1000, 1000));
-    assert(!full_field_greater_than(1, 1000));
-    assert(!full_field_greater_than(0, 0-1));
-    assert(full_field_greater_than(0-1, 0));
 }

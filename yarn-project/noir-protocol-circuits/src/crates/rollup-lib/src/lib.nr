@@ -16,3 +16,5 @@ mod hash;
 mod merkle_tree;
 
 mod fixtures;
+
+mod indexed_tree;

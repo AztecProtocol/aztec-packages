@@ -423,101 +423,58 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
     | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
   > {
-    // Keep track of touched low leaves
-    const touched = new Map<number, bigint[]>();
-
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
     // Accumulators
-    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = [];
-    const pendingInsertionSubtree: LeafData[] = [];
+    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
+    const pendingInsertionSubtree: LeafData[] = leaves.map(() => zeroLeaf);
 
     // Start info
     const startInsertionIndex = this.getNumLeaves(true);
 
-    // Get insertion path for each leaf
-    for (let i = 0; i < leaves.length; i++) {
-      const newValue = toBigIntBE(leaves[i]);
+    const leavesToInsert = leaves.map(leaf => toBigIntBE(leaf));
+    const sortedDescendingLeaves = leavesToInsert.slice().sort((a, b) => Number(b - a));
 
-      // Keep space and just insert zero values
+    // Get insertion path for each leaf
+    for (let i = 0; i < leavesToInsert.length; i++) {
+      const newValue = sortedDescendingLeaves[i];
+      const originalIndex = leavesToInsert.indexOf(newValue);
+
       if (newValue === 0n) {
-        pendingInsertionSubtree.push(zeroLeaf);
-        lowLeavesWitnesses.push(emptyLowLeafWitness);
         continue;
       }
 
       const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
 
-      // If a touched node has a value that is less than the current value
-      const prevNodes = touched.get(indexOfPrevious.index);
-      if (prevNodes && prevNodes.some(v => v < newValue)) {
-        // check the pending low nullifiers for a low nullifier that works
-        // This is the case where the next value is less than the pending
-        for (let j = 0; j < pendingInsertionSubtree.length; j++) {
-          if (pendingInsertionSubtree[j].value === 0n) continue;
-
-          if (
-            pendingInsertionSubtree[j].value < newValue &&
-            (pendingInsertionSubtree[j].nextValue > newValue || pendingInsertionSubtree[j].nextValue === 0n)
-          ) {
-            // add the new value to the pending low nullifiers
-            const currentLowLeaf: LeafData = {
-              value: newValue,
-              nextValue: pendingInsertionSubtree[j].nextValue,
-              nextIndex: pendingInsertionSubtree[j].nextIndex,
-            };
-
-            pendingInsertionSubtree.push(currentLowLeaf);
-
-            // Update the pending low leaf to point at the new value
-            pendingInsertionSubtree[j].nextValue = newValue;
-            pendingInsertionSubtree[j].nextIndex = startInsertionIndex + BigInt(i);
-
-            break;
-          }
-        }
-
-        // Any node updated in this space will need to calculate its low nullifier from a previously inserted value
-        lowLeavesWitnesses.push(emptyLowLeafWitness);
-      } else {
-        // Update the touched mapping
-        if (prevNodes) {
-          prevNodes.push(newValue);
-          touched.set(indexOfPrevious.index, prevNodes);
-        } else {
-          touched.set(indexOfPrevious.index, [newValue]);
-        }
-
-        // get the low leaf
-        const lowLeaf = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-        if (lowLeaf === undefined) {
-          return [undefined, await this.getSubtreeSiblingPath(subtreeHeight, true)];
-        }
-        const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
-
-        const witness: LowLeafWitnessData<TreeHeight> = {
-          leafData: { ...lowLeaf },
-          index: BigInt(indexOfPrevious.index),
-          siblingPath,
-        };
-
-        // Update the running paths
-        lowLeavesWitnesses.push(witness);
-
-        const currentLowLeaf: LeafData = {
-          value: newValue,
-          nextValue: lowLeaf.nextValue,
-          nextIndex: lowLeaf.nextIndex,
-        };
-
-        pendingInsertionSubtree.push(currentLowLeaf);
-
-        lowLeaf.nextValue = newValue;
-        lowLeaf.nextIndex = startInsertionIndex + BigInt(i);
-
-        const lowLeafIndex = indexOfPrevious.index;
-        this.cachedLeaves[lowLeafIndex] = lowLeaf;
-        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
+      // get the low leaf
+      const lowLeaf = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
+      if (lowLeaf === undefined) {
+        return [undefined, await this.getSubtreeSiblingPath(subtreeHeight, true)];
       }
+      const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
+
+      const witness: LowLeafWitnessData<TreeHeight> = {
+        leafData: { ...lowLeaf },
+        index: BigInt(indexOfPrevious.index),
+        siblingPath,
+      };
+
+      // Update the running paths
+      lowLeavesWitnesses[i] = witness;
+
+      const currentPendingLeaf: LeafData = {
+        value: newValue,
+        nextValue: lowLeaf.nextValue,
+        nextIndex: lowLeaf.nextIndex,
+      };
+
+      pendingInsertionSubtree[originalIndex] = currentPendingLeaf;
+
+      lowLeaf.nextValue = newValue;
+      lowLeaf.nextIndex = startInsertionIndex + BigInt(originalIndex);
+
+      const lowLeafIndex = indexOfPrevious.index;
+      this.cachedLeaves[lowLeafIndex] = lowLeaf;
+      await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
     }
 
     const newSubtreeSiblingPath = await this.getSubtreeSiblingPath<SubtreeHeight, SubtreeSiblingPathHeight>(
