@@ -180,3 +180,6 @@ docs:
     - ^.*.nr$
   dependencies:
     - yarn-project
+
+noir:
+  buildDir: noir

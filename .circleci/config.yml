@@ -76,6 +76,17 @@ save_logs: &save_logs
       - ./*
 
 jobs:
+  noir:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir 128
+
   barretenberg-wasm-linux-clang:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1117,6 +1128,9 @@ workflows:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
+      # Noir
+      - noir: *defaults
+
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
