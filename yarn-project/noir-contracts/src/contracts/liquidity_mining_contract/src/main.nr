@@ -16,7 +16,10 @@ contract LiquidityMining {
             utils as note_utils,
         },
         constants_gen::NOTE_HASH_TREE_HEIGHT,
-        oracle::get_sibling_path::get_sibling_path,
+        oracle::get_membership_witness::{
+            get_membership_witness,
+            MembershipWitness,
+        },
         // oracle::debug_log::debug_log_format,
     };
 
@@ -27,7 +30,7 @@ contract LiquidityMining {
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 balances: Map::new(
                     context,
@@ -68,7 +71,7 @@ contract LiquidityMining {
     //      e) Prove that the block hash is in the HAT.
     //      f) Get the note/preimage from PXE.
     //      g) Compute the commitment from the note.
-    //      h) Pop the note commitment sibling path in the note hash tree from the stack.
+    //      h) Get the membership witness of a note in the note hash tree.
     //      i) Verify that the commitment is in the note hash tree.
     // 2) Prove that the note has not yet been nullified by emitting a nullifier.
     // 3) Use the timestamp from 1.b), current timestamp and the note amount from 1.f) to compute the reward.
@@ -90,14 +93,15 @@ contract LiquidityMining {
         // 1.h)
         let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
         let note_hash_tree_id = 2;
-        let note_sibling_path: [Field; NOTE_HASH_TREE_HEIGHT + 1] = get_sibling_path(ignored_block_number, note_hash_tree_id, note_commitment);
+        let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT> =
+            get_membership_witness(ignored_block_number, note_hash_tree_id, note_commitment);
 
         // 1.i)
-        // This should be tree root at the latest block and should correspond to the sibling path we obtain from oracle
+        // In our test case this should be tree root at the latest block and should correspond to the sibling path we obtain from oracle
         let note_hash_tree_root = context.block_data.note_hash_tree_root;
         assert(
-            note_hash_tree_root == compute_merkle_root(note_commitment, p.index, note_sibling_path), 
-            "Before root don't match"
+            note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path), 
+            "Proving membership of a note failed"
         );
 
         // Remove/nullify the note
