@@ -27,6 +27,39 @@ GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVe
     return *this;
 }
 
+void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
+                                                                           const BF& batching_challenge_v,
+                                                                           const uint256_t& accumulated_result)
+{
+
+    const auto compute_four_limbs = [](const auto& in) {
+        constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
+        return std::array<FF, 4>{ in.slice(0, NUM_LIMB_BITS),
+                                  in.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                  in.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                  in.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4) };
+    };
+
+    const auto compute_five_limbs = [](const auto& in) {
+        constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
+        return std::array<FF, 5>{ in.slice(0, NUM_LIMB_BITS),
+                                  in.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                  in.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                  in.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
+                                  in };
+    };
+
+    relation_parameters.evaluation_input_x = compute_five_limbs(evaluation_input_x);
+
+    uint256_t batching_challenge_v_power{ batching_challenge_v };
+    for (size_t i = 0; i < 4; i++) {
+        relation_parameters.batching_challenge_v[i] = compute_five_limbs(batching_challenge_v_power);
+        batching_challenge_v_power = BF(batching_challenge_v_power) * batching_challenge_v;
+    }
+
+    relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
+};
+
 /**
  * @brief This function verifies an GoblinTranslator Honk proof for given program settings.
  */
@@ -47,10 +80,9 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
     evaluation_input_x = transcript.template receive_from_prover<BF>("evaluation_input_x");
     batching_challenge_v = transcript.template receive_from_prover<BF>("batching_challenge_v");
 
-    const auto uint_accumulated_result = uint256_t(transcript.template receive_from_prover<BF>("accumulated_result"));
-    auto uint_evaluation_input = static_cast<uint256_t>(evaluation_input_x);
+    const BF accumulated_result = transcript.template receive_from_prover<BF>("accumulated_result");
 
-    put_translation_data_in_relation_parameters(uint_evaluation_input, batching_challenge_v, uint_accumulated_result);
+    put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
     if (circuit_size != key->circuit_size) {
         return false;
