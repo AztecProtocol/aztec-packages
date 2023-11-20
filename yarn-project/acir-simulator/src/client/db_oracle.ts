@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
+import { MerkleTreeId } from '@aztec/types';
 
 /**
  * A function artifact with optional debug metadata
@@ -114,4 +115,21 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to a HistoricBlockData object.
    */
   getHistoricBlockData(): Promise<HistoricBlockData>;
+
+
+  /**
+   * Fetch the index of the leaf in the respective tree
+   * @param treeId - The id of the tree to search.
+   * @param leafValue - The leaf value buffer.
+   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   */
+  findLeafIndex(treeId: MerkleTreeId, leafValue: Buffer): Promise<bigint | undefined>;
+
+  /**
+   * Fetch the sibling path of the leaf in the respective tree
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - The id of the tree to search.
+   * @param leafIndex - The index of the leaf.
+   */
+  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
 }

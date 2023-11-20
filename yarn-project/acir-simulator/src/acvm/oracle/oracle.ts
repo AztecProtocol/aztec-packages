@@ -7,7 +7,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm_types.js';
-import { fromACVMField, frToNumber } from '../deserialize.js';
+import { frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
   toAcvmCallPrivateStackItem,
@@ -46,12 +46,16 @@ export class Oracle {
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
   }
 
-  async getSiblingPath([blockNumber]: ACVMField[], [treeId]: ACVMField[], [leaf]: ACVMField[]): Promise<ACVMField[]> {
+  async getMembershipWitness(
+    [blockNumber]: ACVMField[],
+    [treeId]: ACVMField[],
+    [leaf]: ACVMField[],
+  ): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
     const parsedTreeId = frToNumber(fromACVMField(treeId));
     const parsedLeaf = fromACVMField(leaf);
 
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeaf);
+    const path = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeaf);
     if (!path) {
       throw new Error(`Leaf ${leaf} not found in note hash tree.`);
     }

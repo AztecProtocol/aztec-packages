@@ -3,7 +3,7 @@ import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -33,6 +33,22 @@ export class ViewDataOracle extends TypedOracle {
    */
   public getSecretKey(owner: PublicKey) {
     return this.db.getSecretKey(this.contractAddress, owner);
+  }
+
+  /**
+   * Fetches the index and sibling path for a leaf value
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - The tree id
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
+   */
+  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const index = await this.db.findLeafIndex(treeId, leafValue.toBuffer());
+    if (!index) {
+      throw new Error(`Leaf value: ${leafValue} not found in tree ${treeId}`);
+    }
+    const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
+    return [new Fr(index), ...siblingPath];
   }
 
   /**
