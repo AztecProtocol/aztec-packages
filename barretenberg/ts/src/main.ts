@@ -368,7 +368,7 @@ program
 
 program
   .command('write_pk')
-  .description('Output verification key.')
+  .description('Output proving key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
