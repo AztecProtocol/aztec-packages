@@ -18,7 +18,7 @@ describe('Archiver', () => {
   const inboxAddress = EthAddress.ZERO.toString();
   const registryAddress = EthAddress.ZERO.toString();
   const contractDeploymentEmitterAddress = '0x0000000000000000000000000000000000000001';
-  const blockNums = [1, 2, 3];
+  const blockNumbers = [1, 2, 3];
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;
 
@@ -42,31 +42,31 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNums.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
     const rollupTxs = blocks.map(makeRollupTx);
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
     // since it is expected by the test that these would be consumed.
     // Archiver removes such messages from pending store.
     // Also create some more messages to cancel and some that will stay pending.
 
-    const messageToCancel1 = Fr.random().toString(true);
-    const messageToCancel2 = Fr.random().toString(true);
+    const messageToCancel1 = Fr.random().toString();
+    const messageToCancel2 = Fr.random().toString();
     const l1ToL2MessagesToCancel = [messageToCancel1, messageToCancel2];
-    const messageToStayPending1 = Fr.random().toString(true);
-    const messageToStayPending2 = Fr.random().toString(true);
+    const messageToStayPending1 = Fr.random().toString();
+    const messageToStayPending2 = Fr.random().toString();
 
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].newL1ToL2Messages.map(key => key.toString(true)),
+        blocks[0].newL1ToL2Messages.map(key => key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[1].newL1ToL2Messages.map(key => key.toString(true)),
+        blocks[1].newL1ToL2Messages.map(key => key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         2501n,
-        blocks[2].newL1ToL2Messages.map(key => key.toString(true)),
+        blocks[2].newL1ToL2Messages.map(key => key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(2502n, [
         messageToCancel1,
@@ -105,23 +105,23 @@ describe('Archiver', () => {
       l1ToL2MessageAddedEvents[3][2].args.entryKey,
       l1ToL2MessageAddedEvents[3][3].args.entryKey,
     ];
-    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(10)).map(key => key.toString(true));
+    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(10)).map(key => key.toString());
     expect(expectedPendingMessageKeys).toEqual(actualPendingMessageKeys);
 
     // Expect logs to correspond to what is set by L2Block.random(...)
     const encryptedLogs = await archiver.getLogs(1, 100, LogType.ENCRYPTED);
-    expect(encryptedLogs.length).toEqual(blockNums.length);
+    expect(encryptedLogs.length).toEqual(blockNumbers.length);
 
-    for (const [index, x] of blockNums.entries()) {
+    for (const [index, x] of blockNumbers.entries()) {
       const expectedTotalNumEncryptedLogs = 4 * x * (x * 2);
       const totalNumEncryptedLogs = L2BlockL2Logs.unrollLogs([encryptedLogs[index]]).length;
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 
     const unencryptedLogs = await archiver.getLogs(1, 100, LogType.UNENCRYPTED);
-    expect(unencryptedLogs.length).toEqual(blockNums.length);
+    expect(unencryptedLogs.length).toEqual(blockNumbers.length);
 
-    blockNums.forEach((x, index) => {
+    blockNumbers.forEach((x, index) => {
       const expectedTotalNumUnencryptedLogs = 4 * (x + 1) * (x * 3);
       const totalNumUnencryptedLogs = L2BlockL2Logs.unrollLogs([unencryptedLogs[index]]).length;
       expect(totalNumUnencryptedLogs).toEqual(expectedTotalNumUnencryptedLogs);
@@ -147,10 +147,10 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(0);
 
     const createL1ToL2Messages = () => {
-      return [Fr.random().toString(true), Fr.random().toString(true)];
+      return [Fr.random().toString(), Fr.random().toString()];
     };
 
-    const blocks = blockNums.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
     const rollupTxs = blocks.map(makeRollupTx);
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
     // since it is expected by the test that these would be consumed.
@@ -163,11 +163,11 @@ describe('Archiver', () => {
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].newL1ToL2Messages.map(key => key.toString(true)),
+        blocks[0].newL1ToL2Messages.map(key => key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         101n,
-        blocks[1].newL1ToL2Messages.map(key => key.toString(true)),
+        blocks[1].newL1ToL2Messages.map(key => key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(102n, additionalL1ToL2MessagesBlock102),
       makeL1ToL2MessageAddedEvents(103n, additionalL1ToL2MessagesBlock103),
@@ -201,7 +201,7 @@ describe('Archiver', () => {
 
     // Check that the only pending L1 to L2 messages are those from eth bock 102
     const expectedPendingMessageKeys = additionalL1ToL2MessagesBlock102;
-    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(100)).map(key => key.toString(true));
+    const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(100)).map(key => key.toString());
     expect(actualPendingMessageKeys).toEqual(expectedPendingMessageKeys);
 
     await archiver.stop();
@@ -234,7 +234,7 @@ describe('Archiver', () => {
       .mockResolvedValueOnce(
         makeL1ToL2MessageAddedEvents(
           100n,
-          block.newL1ToL2Messages.map(x => x.toString(true)),
+          block.newL1ToL2Messages.map(x => x.toString()),
         ),
       )
       .mockResolvedValueOnce([])
@@ -292,9 +292,9 @@ function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
       aztecAddress: extendedContractData.contractData.contractAddress.toString(),
       portalAddress: extendedContractData.contractData.portalContractAddress.toString(),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
-      partialAddress: extendedContractData.partialAddress.toString(true),
-      pubKeyX: extendedContractData.publicKey.x.toString(true),
-      pubKeyY: extendedContractData.publicKey.y.toString(true),
+      partialAddress: extendedContractData.partialAddress.toString(),
+      pubKeyX: extendedContractData.publicKey.x.toString(),
+      pubKeyY: extendedContractData.publicKey.y.toString(),
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
@@ -316,8 +316,8 @@ function makeL1ToL2MessageAddedEvents(l1BlockNum: bigint, entryKeys: string[]) {
         senderChainId: 1n,
         recipient: AztecAddress.random().toString(),
         recipientVersion: 1n,
-        content: Fr.random().toString(true),
-        secretHash: Fr.random().toString(true),
+        content: Fr.random().toString(),
+        secretHash: Fr.random().toString(),
         deadline: 100,
         fee: 1n,
         entryKey: entryKey,

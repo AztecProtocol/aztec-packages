@@ -60,7 +60,7 @@ That's not to say a super-fast proving system isn't being worked on [as we speak
 
 By the time mainnet comes around, zk-SNARKs will be needed in order to validate the correctness of every function that's executed on Aztec. In other words, in order for the execution of a function to be registered as part of the Aztec blockchain's history, a proof of correct execution will need to be furnished. Each proof will be an attestation that the rules of a particular function were followed correctly.
 
-But proofs are really only needed as a protection against malicious behaviour. The Sandbox is an emulated ecosystem; entirely contained within your laptop, and it follows the network's rules out of the box. So as long as its inner workings aren't tampered-with, it will act 'honestly'. Since you'll be the only person interacting with the Sandbox on your own laptop, and with a healthy assumption that you should be honest with yourself, you won't need proofs when testing.
+But proofs are really only needed as a protection against malicious behavior. The Sandbox is an emulated ecosystem; entirely contained within your laptop, and it follows the network's rules out of the box. So as long as its inner workings aren't tampered-with, it will act 'honestly'. Since you'll be the only person interacting with the Sandbox on your own laptop, and with a healthy assumption that you should be honest with yourself, you won't need proofs when testing.
 
 ### No Circuits!
 
@@ -90,7 +90,7 @@ Apps won't yet be able to allow for any L2 fee logic. Once fees are introduced, 
 
 The way in which keypairs and addresses are currently derived and implemented (inside the Sandbox) is greatly over-simplified, relative to future plans.
 
-They're so over-simplified that they're known to be insecure. Other features have been prioritised so-far in Sandbox development.
+They're so over-simplified that they're known to be insecure. Other features have been prioritized so-far in Sandbox development.
 
 #### What are the consequences?
 
@@ -109,10 +109,10 @@ This will impact the kinds of apps that you can build with the Sandbox, as it is
 
 Please open new discussions on [discourse](http://discourse.aztec.network) or open issues on [github](http://github.com/AztecProtocol/aztec-packages), if you have requirements that aren't-yet being met by the Sandbox's current key derivation scheme.
 
-### It's not-yet decentralised
+### It's not-yet decentralized
 
-It's an emulated blockchain entirely contained within your own laptop! It's centralised by design!
-As for deploying this all to mainnet, a decentralised sequencer selection and prover selection protocols are still [being discussed](https://discourse.aztec.network/t/request-for-proposals-decentralized-sequencer-selection/350). There are plans for decentralised testnets in 2024.
+It's an emulated blockchain entirely contained within your own laptop! It's centralized by design!
+As for deploying this all to mainnet, a decentralized sequencer selection and prover selection protocols are still [being discussed](https://discourse.aztec.network/t/request-for-proposals-decentralized-sequencer-selection/350). There are plans for decentralized testnets in 2024.
 
 ### You can't read mutable public state from a private function
 
@@ -221,7 +221,7 @@ Note that there is no plan to change this in the future.
 
 ### Example
 
-Let us assume that the main function named $f_1$ is calling in order $f_2$, $f_3$ (which calls $f_5$ folllowed by $f_6$), and $f_4$.
+Let us assume that the main function named $f_1$ is calling in order $f_2$, $f_3$ (which calls $f_5$ followed by $f_6$), and $f_4$.
 
 Call Dependency:
 
@@ -239,13 +239,13 @@ Private Kernel Processing Order:
 
 #### What are the consequences?
 
-Transaction output elements such as notes in encrypted logs, note hashes (commitments), nullifiers might be ordered differently than the one exepected by the execution.
+Transaction output elements such as notes in encrypted logs, note hashes (commitments), nullifiers might be ordered differently than the one expected by the execution.
 
 ### Chopped Transient Notes are still Emitted in Logs
 
 A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
 
-For the time being, such chopped notes are still emitted through encrypted logs (which is the communication channel to transmit notes). When a log containing a chopped note is processed, a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurence. However, this might be a source of confusion.
+For the time being, such chopped notes are still emitted through encrypted logs (which is the communication channel to transmit notes). When a log containing a chopped note is processed, a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurrence. However, this might be a source of confusion.
 This issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).
 
 ### Note Terminology: Note Commitments and Note Hashes

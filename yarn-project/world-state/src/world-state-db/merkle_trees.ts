@@ -61,7 +61,7 @@ export class MerkleTrees implements MerkleTreeDb {
   private jobQueue = new SerialQueue();
 
   constructor(private db: levelup.LevelUp, private log = createDebugLogger('aztec:merkle_trees')) {
-    this.latestGlobalVariablesHash = new Committable(Fr.zero());
+    this.latestGlobalVariablesHash = new Committable(Fr.ZERO);
   }
 
   /**
@@ -564,7 +564,9 @@ export class MerkleTrees implements MerkleTreeDb {
 
       // Sync the public data tree
       for (const dataWrite of l2Block.newPublicDataWrites) {
-        if (dataWrite.isEmpty()) continue;
+        if (dataWrite.isEmpty()) {
+          continue;
+        }
         const { newValue, leafIndex } = dataWrite;
         await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
       }
