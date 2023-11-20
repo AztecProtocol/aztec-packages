@@ -1675,7 +1675,7 @@ class GoblinTranslator {
         }
     };
 
-    using Transcript = BaseTranscript<FF>; // WORKTODO: leave IOU?
+    using Transcript = BaseTranscript<FF>;
 };
 } // namespace proof_system::honk::flavor
 

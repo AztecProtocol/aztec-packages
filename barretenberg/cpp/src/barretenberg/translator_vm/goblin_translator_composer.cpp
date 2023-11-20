@@ -58,7 +58,7 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
  * @tparam Flavor provides the circuit constructor type and the number of wires.
  * @param circuit_builder
  * @param dyadic_circuit_size Power of 2 circuit size
- *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/783) Optimize memory operatations.
  * @return std::vector<Polynomial>
  * */
 
@@ -68,12 +68,9 @@ std::vector<Polynomial> construct_wire_polynomials_base_goblin_translator(const 
     const size_t num_gates = circuit_builder.num_gates;
 
     std::vector<Polynomial> wire_polynomials;
-    // WORKTODO: note double(?) inefficiency here
     // Populate the wire polynomials with values from conventional wires
     for (size_t wire_idx = 0; wire_idx < Flavor::NUM_WIRES; ++wire_idx) {
-
         // Expect all values to be set to 0 initially
-        // TODO(kesha): fix for sparse polynomials; WORKTODO: what's this?
         Polynomial w_lagrange(dyadic_circuit_size);
 
         // Insert conventional gate wire values into the wire polynomial

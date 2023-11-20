@@ -42,6 +42,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     ECCVMCircuitBuilder() = default;
 
+    // WORKTODO: are these not making it to the ECCVM?
     ECCVMCircuitBuilder(std::vector<VMOperation> vm_operations)
         : vm_operations(vm_operations){};
 

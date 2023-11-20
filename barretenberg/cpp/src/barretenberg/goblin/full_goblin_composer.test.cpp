@@ -128,7 +128,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     static bool construct_and_verify_merge_proof(GoblinUltraComposer& composer, std::shared_ptr<OpQueue>& op_queue)
     {
         auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(10); // WORKTODO: What is this 10?
+        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
         auto merge_proof = merge_prover.construct_proof();
         bool verified = merge_verifier.verify_proof(merge_proof);
 
@@ -145,7 +145,6 @@ class FullGoblinComposerTests : public ::testing::Test {
  */
 TEST_F(FullGoblinComposerTests, SimpleCircuit)
 {
-    // WORKTODO: put this in a class
     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a "first" circuit
@@ -171,6 +170,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     }
 
     // Execute the ECCVM
+    // WORKTODO: feed BN254 commitments to ECCVM
     auto eccvm_builder = ECCVMBuilder(op_queue->raw_ops);
     auto eccvm_composer = ECCVMComposer();
     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
@@ -183,7 +183,7 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     auto batching_challenge = Fbase::random_element(); // WORKTODO: where is this derived?
     auto evaluation_input = eccvm_prover.evaluation_challenge_x;
     auto translator_builder =
-        TranslatorBuilder(batching_challenge, evaluation_input, *op_queue); // WORKTODO: take pointer or ref
+        TranslatorBuilder(batching_challenge, evaluation_input, op_queue); // WORKTODO: take pointer or ref
     auto translator_composer = TranslatorComposer();
     auto translator_prover = translator_composer.create_prover(translator_builder);
     auto translator_verifier = translator_composer.create_verifier(translator_builder);
@@ -191,7 +191,4 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     bool translator_verified = translator_verifier.verify_proof(translator_proof, eccvm_prover.translation_evaluations);
     EXPECT_TRUE(translator_verified);
 }
-
-// WORKTODO: write more tests
-
 } // namespace test_full_goblin_composer
