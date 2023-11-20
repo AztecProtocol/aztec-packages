@@ -1,18 +1,12 @@
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <gtest/gtest.h>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
+#include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
+
+#include <gtest/gtest.h>
 
 using namespace proof_system::honk;
 

@@ -43,7 +43,6 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     ECCVMCircuitBuilder() = default;
 
-    // WORKTODO: are these not making it to the ECCVM?
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
         : op_queue(op_queue){};
 
