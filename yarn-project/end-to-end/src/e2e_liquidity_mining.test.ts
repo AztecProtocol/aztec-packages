@@ -4,7 +4,7 @@ import { LiquidityMiningContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
 import levelup from 'levelup';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { setup } from './fixtures/utils.js';
 
