@@ -55,17 +55,15 @@ bool FibVerifier::verify_proof(const plonk::proof& proof)
     }
 
     // Get commitments to VM wires
-    commitments.Fibonacci_LAST = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_LAST);
-    commitments.Fibonacci_FIRST =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_FIRST);
     commitments.Fibonacci_x = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_x);
     commitments.Fibonacci_y = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_y);
 
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
 
+    auto alpha = transcript.get_challenge("alpha");
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, transcript);
+        sumcheck.verify(relation_parameters, alpha, transcript);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {

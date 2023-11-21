@@ -35,6 +35,7 @@ TEST_F(FibTests, powdre2e)
     auto composer = FibComposer();
 
     bool circuit_gud = circuit_builder.check_circuit();
+    info("circuit gud");
     ASSERT_EQ(circuit_gud, true);
 
     auto prover = composer.create_prover(circuit_builder);

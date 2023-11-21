@@ -17,6 +17,11 @@ void FibComposer::compute_witness(CircuitConstructor& circuit)
 
     auto polynomials = circuit.compute_polynomials();
 
+    proving_key->Fibonacci_LAST = polynomials.Fibonacci_LAST;
+    proving_key->Fibonacci_FIRST = polynomials.Fibonacci_FIRST;
+    proving_key->Fibonacci_x = polynomials.Fibonacci_x;
+    proving_key->Fibonacci_y = polynomials.Fibonacci_y;
+
     computed_witness = true;
 }
 
