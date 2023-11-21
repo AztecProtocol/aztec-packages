@@ -9,6 +9,7 @@ import {
   HistoricBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -23,6 +24,7 @@ export class SimulatorOracle implements DBOracle {
     private db: Database,
     private keyStore: KeyStore,
     private stateInfoProvider: StateInfoProvider,
+    private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
   getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
@@ -132,6 +134,29 @@ export class SimulatorOracle implements DBOracle {
 
   async getNullifierIndex(nullifier: Fr) {
     return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier);
+  }
+
+  public async findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
+    this.log.warn('Block number ignored in SimulatorOracle.findLeafIndex because archival node is not yet implemented');
+    switch (treeId) {
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return await this.stateInfoProvider.findLeafIndex(treeId, leafValue);
+      default:
+        throw new Error('Not implemented');
+    }
+  }
+
+  public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+    this.log.warn(
+      'Block number ignored in SimulatorOracle.getSiblingPath because archival node is not yet implemented',
+    );
+    // @todo This is doing a nasty workaround as http_rpc_client was not happy about a generic `getSiblingPath` function being exposed.
+    switch (treeId) {
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return (await this.stateInfoProvider.getNoteHashSiblingPath(leafIndex)).toFieldArray();
+      default:
+        throw new Error('Not implemented');
+    }
   }
 
   /**

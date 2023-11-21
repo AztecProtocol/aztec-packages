@@ -43,7 +43,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const index = await this.db.findLeafIndex(treeId, leafValue.toBuffer());
+    const index = await this.db.findLeafIndex(blockNumber, treeId, leafValue);
     if (!index) {
       throw new Error(`Leaf value: ${leafValue} not found in tree ${treeId}`);
     }
