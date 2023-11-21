@@ -29,9 +29,9 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
-    auto& inverse_polynomial = polynomials.lookup_inverses;
 
     auto lookup_relation = Relation();
+    auto& inverse_polynomial = lookup_relation.template get_lookup_inverse_polynomial(polynomials);
     for (size_t i = 0; i < circuit_size; ++i) {
         auto row = polynomials.get_row(i);
         bool has_inverse = lookup_relation.lookup_exists_at_row(row);
@@ -97,7 +97,7 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
-    auto lookup_inverses = View(in.lookup_inverses);
+    auto lookup_inverses = View(lookup_relation.template get_lookup_inverse_polynomial(in));
 
     constexpr size_t NUM_TOTAL_TERMS = READ_TERMS + WRITE_TERMS;
     std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;

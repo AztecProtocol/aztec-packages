@@ -43,6 +43,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     /**
+     * @brief Get the lookup inverse polynomial
+     *
+     * @tparam AllEntities
+     * @param in
+     * @return auto&
+     */
+    template <typename AllEntities> static auto& get_lookup_inverse_polynomial(AllEntities& in)
+    {
+        return in.lookup_inverses;
+    }
+    /**
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
      * lookup relation is active at a given row.
