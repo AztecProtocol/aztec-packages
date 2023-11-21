@@ -25,9 +25,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using AlphaType = typename ProverInstances::AlphaType;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
-    // The length of ExtendedUnivariate is the largest length (==degree + 1) of a univariate polynomial obtained by
-    // composing a relation with folded instance + challenge data.
+    // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
+    // obtained by composing a relation with folded instance + relation parameters .
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
+    // Represents the total length of the combiner univariate, obtained by combining the already folded relations with
+    // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
         Univariate<FF,
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
