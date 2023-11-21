@@ -20,6 +20,7 @@ contract LiquidityMining {
         },
         constants_gen::{
             NOTE_HASH_TREE_HEIGHT,
+            HISTORIC_BLOCKS_TREE_HEIGHT,
             GENERATOR_INDEX__BLOCK_HASH,
         },
         oracle::get_membership_witness::{
@@ -73,7 +74,7 @@ contract LiquidityMining {
     //         experimental purposes only).
     //      b) Pop all the preimages of block hash from the stack (this contains note hash tree root and timestamp).
     //      c) Compute the block hash.
-    //      d) Pop sibling path of the block hash in the HAT from the stack.
+    //      d) Get the membership witness of a block in the blocks tree.
     //      e) Prove that the block hash is in the HAT.
     //      f) Get the note/preimage from PXE.
     //      g) Compute the commitment from the note.
@@ -87,6 +88,8 @@ contract LiquidityMining {
         owner: AztecAddress,
     ) {
         let balances = storage.balances.at(owner.address);
+
+        let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
 
         // 1.c)
         // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
@@ -103,6 +106,20 @@ contract LiquidityMining {
         ];
         let block_hash = pedersen_hash_with_separator(inputs, GENERATOR_INDEX__BLOCK_HASH);
 
+        // 1.d)
+        let blocks_tree_root = block_data.blocks_tree_root;
+        let blocks_tree_id = 5;
+        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
+            get_membership_witness(ignored_block_number, blocks_tree_id, block_hash);
+
+        // 1.e)
+        // In our test case this should be tree root at the latest block and should correspond to the membership
+        // witness we obtain from oracle
+        assert(
+            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
+            "Proving membership of a block in blocks tree failed"
+        );
+
         // 1.f)
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
@@ -112,7 +129,6 @@ contract LiquidityMining {
         let note_commitment = note_utils::compute_unique_siloed_note_hash(LPNoteMethods, note);
 
         // 1.h)
-        let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
         let note_hash_tree_id = 2;
         let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
             get_membership_witness(ignored_block_number, note_hash_tree_id, note_commitment);
@@ -122,8 +138,8 @@ contract LiquidityMining {
         // witness we obtain from oracle
         let note_hash_tree_root = block_data.note_hash_tree_root;
         assert(
-            note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path), 
-            "Proving membership of a note failed"
+            note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
+            "Proving membership of a note in note has tree failed"
         );
 
         // Remove/nullify the note
