@@ -329,7 +329,8 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
+    auto alpha = transcript.get_challenge("alpha");
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
 }
 
 /**
