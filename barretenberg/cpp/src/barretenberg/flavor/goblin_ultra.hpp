@@ -10,6 +10,8 @@
 #include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -35,10 +37,10 @@ class GoblinUltra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 53;
+    static constexpr size_t NUM_ALL_ENTITIES = 55;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 18;
 
@@ -84,34 +86,36 @@ class GoblinUltra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType q_m;             // column 0
-        DataType q_c;             // column 1
-        DataType q_l;             // column 2
-        DataType q_r;             // column 3
-        DataType q_o;             // column 4
-        DataType q_4;             // column 5
-        DataType q_arith;         // column 6
-        DataType q_sort;          // column 7
-        DataType q_elliptic;      // column 8
-        DataType q_aux;           // column 9
-        DataType q_lookup;        // column 10
-        DataType q_busread;       // column 11
-        DataType sigma_1;         // column 12
-        DataType sigma_2;         // column 13
-        DataType sigma_3;         // column 14
-        DataType sigma_4;         // column 15
-        DataType id_1;            // column 16
-        DataType id_2;            // column 17
-        DataType id_3;            // column 18
-        DataType id_4;            // column 19
-        DataType table_1;         // column 20
-        DataType table_2;         // column 21
-        DataType table_3;         // column 22
-        DataType table_4;         // column 23
-        DataType lagrange_first;  // column 24
-        DataType lagrange_last;   // column 25
-        DataType lagrange_ecc_op; // column 26 // indicator poly for ecc op gates
-        DataType databus_id;      // column 27 // id polynomial, i.e. id_i = i
+        DataType q_m;                  // column 0
+        DataType q_c;                  // column 1
+        DataType q_l;                  // column 2
+        DataType q_r;                  // column 3
+        DataType q_o;                  // column 4
+        DataType q_4;                  // column 5
+        DataType q_arith;              // column 6
+        DataType q_sort;               // column 7
+        DataType q_elliptic;           // column 8
+        DataType q_aux;                // column 9
+        DataType q_lookup;             // column 10
+        DataType q_busread;            // column 11
+        DataType q_poseidon2_external; // column 12
+        DataType q_poseidon2_internal; // column 13
+        DataType sigma_1;              // column 14
+        DataType sigma_2;              // column 15
+        DataType sigma_3;              // column 16
+        DataType sigma_4;              // column 17
+        DataType id_1;                 // column 18
+        DataType id_2;                 // column 19
+        DataType id_3;                 // column 20
+        DataType id_4;                 // column 21
+        DataType table_1;              // column 22
+        DataType table_2;              // column 23
+        DataType table_3;              // column 24
+        DataType table_4;              // column 25
+        DataType lagrange_first;       // column 26
+        DataType lagrange_last;        // column 27
+        DataType lagrange_ecc_op;      // column 28 // indicator poly for ecc op gates
+        DataType databus_id;           // column 29 // id polynomial, i.e. id_i = i
 
         DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
                             &q_m,
@@ -126,6 +130,8 @@ class GoblinUltra {
                             &q_aux,
                             &q_lookup,
                             &q_busread,
+                            &q_poseidon2_external,
+                            &q_poseidon2_internal,
                             &sigma_1,
                             &sigma_2,
                             &sigma_3,
@@ -147,7 +153,20 @@ class GoblinUltra {
 
         std::vector<HandleType> get_selectors() override
         {
-            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup, q_busread };
+            return { q_m,
+                     q_c,
+                     q_l,
+                     q_r,
+                     q_o,
+                     q_4,
+                     q_arith,
+                     q_sort,
+                     q_elliptic,
+                     q_aux,
+                     q_lookup,
+                     q_busread,
+                     q_poseidon2_external,
+                     q_poseidon2_internal };
         };
         std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
         std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
@@ -234,48 +253,49 @@ class GoblinUltra {
         DataType q_aux;                // column 9
         DataType q_lookup;             // column 10
         DataType q_busread;            // column 11
-        DataType sigma_1;              // column 12
-        DataType sigma_2;              // column 13
-        DataType sigma_3;              // column 14
-        DataType sigma_4;              // column 15
-        DataType id_1;                 // column 16
-        DataType id_2;                 // column 17
-        DataType id_3;                 // column 18
-        DataType id_4;                 // column 19
-        DataType table_1;              // column 20
-        DataType table_2;              // column 21
-        DataType table_3;              // column 22
-        DataType table_4;              // column 23
-        DataType lagrange_first;       // column 24
-        DataType lagrange_last;        // column 25
-        DataType lagrange_ecc_op;      // column 26
-        DataType databus_id;           // column 27
-        DataType w_l;                  // column 28
-        DataType w_r;                  // column 29
-        DataType w_o;                  // column 30
-        DataType w_4;                  // column 31
-        DataType sorted_accum;         // column 32
-        DataType z_perm;               // column 33
-        DataType z_lookup;             // column 34
-        DataType ecc_op_wire_1;        // column 35
-        DataType ecc_op_wire_2;        // column 36
-        DataType ecc_op_wire_3;        // column 37
-        DataType ecc_op_wire_4;        // column 38
-        DataType calldata;             // column 39
-        DataType calldata_read_counts; // column 40
-        DataType lookup_inverses;      // column 41
-        DataType table_1_shift;        // column 42
-        DataType table_2_shift;        // column 43
-        DataType table_3_shift;        // column 44
-        DataType table_4_shift;        // column 45
-        DataType w_l_shift;            // column 46
-        DataType w_r_shift;            // column 47
-        DataType w_o_shift;            // column 48
-        DataType w_4_shift;            // column 49
-        DataType sorted_accum_shift;   // column 50
-        DataType z_perm_shift;         // column 51
-        DataType z_lookup_shift;       // column 52
-
+        DataType q_poseidon2_external; // column 12
+        DataType q_poseidon2_internal; // column 13
+        DataType sigma_1;              // column 14
+        DataType sigma_2;              // column 15
+        DataType sigma_3;              // column 16
+        DataType sigma_4;              // column 17
+        DataType id_1;                 // column 18
+        DataType id_2;                 // column 19
+        DataType id_3;                 // column 20
+        DataType id_4;                 // column 21
+        DataType table_1;              // column 22
+        DataType table_2;              // column 23
+        DataType table_3;              // column 24
+        DataType table_4;              // column 25
+        DataType lagrange_first;       // column 26
+        DataType lagrange_last;        // column 27
+        DataType lagrange_ecc_op;      // column 28
+        DataType databus_id;           // column 29
+        DataType w_l;                  // column 30
+        DataType w_r;                  // column 31
+        DataType w_o;                  // column 32
+        DataType w_4;                  // column 33
+        DataType sorted_accum;         // column 34
+        DataType z_perm;               // column 35
+        DataType z_lookup;             // column 36
+        DataType ecc_op_wire_1;        // column 37
+        DataType ecc_op_wire_2;        // column 38
+        DataType ecc_op_wire_3;        // column 39
+        DataType ecc_op_wire_4;        // column 40
+        DataType calldata;             // column 41
+        DataType calldata_read_counts; // column 42
+        DataType lookup_inverses;      // column 43
+        DataType table_1_shift;        // column 44
+        DataType table_2_shift;        // column 45
+        DataType table_3_shift;        // column 46
+        DataType table_4_shift;        // column 47
+        DataType w_l_shift;            // column 48
+        DataType w_r_shift;            // column 49
+        DataType w_o_shift;            // column 50
+        DataType w_4_shift;            // column 51
+        DataType sorted_accum_shift;   // column 52
+        DataType z_perm_shift;         // column 53
+        DataType z_lookup_shift;       // column 54
         // defines a method pointer_view that returns the following, with const and non-const variants
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &q_c,
@@ -290,6 +310,8 @@ class GoblinUltra {
                             &q_aux,
                             &q_lookup,
                             &q_busread,
+                            &q_poseidon2_external,
+                            &q_poseidon2_internal,
                             &sigma_1,
                             &sigma_2,
                             &sigma_3,
@@ -352,6 +374,8 @@ class GoblinUltra {
                      q_aux,
                      q_lookup,
                      q_busread,
+                     q_poseidon2_external,
+                     q_poseidon2_internal,
                      sigma_1,
                      sigma_2,
                      sigma_3,
@@ -519,6 +543,8 @@ class GoblinUltra {
             q_aux = "__Q_AUX";
             q_lookup = "__Q_LOOKUP";
             q_busread = "__Q_BUSREAD";
+            q_poseidon2_external = "__Q_POSEIDON2_EXTERNAL";
+            q_poseidon2_internal = "__Q_POSEIDON2_INTERNAL";
             sigma_1 = "__SIGMA_1";
             sigma_2 = "__SIGMA_2";
             sigma_3 = "__SIGMA_3";
@@ -555,6 +581,8 @@ class GoblinUltra {
             q_aux = verification_key->q_aux;
             q_lookup = verification_key->q_lookup;
             q_busread = verification_key->q_busread;
+            q_poseidon2_external = verification_key->q_poseidon2_external;
+            q_poseidon2_internal = verification_key->q_poseidon2_internal;
             sigma_1 = verification_key->sigma_1;
             sigma_2 = verification_key->sigma_2;
             sigma_3 = verification_key->sigma_3;

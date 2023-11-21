@@ -54,11 +54,11 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto w_r_shift = View(in.w_r_shift);
         auto w_o_shift = View(in.w_o_shift);
         auto w_4_shift = View(in.w_4_shift);
-        auto q_pos2_ext = View(in.q_pos2_ext);
         auto q_l = View(in.q_l);
         auto q_r = View(in.q_r);
         auto q_o = View(in.q_o);
         auto q_4 = View(in.q_4);
+        auto q_poseidon2_external = View(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
         w_l += q_l;
@@ -97,22 +97,22 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto t7 = t2 + t4; // A + 3B + 5D + 7C
 
         {
-            auto tmp = q_pos2_ext * (t6 - w_l_shift);
+            auto tmp = q_poseidon2_external * (t6 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t5 - w_r_shift);
+            auto tmp = q_poseidon2_external * (t5 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t7 - w_o_shift);
+            auto tmp = q_poseidon2_external * (t7 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t4 - w_4_shift);
+            auto tmp = q_poseidon2_external * (t4 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
