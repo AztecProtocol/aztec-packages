@@ -35,11 +35,11 @@ FibProver::FibProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_
     prover_polynomials.Fibonacci_x = key->Fibonacci_x;
     prover_polynomials.Fibonacci_y = key->Fibonacci_y;
 
-    prover_polynomials.Fibonacci_y = key->Fibonacci_y;
-    prover_polynomials.Fibonacci_y_shift = key->Fibonacci_y.shifted();
-
     prover_polynomials.Fibonacci_x = key->Fibonacci_x;
     prover_polynomials.Fibonacci_x_shift = key->Fibonacci_x.shifted();
+
+    prover_polynomials.Fibonacci_y = key->Fibonacci_y;
+    prover_polynomials.Fibonacci_y_shift = key->Fibonacci_y.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);
@@ -79,8 +79,9 @@ void FibProver::execute_relation_check_rounds()
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    auto alpha = transcript.get_challenge("alpha");
 
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
 }
 
 /**
