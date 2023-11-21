@@ -35,8 +35,10 @@ fi
 # Construct the full instance type. We use r6a currently.
 if [ "$ARCH" == "x86_64" ]; then
   MACHINE_TYPE="r6a"
+  AMI="ami-05983a09f7dc1c18f"
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="r7g"
+  AMI="ami-05983a09f7dc1c18f"
 else
   echo "Unknown arch: $ARCH"
   exit 1
@@ -50,7 +52,7 @@ PRICE=$(jq -n "$BID_PER_CPU_HOUR*$CPUS*100000 | round / 100000")
 
 launch_spec=$(cat <<EOF
 {
-  "ImageId": "ami-0e5df77ac318c7a18",
+  "ImageId": "$AMI",
   "KeyName": "build-instance",
   "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
   "InstanceType": "$INSTANCE_TYPE",
