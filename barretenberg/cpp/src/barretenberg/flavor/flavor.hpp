@@ -75,6 +75,18 @@
 
 namespace proof_system::honk::flavor {
 
+#define DEFINE_POINTER_VIEW_EMPTY()                                                                                    \
+    [[nodiscard]] std::array<DataType&, 0> pointer_view()                                                              \
+    {                                                                                                                  \
+        std::array<DataType, 0> view;                                                                                  \
+        return view;                                                                                                   \
+    }                                                                                                                  \
+    [[nodiscard]] std::array<DataType&, 0> pointer_view() const                                                        \
+    {                                                                                                                  \
+        std::array<DataType, 0> view;                                                                                  \
+        return view;                                                                                                   \
+    }
+
 #define DEFINE_POINTER_VIEW(ExpectedSize, ...)                                                                         \
     [[nodiscard]] auto pointer_view()                                                                                  \
     {                                                                                                                  \

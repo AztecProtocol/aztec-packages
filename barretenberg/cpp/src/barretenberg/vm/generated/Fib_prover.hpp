@@ -1,8 +1,7 @@
 
 
 #pragma once
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/flavor/generated/Fib_flavor.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -11,31 +10,26 @@
 
 namespace proof_system::honk {
 
-template <typename Flavor> class FibProver_ {
+class FibProver {
 
-    using FF = typename Flavor::FF;
-    using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = typename Flavor::Polynomial;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Curve = typename Flavor::Curve;
-    using Transcript = typename Flavor::Transcript;
+    using Flavor = honk::flavor::FibFlavor;
+    using FF = Flavor::FF;
+    using PCS = Flavor::PCS;
+    using PCSCommitmentKey = Flavor::CommitmentKey;
+    using ProvingKey = Flavor::ProvingKey;
+    using Polynomial = Flavor::Polynomial;
+    using ProverPolynomials = Flavor::ProverPolynomials;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using Curve = Flavor::Curve;
+    using Transcript = Flavor::Transcript;
 
   public:
-    explicit FibProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit FibProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key_);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
-    // void execute_log_derivative_commitments_round();
-    // void execute_grand_product_computation_round();
     void execute_relation_check_rounds();
-    void execute_univariatization_round();
-    void execute_pcs_evaluation_round();
-    void execute_shplonk_batched_quotient_round();
-    void execute_shplonk_partial_evaluation_round();
-    void execute_final_pcs_round();
+    void execute_zeromorph_rounds();
 
     void compute_wire_commitments();
 
@@ -55,28 +49,16 @@ template <typename Flavor> class FibProver_ {
 
     CommitmentLabels commitment_labels;
 
-    // Container for d + 1 Fold polynomials produced by Gemini
-    std::vector<Polynomial> gemini_polynomials;
-
-    Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;               // needed in both Shplonk rounds
-
     Polynomial quotient_W;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    pcs::gemini::ProverOutput<Curve> gemini_output;
-    pcs::shplonk::ProverOutput<Curve> shplonk_output;
+
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
-    using Gemini = pcs::gemini::GeminiProver_<Curve>;
-    using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;
+    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 
   private:
     plonk::proof proof;
 };
-
-extern template class FibProver_<honk::flavor::FibFlavor>;
-
-using FibProver = FibProver_<honk::flavor::FibFlavor>;
 
 } // namespace proof_system::honk
