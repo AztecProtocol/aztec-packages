@@ -36,10 +36,10 @@ import {
   RETURN_VALUES_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
+import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { mapTuple, to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -145,7 +145,7 @@ export class PublicProcessor {
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
+    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
@@ -193,8 +193,7 @@ export class PublicProcessor {
           `Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`,
         );
         executionStack.push(...result.nestedExecutions);
-        const preimages = await this.getPublicCallStackPreimages(result);
-        const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
+        const callData = await this.getPublicCallData(result, isExecutionRequest);
 
         [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
 
@@ -252,10 +251,7 @@ export class PublicProcessor {
     this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
-
-    const publicCallStack = mapTuple(callStackPreimages, item =>
-      item.isEmpty() ? Fr.ZERO : computeCallStackItemHash(item),
-    );
+    const publicCallStackHashes = mapTuple(callStackPreimages, item => (item.isEmpty() ? Fr.ZERO : item.hash()));
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
@@ -279,7 +275,7 @@ export class PublicProcessor {
         ContractStorageUpdateRequest.empty(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
-      publicCallStack,
+      publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
       historicBlockData: this.blockData,
@@ -323,16 +319,12 @@ export class PublicProcessor {
    * @param isExecutionRequest - Whether the current callstack item should be considered a public fn execution request.
    * @returns A corresponding PublicCallData object.
    */
-  protected async getPublicCallData(
-    result: PublicExecutionResult,
-    preimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    isExecutionRequest = false,
-  ) {
+  protected async getPublicCallData(result: PublicExecutionResult, isExecutionRequest = false) {
     const bytecodeHash = await this.getBytecodeHash(result);
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
-    return new PublicCallData(callStackItem, preimages, proof, portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, proof, portalContractAddress, bytecodeHash);
   }
 
   // HACK(#1622): this is a hack to fix ordering of public state in the call stack. Since the private kernel

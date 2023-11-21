@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
 
 import {
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -81,10 +79,6 @@ export class PublicCallData {
      */
     public readonly callStackItem: PublicCallStackItem,
     /**
-     * Children call stack items.
-     */
-    public readonly publicCallStackPreimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    /**
      * Proof of the call stack item execution.
      */
     public readonly proof: Proof,
@@ -96,17 +90,9 @@ export class PublicCallData {
      * Hash of the L2 contract bytecode.
      */
     public readonly bytecodeHash: Fr,
-  ) {
-    assertMemberLength(this, 'publicCallStackPreimages', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  }
+  ) {}
 
   toBuffer() {
-    return serializeToBuffer(
-      this.callStackItem,
-      this.publicCallStackPreimages,
-      this.proof,
-      this.portalContractAddress,
-      this.bytecodeHash,
-    );
+    return serializeToBuffer(this.callStackItem, this.proof, this.portalContractAddress, this.bytecodeHash);
   }
 }

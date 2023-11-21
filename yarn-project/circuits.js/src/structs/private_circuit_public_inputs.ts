@@ -59,11 +59,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Private call stack at the current kernel iteration.
      */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallStackHashes: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallStackHashes: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
@@ -157,8 +157,8 @@ export class PrivateCircuitPublicInputs {
       fields.newCommitments,
       fields.newNullifiers,
       fields.nullifiedCommitments,
-      fields.privateCallStack,
-      fields.publicCallStack,
+      fields.privateCallStackHashes,
+      fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,

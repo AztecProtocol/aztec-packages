@@ -3,7 +3,6 @@ import {
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MembershipWitness,
   PrivateCallStackItem,
@@ -155,14 +154,6 @@ describe('Kernel Prover', () => {
       await prove(executionResult);
       expectExecution(['k', 'o', 'r', 'p', 'n', 'm', 'q']);
     }
-  });
-
-  it('should throw if call stack is too deep', async () => {
-    dependencies.a = Array(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + 1)
-      .fill(0)
-      .map((_, i) => `${i}`);
-    const executionResult = createExecutionResult('a');
-    await expect(prove(executionResult)).rejects.toThrow();
   });
 
   it('should only return notes that are outputted from the final proof', async () => {

@@ -1,8 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash } from '../abis/abis.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
@@ -13,6 +12,7 @@ import {
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CONTRACT_TREE_HEIGHT,
   CallContext,
+  CallStackItem,
   CircuitType,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -216,8 +216,8 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallStackItem, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallStackItem, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -243,8 +243,8 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallStackItem, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallStackItem, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -493,6 +493,15 @@ export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner
 }
 
 /**
+ * Makes arbitrary call stack item.
+ * @param seed - The seed to use for generating the call stack item.
+ * @returns A call stack item.
+ */
+export function makeCallStackItem(seed = 1): CallStackItem {
+  return new CallStackItem(fr(seed), makeAztecAddress(seed + 0x1), makeCallContext(seed + 0x2));
+}
+
+/**
  * Makes arbitrary public call stack item.
  * @param seed - The seed to use for generating the public call stack item.
  * @returns A public call stack item.
@@ -517,32 +526,9 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
 export function makePublicCallData(seed = 1, full = false): PublicCallData {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed, full),
-    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallStackItem, seed + 0x300),
     makeProof(),
     fr(seed + 1),
     fr(seed + 2),
-  );
-
-  // one kernel circuit call can have several methods in call stack. But all of them should have the same msg.sender - set these correctly in the preimages!
-  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
-    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
-    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.msgSender = isDelegateCall
-      ? publicCallData.callStackItem.publicInputs.callContext.msgSender
-      : publicCallData.callStackItem.contractAddress;
-  }
-
-  // set the storage address for each call on the stack (handle delegatecall case)
-  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
-    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
-    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.storageContractAddress = isDelegateCall
-      ? publicCallData.callStackItem.publicInputs.callContext.storageContractAddress
-      : publicCallData.publicCallStackPreimages[i].contractAddress;
-  }
-
-  // publicCallStack should be a hash of the preimages:
-  publicCallData.callStackItem.publicInputs.publicCallStack = mapTuple(
-    publicCallData.publicCallStackPreimages,
-    preimage => computeCallStackItemHash(preimage),
   );
 
   return publicCallData;
@@ -584,16 +570,19 @@ export function makePublicKernelInputsWithTweak(
   tweak?: (publicKernelInputs: PublicKernelInputs) => void,
 ): PublicKernelInputs {
   const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
-  const publicKernelInputs = new PublicKernelInputs(
-    makePreviousKernelData(seed, kernelCircuitPublicInputs),
-    makePublicCallData(seed + 0x1000),
-  );
+  const previousKernel = makePreviousKernelData(seed, kernelCircuitPublicInputs);
+  const publicCall = makePublicCallData(seed + 0x1000);
+  const publicKernelInputs = new PublicKernelInputs(previousKernel, publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }
   // Set the call stack item for this circuit iteration at the top of the call stack
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
-    computeCallStackItemHash(publicKernelInputs.publicCall.callStackItem);
+    new CallStackItem(
+      publicCall.callStackItem.hash(),
+      publicCall.callStackItem.publicInputs.callContext.msgSender,
+      makeCallContext(seed + 0x100),
+    );
   return publicKernelInputs;
 }
 
@@ -619,7 +608,6 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
-    privateCallStackPreimages: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallStackItem, seed + 0x10),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
@@ -671,8 +659,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
-    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
     encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),

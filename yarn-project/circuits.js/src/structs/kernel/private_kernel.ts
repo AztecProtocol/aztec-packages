@@ -5,7 +5,6 @@ import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
 } from '../../cbind/constants.gen.js';
@@ -29,10 +28,6 @@ export class PrivateCallData {
      * The call stack item currently being processed.
      */
     public callStackItem: PrivateCallStackItem,
-    /**
-     * Other private call stack items to be processed.
-     */
-    public privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * The proof of the execution of this private call.
      */
@@ -73,7 +68,6 @@ export class PrivateCallData {
     return [
       // NOTE: Must have same order as CPP.
       fields.callStackItem,
-      fields.privateCallStackPreimages,
       fields.proof,
       fields.vk,
       fields.functionLeafMembershipWitness,

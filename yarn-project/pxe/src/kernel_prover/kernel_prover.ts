@@ -6,13 +6,11 @@ import {
   Fr,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   PreviousKernelData,
   PrivateCallData,
-  PrivateCallStackItem,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
@@ -93,18 +91,6 @@ export class KernelProver {
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
-      const privateCallStackPreimages = currentExecution.nestedExecutions.map(result => result.callStackItem);
-      if (privateCallStackPreimages.length > MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL) {
-        throw new Error(
-          `Too many items in the call stack. Maximum amount is ${MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL}. Got ${privateCallStackPreimages.length}.`,
-        );
-      }
-      // Pad with empty items to reach max/const length expected by circuit.
-      privateCallStackPreimages.push(
-        ...Array(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL - privateCallStackPreimages.length)
-          .fill(0)
-          .map(() => PrivateCallStackItem.empty()),
-      );
 
       // Start with the partially filled in read request witnesses from the simulator
       // and fill the non-transient ones in with sibling paths via oracle.
@@ -133,11 +119,7 @@ export class KernelProver {
           .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
-      const privateCallData = await this.createPrivateCallData(
-        currentExecution,
-        readRequestMembershipWitnesses,
-        makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, i => privateCallStackPreimages[i], 0),
-      );
+      const privateCallData = await this.createPrivateCallData(currentExecution, readRequestMembershipWitnesses);
 
       if (firstIteration) {
         output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
@@ -197,7 +179,6 @@ export class KernelProver {
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
     readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
-    privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
@@ -220,7 +201,6 @@ export class KernelProver {
 
     return new PrivateCallData(
       callStackItem,
-      privateCallStackPreimages,
       proof,
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,

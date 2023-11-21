@@ -6,6 +6,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import {
   AztecAddress,
   CallContext,
+  CallStackItem,
   Fr,
   FunctionData,
   PublicCallStackItem,
@@ -97,6 +98,15 @@ export class PublicCallRequest {
     publicInputs.callContext = this.callContext;
     publicInputs.argsHash = this.getArgsHash();
     return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
+  }
+
+  /**
+   * Creates a new CallStackItem with values of the calling contract.
+   * @returns A CallStackItem instance with the contract address, call context, and hash.
+   */
+  toCallStackItem() {
+    const item = this.toPublicCallStackItem();
+    return new CallStackItem(item.hash(), this.contractAddress, item.publicInputs.callContext);
   }
 
   /**
