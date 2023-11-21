@@ -60,6 +60,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->q_lookup_type.emplace_back(0);
     this->q_elliptic.emplace_back(0);
     this->q_aux.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(0);
+    this->q_poseidon2_internal.emplace_back(0);
 
     ++this->num_gates;
 }

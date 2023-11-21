@@ -43,6 +43,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     WireVector& ecc_op_wire_4 = std::get<3>(ecc_op_wires);
 
     SelectorVector& q_busread = this->selectors.q_busread();
+    SelectorVector& q_poseidon2_external = this->selectors.q_poseidon2_external();
+    SelectorVector& q_poseidon2_internal = this->selectors.q_poseidon2_internal();
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;
