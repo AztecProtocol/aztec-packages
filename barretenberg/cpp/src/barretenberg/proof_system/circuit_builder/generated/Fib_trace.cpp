@@ -55,13 +55,6 @@ void FibTraceBuilder::build_circuit()
             row.Fibonacci_x_shift = rows[(i) % rows.size()].Fibonacci_x;
             row.Fibonacci_y_shift = rows[(i) % rows.size()].Fibonacci_y;
         }
-        // info("Each row");
-        // for (size_t i = 0; i < rows.size(); i++) {
-        //     auto row = rows[i];
-        //     info("Row ", i, " ", "first", row.Fibonacci_FIRST, " last", row.Fibonacci_LAST, " x", row.Fibonacci_x,
-        //          " y", row.Fibonacci_y, " x_shift", row.Fibonacci_x_shift, " y_shift", row.Fibonacci_y_shift);
-        // }
-        // info("Built circuit with ", rows.size(), " rows");
     }
 }
 } // namespace proof_system
