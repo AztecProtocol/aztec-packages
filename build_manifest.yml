@@ -183,3 +183,6 @@ docs:
 
 noir:
   buildDir: noir
+  arch:
+    - x86_64
+    - arm64

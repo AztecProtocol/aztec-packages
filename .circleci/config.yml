@@ -76,7 +76,7 @@ save_logs: &save_logs
       - ./*
 
 jobs:
-  noir:
+  noir-x86_64:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -85,7 +85,29 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build noir 128
+          command: cond_spot_run_build noir 32
+
+  noir-arm64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir 32:arm64
+
+  noir-ecr-manifest:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Create ECR manifest"
+          command: create_ecr_manifest noir x86_64,arm64
 
   barretenberg-wasm-linux-clang:
     docker:
@@ -392,7 +414,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build aztec-sandbox false x86_64
+          command: build aztec-sandbox x86_64
 
   aztec-sandbox-arm64:
     machine:
@@ -407,7 +429,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build aztec-sandbox false arm64
+            build aztec-sandbox arm64
 
   cli-x86_64:
     machine:
@@ -418,7 +440,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build cli false x86_64
+          command: build cli x86_64
 
   cli-arm64:
     machine:
@@ -433,7 +455,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build cli false arm64
+            build cli arm64
 
   aztec-p2p-bootstrap:
     machine:
@@ -499,7 +521,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build pxe false x86_64
+          command: build pxe x86_64
 
   pxe-arm64:
     machine:
@@ -514,7 +536,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build pxe false arm64
+            build pxe arm64
 
   ecr-manifest:
     machine:
@@ -1129,7 +1151,13 @@ workflows:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       # Noir
-      - noir: *defaults
+      - noir-x86_64: *defaults
+      - noir-arm64: *defaults
+      - noir-ecr-manifest:
+          requires:
+            - noir-x86_64
+            - noir-arm64
+          <<: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults

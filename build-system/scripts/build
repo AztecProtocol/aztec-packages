@@ -26,8 +26,7 @@
 set -euo pipefail
 
 REPOSITORY=$1
-FORCE_BUILD=${2:-"false"}
-ARCH=${3:-""}
+ARCH=${3:-}
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
 BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
@@ -67,7 +66,7 @@ echo "Content hash: $CONTENT_HASH"
 cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
-if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
+if check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
   echo "No rebuild necessary."
   exit 0
 fi
@@ -114,6 +113,8 @@ echo "Commit tag version: $COMMIT_TAG_VERSION"
 # Build the actual image and give it a commit tag.
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
 if [[ -n "$ARCH" ]]; then
+  # If we're doing architecture specific builds, append the arch name to the tag.
+  # It's essential to run a subsequent manifest creation job, to produce a final multi-arch image with the right tag.
   IMAGE_COMMIT_URI=$IMAGE_COMMIT_URI-$ARCH
 fi
 echo "Building image: $IMAGE_COMMIT_URI"

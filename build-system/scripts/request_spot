@@ -3,7 +3,11 @@
 set -eu
 
 NAME=$1
-CPUS=$2
+CPUS_ARCH=$2
+
+ARR=(${CPUS_ARCH//:/ })
+CPUS=${ARR[0]}
+ARCH=${ARR[1]:-x86_64}
 
 # Declare an associative array to map CPU counts to instance type suffixes.
 declare -A cpu_map
@@ -29,7 +33,15 @@ if [ -z "$INSTANCE_TYPE_SUFFIX" ]; then
 fi
 
 # Construct the full instance type. We use r6a currently.
-INSTANCE_TYPE="r6a.$INSTANCE_TYPE_SUFFIX"
+if [ "$ARCH" == "x86_64" ]; then
+  MACHINE_TYPE="r6a"
+elif [ "$ARCH" == "arm64" ]; then
+  MACHINE_TYPE="r7g"
+else
+  echo "Unknown arch: $ARCH"
+  exit 1
+fi
+INSTANCE_TYPE="$MACHINE_TYPE.$INSTANCE_TYPE_SUFFIX"
 
 export AWS_DEFAULT_REGION=us-east-2
 
