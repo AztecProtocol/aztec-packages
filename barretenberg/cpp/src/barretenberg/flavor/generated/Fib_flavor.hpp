@@ -107,21 +107,21 @@ class FibFlavor {
         DataType Fibonacci_x;
         DataType Fibonacci_y;
 
-        DataType Fibonacci_x_shift;
         DataType Fibonacci_y_shift;
+        DataType Fibonacci_x_shift;
 
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &Fibonacci_LAST,
                             &Fibonacci_FIRST,
                             &Fibonacci_x,
                             &Fibonacci_y,
-                            &Fibonacci_x_shift,
-                            &Fibonacci_y_shift)
+                            &Fibonacci_y_shift,
+                            &Fibonacci_x_shift)
 
         std::vector<HandleType> get_wires() override
         {
             return {
-                Fibonacci_LAST, Fibonacci_FIRST, Fibonacci_x, Fibonacci_y, Fibonacci_x_shift, Fibonacci_y_shift,
+                Fibonacci_LAST, Fibonacci_FIRST, Fibonacci_x, Fibonacci_y, Fibonacci_y_shift, Fibonacci_x_shift,
 
             };
         };
@@ -140,8 +140,8 @@ class FibFlavor {
         std::vector<HandleType> get_to_be_shifted() override
         {
             return {
-                Fibonacci_x,
                 Fibonacci_y,
+                Fibonacci_x,
 
             };
         };
@@ -149,8 +149,8 @@ class FibFlavor {
         std::vector<HandleType> get_shifted() override
         {
             return {
-                Fibonacci_x_shift,
                 Fibonacci_y_shift,
+                Fibonacci_x_shift,
 
             };
         };

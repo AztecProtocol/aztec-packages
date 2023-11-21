@@ -47,8 +47,8 @@ class FibTraceBuilder {
             polys.Fibonacci_y[i] = rows[i].Fibonacci_y;
         }
 
-        polys.Fibonacci_x_shift = Polynomial(polys.Fibonacci_x.shifted());
         polys.Fibonacci_y_shift = Polynomial(polys.Fibonacci_y.shifted());
+        polys.Fibonacci_x_shift = Polynomial(polys.Fibonacci_x.shifted());
 
         return polys;
     }
