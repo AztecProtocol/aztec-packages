@@ -71,20 +71,23 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     auto accumulator_public_inputs = accumulator->public_inputs;
     auto other_public_inputs = verifier_instances[1]->public_inputs;
     std::vector<FF> folded_public_inputs(accumulator->public_input_size);
-    // extend either with 0s if the sizes are different
+
     for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
         folded_public_inputs[idx] = lagrange_0_at_challenge * accumulator->public_inputs[idx] +
                                     lagrange_1_at_challenge * other_public_inputs[idx];
     }
     // all verification keys have the same size
-    auto folded_verification_key = VerificationKey(accumulator->instance_size, accumulator->public_input_size);
 
-    for (size_t idx = 0; idx < folded_verification_key.size(); idx++) {
-        folded_verification_key[idx] = (*accumulator->verification_key)[idx] * lagrange_0_at_challenge +
-                                       (*verifier_instances[1]->verification_key)[idx] * lagrange_1_at_challenge;
+    auto acc_vk_view = accumulator->verification_key->pointer_view();
+    auto inst_vk_view = verifier_instances[1]->verification_key->pointer_view();
+    for (size_t idx = 0; idx < acc_vk_view.size(); idx++) {
+        (*acc_vk_view[idx]) =
+            (*acc_vk_view[idx]) * lagrange_0_at_challenge + (*inst_vk_view[idx]) * lagrange_1_at_challenge;
     }
+
     VerifierFoldingResult<Flavor> res;
     res.parameters.target_sum = new_target_sum;
+    res.folded_public_inputs = folded_public_inputs;
     return res;
 }
 

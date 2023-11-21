@@ -55,16 +55,15 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      */
     std::vector<Univariate<FF, NUM>> row_to_univariates(size_t row_idx) const
     {
-        auto instance_polynomial_views = get_polynomial_pointer_views();
+        auto insts_prover_polynomials_views = get_polynomials_pointer_views();
         std::vector<Univariate<FF, NUM>> results;
-        // Initialize to our amount of columns
-        results.resize(instance_polynomial_views[0].size());
+        // Set the size corresponding to the number of rows in the execution trace
+        results.resize(insts_prover_polynomials_views[0].size());
         size_t instance_idx = 0;
-        // Iterate instances
-        for (auto& pointer_view : instance_polynomial_views) {
-            // Iterate columns
-            for (auto [result, poly_ptr] : zip_view(results, pointer_view)) {
-                // Assign row for each instance
+        // Iterate over the prover polynomials' views corresponding to each instance
+        for (auto& view : insts_prover_polynomials_views) {
+            // Iterate over all columns in the trace execution of an instance and extract their value at row_idx.
+            for (auto [result, poly_ptr] : zip_view(results, view)) {
                 result.evaluations[instance_idx] = (*poly_ptr)[row_idx];
             }
             instance_idx++;
@@ -73,7 +72,8 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     }
 
   private:
-    auto get_polynomial_pointer_views() const
+    // Returns a vector containing pointer views to the prover polynomials corresponding to each instance.
+    auto get_polynomials_pointer_views() const
     {
         // As a practical measure, get the first instance's pointer view to deduce the vector type
         std::vector pointer_views{ _data[0]->prover_polynomials.pointer_view() };

@@ -81,13 +81,11 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     auto new_target_sum = compressed_perturbator * lagrange_0_at_challenge +
                           vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    for (size_t idx = 0; idx < accumulator->prover_polynomials.size(); idx++) {
-        auto accumulator_poly = accumulator->prover_polynomials[idx];
-        auto instance_poly = accumulator->prover_polynomials[idx];
-        assert(accumulator_poly.size() == instance_poly.size());
-        for (size_t j = 0; j < accumulator_poly.size(); j++) {
-            accumulator_poly[j] =
-                accumulator_poly[j] * lagrange_0_at_challenge + instance_poly * lagrange_1_at_challenge;
+    for (auto [acc_poly_view, inst_poly_view] :
+         zip_view(accumulator->prover_polynomials.pointer_view(), instances[1]->prover_polynomials.pointer_view())) {
+        for (size_t idx = 0; idx < acc_poly_view->size(); idx++) {
+            (*acc_poly_view)[idx] =
+                (*acc_poly_view)[idx] * lagrange_0_at_challenge + (*inst_poly_view)[idx] * lagrange_1_at_challenge;
         }
     }
 
