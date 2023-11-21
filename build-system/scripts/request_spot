@@ -38,7 +38,7 @@ if [ "$ARCH" == "x86_64" ]; then
   AMI="ami-0e5df77ac318c7a18"
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="r7g"
-  AMI="ami-0af6a844d405b964b"
+  AMI="ami-04518e2b2543684ba"
 else
   echo "Unknown arch: $ARCH"
   exit 1
