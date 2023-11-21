@@ -97,7 +97,8 @@ contract LiquidityMining {
             get_membership_witness(ignored_block_number, note_hash_tree_id, note_commitment);
 
         // 1.i)
-        // In our test case this should be tree root at the latest block and should correspond to the sibling path we obtain from oracle
+        // In our test case this should be tree root at the latest block and should correspond to the membership
+        // witness we obtain from oracle
         let note_hash_tree_root = context.block_data.note_hash_tree_root;
         assert(
             note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path), 

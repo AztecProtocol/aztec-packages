@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { UnencryptedL2Log } from '@aztec/types';
+import { MerkleTreeId, UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
@@ -55,11 +55,13 @@ export class Oracle {
     const parsedTreeId = frToNumber(fromACVMField(treeId));
     const parsedLeaf = fromACVMField(leaf);
 
-    const path = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeaf);
-    if (!path) {
-      throw new Error(`Leaf ${leaf} not found in note hash tree.`);
+    const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeaf);
+    if (!witness) {
+      throw new Error(
+        `Leaf ${leaf} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
+      );
     }
-    return path.map(toACVMField);
+    return witness.map(toACVMField);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
