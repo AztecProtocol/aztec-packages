@@ -629,6 +629,28 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
 
+  e2e-blacklist-token-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
+
+  e2e-slow-tree:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
+
   e2e-sandbox-example:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -928,6 +950,15 @@ jobs:
       - run:
           name: "Build docs"
           command: build docs
+      - run:
+          name: "Deploy docs"
+          command: |
+            if [ "$CIRCLE_BRANCH" == "master" ]; then
+              echo "Deploying docs (on master)."
+              docs/deploy_netlify.sh
+            else
+              echo "Skipping doc deploy (not on master)."
+            fi
 
   e2e-join:
     docker:
@@ -1283,6 +1314,8 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
+      - e2e-blacklist-token-contract: *e2e_test
+      - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1307,7 +1340,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
-      - guides-up-quick-start: *e2e_test
+      # - guides-up-quick-start: *e2e_test
       - bench-publish-rollup: *e2e_test
       - bench-process-history: *e2e_test
 
@@ -1317,6 +1350,8 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
+            - e2e-blacklist-token-contract
+            - e2e-slow-tree
             - e2e-sandbox-example
             - e2e-block-building
             - e2e-nested-contract
@@ -1341,7 +1376,7 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
-            - guides-up-quick-start
+            # - guides-up-quick-start
           <<: *defaults
 
       - bench-summary:

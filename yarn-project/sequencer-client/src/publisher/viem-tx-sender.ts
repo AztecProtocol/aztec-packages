@@ -77,7 +77,9 @@ export class ViemTxSender implements L1PublisherTxSender {
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
     const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
-    if (!tx) return undefined;
+    if (!tx) {
+      return undefined;
+    }
     const calldata = hexToBytes(tx.input);
     return {
       transactionHash: tx.hash,
@@ -146,9 +148,9 @@ export class ViemTxSender implements L1PublisherTxSender {
         extendedContractData.contractData.contractAddress.toString() as Hex,
         extendedContractData.contractData.portalContractAddress.toString() as Hex,
         `0x${l2BlockHash.toString('hex')}`,
-        extendedContractData.partialAddress.toString(true),
-        extendedContractData.publicKey.x.toString(true),
-        extendedContractData.publicKey.y.toString(true),
+        extendedContractData.partialAddress.toString(),
+        extendedContractData.publicKey.x.toString(),
+        extendedContractData.publicKey.y.toString(),
         `0x${extendedContractData.bytecode.toString('hex')}`,
       ] as const;
 

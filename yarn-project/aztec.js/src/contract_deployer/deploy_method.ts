@@ -48,7 +48,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   ) {
     super(pxe);
     const constructorArtifact = artifact.functions.find(f => f.name === 'constructor');
-    if (!constructorArtifact) throw new Error('Cannot find constructor in the artifact.');
+    if (!constructorArtifact) {
+      throw new Error('Cannot find constructor in the artifact.');
+    }
     this.constructorArtifact = constructorArtifact;
   }
 
@@ -67,7 +69,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
 
-    const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
+    const { completeAddress, constructorHash, functionTreeRoot } = getContractDeploymentInfo(
       this.artifact,
       this.args,
       contractAddressSalt,
