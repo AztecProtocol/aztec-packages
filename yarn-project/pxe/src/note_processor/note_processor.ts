@@ -94,7 +94,7 @@ export class NoteProcessor {
     }
 
     const blocksAndNotes: ProcessedData[] = [];
-    const curve = await Grumpkin.new();
+    const curve = new Grumpkin();
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
@@ -203,10 +203,14 @@ export class NoteProcessor {
     let uniqueSiloedNoteHash: Fr | undefined;
     let innerNullifier: Fr | undefined;
     for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      if (excludedIndices.has(commitmentIndex)) continue;
+      if (excludedIndices.has(commitmentIndex)) {
+        continue;
+      }
 
       const commitment = commitments[commitmentIndex];
-      if (commitment.equals(Fr.ZERO)) break;
+      if (commitment.equals(Fr.ZERO)) {
+        break;
+      }
 
       const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
       ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =

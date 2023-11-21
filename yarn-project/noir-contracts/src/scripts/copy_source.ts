@@ -28,7 +28,7 @@ const NOIR_SOURCE_COPIES: NoirSourceCopy[] = [
  * @param contractName - UpperCamelCase contract name that we check need copying
  */
 function copyNrFilesExceptInterface(contractName: string): void {
-  // stored in `noir-contracts` under snake case nameing
+  // stored in `noir-contracts` under snake case naming
   const snakeCaseContractName = `${snakeCase(contractName)}_contract`;
   const projectDirPath = `src/contracts/${snakeCaseContractName}`;
 
@@ -69,7 +69,9 @@ function copyNrFilesExceptInterface(contractName: string): void {
 
 const main = () => {
   const contractName = process.argv[2];
-  if (!contractName) throw new Error(`Missing argument contract name`);
+  if (!contractName) {
+    throw new Error(`Missing argument contract name`);
+  }
 
   copyNrFilesExceptInterface(contractName);
 };

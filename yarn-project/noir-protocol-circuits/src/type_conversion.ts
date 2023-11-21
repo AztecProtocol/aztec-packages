@@ -9,6 +9,8 @@ import {
   CombinedConstantData,
   ConstantRollupData,
   ContractDeploymentData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
   EthAddress,
   FinalAccumulatedData,
   Fr,
@@ -45,8 +47,12 @@ import {
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  PublicCallData,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
+  PublicKernelInputs,
   ReadRequestMembershipWitness,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -92,6 +98,14 @@ import {
   KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
 } from './types/private_kernel_ordering_types.js';
+import {
+  PublicCallData as PublicCallDataNoir,
+  PublicCallStackItem as PublicCallStackItemNoir,
+  PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
+  PublicKernelPrivatePreviousInputs as PublicKernelInputsNoir,
+  StorageRead as StorageReadNoir,
+  StorageUpdateRequest as StorageUpdateRequestNoir,
+} from './types/public_kernel_private_previous_types.js';
 import {
   BaseRollupInputs as BaseRollupInputsNoir,
   HistoricBlocksTreeRootMembershipWitness as HistoricBlocksTreeRootMembershipWitnessNoir,
@@ -898,6 +912,20 @@ export function mapPrivateKernelInputsOrderingToNoir(
 }
 
 /**
+ * Maps a private kernel inputs final to noir.
+ * @param storageUpdateRequest - The storage update request.
+ * @returns The noir storage update request.
+ */
+export function mapStorageUpdateRequestToNoir(
+  storageUpdateRequest: ContractStorageUpdateRequest,
+): StorageUpdateRequestNoir {
+  return {
+    storage_slot: mapFieldToNoir(storageUpdateRequest.storageSlot),
+    old_value: mapFieldToNoir(storageUpdateRequest.oldValue),
+    new_value: mapFieldToNoir(storageUpdateRequest.newValue),
+  };
+}
+/**
  * Maps global variables to the noir type.
  * @param globalVariables - The global variables.
  * @returns The noir global variables.
@@ -911,6 +939,17 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
   };
 }
 
+/**
+ * Maps a storage read to noir.
+ * @param storageRead - The storage read.
+ * @returns The noir storage read.
+ */
+export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageReadNoir {
+  return {
+    storage_slot: mapFieldToNoir(storageRead.storageSlot),
+    current_value: mapFieldToNoir(storageRead.currentValue),
+  };
+}
 /**
  * Maps global variables from the noir type.
  * @param globalVariables - The noir global variables.
@@ -943,6 +982,36 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
   };
 }
 
+/**
+ * Maps a public circuit public inputs to noir.
+ * @param publicInputs - The public circuit public inputs.
+ * @returns The noir public circuit public inputs.
+ */
+export function mapPublicCircuitPublicInputsToNoir(
+  publicInputs: PublicCircuitPublicInputs,
+): PublicCircuitPublicInputsNoir {
+  return {
+    call_context: mapCallContextToNoir(publicInputs.callContext),
+    args_hash: mapFieldToNoir(publicInputs.argsHash),
+    return_values: publicInputs.returnValues.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    contract_storage_update_requests: publicInputs.contractStorageUpdateRequests.map(
+      mapStorageUpdateRequestToNoir,
+    ) as FixedLengthArray<StorageUpdateRequestNoir, 16>,
+    contract_storage_reads: publicInputs.contractStorageReads.map(mapStorageReadToNoir) as FixedLengthArray<
+      StorageReadNoir,
+      16
+    >,
+    public_call_stack: publicInputs.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    new_commitments: publicInputs.newCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    new_nullifiers: publicInputs.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    new_l2_to_l1_msgs: publicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    unencrypted_logs_hash: publicInputs.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
+    historical_block_data: mapHistoricalBlockDataToNoir(publicInputs.historicBlockData),
+
+    prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
+  };
+}
 /**
  * Maps a constant rollup data from noir to the circuits.js type.
  * @param constantRollupData - The noir constant rollup data.
@@ -993,6 +1062,36 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
 }
 
 /**
+ * Maps a public call stack item to noir.
+ * @param publicCallStackItem - The public call stack item.
+ * @returns The noir public call stack item.
+ */
+export function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStackItem): PublicCallStackItemNoir {
+  return {
+    contract_address: mapAztecAddressToNoir(publicCallStackItem.contractAddress),
+    public_inputs: mapPublicCircuitPublicInputsToNoir(publicCallStackItem.publicInputs),
+    is_execution_request: publicCallStackItem.isExecutionRequest,
+    function_data: mapFunctionDataToNoir(publicCallStackItem.functionData),
+  };
+}
+
+/**
+ * Maps a public call data to noir.
+ * @param publicCall - The public call data.
+ * @returns The noir public call data.
+ */
+export function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
+  return {
+    call_stack_item: mapPublicCallStackItemToNoir(publicCall.callStackItem),
+    public_call_stack_preimages: publicCall.publicCallStackPreimages.map(
+      mapPublicCallStackItemToNoir,
+    ) as FixedLengthArray<PublicCallStackItemNoir, 4>,
+    proof: {},
+    portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(publicCall.portalContractAddress)),
+    bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),
+  };
+}
+/**
  * Maps a base or merge rollup public inputs from noir to the circuits.js type.
  * @param baseOrMergeRollupPublicInputs - The noir base or merge rollup public inputs.
  * @returns The circuits.js base or merge rollup public inputs.
@@ -1037,6 +1136,17 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
   };
 }
 
+/**
+ * Maps public kernel inputs to noir.
+ * @param inputs - The public kernel inputs.
+ * @returns The noir public kernel inputs.
+ */
+export function mapPublicKernelInputs(inputs: PublicKernelInputs): PublicKernelInputsNoir {
+  return {
+    previous_kernel: mapPreviousKernelDataToNoir(inputs.previousKernel),
+    public_call: mapPublicCallDataToNoir(inputs.publicCall),
+  };
+}
 /**
  * Maps a AOT snapshot to noir.
  * @param snapshot - The circuits.js AOT snapshot.

@@ -41,8 +41,12 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
         /* eslint-enable jsdoc/require-jsdoc */
       ) => {
         const { outdir, typescript, interface: noirInterface, compiler } = options;
-        if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
-        if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
+        if (typeof projectPath !== 'string') {
+          throw new Error(`Missing project path argument`);
+        }
+        if (compiler !== 'nargo' && compiler !== 'wasm') {
+          throw new Error(`Invalid compiler: ${compiler}`);
+        }
         const currentDir = process.cwd();
 
         const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
@@ -69,13 +73,11 @@ export function compileContract(program: Command, name = 'contract', log: LogFn 
             const tsPath = resolve(projectPath, typescript, `${contract.name}.ts`);
             log(`Writing ${contract.name} typescript interface to ${path.relative(currentDir, tsPath)}`);
             let relativeArtifactPath = path.relative(path.dirname(tsPath), artifactPath);
-            log(`Relative path: ${relativeArtifactPath}`);
             if (relativeArtifactPath === `${contract.name}.json`) {
               // relative path edge case, prepending ./ for local import - the above logic just does
               // `${contract.name}.json`, which is not a valid import for a file in the same directory
               relativeArtifactPath = `./${contract.name}.json`;
             }
-            log(`Relative path after correction: ${relativeArtifactPath}`);
             const tsWrapper = generateTypescriptContractInterface(contract, relativeArtifactPath);
             mkdirpSync(path.dirname(tsPath));
             writeFileSync(tsPath, tsWrapper);

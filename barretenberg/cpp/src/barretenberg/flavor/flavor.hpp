@@ -244,6 +244,20 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
 }
 
 /**
+ * @brief Recursive utility function to find the number of subrelations.
+ *
+ */
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_number_of_subrelations()
+{
+    if constexpr (Index >= std::tuple_size<Tuple>::value) {
+        return 0;
+    } else {
+        constexpr size_t subrelations_in_relation =
+            std::tuple_element_t<Index, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size();
+        return subrelations_in_relation + compute_number_of_subrelations<Tuple, Index + 1>();
+    }
+}
+/**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
@@ -301,7 +315,6 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 namespace proof_system::honk::flavor {
 class Ultra;
 class ECCVM;
-class ECCVMGrumpkin;
 class GoblinUltra;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
@@ -343,11 +356,11 @@ concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircui
                                        honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
                                        honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
-template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 // clang-format on
 } // namespace proof_system
