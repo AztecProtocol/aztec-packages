@@ -2,9 +2,7 @@
 
 #pragma once
 #include "../relation_definitions_fwd.hpp"
-
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -12,16 +10,14 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/transcript/transcript.hpp"
-
 #include "barretenberg/relations/generated/Fib.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {
 namespace flavor {
 
 class FibFlavor {
   public:
-    // forward template params into the ECCVMBase namespace
     using Curve = curve::BN254;
     using G1 = Curve::Group;
     using PCS = pcs::kzg::KZG<Curve>;
@@ -35,16 +31,14 @@ class FibFlavor {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = 4;
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2; // This is zero for now
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 6;
 
-    // using GrandProductRelations = std::tuple<>;
     using Relations = std::tuple<Fib_vm::Fib<FF>>;
-    // using LookupRelation = sumcheck::LookupRelation<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -54,35 +48,36 @@ class FibFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
 
   private:
     template <typename DataType, typename HandleType>
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType Fibonacci_FIRST;
         DataType Fibonacci_LAST;
+        DataType Fibonacci_FIRST;
 
-        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &Fibonacci_FIRST, &Fibonacci_LAST)
+        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &Fibonacci_LAST, &Fibonacci_FIRST)
 
-        std::vector<HandleType> get_selectors() override { return {}; };
+        std::vector<HandleType> get_selectors() override
+        {
+            return {
+                Fibonacci_LAST,
+                Fibonacci_FIRST,
+            };
+        };
+
         std::vector<HandleType> get_sigma_polynomials() override { return {}; };
         std::vector<HandleType> get_id_polynomials() override { return {}; };
         std::vector<HandleType> get_table_polynomials() { return {}; };
     };
 
-    /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     */
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
@@ -96,6 +91,7 @@ class FibFlavor {
             return {
                 Fibonacci_x,
                 Fibonacci_y,
+
             };
         };
 
@@ -105,25 +101,27 @@ class FibFlavor {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType Fibonacci_FIRST;
         DataType Fibonacci_LAST;
+        DataType Fibonacci_FIRST;
+
         DataType Fibonacci_x;
         DataType Fibonacci_y;
 
-        DataType Fibonacci_x_shift;
         DataType Fibonacci_y_shift;
+        DataType Fibonacci_x_shift;
 
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &Fibonacci_FIRST,
                             &Fibonacci_LAST,
+                            &Fibonacci_FIRST,
                             &Fibonacci_x,
                             &Fibonacci_y,
-                            &Fibonacci_x_shift,
-                            &Fibonacci_y_shift)
+                            &Fibonacci_y_shift,
+                            &Fibonacci_x_shift)
 
         std::vector<HandleType> get_wires() override
         {
-            return { Fibonacci_x, Fibonacci_y
+            return {
+                Fibonacci_LAST, Fibonacci_FIRST, Fibonacci_x, Fibonacci_y, Fibonacci_y_shift, Fibonacci_x_shift,
 
             };
         };
@@ -131,8 +129,8 @@ class FibFlavor {
         std::vector<HandleType> get_unshifted() override
         {
             return {
-                Fibonacci_FIRST,
                 Fibonacci_LAST,
+                Fibonacci_FIRST,
                 Fibonacci_x,
                 Fibonacci_y,
 
@@ -142,8 +140,8 @@ class FibFlavor {
         std::vector<HandleType> get_to_be_shifted() override
         {
             return {
-                Fibonacci_x,
                 Fibonacci_y,
+                Fibonacci_x,
 
             };
         };
@@ -151,8 +149,9 @@ class FibFlavor {
         std::vector<HandleType> get_shifted() override
         {
             return {
-                Fibonacci_x_shift,
                 Fibonacci_y_shift,
+                Fibonacci_x_shift,
+
             };
         };
     };
@@ -184,7 +183,7 @@ class FibFlavor {
 
     class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->Fibonacci_FIRST.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return this->Fibonacci_LAST.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
@@ -245,20 +244,18 @@ class FibFlavor {
                             const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
-            Fibonacci_FIRST = verification_key->Fibonacci_FIRST;
             Fibonacci_LAST = verification_key->Fibonacci_LAST;
+            Fibonacci_FIRST = verification_key->Fibonacci_FIRST;
         }
     };
 
-    // TODO: Implement Class Transcript
     class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
-        std::vector<FF> public_inputs;
+
         Commitment Fibonacci_x;
         Commitment Fibonacci_y;
+
         std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
@@ -301,8 +298,10 @@ class FibFlavor {
             size_t log_n = numeric::get_msb(circuit_size);
 
             serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(Fibonacci_x, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(Fibonacci_y, BaseTranscript<FF>::proof_data);
+
+            serialize_to_buffer<Commitment>(Fibonacci_x, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer<Commitment>(Fibonacci_y, BaseTranscript<FF>::proof_data);
+
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
             }
@@ -318,5 +317,6 @@ class FibFlavor {
         }
     };
 };
+
 } // namespace flavor
 } // namespace proof_system::honk

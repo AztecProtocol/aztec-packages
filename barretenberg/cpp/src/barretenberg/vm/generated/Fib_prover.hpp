@@ -24,14 +24,12 @@ class FibProver {
     using Transcript = Flavor::Transcript;
 
   public:
-    explicit FibProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key_);
+    explicit FibProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_relation_check_rounds();
     void execute_zeromorph_rounds();
-
-    void compute_wire_commitments();
 
     plonk::proof& export_proof();
     plonk::proof& construct_proof();

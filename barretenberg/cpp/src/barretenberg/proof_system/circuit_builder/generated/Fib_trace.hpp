@@ -5,7 +5,6 @@
 
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
 
 #include "barretenberg/flavor/generated/Fib_flavor.hpp"
@@ -45,7 +44,6 @@ class FibTraceBuilder {
             polys.Fibonacci_LAST[i] = rows[i].Fibonacci_LAST;
             polys.Fibonacci_FIRST[i] = rows[i].Fibonacci_FIRST;
             polys.Fibonacci_x[i] = rows[i].Fibonacci_x;
-            // info("Fibonacci_x[i] = ", polys.Fibonacci_x[i]);
             polys.Fibonacci_y[i] = rows[i].Fibonacci_y;
         }
 
@@ -76,7 +74,6 @@ class FibTraceBuilder {
                         throw_or_abort(
                             format("Relation ", relation_name, ", subrelation index ", j, " failed at row ", i));
                         x = false;
-                        info("faily");
                     }
                 }
                 if (!x) {
