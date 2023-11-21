@@ -46,8 +46,8 @@ export function compileNoir(program: Command, name = 'compile', log: LogFn = () 
 
     .action(async (projectPath: string, options: options) => {
       const { compiler } = options;
-      if (typeof projectPath !== 'string') throw new Error(`Missing project path argument`);
-      if (compiler !== 'nargo' && compiler !== 'wasm') throw new Error(`Invalid compiler: ${compiler}`);
+      if (typeof projectPath !== 'string') {throw new Error(`Missing project path argument`);}
+      if (compiler !== 'nargo' && compiler !== 'wasm') {throw new Error(`Invalid compiler: ${compiler}`);}
 
       const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
       log(`Compiling ${projectPath} with ${compiler} backend...`);
