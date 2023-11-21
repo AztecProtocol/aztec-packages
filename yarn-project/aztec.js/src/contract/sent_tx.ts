@@ -1,4 +1,4 @@
-import { FieldsOf } from '@aztec/circuits.js';
+import { FieldsOf, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
@@ -79,8 +79,11 @@ export class SentTx {
         // node or smt like that) or there is some bigger issue with block sync somewhere.
         const blockNum = await this.pxe.getBlockNumber();
         const block = await this.pxe.getBlock(blockNum);
-        const txs = block?.getTxs();
-        const txHashes = txs?.map(tx => tx.txHash.toString());
+        const txHashes = [];
+        for (let txIndex = 0; txIndex < block!.numberOfTxs; txIndex++) {
+          const txHash = block!.newNullifiers[MAX_NEW_NULLIFIERS_PER_TX * txIndex];
+          txHashes.push(txHash.toString());
+        }
         const log = createDebugLogger('aztec:sent-tx');
         log(`Tx hashes of txs included in the last synced block ${block?.number} are: ${txHashes}`);
       }
