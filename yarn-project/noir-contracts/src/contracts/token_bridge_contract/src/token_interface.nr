@@ -50,4 +50,5 @@ impl Token {
   }
   // docs:end:private_burn_interface
 }
+
 // docs:end:token_bridge_token_interface

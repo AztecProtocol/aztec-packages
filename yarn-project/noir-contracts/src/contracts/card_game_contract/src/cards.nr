@@ -50,7 +50,6 @@ fn test_to_from_field() {
     assert(card.to_field() == field);
 }
 
-
 struct CardNote {
     card: Card,
     note: ValueNote,
@@ -96,9 +95,7 @@ pub fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], d
     for i in 0..notes.len() {
         let note = notes[i];
         if note.is_some() {
-            let card_note = CardNote::from_note(
-                note.unwrap_unchecked()
-            );
+            let card_note = CardNote::from_note(note.unwrap_unchecked());
             for j in 0..N {
                 if !found[j] & (card_note.card.strength == desired_cards[j].strength) & (card_note.card.points == desired_cards[j].points) {
                     selected[i] = note;
@@ -106,12 +103,10 @@ pub fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], d
                 }
             }
         }
-       
     }
 
     selected
 }
-
 
 impl Deck {
     pub fn new(
@@ -189,7 +184,8 @@ impl Deck {
 
 }
 
-global PACK_CARDS = 3; // Limited by number of write requests (max 4)
+// Limited by number of write requests (max 4)
+global PACK_CARDS = 3; 
 
 pub fn get_pack_cards(
     seed: Field,
@@ -201,6 +197,7 @@ pub fn get_pack_cards(
     let random_bytes = std::hash::sha256(mix.to_le_bytes(32));
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
+
     // we generate PACK_CARDS cards
     assert((PACK_CARDS as u64) < 8, "Cannot generate more than 8 cards");
     for i in 0..PACK_CARDS {

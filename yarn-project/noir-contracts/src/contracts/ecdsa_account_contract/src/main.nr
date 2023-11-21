@@ -79,11 +79,13 @@ contract EcdsaAccount {
         // Load public key from storage
         let storage = Storage::init(Context::private(context));
         let public_key = storage.public_key.get_note();
-        
+
         // Load auth witness
         let witness: [Field; 64] = get_auth_witness(message_field);
         let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 { signature[i] = witness[i] as u8; }
+        for i in 0..64 {
+            signature[i] = witness[i] as u8;
+        }
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.

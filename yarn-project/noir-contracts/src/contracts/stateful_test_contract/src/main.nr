@@ -58,9 +58,8 @@ contract StatefulTest {
     fn create_note(
         owner: Field,
         value: Field, 
-    )  {
-        
-        if (value != 0){
+    ) {
+        if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
         }
@@ -70,8 +69,7 @@ contract StatefulTest {
     fn destroy_and_create(
         recipient: Field,
         amount: Field, 
-    )  {
-        
+    ) {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
@@ -84,7 +82,6 @@ contract StatefulTest {
     unconstrained fn summed_values(
         owner: Field,
     ) -> Field {
-        
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.

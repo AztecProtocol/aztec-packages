@@ -5,7 +5,6 @@ mod token_interface;
 // The bridge has a corresponding Portal contract on L1 that it is attached to
 // And corresponds to a Token on L2 that uses the `AuthWit` accounts pattern.
 // Bridge has to be set as a minter on the token before it can be used
-
 contract TokenBridge {
     use dep::aztec::{
         context::{Context},
@@ -17,8 +16,8 @@ contract TokenBridge {
         types::address::{AztecAddress, EthereumAddress},
         selector::compute_selector,
     };
-    // docs:end:token_bridge_imports
 
+    // docs:end:token_bridge_imports
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
     use crate::token_interface::Token;
@@ -47,9 +46,8 @@ contract TokenBridge {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.address]);
     }
+
     // docs:end:token_bridge_storage_and_constructor
-
-
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
@@ -61,6 +59,7 @@ contract TokenBridge {
         secret: Field,
     ) -> Field {
         let content_hash = get_mint_public_content_hash(to.address, amount, canceller.address);
+
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
@@ -69,8 +68,8 @@ contract TokenBridge {
 
         1
     }
-    // docs:end:claim_public
 
+    // docs:end:claim_public
     // docs:start:exit_to_l1_public
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
     // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures
@@ -80,7 +79,8 @@ contract TokenBridge {
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
-    ) -> Field {
+    ) -> Field
+{
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
         context.message_portal(content);
@@ -90,6 +90,7 @@ contract TokenBridge {
 
         1
     }
+
     // docs:end:exit_to_l1_public
     // docs:start:claim_private
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
@@ -101,7 +102,8 @@ contract TokenBridge {
         canceller: EthereumAddress,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
-    ) -> Field {
+    ) -> Field
+{
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller.address);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
@@ -111,15 +113,13 @@ contract TokenBridge {
         // which then calls the public method on the token contract.
         // Since the secret_hash is passed, no secret is leaked.
         context.call_public_function(
-            context.this_address(),
-            compute_selector("_call_mint_on_token(Field,Field)"),
-            [amount, secret_hash_for_redeeming_minted_notes],
+            context.this_address(), compute_selector("_call_mint_on_token(Field,Field)"), [amount, secret_hash_for_redeeming_minted_notes]
         );
 
         1
     }
-    // docs:end:claim_private
 
+    // docs:end:claim_private
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
@@ -130,7 +130,8 @@ contract TokenBridge {
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
-    ) -> Field {
+    ) -> Field
+{
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient.address, amount, callerOnL1.address);
         context.message_portal(content);
@@ -143,8 +144,8 @@ contract TokenBridge {
 
         1
     }
-    /// docs:end:exit_to_l1_private
 
+    /// docs:end:exit_to_l1_private
     // View function that is callable by other contracts.
     // Unconstrained can't be called by others since it isn't safe.
     #[aztec(public)]
@@ -153,7 +154,6 @@ contract TokenBridge {
     }
 
     // /// Unconstrained ///
-
     unconstrained fn token() -> Field {
         storage.token.read()
     }
@@ -168,18 +168,18 @@ contract TokenBridge {
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
     #[aztec(public)]
-    internal fn _call_mint_on_token(amount: Field, secret_hash: Field){
+    internal fn _call_mint_on_token(amount: Field, secret_hash: Field) {
         Token::at(storage.token.read()).mint_private(context, amount, secret_hash);
     }
-    // docs:end:call_mint_on_token
 
+    // docs:end:call_mint_on_token
     // docs:start:assert_token_is_same
     #[aztec(public)]
     internal fn _assert_token_is_same(token: Field) {
         assert(storage.token.read() == token, "Token address is not the same as seen in storage");
     }
-    // docs:end:assert_token_is_same
 
+    // docs:end:assert_token_is_same
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
     // docs:start:compute_note_hash_and_nullifier_placeholder
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {

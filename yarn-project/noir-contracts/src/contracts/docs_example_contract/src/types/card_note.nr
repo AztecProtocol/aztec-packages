@@ -22,8 +22,8 @@ struct CardNote {
     owner: Field,
     header: NoteHeader,
 }
-// docs:end:state_vars-CardNote
 
+// docs:end:state_vars-CardNote
 impl CardNote {
     pub fn new(points: u8, secret: Field, owner: Field) -> Self {
         CardNote {

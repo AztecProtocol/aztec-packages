@@ -4,8 +4,8 @@ contract Test {
 
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
-    // docs:end:unencrypted_import
 
+    // docs:end:unencrypted_import
     use dep::aztec::{
         context::Context,
         abi,
@@ -48,15 +48,16 @@ contract Test {
 
     #[aztec(private)]
     // docs:start:empty-constructor
-    fn constructor() {}
-    // docs:end:empty-constructor
+    fn constructor()
+{}
 
+    // docs:end:empty-constructor
     #[aztec(private)]
     fn get_public_key(
         address: Field,
-    ) -> [Field; 2]{
+    ) -> [Field; 2] {
         let pub_key = get_public_key_oracle(address);
-        
+
         [pub_key.x, pub_key.y]
     }
 
@@ -105,7 +106,7 @@ contract Test {
         args.push(a_deep_struct.a_note.secret_hash);
         for note in a_deep_struct.many_notes {
             args.push(note.amount);
-            args.push(note.secret_hash);            
+            args.push(note.secret_hash);
         }
         let args_hash = abi::hash_args(args.storage);
         let mut context = PrivateContext::new(inputs, args_hash);
@@ -121,10 +122,9 @@ contract Test {
     ) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
-        
+
         // Public oracle call to emit new commitment.
         context.message_portal(note.get_commitment());
-        
     }
 
     // Purely exists for testing
@@ -135,7 +135,7 @@ contract Test {
     ) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
-        
+
         // Public oracle call to emit new commitment.
         context.push_new_nullifier(note.get_commitment(), EMPTY_NULLIFIED_COMMITMENT);
     }
@@ -160,14 +160,15 @@ contract Test {
         assert(context.timestamp() == time);
         time
     }
-    // docs:end:is-time-equal
 
+    // docs:end:is-time-equal
     #[aztec(public)]
     fn emit_unencrypted(
         value: Field
     ) -> Field {
         // docs:start:emit_unencrypted
         emit_unencrypted_log(&mut context, value);
+
         // docs:end:emit_unencrypted
         0
     }
@@ -181,11 +182,12 @@ contract Test {
         secret: Field,
     ) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
+
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
     }
 
-     #[aztec(private)]
+    #[aztec(private)]
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field, 
         amount: Field,

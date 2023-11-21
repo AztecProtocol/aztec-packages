@@ -5,16 +5,13 @@ struct Queen {
     account: Field,
     points: u8,
 }
-// docs:end:state_vars-CustomStruct
 
+// docs:end:state_vars-CustomStruct
 // docs:start:state_vars-PublicStateCustomStruct
 global QUEEN_SERIALIZED_LEN: Field = 2;
 
 fn deserialize(fields: [Field; QUEEN_SERIALIZED_LEN]) -> Queen {
-    Queen {
-        account: fields[0],
-        points: fields[1] as u8,
-    }
+    Queen { account: fields[0], points: fields[1] as u8 }
 }
 
 fn serialize(queen: Queen) -> [Field; QUEEN_SERIALIZED_LEN] {

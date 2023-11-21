@@ -15,7 +15,8 @@ pub fn compute_swap_public_content_hash(
     canceller_for_L1_to_L2_message: Field,
     caller_on_L1: Field,
 ) -> Field {
-    let mut hash_bytes: [u8; 324] = [0; 324]; // 10 fields of 32 bytes each + 4 bytes fn selector
+    // 10 fields of 32 bytes each + 4 bytes fn selector
+    let mut hash_bytes: [u8; 324] = [0; 324];
 
     let input_token_portal_bytes = input_asset_bridge_portal_address.to_be_bytes(32);
     let in_amount_bytes = input_amount.to_be_bytes(32);
@@ -50,8 +51,8 @@ pub fn compute_swap_public_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:uniswap_public_content_hash
 
+// docs:end:uniswap_public_content_hash
 // docs:start:compute_swap_private_content_hash
 // This method computes the L2 to L1 message content hash for the private
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
@@ -67,7 +68,8 @@ pub fn compute_swap_private_content_hash(
     canceller_for_L1_to_L2_message: Field,
     caller_on_L1: Field,
 ) -> Field {
-    let mut hash_bytes: [u8; 324] = [0; 324]; // 10 fields of 32 bytes each + 4 bytes fn selector
+    // 10 fields of 32 bytes each + 4 bytes fn selector
+    let mut hash_bytes: [u8; 324] = [0; 324];
 
     let input_token_portal_bytes = input_asset_bridge_portal_address.to_be_bytes(32);
     let in_amount_bytes = input_amount.to_be_bytes(32);

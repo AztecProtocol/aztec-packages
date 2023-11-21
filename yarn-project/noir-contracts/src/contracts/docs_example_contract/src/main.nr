@@ -12,10 +12,12 @@ contract DocsExample {
             singleton::Singleton,
         },
     };
+
     // docs:start:state_vars-PublicStateBoolImport
     use dep::aztec::types::type_serialization::bool_serialization::{
         BoolSerializationMethods, BOOL_SERIALIZED_LEN,
     };
+
     // docs:end:state_vars-PublicStateBoolImport
     use crate::account_contract_interface::AccountContractInterface;
     use crate::actions;
@@ -40,8 +42,8 @@ contract DocsExample {
         profiles: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
         // docs:end:storage-map-singleton-declaration
     }
-    // docs:end:storage-struct-declaration
 
+    // docs:end:storage-struct-declaration
     // docs:start:storage-declaration
     // docs:start:state_vars-PublicState
     // docs:start:state_vars-PublicStateCustomStruct
@@ -79,6 +81,7 @@ contract DocsExample {
             }
         }
     }
+
     // docs:end:state_vars-PublicState
     // docs:end:state_vars-PublicStateCustomStruct
     // docs:end:state_vars-Singleton
@@ -86,7 +89,6 @@ contract DocsExample {
     // docs:end:state_vars-Set
     // docs:end:state_vars-MapSingleton
     // docs:end:storage-declaration
-
     global REPLACE_QUEEN_FUNCTION_SELECTOR = 11111111;
     global GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR = 11111111;
 
@@ -107,38 +109,32 @@ contract DocsExample {
     #[aztec(public)]
     fn lock() {
         // highlight-next-line:storage-init
-        
         storage.locked.write(true);
     }
-    // docs:end:storage-init
 
+    // docs:end:storage-init
     // docs:start:functions-OpenFunction
     #[aztec(public)]
     fn unlock() {
-        
         actions::unlock(storage.locked);
     }
-    // docs:end:functions-OpenFunction
 
+    // docs:end:functions-OpenFunction
     #[aztec(public)]
     fn replace_queen(
         account: Field,
         points: u8,
     ) {
-        
-
         let new_queen = Queen { account, points };
-        
+
         assert(actions::can_replace_queen(storage.queen, new_queen));
-        
+
         actions::replace_queen(storage.queen, new_queen);
     }
 
     // docs:start:state_vars-PublicStateWriteBeforeCall
     #[aztec(public)]
     fn replace_queen_unsafe() {
-        
-
         let account = context.msg_sender();
         let points = actions::get_total_points(storage.cards, account, 0);
 
@@ -147,31 +143,27 @@ contract DocsExample {
         assert(points > current_queen.points);
 
         AccountContractInterface::at(account).send_rewards(current_queen.points);
-        
+
         let new_queen = Queen { account, points };
         storage.queen.write(new_queen);
     }
-    // docs:end:state_vars-PublicStateWriteBeforeCall
 
+    // docs:end:state_vars-PublicStateWriteBeforeCall
     // docs:start:functions-SecretFunction
     #[aztec(private)]
     fn add_common_cards(secrets: [Field; 4]) {
-        
-
         for i in 0..secrets.len() as u8 {
             let mut card = CardNote::new(0, secrets[i], 0);
             actions::add_new_card(storage.cards, &mut card);
         }
     }
-    // docs:end:functions-SecretFunction
 
+    // docs:end:functions-SecretFunction
     #[aztec(private)]
     fn update_legendary_card(
         new_points: u8,
         new_secret: Field,
     ) {
-        
-
         let owner = inputs.call_context.msg_sender;
         let mut updated_card = CardNote::new(new_points, new_secret, owner);
 
@@ -182,22 +174,16 @@ contract DocsExample {
 
     #[aztec(private)]
     fn become_queen() {
-        
-
         let legendary_card = actions::get_legendary_card(storage.legendary_card);
 
         let owner = legendary_card.owner;
         let result = context.call_private_function(
-            inputs.call_context.storage_contract_address, 
-            GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR,
-            [owner, 0]
+            inputs.call_context.storage_contract_address, GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR, [owner, 0]
         );
         let total_points = legendary_card.points + result[0] as u8;
 
         context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            REPLACE_QUEEN_FUNCTION_SELECTOR,
-            [owner, total_points as Field]
+            inputs.call_context.storage_contract_address, REPLACE_QUEEN_FUNCTION_SELECTOR, [owner, total_points as Field]
         );
     }
 
@@ -206,8 +192,6 @@ contract DocsExample {
         account: Field,
         offset: u32,
     ) {
-        
-
         let mut total_points = 0;
         let options = create_account_card_getter_options(account, offset);
         let cards = actions::get_cards(storage.cards, options);
@@ -224,12 +208,10 @@ contract DocsExample {
 
     // docs:start:functions-UnconstrainedFunction
     unconstrained fn get_total_points(account: Field) -> u8 {
-        
         actions::get_total_points(storage.cards, account, 0)
     }
+
     // docs:end:functions-UnconstrainedFunction
-
-
     /// Macro equivalence section
     use dep::aztec::abi;
     use dep::aztec::abi::Hasher;
@@ -241,9 +223,8 @@ contract DocsExample {
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }
+
     // docs:end:simple_macro_example
-
-
     // docs:start:simple_macro_example_expanded
     fn simple_macro_example_expanded(
         // ************************************************************
@@ -260,7 +241,8 @@ contract DocsExample {
         // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
         // input to our kernel! 
         // docs:start:context-example-return
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) -> distinct pub abi::PrivateCircuitPublicInputs
+{
         // docs:end:context-example-return
         // ************************************************************
         // The hasher is a structure used to generate a hash of the circuits inputs. 
@@ -268,18 +250,18 @@ contract DocsExample {
         let mut hasher = Hasher::new();
         hasher.add(a);
         hasher.add(b);
-        // docs:end:context-example-hasher
 
+        // docs:end:context-example-hasher
         // The context object is created with the inputs and the hash of the inputs
         // docs:start:context-example-context
         let mut context = PrivateContext::new(inputs, hasher.hash());
-        // docs:end:context-example-context
 
+        // docs:end:context-example-context
         // docs:start:storage-example-context
         let mut storage = Storage::init(Context::private(&mut context));
+
         // docs:end:storage-example-context
         // ************************************************************
-
         // Our actual program
         let result = a + b;
 
@@ -287,27 +269,23 @@ contract DocsExample {
         // Return values are pushed into the context
         // docs:start:context-example-context-return
         context.return_values.push(result);
-        // docs:end:context-example-context-return
 
+        // docs:end:context-example-context-return
         // The context is returned to be consumed by the kernel circuit!
         // docs:start:context-example-finish
         context.finish()
         // docs:end:context-example-finish
         // ************************************************************
     }
+
     // docs:end:simple_macro_example_expanded
-
-
     // Cross chain messaging section
     // Demonstrates a cross chain message 
-    // docs:start:l1_to_l2_cross_chain_message 
+    // docs:start:l1_to_l2_cross_chain_message
     #[aztec(private)]
-    fn send_to_l1() {
+    fn send_to_l1() {}
 
-
-    }
     // docs:end:l1_to_l2_cross_chain_message  
-
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
         [0, 0, 0, 0]

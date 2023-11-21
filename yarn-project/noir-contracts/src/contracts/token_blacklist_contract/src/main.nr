@@ -8,10 +8,8 @@ mod interfaces;
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
 // The slow updates tree are used for access control related to minters and blacklist.
-
 // TODO's: https://github.com/AztecProtocol/aztec-packages/issues/3210
 // We are currently unable to do constructor -> private calls
-
 contract TokenBlacklist {
     // Libs
     use dep::std::option::Option;
@@ -116,19 +114,14 @@ contract TokenBlacklist {
 
     ////////
     // Looking ugly because we cannot do constructor -> private calls
-
     #[aztec(private)]
     fn init_slow_tree(
         user: AztecAddress
     ) {
-        let roles = UserFlags{is_admin: true, is_minter: false, is_blacklisted: false}.get_value() as Field;
+        let roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false }.get_value() as Field;
         let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
         slow.update_at_private(&mut context, user.address, roles);
-        context.call_public_function(
-            context.this_address(),
-            compute_selector("_init_slow_tree((Field))"),
-            [context.msg_sender()],
-        );
+        context.call_public_function(context.this_address(), compute_selector("_init_slow_tree((Field))"), [context.msg_sender()]);
     }
 
     #[aztec(public)]
@@ -137,7 +130,6 @@ contract TokenBlacklist {
     }
 
     ///////
-
     #[aztec(private)]
     fn update_roles(
         user: AztecAddress,
@@ -225,7 +217,7 @@ contract TokenBlacklist {
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let slow = SlowMap::at(storage.public_slow_update.read());        
+        let slow = SlowMap::at(storage.public_slow_update.read());
         let from_roles = UserFlags::new(slow.read_at_pub(context, from.address) as u120);
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = UserFlags::new(slow.read_at_pub(context, to.address) as u120);
@@ -253,7 +245,7 @@ contract TokenBlacklist {
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let slow = SlowMap::at(storage.public_slow_update.read());        
+        let slow = SlowMap::at(storage.public_slow_update.read());
         let from_roles = UserFlags::new(slow.read_at_pub(context, from.address) as u120);
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
@@ -279,18 +271,20 @@ contract TokenBlacklist {
         amount: Field,
         secret: Field,
     ) -> Field {
-        let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));        
+        let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
         let to_roles = UserFlags::new(slow.read_at(&mut context, to.address) as u120);
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let pending_shields = storage.pending_shields;
         let secret_hash = compute_secret_hash(secret);
+
         // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
         // stored in field with index 1 (select(1, secret_hash)).
         let options = NoteGetterOptions::new().select(0, amount).select(1, secret_hash).set_limit(1);
         let notes = pending_shields.get_notes(options);
         let note = notes[0].unwrap_unchecked();
-        // Remove the note from the pending shields set 
+
+        // Remove the note from the pending shields set
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
@@ -388,7 +382,6 @@ contract TokenBlacklist {
     }
 
     /// Internal ///
-
     #[aztec(public)]
     internal fn _increase_public_balance(
         to: AztecAddress,
@@ -408,7 +401,6 @@ contract TokenBlacklist {
     }
 
     /// Unconstrained ///
-
     unconstrained fn total_supply() -> u120 {
         storage.total_supply.read().value
     }
@@ -427,7 +419,6 @@ contract TokenBlacklist {
 
     // Below this point is the stuff of nightmares.
     // This should ideally not be required. What do we do if vastly different types of preimages?
-
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
@@ -439,6 +430,6 @@ contract TokenBlacklist {
             note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, preimage)
         } else {
             note_utils::compute_note_hash_and_nullifier(TokenNoteMethods, note_header, preimage)
-        } 
+        }
     }
 }

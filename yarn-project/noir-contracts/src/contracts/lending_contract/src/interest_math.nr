@@ -11,13 +11,15 @@ pub fn compute_multiplier(
     rate_per_second: u120,
     dt: SafeU120,
 ) -> SafeU120 {
-    let base = SafeU120{value: 1000000000}; // 1e9
-    let WAD = SafeU120{value: 1000000000000000000}; // 1e18
+    let base = SafeU120 { value: 1000000000 };
+    // 1e9
+    let WAD = SafeU120 { value: 1000000000000000000 };
+    // 1e18
     let diff = WAD.div(base);
     let mut res = base;
     if (!dt.is_zero()) {
-        let exp_minus_one = SafeU120{value: dt.value - 1};
-        let exp_minus_two = SafeU120 {value: if (dt.value > 2) {dt.value - 2} else { 0 }};
+        let exp_minus_one = SafeU120 { value: dt.value - 1 };
+        let exp_minus_two = SafeU120 { value: if (dt.value > 2) { dt.value - 2 } else { 0 } };
 
         // if rate_per_second < sqrt(WAD), then base_power_two and base_power_three = 0
         let rate = SafeU120 { value: rate_per_second };
@@ -25,8 +27,8 @@ pub fn compute_multiplier(
         let base_power_three = base_power_two.mul_div(rate, WAD);
 
         let temp = dt.mul(exp_minus_one);
-        let second_term = temp.mul(base_power_two).div(SafeU120 {value: 2});
-        let third_term = temp.mul(exp_minus_two).mul(base_power_three).div(SafeU120{value: 6});
+        let second_term = temp.mul(base_power_two).div(SafeU120 { value: 2 });
+        let third_term = temp.mul(exp_minus_two).mul(base_power_three).div(SafeU120 { value: 6 });
 
         // throwing away precision to keep us under u120 :sob:
         let offset = dt.mul(rate).add(second_term).add(third_term).div(diff);

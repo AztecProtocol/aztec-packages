@@ -38,13 +38,12 @@ contract EasyPrivateToken {
 
     /**
      * initialize the contract's initial state variables.
-     */ 
+     */
     #[aztec(private)]
     fn constructor(
         initial_supply: u120, 
         owner: Field,
     ) {
-        
         let balances = storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
@@ -55,8 +54,7 @@ contract EasyPrivateToken {
     fn mint(
         amount: u120, 
         owner: Field,
-    )  {
-        
+    ) {
         let balances = storage.balances;
 
         balances.at(owner).add(amount, owner);
@@ -69,7 +67,6 @@ contract EasyPrivateToken {
         sender: Field, 
         recipient: Field,
     ) {
-        
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender);
@@ -80,7 +77,6 @@ contract EasyPrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.
@@ -95,4 +91,5 @@ contract EasyPrivateToken {
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }
+
 // docs:end:easy_private_token_contract

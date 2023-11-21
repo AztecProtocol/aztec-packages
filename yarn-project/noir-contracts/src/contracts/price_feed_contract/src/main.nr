@@ -35,16 +35,15 @@ contract PriceFeed {
     }
 
     #[aztec(private)]
-    fn constructor(){}
+    fn constructor() {}
 
     #[aztec(public)]
     fn set_price(
         asset_id: Field,
         price: u120,
     ) -> Field {
-        
         let asset = storage.assets.at(asset_id);
-        asset.write(Asset {price: price});
+        asset.write(Asset { price });
 
         1
     }
@@ -53,15 +52,12 @@ contract PriceFeed {
     fn get_price(
         asset_id: Field,
     ) -> Asset {
-        
-
         storage.assets.at(asset_id).read()
     }
 
     unconstrained fn fetch_price(
         assetId: Field,
     ) -> Asset {
-        
         storage.assets.at(assetId).read()
     }
 
