@@ -93,7 +93,7 @@ contract LiquidityMining {
         // 1.h)
         let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
         let note_hash_tree_id = 2;
-        let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT> =
+        let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
             get_membership_witness(ignored_block_number, note_hash_tree_id, note_commitment);
 
         // 1.i)
