@@ -4,6 +4,8 @@ import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxSta
 
 import every from 'lodash.every';
 
+import { createDebugLogger } from '../index.js';
+
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
   /** The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60. */
@@ -66,6 +68,22 @@ export class SentTx {
     }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED) {
+      {
+        // A few logs placed here temporarily to help me (@benesjan) debug an issue with intermittent failure of
+        // 2 pixies test.
+        // https://github.com/AztecProtocol/aztec-packages/issues/3357
+        // For whatever reason (according to logs) the tx which appears here as dropped seems to be correctly included
+        // in a block and the block built and submitted on-chain. I will try to fetch the latest block here and see
+        // which txs it contains to check if the block source used here has the relevant block. If it doesn't then
+        // the test is probably misconfigured and an incorrect block source is used (pxe pointing to a different aztec
+        // node or smt like that) or there is some bigger issue with block sync somewhere.
+        const blockNum = await this.pxe.getBlockNumber();
+        const block = await this.pxe.getBlock(blockNum);
+        const txs = block?.getTxs();
+        const txHashes = txs?.map(tx => tx.txHash.toString());
+        const log = createDebugLogger('aztec:sent-tx');
+        log(`Tx hashes of txs included in the last synced block ${block?.number} are: ${txHashes}`);
+      }
       throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
     }
     if (opts?.debug) {
