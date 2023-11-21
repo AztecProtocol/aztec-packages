@@ -204,7 +204,7 @@ impl BaseRollupInputs {
     }
 
     // TODO this should be done in circuit. Ideally using the sorting strategy.
-    unconstrained fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
+    fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         // The below monologue is by Madiaa. fwiw, the plan was not simple.
         //
         // LADIES AND GENTLEMEN The P L A N ( is simple )
@@ -344,7 +344,7 @@ impl BaseRollupInputs {
     }
 
     // TODO this should be changed to append only and done in-circuit
-    unconstrained fn validate_and_process_public_state(self) -> Field {
+    fn validate_and_process_public_state(self) -> Field {
         // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
         // Blocks all interesting usecases that read and write to the same public state in the same tx.
         // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
