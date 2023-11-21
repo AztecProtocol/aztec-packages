@@ -1,5 +1,4 @@
 
-#include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -12,11 +11,11 @@
 
 #include "./AvmMini_trace.hpp"
 
-#include "barretenberg/proof_system/arithmetization/generated/AvmMini_arith.hpp"
-#include "barretenberg/proof_system/relations/generated/AvmMini.hpp"
+#include "barretenberg/relations/generated/AvmMini.hpp"
 
 using namespace barretenberg;
-using FF = arithmetization::AvmMiniArithmetization::FF;
+using Flavor = proof_system::honk::flavor::AvmMiniFlavor;
+using FF = Flavor::FF;
 using Row = proof_system::AvmMini_vm::Row<barretenberg::fr>;
 
 // Anonymous namespace

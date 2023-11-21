@@ -58,11 +58,11 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
     prover_polynomials.avmMini_m_rw_shift = key->avmMini_m_rw.shifted();
 
-    prover_polynomials.avmMini_m_addr = key->avmMini_m_addr;
-    prover_polynomials.avmMini_m_addr_shift = key->avmMini_m_addr.shifted();
-
     prover_polynomials.avmMini_m_val = key->avmMini_m_val;
     prover_polynomials.avmMini_m_val_shift = key->avmMini_m_val.shifted();
+
+    prover_polynomials.avmMini_m_addr = key->avmMini_m_addr;
+    prover_polynomials.avmMini_m_addr_shift = key->avmMini_m_addr.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);
@@ -112,7 +112,7 @@ void AvmMiniProver::execute_relation_check_rounds()
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
  *
  * */
-void FibProver::execute_zeromorph_rounds()
+void AvmMiniProver::execute_zeromorph_rounds()
 {
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),

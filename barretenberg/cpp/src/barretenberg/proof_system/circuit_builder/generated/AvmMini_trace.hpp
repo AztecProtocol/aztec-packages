@@ -67,8 +67,8 @@ class AvmMiniTraceBuilder {
         }
 
         polys.avmMini_m_rw_shift = Polynomial(polys.avmMini_m_rw.shifted());
-        polys.avmMini_m_addr_shift = Polynomial(polys.avmMini_m_addr.shifted());
         polys.avmMini_m_val_shift = Polynomial(polys.avmMini_m_val.shifted());
+        polys.avmMini_m_addr_shift = Polynomial(polys.avmMini_m_addr.shifted());
 
         return polys;
     }
@@ -103,7 +103,7 @@ class AvmMiniTraceBuilder {
             return true;
         };
 
-        return evaluate_relation.template operator()<Fib_vm::Fib<FF>>("Fib");
+        return evaluate_relation.template operator()<AvmMini_vm::AvmMini<FF>>("AvmMini");
     }
 
     [[nodiscard]] size_t get_num_gates() const { return rows.size(); }

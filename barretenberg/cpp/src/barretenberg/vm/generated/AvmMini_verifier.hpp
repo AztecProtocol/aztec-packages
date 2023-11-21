@@ -14,12 +14,12 @@ class AvmMiniVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
 
   public:
-    explicit FibVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
-    FibVerifier(FibVerifier&& other) noexcept;
-    FibVerifier(const FibVerifier& other) = delete;
+    explicit AvmMiniVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
+    AvmMiniVerifier(AvmMiniVerifier&& other) noexcept;
+    AvmMiniVerifier(const AvmMiniVerifier& other) = delete;
 
-    FibVerifier& operator=(const FibVerifier& other) = delete;
-    FibVerifier& operator=(FibVerifier&& other) noexcept;
+    AvmMiniVerifier& operator=(const AvmMiniVerifier& other) = delete;
+    AvmMiniVerifier& operator=(AvmMiniVerifier&& other) noexcept;
 
     bool verify_proof(const plonk::proof& proof);
 

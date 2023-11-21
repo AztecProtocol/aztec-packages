@@ -30,8 +30,8 @@ template <typename FF> struct Row {
     FF avmMini_m_lastAccess{};
     FF avmMini_m_rw{};
     FF avmMini_m_rw_shift{};
-    FF avmMini_m_addr_shift{};
     FF avmMini_m_val_shift{};
+    FF avmMini_m_addr_shift{};
 };
 
 #define DECLARE_VIEWS(index)                                                                                           \
@@ -60,8 +60,8 @@ template <typename FF> struct Row {
     [[maybe_unused]] auto avmMini_m_lastAccess = View(new_term.avmMini_m_lastAccess);                                  \
     [[maybe_unused]] auto avmMini_m_rw = View(new_term.avmMini_m_rw);                                                  \
     [[maybe_unused]] auto avmMini_m_rw_shift = View(new_term.avmMini_m_rw_shift);                                      \
-    [[maybe_unused]] auto avmMini_m_addr_shift = View(new_term.avmMini_m_addr_shift);                                  \
-    [[maybe_unused]] auto avmMini_m_val_shift = View(new_term.avmMini_m_val_shift);
+    [[maybe_unused]] auto avmMini_m_val_shift = View(new_term.avmMini_m_val_shift);                                    \
+    [[maybe_unused]] auto avmMini_m_addr_shift = View(new_term.avmMini_m_addr_shift);
 
 template <typename FF_> class AvmMiniImpl {
   public:

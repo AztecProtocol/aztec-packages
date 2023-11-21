@@ -169,8 +169,8 @@ class AvmMiniFlavor {
         DataType avmMini_m_rw;
 
         DataType avmMini_m_rw_shift;
-        DataType avmMini_m_addr_shift;
         DataType avmMini_m_val_shift;
+        DataType avmMini_m_addr_shift;
 
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &avmMini_clk,
@@ -197,18 +197,18 @@ class AvmMiniFlavor {
                             &avmMini_m_lastAccess,
                             &avmMini_m_rw,
                             &avmMini_m_rw_shift,
-                            &avmMini_m_addr_shift,
-                            &avmMini_m_val_shift)
+                            &avmMini_m_val_shift,
+                            &avmMini_m_addr_shift)
 
         std::vector<HandleType> get_wires() override
         {
             return {
-                avmMini_clk,         avmMini_positive,     avmMini_first,    avmMini_subop,      avmMini_ia,
-                avmMini_ib,          avmMini_ic,           avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,
-                avmMini_rwa,         avmMini_rwb,          avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b,
-                avmMini_mem_idx_c,   avmMini_last,         avmMini_m_clk,    avmMini_m_sub_clk,  avmMini_m_addr,
-                avmMini_m_val,       avmMini_m_lastAccess, avmMini_m_rw,     avmMini_m_rw_shift, avmMini_m_addr_shift,
-                avmMini_m_val_shift,
+                avmMini_clk,          avmMini_positive,     avmMini_first,    avmMini_subop,      avmMini_ia,
+                avmMini_ib,           avmMini_ic,           avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,
+                avmMini_rwa,          avmMini_rwb,          avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b,
+                avmMini_mem_idx_c,    avmMini_last,         avmMini_m_clk,    avmMini_m_sub_clk,  avmMini_m_addr,
+                avmMini_m_val,        avmMini_m_lastAccess, avmMini_m_rw,     avmMini_m_rw_shift, avmMini_m_val_shift,
+                avmMini_m_addr_shift,
 
             };
         };
@@ -229,8 +229,8 @@ class AvmMiniFlavor {
         {
             return {
                 avmMini_m_rw,
-                avmMini_m_addr,
                 avmMini_m_val,
+                avmMini_m_addr,
 
             };
         };
@@ -239,8 +239,8 @@ class AvmMiniFlavor {
         {
             return {
                 avmMini_m_rw_shift,
-                avmMini_m_addr_shift,
                 avmMini_m_val_shift,
+                avmMini_m_addr_shift,
 
             };
         };
