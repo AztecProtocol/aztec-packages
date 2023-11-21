@@ -10,7 +10,6 @@ using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::honk {
-
 FibVerifier::FibVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
 {}
@@ -37,8 +36,8 @@ bool FibVerifier::verify_proof(const plonk::proof& proof)
     using Flavor = honk::flavor::FibFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
-    using Curve = Flavor::Curve;
-    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    // using Curve = Flavor::Curve;
+    // using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 
@@ -56,6 +55,9 @@ bool FibVerifier::verify_proof(const plonk::proof& proof)
     }
 
     // Get commitments to VM wires
+    commitments.Fibonacci_LAST = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_LAST);
+    commitments.Fibonacci_FIRST =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_FIRST);
     commitments.Fibonacci_x = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_x);
     commitments.Fibonacci_y = transcript.template receive_from_prover<Commitment>(commitment_labels.Fibonacci_y);
 
@@ -73,16 +75,16 @@ bool FibVerifier::verify_proof(const plonk::proof& proof)
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
     // NOTE: temporarily disabled - facing integration issues
-    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
-                                            commitments.get_to_be_shifted(),
-                                            claimed_evaluations.get_unshifted(),
-                                            claimed_evaluations.get_shifted(),
-                                            multivariate_challenge,
-                                            transcript);
+    // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+    //                                         commitments.get_to_be_shifted(),
+    //                                         claimed_evaluations.get_unshifted(),
+    //                                         claimed_evaluations.get_shifted(),
+    //                                         multivariate_challenge,
+    //                                         transcript);
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_verified.value() && verified;
-    // return sumcheck_verified.value();
+    // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    // return sumcheck_verified.value() && verified;
+    return sumcheck_verified.value();
 }
 
 } // namespace proof_system::honk

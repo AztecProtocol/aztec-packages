@@ -1,7 +1,6 @@
 
 
 #include "Fib_prover.hpp"
-
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
@@ -12,13 +11,13 @@
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include <utility>
 
 namespace proof_system::honk {
 
 using Flavor = honk::flavor::FibFlavor;
+
 /**
- * Create FibProver_ from proving key, witness and manifest.
+ * Create FibProver from proving key, witness and manifest.
  *
  * @param input_key Proving key.
  * @param input_manifest Input manifest
@@ -31,13 +30,20 @@ FibProver::FibProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_
 {
     // TODO: take every polynomial and assign it to the key!!
 
-    prover_polynomials.Fibonacci_FIRST = key->Fibonacci_FIRST;
     prover_polynomials.Fibonacci_LAST = key->Fibonacci_LAST;
+    prover_polynomials.Fibonacci_FIRST = key->Fibonacci_FIRST;
     prover_polynomials.Fibonacci_x = key->Fibonacci_x;
     prover_polynomials.Fibonacci_y = key->Fibonacci_y;
 
-    prover_polynomials.Fibonacci_x_shift = key->Fibonacci_x.shifted();
+    prover_polynomials.Fibonacci_y = key->Fibonacci_y;
     prover_polynomials.Fibonacci_y_shift = key->Fibonacci_y.shifted();
+
+    prover_polynomials.Fibonacci_x = key->Fibonacci_x;
+    prover_polynomials.Fibonacci_x_shift = key->Fibonacci_x.shifted();
+
+    // prover_polynomials.lookup_inverses = key->lookup_inverses;
+    // key->z_perm = Polynomial(key->circuit_size);
+    // prover_polynomials.z_perm = key->z_perm;
 }
 
 /**
@@ -111,7 +117,7 @@ plonk::proof& FibProver::construct_proof()
     // Compute sorted list accumulator and commitment
     // execute_log_derivative_commitments_round();
 
-    // Fiat-Shamir: beta & gamma
+    // Fiat-Shamir: bbeta & gamma
     // Compute grand product(s) and commitments.
     // execute_grand_product_computation_round();
 
