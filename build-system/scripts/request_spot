@@ -35,7 +35,7 @@ fi
 # Construct the full instance type. We use r6a currently.
 if [ "$ARCH" == "x86_64" ]; then
   MACHINE_TYPE="r6a"
-  AMI="ami-05983a09f7dc1c18f"
+  AMI="ami-0e5df77ac318c7a18"
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="r7g"
   AMI="ami-05983a09f7dc1c18f"
