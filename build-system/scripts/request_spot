@@ -38,7 +38,7 @@ if [ "$ARCH" == "x86_64" ]; then
   AMI="ami-0e5df77ac318c7a18"
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="r7g"
-  AMI="ami-04518e2b2543684ba"
+  AMI="ami-02c5a5064fe72b22e"
 else
   echo "Unknown arch: $ARCH"
   exit 1
@@ -126,9 +126,9 @@ done
 >&2 echo "Waiting for SSH at $IP..."
 SECONDS=0
 SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-$BUILD_SYSTEM_PATH/remote/ssh_config}
-while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP true; do
+while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP true > /dev/null 2>&1; do
   if (( SECONDS >= 60 )); then
-    >&2 echo "Timeout: SSH port 22 at $IP did not become available after 60 seconds."
+    >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
     exit 1
   fi
   sleep 1
