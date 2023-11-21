@@ -12,8 +12,10 @@ pub fn compute_multiplier(
     dt: SafeU120,
 ) -> SafeU120 {
     let base = SafeU120 { value: 1000000000 };
+
     // 1e9
     let WAD = SafeU120 { value: 1000000000000000000 };
+
     // 1e18
     let diff = WAD.div(base);
     let mut res = base;
