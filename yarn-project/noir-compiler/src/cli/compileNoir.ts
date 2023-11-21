@@ -18,7 +18,7 @@ import {
 /**
  * CLI options for configuring behavior
  */
-interface options {
+interface Options {
   // eslint-disable-next-line jsdoc/require-jsdoc
   outdir: string;
   // eslint-disable-next-line jsdoc/require-jsdoc
@@ -44,10 +44,14 @@ export function compileNoir(program: Command, name = 'compile', log: LogFn = () 
     .option('-c --compiler <string>', 'Which compiler to use. Either nargo or wasm. Defaults to nargo', 'wasm')
     .description('Compiles the Noir Source in the target project')
 
-    .action(async (projectPath: string, options: options) => {
+    .action(async (projectPath: string, options: Options) => {
       const { compiler } = options;
-      if (typeof projectPath !== 'string') {throw new Error(`Missing project path argument`);}
-      if (compiler !== 'nargo' && compiler !== 'wasm') {throw new Error(`Invalid compiler: ${compiler}`);}
+      if (typeof projectPath !== 'string') {
+        throw new Error(`Missing project path argument`);
+      }
+      if (compiler !== 'nargo' && compiler !== 'wasm') {
+        throw new Error(`Invalid compiler: ${compiler}`);
+      }
 
       const compile = compiler === 'wasm' ? compileUsingNoirWasm : compileUsingNargo;
       log(`Compiling ${projectPath} with ${compiler} backend...`);
@@ -65,7 +69,7 @@ export function compileNoir(program: Command, name = 'compile', log: LogFn = () 
 function generateOutput(
   projectPath: string,
   _result: ContractArtifact | ProgramArtifact,
-  options: options,
+  options: Options,
   log: LogFn,
 ) {
   const contract = _result as ContractArtifact;
@@ -82,7 +86,7 @@ function generateOutput(
  *
  * @param program - output from compiler, to serialize locally
  */
-function generateProgramOutput(projectPath: string, program: ProgramArtifact, options: options, log: LogFn) {
+function generateProgramOutput(projectPath: string, program: ProgramArtifact, options: Options, log: LogFn) {
   const currentDir = process.cwd();
   const { outdir, typescript, interface: noirInterface } = options;
   const artifactPath = resolve(projectPath, outdir, `${program.name ? program.name : 'main'}.json`);
@@ -109,7 +113,7 @@ function generateProgramOutput(projectPath: string, program: ProgramArtifact, op
  *
  * @param contract - output from compiler, to serialize locally
  */
-function generateContractOutput(projectPath: string, contract: ContractArtifact, options: options, log: LogFn) {
+function generateContractOutput(projectPath: string, contract: ContractArtifact, options: Options, log: LogFn) {
   const currentDir = process.cwd();
   const { outdir, typescript, interface: noirInterface } = options;
   const artifactPath = resolve(projectPath, outdir, `${contract.name}.json`);
