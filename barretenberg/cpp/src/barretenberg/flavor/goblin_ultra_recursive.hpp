@@ -91,137 +91,92 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:
-    template <typename DataType, typename HandleType>
+    template <typename DataType>
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    class PrecomputedEntities : public PrecomputedEntities_<DataType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType q_m;             // column 0
-        DataType q_c;             // column 1
-        DataType q_l;             // column 2
-        DataType q_r;             // column 3
-        DataType q_o;             // column 4
-        DataType q_4;             // column 5
-        DataType q_arith;         // column 6
-        DataType q_sort;          // column 7
-        DataType q_elliptic;      // column 8
-        DataType q_aux;           // column 9
-        DataType q_lookup;        // column 10
-        DataType q_busread;       // column 11
-        DataType sigma_1;         // column 12
-        DataType sigma_2;         // column 13
-        DataType sigma_3;         // column 14
-        DataType sigma_4;         // column 15
-        DataType id_1;            // column 16
-        DataType id_2;            // column 17
-        DataType id_3;            // column 18
-        DataType id_4;            // column 19
-        DataType table_1;         // column 20
-        DataType table_2;         // column 21
-        DataType table_3;         // column 22
-        DataType table_4;         // column 23
-        DataType lagrange_first;  // column 24
-        DataType lagrange_last;   // column 25
-        DataType lagrange_ecc_op; // column 26 // indicator poly for ecc op gates
-        DataType databus_id;      // column 27 // id polynomial, i.e. id_i = i
-
-        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
-                            &q_m,
-                            &q_c,
-                            &q_l,
-                            &q_r,
-                            &q_o,
-                            &q_4,
-                            &q_arith,
-                            &q_sort,
-                            &q_elliptic,
-                            &q_aux,
-                            &q_lookup,
-                            &q_busread,
-                            &sigma_1,
-                            &sigma_2,
-                            &sigma_3,
-                            &sigma_4,
-                            &id_1,
-                            &id_2,
-                            &id_3,
-                            &id_4,
-                            &table_1,
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &lagrange_first,
-                            &lagrange_last,
-                            &lagrange_ecc_op,
-                            &databus_id)
+        FLAVOR_MEMBERS(NUM_PRECOMPUTED_ENTITIES,
+                       DataType,
+                       q_m,             // column 0
+                       q_c,             // column 1
+                       q_l,             // column 2
+                       q_r,             // column 3
+                       q_o,             // column 4
+                       q_4,             // column 5
+                       q_arith,         // column 6
+                       q_sort,          // column 7
+                       q_elliptic,      // column 8
+                       q_aux,           // column 9
+                       q_lookup,        // column 10
+                       q_busread,       // column 11
+                       sigma_1,         // column 12
+                       sigma_2,         // column 13
+                       sigma_3,         // column 14
+                       sigma_4,         // column 15
+                       id_1,            // column 16
+                       id_2,            // column 17
+                       id_3,            // column 18
+                       id_4,            // column 19
+                       table_1,         // column 20
+                       table_2,         // column 21
+                       table_3,         // column 22
+                       table_4,         // column 23
+                       lagrange_first,  // column 24
+                       lagrange_last,   // column 25
+                       lagrange_ecc_op, // column 26 // indicator poly for ecc op gates
+                       databus_id       // column 27 // id polynomial, i.e. id_i = i
+        )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
-        std::vector<HandleType> get_selectors() override
+        RefVector<DataType> get_selectors() override
         {
             return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup, q_busread };
         };
-        std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        RefVector<DataType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
 
-        std::vector<HandleType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
     };
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType> class WitnessEntities : public WitnessEntities_<DataType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType w_l;                  // column 0
-        DataType w_r;                  // column 1
-        DataType w_o;                  // column 2
-        DataType w_4;                  // column 3
-        DataType sorted_1;             // column 4
-        DataType sorted_2;             // column 5
-        DataType sorted_3;             // column 6
-        DataType sorted_4;             // column 7
-        DataType sorted_accum;         // column 8
-        DataType z_perm;               // column 9
-        DataType z_lookup;             // column 10
-        DataType ecc_op_wire_1;        // column 11
-        DataType ecc_op_wire_2;        // column 12
-        DataType ecc_op_wire_3;        // column 13
-        DataType ecc_op_wire_4;        // column 14
-        DataType calldata;             // column 15
-        DataType calldata_read_counts; // column 16
-        DataType lookup_inverses;      // column 17
+        FLAVOR_MEMBERS(NUM_WITNESS_ENTITIES,
+                       DataType,
+                       w_l,                  // column 0
+                       w_r,                  // column 1
+                       w_o,                  // column 2
+                       w_4,                  // column 3
+                       sorted_1,             // column 4
+                       sorted_2,             // column 5
+                       sorted_3,             // column 6
+                       sorted_4,             // column 7
+                       sorted_accum,         // column 8
+                       z_perm,               // column 9
+                       z_lookup,             // column 10
+                       ecc_op_wire_1,        // column 11
+                       ecc_op_wire_2,        // column 12
+                       ecc_op_wire_3,        // column 13
+                       ecc_op_wire_4,        // column 14
+                       calldata,             // column 15
+                       calldata_read_counts, // column 16
+                       lookup_inverses       // column 17
+        )
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_1,
-                            &sorted_2,
-                            &sorted_3,
-                            &sorted_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup,
-                            &ecc_op_wire_1,
-                            &ecc_op_wire_2,
-                            &ecc_op_wire_3,
-                            &ecc_op_wire_4,
-                            &calldata,
-                            &calldata_read_counts,
-                            &lookup_inverses)
-
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        std::vector<HandleType> get_ecc_op_wires()
+        RefVector<DataType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_ecc_op_wires()
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
         // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
+        RefVector<DataType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**
@@ -233,126 +188,71 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities : public AllEntities_<DataType, NUM_ALL_ENTITIES> {
       public:
-        DataType q_c;                  // column 0
-        DataType q_l;                  // column 1
-        DataType q_r;                  // column 2
-        DataType q_o;                  // column 3
-        DataType q_4;                  // column 4
-        DataType q_m;                  // column 5
-        DataType q_arith;              // column 6
-        DataType q_sort;               // column 7
-        DataType q_elliptic;           // column 8
-        DataType q_aux;                // column 9
-        DataType q_lookup;             // column 10
-        DataType q_busread;            // column 11
-        DataType sigma_1;              // column 12
-        DataType sigma_2;              // column 13
-        DataType sigma_3;              // column 14
-        DataType sigma_4;              // column 15
-        DataType id_1;                 // column 16
-        DataType id_2;                 // column 17
-        DataType id_3;                 // column 18
-        DataType id_4;                 // column 19
-        DataType table_1;              // column 20
-        DataType table_2;              // column 21
-        DataType table_3;              // column 22
-        DataType table_4;              // column 23
-        DataType lagrange_first;       // column 24
-        DataType lagrange_last;        // column 25
-        DataType lagrange_ecc_op;      // column 26
-        DataType databus_id;           // column 27
-        DataType w_l;                  // column 28
-        DataType w_r;                  // column 29
-        DataType w_o;                  // column 30
-        DataType w_4;                  // column 31
-        DataType sorted_accum;         // column 32
-        DataType z_perm;               // column 33
-        DataType z_lookup;             // column 34
-        DataType ecc_op_wire_1;        // column 35
-        DataType ecc_op_wire_2;        // column 36
-        DataType ecc_op_wire_3;        // column 37
-        DataType ecc_op_wire_4;        // column 38
-        DataType calldata;             // column 39
-        DataType calldata_read_counts; // column 40
-        DataType lookup_inverses;      // column 41
-        DataType table_1_shift;        // column 42
-        DataType table_2_shift;        // column 43
-        DataType table_3_shift;        // column 44
-        DataType table_4_shift;        // column 45
-        DataType w_l_shift;            // column 46
-        DataType w_r_shift;            // column 47
-        DataType w_o_shift;            // column 48
-        DataType w_4_shift;            // column 49
-        DataType sorted_accum_shift;   // column 50
-        DataType z_perm_shift;         // column 51
-        DataType z_lookup_shift;       // column 52
+        FLAVOR_MEMBERS(NUM_ALL_ENTITIES,
+                       DataType,
+                       q_c,                  // column 0
+                       q_l,                  // column 1
+                       q_r,                  // column 2
+                       q_o,                  // column 3
+                       q_4,                  // column 4
+                       q_m,                  // column 5
+                       q_arith,              // column 6
+                       q_sort,               // column 7
+                       q_elliptic,           // column 8
+                       q_aux,                // column 9
+                       q_lookup,             // column 10
+                       q_busread,            // column 11
+                       sigma_1,              // column 12
+                       sigma_2,              // column 13
+                       sigma_3,              // column 14
+                       sigma_4,              // column 15
+                       id_1,                 // column 16
+                       id_2,                 // column 17
+                       id_3,                 // column 18
+                       id_4,                 // column 19
+                       table_1,              // column 20
+                       table_2,              // column 21
+                       table_3,              // column 22
+                       table_4,              // column 23
+                       lagrange_first,       // column 24
+                       lagrange_last,        // column 25
+                       lagrange_ecc_op,      // column 26
+                       databus_id,           // column 27
+                       w_l,                  // column 28
+                       w_r,                  // column 29
+                       w_o,                  // column 30
+                       w_4,                  // column 31
+                       sorted_accum,         // column 32
+                       z_perm,               // column 33
+                       z_lookup,             // column 34
+                       ecc_op_wire_1,        // column 35
+                       ecc_op_wire_2,        // column 36
+                       ecc_op_wire_3,        // column 37
+                       ecc_op_wire_4,        // column 38
+                       calldata,             // column 39
+                       calldata_read_counts, // column 40
+                       lookup_inverses,      // column 41
+                       table_1_shift,        // column 42
+                       table_2_shift,        // column 43
+                       table_3_shift,        // column 44
+                       table_4_shift,        // column 45
+                       w_l_shift,            // column 46
+                       w_r_shift,            // column 47
+                       w_o_shift,            // column 48
+                       w_4_shift,            // column 49
+                       sorted_accum_shift,   // column 50
+                       z_perm_shift,         // column 51
+                       z_lookup_shift);      // column 52
 
-        // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &q_c,
-                            &q_l,
-                            &q_r,
-                            &q_o,
-                            &q_4,
-                            &q_m,
-                            &q_arith,
-                            &q_sort,
-                            &q_elliptic,
-                            &q_aux,
-                            &q_lookup,
-                            &q_busread,
-                            &sigma_1,
-                            &sigma_2,
-                            &sigma_3,
-                            &sigma_4,
-                            &id_1,
-                            &id_2,
-                            &id_3,
-                            &id_4,
-                            &table_1,
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &lagrange_first,
-                            &lagrange_last,
-                            &lagrange_ecc_op,
-                            &databus_id,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup,
-                            &ecc_op_wire_1,
-                            &ecc_op_wire_2,
-                            &ecc_op_wire_3,
-                            &ecc_op_wire_4,
-                            &calldata,
-                            &calldata_read_counts,
-                            &lookup_inverses,
-                            &table_1_shift,
-                            &table_2_shift,
-                            &table_3_shift,
-                            &table_4_shift,
-                            &w_l_shift,
-                            &w_r_shift,
-                            &w_o_shift,
-                            &w_4_shift,
-                            &sorted_accum_shift,
-                            &z_perm_shift,
-                            &z_lookup_shift);
-
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        std::vector<HandleType> get_ecc_op_wires()
+        RefVector<DataType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_ecc_op_wires()
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
         // Gemini-specific getters.
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted() override
         {
             return { q_c,
                      q_l,
@@ -397,11 +297,11 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
                      calldata_read_counts,
                      lookup_inverses };
         };
-        std::vector<HandleType> get_to_be_shifted() override
+        RefVector<DataType> get_to_be_shifted() override
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
         };
-        std::vector<HandleType> get_shifted() override
+        RefVector<DataType> get_shifted() override
         {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
@@ -420,7 +320,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
       public:
         /**
-         * @brief Construct a new Verification Key with stdlib types from a provided native verification key
+         * @brief Construct a new Verification Key with stdlib types from a provided native verification
+         * key
          *
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
@@ -599,8 +500,9 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
             : BaseTranscript<FF>(proof)
         {}
         /**
-         * @brief Takes a FULL GoblinUltraRecursive proof and deserializes it into the public member variables that
-         * compose the structure. Must be called in order to access the structure of the proof.
+         * @brief Takes a FULL GoblinUltraRecursive proof and deserializes it into the public member
+         * variables that compose the structure. Must be called in order to access the structure of the
+         * proof.
          *
          */
         void deserialize_full_transcript() override
@@ -646,8 +548,9 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         }
 
         /**
-         * @brief Serializes the structure variables into a FULL GoblinUltraRecursive proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
+         * @brief Serializes the structure variables into a FULL GoblinUltraRecursive proof. Should be
+         * called only if deserialize_full_transcript() was called and some transcript variable was
+         * modified.
          *
          */
         void serialize_full_transcript() override
