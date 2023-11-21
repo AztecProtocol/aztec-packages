@@ -55,7 +55,9 @@ class GoblinUltra {
                                  proof_system::EllipticRelation<FF>,
                                  proof_system::AuxiliaryRelation<FF>,
                                  proof_system::EccOpQueueRelation<FF>,
-                                 proof_system::DatabusLookupRelation<FF>>;
+                                 proof_system::DatabusLookupRelation<FF>,
+                                 proof_system::Poseidon2ExternalRelation<FF>,
+                                 proof_system::Poseidon2InternalRelation<FF>>;
 
     using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
 

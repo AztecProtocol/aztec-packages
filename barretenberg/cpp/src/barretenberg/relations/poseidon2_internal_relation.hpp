@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
 namespace proof_system {
@@ -9,7 +8,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
         7, // internal poseidon2 round sub-relation for first value
         7, // internal poseidon2 round sub-relation for second value
         7, // internal poseidon2 round sub-relation for third value
@@ -37,10 +36,10 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities>
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
-                           const RelationParameters<FF>&,
+                           const Parameters&,
                            const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -54,18 +53,15 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto w_o_shift = View(in.w_o_shift);
         auto w_4_shift = View(in.w_4_shift);
         auto q_l = View(in.q_l);
-        auto q_r = View(in.q_r);
-        auto q_o = View(in.q_o);
-        auto q_4 = View(in.q_4);
         auto q_poseidon2_internal = View(in.q_poseidon2_internal);
 
         // add round constants
-        w_l += q_l;
+        auto tmp1 = w_l + q_l;
 
         // apply s-box round
-        auto v1 = w_l * w_l;
+        auto v1 = tmp1 * tmp1;
         v1 *= v1;
-        v1 *= w_l;
+        v1 *= tmp1;
         auto v2 = w_r;
         auto v3 = w_o;
         auto v4 = w_4;
@@ -80,23 +76,23 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
             std::get<0>(evals) += tmp;
         }
         {
-            v2 *= crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-            v2 += sum;
-            auto tmp = q_poseidon2_internal * (v2 - w_r_shift);
+            auto tmp2 = v2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+            tmp2 += sum;
+            auto tmp = q_poseidon2_internal * (tmp2 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            v3 *= crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-            v3 += sum;
-            auto tmp = q_poseidon2_internal * (v3 - w_o_shift);
+            auto tmp3 = v3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+            tmp3 += sum;
+            auto tmp = q_poseidon2_internal * (tmp3 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            v4 *= crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-            v4 += sum;
-            auto tmp = q_poseidon2_internal * (v4 - w_4_shift);
+            auto tmp4 = v4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+            tmp4 += sum;
+            auto tmp = q_poseidon2_internal * (tmp4 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
