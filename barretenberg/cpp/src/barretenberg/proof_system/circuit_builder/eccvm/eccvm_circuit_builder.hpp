@@ -41,7 +41,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
     using AllPolynomials = typename Flavor::AllPolynomials;
 
-    ECCVMCircuitBuilder() = default;
+    ECCVMCircuitBuilder()
+        : op_queue(std::make_shared<ECCOpQueue>()){};
 
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
         : op_queue(op_queue){};
