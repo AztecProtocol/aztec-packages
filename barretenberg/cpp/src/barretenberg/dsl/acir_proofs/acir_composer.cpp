@@ -30,12 +30,14 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     vinfo("gates: ", builder_.get_total_circuit_size());
 }
 
-void AcirComposer::init_proving_key(acir_format::acir_format& constraint_system)
+std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
+    acir_format::acir_format& constraint_system)
 {
     create_circuit(constraint_system);
     acir_format::Composer composer;
     vinfo("computing proving key...");
     proving_key_ = composer.compute_proving_key(builder_);
+    return proving_key_;
 }
 
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,

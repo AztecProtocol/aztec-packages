@@ -1,7 +1,10 @@
 
 
 #pragma once
+#include "../relation_definitions_fwd.hpp"
+
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -9,32 +12,32 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/generated/Fib.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/relations/generated/Fib.hpp"
 
 namespace proof_system::honk {
 namespace flavor {
 
-template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlavorBase {
+class FibFlavor {
   public:
     // forward template params into the ECCVMBase namespace
-    using CycleGroup = CycleGroup_T;
-    using Curve = Curve_T;
-    using G1 = typename Curve::Group;
-    using PCS = PCS_T;
+    using Curve = curve::BN254;
+    using G1 = Curve::Group;
+    using PCS = pcs::kzg::KZG<Curve>;
 
-    using FF = typename G1::subgroup_field;
+    using FF = G1::subgroup_field;
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
-    using GroupElement = typename G1::element;
-    using Commitment = typename G1::affine_element;
-    using CommitmentHandle = typename G1::affine_element;
+    using GroupElement = G1::element;
+    using Commitment = G1::affine_element;
+    using CommitmentHandle = G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = 4;
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0; // This is zero for now
-    static constexpr size_t NUM_WITNESS_ENTITIES = 4;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2; // This is zero for now
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 6;
@@ -43,40 +46,56 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
     using Relations = std::tuple<Fib_vm::Fib<FF>>;
     // using LookupRelation = sumcheck::LookupRelation<FF>;
 
-    static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
-    static constexpr size_t MAX_RANDOM_RELATION_LENGTH = MAX_RELATION_LENGTH + 1;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+
+    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
+    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
+    // length = 3
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // define the containers for storing the contributions from each relation in Sumcheck
+    template <size_t NUM_INSTANCES>
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
+
+    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
+    static constexpr bool has_zero_row = true;
 
   private:
     template <typename DataType, typename HandleType>
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
+        DataType Fibonacci_FIRST;
+        DataType Fibonacci_LAST;
+
+        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &Fibonacci_FIRST, &Fibonacci_LAST)
+
         std::vector<HandleType> get_selectors() override { return {}; };
         std::vector<HandleType> get_sigma_polynomials() override { return {}; };
         std::vector<HandleType> get_id_polynomials() override { return {}; };
         std::vector<HandleType> get_table_polynomials() { return {}; };
     };
 
+    /**
+     * @brief Container for all witness polynomials used/constructed by the prover.
+     * @details Shifts are not included here since they do not occupy their own memory.
+     */
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType& Fibonacci_LAST = std::get<0>(this->_data);
-        DataType& Fibonacci_FIRST = std::get<1>(this->_data);
-        DataType& Fibonacci_x = std::get<2>(this->_data);
-        DataType& Fibonacci_y = std::get<3>(this->_data);
+        DataType Fibonacci_x;
+        DataType Fibonacci_y;
+
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES, &Fibonacci_x, &Fibonacci_y)
 
         std::vector<HandleType> get_wires() override
         {
             return {
-                Fibonacci_LAST,
-                Fibonacci_FIRST,
                 Fibonacci_x,
                 Fibonacci_y,
-
             };
         };
 
@@ -86,18 +105,25 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType& Fibonacci_LAST = std::get<0>(this->_data);
-        DataType& Fibonacci_FIRST = std::get<1>(this->_data);
-        DataType& Fibonacci_x = std::get<2>(this->_data);
-        DataType& Fibonacci_y = std::get<3>(this->_data);
+        DataType Fibonacci_FIRST;
+        DataType Fibonacci_LAST;
+        DataType Fibonacci_x;
+        DataType Fibonacci_y;
 
-        DataType& Fibonacci_y_shift = std::get<4>(this->_data);
-        DataType& Fibonacci_x_shift = std::get<5>(this->_data);
+        DataType Fibonacci_x_shift;
+        DataType Fibonacci_y_shift;
+
+        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
+                            &Fibonacci_FIRST,
+                            &Fibonacci_LAST,
+                            &Fibonacci_x,
+                            &Fibonacci_y,
+                            &Fibonacci_x_shift,
+                            &Fibonacci_y_shift)
 
         std::vector<HandleType> get_wires() override
         {
-            return {
-                Fibonacci_LAST, Fibonacci_FIRST, Fibonacci_x, Fibonacci_y, Fibonacci_y, Fibonacci_x,
+            return { Fibonacci_x, Fibonacci_y
 
             };
         };
@@ -105,8 +131,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
         std::vector<HandleType> get_unshifted() override
         {
             return {
-                Fibonacci_LAST,
                 Fibonacci_FIRST,
+                Fibonacci_LAST,
                 Fibonacci_x,
                 Fibonacci_y,
 
@@ -116,8 +142,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
         std::vector<HandleType> get_to_be_shifted() override
         {
             return {
-                Fibonacci_y,
                 Fibonacci_x,
+                Fibonacci_y,
 
             };
         };
@@ -125,36 +151,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
         std::vector<HandleType> get_shifted() override
         {
             return {
-                Fibonacci_y_shift,
                 Fibonacci_x_shift,
-
+                Fibonacci_y_shift,
             };
         };
-
-        AllEntities() = default;
-
-        AllEntities(const AllEntities& other)
-            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
-
-        AllEntities(AllEntities&& other) noexcept
-            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
-
-        AllEntities& operator=(const AllEntities& other)
-        {
-            if (this == &other) {
-                return *this;
-            }
-            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-            return *this;
-        }
-
-        AllEntities& operator=(AllEntities&& other) noexcept
-        {
-            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-            return *this;
-        }
-
-        ~AllEntities() override = default;
     };
 
   public:
@@ -180,18 +180,16 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
       public:
         using Base = AllEntities<FF, FF>;
         using Base::Base;
-        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
       public:
-        AllValues get_row(const size_t row_idx) const
+        [[nodiscard]] size_t get_polynomial_size() const { return this->Fibonacci_FIRST.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            size_t column_idx = 0; // // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-            for (auto& column : this->_data) {
-                result[column_idx] = column[row_idx];
-                column_idx++;
+            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), pointer_view())) {
+                *result_field = (*polynomial)[row_idx];
             }
             return result;
         }
@@ -205,22 +203,23 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->_data) {
-                poly = Polynomial(circuit_size / 2);
+            for (auto* poly : pointer_view()) {
+                *poly = Polynomial(circuit_size / 2);
             }
         }
     };
 
-    template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    /**
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
+     */
+    template <size_t LENGTH>
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
 
-    class ClaimedEvaluations : public AllEntities<FF, FF> {
-      public:
-        using Base = AllEntities<FF, FF>;
-        using Base::Base;
-        ClaimedEvaluations(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
-    };
+    /**
+     * @brief A container for univariates produced during the hot loop in sumcheck.
+     */
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     class CommitmentLabels : public AllEntities<std::string, std::string> {
       private:
@@ -246,7 +245,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
                             const BaseTranscript<FF>& transcript)
         {
             static_cast<void>(transcript);
-            static_cast<void>(verification_key);
+            Fibonacci_FIRST = verification_key->Fibonacci_FIRST;
+            Fibonacci_LAST = verification_key->Fibonacci_LAST;
         }
     };
 
@@ -254,17 +254,16 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
     class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
-        Commitment Fibonacci_LAST;
-        Commitment Fibonacci_FIRST;
+        uint32_t public_input_size;
+        uint32_t pub_inputs_offset;
+        std::vector<FF> public_inputs;
         Commitment Fibonacci_x;
         Commitment Fibonacci_y;
-        std::vector<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>> sumcheck_univariates;
+        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> gemini_univariate_comms;
-        std::vector<FF> gemini_a_evals;
-        Commitment schplonk_q_comm;
-        Commitment kzg_w_comm;
-        // dont need grumpkin
+        std::vector<Commitment> zm_cq_comms;
+        Commitment zm_cq_comm;
+        Commitment zm_pi_comm;
 
         Transcript() = default;
 
@@ -275,57 +274,49 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class FibFlav
         void deserialize_full_transcript() override
         {
             size_t num_bytes_read = 0;
-            circuit_size = BaseTranscript<FF>::template deserialize_from_buffer<uint32_t>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            Fibonacci_LAST = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            Fibonacci_FIRST = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            Fibonacci_x = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            Fibonacci_y = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
+            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            size_t log_n = numeric::get_msb(circuit_size);
+
+            Fibonacci_x = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            Fibonacci_y = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
 
             for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<
-                                                  barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read));
+                sumcheck_univariates.emplace_back(
+                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                        BaseTranscript<FF>::proof_data, num_bytes_read));
             }
-            sumcheck_evaluations =
-                BaseTranscript<FF>::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n - 1; ++i) {
-                gemini_univariate_comms.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
+            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
+                BaseTranscript<FF>::proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
-                gemini_a_evals.emplace_back(BaseTranscript<FF>::template deserialize_from_buffer<FF>(
-                    BaseTranscript<FF>::proof_data, num_bytes_read));
+                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
             }
-            shplonk_q_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-
-            // NOTE: this diverges from other flavors as we do not support anything other than kzg based schemes
-            kzg_w_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
+            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
 
         void serialize_full_transcript() override
         {
-            size old_proof_length = BaseTranscript<FF>::proof_data.size();
+            size_t old_proof_length = proof_data.size();
             BaseTranscript<FF>::proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
 
-            BaseTranscript<FF>::template serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialise_to_buffer(Fibonacci_LAST, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialise_to_buffer(Fibonacci_FIRST, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialise_to_buffer(Fibonacci_x, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialise_to_buffer(Fibonacci_y, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(Fibonacci_x, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(Fibonacci_y, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
+            }
+            serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
+            for (size_t i = 0; i < log_n; ++i) {
+                serialize_to_buffer(zm_cq_comms[i], proof_data);
+            }
+            serialize_to_buffer(zm_cq_comm, proof_data);
+            serialize_to_buffer(zm_pi_comm, proof_data);
+
+            // sanity check to make sure we generate the same length of proof as before.
+            ASSERT(proof_data.size() == old_proof_length);
         }
     };
 };
-
-class FibFlavor : public FibFlavorBase<grumpkin::g1, curve::BN254, pcs::kzg::KZG<curve::BN254>> {};
-
 } // namespace flavor
 } // namespace proof_system::honk

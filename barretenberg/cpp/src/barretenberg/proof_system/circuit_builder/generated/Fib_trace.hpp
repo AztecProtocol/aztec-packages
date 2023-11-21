@@ -15,14 +15,15 @@ using namespace barretenberg;
 
 namespace proof_system {
 
-template <typename Flavor> class FibTraceBuilder {
+class FibTraceBuilder {
   public:
-    using FF = typename Flavor::FF;
+    using Flavor = proof_system::honk::flavor::FibFlavor;
+    using FF = Flavor::FF;
     using Row = Fib_vm::Row<FF>;
 
     // TODO: tempalte
-    using Polynomial = typename Flavor::Polynomial;
-    using AllPolynomials = typename Flavor::AllPolynomials;
+    using Polynomial = Flavor::Polynomial;
+    using AllPolynomials = Flavor::AllPolynomials;
 
     static constexpr size_t num_fixed_columns = 6;
     static constexpr size_t num_polys = 4;
@@ -36,14 +37,15 @@ template <typename Flavor> class FibTraceBuilder {
         AllPolynomials polys;
 
         // Allocate mem for each column
-        for (size_t i = 0; i < num_fixed_columns; ++i) {
-            polys[i] = Polynomial(num_rows);
+        for (auto* poly : polys.pointer_view()) {
+            *poly = Polynomial(num_rows);
         }
 
         for (size_t i = 0; i < rows.size(); i++) {
             polys.Fibonacci_LAST[i] = rows[i].Fibonacci_LAST;
             polys.Fibonacci_FIRST[i] = rows[i].Fibonacci_FIRST;
             polys.Fibonacci_x[i] = rows[i].Fibonacci_x;
+            // info("Fibonacci_x[i] = ", polys.Fibonacci_x[i]);
             polys.Fibonacci_y[i] = rows[i].Fibonacci_y;
         }
 
@@ -56,10 +58,10 @@ template <typename Flavor> class FibTraceBuilder {
     [[maybe_unused]] bool check_circuit()
     {
         auto polys = compute_polynomials();
-        const size_t num_rows = polys[0].size();
+        const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
-            typename Relation::ArrayOfValuesOverSubrelations result;
+            typename Relation::SumcheckArrayOfValuesOverSubrelations result;
             for (auto& r : result) {
                 r = 0;
             }
@@ -74,6 +76,7 @@ template <typename Flavor> class FibTraceBuilder {
                         throw_or_abort(
                             format("Relation ", relation_name, ", subrelation index ", j, " failed at row ", i));
                         x = false;
+                        info("faily");
                     }
                 }
                 if (!x) {

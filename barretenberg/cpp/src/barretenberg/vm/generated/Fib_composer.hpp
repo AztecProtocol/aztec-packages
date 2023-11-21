@@ -9,14 +9,15 @@
 #include "barretenberg/vm/generated/Fib_verifier.hpp"
 
 namespace proof_system::honk {
-template <typename Flavor> class FibComposer_ {
+class FibComposer {
   public:
-    using CircuitConstructor = FibTraceBuilder<Flavor>;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using PCS = typename Flavor::PCS;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using Flavor = honk::flavor::FibFlavor;
+    using CircuitConstructor = FibTraceBuilder;
+    using ProvingKey = Flavor::ProvingKey;
+    using VerificationKey = Flavor::VerificationKey;
+    using PCS = Flavor::PCS;
+    using CommitmentKey = Flavor::CommitmentKey;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
 
     // TODO: which of these will we really need
     static constexpr std::string_view NAME_STRING = "Fib";
@@ -36,30 +37,26 @@ template <typename Flavor> class FibComposer_ {
     bool contains_recursive_proof = false;
     bool computed_witness = false;
 
-    FibComposer_()
-        requires(std::same_as<Flavor, honk::flavor::FibFlavor>)
-    {
-        crs_factory_ = barretenberg::srs::get_crs_factory();
-    }
+    FibComposer() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
 
-    FibComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    FibComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    FibComposer_(FibComposer_&& other) noexcept = default;
-    FibComposer_(FibComposer_ const& other) noexcept = default;
-    FibComposer_& operator=(FibComposer_&& other) noexcept = default;
-    FibComposer_& operator=(FibComposer_ const& other) noexcept = default;
-    ~FibComposer_() = default;
+    FibComposer(FibComposer&& other) noexcept = default;
+    FibComposer(FibComposer const& other) noexcept = default;
+    FibComposer& operator=(FibComposer&& other) noexcept = default;
+    FibComposer& operator=(FibComposer const& other) noexcept = default;
+    ~FibComposer() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
 
     void compute_witness(CircuitConstructor& circuit_constructor);
 
-    FibProver_<Flavor> create_prover(CircuitConstructor& circuit_constructor);
-    FibVerifier_<Flavor> create_verifier(CircuitConstructor& circuit_constructor);
+    FibProver create_prover(CircuitConstructor& circuit_constructor);
+    FibVerifier create_verifier(CircuitConstructor& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 
@@ -68,8 +65,5 @@ template <typename Flavor> class FibComposer_ {
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
     };
 };
-
-extern template class FibComposer_<honk::flavor::FibFlavor>;
-using FibComposer = FibComposer_<honk::flavor::FibFlavor>;
 
 } // namespace proof_system::honk
