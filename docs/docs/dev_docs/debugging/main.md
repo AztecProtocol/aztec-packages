@@ -29,7 +29,11 @@ debug_log("here")
 Prepend the command to start the sandbox with `DEBUG=aztec:*` to log everything or `DEBUG=aztec:simulator:oracle` to only log your `debug_log()` statements.
 
 ```bash
+# Using the docker-compose.yml setup
 cd ~./aztec && DEBUG=aztec:* docker-compose up
+
+# or if you're using the npm package
+DEBUG=aztec:* aztec-sandbox
 ```
 
 Alternatively you can update the `DEBUG` environment variable in docker-compose.yml and start the sandbox normally.
