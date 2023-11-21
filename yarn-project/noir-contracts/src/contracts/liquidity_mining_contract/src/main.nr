@@ -2,7 +2,10 @@ mod types;
 
 // A demonstration of private liquidity mining.
 contract LiquidityMining {
-    use dep::std::merkle::compute_merkle_root;
+    use dep::std::{
+        merkle::compute_merkle_root,
+        hash::pedersen_hash_with_separator,
+    };
     use dep::aztec::{
         state_vars::{
             map::Map,
@@ -15,7 +18,10 @@ contract LiquidityMining {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        constants_gen::NOTE_HASH_TREE_HEIGHT,
+        constants_gen::{
+            NOTE_HASH_TREE_HEIGHT,
+            GENERATOR_INDEX__BLOCK_HASH,
+        },
         oracle::get_membership_witness::{
             get_membership_witness,
             MembershipWitness,
@@ -82,6 +88,21 @@ contract LiquidityMining {
     ) {
         let balances = storage.balances.at(owner.address);
 
+        // 1.c)
+        // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
+        // TODO: Would make sense to unify the ordering in `HistoricBlockData::serialize` function and the ordering
+        // in the block hash preimage --> This seems to require changes in the circuits.
+        let block_data = context.block_data;
+        let inputs = [
+            block_data.global_variables_hash,
+            block_data.note_hash_tree_root,
+            block_data.nullifier_tree_root,
+            block_data.contract_tree_root,
+            block_data.l1_to_l2_messages_tree_root,
+            block_data.public_data_tree_root
+        ];
+        let block_hash = pedersen_hash_with_separator(inputs, GENERATOR_INDEX__BLOCK_HASH);
+
         // 1.f)
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
@@ -99,7 +120,7 @@ contract LiquidityMining {
         // 1.i)
         // In our test case this should be tree root at the latest block and should correspond to the membership
         // witness we obtain from oracle
-        let note_hash_tree_root = context.block_data.note_hash_tree_root;
+        let note_hash_tree_root = block_data.note_hash_tree_root;
         assert(
             note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path), 
             "Proving membership of a note failed"
