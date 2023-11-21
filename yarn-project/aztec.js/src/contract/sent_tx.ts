@@ -77,16 +77,20 @@ export class SentTx {
       // node or smt like that) or there is some bigger issue with block sync somewhere.
       const blockNum = await this.pxe.getBlockNumber();
       const block = await this.pxe.getBlock(blockNum);
-      const txHashes = [];
-      for (let txIndex = 0; txIndex < block!.numberOfTxs; txIndex++) {
-        const txHash = block!.newNullifiers[MAX_NEW_NULLIFIERS_PER_TX * txIndex];
-        txHashes.push(txHash.toString());
+      if (block) {
+        const txHashes = [];
+        for (let txIndex = 0; txIndex < block!.numberOfTxs; txIndex++) {
+          const txHash = block!.newNullifiers[MAX_NEW_NULLIFIERS_PER_TX * txIndex];
+          txHashes.push(txHash.toString());
+        }
+        throw new Error(
+          `Transaction ${await this.getTxHash()} was ${
+            receipt.status
+          }.\nTx hashes of txs included in the last synced block ${block?.number} are: ${txHashes}`,
+        );
+      } else {
+        throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}. Block ${blockNum} not found.`);
       }
-      throw new Error(
-        `Transaction ${await this.getTxHash()} was ${
-          receipt.status
-        }.\nTx hashes of txs included in the last synced block ${block?.number} are: ${txHashes}`,
-      );
       // ############## Temporary code end ##############
 
       // throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
