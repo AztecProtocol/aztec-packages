@@ -42,9 +42,17 @@ export class SimulatorOracle implements DBOracle {
   async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
     const witness = await this.db.getAuthWitness(messageHash);
     if (!witness) {
-      throw new Error(`Unknown auth witness for message hash ${messageHash.toString(true)}`);
+      throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
     }
     return witness;
+  }
+
+  async popCapsule(): Promise<Fr[]> {
+    const capsule = await this.db.popCapsule();
+    if (!capsule) {
+      throw new Error(`No capsules available`);
+    }
+    return capsule;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {

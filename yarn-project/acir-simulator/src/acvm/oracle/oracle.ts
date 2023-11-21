@@ -6,8 +6,8 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UnencryptedL2Log } from '@aztec/types';
 
-import { ACVMField } from '../acvm.js';
-import { convertACVMFieldToBuffer, fromACVMField } from '../deserialize.js';
+import { ACVMField } from '../acvm_types.js';
+import { fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
   toAcvmCallPrivateStackItem,
@@ -53,6 +53,14 @@ export class Oracle {
       throw new Error(`Authorization not found for message hash ${messageHashField}`);
     }
     return witness.map(toACVMField);
+  }
+
+  async popCapsule(): Promise<ACVMField[]> {
+    const capsule = await this.typedOracle.popCapsule();
+    if (!capsule) {
+      throw new Error(`No capsules available`);
+    }
+    return capsule.map(toACVMField);
   }
 
   async getNotes(
@@ -163,7 +171,7 @@ export class Oracle {
   }
 
   emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+    const logPayload = Buffer.concat(message.map(charBuffer => Fr.fromString(charBuffer).toBuffer().subarray(-1)));
     const log = new UnencryptedL2Log(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(eventSelector)), // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632
