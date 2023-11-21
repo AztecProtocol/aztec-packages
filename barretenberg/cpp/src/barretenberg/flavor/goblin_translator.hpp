@@ -99,7 +99,6 @@ class GoblinTranslator {
                    typename GoblinTranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename GoblinTranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
                    typename GoblinTranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
-    // static_assert(std::same_as<SumcheckTupleOfTuplesOfUnivariates, OtherSumcheckTupleOfTuplesOfUnivariates>);
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:

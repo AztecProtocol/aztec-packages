@@ -93,10 +93,6 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
         return transcript.template receive_from_prover<Commitment>(label);
     };
 
-    // for (auto [commitment, label] : zip_view(commitments.pointer_view(), commitment_labels.pointer_view())){
-    //     *commitment = receive_commitment(*label);
-    // }
-
     commitments.op = receive_commitment(commitment_labels.op);
     commitments.x_lo_y_hi = receive_commitment(commitment_labels.x_lo_y_hi);
     commitments.x_hi_z_1 = receive_commitment(commitment_labels.x_hi_z_1);
