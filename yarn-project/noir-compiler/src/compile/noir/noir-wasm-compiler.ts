@@ -143,7 +143,7 @@ export class NoirWasmContractCompiler {
     initializeResolver(this.#resolveFile);
 
     try {
-      const isContract: boolean = true; // this.#package.getType() === 'contract';
+      const isContract: boolean = true;
       const result = compile(this.#package.getEntryPointPath(), isContract, {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
