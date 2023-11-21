@@ -1,5 +1,5 @@
 /* eslint-disable */
-// GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
+// TODO: Remove this file as we no longer generate types from cpp.
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
