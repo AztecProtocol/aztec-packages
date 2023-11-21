@@ -4,5 +4,6 @@ set -eu
 
 REPOSITORY=$1
 CPUS=$2
+ARCH=${3:-}
 
-cond_spot_run_script $REPOSITORY $CPUS build $REPOSITORY
+cond_spot_run_script $REPOSITORY $CPUS:$ARCH build $REPOSITORY $ARCH
