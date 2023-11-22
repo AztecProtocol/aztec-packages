@@ -185,7 +185,7 @@ impl Deck {
 }
 
 // Limited by number of write requests (max 4)
-global PACK_CARDS = 3;
+global PACK_CARDS = 3; 
 
 pub fn get_pack_cards(
     seed: Field,

@@ -103,5 +103,4 @@ pub fn compute_swap_private_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-
 // docs:end:compute_swap_private_content_hash

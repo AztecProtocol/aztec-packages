@@ -127,5 +127,4 @@ global TransparentNoteMethods = NoteInterface {
     set_header,
     broadcast,
 };
-
 // docs:end:token_types_all

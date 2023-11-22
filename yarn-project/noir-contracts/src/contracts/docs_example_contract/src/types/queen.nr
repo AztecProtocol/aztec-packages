@@ -22,5 +22,4 @@ global QueenSerializationMethods = TypeSerializationInterface {
     deserialize,
     serialize,
 };
-
 // docs:end:state_vars-PublicStateCustomStruct

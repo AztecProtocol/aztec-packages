@@ -32,10 +32,8 @@ contract SlowTree {
     use crate::types::{MembershipProof, deserialize_membership_proof};
 
     global TREE_HEIGHT: Field = 254;
-
     // TREE_HEIGHT + 2
     global MEMBERSHIP_SIZE: Field = 256;
-
     // TREE_HEIGHT * 2 + 4
     global UPDATE_SIZE: Field = 512;
 
