@@ -5,7 +5,6 @@
 
 #include <functional>
 #include <map>
-#include <vector>
 namespace transcript {
 class Transcript;
 }
