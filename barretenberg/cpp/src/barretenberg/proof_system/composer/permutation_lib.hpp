@@ -469,7 +469,7 @@ void compute_standard_plonk_sigma_permutations(const typename Flavor::CircuitBui
  *
  * @param key Proving key where we will save the polynomials
  */
-template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(auto proving_key)
+template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(const auto& proving_key)
 {
     const size_t n = proving_key->circuit_size;
     typename Flavor::Polynomial lagrange_polynomial_0(n);

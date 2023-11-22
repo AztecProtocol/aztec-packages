@@ -87,14 +87,15 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
+        using DataType = DataType_;
         FLAVOR_MEMBERS(DataType,
                        lagrange_first,  // column 0
                        lagrange_second, // column 1
                        lagrange_last);  // column 2
 
-        auto get_selectors() { return get_all(); };
+        DataType get_selectors() { return get_all(); };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };

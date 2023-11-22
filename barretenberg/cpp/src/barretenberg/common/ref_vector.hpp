@@ -82,6 +82,15 @@ template <typename T> class RefVector {
     iterator begin() const { return iterator(this, 0); }
     iterator end() const { return iterator(this, storage.size()); }
 
+    operator std::vector<T>() const
+    {
+        std::vector<T> ret;
+        for (T* elem : storage) {
+            ret.push_back(&elem);
+        }
+        return ret;
+    }
+
   private:
     std::vector<T*> storage;
 };
