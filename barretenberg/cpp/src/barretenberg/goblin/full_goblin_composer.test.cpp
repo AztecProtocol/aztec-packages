@@ -12,6 +12,10 @@ using namespace proof_system::honk;
 
 namespace test_full_goblin_composer {
 
+namespace {
+auto& engine = numeric::random::get_debug_engine();
+}
+
 class FullGoblinComposerTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
