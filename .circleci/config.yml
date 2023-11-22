@@ -106,19 +106,6 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest noir x86_64,arm64
 
-  noir-deploy-dockerhub:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Deploy to dockerhub"
-          command: |
-            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
-            deploy_dockerhub noir x86_64,arm64
-
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -972,7 +959,7 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  e2e-end:
+  end:
     docker:
       - image: cimg/base:2023.09
     resource_class: small
@@ -1015,6 +1002,7 @@ jobs:
           name: "Deploy to dockerhub"
           command: |
             [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
+            deploy_dockerhub noir x86_64,arm64
             deploy_dockerhub pxe x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
             deploy_dockerhub cli x86_64,arm64
@@ -1244,8 +1232,12 @@ workflows:
       # - guides-up-quick-start: *e2e_test
       - bench-publish-rollup: *e2e_test
       - bench-process-history: *e2e_test
-      - e2e-end:
+
+      # Everything that must complete before deployment.
+      - end:
           requires:
+            - mainnet-fork
+            - noir-ecr-manifest
             - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
@@ -1286,19 +1278,15 @@ workflows:
           <<: *defaults
 
       # Production deployment
-      - noir-deploy-dockerhub:
-          requires:
-            - noir-ecr-manifest
-          <<: *defaults
       - deploy-dockerhub:
           requires:
-            - e2e-end
+            - end
           <<: *defaults
       - deploy-npm:
           requires:
-            - e2e-end
+            - end
           <<: *defaults
       - deploy-mainnet-fork:
           requires:
-            - mainnet-fork
+            - end
           <<: *defaults
