@@ -1272,7 +1272,7 @@ workflows:
       # Summarize benchmarks.
       - bench-summary:
           requires:
-            - e2e-end
+            - end
             - bench-publish-rollup
             - bench-process-history
           <<: *defaults
