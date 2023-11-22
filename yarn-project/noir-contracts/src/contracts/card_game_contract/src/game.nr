@@ -31,25 +31,36 @@ struct Game {
 global GAME_SERIALIZED_LEN: Field = 15;
 
 fn deserializeGame(fields: [Field; GAME_SERIALIZED_LEN]) -> Game {
-    let players = [PlayerEntry { address: fields[0], deck_strength: fields[1] as u32, points: fields[2] as u120 },
-        PlayerEntry { address: fields[3], deck_strength: fields[4] as u32, points: fields[5] as u120 }];
-    let rounds_cards = [Card::from_field(fields[6]),
-        Card::from_field(fields[7]),
-        Card::from_field(fields[8]),
-        Card::from_field(fields[9])];
-    Game {
+    let players = [
+        PlayerEntry {
+            address: fields[0],
+            deck_strength: fields[1] as u32,
+            points: fields[2] as u120,
+        },
+        PlayerEntry {
+            address: fields[3],
+            deck_strength: fields[4] as u32,
+            points: fields[5] as u120,
+        },
+    ];
+    let rounds_cards = [
+        Card::from_field(fields[6]), Card::from_field(fields[7]),
+        Card::from_field(fields[8]), Card::from_field(fields[9]),
+    ];
+    Game { 
         players,
         rounds_cards,
         started: fields[10] as bool,
         finished: fields[11] as bool,
         claimed: fields[12] as bool,
         current_player: fields[13] as u32,
-        current_round: fields[14] as u32
+        current_round: fields[14] as u32,
     }
 }
 
 fn serializeGame(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
-    [game.players[0].address,
+    [
+        game.players[0].address,
         game.players[0].deck_strength as Field,
         game.players[0].points as Field,
         game.players[1].address,
@@ -63,7 +74,8 @@ fn serializeGame(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
         game.finished as Field,
         game.claimed as Field,
         game.current_player as Field,
-        game.current_round as Field]
+        game.current_round as Field,
+    ]
 }
 
 impl Game {

@@ -12,10 +12,11 @@ contract ImportTest {
         ManyNotesADeepStructTestCodeGenStruct,
     };
 
+
     #[aztec(private)]
     fn constructor(
     ) {}
-
+ 
     // Calls the testCodeGen on the Test contract at the target address
     // Used for testing calling a function with arguments of multiple types
     // See yarn-project/acir-simulator/src/client/private_execution.ts
@@ -26,13 +27,21 @@ contract ImportTest {
     ) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
         let return_values = test_contract_instance.test_code_gen(
-            &mut context, 1, true, 1 as u32, [1, 2], AStructTestCodeGenStruct { amount: 1, secret_hash: 2 }, ADeepStructTestCodeGenStruct {
-                a_field: 1,
-                a_bool: true,
+            &mut context,
+            1,
+            true,
+            1 as u32,
+            [1, 2],
+            AStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+            ADeepStructTestCodeGenStruct {
+                a_field: 1, 
+                a_bool: true, 
                 a_note: ANoteADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
-                many_notes: [ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                many_notes: [
                     ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
-                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 }]
+                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                    ManyNotesADeepStructTestCodeGenStruct { amount: 1, secret_hash: 2 },
+                ]
             }
         );
 
@@ -48,7 +57,7 @@ contract ImportTest {
     ) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
         let return_values = test_contract_instance.get_this_address(&mut context);
-
+        
         return_values[0]
     }
 
@@ -72,7 +81,7 @@ contract ImportTest {
     ) -> Field {
         let test_contract_instance = TestPublicContextInterface::at(target);
         let ret = test_contract_instance.create_nullifier_public(context, 1, 2);
-
+        
         ret[0]
     }
 }

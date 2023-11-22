@@ -32,10 +32,8 @@ contract SlowTree {
     use crate::types::{MembershipProof, deserialize_membership_proof};
 
     global TREE_HEIGHT: Field = 254;
-    // TREE_HEIGHT + 2
-    global MEMBERSHIP_SIZE: Field = 256;
-    // TREE_HEIGHT * 2 + 4
-    global UPDATE_SIZE: Field = 512;
+    global MEMBERSHIP_SIZE: Field = 256; // TREE_HEIGHT + 2
+    global UPDATE_SIZE: Field = 512; // TREE_HEIGHT * 2 + 4
 
     global EMPTY_ROOT: Field = 5785871043333994658400733180052743689641713274194136017445890613179954325976;
 
@@ -86,7 +84,11 @@ contract SlowTree {
 
         let expected_root = compute_merkle_root(p.value, p.index, p.sibling_path);
         let selector = compute_selector("_assert_current_root(Field,Field)");
-        context.call_public_function(context.this_address(), selector, [context.msg_sender(), expected_root]);
+        context.call_public_function(
+            context.this_address(), 
+            selector, 
+            [context.msg_sender(), expected_root]
+        );
 
         p.value
     }
@@ -116,7 +118,16 @@ contract SlowTree {
 
         let selector = compute_selector("_update(Field,Field,Field,Field,Field,Field)");
         context.call_public_function(
-            context.this_address(), selector, [context.msg_sender(), p.index, p.new_value, before_root, after_root, new_after_root]
+            context.this_address(), 
+            selector, 
+            [
+                context.msg_sender(), 
+                p.index, 
+                p.new_value, 
+                before_root, 
+                after_root, 
+                new_after_root
+            ]
         );
     }
 
@@ -135,7 +146,11 @@ contract SlowTree {
         assert(current_root == before, "Before root does not match expected");
         assert(after_root == after, "After root does not match expected");
 
-        storage.trees.at(caller).update_unsafe_at(index, new_value, new_root);
+        storage.trees.at(caller).update_unsafe_at(
+            index,
+            new_value,
+            new_root,
+        );
     }
 
     unconstrained fn un_read_leaf_at(address: Field, key: Field) -> Leaf {

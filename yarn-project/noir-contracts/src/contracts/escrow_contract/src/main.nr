@@ -39,15 +39,15 @@ contract Escrow {
         owner: pub Field
     ) {
         let this = context.this_address();
-
+        
         // Create a new note and add it to the owners set.
         let mut note = AddressNote::new(owner, this);
 
         // Insert the owner into storage
         storage.owners.insert(&mut note, true);
     }
-
     // docs:end:constructor
+
     // Withdraws balance. Requires that msg.sender is registered as an owner.
     #[aztec(private)]
     fn withdraw(
@@ -64,7 +64,11 @@ contract Escrow {
         assert(notes[0].is_some(), "Sender is not an owner.");
 
         let selector = compute_selector("transfer((Field),(Field),Field,Field)");
-        let _callStackItem = context.call_private_function(token, selector, [this, recipient, amount, 0]);
+        let _callStackItem = context.call_private_function(
+            token,
+            selector,
+            [this, recipient, amount, 0]
+        );
     }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {

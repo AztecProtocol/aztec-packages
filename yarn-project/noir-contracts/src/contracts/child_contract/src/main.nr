@@ -28,7 +28,7 @@ contract Child {
     }
 
     #[aztec(private)]
-    fn constructor() {}
+    fn constructor()  {}
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     #[aztec(private)]
@@ -63,15 +63,17 @@ contract Child {
     // Sets `current_value` to `new_value`
     #[aztec(public)]
     fn pubSetValue(new_value: Field) -> Field {
+        
         storage.current_value.write(new_value);
         emit_unencrypted_log(&mut context, new_value);
-
+        
         new_value
     }
 
     // Increments `current_value` by `new_value`
     #[aztec(public)]
     fn pubIncValue(new_value: Field) -> Field {
+        
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         emit_unencrypted_log(&mut context, new_value);
@@ -82,11 +84,12 @@ contract Child {
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[aztec(public)] 
     fn pubIncValueInternal(new_value: Field) -> Field {
+        
         check_sender(inputs.call_context);
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         emit_unencrypted_log(&mut context, new_value);
-
+        
         new_value
     }
 
@@ -95,12 +98,14 @@ contract Child {
         let pubSetValueSelector = compute_selector("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
 
+        
         storage.current_value.write(20);
         emit_unencrypted_log(&mut context, 20);
     }
 
     #[aztec(public)]
     fn setValueTwiceWithNestedLast() {
+        
         storage.current_value.write(20);
         emit_unencrypted_log(&mut context, 20);
 

@@ -88,7 +88,6 @@ contract Parent {
     ) {
         // Enqueue the first public call
         context.call_public_function(targetContract, targetSelector, [targetValue]);
-
         // Enqueue the second public call
         context.call_public_function(targetContract, targetSelector, [targetValue + 1]);
     }
@@ -114,7 +113,7 @@ contract Parent {
     ) {
         let pubEntryPointSelector = compute_selector("pubEntryPoint(Field,Field,Field)");
         let thisAddress = context.this_address();
-
+        
         context.call_public_function(thisAddress, pubEntryPointSelector, [targetContract, targetSelector, targetValue]);
 
         context.call_public_function(thisAddress, pubEntryPointSelector, [targetContract, targetSelector, targetValue + 1]);

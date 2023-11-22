@@ -41,6 +41,7 @@ contract PendingCommitments {
 
     // TODO(dbanks12): consolidate code into internal helper functions
     // (once Noir's support for this is more robust)
+
     #[aztec(private)]
     fn constructor() {}
 
@@ -52,6 +53,8 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) -> Field {
+        
+
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
@@ -59,7 +62,6 @@ contract PendingCommitments {
         owner_balance.insert(&mut note, true);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
-
         // get note inserted above
         let maybe_notes = owner_balance.get_notes(options);
 
@@ -78,10 +80,11 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) -> Field {
+        
+
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
-
         // get note (note inserted at bottom of function shouldn't exist yet)
         let maybe_notes = owner_balance.get_notes(options);
 
@@ -108,6 +111,8 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
+        
+
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
@@ -121,6 +126,8 @@ contract PendingCommitments {
         expected_value: Field,
         owner: Field,
     ) -> Field {
+        
+
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::new().set_limit(1);
@@ -138,6 +145,8 @@ contract PendingCommitments {
     fn get_note_zero_balance(
         owner: Field,
     ) {
+        
+
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::new();
@@ -160,11 +169,9 @@ contract PendingCommitments {
     ) {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, [amount, owner]);
-
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, [amount, owner]);
-
-        // nested call to confirm that balance is zero
+         // nested call to confirm that balance is zero
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
     }
 
@@ -182,7 +189,6 @@ contract PendingCommitments {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
         let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
-
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
         let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
@@ -205,7 +211,6 @@ contract PendingCommitments {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
         let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
-
         // nested call to read and nullify that note
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
     }
@@ -226,7 +231,6 @@ contract PendingCommitments {
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
-
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
@@ -248,6 +252,7 @@ contract PendingCommitments {
     //    get_then_nullify_fn_selector: Field,
     //) {
     //}
+
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.

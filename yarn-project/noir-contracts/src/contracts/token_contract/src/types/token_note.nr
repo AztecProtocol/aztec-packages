@@ -19,8 +19,7 @@ use dep::aztec::oracle::{
 use dep::safe_math::SafeU120;
 use dep::std::option::Option;
 
-// 3 plus a header.
-global TOKEN_NOTE_LEN: Field = 3;
+global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
 struct TokenNote {
     // the amount of tokens in the note

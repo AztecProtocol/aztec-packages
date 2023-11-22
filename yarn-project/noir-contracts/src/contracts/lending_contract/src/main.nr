@@ -107,19 +107,20 @@ contract Lending {
         collateral_asset: Field,
         stable_coin: Field,
     ) -> Field {
+        
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
 
-        assert(loan_to_value as u120 <= 10000);
-        assert(asset.last_updated_ts == 0);
-        assert(asset.interest_accumulator == 0);
+        assert (loan_to_value as u120 <= 10000);
+        assert (asset.last_updated_ts == 0);
+        assert (asset.interest_accumulator == 0);
 
         asset_loc.write(Asset {
-                interest_accumulator: 1000000000,
-                last_updated_ts: context.timestamp() as u120,
-                loan_to_value: loan_to_value as u120,
-                oracle_address
-            });
+            interest_accumulator: 1000000000,
+            last_updated_ts: context.timestamp() as u120,
+            loan_to_value: loan_to_value as u120,
+            oracle_address,
+        });
 
         storage.collateral_asset.write(collateral_asset);
         storage.stable_coin.write(stable_coin);
@@ -130,17 +131,17 @@ contract Lending {
     // Create a position.
     #[aztec(public)]
     fn update_accumulator() -> Asset {
+        
+
         let asset_loc = storage.assets.at(0);
         let mut asset = asset_loc.read();
 
-        let dt: SafeU120 = SafeU120 { value: context.timestamp() as u120 }.sub(SafeU120 { value: asset.last_updated_ts });
+        let dt: SafeU120 = SafeU120{value: context.timestamp() as u120}.sub(SafeU120{value: asset.last_updated_ts});
 
         // Only update if time has passed.
         if (!dt.is_zero()) {
-            let precision: SafeU120 = SafeU120 { value: 1000000000 };
-            let rate_per_second: u120 = 1268391679;
-
-            // 4% yearly rate / (60 * 60 * 24 * 365)
+            let precision: SafeU120 = SafeU120{value: 1000000000};
+            let rate_per_second: u120 = 1268391679; // 4% yearly rate / (60 * 60 * 24 * 365)
             // if rate_per_second < sqrt(WAD) our approx is eq precision + rate * dt
             let multiplier = compute_multiplier(rate_per_second, dt);
 
@@ -165,7 +166,6 @@ contract Lending {
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
         let _res = Token::at(collateral_asset).unshield(&mut context, from, context.this_address(), amount, nonce);
-
         // _deposit(on_behalf_of, amount, collateral_asset)
         let selector = compute_selector("_deposit(Field,Field,Field)");
         let _callStackItem2 = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
@@ -181,7 +181,7 @@ contract Lending {
         Token::at(collateral_asset).transfer_public(context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_deposit(Field,Field,Field)");
         let return_values = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
-
+        
         return_values[0]
     }
 
@@ -192,6 +192,7 @@ contract Lending {
         collateral_asset: Field,
     ) -> Field {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
+        
 
         let coll_asset = storage.collateral_asset.read();
         assert(coll_asset == collateral_asset);
@@ -233,6 +234,8 @@ contract Lending {
     ) -> Field {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
+        
+        
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -245,7 +248,7 @@ contract Lending {
         let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral as u120, 0, amount as u120);
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt as u120, 0, 0);
 
-        assert(debt_returns.debt_value < debt_covered);
+        assert (debt_returns.debt_value < debt_covered);
 
         coll_loc.write(collateral - amount);
 
@@ -274,7 +277,7 @@ contract Lending {
     ) -> Field {
         let selector = compute_selector("_borrow(Field,Field,Field)");
         let return_values = context.call_public_function(context.this_address(), selector, [context.msg_sender(), to, amount]);
-
+        
         return_values[0]
     }
 
@@ -286,6 +289,8 @@ contract Lending {
     ) -> Field {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
+        
+        
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = storage.collateral.at(owner).read() as u120;
@@ -294,7 +299,7 @@ contract Lending {
         let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0, 0);
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount as u120, 0);
 
-        assert(debt_returns.debt_value < debt_covered);
+        assert (debt_returns.debt_value < debt_covered);
 
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
 
@@ -330,7 +335,7 @@ contract Lending {
         Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, stable_coin]);
-
+        
         return_values[0]
     }
 
@@ -341,6 +346,7 @@ contract Lending {
         stable_coin: Field,
     ) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
+        
 
         // To ensure that private is using the correct token.
         assert(stable_coin == storage.stable_coin.read());
@@ -349,27 +355,30 @@ contract Lending {
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0, amount as u120);
 
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
-
+        
         1
     }
 
     unconstrained fn get_asset(
         assetId: Field,
     ) -> Asset {
+        
         storage.assets.at(assetId).read()
     }
 
     unconstrained fn get_position(
         owner: Field,
     ) -> Position {
+        
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();
         let debt = debt_value(static_debt as u120, asset.interest_accumulator as u120) as Field;
-        Position { collateral, static_debt, debt }
+        Position {collateral, static_debt, debt}
     }
 
     unconstrained fn get_assets() -> [Field; 2] {
+        
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 
