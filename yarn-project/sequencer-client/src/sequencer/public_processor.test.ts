@@ -26,7 +26,16 @@ import {
   makeSelector,
 } from '@aztec/circuits.js/factories';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { ExtendedContractData, FunctionCall, FunctionL2Logs, SiblingPath, SimulationError, Tx, TxL2Logs, mockTx } from '@aztec/types';
+import {
+  ExtendedContractData,
+  FunctionCall,
+  FunctionL2Logs,
+  SiblingPath,
+  SimulationError,
+  Tx,
+  TxL2Logs,
+  mockTx,
+} from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -133,7 +142,7 @@ describe('public_processor', () => {
         GlobalVariables.empty(),
         HistoricBlockData.empty(),
         publicContractsDB,
-        publicWorldStateDB
+        publicWorldStateDB,
       );
     });
 

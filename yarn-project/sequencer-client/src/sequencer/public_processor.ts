@@ -44,6 +44,7 @@ import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
+import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
@@ -51,7 +52,6 @@ import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '.
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
-import { getVerificationKeys } from '../index.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -78,12 +78,7 @@ export class PublicProcessorFactory {
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
-    const publicExecutor = new PublicExecutor(
-      worldStatePublicDB,
-      publicContractsDB,
-      worldStateDB,
-      blockData,
-    );
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, blockData);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,

@@ -1,13 +1,11 @@
-import {
-    AztecAddress,
-  Fr,
-} from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
+
 import { WorldStatePublicDB } from './public_executor.js';
-import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 
 const DB_VALUES_SIZE = 10;
 
@@ -23,23 +21,22 @@ describe('world_state_public_db', () => {
     slots = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
     dbValues = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
     const publicData = new Map<bigint, Buffer>(
-        Array(DB_VALUES_SIZE).fill(0).map((_, idx: number) => {
-            const index = computePublicDataTreeIndex(addresses[idx], slots[idx]);
-            return [index.toBigInt(), dbValues[idx].toBuffer()];
-        })
+      Array(DB_VALUES_SIZE)
+        .fill(0)
+        .map((_, idx: number) => {
+          const index = computePublicDataTreeIndex(addresses[idx], slots[idx]);
+          return [index.toBigInt(), dbValues[idx].toBuffer()];
+        }),
     );
-    dbStorage = new Map<number, Map<bigint, Buffer>>([[
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        publicData,
-    ]]);
+    dbStorage = new Map<number, Map<bigint, Buffer>>([[MerkleTreeId.PUBLIC_DATA_TREE, publicData]]);
     db = mock<MerkleTreeOperations>();
     db.getLeafValue.mockImplementation((treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> => {
-        const tree = dbStorage.get(treeId);
-        if (!tree) {
-            throw new Error('Invalid Tree Id');
-        }
-        return Promise.resolve(tree.get(index));
-    })
+      const tree = dbStorage.get(treeId);
+      if (!tree) {
+        throw new Error('Invalid Tree Id');
+      }
+      return Promise.resolve(tree.get(index));
+    });
   });
 
   it('reads unwritten value from merkle tree db', async function () {
@@ -47,7 +44,6 @@ describe('world_state_public_db', () => {
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(dbValues[0]);
     expect(await publicStateDb.storageRead(addresses[1], slots[1])).toEqual(dbValues[1]);
   });
-
 
   it('reads uncommitted value back', async function () {
     const publicStateDb = new WorldStatePublicDB(db);

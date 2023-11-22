@@ -1,9 +1,4 @@
-import {
-  CommitmentsDB,
-  MessageLoadOracleInputs,
-  PublicContractsDB,
-  PublicStateDB,
-} from '@aztec/acir-simulator';
+import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/acir-simulator';
 import { AztecAddress, EthAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { ContractDataSource, ExtendedContractData, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
@@ -128,7 +123,7 @@ export class WorldStatePublicDB implements PublicStateDB {
    * @returns Nothing.
    */
   rollback(): Promise<void> {
-    this.uncommitedWriteCache = new Map<bigint,Fr>();
+    this.uncommitedWriteCache = new Map<bigint, Fr>();
     return Promise.resolve();
   }
 }
