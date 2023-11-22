@@ -424,17 +424,6 @@ jobs:
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build cli false arm64
 
-  aztec-p2p-bootstrap:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build p2p-bootstrap | add_timestamps
-
   aztec-node:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1212,11 +1201,6 @@ workflows:
             - yarn-project
           <<: *defaults
       - cli-arm64:
-          requires:
-            - yarn-project
-          <<: *defaults
-
-      - aztec-p2p-bootstrap:
           requires:
             - yarn-project
           <<: *defaults

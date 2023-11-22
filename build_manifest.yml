@@ -145,12 +145,6 @@ end-to-end:
   runDependencies:
     - aztec-sandbox
 
-p2p-bootstrap:
-  buildDir: yarn-project
-  projectDir: yarn-project/p2p-bootstrap
-  dependencies:
-    - yarn-project
-
 mainnet-fork:
   buildDir: iac/mainnet-fork
   projectDir: iac/mainnet-fork
