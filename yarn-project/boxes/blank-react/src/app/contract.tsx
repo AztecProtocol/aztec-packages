@@ -1,11 +1,10 @@
+import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
+import { AztecAddress, CompleteAddress, FunctionArtifact } from '@aztec/aztec.js';
+import { ReactNode, useState } from 'react';
 import { contractArtifact } from '../config.js';
 import { Copy } from './components/copy.js';
 import { ContractFunctionForm, Popup } from './components/index.js';
 import styles from './contract.module.scss';
-import { Button, ButtonSize, ButtonTheme, Card, CardTheme, ImageButton, ImageButtonIcon } from '@aztec/aztec-ui';
-import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
-import { FunctionArtifact } from '@aztec/foundation/abi';
-import { ReactNode, useState } from 'react';
 
 const functionTypeSortOrder = {
   secret: 0,
