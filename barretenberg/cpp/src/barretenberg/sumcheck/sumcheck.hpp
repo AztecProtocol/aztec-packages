@@ -1,9 +1,5 @@
 #pragma once
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -73,11 +69,11 @@ template <typename Flavor> class SumcheckProver {
      *
      * @details
      */
-    SumcheckOutput<Flavor> prove(
-        ProverPolynomials full_polynomials,
-        const proof_system::RelationParameters<FF>& relation_parameters) // pass by value, not by reference
+    SumcheckOutput<Flavor> prove(ProverPolynomials full_polynomials,
+                                 const proof_system::RelationParameters<FF>& relation_parameters,
+                                 FF alpha) // pass by value, not by reference
     {
-        auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
+        auto zeta = transcript.get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
 
@@ -126,7 +122,7 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
     {
-        return prove(instance->prover_polynomials, instance->relation_parameters);
+        return prove(instance->prover_polynomials, instance->relation_parameters, instance->alpha);
     };
 
     /**
@@ -201,11 +197,13 @@ template <typename Flavor> class SumcheckVerifier {
      * @param relation_parameters
      * @param transcript
      */
-    SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters, auto& transcript)
+    SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
+                                  FF alpha,
+                                  auto& transcript)
     {
         bool verified(true);
 
-        auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
+        auto zeta = transcript.get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
         // All but final round.
