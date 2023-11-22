@@ -375,7 +375,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
   return new PublicCallRequest(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false, false, false),
-    makeCallContext(seed + 0x2),
+    makeCallContext(seed + 0x2, makeAztecAddress(seed)),
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }

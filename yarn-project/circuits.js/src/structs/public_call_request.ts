@@ -106,7 +106,9 @@ export class PublicCallRequest {
    */
   toCallStackItem() {
     const item = this.toPublicCallStackItem();
-    return new CallStackItem(item.hash(), this.contractAddress, item.publicInputs.callContext);
+    const callerContractAddress = this.callContext.msgSender;
+    const callerContext = this.callContext.isDelegateCall ? this.callContext : CallContext.empty();
+    return new CallStackItem(item.hash(), callerContractAddress, callerContext);
   }
 
   /**
