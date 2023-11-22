@@ -1230,16 +1230,12 @@ workflows:
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
       # - guides-up-quick-start: *e2e_test
-      - bench-publish-rollup: *e2e_test
-      - bench-process-history: *e2e_test
 
       # Everything that must complete before deployment.
       - end:
           requires:
             - mainnet-fork
             - noir-ecr-manifest
-            - bench-publish-rollup
-            - bench-process-history
             - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
@@ -1271,10 +1267,13 @@ workflows:
             # - guides-up-quick-start
           <<: *defaults
 
-      # Summarize benchmarks.
+      # Benchmark jobs.
+      - bench-publish-rollup: *e2e_test
+      - bench-process-history: *e2e_test
       - bench-summary:
           requires:
-            - end
+            - bench-publish-rollup
+            - bench-process-history
           <<: *defaults
 
       # Production deployment
