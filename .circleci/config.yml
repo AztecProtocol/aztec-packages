@@ -564,17 +564,6 @@ jobs:
           name: "Test via adhoc script"
           command: ./yarn-project/boxes/run_tests token
 
-  canary:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build canary-build
-
   end-to-end:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1118,10 +1107,6 @@ workflows:
           requires:
             - yarn-project
           <<: *defaults
-      - canary:
-          requires:
-            - yarn-project
-          <<: *defaults
       - build-docs:
           requires:
             - yarn-project
@@ -1199,7 +1184,6 @@ workflows:
           requires:
             - end-to-end
             - ecr-manifest
-            - canary
           <<: *defaults
       - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test

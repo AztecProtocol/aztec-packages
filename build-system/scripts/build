@@ -60,10 +60,11 @@ echo "Content hash: $CONTENT_HASH"
 cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
-# if check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
-#   echo "No rebuild necessary."
-#   exit 0
-# fi
+IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
+if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
+  echo "No rebuild necessary."
+  exit 0
+fi
 
 echo "Initializing submodules..."
 init_submodules $REPOSITORY
@@ -89,7 +90,15 @@ fi
 for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   PARENT_IMAGE_URI=$(calculate_image_uri $PARENT_REPO)
   echo "Pulling dependency $PARENT_IMAGE_URI..."
-  fetch_image $PARENT_IMAGE_URI
+  if ! fetch_image $PARENT_IMAGE_URI; then
+    # This is a *bit* of a hack maybe. Some of our arm images can be built from x86 dependents.
+    # e.g. node projects are architecture independent.
+    # This may not hold true if we start introducing npm modules that are backed by native code.
+    # But for now, to avoid building some projects twice, we can fallback onto x86 variant.
+    PARENT_IMAGE_URI=$(calculate_image_uri $PARENT_REPO x86_64)
+    echo "Falling back onto x86 build. Pulling dependency $PARENT_IMAGE_URI..."
+    fetch_image $PARENT_IMAGE_URI
+  fi
   # Tag it to look like an official release as that's what we use in Dockerfiles.
   TAG=$ECR_DEPLOY_URL/$PARENT_REPO
   docker tag $PARENT_IMAGE_URI $TAG
