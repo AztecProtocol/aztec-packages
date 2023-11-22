@@ -489,7 +489,9 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy mainnet fork"
-          command: deploy_ecr mainnet-fork
+          command: |
+            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
+            deploy_ecr mainnet-fork
 
   aztec-faucet:
     machine:
@@ -1103,10 +1105,6 @@ workflows:
       - l1-contracts: *defaults
 
       - mainnet-fork: *defaults
-      - deploy-mainnet-fork:
-          requires:
-            - mainnet-fork
-          <<: *deploy_defaults
 
       # Yarn Project
       - yarn-project-base:
@@ -1299,4 +1297,8 @@ workflows:
       - deploy-npm:
           requires:
             - e2e-end
+          <<: *defaults
+      - deploy-mainnet-fork:
+          requires:
+            - mainnet-fork
           <<: *defaults
