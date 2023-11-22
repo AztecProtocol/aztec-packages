@@ -28,9 +28,7 @@ TEST(Flavor, Getters)
     EXPECT_EQ(proving_key.id_2[0], FF(4));
     EXPECT_EQ(proving_key.id_3[0], FF(8));
 
-    Flavor::VerificationKey verification_key;
     Flavor::ProverPolynomials prover_polynomials;
-    Flavor::AllValues evals;
     Flavor::CommitmentLabels commitment_labels;
 
     // Globals are also available through STL container sizes
