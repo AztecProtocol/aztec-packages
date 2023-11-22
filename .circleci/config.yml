@@ -467,8 +467,8 @@ jobs:
       - run:
           name: "Create ECR manifest"
           command: |
-            create_manifest aztec-sandbox x86_64,arm64
-            create_manifest cli x86_64,arm64
+            create_ecr_manifest aztec-sandbox x86_64,arm64
+            create_ecr_manifest cli x86_64,arm64
 
   boxes-blank-react:
     machine:
