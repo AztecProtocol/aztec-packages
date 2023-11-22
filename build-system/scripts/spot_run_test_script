@@ -14,4 +14,4 @@ set -o pipefail
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
-spot_run_script $CONTENT_HASH 32 $SCRIPT_PATH $@ | tee "/tmp/test-logs/$JOB_NAME.log"
+spot_run_script $CONTENT_HASH:$JOB_NAME 32 $SCRIPT_PATH $@ | tee "/tmp/test-logs/$JOB_NAME.log"

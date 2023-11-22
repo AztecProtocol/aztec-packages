@@ -86,7 +86,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build noir 32 x86_64
+          command: cond_spot_run_build noir 32
 
   noir-arm64:
     docker:
@@ -97,7 +97,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build noir 32 arm64
+          command: cond_spot_run_build noir 32
 
   noir-ecr-manifest:
     machine:
@@ -119,10 +119,7 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy to dockerhub"
-          command: |
-            deploy_dockerhub noir x86_64
-            deploy_dockerhub noir arm64
-            create_dockerhub_manifest noir x86_64,arm64
+          command: deploy_dockerhub noir x86_64,arm64
 
   # Barretenberg
   barretenberg-wasm-linux-clang:
@@ -430,7 +427,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build aztec-sandbox x86_64
+          command: build aztec-sandbox
 
   aztec-sandbox-arm64:
     machine:
@@ -445,7 +442,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build aztec-sandbox arm64
+            build aztec-sandbox
 
   cli-x86_64:
     machine:
@@ -456,7 +453,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build cli x86_64
+          command: build cli
 
   cli-arm64:
     machine:
@@ -471,7 +468,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build cli arm64
+            build cli
 
   aztec-p2p-bootstrap:
     machine:
@@ -537,7 +534,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build pxe x86_64
+          command: build pxe
 
   pxe-arm64:
     machine:
@@ -552,7 +549,7 @@ jobs:
           # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
           command: |
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build pxe arm64
+            build pxe
 
   ecr-manifest:
     machine:
@@ -1036,7 +1033,10 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy to dockerhub"
-          command: yarn-project/deploy_dockerhub.sh
+          command: |
+            deploy_dockerhub pxe x86_64,arm64
+            deploy_dockerhub aztec-sandbox x86_64,arm64
+            deploy_dockerhub cli x86_64,arm64
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/

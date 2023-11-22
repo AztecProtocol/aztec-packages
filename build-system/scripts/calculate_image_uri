@@ -3,5 +3,6 @@
 set -eu
 
 REPOSITORY=$1
+ARCH=${2:-$(uname -m)}
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
-echo "$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH"
+echo "$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$ARCH"
