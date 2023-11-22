@@ -58,7 +58,7 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
  * @tparam Flavor provides the circuit constructor type and the number of wires.
  * @param circuit_builder
  * @param dyadic_circuit_size Power of 2 circuit size
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/783) Optimize memory operatations.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/783) Optimize memory operations.
  * @return std::vector<Polynomial>
  * */
 

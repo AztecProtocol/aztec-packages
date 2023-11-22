@@ -270,7 +270,7 @@ void GoblinTranslatorProver::execute_wire_and_sorted_constraints_commitments_rou
 }
 
 /**
- * @brief Compute permutation and lookup grand product polynomials and commitments
+ * @brief Compute permutation product polynomial and commitments
  *
  */
 void GoblinTranslatorProver::execute_grand_product_computation_round()
