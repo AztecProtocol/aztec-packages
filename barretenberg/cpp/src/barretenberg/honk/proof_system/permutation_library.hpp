@@ -185,12 +185,14 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
+    // TODO(AD): use polynomial here, see https://github.com/AztecProtocol/barretenberg/issues/743
+    // RefVector makes this now redundant.
     using PolynomialHandle = typename Flavor::PolynomialHandle;
     // Concatenation groups are vectors of polynomials that are concatenated together
-    std::vector<std::vector<PolynomialHandle>> concatenation_groups = proving_key->get_concatenation_groups();
+    std::vector<RefVector<PolynomialHandle>> concatenation_groups = proving_key->get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    std::vector<PolynomialHandle> targets = proving_key->get_concatenated_constraints();
+    RefVector<PolynomialHandle> targets = proving_key->get_concatenated_constraints();
 
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated

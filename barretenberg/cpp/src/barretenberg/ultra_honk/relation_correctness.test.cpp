@@ -390,7 +390,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     ProverPolynomials prover_polynomials;
     std::vector<Polynomial> polynomial_container;
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
         *polynomial_pointer_view[i] = polynomial_container[i];
@@ -511,7 +511,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
 
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
     // Allocate polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
         *polynomial_pointer_view[i] = polynomial_container[i];
@@ -607,7 +607,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_id_pointer_view.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
@@ -623,7 +623,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     }
     // Assign spans to non-shifted prover polynomials
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         if (!shifted_id_set.contains(i)) {
             *polynomial_pointer_view[i] = polynomial_container[i];
         }
@@ -706,7 +706,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     std::vector<size_t> polynomial_ids;
     auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_id_pointer_view.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
@@ -721,7 +721,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
         shifted_id_set.emplace(id);
     }
     // Assign spans to non-shifted prover polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         if (!shifted_id_set.contains(i)) {
             *polynomial_pointer_view[i] = polynomial_container[i];
         }
@@ -1125,7 +1125,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     std::vector<size_t> polynomial_ids;
     auto polynomial_pointer_view = prover_polynomials.pointer_view();
     auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
@@ -1140,7 +1140,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
         shifted_id_set.emplace(id);
     }
     // Assign spans to non-shifted prover polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_pointer_view.size(); i++) {
         if (!shifted_id_set.contains(i)) {
             *polynomial_pointer_view[i] = polynomial_container[i];
         }

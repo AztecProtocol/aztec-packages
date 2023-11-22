@@ -42,14 +42,22 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
     DEFINE_POINTER_VIEW(__VA_ARGS__)                                                                                   \
     DEFINE_REF_VIEW(__VA_ARGS__)
 
-// #define DEFINE_COMPOUND_REF_VIEW(...)                                                                                  \
-//     [[nodiscard]] auto get_all()                                                                                       \
-//     {                                                                                                                  \
-//         return concatenate_ref_vectors(__VA_ARGS__);                                                                   \
-//     }                                                                                                                  \
-//     [[nodiscard]] auto get_all() const                                                                                 \
-//     {                                                                                                                  \
-//         return concatenate_ref_vectors(__VA_ARGS__);                                                                   \
-//     }
+#define DEFINE_COMPOUND_POINTER_VIEW(...)                                                                              \
+    [[nodiscard]] auto pointer_view()                                                                                  \
+    {                                                                                                                  \
+        return concatenate(__VA_ARGS__);                                                                               \
+    }                                                                                                                  \
+    [[nodiscard]] auto pointer_view() const                                                                            \
+    {                                                                                                                  \
+        return concatenate(__VA_ARGS__);                                                                               \
+    }
 
-// #define FLAVOR_COMPOUND_DEFINITION(...) DEFINE_COMPOUND_REF_VIEW(__VA_ARGS__)
+#define DEFINE_COMPOUND_GET_ALL(...)                                                                                   \
+    [[nodiscard]] auto get_all()                                                                                       \
+    {                                                                                                                  \
+        return concatenate(__VA_ARGS__);                                                                               \
+    }                                                                                                                  \
+    [[nodiscard]] auto get_all() const                                                                                 \
+    {                                                                                                                  \
+        return concatenate(__VA_ARGS__);                                                                               \
+    }

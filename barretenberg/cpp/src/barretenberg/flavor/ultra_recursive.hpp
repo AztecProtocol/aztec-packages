@@ -95,10 +95,9 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities {
+    class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        FLAVOR_MEMBERS(NUM_PRECOMPUTED_ENTITIES,
-                       DataType,
+        FLAVOR_MEMBERS(DataType,
                        q_m,            // column 0
                        q_c,            // column 1
                        q_l,            // column 2
@@ -125,12 +124,12 @@ template <typename BuilderType> class UltraRecursive_ {
                        lagrange_first, // column 23
                        lagrange_last); // column 24
 
-        RefVector<DataType> get_selectors() override
+        RefVector<DataType> get_selectors()
         {
             return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
         };
-        RefVector<DataType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        RefVector<DataType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
 
         RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
     };
@@ -141,8 +140,7 @@ template <typename BuilderType> class UltraRecursive_ {
      */
     template <typename DataType> class WitnessEntities {
       public:
-        FLAVOR_MEMBERS(NUM_WITNESS_ENTITIES,
-                       DataType,
+        FLAVOR_MEMBERS(DataType,
                        w_l,          // column 0
                        w_r,          // column 1
                        w_o,          // column 2
@@ -173,8 +171,7 @@ template <typename BuilderType> class UltraRecursive_ {
      */
     template <typename DataType> class AllEntities {
       public:
-        FLAVOR_MEMBERS(NUM_ALL_ENTITIES,
-                       DataType,
+        FLAVOR_MEMBERS(DataType,
                        q_c,                // column 0
                        q_l,                // column 1
                        q_r,                // column 2
@@ -222,7 +219,7 @@ template <typename BuilderType> class UltraRecursive_ {
 
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
-        RefVector<DataType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
             return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
                      q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
@@ -231,11 +228,11 @@ template <typename BuilderType> class UltraRecursive_ {
 
             };
         };
-        RefVector<DataType> get_to_be_shifted() override
+        RefVector<DataType> get_to_be_shifted()
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
         };
-        RefVector<DataType> get_shifted() override
+        RefVector<DataType> get_shifted()
         {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
@@ -431,7 +428,7 @@ template <typename BuilderType> class UltraRecursive_ {
          * the structure. Must be called in order to access the structure of the proof.
          *
          */
-        void deserialize_full_transcript() override
+        void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
@@ -469,7 +466,7 @@ template <typename BuilderType> class UltraRecursive_ {
          * deserialize_full_transcript() was called and some transcript variable was modified.
          *
          */
-        void serialize_full_transcript() override
+        void serialize_full_transcript()
         {
             size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
             BaseTranscript<FF>::proof_data.clear(); // clear proof_data so the rest of the function can replace it

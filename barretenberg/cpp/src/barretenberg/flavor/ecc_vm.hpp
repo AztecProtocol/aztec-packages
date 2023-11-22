@@ -201,15 +201,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <typename DataType>
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
-        RefVector<DataType> get_all()
-        {
-            return concatenate(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all());
-        }
-        auto pointer_view()
-        {
-            return concatenate(WireEntities<DataType>::pointer_view(),
-                               DerivedWitnessEntities<DataType>::pointer_view());
-        }
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
+        DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
+                                     DerivedWitnessEntities<DataType>::pointer_view())
         RefVector<DataType> get_to_be_shifted() { return get_all(); };
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
@@ -263,12 +257,12 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
       public:
         // get_wires is inherited
 
-        auto pointer_view()
-        {
-            return concatenate(PrecomputedEntities<DataType>::pointer_view(),
-                               WitnessEntities<DataType>::pointer_view(),
-                               ShiftedEntities<DataType>::pointer_view());
-        }
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
+                                WitnessEntities<DataType>::get_all(),
+                                ShiftedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
+                                     WitnessEntities<DataType>::pointer_view(),
+                                     ShiftedEntities<DataType>::pointer_view())
 
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()

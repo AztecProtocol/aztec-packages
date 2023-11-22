@@ -466,18 +466,12 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                             public DerivedWitnessEntities<DataType>,
                             public ConcatenatedRangeConstraints<DataType> {
       public:
-        auto pointer_view()
-        {
-            return concatenate(WireWitnessEntities<DataType>::pointer_view(),
-                               DerivedWitnessEntities<DataType>::pointer_view(),
-                               ConcatenatedRangeConstraints<DataType>::pointer_view());
-        }
-        RefVector<DataType> get_all()
-        {
-            return concatenate(WireWitnessEntities<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all(),
-                               ConcatenatedRangeConstraints<DataType>::get_all());
-        }
+        DEFINE_COMPOUND_GET_ALL(WireWitnessEntities<DataType>::get_all(),
+                                DerivedWitnessEntities<DataType>::get_all(),
+                                ConcatenatedRangeConstraints<DataType>::get_all())
+        DEFINE_COMPOUND_POINTER_VIEW(WireWitnessEntities<DataType>::pointer_view(),
+                                     DerivedWitnessEntities<DataType>::pointer_view(),
+                                     ConcatenatedRangeConstraints<DataType>::pointer_view())
         RefVector<DataType> get_wires() { return WireWitnessEntities<DataType>::get_all(); };
 
         RefVector<DataType> get_to_be_shifted()
@@ -681,18 +675,13 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
       public:
         // get_wires provided by WitnessEntities
 
-        auto pointer_view()
-        {
-            return concatenate(PrecomputedEntities<DataType>::pointer_view(),
-                               WitnessEntities<DataType>::pointer_view(),
-                               ShiftedEntities<DataType>::pointer_view());
-        }
-        RefVector<DataType> get_all()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_all());
-        }
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
+                                WitnessEntities<DataType>::get_all(),
+                                ShiftedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
+                                     WitnessEntities<DataType>::pointer_view(),
+                                     ShiftedEntities<DataType>::pointer_view())
+
         /**
          * @brief Get the polynomials that are concatenated for the permutation relation
          *

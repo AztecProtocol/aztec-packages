@@ -37,9 +37,10 @@ TEST(Flavor, Getters)
     Flavor::CommitmentLabels commitment_labels;
 
     // Globals are also available through STL container sizes
-    EXPECT_EQ(prover_polynomials.size(), Flavor::NUM_ALL_ENTITIES);
+    EXPECT_EQ(prover_polynomials.get_all().size(), Flavor::NUM_ALL_ENTITIES);
     // Shited polynomials have the righ tsize
-    EXPECT_EQ(prover_polynomials.size(), prover_polynomials.get_unshifted_then_shifted().size());
+    EXPECT_EQ(prover_polynomials.get_all().size(),
+              prover_polynomials.get_shifted().size() + prover_polynomials.get_unshifted().size());
     // Commitment lables are stored in the flavor.
     EXPECT_EQ(commitment_labels.w_r, "W_R");
 

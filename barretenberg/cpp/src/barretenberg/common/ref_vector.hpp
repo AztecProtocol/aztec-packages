@@ -82,11 +82,11 @@ template <typename T> class RefVector {
     iterator begin() const { return iterator(this, 0); }
     iterator end() const { return iterator(this, storage.size()); }
 
-    operator std::vector<T>() const
+    template <typename ConvertibleFromT> operator std::vector<ConvertibleFromT>() const
     {
-        std::vector<T> ret;
+        std::vector<ConvertibleFromT> ret;
         for (T* elem : storage) {
-            ret.push_back(&elem);
+            ret.push_back(*elem);
         }
         return ret;
     }
