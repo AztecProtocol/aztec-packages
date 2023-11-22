@@ -115,7 +115,9 @@ jobs:
       - *setup_env
       - run:
           name: "Deploy to dockerhub"
-          command: deploy_dockerhub noir x86_64,arm64
+          command: |
+            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
+            deploy_dockerhub noir x86_64,arm64
 
   # Barretenberg
   barretenberg-wasm-linux-clang:
@@ -996,7 +998,9 @@ jobs:
       - *setup_env
       - run:
           name: "yarn-project"
-          command: yarn-project/deploy_npm.sh latest
+          command: |
+            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
+            yarn-project/deploy_npm.sh latest
 
   deploy-dockerhub:
     machine:
@@ -1008,30 +1012,16 @@ jobs:
       - run:
           name: "Deploy to dockerhub"
           command: |
+            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
             deploy_dockerhub pxe x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
             deploy_dockerhub cli x86_64,arm64
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
-  when:
-    or:
-      - not:
-          exists: << pipeline.git.tag >>
-      - equal: [/^aztec-packages-v.*/, << pipeline.git.tag >>]
-  context:
-    - build
-    - slack
-  post-steps:
-    - slack/notify:
-        event: fail
-        branch_pattern: "master"
-
-deploy_defaults: &deploy_defaults
-  when:
-    or:
-      - equal: [true, << pipeline.parameters.dry-deploy >>]
-      - equal: [/^aztec-packages-v.*/, << pipeline.git.tag >>]
+  filters:
+    tags:
+      only: /^aztec-packages-v.*/
   context:
     - build
     - slack
@@ -1064,10 +1054,6 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
-      - noir-deploy-dockerhub:
-          requires:
-            - noir-ecr-manifest
-          <<: *deploy_defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
@@ -1302,11 +1288,15 @@ workflows:
           <<: *defaults
 
       # Production deployment
+      - noir-deploy-dockerhub:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
       - deploy-dockerhub:
           requires:
             - e2e-end
-          <<: *deploy_defaults
+          <<: *defaults
       - deploy-npm:
           requires:
             - e2e-end
-          <<: *deploy_defaults
+          <<: *defaults
