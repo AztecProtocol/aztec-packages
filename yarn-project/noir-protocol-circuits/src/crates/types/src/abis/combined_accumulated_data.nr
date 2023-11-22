@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-        call_stack_item::CallStackItem,
+        call_request::CallRequest,
         new_contract_data::NewContractData,
         optionally_revealed_data::OptionallyRevealedData,
         public_data_read::PublicDataRead,
@@ -34,8 +34,8 @@ struct CombinedAccumulatedData {
     new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
-    private_call_stack: [CallStackItem; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
-    public_call_stack: [CallStackItem; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -65,8 +65,8 @@ struct FinalAccumulatedData {
     // For pending nullifiers, we have:
     // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
-    private_call_stack: [CallStackItem; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
-    public_call_stack: [CallStackItem; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -91,8 +91,8 @@ struct CombinedAccumulatedDataBuilder {
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
 
-    private_call_stack: BoundedVec<CallStackItem, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    public_call_stack: BoundedVec<CallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],

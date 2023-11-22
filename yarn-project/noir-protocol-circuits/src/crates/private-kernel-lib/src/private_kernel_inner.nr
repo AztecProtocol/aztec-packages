@@ -17,8 +17,8 @@ struct PrivateKernelInputsInner {
 
 impl PrivateKernelInputsInner {
     fn pop_and_validate_this_private_call_hash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder){
-        let popped_private_call = public_inputs.end.private_call_stack.pop();
-        common::validate_call_stack(self.private_call, popped_private_call);
+        let call_request = public_inputs.end.private_call_stack.pop();
+        common::validate_call_stack(self.private_call, call_request);
     }
 
     fn validate_contract_tree_root(self) {
@@ -88,7 +88,6 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            call_stack_item::CallStackItem,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         },
         tests::{
@@ -131,7 +130,8 @@ mod tests {
             let private_call = self.private_call.finish();
             // Update the previous_kernel's private_call_stack with the current call_stack_item.
             let hash = private_call.call_stack_item.hash();
-            self.previous_kernel.push_private_call_stack_hash(hash);
+            let is_delegate_call = private_call.call_stack_item.public_inputs.call_context.is_delegate_call;
+            self.previous_kernel.push_private_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PrivateKernelInputsInner {
@@ -224,7 +224,7 @@ mod tests {
         let private_call = builder.private_call.finish();
         let hash = private_call.call_stack_item.hash();
         // Set the first call stack hash to a wrong value (the correct hash + 1).
-        builder.previous_kernel.push_private_call_stack_hash(hash + 1);
+        builder.previous_kernel.push_private_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.finish();
 
         let kernel = PrivateKernelInputsInner {
@@ -261,6 +261,25 @@ mod tests {
         builder.succeeded();
     }
 
+    #[test(should_fail_with="caller context cannot be empty for delegate calls")]
+    fn empty_caller_context_for_delegate_calls_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
+
+        let private_call = builder.private_call.finish();
+        let hash = private_call.call_stack_item.hash();
+        // Caller context is empty for regular calls.
+        let is_delegate_call = false;
+        builder.previous_kernel.push_private_call_request(hash, is_delegate_call);
+        let previous_kernel = builder.previous_kernel.finish();
+
+        let kernel = PrivateKernelInputsInner {
+            previous_kernel,
+            private_call,
+        };
+
+        let _ = kernel.native_private_kernel_circuit_inner();
+    }
+
     #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate calls")]
     fn incorrect_msg_sender_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
@@ -277,16 +296,6 @@ mod tests {
 
         // Set the storage contract address to be the contract address.
         builder.private_call.public_inputs.call_context.storage_contract_address = builder.private_call.contract_address;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="call stack portal address does not match expected portal address for delegate calls")]
-    fn incorrect_portal_address_for_delegate_calls_fails() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
-
-        // Set the portal contract address to be the portal contract address of the delegated contract.
-        builder.private_call.public_inputs.call_context.portal_contract_address = builder.private_call.portal_contract_address;
 
         builder.failed();
     }

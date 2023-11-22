@@ -8,7 +8,7 @@ use dep::aztec::constants_gen::{
 use dep::std::unsafe;
 use dep::types::{
     abis::{
-        call_stack_item::CallStackItem,
+        call_request::CallRequest,
         previous_kernel_data::PreviousKernelData,
         kernel_circuit_public_inputs::{
             KernelCircuitPublicInputsBuilder, 
@@ -33,7 +33,7 @@ struct PrivateKernelInputsOrdering {
 
 impl PrivateKernelInputsOrdering {
     fn validate_inputs(self) {
-        assert_eq(struct_array_length(self.previous_kernel.public_inputs.end.private_call_stack, |c: CallStackItem| c.is_empty()), 0, 
+        assert_eq(struct_array_length(self.previous_kernel.public_inputs.end.private_call_stack, |c: CallRequest| c.is_empty()), 0, 
             "Private call stack must be empty when executing the ordering circuit");
     }
 
@@ -405,7 +405,7 @@ mod tests {
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        builder.previous_kernel.push_private_call_stack_hash(1);
+        builder.previous_kernel.push_private_call_request(1, false);
 
         builder.failed();
     }

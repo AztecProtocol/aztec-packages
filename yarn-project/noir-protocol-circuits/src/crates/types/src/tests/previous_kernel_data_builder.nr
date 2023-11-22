@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        call_stack_item::CallStackItem,
+        call_request::{CallerContext, CallRequest},
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
         historical_block_data::HistoricalBlockData,
@@ -144,26 +144,23 @@ impl PreviousKernelDataBuilder {
         self.end.unencrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn push_private_call_stack_item(&mut self, call_stack_item: CallStackItem) {
+    pub fn push_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
         self.end.private_call_stack.push(call_stack_item);
     }
 
-    pub fn push_private_call_stack_hash(&mut self, hash: Field) {
-        let call_stack_item = self.generate_call_stack_item(hash);
-        self.end.private_call_stack.push(call_stack_item);
-    }
-
-    pub fn push_public_call_stack_hash(&mut self, hash: Field) {
-        let call_stack_item = self.generate_call_stack_item(hash);
+    pub fn push_public_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+        let call_stack_item = self.generate_call_request(hash, is_delegate_call);
         self.end.public_call_stack.push(call_stack_item);
     }
 
-    fn generate_call_stack_item(self, hash: Field) -> CallStackItem {
-        let mut caller_context: CallContext = dep::std::unsafe::zeroed();
-        caller_context.msg_sender = fixtures::MSG_SENDER;
-        caller_context.storage_contract_address = self.contract_address;
-        caller_context.portal_contract_address = self.portal_contract_address;
-        CallStackItem {
+    fn generate_call_request(self, hash: Field, is_delegate_call: bool) -> CallRequest {
+        let mut caller_context = CallerContext::empty();
+        if is_delegate_call {
+            caller_context.msg_sender = fixtures::MSG_SENDER;
+            caller_context.storage_contract_address = self.contract_address;
+        }
+        CallRequest {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,

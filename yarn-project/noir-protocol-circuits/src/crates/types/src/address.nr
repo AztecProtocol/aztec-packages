@@ -27,6 +27,10 @@ impl Address {
     pub fn to_field(self) -> Field{
         self.inner
     }
+
+    pub fn is_zero(self) -> bool {
+        self.inner == 0
+    }
     
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
@@ -69,6 +73,10 @@ impl EthAddress{
 
     pub fn to_field(self) -> Field{
         self.inner
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.inner == 0
     }
 
     pub fn assert_is_zero(self) {

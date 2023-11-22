@@ -1,5 +1,4 @@
 use crate::abis::{
-    call_context::CallContext,
     function_data::FunctionData,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_circuit_public_inputs::PublicCircuitPublicInputs,
@@ -68,31 +67,5 @@ impl PublicCallStackItem {
             is_execution_request: true,
             public_inputs: request_public_inputs,
         }
-    }
-}
-
-struct CallStackItem {
-    hash: Field,
-    caller_contract_address: Address,
-    caller_context: CallContext,
-}
-
-impl CallStackItem {
-    pub fn empty() -> Self {
-        Self {
-            hash: 0,
-            caller_contract_address: Address::zero(),
-            caller_context: dep::std::unsafe::zeroed(),
-        }
-    }
-
-    pub fn is_empty(self) -> bool {
-        self.hash == 0
-    }
-
-    pub fn eq(self, call_stack_item: CallStackItem) -> bool {
-        (call_stack_item.hash == self.hash)
-            & (call_stack_item.caller_contract_address.eq(self.caller_contract_address))
-            & (call_stack_item.caller_context.eq(self.caller_context))
     }
 }

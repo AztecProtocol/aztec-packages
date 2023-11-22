@@ -1,5 +1,6 @@
 use crate::{
     abis::{
+        call_request::CallRequest,
         call_stack_item::PrivateCallStackItem,
         function_data::FunctionData,
         membership_witness::{
@@ -27,6 +28,8 @@ use crate::{
 };
 use dep::aztec::{
     constants_gen::{
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
     },
 };
@@ -38,6 +41,8 @@ struct PrivateCallDataBuilder {
     is_execution_request: bool,
     function_data: FunctionData,
     // The rest of the values of PrivateCallData.
+    private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
     vk: VerificationKey,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
@@ -64,6 +69,8 @@ impl PrivateCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
+            private_call_stack: dep::std::unsafe::zeroed(),
+            public_call_stack: dep::std::unsafe::zeroed(),
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
@@ -144,6 +151,8 @@ impl PrivateCallDataBuilder {
 
         PrivateCallData {
             call_stack_item,
+            private_call_stack: self.private_call_stack.storage,
+            public_call_stack: self.public_call_stack.storage,
             proof: self.proof,
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,

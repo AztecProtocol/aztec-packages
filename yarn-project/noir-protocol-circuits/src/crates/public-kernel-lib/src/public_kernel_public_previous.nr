@@ -35,8 +35,8 @@ impl PublicKernelPublicPreviousInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let popped_public_call = public_inputs.end.public_call_stack.pop();
-        common::validate_call_stack(self.public_call, popped_public_call);
+        let call_request = public_inputs.end.public_call_stack.pop();
+        common::validate_call_stack(self.public_call, call_request);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
@@ -119,7 +119,8 @@ mod tests {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
-            self.previous_kernel.push_public_call_stack_hash(hash);
+            let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
+            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PublicKernelPublicPreviousInputs {

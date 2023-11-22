@@ -1,13 +1,14 @@
 use dep::aztec::constants_gen::{
-    MAX_READ_REQUESTS_PER_CALL,
-    MAX_NEW_NULLIFIERS_PER_CALL,
     EMPTY_NULLIFIED_COMMITMENT,
+    MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     MAX_NEW_COMMITMENTS_PER_CALL,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+    MAX_READ_REQUESTS_PER_CALL,
 };
 use dep::types::{
     abis::{
-        call_stack_item::CallStackItem,
+        call_request::CallRequest,
         combined_accumulated_data::CombinedAccumulatedData,
         complete_address::CompleteAddress,
         function_data::FunctionData,
@@ -34,6 +35,7 @@ use dep::types::{
     },
     utils::{
         arrays::{
+            array_length,
             array_to_bounded_vec,
             is_empty_array,
             struct_array_to_bounded_vec,
@@ -110,8 +112,8 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
-    public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
-    public_inputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallStackItem| c.is_empty(), CallStackItem::empty());
+    public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
+    public_inputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
     public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
     public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
@@ -122,6 +124,30 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
 
     public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
     public_inputs.end.new_contracts = struct_array_to_bounded_vec(start.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
+}
+
+fn is_valid_caller(request: CallRequest, private_call: PrivateCallData) -> bool {
+    let call_context = private_call.call_stack_item.public_inputs.call_context;
+    let valid_caller_context = request.caller_context.msg_sender.eq(call_context.msg_sender)
+        & request.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
+    request.caller_contract_address.eq(private_call.call_stack_item.contract_address)
+        & (request.caller_context.is_empty() | valid_caller_context)
+}
+
+fn validate_call_requests<N>(
+    call_requests: BoundedVec<CallRequest, N>,
+    hashes: [Field; N],
+    private_call: PrivateCallData,
+) {
+    assert_eq(array_length(hashes), call_requests.len(), "call requests length does not match the expected length");
+    for i in 0..N {
+        let hash = hashes[i];
+        if hash != 0 {
+            let request = call_requests.get_unchecked(i);
+            assert_eq(request.hash, hash, "call stack hash does not match call request hash");
+            assert(is_valid_caller(request, private_call), "invalid caller");
+        }
+    }
 }
 
 pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -209,15 +235,13 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     public_inputs.end.nullified_commitments.push_vec(siloed_nullified_commitments);
 
     // Call stacks
-    let caller_contract_address = private_call.call_stack_item.contract_address;
-    let caller_context = private_call_public_inputs.call_context;
     // Private call stack.
-    let call_stack_items = private_call_public_inputs.private_call_stack_hashes.map(|hash| CallStackItem { hash, caller_contract_address, caller_context });
-    let private_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.hash == 0, CallStackItem::empty());
+    let private_call_stack = struct_array_to_bounded_vec(private_call.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
+    validate_call_requests(private_call_stack, private_call_public_inputs.private_call_stack_hashes, private_call);
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
     // Public call stack.
-    let call_stack_items = private_call_public_inputs.public_call_stack_hashes.map(|hash| CallStackItem { hash, caller_contract_address, caller_context });
-    let public_call_stack = struct_array_to_bounded_vec(call_stack_items, |c: CallStackItem| c.hash == 0, CallStackItem::empty());
+    let public_call_stack = struct_array_to_bounded_vec(private_call.public_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
+    validate_call_requests(public_call_stack, private_call_public_inputs.public_call_stack_hashes, private_call);
     public_inputs.end.public_call_stack.push_vec(public_call_stack);
 
     // new l2 to l1 messages
@@ -255,7 +279,6 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
 
 pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut KernelCircuitPublicInputsBuilder, contract_dep_data : ContractDeploymentData, function_data : FunctionData) {
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
-    let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     let portal_contract_address = private_call.portal_contract_address;
     let contract_address = private_call.call_stack_item.contract_address;
 
@@ -286,7 +309,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062) VKs are mocked out for now
         // assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash, "constructor_vk_hash doesn't match private_call_vk_hash");
         
-        assert(storage_contract_address.eq(new_contract_address), "contract address supplied does not match derived address");
+        assert(contract_address.eq(new_contract_address), "contract address supplied does not match derived address");
 
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
@@ -327,13 +350,11 @@ pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
     assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
 
-pub fn validate_call_stack(private_call: PrivateCallData, popped_private_call: CallStackItem) {
+pub fn validate_call_stack(private_call: PrivateCallData, request: CallRequest) {
     let call_stack_item = private_call.call_stack_item;
-    assert(popped_private_call.hash == call_stack_item.hash(), "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
+    assert(request.hash == call_stack_item.hash(), "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
 
     let call_context = call_stack_item.public_inputs.call_context;
-    let caller_context = popped_private_call.caller_context;
-    let caller_contract_address = popped_private_call.caller_contract_address;
 
     // Ensures that if the function is internal, only the contract itself can call it.
     if call_stack_item.function_data.is_internal {
@@ -341,12 +362,14 @@ pub fn validate_call_stack(private_call: PrivateCallData, popped_private_call: C
     }
 
     if call_context.is_delegate_call {
+        let caller_context = request.caller_context;
+        assert(!caller_context.is_empty(), "caller context cannot be empty for delegate calls");
         assert(call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls");
         assert(call_context.storage_contract_address.eq(caller_context.storage_contract_address), "call stack storage address does not match expected contract address for delegate calls");
-        assert(call_context.portal_contract_address.eq(caller_context.portal_contract_address), "call stack portal address does not match expected portal address for delegate calls");
         assert(!call_stack_item.contract_address.eq(call_context.storage_contract_address),
             "curent contract address must not match storage contract address for delegate calls");
     } else {
+        let caller_contract_address = request.caller_contract_address;
         assert(call_context.msg_sender.eq(caller_contract_address), "call stack msg_sender does not match caller contract address");
         assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address");
     }

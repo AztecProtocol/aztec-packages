@@ -41,8 +41,8 @@ impl PublicKernelPrivatePreviousInputs {
         self.validate_inputs();
 
         // Pops the item from the call stack and validates it against the current execution.
-        let popped_public_call = public_inputs.end.public_call_stack.pop();
-        common::validate_call_stack(self.public_call, popped_public_call);
+        let call_request = public_inputs.end.public_call_stack.pop();
+        common::validate_call_stack(self.public_call, call_request);
 
         common::update_public_end_values(self.public_call,&mut public_inputs);
 
@@ -56,7 +56,7 @@ mod tests {
     use crate::{
         public_kernel_private_previous::PublicKernelPrivatePreviousInputs,
         utils::{
-            assert_eq_call_stack_items,
+            assert_eq_call_requests,
             assert_eq_new_contracts,
             assert_eq_public_data_reads,
             assert_eq_public_data_update_requests,
@@ -66,7 +66,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            call_stack_item::CallStackItem,
+            call_request::CallRequest,
             function_selector::FunctionSelector,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             new_contract_data::NewContractData,
@@ -137,7 +137,8 @@ mod tests {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
             let hash = public_call.call_stack_item.hash();
-            self.previous_kernel.push_public_call_stack_hash(hash);
+            let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
+            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.finish();
 
             let kernel = PublicKernelPrivatePreviousInputs {
@@ -260,7 +261,7 @@ mod tests {
 
         let hash = public_call.call_stack_item.hash();
         // Tweak the call stack item hash.
-        builder.previous_kernel.push_public_call_stack_hash(hash + 1);
+        builder.previous_kernel.push_public_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.finish();
 
         let kernel = PublicKernelPrivatePreviousInputs {
@@ -297,6 +298,25 @@ mod tests {
         builder.succeeded();
     }
 
+    #[test(should_fail_with="caller context cannot be empty for delegate calls")]
+    fn empty_caller_context_for_delegate_calls_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
+        let public_call = builder.public_call.finish();
+
+        let hash = public_call.call_stack_item.hash();
+        // Caller context is empty for regular calls.
+        let is_delegate_call = false;
+        builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
+        let previous_kernel = builder.previous_kernel.finish();
+
+        let kernel = PublicKernelPrivatePreviousInputs {
+            previous_kernel,
+            public_call,
+        };
+
+        let _ = kernel.public_kernel_private_previous();
+    }
+
     #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate calls")]
     fn incorrect_msg_sender_for_delegate_calls_fails() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
@@ -313,16 +333,6 @@ mod tests {
 
         // Set the storage contract address to be the contract address.
         builder.public_call.public_inputs.call_context.storage_contract_address = builder.public_call.contract_address;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="call stack portal address does not match expected portal address for delegate calls")]
-    fn public_kernel_circuit_fails_on_incorrect_portal_contract_in_delegate_call() {
-        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new().is_delegate_call();
-
-        // Set the portal contract address to be the portal contract address of the delegated contract.
-        builder.public_call.public_inputs.call_context.portal_contract_address = builder.public_call.portal_contract_address;
 
         builder.failed();
     }
@@ -354,14 +364,9 @@ mod tests {
         ];
         builder.previous_kernel.end.new_contracts.push_array(new_contracts);
 
-        builder.public_call.append_public_call_stack_hashes(2);
-        let hashes = builder.public_call.public_inputs.public_call_stack_hashes.storage;
-        let caller_contract_address = builder.public_call.contract_address;
-        let caller_context = builder.public_call.public_inputs.call_context;
-        let public_call_stack = [
-            CallStackItem { hash: hashes[0], caller_contract_address, caller_context },
-            CallStackItem { hash: hashes[1], caller_contract_address, caller_context },
-        ];
+        builder.public_call.append_public_call_requests_for_regular_calls(2);
+        let storage = builder.public_call.public_call_stack.storage;
+        let public_call_stack = [storage[0], storage[1]];
 
         builder.public_call.append_update_requests(2);
         let storage = builder.get_current_public_data_update_requests();
@@ -374,8 +379,8 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
-        assert_eq_call_stack_items(public_inputs.end.private_call_stack, []);
-        assert_eq_call_stack_items(public_inputs.end.public_call_stack, public_call_stack);
+        assert_eq_call_requests(public_inputs.end.private_call_stack, []);
+        assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
         assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, update_requests);
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
     }
@@ -383,7 +388,7 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing in the public kernel")]
     fn private_previous_kernel_non_empty_private_call_stack_should_fail() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.previous_kernel.push_private_call_stack_hash(1);
+        builder.previous_kernel.push_private_call_request(1, false);
 
         builder.failed();
     }

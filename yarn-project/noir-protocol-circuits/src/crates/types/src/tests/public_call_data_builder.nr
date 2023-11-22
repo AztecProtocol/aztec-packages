@@ -1,6 +1,7 @@
 use crate::{
     abis::{
         call_context::CallContext,
+        call_request::{CallerContext, CallRequest},
         call_stack_item::PublicCallStackItem,
         function_data::FunctionData,
         public_call_data::PublicCallData,
@@ -30,6 +31,7 @@ struct PublicCallDataBuilder {
     public_inputs: PublicCircuitPublicInputsBuilder,
     is_execution_request: bool,
     function_data: FunctionData,
+    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
     portal_contract_address: EthAddress,
     bytecode_hash: Field,
@@ -61,6 +63,7 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
+            public_call_stack: dep::std::unsafe::zeroed(),
             proof: Proof {},
             portal_contract_address,
             bytecode_hash: contract_function.acir_hash,
@@ -84,12 +87,33 @@ impl PublicCallDataBuilder {
         *self
     }
 
-    pub fn append_public_call_stack_hashes(&mut self, num_items: Field) {
+    pub fn append_public_call_requests_for_regular_calls(&mut self, num_requests: Field) {
+        self.append_public_call_requests(num_requests, false);
+    }
+
+    pub fn append_public_call_requests_for_delegate_calls(&mut self, num_requests: Field) {
+        self.append_public_call_requests(num_requests, true);
+    }
+
+    pub fn append_public_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
+        let call_context = self.public_inputs.call_context;
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-            if i as u64 < num_items as u64 {
+            if i as u64 < num_requests as u64 {
+                let mut caller_context = CallerContext::empty();
+                if is_delegate_call {
+                    caller_context.msg_sender = call_context.msg_sender;
+                    caller_context.storage_contract_address = call_context.storage_contract_address;
+                }
                 // The default hash is its index + 7788.
-                self.public_inputs.public_call_stack_hashes.push(value_offset + 7788);
+                let hash = value_offset + 7788;
+                let call_request = CallRequest {
+                    hash,
+                    caller_contract_address: self.contract_address,
+                    caller_context,
+                };
+                self.public_inputs.public_call_stack_hashes.push(hash);
+                self.public_call_stack.push(call_request);
             }
         }
     }
@@ -155,6 +179,7 @@ impl PublicCallDataBuilder {
                 is_execution_request: self.is_execution_request,
                 public_inputs: self.public_inputs.finish(),
             },
+            public_call_stack: self.public_call_stack.storage,
             proof: self.proof,
             portal_contract_address: self.portal_contract_address,
             bytecode_hash: self.bytecode_hash,
