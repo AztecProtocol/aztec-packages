@@ -55,14 +55,6 @@ bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& rig
     return left.m_sub_clk < right.m_sub_clk;
 }
 
-void insertInMemTrace(std::vector<MemoryTraceEntry>& sortedTrace, const MemoryTraceEntry& newMemEntry)
-{
-    long insertionIndex =
-        std::lower_bound(sortedTrace.begin(), sortedTrace.end(), newMemEntry, compareMemEntries) - sortedTrace.begin();
-
-    sortedTrace.insert(sortedTrace.begin() + insertionIndex, newMemEntry);
-}
-
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
 // At the end of circuit building, mainTrace can be moved to AvmMiniTraceBuilder::rows.
@@ -77,6 +69,58 @@ struct TraceCtx {
         mainTrace.clear();
         memTrace.clear();
         ffMemory.fill(FF(0));
+    }
+
+    void insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, bool m_rw)
+    {
+        auto newMemEntry = MemoryTraceEntry{
+            .m_clk = m_clk,
+            .m_sub_clk = m_sub_clk,
+            .m_addr = m_addr,
+            .m_val = m_val,
+            .m_rw = m_rw,
+        };
+
+        long insertionIndex =
+            std::lower_bound(memTrace.begin(), memTrace.end(), newMemEntry, compareMemEntries) - memTrace.begin();
+
+        memTrace.insert(memTrace.begin() + insertionIndex, newMemEntry);
+    }
+
+    // Memory operations need to be performed right after the addition of the corresponding row in
+    // mainTrace, otherwise the m_clk value will be wrong. The following memory operations pertain
+    // to the last operation of the current mainTrace. This applies to:
+    // loadAInMemTrace, loadBInMemTrace, loadCInMemTrace
+    // storeAInMemTrace, storeBInMemTrace, storeCInMemTrace
+
+    void loadAInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 0, addr, val, false);
+    }
+
+    void loadBInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 1, addr, val, false);
+    }
+
+    void loadCInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 2, addr, val, false);
+    }
+
+    void storeAInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 3, addr, val, true);
+    }
+
+    void storeBInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 4, addr, val, true);
+    }
+
+    void storeCInMemTrace(uint32_t addr, FF val)
+    {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 5, addr, val, true);
     }
 
     // Addition over finite field with direct memory access.
@@ -106,32 +150,13 @@ struct TraceCtx {
         });
 
         // Loading into Ia
-        insertInMemTrace(memTrace,
-                         (MemoryTraceEntry{
-                             .m_clk = static_cast<uint32_t>(clk),
-                             .m_sub_clk = 0,
-                             .m_addr = s0,
-                             .m_val = a,
-                         }));
+        loadAInMemTrace(s0, a);
 
         // Loading into Ib
-        insertInMemTrace(memTrace,
-                         (MemoryTraceEntry{
-                             .m_clk = static_cast<uint32_t>(clk),
-                             .m_sub_clk = 1,
-                             .m_addr = s1,
-                             .m_val = b,
-                         }));
+        loadBInMemTrace(s1, b);
 
         // Storing from Ic
-        insertInMemTrace(memTrace,
-                         (MemoryTraceEntry{
-                             .m_clk = static_cast<uint32_t>(clk),
-                             .m_sub_clk = 5,
-                             .m_addr = d0,
-                             .m_val = c,
-                             .m_rw = true,
-                         }));
+        storeCInMemTrace(d0, c);
     };
 
     // CALLDATACOPY opcode with direct memory access, i.e.,
@@ -172,14 +197,7 @@ struct TraceCtx {
 
             // Storing from Ia
             ffMemory.at(mem_idx_a) = ia;
-            insertInMemTrace(memTrace,
-                             (MemoryTraceEntry{
-                                 .m_clk = static_cast<uint32_t>(clk),
-                                 .m_sub_clk = 3,
-                                 .m_addr = mem_idx_a,
-                                 .m_val = ia,
-                                 .m_rw = true,
-                             }));
+            storeAInMemTrace(mem_idx_a, ia);
 
             if (s1 - offset > 1) {
                 ib = callDataMem.at(s0 + offset + 1);
@@ -189,14 +207,7 @@ struct TraceCtx {
 
                 // Storing from Ib
                 ffMemory.at(mem_idx_b) = ib;
-                insertInMemTrace(memTrace,
-                                 (MemoryTraceEntry{
-                                     .m_clk = static_cast<uint32_t>(clk),
-                                     .m_sub_clk = 4,
-                                     .m_addr = mem_idx_b,
-                                     .m_val = ib,
-                                     .m_rw = true,
-                                 }));
+                storeBInMemTrace(mem_idx_b, ib);
             }
 
             if (s1 - offset > 2) {
@@ -207,14 +218,7 @@ struct TraceCtx {
 
                 // Storing from Ic
                 ffMemory.at(mem_idx_c) = ic;
-                insertInMemTrace(memTrace,
-                                 (MemoryTraceEntry{
-                                     .m_clk = static_cast<uint32_t>(clk),
-                                     .m_sub_clk = 5,
-                                     .m_addr = mem_idx_c,
-                                     .m_val = ic,
-                                     .m_rw = true,
-                                 }));
+                storeCInMemTrace(mem_idx_c, ic);
             }
 
             mainTrace.push_back(Row{
