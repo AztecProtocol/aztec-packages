@@ -109,6 +109,8 @@ if [[ "$AZTEC_CLI_COMMAND" == "unbox" ]]; then
     mkdir -p "$DIR"
   fi
 
+  # avoid "Error: EACCES: permission denied, mkdir..." inside the unbox command, which creates subdirectories
+  chmod 777 "$DIR"
   add_mount "$DIR"
 fi
 
