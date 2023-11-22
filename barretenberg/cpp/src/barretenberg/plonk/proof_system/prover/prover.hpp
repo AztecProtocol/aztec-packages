@@ -82,6 +82,18 @@ template <typename settings> class ProverBase {
         queue.put_ifft_data(result, work_item_number);
     }
 
+    fr random_fr_element()
+    {
+        // By default we will use zero knowledge, however
+        // when debugging, it is useful to be able to
+        // generate a deterministic proof.
+        if (use_zero_knowledge) {
+            return fr::random_element();
+        }
+        // Returns a random field element
+        return fr::zero();
+    }
+
     void reset();
 
     size_t circuit_size;
@@ -97,6 +109,7 @@ template <typename settings> class ProverBase {
 
   private:
     plonk::proof proof;
+    bool use_zero_knowledge;
 };
 extern template class ProverBase<standard_settings>;
 extern template class ProverBase<ultra_settings>;

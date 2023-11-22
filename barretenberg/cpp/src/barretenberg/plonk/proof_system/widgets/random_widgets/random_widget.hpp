@@ -3,7 +3,9 @@
 #include "barretenberg/plonk/transcript/transcript.hpp"
 #include "barretenberg/plonk/work_queue/work_queue.hpp"
 
+#include <functional>
 #include <map>
+#include <vector>
 namespace transcript {
 class Transcript;
 }
@@ -43,7 +45,10 @@ class ProverRandomWidget {
 
     virtual ~ProverRandomWidget() {}
 
-    virtual void compute_round_commitments(transcript::StandardTranscript&, const size_t, work_queue&){};
+    virtual void compute_round_commitments(transcript::StandardTranscript&,
+                                           const size_t,
+                                           work_queue&,
+                                           std::function<barretenberg::fr()>){};
 
     virtual barretenberg::fr compute_quotient_contribution(const barretenberg::fr& alpha_base,
                                                            const transcript::StandardTranscript& transcript) = 0;

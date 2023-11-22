@@ -342,7 +342,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
  */
 template <const size_t num_roots_cut_out_of_vanishing_polynomial>
 void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_round_commitments(
-    transcript::StandardTranscript& transcript, const size_t round_number, work_queue& queue)
+    transcript::StandardTranscript& transcript, const size_t round_number, work_queue& queue, std::function<fr()>)
 {
     if (round_number == 2) {
         compute_sorted_list_polynomial(transcript);

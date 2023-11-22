@@ -36,7 +36,8 @@ class ProverPermutationWidget : public ProverRandomWidget {
 
     void compute_round_commitments(transcript::StandardTranscript& transcript,
                                    const size_t round_number,
-                                   work_queue& queue) override;
+                                   work_queue& queue,
+                                   std::function<barretenberg::fr()> randomness) override;
 
     barretenberg::fr compute_quotient_contribution(const barretenberg::fr& alpha_base,
                                                    const transcript::StandardTranscript& transcript) override;

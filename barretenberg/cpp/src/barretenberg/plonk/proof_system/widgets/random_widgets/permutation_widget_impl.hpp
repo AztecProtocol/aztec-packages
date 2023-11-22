@@ -56,7 +56,10 @@ ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanishing_p
  */
 template <size_t program_width, bool idpolys, const size_t num_roots_cut_out_of_vanishing_polynomial>
 void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanishing_polynomial>::
-    compute_round_commitments(transcript::StandardTranscript& transcript, const size_t round_number, work_queue& queue)
+    compute_round_commitments(transcript::StandardTranscript& transcript,
+                              const size_t round_number,
+                              work_queue& queue,
+                              std::function<fr()> randomness)
 {
     if (round_number != 3) {
         return;
@@ -310,7 +313,7 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
     const size_t z_randomness = 3;
     ASSERT(z_randomness < num_roots_cut_out_of_vanishing_polynomial);
     for (size_t k = 0; k < z_randomness; ++k) {
-        z_perm[(key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k] = fr::random_element();
+        z_perm[(key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k] = randomness();
     }
 
     z_perm.ifft(key->small_domain);
