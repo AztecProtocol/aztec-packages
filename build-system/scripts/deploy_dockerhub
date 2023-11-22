@@ -31,5 +31,8 @@ do
   docker manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
 done
 
+docker_or_dryrun push $MANIFEST_DEPLOY_URI
+
+# Retag versioned as latest.
 docker tag $MANIFEST_DEPLOY_URI aztecprotocol/$REPOSITORY:latest
 docker_or_dryrun push aztecprotocol/$REPOSITORY:latest
