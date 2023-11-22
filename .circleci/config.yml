@@ -23,6 +23,9 @@ parameters:
   workflow:
     type: string
     default: "system"
+  dry-deploy:
+    type: boolean
+    default: false
 
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
 # Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
@@ -991,7 +994,6 @@ jobs:
     steps:
       - *checkout
       - *setup_env
-      # Aztec.js and dependencies
       - run:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh latest
@@ -1011,11 +1013,12 @@ jobs:
             deploy_dockerhub cli x86_64,arm64
 
 # Repeatable config for defining the workflow below.
-tag_regex: &tag_regex /^aztec-packages-v.*/
 defaults: &defaults
-  filters:
-    tags:
-      only: *tag_regex
+  when:
+    or:
+      - not:
+          exists: << pipeline.git.tag >>
+      - equal: [/^aztec-packages-v.*/, << pipeline.git.tag >>]
   context:
     - build
     - slack
@@ -1023,12 +1026,12 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+
 deploy_defaults: &deploy_defaults
-  filters:
-    tags:
-      only: *tag_regex
-    branches:
-      ignore: /.*/
+  when:
+    or:
+      - equal: [true, << pipeline.parameters.dry-deploy >>]
+      - equal: [/^aztec-packages-v.*/, << pipeline.git.tag >>]
   context:
     - build
     - slack
@@ -1036,15 +1039,18 @@ deploy_defaults: &deploy_defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
+
 e2e_test: &e2e_test
   requires:
     - e2e-join
   <<: *defaults
+
 bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
 
+# Workflows.
 workflows:
   system:
     when:
@@ -1077,17 +1083,6 @@ workflows:
       - barretenberg-stdlib-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      # - barretenberg-benchmark-aggregator:
-      #     requires:
-      #       - barretenberg-tests
-      #       - barretenberg-stdlib-tests
-      #       - barretenberg-stdlib-recursion-ultra-tests
-      #       - barretenberg-join-split-tests
-      #     filters:
-      #       branches:
-      #         only:
-      #           - master
-      #     <<: *defaults
       - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
@@ -1227,13 +1222,13 @@ workflows:
             - aztec-sandbox-x86_64
           <<: *defaults
 
+      # End to end tests.
       - e2e-join:
           requires:
             - end-to-end
             - ecr-manifest
             - canary
           <<: *defaults
-
       - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
@@ -1265,7 +1260,6 @@ workflows:
       # - guides-up-quick-start: *e2e_test
       - bench-publish-rollup: *e2e_test
       - bench-process-history: *e2e_test
-
       - e2e-end:
           requires:
             - e2e-2-pxes
@@ -1299,6 +1293,7 @@ workflows:
             # - guides-up-quick-start
           <<: *defaults
 
+      # Summarize benchmarks.
       - bench-summary:
           requires:
             - e2e-end
@@ -1306,57 +1301,12 @@ workflows:
             - bench-process-history
           <<: *defaults
 
-        # Deploy under canary tag
-      # - deploy-npm-canary:
-      #     requires:
-      #       - e2e-end
-      #     <<: *deploy_defaults
-      # - deploy-dockerhub-canary:
-      #     requires:
-      #       - e2e-end
-      #     <<: *deploy_defaults
-      # - deploy-ecr:
-      #     requires:
-      #       - e2e-end
-      #     <<: *deploy_defaults
-
-      # - build-deployment-canary:
-      #     requires:
-      #       - deploy-npm-canary
-      #       - deploy-dockerhub-canary
-      #     <<: *deploy_defaults
-
-      # Run canary tests
-      # - canary-uniswap-test:
-      #     requires:
-      #       - build-deployment-canary
-      #     <<: *deploy_defaults
-
-      # - canary-browser-test:
-      #     requires:
-      #       - build-deployment-canary
-      #     <<: *deploy_defaults
-
-      # - canary-cli-test:
-      #     requires:
-      #       - build-deployment-canary
-      #     <<: *deploy_defaults
-
-      # - canary-end:
-      #     requires:
-      #       - canary-uniswap-test
-      #       - canary-browser-test
-      #       - canary-cli-test
-      #     <<: *deploy_defaults
-
       # Production deployment
       - deploy-dockerhub:
           requires:
-            # - canary-end
             - e2e-end
           <<: *deploy_defaults
       - deploy-npm:
           requires:
-            # - canary-end
             - e2e-end
           <<: *deploy_defaults

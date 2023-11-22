@@ -2,11 +2,6 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-if [ -z "$COMMIT_TAG" ]; then
-  echo "Will only push tagged builds to dockerhub. Skipping."
-  exit 0
-fi
-
 REPOSITORY=$1
 # TODO: Why even provide this? We can just figure it out by probing.
 ARCH_LIST=${2:-}
@@ -27,11 +22,14 @@ do
   IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY $ARCH)
   retry docker pull $IMAGE_COMMIT_URI
 
+  # Retag and push image.
   IMAGE_DEPLOY_URI=aztecprotocol/$REPOSITORY:$VERSION_TAG-$ARCH
+  docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_URI
   docker_or_dryrun push $IMAGE_DEPLOY_URI
 
   echo "Adding image $IMAGE_DEPLOY_URI to manifest list $MANIFEST_DEPLOY_URI..."
-  docker_or_dryrun manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
+  docker manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
 done
 
-docker_or_dryrun tag $MANIFEST_DEPLOY_URI aztecprotocol/$REPOSITORY:latest
+docker tag $MANIFEST_DEPLOY_URI aztecprotocol/$REPOSITORY:latest
+docker_or_dryrun push aztecprotocol/$REPOSITORY:latest
