@@ -19,6 +19,7 @@
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
@@ -596,6 +597,7 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         u4 *= u4;
         u4 *= v4;
 
+        // multiply with external matrix
         auto t0 = u1 + u2; // A + B
         auto t1 = u3 + u4; // C + D
         auto t2 = u2 + u2; // 2B
@@ -616,6 +618,58 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         expected_values[1] = q_poseidon2_external * (t5 - w_2_shift);
         expected_values[2] = q_poseidon2_external * (t7 - w_3_shift);
         expected_values[3] = q_poseidon2_external * (t4 - w_4_shift);
+
+        const auto parameters = RelationParameters<FF>::get_random();
+        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+
+        // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
+    };
+    run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/true);
+};
+
+TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
+{
+    const auto run_test = []([[maybe_unused]] bool random_inputs) {
+        using Relation = Poseidon2InternalRelation<FF>;
+        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
+        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
+        const auto& w_1 = input_elements.w_l;
+        const auto& w_2 = input_elements.w_r;
+        const auto& w_3 = input_elements.w_o;
+        const auto& w_4 = input_elements.w_4;
+        const auto& w_1_shift = input_elements.w_l_shift;
+        const auto& w_2_shift = input_elements.w_r_shift;
+        const auto& w_3_shift = input_elements.w_o_shift;
+        const auto& w_4_shift = input_elements.w_4_shift;
+        const auto& q_1 = input_elements.q_l;
+        const auto& q_poseidon2_internal = input_elements.q_poseidon2_internal;
+        SumcheckArrayOfValuesOverSubrelations expected_values;
+
+        // add round constants on only first element
+        auto v1 = w_1 + q_1;
+
+        // apply s-box to only first element
+        auto u1 = v1 * v1;
+        u1 *= u1;
+        u1 *= v1;
+
+        // multiply with internal matrix
+        auto sum = u1 + w_2 + w_3 + w_4;
+        auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+        t0 += sum;
+        auto t1 = w_2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+        t1 += sum;
+        auto t2 = w_3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+        t2 += sum;
+        auto t3 = w_4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+        t3 += sum;
+
+        expected_values[0] = q_poseidon2_internal * (t0 - w_1_shift);
+        expected_values[1] = q_poseidon2_internal * (t1 - w_2_shift);
+        expected_values[2] = q_poseidon2_internal * (t2 - w_3_shift);
+        expected_values[3] = q_poseidon2_internal * (t3 - w_4_shift);
 
         const auto parameters = RelationParameters<FF>::get_random();
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
