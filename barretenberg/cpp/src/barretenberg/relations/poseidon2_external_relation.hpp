@@ -1,14 +1,12 @@
 #pragma once
-#include "relation_parameters.hpp"
-#include "relation_types.hpp"
-
+#include "barretenberg/relations/relation_types.hpp"
 namespace proof_system {
 
 template <typename FF_> class Poseidon2ExternalRelationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_LENGTHS{
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
         7, // external poseidon2 round sub-relation for first value
         7, // external poseidon2 round sub-relation for second value
         7, // external poseidon2 round sub-relation for third value
@@ -38,10 +36,10 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
-    template <typename ContainerOverSubrelations, typename AllEntities>
+    template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
-                           const RelationParameters<FF>&,
+                           const Parameters&,
                            const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -54,31 +52,31 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto w_r_shift = View(in.w_r_shift);
         auto w_o_shift = View(in.w_o_shift);
         auto w_4_shift = View(in.w_4_shift);
-        auto q_pos2_ext = View(in.q_pos2_ext);
         auto q_l = View(in.q_l);
         auto q_r = View(in.q_r);
         auto q_o = View(in.q_o);
         auto q_4 = View(in.q_4);
+        auto q_poseidon2_external = View(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
-        w_l += q_l;
-        w_r += q_r;
-        w_o += q_o;
-        w_4 += q_4;
+        auto tmp1 = w_l + q_l;
+        auto tmp2 = w_r + q_r;
+        auto tmp3 = w_o + q_o;
+        auto tmp4 = w_4 + q_4;
 
         // apply s-box round
-        auto v1 = w_l * w_l;
+        auto v1 = tmp1 * tmp1;
         v1 *= v1;
-        v1 *= w_l;
-        auto v2 = w_r * w_r;
+        v1 *= tmp1;
+        auto v2 = tmp2 * tmp2;
         v2 *= v2;
-        v2 *= w_r;
-        auto v3 = w_o * w_o;
+        v2 *= tmp2;
+        auto v3 = tmp3 * tmp3;
         v3 *= v3;
-        v3 *= w_o;
-        auto v4 = w_4 * w_4;
+        v3 *= tmp3;
+        auto v4 = tmp4 * tmp4;
         v4 *= v4;
-        v4 *= w_4;
+        v4 *= tmp4;
 
         // matrix mul with 14 additions
         auto t0 = v1 + v2; // A + B
@@ -97,22 +95,22 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto t7 = t2 + t4; // A + 3B + 5D + 7C
 
         {
-            auto tmp = q_pos2_ext * (t6 - w_l_shift);
+            auto tmp = q_poseidon2_external * (t6 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t5 - w_r_shift);
+            auto tmp = q_poseidon2_external * (t5 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t7 - w_o_shift);
+            auto tmp = q_poseidon2_external * (t7 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            auto tmp = q_pos2_ext * (t4 - w_4_shift);
+            auto tmp = q_poseidon2_external * (t4 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
