@@ -19,7 +19,7 @@ CPUS=$2
 shift 2
 
 # If the CPUS have a specific architecture assigned, we need to use that to build the success tag.
-ARR=(${CPUS_ARCH//:/ })
+ARR=(${CPUS//:/ })
 ARCH=${ARR[1]:-x86_64}
 BASE_TAG=$(calculate_image_tag $REPOSITORY $ARCH)
 SUCCESS_TAG=$BASE_TAG
