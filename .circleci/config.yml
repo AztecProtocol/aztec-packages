@@ -86,7 +86,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build noir 32
+          command: cond_spot_run_build noir 32 x86_64
 
   noir-arm64:
     docker:
