@@ -14,6 +14,8 @@
  * for traversal.
  *
  * @tparam T The type of elements stored in the vector.
+ * This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing should use arrays of
+ * shared pointers.
  */
 template <typename T> class RefVector {
   public:
@@ -22,6 +24,14 @@ template <typename T> class RefVector {
     explicit RefVector(const std::vector<T*>& ptr_vector)
         : storage(ptr_vector)
     {}
+
+    explicit RefVector(std::vector<T>& vector)
+        : storage(vector.size())
+    {
+        for (size_t i = 0; i < vector.size(); i++) {
+            storage[i] = &vector[i];
+        }
+    }
 
     template <typename... Ts> RefVector(T& ref, Ts&... rest)
     {
@@ -79,6 +89,7 @@ template <typename T> class RefVector {
 
     [[nodiscard]] std::size_t size() const { return storage.size(); }
 
+    void push_back(T& element) { storage.push_back(element); }
     iterator begin() const { return iterator(this, 0); }
     iterator end() const { return iterator(this, storage.size()); }
 
@@ -125,4 +136,13 @@ template <typename T> RefVector<T> concatenate(const RefVector<T>& ref_vector, c
     (append(ref_vectors), ...);
 
     return RefVector<T>{ concatenated };
+}
+
+template <typename T> static std::vector<RefVector<T>> to_vector_of_ref_vectors(std::vector<std::vector<T>>& vec)
+{
+    std::vector<RefVector<T>> result;
+    for (std::vector<T>& inner : vec) {
+        result.push_back(RefVector{ inner });
+    }
+    return result;
 }

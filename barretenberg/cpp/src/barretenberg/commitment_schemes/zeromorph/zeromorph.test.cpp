@@ -225,6 +225,17 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
         // Initialize an empty BaseTranscript
         auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
 
+        std::vector<std::span<Fr>> concatenated_polynomials_views;
+        for (auto& poly : concatenated_polynomials) {
+            concatenated_polynomials_views.emplace_back(poly);
+        }
+
+        std::vector<std::vector<std::span<Fr>>> concatenation_groups_views(concatenation_groups.size());
+        for (auto [group_of_polys, group_of_views] : zip_view(concatenation_groups, concatenation_groups_views)) {
+            for (auto& poly : group_of_polys) {
+                group_of_views.emplace_back(poly);
+            }
+        }
         // Execute Prover protocol
         ZeroMorphProver::prove(f_polynomials, // unshifted
                                g_polynomials, // to-be-shifted
@@ -233,9 +244,9 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                u_challenge,
                                this->commitment_key,
                                prover_transcript,
-                               concatenated_polynomials,
+                               concatenated_polynomials_views,
                                c_evaluations,
-                               concatenation_groups);
+                               to_vector_of_ref_vectors(concatenation_groups_views));
 
         auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
 
@@ -246,7 +257,7 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                                         w_evaluations, // shifted
                                                         u_challenge,
                                                         verifier_transcript,
-                                                        concatenation_groups_commitments,
+                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                         c_evaluations);
 
         verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);

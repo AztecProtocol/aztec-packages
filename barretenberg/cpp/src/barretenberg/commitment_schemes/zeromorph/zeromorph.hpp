@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 namespace proof_system::honk::pcs::zeromorph {
@@ -319,9 +320,10 @@ template <typename Curve> class ZeroMorphProver_ {
                       auto& multilinear_challenge,
                       auto& commitment_key,
                       auto& transcript,
-                      const std::vector<Polynomial>& concatenated_polynomials = {},
+                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
-                      const std::vector<std::vector<Polynomial>>& concatenation_groups = {})
+                      // TODO(https://github.com/AztecProtocol/barretenberg/issues/743) remove span
+                      const std::vector<RefVector<std::span<FF>>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         FF rho = transcript.get_challenge("rho");
@@ -520,7 +522,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                     FF batched_evaluation,
                                     FF x_challenge,
                                     std::vector<FF> u_challenge,
-                                    const std::vector<std::vector<Commitment>>& concatenation_groups_commitments = {})
+                                    const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
@@ -637,7 +639,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto&& shifted_evaluations,
         auto& multivariate_challenge,
         auto& transcript,
-        const std::vector<std::vector<Commitment>>& concatenation_group_commitments = {},
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         const std::vector<FF>& concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
