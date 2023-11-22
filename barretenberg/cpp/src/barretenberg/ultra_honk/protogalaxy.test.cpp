@@ -252,4 +252,22 @@ TEST_F(ProtoGalaxyTests, FoldAlpha)
     EXPECT_EQ(instances.alpha, expected_alpha);
 }
 
+// TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
+// {
+//     using Instances = ProverInstances_<Flavor, 2>;
+//     using Instance = typename Instances::Instance;
+
+//     Builder builder1;
+//     builder1.add_variable(3);
+//     auto instance1 = std::make_shared<Instance>(builder1);
+
+//     Builder builder2;
+//     builder2.add_variable(3);
+//     auto instance2 = std::make_shared<Instance>(builder2);
+
+//     Instances instances{ { instance1, instance2 } };
+
+//     auto acc = ProtoGalaxyProver::compute_new_accumulator(instances, std::vector<FF>{ FF(1), FF(2) });
+// }
+
 } // namespace protogalaxy_tests

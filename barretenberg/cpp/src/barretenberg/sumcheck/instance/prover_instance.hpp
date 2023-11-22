@@ -31,6 +31,7 @@ template <class Flavor> class ProverInstance_ {
   public:
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
+    // The CommitmentKey doesn't get folded, it's length might get adjusted depending on the longest instance.
     std::shared_ptr<CommitmentKey> commitment_key;
 
     ProverPolynomials prover_polynomials;

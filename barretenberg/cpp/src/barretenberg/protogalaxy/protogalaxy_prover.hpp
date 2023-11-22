@@ -23,6 +23,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using AlphaType = typename ProverInstances::AlphaType;
+    using VerificationKey = typename Flavor::VerificationKey;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -382,6 +383,48 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
         instances.alpha = accumulated_alpha.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
     }
+
+    // BIG TODO fold commitments
+    // static Instance compute_new_accumulator(ProverInstances& instances, std::vector<FF> lagranges)
+    // {
+    //     ProverPolynomials acc_prover_polynomials;
+    //     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+    //         for (auto [acc_poly_view, inst_poly_view] : zip_view(
+    //                  acc_prover_polynomials.pointer_view(), instances[inst_idx]->prover_polynomials.pointer_view()))
+    //                  {
+    //             for (size_t el_idx = 0; el_idx < inst_poly_view->size(); el_idx++) {
+    //                 (*acc_poly_view)[el_idx] += (*inst_poly_view)[el_idx] * lagranges[inst_idx];
+    //             }
+    //         }
+    //     }
+    //     Instance accumulator;
+    //     accumulator.prover_polynomials = acc_prover_polynomials;
+
+    //     // BIGGER TODO parallelise this
+
+    //     std::vector<FF> acc_public_inputs(instances[0]->public_inputs.size());
+    //     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+    //         auto inst_public_inputs = instances[inst_idx]->public_inputs;
+    //         for (size_t el_idx = 0; el_idx < inst_public_inputs.size(); el_idx++) {
+    //             acc_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
+    //         }
+    //     }
+
+    //     // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
+    //     //                                                 instances[0]->public_inputs.size());
+    //     // auto acc_vk_view = acc_vk->pointer_view();
+    //     // for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+    //     //     auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
+    //     //     for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
+    //     //         (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
+    //     //     }
+    //     // }
+    //     // accumulator.verification_key = acc_vk;
+    //     // these two thingies have been folded already
+    //     // accumulator.alpha = instances.alpha;
+    //     // accumulator.relation_parameters = instances.relation_parameters;
+    //     return accumulator;
+    // }
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

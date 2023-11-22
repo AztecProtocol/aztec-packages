@@ -89,6 +89,23 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         }
     }
 
+    auto accumulator_public_inputs = accumulator->public_inputs;
+    auto other_public_inputs = instances[1]->public_inputs;
+    std::vector<FF> folded_public_inputs(accumulator->public_inputs.size());
+
+    for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
+        folded_public_inputs[idx] = lagrange_0_at_challenge * accumulator->public_inputs[idx] +
+                                    lagrange_1_at_challenge * other_public_inputs[idx];
+    }
+    // all verification keys have the same size
+
+    auto acc_vk_view = accumulator->verification_key->pointer_view();
+    auto inst_vk_view = instances[1]->verification_key->pointer_view();
+    for (size_t idx = 0; idx < acc_vk_view.size(); idx++) {
+        (*acc_vk_view[idx]) =
+            (*acc_vk_view[idx]) * lagrange_0_at_challenge + (*inst_vk_view[idx]) * lagrange_1_at_challenge;
+    }
+
     ProverFoldingResult<Flavor> res;
     res.params.target_sum = new_target_sum;
     res.folding_data = transcript.proof_data;
