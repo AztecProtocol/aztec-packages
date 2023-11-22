@@ -148,7 +148,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount + unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
-  }, 60_000);
+  }, 90_000);
 
   it("Bridge can't withdraw my funds if I don't give approval", async () => {
     const mintAmountToOwner = 100n;

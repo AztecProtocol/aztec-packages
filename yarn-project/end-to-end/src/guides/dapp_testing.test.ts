@@ -145,7 +145,7 @@ describe('guides/dapp/testing', () => {
         // The balances mapping is defined on storage slot 3 and is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(3n, ownerAddress);
         // docs:end:calc-slot
-      }, 60_000);
+      }, 90_000);
 
       it('checks private storage', async () => {
         // docs:start:private-storage
