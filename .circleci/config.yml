@@ -1238,6 +1238,8 @@ workflows:
           requires:
             - mainnet-fork
             - noir-ecr-manifest
+            - bench-publish-rollup
+            - bench-process-history
             - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
@@ -1273,8 +1275,6 @@ workflows:
       - bench-summary:
           requires:
             - end
-            - bench-publish-rollup
-            - bench-process-history
           <<: *defaults
 
       # Production deployment
