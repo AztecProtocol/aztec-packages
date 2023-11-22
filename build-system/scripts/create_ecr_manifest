@@ -31,4 +31,4 @@ done
 IFS=$OLD_IFS
 unset OLD_IFS
 
-retry docker manifest push --purge $IMAGE_URI
+retry docker manifest push --purge $MULTIARCH_IMAGE_URI
