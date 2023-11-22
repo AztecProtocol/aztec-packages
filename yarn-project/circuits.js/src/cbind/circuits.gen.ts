@@ -6,7 +6,7 @@ import { IWasmModule } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import mapValues from 'lodash.mapvalues';
 
-import { CallStackItem } from '../structs/call_stack_item.js';
+import { CallRequest } from '../structs/call_request.js';
 import { callCbind } from './cbind.js';
 import {
   AppendOnlyTreeSnapshot,
@@ -425,8 +425,8 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: CallStackItem) => toBuffer(v.hash)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: CallStackItem) => toBuffer(v.hash)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: CallRequest) => toBuffer(v.hash)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: CallRequest) => toBuffer(v.hash)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),

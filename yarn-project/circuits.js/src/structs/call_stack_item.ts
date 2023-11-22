@@ -1,67 +1,11 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
 
 import { computePrivateCallStackItemHash, computePublicCallStackItemHash } from '../abis/abis.js';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { CallContext } from './call_context.js';
+import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
-
-/**
- * Call stack item.
- */
-export class CallStackItem {
-  constructor(
-    /**
-     * The hash of the call stack item.
-     */
-    public hash: Fr,
-    /**
-     * The address of the contract calling the function.
-     */
-    public callerContractAddress: AztecAddress,
-    /**
-     * The call context of the contract calling the function.
-     */
-    public callerContext: CallContext,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.hash, this.callerContractAddress, this.callerContext);
-  }
-
-  /**
-   * Deserializes from a buffer or reader.
-   * @param buffer - Buffer or reader to read from.
-   * @returns The deserialized instance of CallStackItem.
-   */
-  public static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new CallStackItem(Fr.fromBuffer(reader), reader.readObject(AztecAddress), reader.readObject(CallContext));
-  }
-
-  isEmpty() {
-    return this.hash.isZero() && this.callerContractAddress.isZero() && this.callerContext.isEmpty();
-  }
-
-  /**
-   * Returns a new instance of CallStackItem with zero hash, caller contract address and caller context.
-   * @returns A new instance of CallStackItem with zero hash, caller contract address and caller context.
-   */
-  public static empty() {
-    return new CallStackItem(Fr.ZERO, AztecAddress.ZERO, CallContext.empty());
-  }
-
-  equals(callStackItem: CallStackItem) {
-    return (
-      callStackItem.hash.equals(this.hash) &&
-      callStackItem.callerContractAddress.equals(this.callerContractAddress) &&
-      callStackItem.callerContext.equals(this.callerContext)
-    );
-  }
-}
 
 /**
  * Call stack item on a private call.
@@ -108,12 +52,32 @@ export class PrivateCallStackItem {
     );
   }
 
+  isEmpty() {
+    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
+  }
+
   /**
    * Computes this call stack item hash.
    * @returns Hash.
    */
   public hash() {
     return computePrivateCallStackItemHash(this);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  public toCallRequest() {
+    if (this.isEmpty()) {
+      return CallRequest.empty();
+    }
+
+    const callContext = this.publicInputs.callContext;
+    const callerContext = callContext.isDelegateCall
+      ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
   }
 }
 
@@ -168,5 +132,21 @@ export class PublicCallStackItem {
    */
   public hash() {
     return computePublicCallStackItemHash(this);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  public toCallRequest() {
+    if (this.isEmpty()) {
+      return CallRequest.empty();
+    }
+
+    const callContext = this.publicInputs.callContext;
+    const callerContext = callContext.isDelegateCall
+      ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
   }
 }

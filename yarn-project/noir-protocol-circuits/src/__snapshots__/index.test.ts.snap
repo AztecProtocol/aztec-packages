@@ -14540,14 +14540,8 @@ KernelCircuitPublicInputs {
       },
     ],
     "privateCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -14564,33 +14558,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -14737,14 +14704,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -14761,33 +14722,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -14934,14 +14868,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -14958,33 +14886,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -15131,14 +15032,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -15155,33 +15050,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -15328,14 +15196,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -15352,33 +15214,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -15525,14 +15360,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -15549,33 +15378,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -15722,14 +15524,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -15746,33 +15542,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -15919,14 +15688,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -15943,33 +15706,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -16118,14 +15854,8 @@ KernelCircuitPublicInputs {
       },
     ],
     "publicCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -16142,33 +15872,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -16315,14 +16018,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -16339,33 +16036,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -16512,14 +16182,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -16536,33 +16200,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -16709,14 +16346,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -16733,33 +16364,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -16906,14 +16510,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -16930,33 +16528,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -17103,14 +16674,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -17127,33 +16692,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -17300,14 +16838,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -17324,33 +16856,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -17497,14 +17002,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -17521,33 +17020,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -40684,14 +40156,8 @@ KernelCircuitPublicInputs {
       },
     ],
     "privateCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -40708,33 +40174,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -40881,14 +40320,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -40905,33 +40338,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -41078,14 +40484,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -41102,33 +40502,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -41275,14 +40648,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -41299,33 +40666,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -41472,14 +40812,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -41496,33 +40830,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -41669,14 +40976,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -41693,33 +40994,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -41866,14 +41140,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -41890,33 +41158,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -42063,14 +41304,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -42087,33 +41322,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -42262,14 +41470,8 @@ KernelCircuitPublicInputs {
       },
     ],
     "publicCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -42286,33 +41488,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -42459,14 +41634,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -42483,33 +41652,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -42656,14 +41798,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -42680,33 +41816,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -42853,14 +41962,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -42877,33 +41980,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -43050,14 +42126,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -43074,33 +42144,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -43247,14 +42290,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -43271,33 +42308,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -43444,14 +42454,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -43468,33 +42472,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -43641,14 +42618,8 @@ KernelCircuitPublicInputs {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -43665,33 +42636,6 @@ KernelCircuitPublicInputs {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -61706,14 +60650,8 @@ KernelCircuitPublicInputsFinal {
       },
     ],
     "privateCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -61730,33 +60668,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -61903,14 +60814,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -61927,33 +60832,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -62100,14 +60978,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -62124,33 +60996,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -62297,14 +61142,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -62321,33 +61160,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -62494,14 +61306,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -62518,33 +61324,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -62691,14 +61470,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -62715,33 +61488,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -62888,14 +61634,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -62912,33 +61652,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -63085,14 +61798,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -63109,33 +61816,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -63284,14 +61964,8 @@ KernelCircuitPublicInputsFinal {
       },
     ],
     "publicCallStack": [
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -63308,33 +61982,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -63481,14 +62128,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -63505,33 +62146,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -63678,14 +62292,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -63702,33 +62310,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -63875,14 +62456,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -63899,33 +62474,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -64072,14 +62620,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -64096,33 +62638,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -64269,14 +62784,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -64293,33 +62802,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -64466,14 +62948,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -64490,33 +62966,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,
@@ -64663,14 +63112,8 @@ KernelCircuitPublicInputsFinal {
           },
         },
       },
-      CallStackItem {
-        "callerContext": CallContext {
-          "functionSelector": FunctionSelector {
-            "value": 0,
-          },
-          "isContractDeployment": false,
-          "isDelegateCall": false,
-          "isStaticCall": false,
+      CallRequest {
+        "callerContext": CallerContext {
           "msgSender": AztecAddress {
             "asBigInt": 0n,
             "asBuffer": {
@@ -64687,33 +63130,6 @@ KernelCircuitPublicInputsFinal {
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-              ],
-              "type": "Buffer",
-            },
-          },
-          "portalContractAddress": EthAddress {
-            "buffer": {
-              "data": [
                 0,
                 0,
                 0,

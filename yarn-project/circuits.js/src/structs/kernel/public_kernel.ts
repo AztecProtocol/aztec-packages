@@ -1,12 +1,15 @@
 import { Fr } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import {
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../cbind/constants.gen.js';
 import { assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
+import { CallRequest } from '../call_request.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
@@ -78,6 +81,10 @@ export class PublicCallData {
      * Call stack item being processed by the current iteration of the kernel.
      */
     public readonly callStackItem: PublicCallStackItem,
+    /**
+     * Children call stack items.
+     */
+    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Proof of the call stack item execution.
      */

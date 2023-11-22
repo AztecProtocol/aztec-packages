@@ -3,10 +3,11 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { computeVarArgsHash } from '../abis/abis.js';
 import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { CallerContext } from './call_request.js';
 import {
   AztecAddress,
   CallContext,
-  CallStackItem,
+  CallRequest,
   Fr,
   FunctionData,
   PublicCallStackItem,
@@ -101,14 +102,16 @@ export class PublicCallRequest {
   }
 
   /**
-   * Creates a new CallStackItem with values of the calling contract.
-   * @returns A CallStackItem instance with the contract address, call context, and hash.
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
    */
-  toCallStackItem() {
+  toCallRequest() {
     const item = this.toPublicCallStackItem();
     const callerContractAddress = this.callContext.msgSender;
-    const callerContext = this.callContext.isDelegateCall ? this.callContext : CallContext.empty();
-    return new CallStackItem(item.hash(), callerContractAddress, callerContext);
+    const callerContext = this.callContext.isDelegateCall
+      ? new CallerContext(this.callContext.msgSender, this.callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(item.hash(), callerContractAddress, callerContext);
   }
 
   /**

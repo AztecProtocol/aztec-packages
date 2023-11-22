@@ -13,34 +13,29 @@ export interface Address {
   inner: Field;
 }
 
-export interface EthAddress {
-  inner: Field;
-}
-
-export interface FunctionSelector {
-  inner: u32;
-}
-
-export interface CallContext {
+export interface CallerContext {
   msg_sender: Address;
   storage_contract_address: Address;
-  portal_contract_address: EthAddress;
-  function_selector: FunctionSelector;
-  is_delegate_call: boolean;
-  is_static_call: boolean;
-  is_contract_deployment: boolean;
 }
 
-export interface CallStackItem {
+export interface CallRequest {
   hash: Field;
   caller_contract_address: Address;
-  caller_context: CallContext;
+  caller_context: CallerContext;
+}
+
+export interface EthAddress {
+  inner: Field;
 }
 
 export interface NewContractData {
   contract_address: Address;
   portal_contract_address: EthAddress;
   function_tree_root: Field;
+}
+
+export interface FunctionSelector {
+  inner: u32;
 }
 
 export interface FunctionData {
@@ -79,8 +74,8 @@ export interface CombinedAccumulatedData {
   new_commitments: FixedLengthArray<Field, 64>;
   new_nullifiers: FixedLengthArray<Field, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
-  private_call_stack: FixedLengthArray<CallStackItem, 8>;
-  public_call_stack: FixedLengthArray<CallStackItem, 8>;
+  private_call_stack: FixedLengthArray<CallRequest, 8>;
+  public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
   encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
@@ -152,6 +147,16 @@ export interface PreviousKernelData {
   vk_path: FixedLengthArray<Field, 3>;
 }
 
+export interface CallContext {
+  msg_sender: Address;
+  storage_contract_address: Address;
+  portal_contract_address: EthAddress;
+  function_selector: FunctionSelector;
+  is_delegate_call: boolean;
+  is_static_call: boolean;
+  is_contract_deployment: boolean;
+}
+
 export interface PrivateCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
@@ -200,6 +205,8 @@ export interface ReadRequestMembershipWitness {
 
 export interface PrivateCallData {
   call_stack_item: PrivateCallStackItem;
+  private_call_stack: FixedLengthArray<CallRequest, 4>;
+  public_call_stack: FixedLengthArray<CallRequest, 4>;
   proof: Proof;
   vk: VerificationKey;
   function_leaf_membership_witness: FunctionLeafMembershipWitness;

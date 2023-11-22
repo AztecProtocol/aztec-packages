@@ -4,7 +4,8 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   CallContext,
-  CallStackItem,
+  CallRequest,
+  CallerContext,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -60,7 +61,8 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   CallContext as CallContextNoir,
-  CallStackItem as CallStackItemNoir,
+  CallRequest as CallRequestNoir,
+  CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
@@ -364,28 +366,52 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
 }
 
 /**
- * Maps a call stack item to a noir call stack item.
- * @param privateCallStackItem - The call stack item.
- * @returns The noir call stack item.
+ * Maps a caller context to a noir caller context.
+ * @param callContext - The caller context.
+ * @returns The noir caller context.
  */
-export function mapCallStackItemFromNoir(callStackItem: CallStackItemNoir): CallStackItem {
-  return new CallStackItem(
-    mapFieldFromNoir(callStackItem.hash),
-    mapAztecAddressFromNoir(callStackItem.caller_contract_address),
-    mapCallContextFromNoir(callStackItem.caller_context),
+export function mapCallerContextFromNoir(callerContext: CallerContextNoir): CallerContext {
+  return new CallerContext(
+    mapAztecAddressFromNoir(callerContext.msg_sender),
+    mapAztecAddressFromNoir(callerContext.storage_contract_address),
   );
 }
 
 /**
- * Maps a call stack item to a noir call stack item.
+ * Maps a caller context to a noir caller context.
+ * @param callContext - The caller context.
+ * @returns The noir caller context.
+ */
+export function mapCallerContextToNoir(callerContext: CallerContext): CallerContextNoir {
+  return {
+    msg_sender: mapAztecAddressToNoir(callerContext.msgSender),
+    storage_contract_address: mapAztecAddressToNoir(callerContext.storageContractAddress),
+  };
+}
+
+/**
+ * Maps a noit call request to a call request.
+ * @param callRequest - The noir call request.
+ * @returns The call request.
+ */
+export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallRequest {
+  return new CallRequest(
+    mapFieldFromNoir(callRequest.hash),
+    mapAztecAddressFromNoir(callRequest.caller_contract_address),
+    mapCallerContextFromNoir(callRequest.caller_context),
+  );
+}
+
+/**
+ * Maps a call request to a noir call request.
  * @param privateCallStackItem - The call stack item.
  * @returns The noir call stack item.
  */
-export function mapCallStackItemToNoir(callStackItem: CallStackItem): CallStackItemNoir {
+export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir {
   return {
-    hash: mapFieldToNoir(callStackItem.hash),
-    caller_contract_address: mapAztecAddressToNoir(callStackItem.callerContractAddress),
-    caller_context: mapCallContextToNoir(callStackItem.callerContext),
+    hash: mapFieldToNoir(callRequest.hash),
+    caller_contract_address: mapAztecAddressToNoir(callRequest.callerContractAddress),
+    caller_context: mapCallerContextToNoir(callRequest.callerContext),
   };
 }
 
@@ -541,6 +567,14 @@ export function mapReadRequestMembershipWitnessToNoir(
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
+    private_call_stack: privateCallData.privateCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      4
+    >,
+    public_call_stack: privateCallData.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      4
+    >,
     proof: {},
     vk: {},
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
@@ -712,12 +746,12 @@ export function mapCombinedAccumulatedDataFromNoir(
     mapTupleFromNoir(
       combinedAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapCallStackItemFromNoir,
+      mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(
       combinedAccumulatedData.public_call_stack,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      mapCallStackItemFromNoir,
+      mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.encrypted_logs_hash, 2, mapFieldFromNoir),
@@ -758,12 +792,12 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
     mapTupleFromNoir(
       finalAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapCallStackItemFromNoir,
+      mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(
       finalAccumulatedData.public_call_stack,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      mapCallStackItemFromNoir,
+      mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(finalAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(finalAccumulatedData.encrypted_logs_hash, 2, mapFieldFromNoir),
@@ -800,12 +834,12 @@ export function mapCombinedAccumulatedDataToNoir(
       NoirField,
       64
     >,
-    private_call_stack: combinedAccumulatedData.privateCallStack.map(mapCallStackItemToNoir) as FixedLengthArray<
-      CallStackItemNoir,
+    private_call_stack: combinedAccumulatedData.privateCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
       8
     >,
-    public_call_stack: combinedAccumulatedData.publicCallStack.map(mapCallStackItemToNoir) as FixedLengthArray<
-      CallStackItemNoir,
+    public_call_stack: combinedAccumulatedData.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
       8
     >,
     new_l2_to_l1_msgs: combinedAccumulatedData.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
@@ -1135,6 +1169,7 @@ export function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStac
 export function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
   return {
     call_stack_item: mapPublicCallStackItemToNoir(publicCall.callStackItem),
+    public_call_stack: publicCall.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<CallRequestNoir, 4>,
     proof: {},
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(publicCall.portalContractAddress)),
     bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),

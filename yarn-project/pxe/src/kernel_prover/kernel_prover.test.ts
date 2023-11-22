@@ -1,5 +1,7 @@
 import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
+  FunctionData,
+  FunctionSelector,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -52,9 +54,10 @@ describe('Kernel Prover', () => {
       i => (i < newNoteIndices.length ? generateFakeCommitment(notesAndSlots[newNoteIndices[i]]) : Fr.ZERO),
       0,
     );
+    const functionData = FunctionData.empty();
+    functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
-      // Replace `FunctionData` with `string` for easier testing.
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs, false),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs, false),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
@@ -85,11 +88,11 @@ describe('Kernel Prover', () => {
   };
 
   const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(
-      args => args[0].privateCall.callStackItem.functionData,
+    const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args =>
+      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
     );
-    const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(
-      args => args[0].privateCall.callStackItem.functionData,
+    const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(args =>
+      String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
     );
 
     expect(proofCreator.createProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
