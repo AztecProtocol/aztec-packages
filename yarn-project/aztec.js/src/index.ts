@@ -25,7 +25,6 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   AztecNode,
-  CompleteAddress,
   ContractData,
   DeployedContract,
   ExtendedContractData,
