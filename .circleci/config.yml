@@ -76,6 +76,7 @@ save_logs: &save_logs
       - ./*
 
 jobs:
+  # Noir
   noir-x86_64:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -109,6 +110,21 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest noir x86_64,arm64
 
+  noir-deploy-dockerhub:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy to dockerhub"
+          command: |
+            deploy_dockerhub noir x86_64
+            deploy_dockerhub noir arm64
+            create_dockerhub_manifest noir x86_64,arm64
+
+  # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -989,15 +1005,6 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  # canary-end:
-  #   docker:
-  #     - image: cimg/base:2023.09
-  #   resource_class: small
-  #   steps:
-  #     - run:
-  #         name: "Noop"
-  #         command: echo Noop
-
   bench-summary:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1007,19 +1014,6 @@ jobs:
       - run:
           name: "Assemble benchmark summary from uploaded logs"
           command: ./scripts/ci/assemble_e2e_benchmark.sh
-
-  # deploy-npm-canary:
-  #   # Deploys next version under 'canary' dist tag.
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: medium
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     # Aztec.js and dependencies
-  #     - run:
-  #         name: "yarn-project"
-  #         command: yarn-project/deploy_npm.sh canary
 
   deploy-npm:
     machine:
@@ -1033,28 +1027,6 @@ jobs:
           name: "yarn-project"
           command: yarn-project/deploy_npm.sh latest
 
-  # deploy-dockerhub-canary:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: medium
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Deploy to dockerhub"
-  #         command: yarn-project/deploy_dockerhub.sh canary
-
-  # deploy-ecr:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: medium
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "yarn-project"
-  #         command: yarn-project/deploy_ecr.sh
-
   deploy-dockerhub:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1065,50 +1037,6 @@ jobs:
       - run:
           name: "Deploy to dockerhub"
           command: yarn-project/deploy_dockerhub.sh
-
-  # build-deployment-canary:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Build"
-  #         command: build canary true
-
-  # canary-uniswap-test:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: run_script canary ./scripts/run_tests ./src/uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
-
-  # canary-browser-test:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: run_script canary ./scripts/run_tests ./src/aztec_js_browser.test.ts canary ./scripts/docker-compose-browser.yml
-
-  # canary-cli-test:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: run_script canary ./scripts/run_tests ./src/cli.test.ts canary ./scripts/docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^aztec-packages-v.*/
@@ -1158,6 +1086,10 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
+      - noir-deploy-dockerhub:
+          requires:
+            - noir-ecr-manifest
+          <<: *deploy_defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
