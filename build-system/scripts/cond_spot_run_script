@@ -18,7 +18,10 @@ REPOSITORY=$1
 CPUS=$2
 shift 2
 
-BASE_TAG=$(calculate_image_tag $REPOSITORY)
+# If the CPUS have a specific architecture assigned, we need to use that to build the success tag.
+ARR=(${CPUS_ARCH//:/ })
+ARCH=${ARR[1]:-x86_64}
+BASE_TAG=$(calculate_image_tag $REPOSITORY $ARCH)
 SUCCESS_TAG=$BASE_TAG
 
 if [ -n "${TAG_POSTFIX:-}" ]; then
