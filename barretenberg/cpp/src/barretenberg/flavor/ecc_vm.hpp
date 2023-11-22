@@ -102,8 +102,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * TODO(entities): comment
      */
     template <typename DataType> struct NonWireWitnessEntities {
-        FLAVOR_MEMBERS(2, // TODO(AD) constant
-                       DataType,
+        FLAVOR_MEMBERS(DataType,
                        z_perm,           // column 0
                        lookup_inverses); // column 1
     };
@@ -199,7 +198,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     class WitnessEntities : public WireEntities<DataType>, public NonWireWitnessEntities<DataType> {
       public:
         FLAVOR_COMPOUND_DEFINITION(WireEntities<DataType>, NonWireWitnessEntities<DataType>)
-        auto get_wires() override { return WireEntities<DataType>::get_all(); };
+        auto get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefArray<DataType, 0> get_sorted_polynomials() { return {}; };
     };
@@ -213,7 +212,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType> class AllEntities : public AllEntities_<DataType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities {
       public:
         FLAVOR_MEMBERS(NUM_ALL_ENTITIES,
                        DataType,
@@ -333,7 +332,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             }
         }
 
-        RefVector<DataType> get_wires() override
+        RefVector<DataType> get_wires()
         {
             RefVector<DataType> wires;
             auto view = pointer_view();
@@ -405,12 +404,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
      * inherit from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                          WitnessEntities<Polynomial, PolynomialHandle>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                 WitnessEntities<Polynomial, PolynomialHandle>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
         // The plookup wires that store plookup read data.
@@ -425,21 +422,21 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
-    using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
+    using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
@@ -455,7 +452,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      *
      *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
      */
-    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+    class AllPolynomials : public AllEntities<Polynomial> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
         AllValues get_row(const size_t row_idx) const
@@ -471,12 +468,12 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
-    using RowPolynomials = AllEntities<FF, FF>;
+    using RowPolynomials = AllEntities<FF>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
 
       public:
         PartiallyEvaluatedMultivariates() = default;
@@ -492,8 +489,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     /**
      * @brief A container for univariates used during sumcheck.
      */
-    template <size_t LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -503,7 +499,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     /**
      * @brief A container for the prover polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<PolynomialHandle> {
       public:
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
@@ -525,13 +521,13 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * needed. It has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       private:
-        using Base = AllEntities<std::string, std::string>;
+        using Base = AllEntities<std::string>;
 
       public:
         CommitmentLabels()
-            : AllEntities<std::string, std::string>()
+            : AllEntities<std::string>()
         {
             Base::transcript_add = "TRANSCRIPT_ADD";
             Base::transcript_mul = "TRANSCRIPT_MUL";
@@ -616,9 +612,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    class VerifierCommitments : public AllEntities<Commitment> {
       private:
-        using Base = AllEntities<Commitment, CommitmentHandle>;
+        using Base = AllEntities<Commitment>;
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,

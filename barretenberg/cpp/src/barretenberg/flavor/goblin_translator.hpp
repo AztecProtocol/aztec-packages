@@ -775,14 +775,14 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         };
 
         // Gemini-specific getters.
-        RefVector<DataType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
             return concatenate_ref_vectors(PrecomputedEntities<DataType>::get_all(),
                                            WitnessEntities<DataType>::get_all(),
                                            ShiftedEntities<DataType>::get_all());
         };
         // get_to_be_shifted is inherited
-        RefVector<DataType> get_shifted() override { return ShiftedEntities<DataType>::get_all(); };
+        RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
 
         /**
          * @brief Polynomials/commitments, that can be constructed only after the r challenge has been received from

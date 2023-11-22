@@ -94,7 +94,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, NUM_PRECOMPUTED_ENTITIES> {
+    class PrecomputedEntities {
       public:
         FLAVOR_MEMBERS(NUM_PRECOMPUTED_ENTITIES,
                        DataType,
@@ -138,7 +138,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
-    template <typename DataType> class WitnessEntities : public WitnessEntities_<DataType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType> class WitnessEntities {
       public:
         FLAVOR_MEMBERS(NUM_WITNESS_ENTITIES,
                        DataType,
@@ -156,7 +156,7 @@ template <typename BuilderType> class UltraRecursive_ {
 
         );
 
-        RefVector<DataType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
@@ -170,7 +170,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType> class AllEntities : public AllEntities_<DataType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities {
       public:
         FLAVOR_MEMBERS(NUM_ALL_ENTITIES,
                        DataType,
@@ -219,7 +219,7 @@ template <typename BuilderType> class UltraRecursive_ {
                        z_lookup_shift      // column 42
         );
 
-        RefVector<DataType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted() override
         {
@@ -250,7 +250,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
@@ -259,8 +259,7 @@ template <typename BuilderType> class UltraRecursive_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, auto native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size,
-                                                                                  native_key->num_public_inputs)
+            : VerificationKey_<PrecomputedEntities<Commitment>>(native_key->circuit_size, native_key->num_public_inputs)
         {
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
@@ -294,9 +293,9 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
@@ -307,7 +306,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
@@ -348,7 +347,7 @@ template <typename BuilderType> class UltraRecursive_ {
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    class VerifierCommitments : public AllEntities<Commitment> {
       public:
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
