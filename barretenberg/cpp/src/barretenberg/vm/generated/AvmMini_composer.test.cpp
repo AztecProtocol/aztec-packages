@@ -35,14 +35,14 @@ TEST_F(AvmMiniTests, basic)
 
     auto composer = AvmMiniComposer();
 
-    circuit_builder.check_circuit();
+    ASSERT_TRUE(circuit_builder.check_circuit());
 
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
 
     auto verifier = composer.create_verifier(circuit_builder);
     bool verified = verifier.verify_proof(proof);
-    ASSERT_EQ(verified, true);
+    ASSERT_TRUE(verified);
 
     info("We verified a proof!");
 }

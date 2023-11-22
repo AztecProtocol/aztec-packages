@@ -141,16 +141,22 @@ struct TraceCtx {
     // intermediate registers.
     // Assume that caller passes callDataMem which is large enough so that no out-of-bound
     // memory issues occur.
+    // TODO: Implement the indirect memory version.
     // TODO: taking care of intermediate register values consistency and propagating their
     // values to the next row when not overwritten.
-    void callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, std::vector<FF> callDataMem)
+    void callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, std::vector<FF> const& callDataMem)
     {
+        // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
+        // This offset points to the first storing operation (pertaining to intermediate register Ia).
+        // s0 + offset:       Ia memory store operation
+        // s0 + offset + 1:   Ib memory store operation
+        // s0 + offset + 1:   Ic memory store operation
+
         uint32_t offset = 0;
 
         while (offset < s1) {
-            FF ib;
-            FF ic;
-            uint32_t mem_op_a(0);
+            FF ib(0);
+            FF ic(0);
             uint32_t mem_op_b(0);
             uint32_t mem_op_c(0);
             uint32_t mem_idx_b(0);
@@ -160,10 +166,12 @@ struct TraceCtx {
             auto clk = mainTrace.size();
 
             FF ia = callDataMem.at(s0 + offset);
+            uint32_t mem_op_a(1);
             uint32_t mem_idx_a = d0 + offset;
             uint32_t rwa = 1;
 
             // Storing from Ia
+            ffMemory.at(mem_idx_a) = ia;
             insertInMemTrace(memTrace,
                              (MemoryTraceEntry{
                                  .m_clk = static_cast<uint32_t>(clk),
@@ -175,10 +183,12 @@ struct TraceCtx {
 
             if (s1 - offset > 1) {
                 ib = callDataMem.at(s0 + offset + 1);
+                mem_op_b = 1;
                 mem_idx_b = d0 + offset + 1;
                 rwb = 1;
 
                 // Storing from Ib
+                ffMemory.at(mem_idx_b) = ib;
                 insertInMemTrace(memTrace,
                                  (MemoryTraceEntry{
                                      .m_clk = static_cast<uint32_t>(clk),
@@ -191,10 +201,12 @@ struct TraceCtx {
 
             if (s1 - offset > 2) {
                 ic = callDataMem.at(s0 + offset + 2);
+                mem_op_c = 1;
                 mem_idx_c = d0 + offset + 2;
                 rwc = 1;
 
                 // Storing from Ic
+                ffMemory.at(mem_idx_c) = ic;
                 insertInMemTrace(memTrace,
                                  (MemoryTraceEntry{
                                      .m_clk = static_cast<uint32_t>(clk),
@@ -221,7 +233,11 @@ struct TraceCtx {
                 .avmMini_mem_idx_c = FF(mem_idx_c),
             });
 
-            offset += 3;
+            if (s1 - offset > 2) { // Guard to prevent overflow if s1 is close to uint32_t maximum value.
+                offset += 3;
+            } else {
+                offset = s1;
+            }
         }
     }
 
@@ -281,9 +297,12 @@ namespace proof_system {
 void AvmMiniTraceBuilder::build_circuit()
 {
     TraceCtx ctx;
-    ctx.setFFMem(2, FF(45));
-    ctx.setFFMem(3, FF(23));
-    ctx.setFFMem(5, FF(12));
+
+    ctx.callDataCopy(0, 6, 2, std::vector<FF>{ 45, 23, 12, 17, 18, 19 });
+
+    // ctx.setFFMem(2, FF(45));
+    // ctx.setFFMem(3, FF(23));
+    // ctx.setFFMem(5, FF(12));
 
     ctx.add(2, 3, 4);
     ctx.add(4, 5, 5);
@@ -297,74 +316,7 @@ void AvmMiniTraceBuilder::build_circuit()
     ctx.finalize();
     rows = std::move(ctx.mainTrace);
 
-    // Basic memory traces validation
-    //  m_addr   m_clk   m_val   m_lastAccess   m_rw
-    //    2        5       23         0          1
-    //    2        8       23         0          0
-    //    2        17      15         1          1
-    //    5        2       0          0          0
-    //    5        24      7          0          1
-    //    5        32      7          1          0
-
-    // rows.push_back(Row{ .avmMini_first = 1 }); // First row containing only shifted values.
-
-    // Row row = Row{
-    //     .avmMini_m_clk = 5,
-    //     .avmMini_m_addr = 2,
-    //     .avmMini_m_val = 23,
-    //     .avmMini_m_lastAccess = 0,
-    //     .avmMini_m_rw = 1,
-    // };
-    // rows.push_back(row);
-
-    // row = Row{
-    //     .avmMini_m_clk = 8,
-    //     .avmMini_m_addr = 2,
-    //     .avmMini_m_val = 23,
-    //     .avmMini_m_lastAccess = 0,
-    //     .avmMini_m_rw = 0,
-    // };
-    // rows.push_back(row);
-
-    // row = Row{
-    //     .avmMini_m_clk = 17,
-    //     .avmMini_m_addr = 2,
-    //     .avmMini_m_val = 15,
-    //     .avmMini_m_lastAccess = 1,
-    //     .avmMini_m_rw = 1,
-    // };
-    // rows.push_back(row);
-
-    // row = Row{
-    //     .avmMini_m_clk = 2,
-    //     .avmMini_m_addr = 5,
-    //     .avmMini_m_val = 0,
-    //     .avmMini_m_lastAccess = 0,
-    //     .avmMini_m_rw = 0,
-    // };
-    // rows.push_back(row);
-
-    // row = Row{
-    //     .avmMini_m_clk = 24,
-    //     .avmMini_m_addr = 5,
-    //     .avmMini_m_val = 7,
-    //     .avmMini_m_lastAccess = 0,
-    //     .avmMini_m_rw = 1,
-    // };
-    // rows.push_back(row);
-
-    // row = Row{
-    //     .avmMini_m_clk = 32,
-    //     .avmMini_m_addr = 5,
-    //     .avmMini_m_val = 7,
-    //     .avmMini_m_lastAccess = 1,
-    //     .avmMini_m_rw = 0,
-    // };
-    // rows.push_back(row);
-
-    // // Set the last flag in the last row
-    // rows.back().avmMini_last = 1;
-
+    // This would be required if we call check_circuit().
     // Build the shifts
     // for (size_t i = 1; i < n; i++) {
     //     rows[i - 1].avmMini_m_addr_shift = rows[i].avmMini_m_addr;
@@ -375,6 +327,10 @@ void AvmMiniTraceBuilder::build_circuit()
     info("Built circuit with ", rows.size(), " rows");
 
     for (size_t i = 0; i < 20; i++) {
+        info("===============================");
+        info("==        ROW ", i, "             ==");
+        info("===============================");
+
         info("m_addr: ", rows[i].avmMini_m_addr);
         info("m_clk: ", rows[i].avmMini_m_clk);
         info("m_sub_clk: ", rows[i].avmMini_m_sub_clk);
@@ -386,7 +342,25 @@ void AvmMiniTraceBuilder::build_circuit()
         info("last: ", rows[i].avmMini_last);
 
         // info(rows[i].avmMini_m_val_shift);
-        info("===============================");
+        info("=======MEM_OP_A===========");
+        info("clk: ", rows[i].avmMini_clk);
+        info("mem_op_a: ", rows[i].avmMini_mem_op_a);
+        info("mem_idx_a: ", rows[i].avmMini_mem_idx_a);
+        info("ia: ", rows[i].avmMini_ia);
+        info("rwa: ", rows[i].avmMini_rwa);
+
+        info("=======MEM_OP_B===========");
+        info("mem_op_b: ", rows[i].avmMini_mem_op_b);
+        info("mem_idx_b: ", rows[i].avmMini_mem_idx_b);
+        info("ib: ", rows[i].avmMini_ib);
+        info("rwb: ", rows[i].avmMini_rwb);
+
+        info("=======MEM_OP_C===========");
+        info("mem_op_c: ", rows[i].avmMini_mem_op_c);
+        info("mem_idx_c: ", rows[i].avmMini_mem_idx_c);
+        info("ic: ", rows[i].avmMini_ic);
+        info("rwc: ", rows[i].avmMini_rwc);
+        info("\n");
     }
     // for (auto& row : rows) {
     //     info(row.avmMini_clk);
