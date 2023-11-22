@@ -424,17 +424,6 @@ jobs:
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build cli false arm64
 
-  aztec-node:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build aztec-node | add_timestamps
-
   mainnet-fork:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1201,11 +1190,6 @@ workflows:
             - yarn-project
           <<: *defaults
       - cli-arm64:
-          requires:
-            - yarn-project
-          <<: *defaults
-
-      - aztec-node:
           requires:
             - yarn-project
           <<: *defaults
