@@ -363,6 +363,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
                        concatenated_range_constraints_3) // column 3
     };
     template <typename DataType> class WireWitnessEntities {
+      public:
         FLAVOR_MEMBERS(DataType,
                        op,
                        x_lo_y_hi,                                    // column 1
@@ -469,8 +470,7 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return concatenate_ref_vectors(WireWitnessEntities<DataType>::get_all(),
-                                           DerivedWitnessEntities<DataType>::get_all());
+            return concatenate(WireWitnessEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all());
         }
 
         /**
@@ -777,9 +777,9 @@ template <size_t mini_circuit_size> class GoblinTranslator_ {
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
-            return concatenate_ref_vectors(PrecomputedEntities<DataType>::get_all(),
-                                           WitnessEntities<DataType>::get_all(),
-                                           ShiftedEntities<DataType>::get_all());
+            return concatenate(PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_all());
         };
         // get_to_be_shifted is inherited
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
