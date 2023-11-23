@@ -25,6 +25,7 @@ import {
   TxHash,
 } from '@aztec/types';
 
+import { RootDatabase } from 'lmdb';
 import omit from 'lodash.omit';
 import { Chain, HttpTransport, PublicClient, createPublicClient, getContract, http } from 'viem';
 
@@ -36,6 +37,7 @@ import {
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
+import { LMDBArchiverStore } from './lmdb_archiver_store.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 /**
@@ -94,10 +96,15 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
    * @param config - The archiver's desired configuration.
+   * @param rootDB - The database for the archiver.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
-  public static async createAndSync(config: ArchiverConfig, blockUntilSynced = true): Promise<Archiver> {
+  public static async createAndSync(
+    config: ArchiverConfig,
+    rootDB?: RootDatabase,
+    blockUntilSynced = true,
+  ): Promise<Archiver> {
     const chain = createEthereumChain(config.rpcUrl, config.apiKey);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -114,7 +121,9 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     });
     const searchStartBlock = Number((await registryContract.read.getCurrentSnapshot()).blockNumber);
 
-    const archiverStore = new MemoryArchiverStore(config.maxLogs ?? 1000);
+    const archiverStore = rootDB
+      ? new LMDBArchiverStore(rootDB, config.maxLogs ?? 1000)
+      : new MemoryArchiverStore(config.maxLogs ?? 1000);
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,

@@ -162,6 +162,7 @@ __metadata:
     koa: ^2.14.2
     koa-router: ^12.0.0
     levelup: ^5.1.1
+    lmdb: ^2.9.1
     memdown: ^6.1.1
     ts-jest: ^29.1.0
     ts-node: ^10.9.1

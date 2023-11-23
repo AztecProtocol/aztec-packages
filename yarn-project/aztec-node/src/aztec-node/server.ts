@@ -46,7 +46,7 @@ import {
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import levelup from 'levelup';
+import { LevelUp } from 'levelup';
 
 import { AztecNodeConfig } from './config.js';
 import { openDb } from './db.js';
@@ -68,7 +68,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly chainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
-    protected readonly merkleTreesDb: levelup.LevelUp,
+    protected readonly merkleTreesDb: LevelUp,
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
@@ -94,8 +94,12 @@ export class AztecNodeService implements AztecNode {
         `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
       );
     }
+
+    const log = createDebugLogger('aztec:node');
+    const [nodeDb, worldStateDb] = await openDb(config, log);
+
     // first create and sync the archiver
-    const archiver = await Archiver.createAndSync(config);
+    const archiver = await Archiver.createAndSync(config, nodeDb);
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -105,10 +109,14 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state synchronizer
-    const db = await openDb(config);
-    const merkleTrees = await MerkleTrees.new(db);
+    const merkleTrees = await MerkleTrees.new(worldStateDb);
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchronizer = await ServerWorldStateSynchronizer.new(db, merkleTrees, archiver, worldStateConfig);
+    const worldStateSynchronizer = await ServerWorldStateSynchronizer.new(
+      worldStateDb,
+      merkleTrees,
+      archiver,
+      worldStateConfig,
+    );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
@@ -131,7 +139,8 @@ export class AztecNodeService implements AztecNode {
       ethereumChain.chainInfo.id,
       config.version,
       getGlobalVariableBuilder(config),
-      db,
+      worldStateDb,
+      log,
     );
   }
 
