@@ -1098,7 +1098,10 @@ workflows:
             - l1-contracts
             - bb-js
           <<: *defaults
-      - yarn-project: *defaults_yarn_project
+      - yarn-project:
+          requires:
+            - yarn-project-base
+          <<: *defaults
       - yarn-project-formatting: *defaults_yarn_project
       - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
