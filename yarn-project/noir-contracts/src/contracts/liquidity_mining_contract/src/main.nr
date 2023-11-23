@@ -93,12 +93,8 @@ contract LiquidityMining {
     ) {
         let balances = storage.balances.at(owner.address);
 
-        let not_ignored_block_number = block_number;
-        let ignored_block_number = 0; // Sibling path oracle ignores this now and only gets the path at the latest block
-
         // 1.c)
-        let block_data = get_block_data(not_ignored_block_number);
-        // let block_data = context.block_data;
+        let block_data = get_block_data(block_number);
         
         // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
         // TODO: Would make sense to unify the ordering in `HistoricBlockData::serialize` function and the ordering
@@ -114,16 +110,15 @@ contract LiquidityMining {
         let block_hash = pedersen_hash_with_separator(inputs, GENERATOR_INDEX__BLOCK_HASH);
 
         // 1.d)
-        let blocks_tree_root = block_data.blocks_tree_root;
         let blocks_tree_id = 5;
         let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
-            get_membership_witness(ignored_block_number, blocks_tree_id, block_hash);
+            get_membership_witness(block_number, blocks_tree_id, block_hash);
 
         // 1.e)
         // In our test case this should be tree root at the latest block and should correspond to the membership
         // witness we obtain from oracle
         assert(
-            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
+            block_data.blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
             "Proving membership of a block in blocks tree failed"
         );
 
@@ -138,14 +133,13 @@ contract LiquidityMining {
         // 1.h)
         let note_hash_tree_id = 2;
         let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
-            get_membership_witness(ignored_block_number, note_hash_tree_id, note_commitment);
+            get_membership_witness(block_number, note_hash_tree_id, note_commitment);
 
         // 1.i)
         // In our test case this should be tree root at the latest block and should correspond to the membership
         // witness we obtain from oracle
-        let note_hash_tree_root = block_data.note_hash_tree_root;
         assert(
-            note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
+            block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving membership of a note in note has tree failed"
         );
 

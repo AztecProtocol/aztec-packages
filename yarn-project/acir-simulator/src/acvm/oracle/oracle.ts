@@ -64,6 +64,16 @@ export class Oracle {
     return witness.map(toACVMField);
   }
 
+  async getBlockData([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
+
+    const blockData = await this.typedOracle.getBlockData(parsedBlockNumber);
+    if (!blockData) {
+      throw new Error(`Block data not found for block ${parsedBlockNumber}.`);
+    }
+    return blockData.toArray().map(toACVMField);
+  }
+
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
     const messageHashField = fromACVMField(messageHash);
     const witness = await this.typedOracle.getAuthWitness(messageHashField);

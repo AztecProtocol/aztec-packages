@@ -3,7 +3,7 @@ import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@azte
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { MerkleTreeId } from '@aztec/types';
+import { L2Block, MerkleTreeId } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
@@ -130,6 +130,14 @@ export interface DBOracle extends CommitmentsDB {
    * @param blockNumber - The block number at which to get the sibling path.
    * @param treeId - The id of the tree to search.
    * @param leafIndex - The index of the leaf.
+   * @returns - The sibling path of the leaf. Undefined if it does not exist in the tree.
    */
   getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+
+  /**
+   * Fetch a block corresponding to the given block number.
+   * @param blockNumber - The block number of a block to fetch.
+   * @returns - The block corresponding to the given block number. Undefined if it does not exist.
+   */
+  getBlock(blockNumber: number): Promise<L2Block | undefined>;
 }

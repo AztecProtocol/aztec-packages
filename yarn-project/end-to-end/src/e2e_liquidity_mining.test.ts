@@ -1,9 +1,7 @@
-import { AccountWallet, CheatCodes, CompleteAddress, DebugLogger } from '@aztec/aztec.js';
-import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
+import { AccountWallet, CompleteAddress, DebugLogger, PXE } from '@aztec/aztec.js';
 import { LiquidityMiningContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
-import levelup from 'levelup';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { setup } from './fixtures/utils.js';
@@ -15,25 +13,18 @@ const TIMEOUT = 90_000;
 describe('e2e_liquidity_mining', () => {
   jest.setTimeout(TIMEOUT);
 
+  let pxe: PXE;
   let teardown: () => Promise<void>;
   let logger: DebugLogger;
   let wallets: AccountWallet[];
   let accounts: CompleteAddress[];
-  let cheatCodes: CheatCodes;
 
   let contract: LiquidityMiningContract;
 
-  let simulatorTree: SparseTree;
-
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(1));
+    ({ pxe, teardown, logger, wallets, accounts } = await setup(1));
 
     contract = await LiquidityMiningContract.deploy(wallets[0]).send().deployed();
-
-    const db = levelup(createMemDown());
-    const hasher = new Pedersen();
-    const depth = 254;
-    simulatorTree = await newTree(SparseTree, db, hasher, 'test', depth);
   }, 100_000);
 
   afterAll(() => teardown());
@@ -55,7 +46,9 @@ describe('e2e_liquidity_mining', () => {
 
     {
       // Claim
-      const receipt = await contract.methods.claim(accounts[0].address).send().wait({ debug: true });
+      // We prove the note existence at current block number because we don't currently have historical data
+      const blockNumber = await pxe.getBlockNumber();
+      const receipt = await contract.methods.claim(accounts[0].address, blockNumber).send().wait({ debug: true });
       const { newNullifiers } = receipt.debugInfo!;
       expect(newNullifiers.length).toBe(2); // tx hash and note nullifier
     }

@@ -10,7 +10,7 @@ import {
   PublicKey,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
+import { KeyStore, L2Block, MerkleTreeId, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -154,6 +154,10 @@ export class SimulatorOracle implements DBOracle {
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    return await this.stateInfoProvider.getBlock(blockNumber);
   }
 
   /**

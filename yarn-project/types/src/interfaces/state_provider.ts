@@ -7,6 +7,7 @@ import {
 } from '@aztec/circuits.js';
 
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
+import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
 
@@ -61,4 +62,11 @@ export interface StateInfoProvider {
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getHistoricBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>>;
+
+  /**
+   * Get the a given block.
+   * @param number - The block number being requested.
+   * @returns The blocks requested.
+   */
+  getBlock(number: number): Promise<L2Block | undefined>;
 }

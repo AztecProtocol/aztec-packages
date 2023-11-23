@@ -1,4 +1,4 @@
-import { PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { HistoricBlockData, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -77,6 +77,10 @@ export abstract class TypedOracle {
   }
 
   getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leaf: Fr): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
+  getBlockData(_blockNumber: number): Promise<HistoricBlockData | undefined> {
     throw new Error('Not available.');
   }
 

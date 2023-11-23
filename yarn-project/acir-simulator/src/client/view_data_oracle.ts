@@ -1,5 +1,5 @@
 import { HistoricBlockData, PublicKey } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/abis';
+import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -49,6 +49,28 @@ export class ViewDataOracle extends TypedOracle {
     }
     const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
     return [new Fr(index), ...siblingPath];
+  }
+
+  /**
+   * Fetches historic block data for a given block.
+   * @param blockNumber - The block number at which to get the historic block data.
+   * @returns Historic block data extracted from a block with block number `blockNumber`.
+   */
+  public async getBlockData(blockNumber: number): Promise<HistoricBlockData | undefined> {
+    const block = await this.db.getBlock(blockNumber);
+    if (!block) {
+      return undefined;
+    }
+    return new HistoricBlockData(
+      block.endNoteHashTreeSnapshot.root,
+      block.endNullifierTreeSnapshot.root,
+      block.endContractTreeSnapshot.root,
+      block.endL1ToL2MessagesTreeSnapshot.root,
+      block.endHistoricBlocksTreeSnapshot.root,
+      new Fr(0), // privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
+      block.endPublicDataTreeRoot,
+      computeGlobalsHash(block.globalVariables),
+    );
   }
 
   /**
