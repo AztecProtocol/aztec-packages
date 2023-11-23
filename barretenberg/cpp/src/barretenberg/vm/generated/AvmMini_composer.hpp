@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_trace.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
@@ -12,7 +12,7 @@ namespace proof_system::honk {
 class AvmMiniComposer {
   public:
     using Flavor = honk::flavor::AvmMiniFlavor;
-    using CircuitConstructor = AvmMiniTraceBuilder;
+    using CircuitConstructor = AvmMiniCircuitBuilder;
     using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using PCS = Flavor::PCS;

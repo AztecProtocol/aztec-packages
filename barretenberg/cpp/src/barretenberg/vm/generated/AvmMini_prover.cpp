@@ -55,14 +55,14 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_m_lastAccess = key->avmMini_m_lastAccess;
     prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
 
-    prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
-    prover_polynomials.avmMini_m_rw_shift = key->avmMini_m_rw.shifted();
-
     prover_polynomials.avmMini_m_val = key->avmMini_m_val;
     prover_polynomials.avmMini_m_val_shift = key->avmMini_m_val.shifted();
 
     prover_polynomials.avmMini_m_addr = key->avmMini_m_addr;
     prover_polynomials.avmMini_m_addr_shift = key->avmMini_m_addr.shifted();
+
+    prover_polynomials.avmMini_m_rw = key->avmMini_m_rw;
+    prover_polynomials.avmMini_m_rw_shift = key->avmMini_m_rw.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);

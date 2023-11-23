@@ -298,7 +298,7 @@ struct TraceCtx {
 
 namespace proof_system {
 
-void AvmMiniTraceBuilder::build_circuit()
+std::vector<Row> AvmMiniTraceBuilder::build_trace()
 {
     TraceCtx ctx;
 
@@ -318,7 +318,7 @@ void AvmMiniTraceBuilder::build_circuit()
     ctx.add(5, 6, 7);
 
     ctx.finalize();
-    rows = std::move(ctx.mainTrace);
+    return std::move(ctx.mainTrace);
 
     // This would be required if we call check_circuit().
     // Build the shifts
@@ -328,44 +328,6 @@ void AvmMiniTraceBuilder::build_circuit()
     //     rows[i - 1].avmMini_m_val_shift = rows[i].avmMini_m_val;
     // }
 
-    info("Built circuit with ", rows.size(), " rows");
-
-    for (size_t i = 0; i < 20; i++) {
-        info("===============================");
-        info("==        ROW ", i, "             ==");
-        info("===============================");
-
-        info("m_addr: ", rows[i].avmMini_m_addr);
-        info("m_clk: ", rows[i].avmMini_m_clk);
-        info("m_sub_clk: ", rows[i].avmMini_m_sub_clk);
-        info("m_val: ", rows[i].avmMini_m_val);
-        info("m_lastAccess: ", rows[i].avmMini_m_lastAccess);
-        info("m_rw: ", rows[i].avmMini_m_rw);
-        info("m_val_shift: ", rows[i].avmMini_m_val_shift);
-        info("first: ", rows[i].avmMini_first);
-        info("last: ", rows[i].avmMini_last);
-
-        // info(rows[i].avmMini_m_val_shift);
-        info("=======MEM_OP_A===========");
-        info("clk: ", rows[i].avmMini_clk);
-        info("mem_op_a: ", rows[i].avmMini_mem_op_a);
-        info("mem_idx_a: ", rows[i].avmMini_mem_idx_a);
-        info("ia: ", rows[i].avmMini_ia);
-        info("rwa: ", rows[i].avmMini_rwa);
-
-        info("=======MEM_OP_B===========");
-        info("mem_op_b: ", rows[i].avmMini_mem_op_b);
-        info("mem_idx_b: ", rows[i].avmMini_mem_idx_b);
-        info("ib: ", rows[i].avmMini_ib);
-        info("rwb: ", rows[i].avmMini_rwb);
-
-        info("=======MEM_OP_C===========");
-        info("mem_op_c: ", rows[i].avmMini_mem_op_c);
-        info("mem_idx_c: ", rows[i].avmMini_mem_idx_c);
-        info("ic: ", rows[i].avmMini_ic);
-        info("rwc: ", rows[i].avmMini_rwc);
-        info("\n");
-    }
     // for (auto& row : rows) {
     //     info(row.avmMini_clk);
     // }

@@ -1,7 +1,7 @@
 
 
 #include "./AvmMini_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_trace.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
