@@ -10,7 +10,8 @@
 set -eu
 NAME=$1
 CPUS=$2
-shift 2
+ARCH=$3
+shift 3
 IP=
 
 # On any sort of exit (error or not).
@@ -33,7 +34,7 @@ function on_exit {
 trap on_exit EXIT
 
 # Get spot instance.
-IP=$(retry request_spot $NAME $CPUS)
+IP=$(retry request_spot $NAME $CPUS $ARCH)
 
 if [ -z "$IP" ]; then
     echo "Failed to get spot instance."

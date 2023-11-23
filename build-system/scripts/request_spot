@@ -3,11 +3,8 @@
 set -eu
 
 NAME=$1
-CPUS_ARCH=$2
-
-ARR=(${CPUS_ARCH//:/ })
-CPUS=${ARR[0]}
-ARCH=${ARR[1]:-x86_64}
+CPUS=$2
+ARCH=$3
 
 # Declare an associative array to map CPU counts to instance type suffixes.
 declare -A cpu_map
