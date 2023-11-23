@@ -309,7 +309,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       const fees = this.#tables.pendingMessagesByFee.getKeys({ reverse: true, transaction });
       const messages: Fr[] = [];
 
-      for (const fee of fees) {
+      loopOverFees: for (const fee of fees) {
         const pendingMessages = this.#tables.pendingMessagesByFee.getValues(fee, { transaction });
 
         for (const messageKey of pendingMessages) {
@@ -321,12 +321,8 @@ export class LMDBArchiverStore implements ArchiverDataStore {
           messages.push(...toAdd);
 
           if (messages.length >= limit) {
-            break;
+            break loopOverFees;
           }
-        }
-
-        if (messages.length >= limit) {
-          break;
         }
       }
 
@@ -431,7 +427,8 @@ export class LMDBArchiverStore implements ArchiverDataStore {
 
     const blockNumbers = this.#tables.blocks.getKeys({ start, end, snapshot: false });
     let maxLogsHit = false;
-    for (const blockNumber of blockNumbers) {
+
+    loopOverBlocks: for (const blockNumber of blockNumbers) {
       const block = this.#getBlock(blockNumber, true);
       if (!block || !block.newUnencryptedLogs) {
         continue;
@@ -442,7 +439,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
-          break;
+          break loopOverBlocks;
         }
       }
     }
