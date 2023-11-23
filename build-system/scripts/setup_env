@@ -29,7 +29,7 @@ echo "JOB_NAME=$JOB_NAME"
 echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL"
 echo "BRANCH=$BRANCH"
 echo "PULL_REQUEST=$PULL_REQUEST"
-echo "DRY_DEPLOY=$DRY_DEPLOY"
+echo "DRY_DEPLOY_VERSION=$DRY_DEPLOY_VERSION"
 
 # If the user has requested to perform a "dry deploy", we set the commit tag to the provided tag, and set DRY_DEPLOY to 1.
 if [ -n "$DRY_DEPLOY_VERSION" ]; then
