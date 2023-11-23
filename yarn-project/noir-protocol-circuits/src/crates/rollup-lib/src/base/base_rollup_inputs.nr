@@ -506,19 +506,19 @@ impl BaseRollupInputs {
     }
 }
 
-fn verify_kernel_proof(proof : Proof) -> bool {
+fn verify_kernel_proof(proof: Proof) -> bool {
     // TODO: Just return true as we are mocking out the proof verification
     // and aggregation.
     // TODO(Kev): It may make sense to move all of these methods into a 
     // separate module.
     true
-}   
+}
 
 fn insert_public_data_update_requests(
-    tree_root : Field, 
-    public_data_update_requests : [PublicDataUpdateRequest;MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], 
-    witnesses_offset : Field, 
-    witnesses : [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    tree_root: Field,
+    public_data_update_requests: [PublicDataUpdateRequest;MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    witnesses_offset: Field,
+    witnesses: [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 ) -> Field {
     let mut root = tree_root;
 
@@ -527,12 +527,7 @@ fn insert_public_data_update_requests(
         let witness = witnesses[i + witnesses_offset];
 
         if (!state_write.is_empty()) {
-            components::assert_check_membership(
-                state_write.old_value,
-                state_write.leaf_index,
-                witness,
-                root,
-            );
+            components::assert_check_membership(state_write.old_value, state_write.leaf_index, witness, root);
             root = components::root_from_sibling_path(state_write.new_value, state_write.leaf_index, witness);
         }
     }
@@ -541,10 +536,10 @@ fn insert_public_data_update_requests(
 }
 
 fn validate_public_data_reads(
-    tree_root : Field,
-    public_data_reads : [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
-    witnesses_offset : Field,
-    witnesses : [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_READS_PER_TX]
+    tree_root: Field,
+    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
+    witnesses_offset: Field,
+    witnesses: [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_READS_PER_TX]
 ) {
     for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
         let public_data_read = public_data_reads[i];
@@ -561,8 +556,6 @@ fn validate_public_data_reads(
     }
 }
 
-
-
 global NUM_CONTRACT_LEAVES = 2;
 #[test]
 fn consistent_num_contract_leaves() {
@@ -572,24 +565,28 @@ fn consistent_num_contract_leaves() {
 global NOTE_HASH_SUBTREE_WIDTH = 128;
 #[test]
 fn consistent_not_hash_subtree_width() {
-    assert(NOTE_HASH_SUBTREE_WIDTH == 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT), "note hash subtree width is incorrect");
+    assert_eq(NOTE_HASH_SUBTREE_WIDTH, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT) as u32, "note hash subtree width is incorrect");
 }
 
 global CALLDATA_HASH_INPUT_SIZE = 338;
 #[test]
 fn consistent_calldata_hash_input_size() {
-    let expected_size = (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
-            MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
-            NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 +
-            NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256) * 2;
+    let expected_size = (MAX_NEW_COMMITMENTS_PER_TX
+        + MAX_NEW_NULLIFIERS_PER_TX
+        + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
+        + MAX_NEW_L2_TO_L1_MSGS_PER_TX
+        + MAX_NEW_CONTRACTS_PER_TX * 3
+        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256)
+        * 2;
     assert(CALLDATA_HASH_INPUT_SIZE == expected_size, "calldata hash input size is incorrect");
 }
 
 global CALL_DATA_HASH_LOG_FIELDS = 8;
 #[test]
 fn consistent_call_data_hash_log_fields() {
-    assert_eq(CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2 + 
-            NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2, "calldata hash log fields is incorrect");
+    assert_eq(CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2, "calldata hash log fields is incorrect");
 }
 
 global CALL_DATA_HASH_FULL_FIELDS = 330;
@@ -597,7 +594,6 @@ global CALL_DATA_HASH_FULL_FIELDS = 330;
 fn consistent_call_data_hash_full_fields() {
     assert_eq(CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect");
 }
-
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
@@ -613,8 +609,8 @@ fn test_u256_less_than() {
     assert(full_field_less_than(1, 1000));
     assert(!full_field_less_than(1000, 1000));
     assert(!full_field_less_than(1000, 1));
-    assert(full_field_less_than(0, 0-1));
-    assert(!full_field_less_than(0-1, 0));
+    assert(full_field_less_than(0, 0 - 1));
+    assert(!full_field_less_than(0 - 1, 0));
 }
 
 #[test]
@@ -622,6 +618,421 @@ fn test_u256_greater_than() {
     assert(full_field_greater_than(1000, 1));
     assert(!full_field_greater_than(1000, 1000));
     assert(!full_field_greater_than(1, 1000));
-    assert(!full_field_greater_than(0, 0-1));
-    assert(full_field_greater_than(0-1, 0));
+    assert(!full_field_greater_than(0, 0 - 1));
+    assert(full_field_greater_than(0 - 1, 0));
+}
+
+mod tests {
+    use crate::{
+        base::base_rollup_inputs::{
+            CALL_DATA_HASH_FULL_FIELDS,
+            CALL_DATA_HASH_LOG_FIELDS,
+            NOTE_HASH_SUBTREE_WIDTH, 
+            NUM_CONTRACT_LEAVES, 
+            BaseRollupInputs
+        },
+        merkle_tree::{calculate_subtree, calculate_empty_tree_root},
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        abis::nullifier_leaf_preimage::NullifierLeafPreimage,
+        abis::constant_rollup_data::ConstantRollupData,
+        tests::merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
+        components,
+    };
+    use dep::aztec::constants_gen::{
+        CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
+        CONTRACT_TREE_HEIGHT,
+        CONTRACT_SUBTREE_HEIGHT,
+        HISTORIC_BLOCKS_TREE_HEIGHT,
+        KERNELS_PER_BASE_ROLLUP,
+        MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+        MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
+        NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+        NOTE_HASH_TREE_HEIGHT,
+        NOTE_HASH_SUBTREE_HEIGHT,
+        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+        NULLIFIER_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT,
+    };
+    use dep::types::{
+        abis::membership_witness::HistoricBlocksTreeRootMembershipWitness,
+        abis::membership_witness::NullifierMembershipWitness,
+        abis::new_contract_data::NewContractData,
+        abis::public_data_read::PublicDataRead,
+        abis::public_data_update_request::PublicDataUpdateRequest,
+        tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
+        address::{Address, EthAddress},
+        utils::bounded_vec::BoundedVec,
+        utils::uint256::U256,
+    };
+
+    struct BaseRollupInputsBuilder {
+        kernel_data: [PreviousKernelDataBuilder; KERNELS_PER_BASE_ROLLUP],
+        pre_existing_notes: [Field; NOTE_HASH_SUBTREE_WIDTH],
+        pre_existing_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+        pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
+        pre_existing_public_data: [Field; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP],
+        pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
+        public_data_reads: BoundedVec<u64, 2>,
+        public_data_writes: BoundedVec<(u64, Field), 2>,
+        constants: ConstantRollupData,
+    }
+
+    fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
+        compute_zero_hashes(size)[N - 1]
+    }
+
+    impl BaseRollupInputsBuilder {
+        fn new() -> Self {
+            let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
+            inputs.constants.global_variables.chain_id = 1;
+            inputs.constants.global_variables.version = 0;
+
+            inputs.kernel_data = inputs.kernel_data.map(|_| {
+                let mut builder = PreviousKernelDataBuilder::new();
+                let _nullifier = builder.end.new_nullifiers.pop();
+                builder.next_is_public().is_public()
+            });
+
+            inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
+                builder.block_data.block.hash()
+            });
+
+            inputs
+        }
+
+        fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(path: [Field; FULL_HEIGHT], mut sibling_path: [Field; SIBLING_PATH_LENGTH]) -> [Field; SIBLING_PATH_LENGTH] {
+            let subtree_height = FULL_HEIGHT - SIBLING_PATH_LENGTH;
+            for i in subtree_height..FULL_HEIGHT {
+                sibling_path[i - subtree_height] = path[i];
+            }
+            sibling_path
+        }
+
+        fn build_inputs(mut self) -> BaseRollupInputs {
+            let mut kernel_data = self.kernel_data.map(|builder: PreviousKernelDataBuilder|{
+                builder.finish()
+            });
+
+            let start_note_hash_tree = NonEmptyMerkleTree::new(self.pre_existing_notes, [0; NOTE_HASH_TREE_HEIGHT], [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT], [0; NOTE_HASH_SUBTREE_HEIGHT]);
+            let start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_note_hash_tree.get_root(),
+                next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32,
+            };
+            let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
+
+            let start_nullifier_tree = NonEmptyMerkleTree::new(self.pre_existing_nullifiers, [0; NULLIFIER_TREE_HEIGHT], [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], [0; NULLIFIER_SUBTREE_HEIGHT]);
+            let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_nullifier_tree.get_root(),
+                next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
+            };
+            let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
+            
+            let start_contract_tree = NonEmptyMerkleTree::new(self.pre_existing_contracts, [0; CONTRACT_TREE_HEIGHT], [0; CONTRACT_TREE_HEIGHT - 1], [0; 1]);
+            let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_contract_tree.get_root(),
+                next_available_leaf_index: start_contract_tree.get_next_available_index() as u32,
+            };
+            let new_contracts_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()), [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]);
+
+            let mut start_public_data_tree = NonEmptyMerkleTree::new(self.pre_existing_public_data, [0; PUBLIC_DATA_TREE_HEIGHT], [0; PUBLIC_DATA_TREE_HEIGHT - 5], [0; 5]);
+            let start_public_data_tree_root = start_public_data_tree.get_root();
+
+            let start_historic_blocks_tree = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; HISTORIC_BLOCKS_TREE_HEIGHT], [0; HISTORIC_BLOCKS_TREE_HEIGHT - 1], [0; 1]);
+            let start_historic_blocks_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_historic_blocks_tree.get_root(),
+                next_available_leaf_index: start_historic_blocks_tree.get_next_available_index() as u32,
+            };
+
+            self.constants.start_historic_blocks_tree_roots_snapshot = start_historic_blocks_tree_snapshot;
+
+            let mut new_public_data_reads_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            
+            for i in 0..self.public_data_reads.max_len() {
+                if (i as u64) < (self.public_data_reads.len() as u64) {
+                    let index = self.public_data_reads.get_unchecked(i);
+                    let value = self.pre_existing_public_data[index];
+                    kernel_data[0].public_inputs.end.public_data_reads[i] = PublicDataRead {
+                        leaf_index: index as Field,
+                        value: value,
+                    };
+                    new_public_data_reads_sibling_paths[i] = start_public_data_tree.get_sibling_path(index as Field);
+                }
+            }
+
+            let mut new_public_data_update_requests_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+
+            for i in 0..self.public_data_writes.max_len() {
+                if (i as u64) < (self.public_data_writes.len() as u64) {
+                    let write = self.public_data_writes.get_unchecked(i);
+                    let index = write.0;
+                    let new_value = write.1;
+                    let old_value = self.pre_existing_public_data[index];
+                    kernel_data[0].public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
+                        leaf_index : index as Field,
+                        old_value,
+                        new_value,
+                    };
+                    new_public_data_update_requests_sibling_paths[i] = start_public_data_tree.get_sibling_path(index as Field);
+                    start_public_data_tree.update_leaf(index, new_value);
+                }
+            }
+
+
+            BaseRollupInputs {
+                kernel_data: kernel_data,
+                start_note_hash_tree_snapshot,
+                start_nullifier_tree_snapshot,
+                start_contract_tree_snapshot,
+                start_public_data_tree_root,
+                start_historic_blocks_tree_snapshot,
+
+                low_nullifier_leaf_preimages: dep::std::unsafe::zeroed(),
+                low_nullifier_membership_witness: dep::std::unsafe::zeroed(),
+
+                new_commitments_subtree_sibling_path, 
+                new_nullifiers_subtree_sibling_path, 
+                new_contracts_subtree_sibling_path, 
+                new_public_data_update_requests_sibling_paths,  
+                new_public_data_reads_sibling_paths,  
+                
+                historic_blocks_tree_root_membership_witnesses: [
+                    HistoricBlocksTreeRootMembershipWitness {
+                        leaf_index: 0,
+                        sibling_path: start_historic_blocks_tree.get_sibling_path(0)
+                    },
+                    HistoricBlocksTreeRootMembershipWitness {
+                        leaf_index: 1,
+                        sibling_path: start_historic_blocks_tree.get_sibling_path(1)
+                    },
+                ],
+                
+                constants: self.constants,
+            }
+        }
+
+        fn execute(self) -> BaseOrMergeRollupPublicInputs {
+            self.build_inputs().base_rollup_circuit()
+        }
+
+        fn succeeds(self) {
+            let _ = self.execute();
+        }
+    }
+
+    #[test]
+    fn no_new_contract_leaves() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 4 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    fn contract_leaf_inserted() {
+        let new_contract = NewContractData {
+            contract_address: Address::from_field(1),
+            portal_contract_address: EthAddress::from_field(2),
+            function_tree_root: 3
+        };
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        let mut new_contracts = builder.kernel_data[0].end.new_contracts;
+        new_contracts.push(new_contract);
+        builder.kernel_data[0].end.new_contracts = new_contracts;
+
+        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
+            [0; 4],
+            [0; CONTRACT_TREE_HEIGHT],
+            [0; CONTRACT_TREE_HEIGHT - 2],
+            [0; 2]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+
+        expected_contracts_tree.update_leaf(2, new_contract.hash());
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    fn contract_leaf_inserted_in_non_empty_snapshot_tree() {
+        let new_contract = NewContractData {
+            contract_address: Address::from_field(1),
+            portal_contract_address: EthAddress::from_field(2),
+            function_tree_root: 3
+        };
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_contracts = [1,2];
+
+        let mut new_contracts = builder.kernel_data[0].end.new_contracts;
+        new_contracts.push(new_contract);
+        builder.kernel_data[0].end.new_contracts = new_contracts;
+
+        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
+            [1, 2, 0, 0],
+            [0; CONTRACT_TREE_HEIGHT],
+            [0; CONTRACT_TREE_HEIGHT - 2],
+            [0; 2]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+
+        expected_contracts_tree.update_leaf(2, new_contract.hash());
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    fn new_commitments_tree() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        let new_commitments = [27, 28, 29, 30, 31, 32];
+        let mut new_commitments_vec = builder.kernel_data[0].end.new_commitments;
+
+        for i in 0..new_commitments.len() {
+            new_commitments_vec.push(new_commitments[i]);
+        }
+
+        builder.kernel_data[0].end.new_commitments = new_commitments_vec;
+
+        let mut expected_commitments_tree = NonEmptyMerkleTree::new(
+            [0; NOTE_HASH_SUBTREE_WIDTH * 2],
+            [0; NOTE_HASH_TREE_HEIGHT],
+            [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
+            [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH };
+        assert(outputs.start_note_hash_tree_snapshot.eq(expected_start_note_hash_tree_snapshot));
+
+        for i in 0..new_commitments.len() {
+            expected_commitments_tree.update_leaf(
+                (i as u64) + (NOTE_HASH_SUBTREE_WIDTH as u64),
+                new_commitments[i]
+            );
+        }
+
+        let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH * 2 };
+        assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
+    }
+
+    // TODO(Alvaro) nullifier tree tests. We are updating the nullifier tree insertion algorithm.
+
+    #[test]
+    fn empty_block_calldata_hash() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        assert_eq(outputs.calldata_hash, expected_calldata_hash);
+    }
+
+    #[test(should_fail_with = "membership check failed")]
+    fn compute_membership_historic_blocks_tree_negative() {
+        let mut inputs = BaseRollupInputsBuilder::new().build_inputs();
+
+        inputs.historic_blocks_tree_root_membership_witnesses[0].sibling_path[0] = 27;
+
+        let _output = inputs.base_rollup_circuit();
+    }
+
+    #[test]
+    fn constants_dont_change() {
+        let inputs = BaseRollupInputsBuilder::new().build_inputs();
+        let outputs = inputs.base_rollup_circuit();
+
+        assert(inputs.constants.eq(outputs.constants));
+    }
+
+    #[test(should_fail_with = "kernel chain_id does not match the rollup chain_id")]
+    fn constants_dont_match_kernels_chain_id() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.chain_id = 3;
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "kernel version does not match the rollup version")]
+    fn constants_dont_match_kernels_version() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.version = 3;
+        builder.succeeds();
+    }
+
+    #[test]
+    fn subtree_height_is_0() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        assert_eq(outputs.rollup_subtree_height, 0);
+    }
+
+    #[test]
+    fn single_public_state_read() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = 27;
+        builder.public_data_reads.push(0);
+
+        builder.succeeds();
+    }
+
+    #[test]
+    fn single_public_state_write() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = 27;
+        builder.public_data_writes.push((0, 28));
+
+        let outputs = builder.execute();
+
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            [28, 0],
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
+            [0; 1]
+        );
+
+        assert_eq(outputs.end_public_data_tree_root, expected_public_data_tree.get_root());
+    }
+
+    #[test]
+    fn multiple_public_state_read_writes() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = 27;
+        builder.pre_existing_public_data[1] = 28;
+        builder.pre_existing_public_data[2] = 29;
+        builder.pre_existing_public_data[3] = 30;
+
+        builder.public_data_reads.push(0);
+        builder.public_data_writes.push((0, 60));
+        builder.public_data_writes.push((2, 61));
+        builder.public_data_reads.push(3);
+
+        let outputs = builder.execute();
+
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            [60, 28, 61, 30],
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - 2],
+            [0; 2]
+        );
+
+        assert_eq(outputs.end_public_data_tree_root, expected_public_data_tree.get_root());
+    }
 }
