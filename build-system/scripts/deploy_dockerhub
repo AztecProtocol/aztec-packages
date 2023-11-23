@@ -6,6 +6,14 @@ REPOSITORY=$1
 # TODO: Why even provide this? We can just figure it out by probing.
 ARCH_LIST=${2:-}
 
+function docker_or_dryrun {
+  if [ "$DRY_DEPLOY" -eq 1 ] ; then
+    echo DRY RUN: docker $@
+  else
+    retry docker $@
+  fi
+}
+
 echo "Repo: $REPOSITORY"
 echo "Arch List: $ARCH_LIST"
 

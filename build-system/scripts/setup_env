@@ -14,6 +14,7 @@ JOB_NAME=$3
 GIT_REPOSITORY_URL=${4:-}
 BRANCH=${5:-}
 PULL_REQUEST=${6:-}
+DRY_DEPLOY_VERSION=${7:-}
 
 BASH_ENV=${BASH_ENV:-}
 BUILD_SYSTEM_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -27,6 +28,14 @@ echo "COMMIT_TAG=$COMMIT_TAG"
 echo "JOB_NAME=$JOB_NAME"
 echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL"
 echo "BRANCH=$BRANCH"
+echo "PULL_REQUEST=$PULL_REQUEST"
+echo "DRY_DEPLOY=$DRY_DEPLOY"
+
+# If the user has requested to perform a "dry deploy", we set the commit tag to the provided tag, and set DRY_DEPLOY to 1.
+if [ -n "$DRY_DEPLOY_VERSION" ]; then
+  COMMIT_TAG=$DRY_DEPLOY_VERSION
+  DRY_DEPLOY=1
+fi
 
 if [ -n "${COMMIT_TAG:-}" ]; then
   # We're tagged e.g. v2.1.123 or v2.1.123-testnet.0.
@@ -89,6 +98,7 @@ echo export VERSION_TAG=$VERSION_TAG >> $BASH_ENV
 echo export DEPLOY_TAG=$DEPLOY_TAG >> $BASH_ENV
 echo export BRANCH=$BRANCH >> $BASH_ENV
 echo export PULL_REQUEST=$PULL_REQUEST >> $BASH_ENV
+echo export DRY_DEPLOY=$DRY_DEPLOY >> $BASH_ENV
 # We want very strict failures on any failing command, undefined variable, or commands that pipe to other commands.
 echo set -euo pipefail >> $BASH_ENV
 # Enable logging if [ci debug] is in commit message.

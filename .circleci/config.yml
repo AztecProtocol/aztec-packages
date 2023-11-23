@@ -24,8 +24,8 @@ parameters:
     type: string
     default: "system"
   dry-deploy:
-    type: boolean
-    default: false
+    type: string
+    default: "v999.999.999"
 
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
 # Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
@@ -69,7 +69,7 @@ checkout: &checkout
 setup_env: &setup_env
   run:
     name: "Setup environment"
-    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
+    command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST" "<< pipeline.parameters.dry-deploy >>"
 
 jobs:
   # Noir
@@ -990,7 +990,7 @@ jobs:
       - run:
           name: "Deploy to dockerhub"
           command: |
-            [ "<< pipeline.parameters.dry-deploy >>" = "true" ] || exit 0
+            [ -n "$COMMIT_TAG" ] || exit 0
             deploy_dockerhub noir x86_64,arm64
             deploy_dockerhub pxe x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
