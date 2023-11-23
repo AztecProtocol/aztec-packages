@@ -102,6 +102,22 @@ Otherwise, you need this method to help the PXE with processing your notes. In o
 
 #include_code compute_note_hash_and_nullifier yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
+### L1 <> L2 interactions
+Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../tutorials/token_portal) and/or [Uniswap tutorial that shows how to swap on L1 using funds on L2](../../../tutorials/uniswap). Both examples show how to:
+1. L1 -> L2 message flow
+2. L2 -> L1 message flow
+3. Cancelling messages from L1 -> L2.
+4. For both L1->L2 and L2->L1, how to operate in the private and public domain
+
+### Sending notes to a contract/Escrowing notes between several parties in a contract
+To send a note to someone, they need to have a key which we can encrypt the note with. But often contracts may not have a key. And even if they do, how does it make use of it autonomously?
+
+There are several patterns here:
+1. Give the contract a key and share it amongst all participants. This leaks privacy, as anyone can see all the notes in the contract.
+2. `Unshield` funds into the contract - this is used in the [Uniswap tutorial where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../tutorials/uniswap/swap_privately.md). This works like ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
+
+There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
+
 ## Anti Patterns
 There are mistakes one can make to reduce their privacy set and therefore make it trivial to do analysis and link addresses. Some of them are:
 
