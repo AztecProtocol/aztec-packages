@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/generated/Fib_trace.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/Fib_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm/generated/Fib_prover.hpp"
@@ -12,7 +12,7 @@ namespace proof_system::honk {
 class FibComposer {
   public:
     using Flavor = honk::flavor::FibFlavor;
-    using CircuitConstructor = FibTraceBuilder;
+    using CircuitConstructor = FibCircuitBuilder;
     using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using PCS = Flavor::PCS;

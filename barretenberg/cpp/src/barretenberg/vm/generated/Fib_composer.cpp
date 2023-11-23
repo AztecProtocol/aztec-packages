@@ -1,7 +1,7 @@
 
 
 #include "./Fib_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/Fib_trace.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/Fib_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/vm/generated/Fib_verifier.hpp"

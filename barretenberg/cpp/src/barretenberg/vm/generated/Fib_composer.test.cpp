@@ -1,6 +1,7 @@
 #include "barretenberg/vm/generated/Fib_composer.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/generated/Fib_flavor.hpp"
+#include "barretenberg/proof_system/circuit_builder/generated/Fib_trace.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/vm/generated/Fib_prover.hpp"
@@ -29,14 +30,16 @@ TEST_F(FibTests, powdre2e)
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
 
-    auto circuit_builder = proof_system::FibTraceBuilder();
-    circuit_builder.build_circuit();
+    auto circuit_builder = proof_system::FibCircuitBuilder();
+
+    auto rows = proof_system::FibTraceBuilder::build_trace();
+    circuit_builder.set_trace(std::move(rows));
 
     auto composer = FibComposer();
 
     bool circuit_gud = circuit_builder.check_circuit();
     info("circuit gud");
-    ASSERT_EQ(circuit_gud, true);
+    ASSERT_TRUE(circuit_gud);
 
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
@@ -44,7 +47,7 @@ TEST_F(FibTests, powdre2e)
 
     auto verifier = composer.create_verifier(circuit_builder);
     bool verified = verifier.verify_proof(proof);
-    ASSERT_EQ(verified, true);
+    ASSERT_TRUE(verified);
 
     info("We verified a proof!");
 }
