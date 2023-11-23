@@ -8,6 +8,7 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  CallRequest,
   CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -39,7 +40,7 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -251,7 +252,11 @@ export class PublicProcessor {
     this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
-    const publicCallStackHashes = mapTuple(callStackPreimages, item => (item.isEmpty() ? Fr.ZERO : item.hash()));
+    const publicCallStackHashes = padArrayEnd(
+      callStackPreimages.map(c => c.hash()),
+      Fr.ZERO,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
@@ -291,17 +296,15 @@ export class PublicProcessor {
     );
   }
 
-  protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
+  protected async getPublicCallStackPreimages(result: PublicExecutionResult): Promise<PublicCallStackItem[]> {
     const nested = result.nestedExecutions;
-    const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
-    if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
+    if (nested.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
       throw new Error(
-        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`,
+        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${nested.length})`,
       );
     }
 
-    // note this was previously padArrayStart in the cpp kernel, logic was updated in noir translation
-    return padArrayEnd(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    return await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -322,9 +325,11 @@ export class PublicProcessor {
   protected async getPublicCallData(result: PublicExecutionResult, isExecutionRequest = false) {
     const bytecodeHash = await this.getBytecodeHash(result);
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
+    const publicCallRequests = (await this.getPublicCallStackPreimages(result)).map(c => c.toCallRequest());
+    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
-    return new PublicCallData(callStackItem, proof, portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, proof, portalContractAddress, bytecodeHash);
   }
 
   // HACK(#1622): this is a hack to fix ordering of public state in the call stack. Since the private kernel

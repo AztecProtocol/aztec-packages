@@ -8,7 +8,7 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CallStackItem,
+  CallRequest,
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
@@ -627,7 +627,7 @@ export class PXEService implements PXE {
     publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
-    const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallStackItem()));
+    const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
     const { publicCallStack } = publicInputs.end;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
@@ -647,7 +647,7 @@ export class PXEService implements PXE {
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
       enqueuedPublicCallStackItems,
-      CallStackItem.empty(),
+      CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

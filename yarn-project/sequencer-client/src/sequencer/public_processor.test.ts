@@ -3,7 +3,7 @@ import {
   ARGS_LENGTH,
   AztecAddress,
   CallContext,
-  CallStackItem,
+  CallRequest,
   CombinedAccumulatedData,
   EthAddress,
   Fr,
@@ -81,7 +81,7 @@ describe('public_processor', () => {
 
     it('skips txs without public execution requests', async function () {
       const tx = mockTx();
-      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallStackItem.empty);
+      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
       const hash = await tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
 
@@ -139,15 +139,15 @@ describe('public_processor', () => {
 
     it('runs a tx with enqueued public calls', async function () {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
-      const callStackItems = await Promise.all(callRequests.map(call => call.toCallStackItem()));
+      const callStackItems = callRequests.map(call => call.toCallRequest());
 
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         callStackItems,
-        CallStackItem.empty(),
+        CallRequest.empty(),
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallStackItem.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), callRequests, [
         ExtendedContractData.random(),
@@ -172,15 +172,15 @@ describe('public_processor', () => {
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
-      const callStackItem = callRequest.toCallStackItem();
+      const callStackItem = callRequest.toCallRequest();
 
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
-        CallStackItem.empty(),
+        CallRequest.empty(),
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallStackItem.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(
         kernelOutput,
