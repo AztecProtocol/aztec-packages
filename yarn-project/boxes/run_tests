@@ -57,5 +57,5 @@ docker-compose -f $COMPOSE_FILE up --exit-code-from boxes-$BOX_NAME
 
 # Success - push a new tag for the commit hash with the box name appended
 IMAGE_COMMIT_URI=$SANDBOX_IMAGE_URI-$BOX_NAME
-retry docker tag $SANDBOX_IMAGE $IMAGE_COMMIT_URI
+retry docker tag $SANDBOX_IMAGE_URI $IMAGE_COMMIT_URI
 retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1

@@ -20,15 +20,11 @@ echo "Multi-arch Image URI: $MULTIARCH_IMAGE_URI"
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
-OLD_IFS=$IFS
 IFS=','
-for A in $ARCH_LIST
-do
+for A in $ARCH_LIST; do
   IMAGE_URI=$(calculate_image_uri $REPOSITORY $A)
   echo "Adding image $IMAGE_URI to manifest list $MULTIARCH_IMAGE_URI..."
   docker manifest create $MULTIARCH_IMAGE_URI --amend $IMAGE_URI
 done
-IFS=$OLD_IFS
-unset OLD_IFS
 
 retry docker manifest push --purge $MULTIARCH_IMAGE_URI
