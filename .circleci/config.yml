@@ -431,28 +431,6 @@ jobs:
             echo "export DOCKER_BUILDKIT=" > $BASH_ENV
             build cli
 
-  aztec-p2p-bootstrap:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build p2p-bootstrap | add_timestamps
-
-  aztec-node:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build aztec-node | add_timestamps
-
   mainnet-fork:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -475,32 +453,6 @@ jobs:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
 
-  pxe-x86_64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build pxe
-
-  pxe-arm64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: arm.large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-          command: |
-            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build pxe
-
   ecr-manifest:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -512,7 +464,6 @@ jobs:
           name: "Create ECR manifest"
           command: |
             create_ecr_manifest aztec-sandbox x86_64,arm64
-            create_ecr_manifest pxe x86_64,arm64
             create_ecr_manifest cli x86_64,arm64
 
   boxes-blank-react:
@@ -613,6 +564,28 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
+
+  e2e-blacklist-token-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
+
+  e2e-slow-tree:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
 
   e2e-sandbox-example:
     docker:
@@ -1113,14 +1086,10 @@ workflows:
       - aztec-p2p-bootstrap: *defaults_yarn_project
       - aztec-node: *defaults_yarn_project
       - aztec-faucet: *defaults_yarn_project
-      - pxe-x86_64: *defaults_yarn_project
-      - pxe-arm64: *defaults_yarn_project
       - ecr-manifest:
           requires:
             - aztec-sandbox-x86_64
             - aztec-sandbox-arm64
-            - pxe-x86_64
-            - pxe-arm64
             - cli-x86_64
             - cli-arm64
           <<: *defaults
@@ -1149,6 +1118,8 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
+      - e2e-blacklist-token-contract: *e2e_test
+      - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1173,7 +1144,7 @@ workflows:
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
       - guides-sample-dapp: *e2e_test
-      # - guides-up-quick-start: *e2e_test
+      - guides-up-quick-start: *e2e_test
 
       # Everything that must complete before deployment.
       - end:
@@ -1184,6 +1155,8 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
+            - e2e-blacklist-token-contract
+            - e2e-slow-tree
             - e2e-sandbox-example
             - e2e-block-building
             - e2e-nested-contract
@@ -1208,7 +1181,7 @@ workflows:
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
-            # - guides-up-quick-start
+            - guides-up-quick-start
           <<: *defaults
 
       # Benchmark jobs.

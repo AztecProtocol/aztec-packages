@@ -59,6 +59,7 @@ class GoblinUltra {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
+    static constexpr size_t NUMBER_OF_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -437,7 +438,7 @@ class GoblinUltra {
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : pointer_view()) {
+            for (auto* poly : this->pointer_view()) {
                 *poly = Polynomial(circuit_size / 2);
             }
         }
@@ -474,7 +475,7 @@ class GoblinUltra {
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), pointer_view())) {
+            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
                 *result_field = (*polynomial)[row_idx];
             }
             return result;
