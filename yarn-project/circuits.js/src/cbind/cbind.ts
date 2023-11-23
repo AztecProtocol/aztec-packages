@@ -1,8 +1,7 @@
+// TODO: Can be deleted once circuits.gen.ts is gone.
 import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { decode, encode } from '@msgpack/msgpack';
-
-import { CircuitsWasm } from '../wasm/index.js';
 
 /**
  * Recursively converts Uint8Arrays to Buffers in the input data structure.
@@ -41,23 +40,6 @@ function readPtr32(wasm: IWasmModule, ptr32: number) {
   // Written in little-endian as WASM native
   const dataView = new DataView(wasm.getMemorySlice(ptr32, ptr32 + 4).buffer);
   return dataView.getUint32(0, /*little endian*/ true);
-}
-
-/**
- * Retrieves the JSON schema of a given C binding function from the WebAssembly module.
- *
- * @param wasm - The CircuitsWasm.
- * @param cbind - The name of the function.
- * @returns A JSON object representing the schema.
- */
-export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
-  const outputSizePtr = wasm.call('bbmalloc', 4);
-  const outputMsgpackPtr = wasm.call('bbmalloc', 4);
-  wasm.call(cbind + '__schema', outputMsgpackPtr, outputSizePtr);
-  const jsonSchema = wasm.getMemoryAsString(readPtr32(wasm, outputMsgpackPtr));
-  wasm.call('bbfree', outputSizePtr);
-  wasm.call('bbfree', outputMsgpackPtr);
-  return JSON.parse(jsonSchema);
 }
 
 /**

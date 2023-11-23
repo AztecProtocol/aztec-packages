@@ -6,7 +6,7 @@ import { CircuitsWasm } from '../wasm/circuits_wasm.js';
  * @param input - The input string, with hex somewhere inside.
  * @returns The output string with fixed hex.
  */
-export function simplifyHexValues(input: string) {
+function simplifyHexValues(input: string) {
   const regex = /0x[\dA-Fa-f]+/g;
   const matches = input.match(regex) || [];
   const simplifiedMatches = matches.map(match => '0x' + BigInt(match).toString(16));

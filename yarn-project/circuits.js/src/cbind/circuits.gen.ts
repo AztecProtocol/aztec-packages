@@ -1,5 +1,5 @@
 /* eslint-disable camelcase,jsdoc/require-jsdoc */
-// TODO: Remove this file as we no longer generate types from cpp.
+// TODO: Can be deleted once baseRollupSim is not used.
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
@@ -45,7 +45,7 @@ interface MsgpackPoint {
   y: Buffer;
 }
 
-export function fromPoint(o: Point): MsgpackPoint {
+function fromPoint(o: Point): MsgpackPoint {
   if (o.x === undefined) {
     throw new Error('Expected x in Point serialization');
   }
@@ -65,7 +65,7 @@ interface MsgpackGlobalVariables {
   timestamp: Buffer;
 }
 
-export function toGlobalVariables(o: MsgpackGlobalVariables): GlobalVariables {
+function toGlobalVariables(o: MsgpackGlobalVariables): GlobalVariables {
   if (o.chain_id === undefined) {
     throw new Error('Expected chain_id in GlobalVariables deserialization');
   }
@@ -86,7 +86,7 @@ export function toGlobalVariables(o: MsgpackGlobalVariables): GlobalVariables {
   );
 }
 
-export function fromGlobalVariables(o: GlobalVariables): MsgpackGlobalVariables {
+function fromGlobalVariables(o: GlobalVariables): MsgpackGlobalVariables {
   if (o.chainId === undefined) {
     throw new Error('Expected chainId in GlobalVariables serialization');
   }
@@ -112,7 +112,7 @@ interface MsgpackG1AffineElement {
   y: Buffer;
 }
 
-export function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
+function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
   if (o.x === undefined) {
     throw new Error('Expected x in G1AffineElement deserialization');
   }
@@ -122,7 +122,7 @@ export function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
   return new G1AffineElement(Fq.fromBuffer(o.x), Fq.fromBuffer(o.y));
 }
 
-export function fromG1AffineElement(o: G1AffineElement): MsgpackG1AffineElement {
+function fromG1AffineElement(o: G1AffineElement): MsgpackG1AffineElement {
   if (o.x === undefined) {
     throw new Error('Expected x in G1AffineElement serialization');
   }
@@ -143,7 +143,7 @@ interface MsgpackNativeAggregationState {
   has_data: boolean;
 }
 
-export function toNativeAggregationState(o: MsgpackNativeAggregationState): NativeAggregationState {
+function toNativeAggregationState(o: MsgpackNativeAggregationState): NativeAggregationState {
   if (o.P0 === undefined) {
     throw new Error('Expected P0 in NativeAggregationState deserialization');
   }
@@ -168,7 +168,7 @@ export function toNativeAggregationState(o: MsgpackNativeAggregationState): Nati
   );
 }
 
-export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNativeAggregationState {
+function fromNativeAggregationState(o: NativeAggregationState): MsgpackNativeAggregationState {
   if (o.p0 === undefined) {
     throw new Error('Expected p0 in NativeAggregationState serialization');
   }
@@ -199,7 +199,7 @@ interface MsgpackNewContractData {
   function_tree_root: Buffer;
 }
 
-export function fromNewContractData(o: NewContractData): MsgpackNewContractData {
+function fromNewContractData(o: NewContractData): MsgpackNewContractData {
   if (o.contractAddress === undefined) {
     throw new Error('Expected contractAddress in NewContractData serialization');
   }
@@ -220,7 +220,7 @@ interface MsgpackFunctionSelector {
   value: number;
 }
 
-export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
+function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
   if (o.value === undefined) {
     throw new Error('Expected value in FunctionSelector serialization');
   }
@@ -236,7 +236,7 @@ interface MsgpackFunctionData {
   is_constructor: boolean;
 }
 
-export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
+function fromFunctionData(o: FunctionData): MsgpackFunctionData {
   if (o.selector === undefined) {
     throw new Error('Expected selector in FunctionData serialization');
   }
@@ -268,7 +268,7 @@ interface MsgpackOptionallyRevealedData {
   called_from_public_l2: boolean;
 }
 
-export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOptionallyRevealedData {
+function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOptionallyRevealedData {
   if (o.callStackItemHash === undefined) {
     throw new Error('Expected callStackItemHash in OptionallyRevealedData serialization');
   }
@@ -311,7 +311,7 @@ interface MsgpackPublicDataUpdateRequest {
   new_value: Buffer;
 }
 
-export function fromPublicDataUpdateRequest(o: PublicDataUpdateRequest): MsgpackPublicDataUpdateRequest {
+function fromPublicDataUpdateRequest(o: PublicDataUpdateRequest): MsgpackPublicDataUpdateRequest {
   if (o.leafIndex === undefined) {
     throw new Error('Expected leafIndex in PublicDataUpdateRequest serialization');
   }
@@ -333,7 +333,7 @@ interface MsgpackPublicDataRead {
   value: Buffer;
 }
 
-export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
+function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
   if (o.leafIndex === undefined) {
     throw new Error('Expected leafIndex in PublicDataRead serialization');
   }
@@ -366,7 +366,7 @@ interface MsgpackCombinedAccumulatedData {
   public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
-export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
+function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
   }
@@ -454,7 +454,7 @@ interface MsgpackHistoricBlockData {
   global_variables_hash: Buffer;
 }
 
-export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
+function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
   if (o.noteHashTreeRoot === undefined) {
     throw new Error('Expected noteHashTreeRoot in HistoricBlockData serialization');
   }
@@ -499,7 +499,7 @@ interface MsgpackContractDeploymentData {
   portal_contract_address: Buffer;
 }
 
-export function fromContractDeploymentData(o: ContractDeploymentData): MsgpackContractDeploymentData {
+function fromContractDeploymentData(o: ContractDeploymentData): MsgpackContractDeploymentData {
   if (o.deployerPublicKey === undefined) {
     throw new Error('Expected deployerPublicKey in ContractDeploymentData serialization');
   }
@@ -533,7 +533,7 @@ interface MsgpackTxContext {
   version: Buffer;
 }
 
-export function fromTxContext(o: TxContext): MsgpackTxContext {
+function fromTxContext(o: TxContext): MsgpackTxContext {
   if (o.isFeePaymentTx === undefined) {
     throw new Error('Expected isFeePaymentTx in TxContext serialization');
   }
@@ -567,7 +567,7 @@ interface MsgpackCombinedConstantData {
   tx_context: MsgpackTxContext;
 }
 
-export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
+function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
   if (o.blockData === undefined) {
     throw new Error('Expected blockData in CombinedConstantData serialization');
   }
@@ -586,7 +586,7 @@ interface MsgpackKernelCircuitPublicInputs {
   is_private: boolean;
 }
 
-export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): MsgpackKernelCircuitPublicInputs {
+function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): MsgpackKernelCircuitPublicInputs {
   if (o.end === undefined) {
     throw new Error('Expected end in KernelCircuitPublicInputs serialization');
   }
@@ -612,7 +612,7 @@ interface MsgpackVerificationKeyData {
   recursive_proof_public_input_indices: number[];
 }
 
-export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
+function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
   if (o.circuitType === undefined) {
     throw new Error('Expected circuitType in VerificationKeyData serialization');
   }
@@ -649,7 +649,7 @@ interface MsgpackPreviousKernelData {
   vk_path: Tuple<Buffer, 3>;
 }
 
-export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKernelData {
+function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKernelData {
   if (o.publicInputs === undefined) {
     throw new Error('Expected publicInputs in PreviousKernelData serialization');
   }
@@ -679,7 +679,7 @@ interface MsgpackMembershipWitness16 {
   sibling_path: Tuple<Buffer, 16>;
 }
 
-export function fromMembershipWitness16(o: MembershipWitness16): MsgpackMembershipWitness16 {
+function fromMembershipWitness16(o: MembershipWitness16): MsgpackMembershipWitness16 {
   if (o.leafIndex === undefined) {
     throw new Error('Expected leafIndex in MembershipWitness16 serialization');
   }
@@ -697,7 +697,7 @@ interface MsgpackCircuitError {
   message: string;
 }
 
-export function toCircuitError(o: MsgpackCircuitError): CircuitError {
+function toCircuitError(o: MsgpackCircuitError): CircuitError {
   if (o.code === undefined) {
     throw new Error('Expected code in CircuitError deserialization');
   }
@@ -712,7 +712,7 @@ interface MsgpackAppendOnlyTreeSnapshot {
   next_available_leaf_index: number;
 }
 
-export function toAppendOnlyTreeSnapshot(o: MsgpackAppendOnlyTreeSnapshot): AppendOnlyTreeSnapshot {
+function toAppendOnlyTreeSnapshot(o: MsgpackAppendOnlyTreeSnapshot): AppendOnlyTreeSnapshot {
   if (o.root === undefined) {
     throw new Error('Expected root in AppendOnlyTreeSnapshot deserialization');
   }
@@ -722,7 +722,7 @@ export function toAppendOnlyTreeSnapshot(o: MsgpackAppendOnlyTreeSnapshot): Appe
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(o.root), o.next_available_leaf_index);
 }
 
-export function fromAppendOnlyTreeSnapshot(o: AppendOnlyTreeSnapshot): MsgpackAppendOnlyTreeSnapshot {
+function fromAppendOnlyTreeSnapshot(o: AppendOnlyTreeSnapshot): MsgpackAppendOnlyTreeSnapshot {
   if (o.root === undefined) {
     throw new Error('Expected root in AppendOnlyTreeSnapshot serialization');
   }
@@ -741,7 +741,7 @@ interface MsgpackNullifierLeafPreimage {
   next_index: number;
 }
 
-export function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNullifierLeafPreimage {
+function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNullifierLeafPreimage {
   if (o.leafValue === undefined) {
     throw new Error('Expected leafValue in NullifierLeafPreimage serialization');
   }
@@ -763,7 +763,7 @@ interface MsgpackMembershipWitness20 {
   sibling_path: Tuple<Buffer, 20>;
 }
 
-export function fromMembershipWitness20(o: MembershipWitness20): MsgpackMembershipWitness20 {
+function fromMembershipWitness20(o: MembershipWitness20): MsgpackMembershipWitness20 {
   if (o.leafIndex === undefined) {
     throw new Error('Expected leafIndex in MembershipWitness20 serialization');
   }
@@ -785,7 +785,7 @@ interface MsgpackConstantRollupData {
   global_variables: MsgpackGlobalVariables;
 }
 
-export function toConstantRollupData(o: MsgpackConstantRollupData): ConstantRollupData {
+function toConstantRollupData(o: MsgpackConstantRollupData): ConstantRollupData {
   if (o.start_historic_blocks_tree_roots_snapshot === undefined) {
     throw new Error('Expected start_historic_blocks_tree_roots_snapshot in ConstantRollupData deserialization');
   }
@@ -814,7 +814,7 @@ export function toConstantRollupData(o: MsgpackConstantRollupData): ConstantRoll
   );
 }
 
-export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRollupData {
+function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRollupData {
   if (o.startHistoricBlocksTreeRootsSnapshot === undefined) {
     throw new Error('Expected startHistoricBlocksTreeRootsSnapshot in ConstantRollupData serialization');
   }
@@ -861,7 +861,7 @@ interface MsgpackBaseRollupInputs {
   constants: MsgpackConstantRollupData;
 }
 
-export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInputs {
+function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInputs {
   if (o.kernelData === undefined) {
     throw new Error('Expected kernelData in BaseRollupInputs serialization');
   }
@@ -954,9 +954,7 @@ interface MsgpackBaseOrMergeRollupPublicInputs {
   calldata_hash: Tuple<Buffer, 2>;
 }
 
-export function toBaseOrMergeRollupPublicInputs(
-  o: MsgpackBaseOrMergeRollupPublicInputs,
-): BaseOrMergeRollupPublicInputs {
+function toBaseOrMergeRollupPublicInputs(o: MsgpackBaseOrMergeRollupPublicInputs): BaseOrMergeRollupPublicInputs {
   if (o.rollup_type === undefined) {
     throw new Error('Expected rollup_type in BaseOrMergeRollupPublicInputs deserialization');
   }
