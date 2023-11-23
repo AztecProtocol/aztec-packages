@@ -97,41 +97,40 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: L2Block[]): Promise<boolean> {
-    // should this validate consistency?
-    // ie. blocks are contiguous
-    // the first block's number is the previously stored block's number + 1
-    await this.#tables.blocks.transaction(() =>
-      Promise.all(
-        blocks.map(block => {
-          const blockCtx = this.#tables.blocks.get(block.number) ?? {};
-          blockCtx.block = block.toBuffer();
+  addBlocks(blocks: L2Block[]): Promise<boolean> {
+    // LMDB transactions are shared across databases, so we can use a single transaction for all the writes
+    // https://github.com/kriszyp/lmdb-js/blob/67505a979ab63187953355a88747a7ad703d50b6/README.md#dbopendbdatabase-stringnamestring
+    return this.#tables.blocks.transaction(() => {
+      for (const block of blocks) {
+        const blockCtx = this.#tables.blocks.get(block.number) ?? {};
+        blockCtx.block = block.toBuffer();
 
-          // no need to await, lmdb's transaction does that for us
-          void this.#tables.blocks.put(block.number, blockCtx);
+        // no need to await, all writes are enqueued in the transaction
+        // awaiting would interrupt the execution flow of this callback and "leak" the transaction to some other part
+        // of the system and any writes would then be part of our transaction here
+        void this.#tables.blocks.put(block.number, blockCtx);
 
-          for (const [i, tx] of block.getTxs().entries()) {
-            if (tx.txHash.isZero()) {
-              continue;
-            }
-            void this.#tables.blockIndexedData.put([IndexData.TX, tx.txHash.buffer], [block.number, i]);
+        for (const [i, tx] of block.getTxs().entries()) {
+          if (tx.txHash.isZero()) {
+            continue;
+          }
+          void this.#tables.blockIndexedData.put([IndexData.TX, tx.txHash.buffer], [block.number, i]);
+        }
+
+        for (const [i, contractData] of block.newContractData.entries()) {
+          if (contractData.contractAddress.isZero()) {
+            continue;
           }
 
-          for (const [i, contractData] of block.newContractData.entries()) {
-            if (contractData.contractAddress.isZero()) {
-              continue;
-            }
+          void this.#tables.blockIndexedData.put(
+            [IndexData.CONTRACT, contractData.contractAddress.toBuffer()],
+            [block.number, i],
+          );
+        }
+      }
 
-            void this.#tables.blockIndexedData.put(
-              [IndexData.CONTRACT, contractData.contractAddress.toBuffer()],
-              [block.number, i],
-            );
-          }
-        }),
-      ),
-    );
-
-    return true;
+      return true;
+    });
   }
 
   /**
@@ -213,33 +212,27 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
-    await this.#tables.l1ToL2Messages.transaction(() =>
-      Promise.all(
-        messages.map(async message => {
-          const entryKey = message.entryKey?.toBuffer();
-          if (!entryKey) {
-            throw new Error('Message does not have an entry key');
-          }
+  addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
+    return this.#tables.l1ToL2Messages.transaction(() => {
+      for (const message of messages) {
+        const entryKey = message.entryKey?.toBuffer();
+        if (!entryKey) {
+          throw new Error('Message does not have an entry key');
+        }
 
-          await this.#tables.l1ToL2Messages.ifNoExists(entryKey, () =>
-            this.#tables.l1ToL2Messages.put(
-              entryKey,
-              {
-                message: message.toBuffer(),
-                pendingCount: 0,
-                confirmedCount: 0,
-              } as any,
-              1,
-            ),
-          );
+        const exists = this.#tables.l1ToL2Messages.doesExist(entryKey);
+        if (!exists) {
+          void this.#tables.l1ToL2Messages.put(entryKey, {
+            message: message.toBuffer(),
+            pendingCount: 0,
+            confirmedCount: 0,
+          });
+        }
 
-          await this.#updateMessageCount(entryKey, message, 1, 0);
-        }),
-      ),
-    );
-
-    return Promise.resolve(true);
+        this.#updateMessageCountInTx(entryKey, message, 1, 0);
+      }
+      return true;
+    });
   }
 
   /**
@@ -247,24 +240,15 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @param messageKeys - The message keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  async cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
-    await Promise.all(
-      messageKeys.map(async messageKey => {
+  cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+    return this.#tables.l1ToL2Messages.transaction(() => {
+      for (const messageKey of messageKeys) {
         const entryKey = messageKey.toBuffer();
-        if (!entryKey) {
-          throw new Error('Message does not have an entry key');
-        }
-        const value = this.#tables.l1ToL2Messages.get(entryKey);
-        if (!value) {
-          throw new Error();
-        }
-
-        const message = L1ToL2Message.fromBuffer(value.message);
-        await this.#updateMessageCount(entryKey, message, -1, 0);
-      }),
-    );
-
-    return true;
+        const message = this.#getL1ToL2Message(entryKey);
+        this.#updateMessageCountInTx(entryKey, message, -1, 0);
+      }
+      return true;
+    });
   }
 
   /**
@@ -273,24 +257,15 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @param messageKeys - The message keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  async confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
-    await Promise.all(
-      messageKeys.map(async messageKey => {
+  confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+    return this.#tables.l1ToL2Messages.transaction(() => {
+      for (const messageKey of messageKeys) {
         const entryKey = messageKey.toBuffer();
-        if (!entryKey) {
-          throw new Error('Message does not have an entry key');
-        }
-        const value = this.#tables.l1ToL2Messages.get(entryKey);
-        if (!value) {
-          throw new Error();
-        }
-
-        const message = L1ToL2Message.fromBuffer(value.message);
-        await this.#updateMessageCount(entryKey, message, -1, 1);
-      }),
-    );
-
-    return true;
+        const message = this.#getL1ToL2Message(entryKey);
+        this.#updateMessageCountInTx(entryKey, message, -1, 1);
+      }
+      return true;
+    });
   }
 
   /**
@@ -608,35 +583,53 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     return { start, end };
   }
 
-  #updateMessageCount(
+  #getL1ToL2Message(entryKey: Buffer): L1ToL2Message {
+    const value = this.#tables.l1ToL2Messages.get(entryKey);
+    if (!value) {
+      throw new Error('Unknown message: ' + entryKey.toString());
+    }
+
+    return L1ToL2Message.fromBuffer(value.message);
+  }
+
+  /**
+   * Atomically updates the pending and confirmed count for a message.
+   * If both counts are 0 after adding their respective deltas, the message is removed from the store.
+   *
+   * Only call this method from inside a _transaction_!
+   *
+   * @param messageKey - The message key to update.
+   * @param message - The message to update.
+   * @param deltaPendingCount - The amount to add to the pending count.
+   * @param deltaConfirmedCount - The amount to add to the confirmed count.
+   */
+  #updateMessageCountInTx(
     messageKey: Buffer,
     message: L1ToL2Message,
     deltaPendingCount: number,
     deltaConfirmedCount: number,
-  ): Promise<void> {
-    return this.#tables.l1ToL2Messages.childTransaction(() => {
-      const entry = this.#tables.l1ToL2Messages.getEntry(messageKey);
-      if (!entry) {
-        return;
-      }
+  ): void {
+    const entry = this.#tables.l1ToL2Messages.getEntry(messageKey);
+    if (!entry) {
+      return;
+    }
 
-      const { value } = entry;
+    const { value } = entry;
 
-      value.pendingCount = Math.max(0, value.pendingCount + deltaPendingCount);
-      value.confirmedCount = Math.max(0, value.confirmedCount + deltaConfirmedCount);
+    value.pendingCount = Math.max(0, value.pendingCount + deltaPendingCount);
+    value.confirmedCount = Math.max(0, value.confirmedCount + deltaConfirmedCount);
 
-      if (value.pendingCount === 0) {
-        void this.#tables.pendingMessagesByFee.remove(message.fee, messageKey);
-      } else if (value.pendingCount > 0) {
-        void this.#tables.pendingMessagesByFee.put(message.fee, messageKey);
-      }
+    if (value.pendingCount === 0) {
+      void this.#tables.pendingMessagesByFee.remove(message.fee, messageKey);
+    } else if (value.pendingCount > 0) {
+      void this.#tables.pendingMessagesByFee.put(message.fee, messageKey);
+    }
 
-      if (value.pendingCount === 0 && value.confirmedCount === 0) {
-        void this.#tables.l1ToL2Messages.remove(messageKey);
-      } else {
-        void this.#tables.l1ToL2Messages.put(messageKey, value);
-      }
-    });
+    if (value.pendingCount === 0 && value.confirmedCount === 0) {
+      void this.#tables.l1ToL2Messages.remove(messageKey);
+    } else {
+      void this.#tables.l1ToL2Messages.put(messageKey, value);
+    }
   }
 }
 
