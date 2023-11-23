@@ -25,7 +25,6 @@ parameters:
     default: "system"
   dry-deploy:
     type: string
-    default: "v999.999.999"
 
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
 # Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
