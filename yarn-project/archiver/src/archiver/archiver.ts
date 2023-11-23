@@ -261,12 +261,14 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
     // store contracts for which we have retrieved L2 blocks
     const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
-    retrievedContracts.retrievedData.forEach(async ([contracts, l2BlockNum], index) => {
-      this.log(`Retrieved extended contract data for l2 block number: ${index}`);
-      if (l2BlockNum <= lastKnownL2BlockNum) {
-        await this.store.addExtendedContractData(contracts, l2BlockNum);
-      }
-    });
+    await Promise.all(
+      retrievedContracts.retrievedData.map(async ([contracts, l2BlockNum]) => {
+        this.log(`Retrieved extended contract data for l2 block number: ${l2BlockNum}`);
+        if (l2BlockNum <= lastKnownL2BlockNum) {
+          await this.store.addExtendedContractData(contracts, l2BlockNum);
+        }
+      }),
+    );
 
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
     // from each l2block fetch all messageKeys in a flattened array:
