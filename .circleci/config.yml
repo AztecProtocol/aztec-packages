@@ -1083,8 +1083,6 @@ workflows:
       - aztec-sandbox-arm64: *defaults_yarn_project
       - cli-x86_64: *defaults_yarn_project
       - cli-arm64: *defaults_yarn_project
-      - aztec-p2p-bootstrap: *defaults_yarn_project
-      - aztec-node: *defaults_yarn_project
       - aztec-faucet: *defaults_yarn_project
       - ecr-manifest:
           requires:
