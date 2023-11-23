@@ -373,8 +373,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (l2BlockNum > this.l2BlockContexts.length) {
       return Promise.resolve([]);
     }
-    const block = this.l2BlockContexts[l2BlockNum].block;
-    return Promise.resolve(block.newContractData);
+    const block: L2Block | undefined = this.l2BlockContexts[l2BlockNum - INITIAL_L2_BLOCK_NUM]?.block;
+    return Promise.resolve(block?.newContractData);
   }
 
   /**

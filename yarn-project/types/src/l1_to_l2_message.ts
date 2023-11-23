@@ -139,6 +139,7 @@ export class L1ToL2Message {
       Fr.random(),
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 1000),
+      Fr.random(),
     );
   }
 }
