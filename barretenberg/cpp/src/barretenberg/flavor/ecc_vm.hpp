@@ -204,7 +204,35 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
         DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
                                      DerivedWitnessEntities<DataType>::pointer_view())
-        RefVector<DataType> get_to_be_shifted() { return get_all(); };
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { this->transcript_mul,
+                     this->transcript_msm_count,
+                     this->transcript_accumulator_x,
+                     this->transcript_accumulator_y,
+                     this->precompute_scalar_sum,
+                     this->precompute_s1hi,
+                     this->precompute_dx,
+                     this->precompute_dy,
+                     this->precompute_tx,
+                     this->precompute_ty,
+                     this->msm_transition,
+                     this->msm_add,
+                     this->msm_double,
+                     this->msm_skew,
+                     this->msm_accumulator_x,
+                     this->msm_accumulator_y,
+                     this->msm_count,
+                     this->msm_round,
+                     this->msm_add1,
+                     this->msm_pc,
+                     this->precompute_pc,
+                     this->transcript_pc,
+                     this->precompute_round,
+                     this->transcript_accumulator_empty,
+                     this->precompute_select,
+                     this->z_perm };
+        }
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return {}; };

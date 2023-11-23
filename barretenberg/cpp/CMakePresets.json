@@ -141,6 +141,17 @@
       }
     },
     {
+      "name": "ubsan",
+      "displayName": "Debugging build with undefined behavior sanitizer on Clang-16",
+      "description": "Build with undefined behavior sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-ubsan",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
+      }
+    },
+    {
       "name": "msan",
       "displayName": "Debugging build with memory sanitizer on Clang-16",
       "description": "Build with thread sanitizer on clang16 with debugging information",
@@ -335,6 +346,11 @@
       "name": "tsan",
       "inherits": "default",
       "configurePreset": "tsan"
+    },
+    {
+      "name": "ubsan",
+      "inherits": "default",
+      "configurePreset": "ubsan"
     },
     {
       "name": "coverage",
