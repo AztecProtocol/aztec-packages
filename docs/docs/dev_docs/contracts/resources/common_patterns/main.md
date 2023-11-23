@@ -12,9 +12,10 @@ Similarly we have discovered some anti-patterns too (like privacy leakage) that 
 ### Safe Math and SafeU120
 Field operations may overflow/underflow. Hence we have built a SafeMath library that you can use [based on instructions here](../dependencies.md#safe-math)
 
+### SafeU120 for comparison operations on Field elements
 Comparison on Field is also not possible today. For such cases, we recommend using u120, which is wrapped under the SafeU120 class found in the SafeMath library.
 
-### Approving another user/contract to call a function on your behalf
+### Approving another user/contract to execute an action on your behalf
 We call this the "authentication witness" pattern or authwit for short.
 - Approve someone in private domain:
 #include_code authwit_to_another_sc /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts typescript
@@ -26,10 +27,10 @@ Here you approve a contract to burn funds on your behalf.
 
 Here you approve someone to transfer funds publicly on your behalf
 
-### Prevent the same user flow from happening twice or avoiding replay attacks using nullifiers 
+### Prevent the same user flow from happening twice using nullifiers 
 E.g. you don't want a user to subscribe once they have subscribed already. Or you don't want them to vote twice once they have done that. How do you prevent this?
 
-Emit a nullifier to prevent them from such "replay attacks". This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval. 
+Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval. 
 
 #include_code assert_valid_authwit_public /yarn-project/aztec-nr/authwit/src/auth.nr rust
 
@@ -40,7 +41,9 @@ Note - you could also create a note and send it to the user. The problem is ther
 ### Reading public storage in private
 You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways:
 
-1. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
+1. For public storage that changes infrequently, use the slow updates tree! More details TBD
+
+2. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 ```rust
 struct Storage {
    token: PublicState<Field, 1>,
@@ -59,14 +62,17 @@ contract Bridge {
     #include_code assert_token_is_same /yarn-project/noir-contracts/src/contracts/token_bridge_contract/src/main.nr raw
 }
 ```
+:::danger
+This leaks information about the private function being called and the data which has been read. 
+:::
 
-2. For public storage that changes infrequently, use the slow updates tree! More details TBD
+### Writing public storage from private: when updating public state from private, you can call a public function from private, just make sure you mark public as internal
 
-### When calling a public function from private, try to mark the public function as `internal`
+When calling a public function from private, try to mark the public function as `internal`
 This ensures your flow works as intended and that no one can call the public function without going through the private function first!
 
-### Passing data from public to private
-You have public balance and want to move them into the private domain. You shouldn't pass your address that should receive the notes in private, because that leaks privacy (duh!). So what do you do?
+### Moving public data into the private domain
+Let's say you have some storage in public and want to move them into the private domain. If you pass your aztec address that should receive the data, then that leaks privacy (as everyone will know who has the private notes). So what do you do?
 
 1. You have to create a note in public domain and can't encrypt it, because you can't leak the public key of the receiver. 
 2. So how do you control who can claim this note? Pass a hash of a secret instead of the address. And then in the private domain, pass the preimage (the secret) to later claim your funds
@@ -76,10 +82,10 @@ So you have to create a custom note in the public domain that is not encrypted b
 This pattern discussed in detail in [writing a token contract section in the shield() method](../../../tutorials/writing_token_contract.md#shield) and [redeem_shield() method](../../../tutorials/writing_token_contract.md#redeem_shield).
 
 ### Discovering my notes
-When you send someone a note, the note hash gets encrypted and added to the merkle tree, but the receiver needs to know they receive a note so they can attempt to decrypt leaves in the tree and add it to their PXE. There are two ways you can discover your notes:
+When you send someone a note, the note hash gets added to the [note hash tree](../../../../concepts/advanced/data_structures/trees#note-hash-tree). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
-1. When sending someone a note, use `emit_encrypted_log` (and encrypt the log with their public key). This way as the PXE processes all encrypted logs, it realizes there is a note for itself. [More info here](../../syntax/events.md)
-2.  Manually using `pxe.addNote()` - What if the contract doesn't emit such logs? Or you creating a note in the public domain and want to consume it in private domain (`emit_encrypted_log` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public. 
+1. When sending someone a note, use `emit_encrypted_log` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../../syntax/events.md)
+2.  Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`emit_encrypted_log` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public. 
 
 #include_code pxe_add_note yarn-project/end-to-end/src/e2e_cheat_codes.test.ts typescript
 
@@ -88,7 +94,7 @@ In the token contract, TransparentNotes are stored in a set called "pending_shie
 ### Randomness in notes
 Notes are hashed and stored in the merkle tree. While notes do have a header with a `nonce` field that ensure two exact notes still can be added to the note hash tree (since hashes would be different), preimage analysis can be done to reverse-engineer the contents of the note.
 
-Hence, it could be a good idea to add a "randomness" field to your note to prevent such attacks. 
+Hence, it's necessary to add a "randomness" field to your note to prevent such attacks.
 
 #include_code address_note_def yarn-project/aztec-nr/address-note/src/address_note.nr rust
 
@@ -100,10 +106,10 @@ If your contract doesn't have anything to do with notes (e.g. operates solely in
 
 Otherwise, you need this method to help the PXE with processing your notes. In our [demo token contract](../../../tutorials/writing_token_contract.md#compute_note_hash_and_nullifier), we work with 2 kinds of notes: `ValueNote` and `TransparentNote`. Hence this method must define how to work with both:
 
-#include_code compute_note_hash_and_nullifier yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+#include_code compute_note_hash_and_nullifier /yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
-### L1 <> L2 interactions
-Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../tutorials/token_portal) and/or [Uniswap tutorial that shows how to swap on L1 using funds on L2](../../../tutorials/uniswap). Both examples show how to:
+### L1 -- L2 interactions
+Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../tutorials/token_portal/main.md) and/or [Uniswap tutorial that shows how to swap on L1 using funds on L2](../../../tutorials/uniswap/main.md). Both examples show how to:
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow
 3. Cancelling messages from L1 -> L2.
@@ -118,14 +124,14 @@ There are several patterns here:
 
 There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
 
+### Share Private Notes
+If you have private state that needs to be handled by more than a single user (but no more than a handful), you can add the note commitment to the private data tree, and then encrypt the note once for each of the users that need to see it. And if any of those users should be able to consume the note, you can generate a random nullifier on creation and store it in the encrypted note, instead of relying on the user secret.
+
 ## Anti Patterns
 There are mistakes one can make to reduce their privacy set and therefore make it trivial to do analysis and link addresses. Some of them are:
 
-### Emitting unencrypted log in private domain
-When emitting unencrypted log in private domain, think twice about the content you put there because the log in unencrypted and therefore anyone can see
-
-### Passing along addresses when calling a public function from private
-If you have a private function which calls a public function, remember that sequencer can see any parameters passed to the public function. So try to not pass the address
+### Passing along your address when calling a public function from private
+If you have a private function which calls a public function, remember that sequencer can see any parameters passed to the public function. So try to not pass any parameter that might leak privacy (e.g. `from` address)
 
 PS: when calling from private to public, `msg_sender` is the contract address which is calling the public function.
 
