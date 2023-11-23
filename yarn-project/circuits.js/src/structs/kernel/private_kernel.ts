@@ -9,7 +9,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
-} from '../../cbind/constants.gen.js';
+} from '../../constants.gen.js';
 import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { CallRequest } from '../call_request.js';

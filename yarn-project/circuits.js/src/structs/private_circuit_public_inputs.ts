@@ -12,7 +12,7 @@ import {
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
-} from '../cbind/constants.gen.js';
+} from '../constants.gen.js';
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
