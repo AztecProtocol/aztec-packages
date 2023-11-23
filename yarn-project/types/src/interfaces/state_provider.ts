@@ -1,4 +1,10 @@
-import { CONTRACT_TREE_HEIGHT, Fr, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  CONTRACT_TREE_HEIGHT,
+  Fr,
+  HISTORIC_BLOCKS_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+} from '@aztec/circuits.js';
 
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -20,6 +26,7 @@ export interface StateInfoProvider {
    * Returns the sibling path for the given index in the contract tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getContractSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
@@ -27,6 +34,7 @@ export interface StateInfoProvider {
    * Returns the sibling path for the given index in the note hash tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getNoteHashSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
@@ -42,6 +50,15 @@ export interface StateInfoProvider {
    * Returns the sibling path for a leaf in the committed l1 to l2 data tree.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+
+  /**
+   * Returns the sibling path for a leaf in the committed historic blocks tree.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
+   */
+  getHistoricBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>>;
 }

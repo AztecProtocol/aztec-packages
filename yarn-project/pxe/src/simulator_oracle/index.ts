@@ -138,22 +138,19 @@ export class SimulatorOracle implements DBOracle {
 
   public async findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     this.log.warn('Block number ignored in SimulatorOracle.findLeafIndex because archival node is not yet implemented');
-    switch (treeId) {
-      case MerkleTreeId.NOTE_HASH_TREE:
-        return await this.stateInfoProvider.findLeafIndex(treeId, leafValue);
-      default:
-        throw new Error('Not implemented');
-    }
+    return await this.stateInfoProvider.findLeafIndex(treeId, leafValue);
   }
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     this.log.warn(
       'Block number ignored in SimulatorOracle.getSiblingPath because archival node is not yet implemented',
     );
-    // @todo This is doing a nasty workaround as http_rpc_client was not happy about a generic `getSiblingPath` function being exposed.
+    // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
       case MerkleTreeId.NOTE_HASH_TREE:
         return (await this.stateInfoProvider.getNoteHashSiblingPath(leafIndex)).toFieldArray();
+      case MerkleTreeId.BLOCKS_TREE:
+        return (await this.stateInfoProvider.getHistoricBlocksTreeSiblingPath(leafIndex)).toFieldArray();
       default:
         throw new Error('Not implemented');
     }

@@ -3,6 +3,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
+  HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -337,6 +338,18 @@ export class AztecNodeService implements AztecNode {
   public async getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex);
+  }
+
+  /**
+   * Returns the sibling path for a leaf in the committed historic blocks tree.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   */
+  public async getHistoricBlocksTreeSiblingPath(
+    leafIndex: bigint,
+  ): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>> {
+    const committedDb = await this.#getWorldState();
+    return committedDb.getSiblingPath(MerkleTreeId.BLOCKS_TREE, leafIndex);
   }
 
   /**
