@@ -11,7 +11,8 @@ import times from 'lodash.times';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { ArchiverDataStore } from './archiver_store.js';
+import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO.toString();

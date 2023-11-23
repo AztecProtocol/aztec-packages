@@ -28,7 +28,7 @@ import {
 import omit from 'lodash.omit';
 import { Chain, HttpTransport, PublicClient, createPublicClient, getContract, http } from 'viem';
 
-import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
   retrieveBlocks,
@@ -36,6 +36,7 @@ import {
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
+import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.

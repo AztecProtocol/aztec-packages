@@ -11,7 +11,8 @@ import {
 
 import { randomBytes } from 'crypto';
 
-import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { ArchiverDataStore } from '../archiver_store.js';
+import { MemoryArchiverStore } from './memory_archiver_store.js';
 
 describe('Archiver Memory Store', () => {
   let archiverStore: ArchiverDataStore;
