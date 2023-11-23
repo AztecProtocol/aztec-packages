@@ -89,6 +89,11 @@ impl PrivateCallDataBuilder {
         *self
     }
 
+    pub fn is_static_call(&mut self) -> Self {
+        self.public_inputs.call_context.is_static_call = true;
+        *self
+    }
+
     pub fn is_internal_call(&mut self) -> Self {
         self.function_data.is_internal = true;
         self.public_inputs.call_context.msg_sender = self.contract_address;

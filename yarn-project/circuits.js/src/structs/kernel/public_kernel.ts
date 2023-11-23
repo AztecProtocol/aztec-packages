@@ -84,7 +84,7 @@ export class PublicCallData {
     /**
      * Children call stack items.
      */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public readonly publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Proof of the call stack item execution.
      */

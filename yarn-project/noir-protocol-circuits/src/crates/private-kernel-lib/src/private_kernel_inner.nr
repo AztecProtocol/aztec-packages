@@ -120,6 +120,11 @@ mod tests {
             *self
         }
 
+        pub fn is_static_call(&mut self) -> Self {
+            let _ = self.private_call.is_static_call();
+            *self
+        }
+
         pub fn is_internal_call(&mut self) -> Self {
             let _ = self.private_call.is_internal_call();
             self.previous_kernel.contract_address = self.private_call.contract_address;
@@ -151,7 +156,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with = "contract address cannot be 0")]
+    #[test(should_fail_with = "contract address cannot be zero")]
     fn private_function_zero_storage_contract_address_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
@@ -613,6 +618,24 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+    }
+
+    #[test(should_fail_with="new_commitments must be empty for static calls")]
+    fn creating_new_commitments_on_static_call_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
+
+        builder.private_call.public_inputs.new_commitments.push(1);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="new_nullifiers must be empty for static calls")]
+    fn creating_new_nullifiers_on_static_call_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
+
+        builder.private_call.public_inputs.new_nullifiers.push(1);
+
+        builder.failed();
     }
 
     #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]

@@ -126,6 +126,16 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     public_inputs.end.new_contracts = struct_array_to_bounded_vec(start.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
 }
 
+fn perform_static_call_checks(private_call: PrivateCallData) {
+    let public_inputs = private_call.call_stack_item.public_inputs;
+    let is_static_call = public_inputs.call_context.is_static_call;
+    if is_static_call {
+        // No state changes are allowed for static calls:
+        assert(is_empty_array(public_inputs.new_commitments), "new_commitments must be empty for static calls");
+        assert(is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls");
+    }
+}
+
 fn is_valid_caller(request: CallRequest, private_call: PrivateCallData) -> bool {
     let call_context = private_call.call_stack_item.public_inputs.call_context;
     let valid_caller_context = request.caller_context.msg_sender.eq(call_context.msg_sender)
@@ -151,6 +161,9 @@ fn validate_call_requests<N>(
 }
 
 pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+    // If this call is a static call, certain operations are disallowed, such as creating new state.
+    perform_static_call_checks(private_call);
+
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let read_requests = private_call_public_inputs.read_requests;
@@ -161,13 +174,6 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     let new_commitments = private_call_public_inputs.new_commitments;
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
     let nullified_commitments = private_call_public_inputs.nullified_commitments;
-
-    let is_static_call = private_call_public_inputs.call_context.is_static_call;
-    if is_static_call {
-        // No state changes are allowed for static calls:
-        assert(is_empty_array(new_commitments), "new_commitments must be empty for static calls");
-        assert(is_empty_array(new_nullifiers), "new_nullifiers must be empty for static calls");
-    }
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
     
@@ -316,7 +322,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         public_inputs.end.new_nullifiers.push(new_contract_address_nullifier);
     } else {
         // non-contract deployments must specify contract address being interacted with
-        assert(contract_address.to_field() != 0, "contract address cannot be 0");
+        assert(!contract_address.is_zero(), "contract address cannot be zero");
 
          /* We need to compute the root of the contract tree, starting from the function's VK:
          * - Compute the vk_hash (done above)
@@ -373,7 +379,4 @@ pub fn validate_call_stack(private_call: PrivateCallData, request: CallRequest) 
         assert(call_context.msg_sender.eq(caller_contract_address), "call stack msg_sender does not match caller contract address");
         assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address");
     }
-
-    // TODO:
-    // if call_context.is_static_call {}
 }

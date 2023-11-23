@@ -55,43 +55,6 @@ pub fn validate_inputs(public_call: PublicCallData){
                       "Bytecode hash cannot be zero");
 }
 
-pub fn perform_static_call_checks(public_call: PublicCallData){
-    let public_call_public_inputs = public_call.call_stack_item.public_inputs;
-
-    let is_static_call = public_call_public_inputs.call_context.is_static_call;
-    // If the call is a static call, there should be no new commitments or nullifiers.
-    let new_commitments = public_call_public_inputs.new_commitments;
-    let new_nullifiers = public_call_public_inputs.new_nullifiers;
-
-    if (is_static_call) {
-        // No state changes are allowed for static calls:
-        assert(is_empty_array(new_commitments), "new_commitments must be empty for static calls");
-        assert(is_empty_array(new_nullifiers), "new_nullifiers must be empty for static calls");
-    }
-}
-
-pub fn propagate_valid_public_data_update_requests(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
-    let contract_address = public_call.call_stack_item.contract_address;
-    let update_requests = public_call.call_stack_item.public_inputs.contract_storage_update_requests;
-
-    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
-
-    for  i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_index: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                old_value: compute_public_data_tree_value(update_request.old_value),
-                new_value: compute_public_data_tree_value(update_request.new_value),
-            };
-
-            public_data_update_requests.push(public_data_update_request);
-        }
-    }
-    circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
-
-}
-
 pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
     // Initialises the circuit outputs with the end state of the previous iteration
     circuit_outputs.constants = previous_kernel.public_inputs.constants;
@@ -117,6 +80,18 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
     circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
     circuit_outputs.end.new_contracts = struct_array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::default());
+}
+
+fn perform_static_call_checks(public_call: PublicCallData){
+    let public_inputs = public_call.call_stack_item.public_inputs;
+    if public_inputs.call_context.is_static_call {
+        // No state changes are allowed for static calls:
+        assert(is_empty_array(public_inputs.new_commitments), "new_commitments must be empty for static calls");
+        assert(is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls");
+
+        let update_requests_length = struct_array_length(public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());
+        assert(update_requests_length == 0, "No contract storage update requests are allowed for static calls");
+    }
 }
 
 fn is_valid_caller(request: CallRequest, public_call: PublicCallData) -> bool {
@@ -164,7 +139,28 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
     propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
-pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
+fn propagate_valid_public_data_update_requests(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
+    let contract_address = public_call.call_stack_item.contract_address;
+    let update_requests = public_call.call_stack_item.public_inputs.contract_storage_update_requests;
+
+    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
+
+    for  i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+        let update_request = update_requests[i];
+        if (!update_request.is_empty()) {
+            let public_data_update_request = PublicDataUpdateRequest {
+                leaf_index: compute_public_data_tree_index(contract_address, update_request.storage_slot),
+                old_value: compute_public_data_tree_value(update_request.old_value),
+                new_value: compute_public_data_tree_value(update_request.new_value),
+            };
+
+            public_data_update_requests.push(public_data_update_request);
+        }
+    }
+    circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
+}
+
+fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder){
     let contract_address = public_call.call_stack_item.contract_address;
     let read_requests = public_call.call_stack_item.public_inputs.contract_storage_reads;
 
@@ -183,7 +179,7 @@ pub fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_ou
    circuit_outputs.end.public_data_reads.push_vec(public_data_reads);
 }
 
-pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
+fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
 
     let new_commitments = public_call.call_stack_item.public_inputs.new_commitments;
@@ -199,7 +195,7 @@ pub fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : 
     circuit_outputs.end.new_commitments.push_vec(siloed_new_commitments);
 }
 
-pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
+fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &mut KernelCircuitPublicInputsBuilder) {
     let new_nullifiers = public_call.call_stack_item.public_inputs.new_nullifiers;
     let storage_contract_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
@@ -215,8 +211,7 @@ pub fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &
     circuit_outputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 }
 
-
-pub fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
+fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs:  &mut KernelCircuitPublicInputsBuilder){
     // new l2 to l1 messages
     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
     let portal_contract_address = public_call.portal_contract_address;
@@ -298,10 +293,5 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
         let caller_contract_address = request.caller_contract_address;
         assert(call_context.msg_sender.eq(caller_contract_address), "call stack msg_sender does not match caller contract address");
         assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address");
-    }
-
-    if call_context.is_static_call {
-        let update_requests_length = struct_array_length(call_stack_item.public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());
-        assert(update_requests_length == 0, "No contract storage update requests are allowed for static calls");
     }
 }

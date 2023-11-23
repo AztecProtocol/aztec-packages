@@ -418,7 +418,7 @@ mod tests {
         builder.failed();
     }
 
-     #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
     fn private_function_incorrect_contract_leaf_sibling_path_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -587,7 +587,7 @@ mod tests {
         assert_eq(array_length(public_inputs.end.read_requests), 1);
     }
 
-     #[test]
+    #[test]
     fn native_max_read_requests_all_transient_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
