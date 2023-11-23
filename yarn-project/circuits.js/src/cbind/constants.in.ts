@@ -3,67 +3,22 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import * as fs from 'fs';
 import { dirname, join } from 'path';
 
-import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-import { callCbind } from './cbind.js';
+const NOIR_CONSTANTS_FILE = '../../../aztec-nr/aztec/src/constants_gen.nr';
+const TS_CONSTANTS_FILE = './constants.gen.ts';
+const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
 /**
- * Convert the C++ constants to TypeScript and Noir.
+ * Parsed content.
  */
-async function main(): Promise<void> {
-  const wasm = await CircuitsWasm.get();
-  const constants = callCbind(wasm, 'get_circuit_constants', []);
-  const generatorIndexEnum = callCbind(wasm, 'get_circuit_generator_index', []);
-  const storageSlotGeneratorIndexEnum = callCbind(wasm, 'get_circuit_storage_slot_generator_index', []);
-  const privateStateNoteGeneratorIndexEnum = callCbind(wasm, 'get_circuit_private_state_note_generator_index', []);
-  const privateStateTypeEnum = callCbind(wasm, 'get_circuit_private_state_type', []);
-
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-
-  // Typescript
-  const resultTS: string =
-    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants\n' +
-    processConstantsTS(constants) +
-    processEnumTS('GeneratorIndex', generatorIndexEnum) +
-    processEnumTS('StorageSlotGeneratorIndex', storageSlotGeneratorIndexEnum) +
-    processEnumTS('PrivateStateNoteGeneratorIndex', privateStateNoteGeneratorIndexEnum) +
-    processEnumTS('PrivateStateType', privateStateTypeEnum);
-
-  fs.writeFileSync(__dirname + '/constants.gen.ts', resultTS);
-
-  // Noir
-  const resultNoir: string =
-    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js\n' +
-    processConstantsNoir(constants) +
-    processEnumNoir(generatorIndexEnum, 'GENERATOR_INDEX__') +
-    processEnumNoir(storageSlotGeneratorIndexEnum, 'STORAGE_SLOT_GENERATOR_INDEX__') +
-    processEnumNoir(privateStateNoteGeneratorIndexEnum, 'PRIVATE_STATE_NOTE_GENERATOR_INDEX__') +
-    processEnumNoir(privateStateTypeEnum, 'PRIVATE_STATE_TYPE__');
-
-  const noirTargetPath = join(__dirname, '../../../aztec-nr/aztec/src/constants_gen.nr');
-  fs.writeFileSync(noirTargetPath, resultNoir);
-
-  // Solidity
-  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
-
-/**
- * @title Constants Library
- * @author Aztec Labs
- * @notice Library that contains constants used throughout the Aztec protocol
- */
-library Constants {
-  // Prime field modulus
-  uint256 internal constant P =
-    21888242871839275222246405745257275088548364400416034343698204186575808495617;
-  uint256 internal constant MAX_FIELD_VALUE = P - 1;
-
-${processConstantsSolidity(constants)}
-}\n`;
-
-  const solidityTargetPath = join(__dirname, '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol');
-  fs.writeFileSync(solidityTargetPath, resultSolidity);
+interface ParsedContent {
+  /**
+   * Constants.
+   */
+  constants: { [key: string]: number };
+  /**
+   * GeneratorIndexEnum.
+   */
+  generatorIndexEnum: { [key: string]: number };
 }
 
 /**
@@ -102,37 +57,6 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
 }
 
 /**
- * Processes a collection of constants and generates code to export them as Noir constants.
- *
- * @param constants - An object containing key-value pairs representing constants.
- * @param prefix - A prefix to add to the constant names.
- * @returns A string containing code that exports the constants as Noir constants.
- */
-function processConstantsNoir(constants: { [key: string]: number }, prefix = ''): string {
-  const code: string[] = [];
-  Object.entries(constants).forEach(([key, value]) => {
-    code.push(`global ${prefix}${key}: Field = ${value};`);
-  });
-  return code.join('\n') + '\n';
-}
-
-/**
- * Processes a collection of enums and generates code to export them as Noir constants prefixed with enum name.
- *
- * @param enumValues - An object containing key-value pairs representing enum values.
- * @param enumPrefix - A prefix to add to the names of resulting Noir constants to communicate the constant was part
- *                     of C++ enum.
- * @returns A string containing code that exports the enums as Noir constants prefixed with enum name.
- */
-function processEnumNoir(enumValues: { [key: string]: number }, enumPrefix: string): string {
-  const code: string[] = [];
-  Object.entries(enumValues).forEach(([key, value]) => {
-    code.push(`global ${enumPrefix}${key} = ${value};`);
-  });
-  return code.join('\n') + '\n';
-}
-
-/**
  * Processes a collection of constants and generates code to export them as Solidity constants.
  *
  * @param constants - An object containing key-value pairs representing constants.
@@ -147,5 +71,93 @@ function processConstantsSolidity(constants: { [key: string]: number }, prefix =
   return code.join('\n');
 }
 
-// eslint-disable-next-line no-console
-main().catch(console.error);
+/**
+ * Generate the constants file in Typescript.
+ */
+function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+  const result = [
+    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
+    processConstantsTS(constants),
+    processEnumTS('GeneratorIndex', generatorIndexEnum),
+  ].join('\n');
+
+  fs.writeFileSync(targetPath, result);
+}
+
+/**
+ * Generate the constants file in Solidity.
+ */
+function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
+  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2023 Aztec Labs.
+pragma solidity >=0.8.18;
+
+/**
+ * @title Constants Library
+ * @author Aztec Labs
+ * @notice Library that contains constants used throughout the Aztec protocol
+ */
+library Constants {
+  // Prime field modulus
+  uint256 internal constant P =
+    21888242871839275222246405745257275088548364400416034343698204186575808495617;
+  uint256 internal constant MAX_FIELD_VALUE = P - 1;
+
+${processConstantsSolidity(constants)}
+}\n`;
+
+  fs.writeFileSync(targetPath, resultSolidity);
+}
+
+/**
+ * Parse the content of the constants file in Noir.
+ */
+function parseNoirFile(fileContent: string): ParsedContent {
+  const constants: { [key: string]: number } = {};
+  const generatorIndexEnum: { [key: string]: number } = {};
+
+  fileContent.split('\n').forEach(l => {
+    const line = l.trim();
+    if (!line || line.startsWith('//')) {
+      return;
+    }
+
+    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(\d+);/) || [];
+    if (!name || !value) {
+      // eslint-disable-next-line no-console
+      console.warn(`Unknown content: ${line}`);
+      return;
+    }
+
+    const [, indexName] = name.match(/GENERATOR_INDEX__(\w+)/) || [];
+    if (indexName) {
+      generatorIndexEnum[indexName] = +value;
+    } else {
+      constants[name] = +value;
+    }
+  });
+
+  return { constants, generatorIndexEnum };
+}
+
+/**
+ * Convert the Noir constants to TypeScript and Solidity.
+ */
+function main(): void {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+
+  const noirConstantsFile = join(__dirname, NOIR_CONSTANTS_FILE);
+  const noirConstants = fs.readFileSync(noirConstantsFile, 'utf-8');
+  const parsedContent = parseNoirFile(noirConstants);
+
+  // Typescript
+  const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);
+  generateTypescriptConstants(parsedContent, tsTargetPath);
+
+  // Solidity
+  const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
+  generateSolidityConstants(parsedContent, solidityTargetPath);
+}
+
+main();
