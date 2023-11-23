@@ -40,10 +40,9 @@ fi
 ################### PREAMBLE ###################
 
 # Pull images from ecr and retag for the docker compose
-SANDBOX_IMAGE=$SANDBOX_IMAGE_URI-x86_64
-echo "pulling docker image for $SANDBOX $SANDBOX_IMAGE"
-retry docker pull $SANDBOX_IMAGE
-retry docker tag $SANDBOX_IMAGE aztecprotocol/$SANDBOX:latest
+echo "pulling docker image for $SANDBOX $SANDBOX_IMAGE_URI"
+retry docker pull $SANDBOX_IMAGE_URI
+retry docker tag $SANDBOX_IMAGE_URI aztecprotocol/$SANDBOX:latest
 
 echo "pulling docker image for $YARN_PROJECT $YP_IMAGE_URI"
 retry docker pull $YP_IMAGE_URI
