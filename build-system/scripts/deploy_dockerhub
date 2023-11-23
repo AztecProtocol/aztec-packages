@@ -25,8 +25,7 @@ dockerhub_login
 ecr_login
 
 IFS=','
-for ARCH in $ARCH_LIST
-do
+for ARCH in $ARCH_LIST; do
   IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY $ARCH)
   retry docker pull $IMAGE_COMMIT_URI
 
@@ -36,11 +35,11 @@ do
   docker_or_dryrun push $IMAGE_DEPLOY_URI
 
   echo "Adding image $IMAGE_DEPLOY_URI to manifest list $MANIFEST_DEPLOY_URI..."
-  docker manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
+  docker_or_dryrun manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
 done
 
 docker_or_dryrun push $MANIFEST_DEPLOY_URI
 
 # Retag versioned as latest.
-docker tag $MANIFEST_DEPLOY_URI aztecprotocol/$REPOSITORY:latest
+docker_or_dryrun tag $MANIFEST_DEPLOY_URI aztecprotocol/$REPOSITORY:latest
 docker_or_dryrun push aztecprotocol/$REPOSITORY:latest

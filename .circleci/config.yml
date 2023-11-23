@@ -935,7 +935,7 @@ jobs:
       - run:
           name: "Deploy mainnet fork"
           command: |
-            [ -n "$COMMIT_TAG" ] || exit 0
+            should_deploy || exit 0
             deploy_ecr mainnet-fork
 
   deploy-npm:
@@ -948,7 +948,7 @@ jobs:
       - run:
           name: "yarn-project"
           command: |
-            [ -n "$COMMIT_TAG" ] || exit 0
+            should_deploy || exit 0
             yarn-project/deploy_npm.sh latest
 
   deploy-dockerhub:
@@ -961,9 +961,8 @@ jobs:
       - run:
           name: "Deploy to dockerhub"
           command: |
-            [ -n "$COMMIT_TAG" ] || exit 0
+            should_deploy || exit 0
             deploy_dockerhub noir x86_64,arm64
-            deploy_dockerhub pxe x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
             deploy_dockerhub cli x86_64,arm64
 
