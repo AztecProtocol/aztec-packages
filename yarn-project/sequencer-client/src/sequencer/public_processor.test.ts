@@ -230,12 +230,15 @@ describe('public_processor', () => {
 
     it('rolls back db updates on failed public execution', async function () {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
-      const callStackItem = callRequest.toPublicCallStackItem();
-      const callStackHash = computeCallStackItemHash(callStackItem);
+      const callStackItem = callRequest.toCallRequest();
 
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.publicCallStack = padArrayEnd(
+        [callStackItem],
+        CallRequest.empty(),
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      );
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(
         kernelOutput,
