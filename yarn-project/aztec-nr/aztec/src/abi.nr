@@ -166,6 +166,18 @@ impl HistoricBlockData {
         ]
     }
 
+    pub fn deserialize(deserialized: [Field; HISTORIC_BLOCK_DATA_LENGTH]) -> Self {
+        HistoricBlockData {
+            note_hash_tree_root: deserialized[0],
+            nullifier_tree_root: deserialized[1],
+            contract_tree_root: deserialized[2],
+            l1_to_l2_messages_tree_root: deserialized[3],
+            blocks_tree_root: deserialized[4],
+            public_data_tree_root: deserialized[5],
+            global_variables_hash: deserialized[6],
+        }
+    }
+
     pub fn empty() -> Self {
         Self { note_hash_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
     }

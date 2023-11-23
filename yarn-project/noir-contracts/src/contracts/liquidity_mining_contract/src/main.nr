@@ -23,9 +23,12 @@ contract LiquidityMining {
             HISTORIC_BLOCKS_TREE_HEIGHT,
             GENERATOR_INDEX__BLOCK_HASH,
         },
-        oracle::get_membership_witness::{
-            get_membership_witness,
-            MembershipWitness,
+        oracle::{
+            get_membership_witness::{
+                get_membership_witness,
+                MembershipWitness,
+            },
+            get_block_data::get_block_data,
         },
         // oracle::debug_log::debug_log_format,
     };
@@ -86,16 +89,20 @@ contract LiquidityMining {
     #[aztec(private)]
     fn claim(
         owner: AztecAddress,
+        block_number: Field, // The block at which we'll prove that the note exists
     ) {
         let balances = storage.balances.at(owner.address);
 
-        let ignored_block_number = 0; // Oracle ignores this now and only gets the sibling path at the latest block
+        let not_ignored_block_number = block_number;
+        let ignored_block_number = 0; // Sibling path oracle ignores this now and only gets the path at the latest block
 
         // 1.c)
+        let block_data = get_block_data(not_ignored_block_number);
+        // let block_data = context.block_data;
+        
         // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
         // TODO: Would make sense to unify the ordering in `HistoricBlockData::serialize` function and the ordering
         // in the block hash preimage --> This seems to require changes in the circuits.
-        let block_data = context.block_data;
         let inputs = [
             block_data.global_variables_hash,
             block_data.note_hash_tree_root,
