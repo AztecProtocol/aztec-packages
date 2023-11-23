@@ -1,4 +1,3 @@
-
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -87,40 +86,39 @@ struct TraceCtx {
         memTrace.insert(memTrace.begin() + insertionIndex, newMemEntry);
     }
 
-    // Memory operations need to be performed right after the addition of the corresponding row in
-    // mainTrace, otherwise the m_clk value will be wrong. The following memory operations pertain
-    // to the last operation of the current mainTrace. This applies to:
-    // loadAInMemTrace, loadBInMemTrace, loadCInMemTrace
-    // storeAInMemTrace, storeBInMemTrace, storeCInMemTrace
+    // Memory operations need to be performed before the addition of the corresponding row in
+    // mainTrace, otherwise the m_clk value will be wrong. This applies to:
+    //       loadAInMemTrace, loadBInMemTrace, loadCInMemTrace
+    //       storeAInMemTrace, storeBInMemTrace, storeCInMemTrace
 
     void loadAInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 0, addr, val, false);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 0, addr, val, false);
     }
 
     void loadBInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 1, addr, val, false);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 1, addr, val, false);
     }
 
     void loadCInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 2, addr, val, false);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 2, addr, val, false);
     }
 
     void storeAInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 3, addr, val, true);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 3, addr, val, true);
     }
 
     void storeBInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 4, addr, val, true);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 4, addr, val, true);
     }
 
     void storeCInMemTrace(uint32_t addr, FF val)
     {
-        insertInMemTrace(static_cast<uint32_t>(mainTrace.size() - 1), 5, addr, val, true);
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 5, addr, val, true);
     }
 
     // Addition over finite field with direct memory access.
@@ -133,6 +131,15 @@ struct TraceCtx {
         ffMemory.at(d0) = c;
 
         auto clk = mainTrace.size();
+
+        // Loading into Ia
+        loadAInMemTrace(s0, a);
+
+        // Loading into Ib
+        loadBInMemTrace(s1, b);
+
+        // Storing from Ic
+        storeCInMemTrace(d0, c);
 
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
@@ -148,25 +155,16 @@ struct TraceCtx {
             .avmMini_mem_idx_b = FF(s1),
             .avmMini_mem_idx_c = FF(d0),
         });
-
-        // Loading into Ia
-        loadAInMemTrace(s0, a);
-
-        // Loading into Ib
-        loadBInMemTrace(s1, b);
-
-        // Storing from Ic
-        storeCInMemTrace(d0, c);
     };
 
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M_F[d0:d0+s1] = M_calldata[s0:s0+s1]
-    // Simplified version with excelusively memory store operations and
-    // values from M_calldata passed by an array and and loaded into
+    // Simplified version with exclusively memory store operations and
+    // values from M_calldata passed by an array and loaded into
     // intermediate registers.
     // Assume that caller passes callDataMem which is large enough so that no out-of-bound
     // memory issues occur.
-    // TODO: Implement the indirect memory version.
+    // TODO: Implement the indirect memory version (maybe not required)
     // TODO: taking care of intermediate register values consistency and propagating their
     // values to the next row when not overwritten.
     void callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, std::vector<FF> const& callDataMem)
@@ -245,6 +243,82 @@ struct TraceCtx {
         }
     }
 
+    // RETURN opcode with direct memory access, i.e.,
+    // return M_F[s0:s0+s1]
+    // Simplified version with exclusively memory load operations into
+    // intermediate registers and then values are copied to the returned vector.
+    // TODO: Implement the indirect memory version (maybe not required)
+    // TODO: taking care of flagging this row as the last one? Special STOP flag?
+    std::vector<FF> returnOP(uint32_t s0, uint32_t s1)
+    {
+        // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
+        // This offset points to the first loading operation (pertaining to intermediate register Ia).
+        // s0 + offset:       Ia memory load operation
+        // s0 + offset + 1:   Ib memory load operation
+        // s0 + offset + 1:   Ic memory load operation
+
+        uint32_t offset = 0;
+        std::vector<FF> returnMem;
+
+        while (offset < s1) {
+            FF ib(0);
+            FF ic(0);
+            uint32_t mem_op_b(0);
+            uint32_t mem_op_c(0);
+            uint32_t mem_idx_b(0);
+            uint32_t mem_idx_c(0);
+            auto clk = mainTrace.size();
+
+            uint32_t mem_op_a(1);
+            uint32_t mem_idx_a = s0 + offset;
+            FF ia = ffMemory.at(mem_idx_a);
+
+            // Loading from Ia
+            returnMem.push_back(ia);
+            loadAInMemTrace(mem_idx_a, ia);
+
+            if (s1 - offset > 1) {
+                mem_op_b = 1;
+                mem_idx_b = s0 + offset + 1;
+                ib = ffMemory.at(mem_idx_b);
+
+                // Loading from Ib
+                returnMem.push_back(ib);
+                loadBInMemTrace(mem_idx_b, ib);
+            }
+
+            if (s1 - offset > 2) {
+                mem_op_c = 1;
+                mem_idx_c = s0 + offset + 2;
+                ic = ffMemory.at(mem_idx_c);
+
+                // Loading from Ic
+                returnMem.push_back(ic);
+                loadCInMemTrace(mem_idx_c, ic);
+            }
+
+            mainTrace.push_back(Row{
+                .avmMini_clk = clk,
+                .avmMini_ia = ia,
+                .avmMini_ib = ib,
+                .avmMini_ic = ic,
+                .avmMini_mem_op_a = FF(mem_op_a),
+                .avmMini_mem_op_b = FF(mem_op_b),
+                .avmMini_mem_op_c = FF(mem_op_c),
+                .avmMini_mem_idx_a = FF(mem_idx_a),
+                .avmMini_mem_idx_b = FF(mem_idx_b),
+                .avmMini_mem_idx_c = FF(mem_idx_c),
+            });
+
+            if (s1 - offset > 2) { // Guard to prevent overflow if s1 is close to uint32_t maximum value.
+                offset += 3;
+            } else {
+                offset = s1;
+            }
+        }
+        return returnMem;
+    }
+
     // Temporary helper to initialize memory.
     void setFFMem(size_t idx, FF el) { ffMemory.at(idx) = el; };
 
@@ -302,20 +376,22 @@ std::vector<Row> AvmMiniTraceBuilder::build_trace()
 {
     TraceCtx ctx;
 
-    ctx.callDataCopy(0, 6, 2, std::vector<FF>{ 45, 23, 12, 17, 18, 19 });
+    ctx.callDataCopy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
 
     // ctx.setFFMem(2, FF(45));
     // ctx.setFFMem(3, FF(23));
-    // ctx.setFFMem(5, FF(12));
+    // ctx.setFFMem(4, FF(12));
 
     ctx.add(2, 3, 4);
     ctx.add(4, 5, 5);
-    ctx.add(5, 5, 5);
-    ctx.add(5, 5, 5);
-    ctx.add(5, 5, 5);
-    ctx.add(5, 5, 5);
-    ctx.add(3, 5, 6);
-    ctx.add(5, 6, 7);
+    // ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(3, 5, 6);
+    //  ctx.add(5, 6, 7);
+
+    ctx.returnOP(1, 8);
 
     ctx.finalize();
     return std::move(ctx.mainTrace);
