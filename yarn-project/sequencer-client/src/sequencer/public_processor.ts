@@ -2,6 +2,7 @@ import {
   PublicExecution,
   PublicExecutionResult,
   PublicExecutor,
+  PublicStateDB,
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
@@ -48,7 +49,7 @@ import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB, getPublicExecutor } from '../simulator/public_executor.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
@@ -76,14 +77,18 @@ export class PublicProcessorFactory {
   ): Promise<PublicProcessor> {
     const blockData = await getHistoricBlockData(this.merkleTree, prevGlobalVariables);
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
+    const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
+    const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, blockData);
     return new PublicProcessor(
       this.merkleTree,
-      getPublicExecutor(this.merkleTree, publicContractsDB, this.l1Tol2MessagesDataSource, blockData),
+      publicExecutor,
       new WasmPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       globalVariables,
       blockData,
       publicContractsDB,
+      worldStatePublicDB,
     );
   }
 }
@@ -101,6 +106,7 @@ export class PublicProcessor {
     protected globalVariables: GlobalVariables,
     protected blockData: HistoricBlockData,
     protected publicContractsDB: ContractsDataSourcePublicDB,
+    protected publicStateDB: PublicStateDB,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}
@@ -122,6 +128,8 @@ export class PublicProcessor {
         // add new contracts to the contracts db so that their functions may be found and called
         await this.publicContractsDB.addNewContracts(tx);
         result.push(await this.processTx(tx));
+        // commit the state updates from this transaction
+        await this.publicStateDB.commit();
       } catch (err) {
         this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push({
@@ -130,6 +138,8 @@ export class PublicProcessor {
         });
         // remove contracts on failure
         await this.publicContractsDB.removeNewContracts(tx);
+        // rollback any state updates from this failed transaction
+        await this.publicStateDB.rollback();
       }
     }
 
