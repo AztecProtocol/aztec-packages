@@ -131,7 +131,7 @@ export class L1ToL2Message {
     return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
   }
 
-  static random(): L1ToL2Message {
+  static random(entryKey?: Fr): L1ToL2Message {
     return new L1ToL2Message(
       L1Actor.random(),
       L2Actor.random(),
@@ -139,7 +139,7 @@ export class L1ToL2Message {
       Fr.random(),
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 1000),
-      Fr.random(),
+      entryKey,
     );
   }
 }

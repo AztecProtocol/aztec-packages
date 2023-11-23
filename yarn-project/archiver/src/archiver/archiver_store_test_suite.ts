@@ -134,24 +134,24 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
     describe('addPendingL1ToL2Messages', () => {
       it('stores pending L1 to L2 messages', async () => {
-        await expect(store.addPendingL1ToL2Messages([L1ToL2Message.random()])).resolves.toEqual(true);
+        await expect(store.addPendingL1ToL2Messages([L1ToL2Message.random(Fr.random())])).resolves.toEqual(true);
       });
 
       it('allows duplicates', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await expect(store.addPendingL1ToL2Messages([message, message])).resolves.toEqual(true);
       });
     });
 
     describe('getPendingL1ToL2Messages', () => {
       it('returns previously stored pending L1 to L2 messages', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
         await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([message.entryKey!]);
       });
 
       it('returns messages ordered by fee', async () => {
-        const messages = Array.from({ length: 3 }).map(() => L1ToL2Message.random());
+        const messages = Array.from({ length: 3 }).map(() => L1ToL2Message.random(Fr.random()));
         // add a duplicate message
         messages.push(messages[0]);
 
@@ -170,20 +170,20 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
     describe('confirmL1ToL2Messages', () => {
       it('updates a message from pending to confirmed', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
         await expect(store.confirmL1ToL2Messages([message.entryKey!])).resolves.toEqual(true);
       });
 
       it('once confirmed, a message is no longer pending', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
         await store.confirmL1ToL2Messages([message.entryKey!]);
         await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([]);
       });
 
       it('once confirmed a message can also be pending if added again', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
         await store.confirmL1ToL2Messages([message.entryKey!]);
         await store.addPendingL1ToL2Messages([message]);
@@ -191,7 +191,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('once confirmed a message can remain pending if more of it were pending', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message, message]);
         await store.confirmL1ToL2Messages([message.entryKey!]);
         await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([message.entryKey!]);
@@ -200,21 +200,21 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
     describe('cancelL1ToL2Messages', () => {
       it('cancels a pending message', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
         await store.cancelPendingL1ToL2Messages([message.entryKey!]);
         await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([]);
       });
 
       it('cancels only one of the pending messages if duplicates exist', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message, message]);
         await store.cancelPendingL1ToL2Messages([message.entryKey!]);
         await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([message.entryKey]);
       });
 
       it('once canceled a message can also be pending if added again', async () => {
-        const message = L1ToL2Message.random();
+        const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message]);
 
         await store.cancelPendingL1ToL2Messages([message.entryKey!]);
