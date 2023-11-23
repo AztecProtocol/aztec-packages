@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-        call_request::CallRequest,
+        call_request::{CallerContext, CallRequest},
         call_stack_item::PrivateCallStackItem,
         function_data::FunctionData,
         membership_witness::{
@@ -112,6 +112,51 @@ impl PrivateCallDataBuilder {
             tx_context,
             function_data: self.function_data,
         }
+    }
+
+    pub fn append_private_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
+        let (hashes, call_requests) = self.generate_call_requests(self.private_call_stack, num_requests, is_delegate_call);
+        self.public_inputs.private_call_stack_hashes.push_vec(hashes);
+        self.private_call_stack.push_vec(call_requests);
+    }
+
+    pub fn append_public_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
+        let (hashes, call_requests) = self.generate_call_requests(self.public_call_stack, num_requests, is_delegate_call);
+        self.public_inputs.public_call_stack_hashes.push_vec(hashes);
+        self.public_call_stack.push_vec(call_requests);
+    }
+
+    fn generate_call_requests<N>(
+        self,
+        requests: BoundedVec<CallRequest, N>,
+        num_requests: Field,
+        is_delegate_call: bool,
+    ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
+        let value_offset = requests.len();
+        let mut caller_context = CallerContext::empty();
+        if is_delegate_call {
+            let call_context = self.public_inputs.call_context;
+            caller_context.msg_sender = call_context.msg_sender;
+            caller_context.storage_contract_address = call_context.storage_contract_address;
+        }
+        let mut call_requests: BoundedVec<CallRequest, N> = BoundedVec::new(CallRequest::empty());
+        let mut hashes: BoundedVec<Field, N> = BoundedVec::new(0);
+        let mut exceeded_len = false;
+        for i in 0..N {
+            exceeded_len |= i == num_requests;
+            if !exceeded_len {
+                // The default hash is its index + 7788.
+                let hash = value_offset + 7788;
+                let request = CallRequest {
+                    hash,
+                    caller_contract_address: self.contract_address,
+                    caller_context,
+                };
+                hashes.push(hash);
+                call_requests.push(request);
+            }
+        }
+        (hashes, call_requests)
     }
 
     pub fn append_read_requests(&mut self, num_read_requests: Field) {

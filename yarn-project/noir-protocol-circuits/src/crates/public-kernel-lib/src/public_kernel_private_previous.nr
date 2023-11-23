@@ -346,6 +346,56 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with = "call requests length does not match the expected length")]
+    fn incorrect_call_requests_length_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
+
+        builder.public_call.append_public_call_requests(2, false);
+        // Remove one call request.
+        let _ = builder.public_call.public_call_stack.pop();
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "call stack hash does not match call request hash")]
+    fn incorrect_call_request_hash_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
+
+        builder.public_call.append_public_call_requests(2, false);
+        let mut call_request = builder.public_call.public_call_stack.pop();
+        // Change the hash to be a different value.
+        call_request.hash += 1;
+        builder.public_call.public_call_stack.push(call_request);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid caller")]
+    fn incorrect_caller_address_for_call_request_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
+
+        builder.public_call.append_public_call_requests(1, false);
+        let mut call_request = builder.public_call.public_call_stack.pop();
+        // Change the caller contract address to be a different value.
+        call_request.caller_contract_address.inner += 1;
+        builder.public_call.public_call_stack.push(call_request);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid caller")]
+    fn incorrect_caller_context_for_delegate_call_request_fails() {
+        let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
+
+        builder.public_call.append_public_call_requests(1, true);
+        let mut call_request = builder.public_call.public_call_stack.pop();
+        // Change the storage contract to be a different value.
+        call_request.caller_context.storage_contract_address.inner += 1;
+        builder.public_call.public_call_stack.push(call_request);
+
+        builder.failed();
+    }
+
     #[test]
     fn public_kernel_circuit_with_private_previous_kernel_should_succeed() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();

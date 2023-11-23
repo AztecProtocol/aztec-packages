@@ -97,14 +97,16 @@ impl PublicCallDataBuilder {
 
     pub fn append_public_call_requests(&mut self, num_requests: Field, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
-        let call_context = self.public_inputs.call_context;
+        let mut caller_context = CallerContext::empty();
+        if is_delegate_call {
+            let call_context = self.public_inputs.call_context;
+            caller_context.msg_sender = call_context.msg_sender;
+            caller_context.storage_contract_address = call_context.storage_contract_address;
+        }
+        let mut exceeded_len = false;
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-            if i as u64 < num_requests as u64 {
-                let mut caller_context = CallerContext::empty();
-                if is_delegate_call {
-                    caller_context.msg_sender = call_context.msg_sender;
-                    caller_context.storage_contract_address = call_context.storage_contract_address;
-                }
+            exceeded_len |= i == num_requests;
+            if !exceeded_len {
                 // The default hash is its index + 7788.
                 let hash = value_offset + 7788;
                 let call_request = CallRequest {
