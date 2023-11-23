@@ -45,7 +45,13 @@ describe('Archiver Memory Store', () => {
     const logs = Array(10)
       .fill(0)
       .map(_ => L2BlockL2Logs.random(6, 3, 2));
-    await archiverStore.addLogs(logs, logType);
+    await Promise.all(
+      logs.map((log, i) =>
+        logType === LogType.ENCRYPTED
+          ? archiverStore.addLogs(log, undefined, i + 1)
+          : archiverStore.addLogs(undefined, log, i + 1),
+      ),
+    );
     // Offset indices by INITIAL_L2_BLOCK_NUM to ensure we are correctly aligned
     for (const [from, limit] of [
       [0 + INITIAL_L2_BLOCK_NUM, 10],
@@ -87,7 +93,13 @@ describe('Archiver Memory Store', () => {
       const logs = Array(10)
         .fill(0)
         .map(_ => L2BlockL2Logs.random(6, 3, 2));
-      await archiverStore.addLogs(logs, logType);
+      await Promise.all(
+        logs.map((log, i) =>
+          logType === LogType.ENCRYPTED
+            ? archiverStore.addLogs(log, undefined, i + 1)
+            : archiverStore.addLogs(undefined, log, i + 1),
+        ),
+      );
       await expect(async () => await archiverStore.getLogs(1, 0, logType)).rejects.toThrow(`Invalid limit: 0`);
     },
   );
@@ -101,9 +113,8 @@ describe('Archiver Memory Store', () => {
         .map((_, index: number) => L2Block.random(index + 1, 4, 2, 3, 2, 2));
 
       await archiverStore.addBlocks(blocks);
-      await archiverStore.addLogs(
-        blocks.map(block => block.newUnencryptedLogs!),
-        LogType.UNENCRYPTED,
+      await Promise.all(
+        blocks.map(block => archiverStore.addLogs(block.newEncryptedLogs, block.newUnencryptedLogs, block.number)),
       );
 
       const response = await archiverStore.getUnencryptedLogs({});
@@ -128,9 +139,8 @@ describe('Archiver Memory Store', () => {
         );
 
       await archiverStore.addBlocks(blocks);
-      await archiverStore.addLogs(
-        blocks.map(block => block.newUnencryptedLogs!),
-        LogType.UNENCRYPTED,
+      await Promise.all(
+        blocks.map(block => archiverStore.addLogs(block.newEncryptedLogs, block.newUnencryptedLogs, block.number)),
       );
     });
 

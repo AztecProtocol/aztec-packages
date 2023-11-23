@@ -42,11 +42,16 @@ export interface ArchiverDataStore {
 
   /**
    * Append new logs to the store's list.
-   * @param data - The logs to be added to the store.
-   * @param logType - The type of the logs to be added to the store.
+   * @param encryptedLogs - The encrypted logs to be added to the store.
+   * @param unencryptedLogs - The unencrypted logs to be added to the store.
+   * @param blockNumber - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(data: L2BlockL2Logs[], logType: LogType): Promise<boolean>;
+  addLogs(
+    encryptedLogs: L2BlockL2Logs | undefined,
+    unencryptedLogs: L2BlockL2Logs | undefined,
+    blockNumber: number,
+  ): Promise<boolean>;
 
   /**
    * Append new pending L1 to L2 messages to the store.
