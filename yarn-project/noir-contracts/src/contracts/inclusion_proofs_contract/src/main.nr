@@ -80,8 +80,9 @@ contract InclusionProofs {
         owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the note exists
     ) {
-        // TODO: assert that block number is less than the block number of block data
-        // --> This will require a new oracle method that returns given global variables hash preimage
+        // TODO: assert that block number is less than the block number of context.block_data
+        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        //     or modifying the private context so that we somehow expose it.
 
         // 1) 
         let blocks_tree_root = context.block_data.blocks_tree_root;
