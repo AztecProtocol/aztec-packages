@@ -4,7 +4,7 @@ In this tutorial we will go through writing a very simple private voting smart c
 
 We will build this:
 
-<image>
+TODO Image
 
 * The contract will be initiated with an admin, stored publicly
 * A voter can vote privately, which will call a public function and update the votes publically. This keeps who they are, what they have voted for, and whether or not they have voted private - but the vote itself public
@@ -14,7 +14,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](./quickstart.md)
+- You have followed the [quickstart](../getting_started/quickstart.md)
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -211,7 +211,7 @@ This should create a new directory called `target` and a JSON artifact inside it
 Once it is compiled you can deploy it to the sandbox. Ensure your [sandbox is running](../cli/sandbox-reference.md) and run this in the same dir as before:
 
 ```bash
-aztec-cli deploy ./target/Voting.json --args <ADMIN_ADDRESS>
+aztec-cli deploy ./target/Voting.json --args ADMIN_ADDRESS
 ```
 
 The constructor takes an address as an argument to set the admin, so you can use an address that is deployed with the sandbox - check the sandbox terminal or run `aztec-cli get-accounts`.
@@ -221,7 +221,7 @@ You should see a success message with the contract address. Now we can start cal
 Cast a vote like this:
 
 ```bash
-aztec-cli send cast_vote --contract ./target/Voting.json --contract-address <CONTRACT_ADDRESS> --args 1 --private-key <PRIVATE_KEY>
+aztec-cli send cast_vote --contract ./target/Voting.json --contract-address CONTRACT_ADDRESS --args 1 --private-key PRIVATE_KEY
 ```
 
 You can get the contract address from the sandbox terminal or the message printed when you deployed the contract. You can also get a private key from the sandbox terminal, or generate one with `aztec-cli generate-private-key`.
@@ -233,7 +233,7 @@ You can now try running this command again to ensure our nullifier works.
 Get the number of votes like this:
 
 ```bash
-aztec-cli call get_vote --contract ./target/Voting.json --contract-address <CONTRACT_ADDRESS> --args 1
+aztec-cli call get_vote --contract ./target/Voting.json --contract-address CONTRACT_ADDRESS --args 1
 ```
 
 This should return `1n`. 
