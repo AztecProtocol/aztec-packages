@@ -158,9 +158,9 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-
+    auto alpha = transcript.get_challenge("alpha");
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, transcript);
+        sumcheck.verify(relation_parameters, alpha, transcript);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
@@ -270,7 +270,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         univariate_opening_verified = PCS::verify(pcs_verification_key, batched_univariate_claim, transcript);
     }
 
-    return multivariate_opening_verified && univariate_opening_verified;
+    return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
 
 template class ECCVMVerifier_<honk::flavor::ECCVM>;

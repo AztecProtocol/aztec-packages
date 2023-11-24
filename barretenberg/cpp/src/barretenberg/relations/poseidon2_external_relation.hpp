@@ -18,17 +18,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      * @details This relation is defined as:
      * q_pos2 * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) +
      * \alpha^2 * (t7 - w_3_shift) + \alpha^3 * (t4 - w_4_shift) ) = 0 where:
-     *      v1 := (w_1 + q_1)^5
-     *      v2 := (w_2 + q_2)^5
-     *      v3 := (w_3 + q_3)^5
-     *      v4 := (w_4 + q_4)^5
-     *      t0 := v1 + v2                                           (1, 1, 0, 0)
-     *      t1 := v3 + v4                                           (0, 0, 1, 1)
-     *      t2 := v2 + v2 + t1 = 2 * v2 + v3 + v4                   (0, 2, 1, 1)
-     *      t3 := v4 + v4 + t0 = v1 + v2 + 2 * v4                   (1, 1, 0, 2)
-     *      t4 := 4 * t1 + t3 = v1 + v2 + 4 * v3 + 6 * v4           (1, 1, 4, 6)
-     *      t5 := 4 * t0 + t2 = 4 * v1 + 6 * v2 + v3 + v4           (4, 6, 1, 1)
-     *      t6 := t3 + t5 = 5 * v1 + 7 * v2 + 1 * v3 + 3 * v4       (5, 7, 1, 3)
+     *      u1 := (w_1 + q_1)^5
+     *      u2 := (w_2 + q_2)^5
+     *      u3 := (w_3 + q_3)^5
+     *      u4 := (w_4 + q_4)^5
+     *      t0 := u1 + u2                                           (1, 1, 0, 0)
+     *      t1 := u3 + u4                                           (0, 0, 1, 1)
+     *      t2 := u2 + u2 + t1 = 2 * u2 + u3 + u4                   (0, 2, 1, 1)
+     *      t3 := u4 + u4 + t0 = u1 + u2 + 2 * u4                   (1, 1, 0, 2)
+     *      t4 := 4 * t1 + t3 = u1 + u2 + 4 * u3 + 6 * u4           (1, 1, 4, 6)
+     *      t5 := 4 * t0 + t2 = 4 * u1 + 6 * u2 + u3 + u4           (4, 6, 1, 1)
+     *      t6 := t3 + t5 = 5 * u1 + 7 * u2 + 1 * u3 + 3 * u4       (5, 7, 1, 3)
      *      t7 := t2 + t4                                           (1, 3, 5, 7)
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -59,31 +59,31 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto q_poseidon2_external = View(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
-        auto tmp1 = w_l + q_l;
-        auto tmp2 = w_r + q_r;
-        auto tmp3 = w_o + q_o;
-        auto tmp4 = w_4 + q_4;
+        auto v1 = w_l + q_l;
+        auto v2 = w_r + q_r;
+        auto v3 = w_o + q_o;
+        auto v4 = w_4 + q_4;
 
         // apply s-box round
-        auto v1 = tmp1 * tmp1;
-        v1 *= v1;
-        v1 *= tmp1;
-        auto v2 = tmp2 * tmp2;
-        v2 *= v2;
-        v2 *= tmp2;
-        auto v3 = tmp3 * tmp3;
-        v3 *= v3;
-        v3 *= tmp3;
-        auto v4 = tmp4 * tmp4;
-        v4 *= v4;
-        v4 *= tmp4;
+        auto u1 = v1 * v1;
+        u1 *= u1;
+        u1 *= v1;
+        auto u2 = v2 * v2;
+        u2 *= u2;
+        u2 *= v2;
+        auto u3 = v3 * v3;
+        u3 *= u3;
+        u3 *= v3;
+        auto u4 = v4 * v4;
+        u4 *= u4;
+        u4 *= v4;
 
         // matrix mul with 14 additions
-        auto t0 = v1 + v2; // A + B
-        auto t1 = v3 + v4; // C + D
-        auto t2 = v2 + v2; // 2B
+        auto t0 = u1 + u2; // A + B
+        auto t1 = u3 + u4; // C + D
+        auto t2 = u2 + u2; // 2B
         t2 += t1;          // 2B + C + D
-        auto t3 = v4 + v4; // 2D
+        auto t3 = u4 + u4; // 2D
         t3 += t0;          // 2D + A + B
         auto t4 = t1 + t1;
         t4 += t4;
