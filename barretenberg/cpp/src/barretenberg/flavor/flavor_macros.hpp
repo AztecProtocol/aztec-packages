@@ -21,7 +21,6 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
     }
 
 // Slow debug tool for getting the name of an entity
-// TODO(AD): Only enable
 #define DEFINE_GET_ENTITY_NAME(DataType, ...)                                                                          \
     const char* get_entity_name(const DataType& ptr) const                                                             \
     {                                                                                                                  \
