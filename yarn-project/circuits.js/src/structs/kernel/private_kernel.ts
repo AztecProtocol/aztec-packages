@@ -77,7 +77,6 @@ export class PrivateCallData {
    */
   static getFields(fields: FieldsOf<PrivateCallData>) {
     return [
-      // NOTE: Must have same order as CPP.
       fields.callStackItem,
       fields.privateCallStack,
       fields.publicCallStack,

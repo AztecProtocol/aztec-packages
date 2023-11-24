@@ -175,7 +175,6 @@ export class PrivateCircuitPublicInputs {
    */
   static getFields(fields: FieldsOf<PrivateCircuitPublicInputs>) {
     return [
-      // NOTE: Must have same order as CPP.
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
