@@ -155,22 +155,22 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     FF beta = FF::random_element();
     FF gamma = FF::random_element();
 
-    instance->initialise_prover_polynomials();
+    instance->initialize_prover_polynomials();
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
     Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;
-
+    instance->alpha = prover_transcript.get_challenge("alpha");
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.prove(instance->prover_polynomials, instance->relation_parameters);
+    auto prover_output = sumcheck_prover.prove(instance);
 
     Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
-
-    auto verifier_output = sumcheck_verifier.verify(instance->relation_parameters, verifier_transcript);
+    auto alpha = verifier_transcript.get_challenge("alpha");
+    auto verifier_output = sumcheck_verifier.verify(instance->relation_parameters, alpha, verifier_transcript);
 
     auto verified = verifier_output.verified.value();
 

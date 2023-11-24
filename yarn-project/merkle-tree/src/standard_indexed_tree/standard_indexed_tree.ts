@@ -110,7 +110,9 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
     const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
-    if (!leaf) return Promise.resolve(undefined);
+    if (!leaf) {
+      return Promise.resolve(undefined);
+    }
     return Promise.resolve(toBufferBE(leaf.value, 32));
   }
 

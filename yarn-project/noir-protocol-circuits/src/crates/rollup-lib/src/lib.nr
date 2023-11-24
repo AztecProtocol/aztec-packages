@@ -15,6 +15,6 @@ mod hash;
 
 mod merkle_tree;
 
-mod fixtures;
+mod tests;
 
 mod indexed_tree;

@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -22,6 +23,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
+    using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -36,11 +38,14 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     void execute_shplonk_batched_quotient_round();
     void execute_shplonk_partial_evaluation_round();
     void execute_final_pcs_round();
+    void execute_transcript_consistency_univariate_opening_round();
 
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
     Transcript transcript;
+
+    TranslationEvaluations translation_evaluations;
 
     std::vector<FF> public_inputs;
 
@@ -61,6 +66,8 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Polynomial quotient_W;
 
+    FF evaluation_challenge_x;
+
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
@@ -74,8 +81,5 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 };
 
 extern template class ECCVMProver_<honk::flavor::ECCVM>;
-extern template class ECCVMProver_<honk::flavor::ECCVMGrumpkin>;
-
-using ECCVMProver = ECCVMProver_<honk::flavor::ECCVM>;
 
 } // namespace proof_system::honk

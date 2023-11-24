@@ -26,7 +26,7 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import { getReturnWitness } from '@noir-lang/acvm_js';
 
-import { ACVMField, ACVMWitness } from './acvm.js';
+import { ACVMField, ACVMWitness } from './acvm_types.js';
 
 /**
  * Converts an ACVM field to a Buffer.
@@ -105,7 +105,9 @@ export class PublicInputsReader {
    */
   public readField(): Fr {
     const acvmField = this.publicInputs.shift();
-    if (!acvmField) throw new Error('Not enough public inputs');
+    if (!acvmField) {
+      throw new Error('Not enough public inputs');
+    }
     return fromACVMField(acvmField);
   }
 
