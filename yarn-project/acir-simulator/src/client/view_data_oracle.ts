@@ -52,6 +52,31 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
+   * Fetches the index and sibling path for a leaf value
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param nullifier - The nullifier we try to find the low nullifier witness for (to prove non-inclusion).
+   * @returns The index and sibling path concatenated [index, sibling_path]
+   */
+  public async getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<Fr[]> {
+    const { index } = await this.db.getLowNullifierIndex(blockNumber, nullifier);
+    if (!index) {
+      throw new Error(`Low nullifier not found for nullifier ${nullifier}`);
+    }
+    const leafData = await this.db.getNullifierLeafData(blockNumber, index);
+    if (!leafData) {
+      throw new Error(`Leaf data not found for index ${index}`);
+    }
+    const siblingPath = await this.db.getSiblingPath(blockNumber, MerkleTreeId.NULLIFIER_TREE, index);
+    return [
+      new Fr(index),
+      new Fr(leafData.value),
+      new Fr(leafData.nextIndex),
+      new Fr(leafData.nextValue),
+      ...siblingPath,
+    ];
+  }
+
+  /**
    * Fetches historic block data for a given block.
    * @param blockNumber - The block number at which to get the historic block data.
    * @returns Historic block data extracted from a block with block number `blockNumber`.

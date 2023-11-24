@@ -14,6 +14,7 @@ import { KeyStore, L2Block, MerkleTreeId, StateInfoProvider } from '@aztec/types
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
+import { LeafData } from '@aztec/merkle-tree';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -154,6 +155,36 @@ export class SimulatorOracle implements DBOracle {
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  /**
+   * Returns a previous index at a block for a given value in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier index for.
+   */
+  public async getLowNullifierIndex(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<{
+    /**
+     * The index of the found leaf.
+     */
+    index: bigint;
+    /**
+     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+     */
+    alreadyPresent: boolean;
+  }> {
+    
+  }
+
+  /**
+   * Returns a leaf data at a block for a given index in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param index - The index of the leaf to get.
+   */
+  getNullifierLeafData(blockNumber: number, index: bigint): Promise<LeafData | undefined> {
+    
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {

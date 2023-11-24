@@ -3,6 +3,7 @@ import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@azte
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { LeafData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
@@ -133,6 +134,32 @@ export interface DBOracle extends CommitmentsDB {
    * @returns - The sibling path of the leaf. Undefined if it does not exist in the tree.
    */
   getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+
+  /**
+   * Returns a previous index at a block for a given value in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier index for.
+   */
+  getLowNullifierIndex(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<{
+    /**
+     * The index of the found leaf.
+     */
+    index: bigint;
+    /**
+     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+     */
+    alreadyPresent: boolean;
+  }>;
+
+  /**
+   * Returns a leaf data at a block for a given index in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param index - The index of the leaf to get.
+   */
+  getNullifierLeafData(blockNumber: number, index: bigint): Promise<LeafData | undefined>;
 
   /**
    * Fetch a block corresponding to the given block number.

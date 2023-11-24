@@ -80,6 +80,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getLowNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
   getBlockData(_blockNumber: number): Promise<HistoricBlockData | undefined> {
     throw new Error('Not available.');
   }

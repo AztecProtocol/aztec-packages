@@ -64,6 +64,32 @@ export interface StateInfoProvider {
   getHistoricBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>>;
 
   /**
+   * Returns a previous index at a block for a given value in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier index for.
+   */
+  getLowNullifierIndex(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<{
+    /**
+     * The index of the found leaf.
+     */
+    index: bigint;
+    /**
+     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+     */
+    alreadyPresent: boolean;
+  }>;
+
+  /**
+   * Returns a leaf data at a block for a given index in the nullifier tree.
+   * @param blockNumber - The block number at which to get the index.
+   * @param index - The index of the leaf to get.
+   */
+  getNullifierLeafData(blockNumber: number, index: bigint): Promise<LeafData | undefined>;
+
+  /**
    * Get the a given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
