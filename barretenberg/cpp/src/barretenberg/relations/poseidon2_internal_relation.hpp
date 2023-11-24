@@ -64,11 +64,11 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         u1 *= v1;
 
         // matrix mul with 4 muls and 7 additions
-        auto sum = v1 + w_r + w_o + w_4;
+        auto sum = u1 + w_r + w_o + w_4;
         {
             auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
             t0 += sum;
-            auto tmp = q_poseidon2_internal * (v1 - w_l_shift);
+            auto tmp = q_poseidon2_internal * (t0 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
