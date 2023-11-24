@@ -95,6 +95,9 @@ contract LiquidityMining {
 
         // 1.c)
         let block_data = get_block_data(block_number);
+
+        // TODO: This should be injected directly from kernel --> GETTING IT FROM ORACLE IS NOT SAFE!
+        let blocks_tree_root = block_data.blocks_tree_root;
         
         // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
         // TODO: Would make sense to unify the ordering in `HistoricBlockData::serialize` function and the ordering
@@ -118,7 +121,7 @@ contract LiquidityMining {
         // In our test case this should be tree root at the latest block and should correspond to the membership
         // witness we obtain from oracle
         assert(
-            block_data.blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
+            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
             "Proving membership of a block in blocks tree failed"
         );
 
