@@ -1019,7 +1019,7 @@ mod tests {
             value: 1,
         });
 
-        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
         tree_nullifiers[0] = NullifierLeafPreimage {
             leaf_value : 0,
             next_value : 1,
@@ -1073,7 +1073,7 @@ mod tests {
             });
         }
 
-        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
         tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
 
         tree_nullifiers[1] = NullifierLeafPreimage {
