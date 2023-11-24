@@ -8,6 +8,7 @@
     "setStable": "node ./scripts/setStable.js"
   },
   "dependencies": {
+    "@noir-lang/noir_js": "workspace:*",
     "@docusaurus/core": "^2.4.0",
     "@docusaurus/plugin-google-gtag": "^2.4.0",
     "@docusaurus/preset-classic": "^2.4.0",

@@ -1,12 +1,16 @@
 #!/bin/bash
 set -eu
 
-cd $(dirname "$0")
+cd $(dirname "$0")/..
 
-./bootstrap_package.sh @noir-lang/acvm_js
-./bootstrap_package.sh @noir-lang/noir_wasm
-./bootstrap_package.sh @noir-lang/types
-./bootstrap_package.sh @noir-lang/noirc_abi
-./bootstrap_package.sh @noir-lang/source-resolver
-./bootstrap_package.sh @noir-lang/backend_barretenberg
-./bootstrap_package.sh @noir-lang/noir_js
+./scripts/install_wasm-bindgen.sh
+
+# If this project has been subrepod into another project, set build data manually.
+if [ -f ".gitrepo" ]; then
+  export SOURCE_DATE_EPOCH=$(date +%s)
+  export GIT_DIRTY=false
+  export GIT_COMMIT=$(awk '/commit =/ {print $3}' .gitrepo)
+fi
+
+yarn
+yarn build

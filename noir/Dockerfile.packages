@@ -11,10 +11,4 @@ RUN apk update \
         jq
 WORKDIR /usr/src/noir
 COPY . .
-RUN ./scripts/bootstrap_package.sh @noir-lang/acvm_js
-RUN ./scripts/bootstrap_package.sh @noir-lang/noir_wasm
-RUN ./scripts/bootstrap_package.sh @noir-lang/noirc_abi
-RUN ./scripts/bootstrap_package.sh @noir-lang/types
-RUN ./scripts/bootstrap_package.sh @noir-lang/source-resolver
-RUN ./scripts/bootstrap_package.sh @noir-lang/backend_barretenberg
-RUN ./scripts/bootstrap_package.sh @noir-lang/noir_js
+RUN ./scripts/bootstrap_packages.sh
