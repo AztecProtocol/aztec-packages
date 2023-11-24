@@ -273,11 +273,12 @@ impl BaseRollupInputs {
                         let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
                         let is_next_greater_than = full_field_greater_than(low_nullifier_preimage.next_value, nullifier);
 
-                        if (!(is_less_than_nullifier & is_next_greater_than)) {
-                            if ((low_nullifier_preimage.next_index != 0) & (low_nullifier_preimage.next_value != 0)) {
-                                assert(false, "invalid nullifier range");
-                            }
-                        }
+                        assert(is_less_than_nullifier, "invalid nullifier range");
+                        assert(
+                            is_next_greater_than | 
+                            ((low_nullifier_preimage.next_value == 0) & (low_nullifier_preimage.next_index == 0)),
+                            "invalid nullifier range"
+                        );
 
                         // Recreate the original low nullifier from the preimage
                         let original_low_nullifier = NullifierLeafPreimage{
@@ -596,11 +597,11 @@ fn consistent_call_data_hash_full_fields() {
 }
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
+pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
     dep::std::eddsa::lt_bytes32(lhs, rhs)
 }
 
-fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
+pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     dep::std::eddsa::lt_bytes32(rhs, lhs)
 }
 
@@ -667,16 +668,23 @@ mod tests {
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
     };
+    use dep::std::option::Option;
+
+    struct NullifierInsertion {
+        existing_index: Option<u64>,
+        value: Field,
+    }
 
     struct BaseRollupInputsBuilder {
         kernel_data: [PreviousKernelDataBuilder; KERNELS_PER_BASE_ROLLUP],
         pre_existing_notes: [Field; NOTE_HASH_SUBTREE_WIDTH],
-        pre_existing_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+        pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
         pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
         pre_existing_public_data: [Field; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP],
         pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
         public_data_reads: BoundedVec<u64, 2>,
         public_data_writes: BoundedVec<(u64, Field), 2>,
+        new_nullifiers: BoundedVec<NullifierInsertion, 4>,
         constants: ConstantRollupData,
     }
 
@@ -723,12 +731,17 @@ mod tests {
             };
             let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
 
-            let start_nullifier_tree = NonEmptyMerkleTree::new(self.pre_existing_nullifiers, [0; NULLIFIER_TREE_HEIGHT], [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], [0; NULLIFIER_SUBTREE_HEIGHT]);
+            let mut start_nullifier_tree = NonEmptyMerkleTree::new(
+                self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+                [0; NULLIFIER_TREE_HEIGHT], 
+                [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], 
+                [0; NULLIFIER_SUBTREE_HEIGHT]
+            );
+            
             let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
                 root: start_nullifier_tree.get_root(),
                 next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
             };
-            let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
             
             let start_contract_tree = NonEmptyMerkleTree::new(self.pre_existing_contracts, [0; CONTRACT_TREE_HEIGHT], [0; CONTRACT_TREE_HEIGHT - 1], [0; 1]);
             let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
@@ -780,6 +793,30 @@ mod tests {
                 }
             }
 
+            let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+
+            for i in 0..self.new_nullifiers.max_len() {
+                if (i as u64) < (self.new_nullifiers.len() as u64) {
+                    let new_nullifier = self.new_nullifiers.get_unchecked(i);
+                    kernel_data[0].public_inputs.end.new_nullifiers[i] = new_nullifier.value;
+
+                    if (new_nullifier.existing_index.is_some()) {
+                        let low_index = new_nullifier.existing_index.unwrap_unchecked();
+                        let mut low_preimage = self.pre_existing_nullifiers[low_index];
+                        low_nullifier_leaf_preimages[i] = low_preimage;
+                        low_nullifier_membership_witness[i] = NullifierMembershipWitness {
+                            leaf_index: low_index as Field,
+                            sibling_path: start_nullifier_tree.get_sibling_path(low_index as Field)
+                        };
+
+                        low_preimage.next_value = new_nullifier.value;
+                        low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + (i as u32);
+                        start_nullifier_tree.update_leaf(low_index, low_preimage.hash());
+                    }
+                }
+            }
+            let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
 
             BaseRollupInputs {
                 kernel_data: kernel_data,
@@ -789,8 +826,8 @@ mod tests {
                 start_public_data_tree_root,
                 start_historic_blocks_tree_snapshot,
 
-                low_nullifier_leaf_preimages: dep::std::unsafe::zeroed(),
-                low_nullifier_membership_witness: dep::std::unsafe::zeroed(),
+                low_nullifier_leaf_preimages,
+                low_nullifier_membership_witness,
 
                 new_commitments_subtree_sibling_path, 
                 new_nullifiers_subtree_sibling_path, 
@@ -818,6 +855,10 @@ mod tests {
         }
 
         fn succeeds(self) {
+            let _ = self.execute();
+        }
+
+        fn fails(self) {
             let _ = self.execute();
         }
     }
@@ -931,7 +972,203 @@ mod tests {
         assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
     }
 
-    // TODO(Alvaro) nullifier tree tests. We are updating the nullifier tree insertion algorithm.
+    #[test]
+    fn new_nullifier_tree_empty() {
+        /**
+        * DESCRIPTION
+        */
+
+        // This test checks for insertions of all 0 values
+        // In this special case we will not need to provide sibling paths to check insertion of the nullifier values
+        // This is because 0 values are not actually inserted into the tree, rather the inserted subtree is left
+        // empty to begin with.
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.succeeds();
+    }
+
+    #[test]
+    fn nullifier_insertion_test() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::some(0),
+            value: 1,
+        });
+
+        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        tree_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 1,
+            next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        };
+        tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
+        tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = NullifierLeafPreimage {
+            leaf_value : 1,
+            next_value : 7,
+            next_index : 1,
+        };
+
+        let mut end_nullifier_tree = NonEmptyMerkleTree::new(
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+            [0; NULLIFIER_TREE_HEIGHT], 
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+        );
+
+        let output = builder.execute();
+
+        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+            root: end_nullifier_tree.get_root(),
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        }));
+    }
+
+    #[test]
+    fn new_nullifier_tree_all_larger() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::some(1),
+            value: 8,
+        });
+        for i in 1..builder.new_nullifiers.max_len() {
+            builder.new_nullifiers.push(NullifierInsertion {
+                existing_index: Option::none(),
+                value: (8 + i) as Field,
+            });
+        }
+
+        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
+
+        tree_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 8,
+            next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        };
+
+        let last_index = builder.new_nullifiers.max_len() - 1;
+        for i in 0..last_index {
+            tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i] = NullifierLeafPreimage {
+                leaf_value : (8 + i) as Field,
+                next_value : (8 + i + 1) as Field,
+                next_index : (MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i) as u32 + 1,
+            };
+        }
+
+        tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP+last_index] = NullifierLeafPreimage {
+            leaf_value : (8 + last_index) as Field,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        let mut end_nullifier_tree = NonEmptyMerkleTree::new(
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+            [0; NULLIFIER_TREE_HEIGHT], 
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+        );
+
+        let output = builder.execute();
+
+        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+            root: end_nullifier_tree.get_root(),
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        }));
+    }
+
+    // TODO(Alvaro) some nullifier tree tests. We are updating the nullifier tree insertion algorithm.
+
+    #[test(should_fail_with = "membership check failed")]
+    fn new_nullifier_tree_double_spend() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::some(1),
+            value: 8,
+        });
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::some(1),
+            value: 8,
+        });
+
+        builder.fails();
+    }
+
+
+    #[test(should_fail_with = "Nullifier subtree is malformed")]
+    fn new_nullifier_tree_double_spend_same_batch() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::some(1),
+            value: 8,
+        });
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: Option::none(),
+            value: 8,
+        });
+
+        builder.fails();
+    }
+
 
     #[test]
     fn empty_block_calldata_hash() {
@@ -964,14 +1201,14 @@ mod tests {
     fn constants_dont_match_kernels_chain_id() {
         let mut builder = BaseRollupInputsBuilder::new();
         builder.constants.global_variables.chain_id = 3;
-        builder.succeeds();
+        builder.fails();
     }
 
     #[test(should_fail_with = "kernel version does not match the rollup version")]
     fn constants_dont_match_kernels_version() {
         let mut builder = BaseRollupInputsBuilder::new();
         builder.constants.global_variables.version = 3;
-        builder.succeeds();
+        builder.fails();
     }
 
     #[test]
