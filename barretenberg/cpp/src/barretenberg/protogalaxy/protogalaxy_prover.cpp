@@ -7,6 +7,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     auto idx = 0;
     for (auto it = instances.begin(); it != instances.end(); it++, idx++) {
         auto instance = *it;
+        if (static_cast<bool>(instance->is_accumulator)) {
+            continue;
+        }
         instance->initialize_prover_polynomials();
 
         auto domain_separator = std::to_string(idx);
@@ -54,63 +57,26 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     }
 
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
+    instances.betas_star = update_gate_separation_challenges(
+        perturbator_challenge, accumulator->folding_parameters.gate_separation_challenges, deltas);
+
+    auto combiner = compute_combiner(instances);
+
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
-    std::vector<FF> betas_star(log_instance_size);
-    betas_star[0] = 1;
-    auto betas = accumulator->folding_parameters.gate_separation_challenges;
-    for (size_t idx = 1; idx < log_instance_size; idx++) {
-        betas_star[idx] = betas[idx] + perturbator_challenge * deltas[idx - 1];
-    }
-
-    auto pow_betas_star = compute_pow_polynomial_at_values(betas_star, instance_size);
-
-    auto combiner = compute_combiner(instances, pow_betas_star);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
-    for (size_t idx = ProverInstances::NUM; idx < combiner.size(); idx++) {
+
+    for (size_t idx = ProverInstances::NUM; idx < combiner_quotient.size(); idx++) {
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize these formulas as well as computation
     // of Lagrange basis
-    auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
 
-    auto lagrange_1_at_challenge = combiner_challenge;
-    auto new_target_sum = compressed_perturbator * lagrange_0_at_challenge +
-                          vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-
-    for (auto [acc_poly_view, inst_poly_view] :
-         zip_view(accumulator->prover_polynomials.pointer_view(), instances[1]->prover_polynomials.pointer_view())) {
-        for (size_t idx = 0; idx < acc_poly_view->size(); idx++) {
-            (*acc_poly_view)[idx] =
-                (*acc_poly_view)[idx] * lagrange_0_at_challenge + (*inst_poly_view)[idx] * lagrange_1_at_challenge;
-        }
-    }
-
-    auto accumulator_public_inputs = accumulator->public_inputs;
-    auto other_public_inputs = instances[1]->public_inputs;
-    std::vector<FF> folded_public_inputs(accumulator->public_inputs.size());
-
-    for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
-        folded_public_inputs[idx] = lagrange_0_at_challenge * accumulator->public_inputs[idx] +
-                                    lagrange_1_at_challenge * other_public_inputs[idx];
-    }
-    // all verification keys have the same size
-
-    auto acc_vk_view = accumulator->verification_key->pointer_view();
-    auto inst_vk_view = instances[1]->verification_key->pointer_view();
-    for (size_t idx = 0; idx < acc_vk_view.size(); idx++) {
-        (*acc_vk_view[idx]) =
-            (*acc_vk_view[idx]) * lagrange_0_at_challenge + (*inst_vk_view[idx]) * lagrange_1_at_challenge;
-    }
+    auto thingy = compute_new_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
 
     ProverFoldingResult<Flavor> res;
-    res.params.target_sum = new_target_sum;
+    res.accumulator = thingy;
     res.folding_data = transcript.proof_data;
-    res.folded_prover_polynomials = accumulator->prover_polynomials;
-    res.params.gate_separation_challenges = betas_star;
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

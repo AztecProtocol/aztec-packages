@@ -96,7 +96,7 @@ class UltraTranscriptTests : public ::testing::Test {
     void generate_test_circuit(auto& builder)
     {
         FF a = 1;
-        builder.add_variable(a);
+        // builder.add_variable(a);
         builder.add_public_variable(a);
     }
 
@@ -124,6 +124,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
     auto prover = composer.create_prover(instance);
+
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite

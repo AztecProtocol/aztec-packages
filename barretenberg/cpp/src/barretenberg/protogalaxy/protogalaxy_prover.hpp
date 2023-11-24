@@ -89,6 +89,20 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return pows;
     }
 
+    static std::vector<FF> update_gate_separation_challenges(const FF perturbator_challenge,
+                                                             const std::vector<FF>& gate_challenges,
+                                                             const std::vector<FF>& round_challenges)
+    {
+        auto log_instance_size = gate_challenges.size();
+        std::vector<FF> next_gate_challenges(log_instance_size);
+        next_gate_challenges[0] = 1;
+
+        for (size_t idx = 1; idx < log_instance_size; idx++) {
+            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx - 1];
+        }
+        return next_gate_challenges;
+    }
+
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): handle the case when the accumulator is empty
@@ -119,6 +133,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             auto running_challenge = FF(1);
             auto output = FF(0);
+            // WORKTODO we now batch with different challenge per relation
             Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
             full_honk_evaluations[row] = output;
         }
@@ -241,10 +256,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const std::vector<FF>& pow_betas_star)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances)
     {
         size_t common_circuit_size = instances[0]->prover_polynomials.get_polynomial_size();
+        auto pow_betas_star = compute_pow_polynomial_at_values(instances.betas_star, common_circuit_size);
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -348,6 +363,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * univariate (i.e., sum them against an appropriate univariate Lagrange basis) and then extended as needed during
      * the constuction of the combiner.
      */
+    // This is not actually folding
     static void fold_relation_parameters(ProverInstances& instances)
     {
         // array of parameters to be computed
@@ -385,46 +401,85 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     // BIG TODO fold commitments
-    // static Instance compute_new_accumulator(ProverInstances& instances, std::vector<FF> lagranges)
-    // {
-    //     ProverPolynomials acc_prover_polynomials;
-    //     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-    //         for (auto [acc_poly_view, inst_poly_view] : zip_view(
-    //                  acc_prover_polynomials.pointer_view(), instances[inst_idx]->prover_polynomials.pointer_view()))
-    //                  {
-    //             for (size_t el_idx = 0; el_idx < inst_poly_view->size(); el_idx++) {
-    //                 (*acc_poly_view)[el_idx] += (*inst_poly_view)[el_idx] * lagranges[inst_idx];
-    //             }
-    //         }
-    //     }
-    //     Instance accumulator;
-    //     accumulator.prover_polynomials = acc_prover_polynomials;
+    std::shared_ptr<Instance> compute_new_accumulator(ProverInstances& instances,
+                                                      auto& combiner_quotient,
+                                                      FF challenge,
+                                                      auto compressed_perturbator)
+    {
+        auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
+        auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
+        std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
-    //     // BIGGER TODO parallelise this
+        auto next_target_sum =
+            compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+        auto next_accumulator = std::make_shared<Instance>();
+        next_accumulator->folding_parameters = { instances.betas_star, next_target_sum };
 
-    //     std::vector<FF> acc_public_inputs(instances[0]->public_inputs.size());
-    //     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-    //         auto inst_public_inputs = instances[inst_idx]->public_inputs;
-    //         for (size_t el_idx = 0; el_idx < inst_public_inputs.size(); el_idx++) {
-    //             acc_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
-    //         }
-    //     }
+        transcript.send_to_verifier("next_target_sum", next_target_sum);
+        for (size_t idx = 0; idx < instances.betas_star.size(); idx++) {
+            transcript.send_to_verifier("betas_star_" + std::to_string(idx), instances.betas_star[idx]);
+        }
 
-    //     // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-    //     //                                                 instances[0]->public_inputs.size());
-    //     // auto acc_vk_view = acc_vk->pointer_view();
-    //     // for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-    //     //     auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
-    //     //     for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
-    //     //         (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
-    //     //     }
-    //     // }
-    //     // accumulator.verification_key = acc_vk;
-    //     // these two thingies have been folded already
-    //     // accumulator.alpha = instances.alpha;
-    //     // accumulator.relation_parameters = instances.relation_parameters;
-    //     return accumulator;
-    // }
+        std::array<barretenberg::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> storage;
+        size_t instance_size = instances[0]->prover_polynomials.get_polynomial_size();
+
+        for (auto& polynomial : storage) {
+            polynomial = typename Flavor::Polynomial(instance_size);
+            for (auto& value : polynomial) {
+                value = FF(0);
+            }
+        }
+
+        ProverPolynomials acc_prover_polynomials;
+        size_t poly_idx = 0;
+        auto prover_polynomial_pointers = acc_prover_polynomials.pointer_view();
+        for (auto& polynomial : storage) {
+            *prover_polynomial_pointers[poly_idx] = polynomial;
+            poly_idx++;
+        }
+
+        for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+            for (auto [acc_poly_view, inst_poly_view] : zip_view(
+                     acc_prover_polynomials.pointer_view(), instances[inst_idx]->prover_polynomials.pointer_view())) {
+                for (size_t el_idx = 0; el_idx < inst_poly_view->size(); el_idx++) {
+                    info((*acc_poly_view)[el_idx]);
+                    (*acc_poly_view)[el_idx] += (*inst_poly_view)[el_idx] * lagranges[inst_idx];
+                }
+            }
+        }
+
+        next_accumulator->prover_polynomials = acc_prover_polynomials;
+
+        std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
+        for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+            auto inst_public_inputs = instances[inst_idx]->public_inputs;
+            for (size_t el_idx = 0; el_idx < inst_public_inputs.size(); el_idx++) {
+                folded_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
+            }
+        }
+        for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
+            transcript.send_to_verifier("folded_public_input_" + std::to_string(idx), folded_public_inputs[idx]);
+        }
+
+        next_accumulator->alpha = instances.alpha.evaluate(challenge);
+        transcript.send_to_verifier("folded_alpha", next_accumulator->alpha);
+
+        // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
+        //                                                 instances[0]->public_inputs.size());
+        // auto acc_vk_view = acc_vk->pointer_view();
+        // for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+        //     auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
+        //     for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
+        //         (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
+        //     }
+        // }
+        // next_accumulator->verification_key = acc_vk;
+        //  TODO send vk to verifier too
+        // these two thingies have been folded already
+        // next_accumulator->alpha = instances.alpha;
+        // next_accumulator->relation_parameters = instances.relation_parameters;
+        return next_accumulator;
+    }
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

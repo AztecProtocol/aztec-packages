@@ -1,15 +1,15 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 namespace proof_system::honk {
 template <class Flavor> struct ProverFoldingResult {
   public:
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using FoldingParameters = typename Flavor::FoldingParameters;
-    ProverPolynomials folded_prover_polynomials;
+    std::shared_ptr<ProverInstance_<Flavor>> accumulator;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/656): turn folding data into a struct
     std::vector<uint8_t> folding_data;
-    FoldingParameters params;
 };
 
 template <class Flavor> struct VerifierFoldingResult {

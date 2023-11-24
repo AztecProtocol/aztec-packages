@@ -7,7 +7,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
 {
     transcript = BaseTranscript<FF>{ fold_data };
     auto index = 0;
-    for (auto it = verifier_instances.begin(); it != verifier_instances.end(); it++, index++) {
+    for (auto it = instances.begin(); it != instances.end(); it++, index++) {
         auto inst = *it;
         auto domain_separator = std::to_string(index);
         inst->instance_size = transcript.template receive_from_prover<uint32_t>(domain_separator + "_circuit_size");
@@ -29,15 +29,14 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
         inst->relation_parameters =
             RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
         inst->alpha = transcript.get_challenge(domain_separator + "_alpha");
+
+        // WORKTODO does verifier need to also fold relation parameters and alpha
     }
 }
 
 template <class VerifierInstances>
-VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
-    VerifierInstances>::fold_public_parameters(std::vector<uint8_t> fold_data)
+bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> fold_data)
 {
-    using Flavor = typename VerifierInstances::Flavor;
-
     prepare_for_folding(fold_data);
     auto delta = transcript.get_challenge("delta");
     auto accumulator = get_accumulator();
@@ -59,36 +58,53 @@ VerifierFoldingResult<typename VerifierInstances::Flavor> ProtoGalaxyVerifier_<
     }
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
+
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagrange_0_at_challenge = FF(1) - combiner_challenge;
-    auto lagrange_1_at_challenge = combiner_challenge;
+    auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
-    auto new_target_sum = perturbator_at_challenge * lagrange_0_at_challenge +
-                          vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+    auto expected_next_target_sum =
+        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+    auto next_target_sum = transcript.template receive_from_prover<FF>("next_target_sum");
+    bool verified = (expected_next_target_sum == next_target_sum);
 
-    auto accumulator_public_inputs = accumulator->public_inputs;
-    auto other_public_inputs = verifier_instances[1]->public_inputs;
-    std::vector<FF> folded_public_inputs(accumulator->public_input_size);
+    auto expected_betas_star = update_gate_separation_challenges(
+        perturbator_challenge, accumulator->folding_parameters.gate_separation_challenges, deltas);
+    for (size_t idx = 0; idx < log_instance_size; idx++) {
+        auto expected_beta_star = transcript.template receive_from_prover<FF>("betas_star_" + std::to_string(idx));
+        verified = verified & (expected_betas_star[idx] == expected_beta_star);
+    }
+
+    std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
+    auto folded_alpha = FF(0);
+    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
+        auto instance = instances[inst_idx];
+        auto inst_public_inputs = instance->public_inputs;
+        for (size_t el_idx = 0; el_idx < inst_public_inputs.size(); el_idx++) {
+            folded_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
+        }
+        folded_alpha += instance->alpha + lagranges[inst_idx];
+    }
 
     for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
-        folded_public_inputs[idx] = lagrange_0_at_challenge * accumulator->public_inputs[idx] +
-                                    lagrange_1_at_challenge * other_public_inputs[idx];
+        auto public_input = transcript.template receive_from_prover<FF>("folded_public_input" + std::to_string(idx));
+        verified = verified & (public_input == folded_public_inputs[idx]);
     }
+
+    auto alpha = transcript.template receive_from_prover<FF>("folded_alpha");
+    verified = verified & (alpha == folded_alpha);
     // all verification keys have the same size
 
-    auto acc_vk_view = accumulator->verification_key->pointer_view();
-    auto inst_vk_view = verifier_instances[1]->verification_key->pointer_view();
-    for (size_t idx = 0; idx < acc_vk_view.size(); idx++) {
-        (*acc_vk_view[idx]) =
-            (*acc_vk_view[idx]) * lagrange_0_at_challenge + (*inst_vk_view[idx]) * lagrange_1_at_challenge;
-    }
+    // auto acc_vk_view = accumulator->verification_key->pointer_view();
+    // auto inst_vk_view = verifier_instances[1]->verification_key->pointer_view();
+    // for (size_t idx = 0; idx < acc_vk_view.size(); idx++) {
+    //     (*acc_vk_view[idx]) =
+    //         (*acc_vk_view[idx]) * lagrange_0_at_challenge + (*inst_vk_view[idx]) * lagrange_1_at_challenge;
+    // }
 
-    VerifierFoldingResult<Flavor> res;
-    res.parameters.target_sum = new_target_sum;
-    res.folded_public_inputs = folded_public_inputs;
-    return res;
+    return verified;
 }
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;

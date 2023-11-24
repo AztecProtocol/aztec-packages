@@ -108,7 +108,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     {
         std::vector<std::shared_ptr<VerificationKey>> vks;
         for (const auto& inst : instances) {
-            vks.emplace_back(inst->compute_verification_key());
+            vks.emplace_back(inst->verification_key);
         }
         VerifierInstances insts(vks);
         ProtoGalaxyVerifier_<VerifierInstances> output_state(insts);

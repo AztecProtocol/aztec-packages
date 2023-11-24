@@ -13,11 +13,11 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using FF = typename Flavor::FF;
     using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
-    VerifierInstances verifier_instances;
+    VerifierInstances instances;
     BaseTranscript<FF> transcript;
 
     ProtoGalaxyVerifier_(VerifierInstances insts)
-        : verifier_instances(insts){};
+        : instances(insts){};
     ~ProtoGalaxyVerifier_() = default;
     /**
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
@@ -33,7 +33,21 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
         return pows;
     }
 
-    std::shared_ptr<Instance> get_accumulator() { return verifier_instances[0]; }
+    static std::vector<FF> update_gate_separation_challenges(const FF perturbator_challenge,
+                                                             const std::vector<FF>& gate_challenges,
+                                                             const std::vector<FF>& round_challenges)
+    {
+        auto log_instance_size = gate_challenges.size();
+        std::vector<FF> next_gate_challenges(log_instance_size);
+        next_gate_challenges[0] = 1;
+
+        for (size_t idx = 1; idx < log_instance_size; idx++) {
+            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx - 1];
+        }
+        return next_gate_challenges;
+    }
+
+    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
      * @brief Instatiate the VerifierInstances and the VerifierTranscript.
@@ -47,7 +61,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/690): finalise the implementation of this function
      */
-    VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
+    bool verify_folding_proof(std::vector<uint8_t> fold_data);
 };
 
 extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;

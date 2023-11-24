@@ -8,6 +8,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
     static_assert(NUM_ > 0, "Must have at least one prover instance");
     using Flavor = Flavor_;
+    using FoldingParameters = Flavor::FoldingParameters;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     using Instance = ProverInstance_<Flavor>;
@@ -22,6 +23,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     ArrayType _data;
     RelationParameters relation_parameters;
     AlphaType alpha;
+    std::vector<FF> betas_star;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
