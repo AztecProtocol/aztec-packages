@@ -1,7 +1,7 @@
 mod types;
 
-// A demonstration of private liquidity mining.
-contract LiquidityMining {
+// A demonstration of inclusion proofs.
+contract InclusionProofs {
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{

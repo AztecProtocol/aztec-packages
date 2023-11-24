@@ -1,5 +1,5 @@
 import { AccountWallet, CompleteAddress, DebugLogger, PXE } from '@aztec/aztec.js';
-import { LiquidityMiningContract } from '@aztec/noir-contracts/types';
+import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';
@@ -10,7 +10,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const TIMEOUT = 90_000;
 
-describe('e2e_liquidity_mining', () => {
+describe('e2e_inclusion_proofs_contract', () => {
   jest.setTimeout(TIMEOUT);
 
   let pxe: PXE;
@@ -19,12 +19,12 @@ describe('e2e_liquidity_mining', () => {
   let wallets: AccountWallet[];
   let accounts: CompleteAddress[];
 
-  let contract: LiquidityMiningContract;
+  let contract: InclusionProofsContract;
 
   beforeAll(async () => {
     ({ pxe, teardown, logger, wallets, accounts } = await setup(1));
 
-    contract = await LiquidityMiningContract.deploy(wallets[0]).send().deployed();
+    contract = await InclusionProofsContract.deploy(wallets[0]).send().deployed();
   }, 100_000);
 
   afterAll(() => teardown());
