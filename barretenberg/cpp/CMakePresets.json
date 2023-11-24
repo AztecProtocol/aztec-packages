@@ -146,9 +146,10 @@
       "description": "Build with undefined behavior sanitizer on clang16 with debugging information",
       "inherits": "clang16-dbg",
       "binaryDir": "build-ubsan",
-      "cacheVariables": {
-        "ENABLE_ASAN": "ON",
-        "DISABLE_ASM": "ON"
+      "environment": {
+        "CFLAGS": "-fsanitize=undefined",
+        "CXXFLAGS": "-fsanitize=undefined",
+        "LDFLAGS": "-fsanitize=undefined"
       }
     },
     {

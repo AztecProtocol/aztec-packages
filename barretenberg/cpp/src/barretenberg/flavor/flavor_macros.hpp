@@ -3,6 +3,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include <array>
+#include <iostream>
 
 template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
 {
@@ -20,19 +21,16 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
         return _refs_to_pointer_array(__VA_ARGS__);                                                                    \
     }
 
-// Slow debug tool for getting the name of an entity
-#define DEFINE_GET_ENTITY_NAME(DataType, ...)                                                                          \
-    const char* get_entity_name(const DataType& ptr) const                                                             \
+// Debug tool for printing
+#define DEFINE_PRINT(DataType, ...)                                                                                    \
+    void print() const                                                                                                 \
     {                                                                                                                  \
         const char* entity_names[] = { #__VA_ARGS__ };                                                                 \
         size_t i = 0;                                                                                                  \
         for (const DataType& elem : get_all()) {                                                                       \
-            if (&elem == &ptr) {                                                                                       \
-                return entity_names[i];                                                                                \
-            }                                                                                                          \
+            std::cout << entity_names[i] << ": " << elem << std::endl;                                                 \
             i++;                                                                                                       \
         }                                                                                                              \
-        return nullptr; /*Not actually in struct*/                                                                     \
     }
 
 #define DEFINE_REF_VIEW(...)                                                                                           \
@@ -52,11 +50,11 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
  * @tparam HandleType The type that will be used to
  * @tparam NUM_ENTITIES The size of the underlying array.
  */
-#define FLAVOR_MEMBERS(DataType, ...)                                                                                  \
+#define DEFINE_FLAVOR_MEMBERS(DataType, ...)                                                                           \
     DataType __VA_ARGS__;                                                                                              \
     DEFINE_POINTER_VIEW(__VA_ARGS__)                                                                                   \
     DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
-    DEFINE_GET_ENTITY_NAME(DataType, ...)
+    DEFINE_PRINT(DataType, ...)
 
 #define DEFINE_COMPOUND_POINTER_VIEW(...)                                                                              \
     [[nodiscard]] auto pointer_view()                                                                                  \

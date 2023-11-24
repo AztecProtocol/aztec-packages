@@ -99,35 +99,35 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      */
     class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        FLAVOR_MEMBERS(DataType,
-                       q_m,             // column 0
-                       q_c,             // column 1
-                       q_l,             // column 2
-                       q_r,             // column 3
-                       q_o,             // column 4
-                       q_4,             // column 5
-                       q_arith,         // column 6
-                       q_sort,          // column 7
-                       q_elliptic,      // column 8
-                       q_aux,           // column 9
-                       q_lookup,        // column 10
-                       q_busread,       // column 11
-                       sigma_1,         // column 12
-                       sigma_2,         // column 13
-                       sigma_3,         // column 14
-                       sigma_4,         // column 15
-                       id_1,            // column 16
-                       id_2,            // column 17
-                       id_3,            // column 18
-                       id_4,            // column 19
-                       table_1,         // column 20
-                       table_2,         // column 21
-                       table_3,         // column 22
-                       table_4,         // column 23
-                       lagrange_first,  // column 24
-                       lagrange_last,   // column 25
-                       lagrange_ecc_op, // column 26 // indicator poly for ecc op gates
-                       databus_id       // column 27 // id polynomial, i.e. id_i = i
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_m,             // column 0
+                              q_c,             // column 1
+                              q_l,             // column 2
+                              q_r,             // column 3
+                              q_o,             // column 4
+                              q_4,             // column 5
+                              q_arith,         // column 6
+                              q_sort,          // column 7
+                              q_elliptic,      // column 8
+                              q_aux,           // column 9
+                              q_lookup,        // column 10
+                              q_busread,       // column 11
+                              sigma_1,         // column 12
+                              sigma_2,         // column 13
+                              sigma_3,         // column 14
+                              sigma_4,         // column 15
+                              id_1,            // column 16
+                              id_2,            // column 17
+                              id_3,            // column 18
+                              id_4,            // column 19
+                              table_1,         // column 20
+                              table_2,         // column 21
+                              table_3,         // column 22
+                              table_4,         // column 23
+                              lagrange_first,  // column 24
+                              lagrange_last,   // column 25
+                              lagrange_ecc_op, // column 26 // indicator poly for ecc op gates
+                              databus_id       // column 27 // id polynomial, i.e. id_i = i
         )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
@@ -148,25 +148,25 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      */
     template <typename DataType> class WitnessEntities {
       public:
-        FLAVOR_MEMBERS(DataType,
-                       w_l,                  // column 0
-                       w_r,                  // column 1
-                       w_o,                  // column 2
-                       w_4,                  // column 3
-                       sorted_1,             // column 4
-                       sorted_2,             // column 5
-                       sorted_3,             // column 6
-                       sorted_4,             // column 7
-                       sorted_accum,         // column 8
-                       z_perm,               // column 9
-                       z_lookup,             // column 10
-                       ecc_op_wire_1,        // column 11
-                       ecc_op_wire_2,        // column 12
-                       ecc_op_wire_3,        // column 13
-                       ecc_op_wire_4,        // column 14
-                       calldata,             // column 15
-                       calldata_read_counts, // column 16
-                       lookup_inverses       // column 17
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l,                  // column 0
+                              w_r,                  // column 1
+                              w_o,                  // column 2
+                              w_4,                  // column 3
+                              sorted_1,             // column 4
+                              sorted_2,             // column 5
+                              sorted_3,             // column 6
+                              sorted_4,             // column 7
+                              sorted_accum,         // column 8
+                              z_perm,               // column 9
+                              z_lookup,             // column 10
+                              ecc_op_wire_1,        // column 11
+                              ecc_op_wire_2,        // column 12
+                              ecc_op_wire_3,        // column 13
+                              ecc_op_wire_4,        // column 14
+                              calldata,             // column 15
+                              calldata_read_counts, // column 16
+                              lookup_inverses       // column 17
         )
 
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
@@ -189,60 +189,60 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      */
     template <typename DataType> class AllEntities {
       public:
-        FLAVOR_MEMBERS(DataType,
-                       q_c,                  // column 0
-                       q_l,                  // column 1
-                       q_r,                  // column 2
-                       q_o,                  // column 3
-                       q_4,                  // column 4
-                       q_m,                  // column 5
-                       q_arith,              // column 6
-                       q_sort,               // column 7
-                       q_elliptic,           // column 8
-                       q_aux,                // column 9
-                       q_lookup,             // column 10
-                       q_busread,            // column 11
-                       sigma_1,              // column 12
-                       sigma_2,              // column 13
-                       sigma_3,              // column 14
-                       sigma_4,              // column 15
-                       id_1,                 // column 16
-                       id_2,                 // column 17
-                       id_3,                 // column 18
-                       id_4,                 // column 19
-                       table_1,              // column 20
-                       table_2,              // column 21
-                       table_3,              // column 22
-                       table_4,              // column 23
-                       lagrange_first,       // column 24
-                       lagrange_last,        // column 25
-                       lagrange_ecc_op,      // column 26
-                       databus_id,           // column 27
-                       w_l,                  // column 28
-                       w_r,                  // column 29
-                       w_o,                  // column 30
-                       w_4,                  // column 31
-                       sorted_accum,         // column 32
-                       z_perm,               // column 33
-                       z_lookup,             // column 34
-                       ecc_op_wire_1,        // column 35
-                       ecc_op_wire_2,        // column 36
-                       ecc_op_wire_3,        // column 37
-                       ecc_op_wire_4,        // column 38
-                       calldata,             // column 39
-                       calldata_read_counts, // column 40
-                       lookup_inverses,      // column 41
-                       table_1_shift,        // column 42
-                       table_2_shift,        // column 43
-                       table_3_shift,        // column 44
-                       table_4_shift,        // column 45
-                       w_l_shift,            // column 46
-                       w_r_shift,            // column 47
-                       w_o_shift,            // column 48
-                       w_4_shift,            // column 49
-                       sorted_accum_shift,   // column 50
-                       z_perm_shift,         // column 51
-                       z_lookup_shift);      // column 52
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_c,                  // column 0
+                              q_l,                  // column 1
+                              q_r,                  // column 2
+                              q_o,                  // column 3
+                              q_4,                  // column 4
+                              q_m,                  // column 5
+                              q_arith,              // column 6
+                              q_sort,               // column 7
+                              q_elliptic,           // column 8
+                              q_aux,                // column 9
+                              q_lookup,             // column 10
+                              q_busread,            // column 11
+                              sigma_1,              // column 12
+                              sigma_2,              // column 13
+                              sigma_3,              // column 14
+                              sigma_4,              // column 15
+                              id_1,                 // column 16
+                              id_2,                 // column 17
+                              id_3,                 // column 18
+                              id_4,                 // column 19
+                              table_1,              // column 20
+                              table_2,              // column 21
+                              table_3,              // column 22
+                              table_4,              // column 23
+                              lagrange_first,       // column 24
+                              lagrange_last,        // column 25
+                              lagrange_ecc_op,      // column 26
+                              databus_id,           // column 27
+                              w_l,                  // column 28
+                              w_r,                  // column 29
+                              w_o,                  // column 30
+                              w_4,                  // column 31
+                              sorted_accum,         // column 32
+                              z_perm,               // column 33
+                              z_lookup,             // column 34
+                              ecc_op_wire_1,        // column 35
+                              ecc_op_wire_2,        // column 36
+                              ecc_op_wire_3,        // column 37
+                              ecc_op_wire_4,        // column 38
+                              calldata,             // column 39
+                              calldata_read_counts, // column 40
+                              lookup_inverses,      // column 41
+                              table_1_shift,        // column 42
+                              table_2_shift,        // column 43
+                              table_3_shift,        // column 44
+                              table_4_shift,        // column 45
+                              w_l_shift,            // column 46
+                              w_r_shift,            // column 47
+                              w_o_shift,            // column 48
+                              w_4_shift,            // column 49
+                              sorted_accum_shift,   // column 50
+                              z_perm_shift,         // column 51
+                              z_lookup_shift);      // column 52
 
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         RefVector<DataType> get_ecc_op_wires()

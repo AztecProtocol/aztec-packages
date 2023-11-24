@@ -90,10 +90,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
         using DataType = DataType_;
-        FLAVOR_MEMBERS(DataType,
-                       lagrange_first,  // column 0
-                       lagrange_second, // column 1
-                       lagrange_last);  // column 2
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              lagrange_first,  // column 0
+                              lagrange_second, // column 1
+                              lagrange_last);  // column 2
 
         DataType get_selectors() { return get_all(); };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
@@ -106,9 +106,9 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @details Shifts are not included here since they do not occupy their own memory.
      */
     template <typename DataType> struct DerivedWitnessEntities {
-        FLAVOR_MEMBERS(DataType,
-                       z_perm,           // column 0
-                       lookup_inverses); // column 1
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              z_perm,           // column 0
+                              lookup_inverses); // column 1
     };
 
     /**
@@ -117,81 +117,81 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      */
     template <typename DataType> class WireEntities {
       public:
-        FLAVOR_MEMBERS(DataType,
-                       transcript_add,               // column 0
-                       transcript_mul,               // column 1
-                       transcript_eq,                // column 2
-                       transcript_collision_check,   // column 3
-                       transcript_msm_transition,    // column 4
-                       transcript_pc,                // column 5
-                       transcript_msm_count,         // column 6
-                       transcript_Px,                // column 7
-                       transcript_Py,                // column 8
-                       transcript_z1,                // column 9
-                       transcript_z2,                // column 10
-                       transcript_z1zero,            // column 11
-                       transcript_z2zero,            // column 12
-                       transcript_op,                // column 13
-                       transcript_accumulator_x,     // column 14
-                       transcript_accumulator_y,     // column 15
-                       transcript_msm_x,             // column 16
-                       transcript_msm_y,             // column 17
-                       precompute_pc,                // column 18
-                       precompute_point_transition,  // column 19
-                       precompute_round,             // column 20
-                       precompute_scalar_sum,        // column 21
-                       precompute_s1hi,              // column 22
-                       precompute_s1lo,              // column 23
-                       precompute_s2hi,              // column 24
-                       precompute_s2lo,              // column 25
-                       precompute_s3hi,              // column 26
-                       precompute_s3lo,              // column 27
-                       precompute_s4hi,              // column 28
-                       precompute_s4lo,              // column 29
-                       precompute_skew,              // column 30
-                       precompute_dx,                // column 31
-                       precompute_dy,                // column 32
-                       precompute_tx,                // column 33
-                       precompute_ty,                // column 34
-                       msm_transition,               // column 35
-                       msm_add,                      // column 36
-                       msm_double,                   // column 37
-                       msm_skew,                     // column 38
-                       msm_accumulator_x,            // column 39
-                       msm_accumulator_y,            // column 40
-                       msm_pc,                       // column 41
-                       msm_size_of_msm,              // column 42
-                       msm_count,                    // column 43
-                       msm_round,                    // column 44
-                       msm_add1,                     // column 45
-                       msm_add2,                     // column 46
-                       msm_add3,                     // column 47
-                       msm_add4,                     // column 48
-                       msm_x1,                       // column 49
-                       msm_y1,                       // column 50
-                       msm_x2,                       // column 51
-                       msm_y2,                       // column 52
-                       msm_x3,                       // column 53
-                       msm_y3,                       // column 54
-                       msm_x4,                       // column 55
-                       msm_y4,                       // column 56
-                       msm_collision_x1,             // column 57
-                       msm_collision_x2,             // column 58
-                       msm_collision_x3,             // column 59
-                       msm_collision_x4,             // column 60
-                       msm_lambda1,                  // column 61
-                       msm_lambda2,                  // column 62
-                       msm_lambda3,                  // column 63
-                       msm_lambda4,                  // column 64
-                       msm_slice1,                   // column 65
-                       msm_slice2,                   // column 66
-                       msm_slice3,                   // column 67
-                       msm_slice4,                   // column 68
-                       transcript_accumulator_empty, // column 69
-                       transcript_reset_accumulator, // column 70
-                       precompute_select,            // column 71
-                       lookup_read_counts_0,         // column 72
-                       lookup_read_counts_1);        // column 73
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_add,               // column 0
+                              transcript_mul,               // column 1
+                              transcript_eq,                // column 2
+                              transcript_collision_check,   // column 3
+                              transcript_msm_transition,    // column 4
+                              transcript_pc,                // column 5
+                              transcript_msm_count,         // column 6
+                              transcript_Px,                // column 7
+                              transcript_Py,                // column 8
+                              transcript_z1,                // column 9
+                              transcript_z2,                // column 10
+                              transcript_z1zero,            // column 11
+                              transcript_z2zero,            // column 12
+                              transcript_op,                // column 13
+                              transcript_accumulator_x,     // column 14
+                              transcript_accumulator_y,     // column 15
+                              transcript_msm_x,             // column 16
+                              transcript_msm_y,             // column 17
+                              precompute_pc,                // column 18
+                              precompute_point_transition,  // column 19
+                              precompute_round,             // column 20
+                              precompute_scalar_sum,        // column 21
+                              precompute_s1hi,              // column 22
+                              precompute_s1lo,              // column 23
+                              precompute_s2hi,              // column 24
+                              precompute_s2lo,              // column 25
+                              precompute_s3hi,              // column 26
+                              precompute_s3lo,              // column 27
+                              precompute_s4hi,              // column 28
+                              precompute_s4lo,              // column 29
+                              precompute_skew,              // column 30
+                              precompute_dx,                // column 31
+                              precompute_dy,                // column 32
+                              precompute_tx,                // column 33
+                              precompute_ty,                // column 34
+                              msm_transition,               // column 35
+                              msm_add,                      // column 36
+                              msm_double,                   // column 37
+                              msm_skew,                     // column 38
+                              msm_accumulator_x,            // column 39
+                              msm_accumulator_y,            // column 40
+                              msm_pc,                       // column 41
+                              msm_size_of_msm,              // column 42
+                              msm_count,                    // column 43
+                              msm_round,                    // column 44
+                              msm_add1,                     // column 45
+                              msm_add2,                     // column 46
+                              msm_add3,                     // column 47
+                              msm_add4,                     // column 48
+                              msm_x1,                       // column 49
+                              msm_y1,                       // column 50
+                              msm_x2,                       // column 51
+                              msm_y2,                       // column 52
+                              msm_x3,                       // column 53
+                              msm_y3,                       // column 54
+                              msm_x4,                       // column 55
+                              msm_y4,                       // column 56
+                              msm_collision_x1,             // column 57
+                              msm_collision_x2,             // column 58
+                              msm_collision_x3,             // column 59
+                              msm_collision_x4,             // column 60
+                              msm_lambda1,                  // column 61
+                              msm_lambda2,                  // column 62
+                              msm_lambda3,                  // column 63
+                              msm_lambda4,                  // column 64
+                              msm_slice1,                   // column 65
+                              msm_slice2,                   // column 66
+                              msm_slice3,                   // column 67
+                              msm_slice4,                   // column 68
+                              transcript_accumulator_empty, // column 69
+                              transcript_reset_accumulator, // column 70
+                              precompute_select,            // column 71
+                              lookup_read_counts_0,         // column 72
+                              lookup_read_counts_1);        // column 73
     };
 
     /**
@@ -204,13 +204,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
         DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
                                      DerivedWitnessEntities<DataType>::pointer_view())
-        const char* get_entity_name(const DataType& elem) const
+        void print() const
         {
-            const char* name = WireEntities<DataType>::get_entity_name(elem);
-            if (name != nullptr) {
-                return name;
-            }
-            return DerivedWitnessEntities<DataType>::get_entity_name(elem);
+            WireEntities<DataType>::print();
+            DerivedWitnessEntities<DataType>::print();
         }
         RefVector<DataType> get_to_be_shifted()
         {
@@ -248,33 +245,33 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
     template <typename DataType> class ShiftedEntities {
       public:
-        FLAVOR_MEMBERS(DataType,
-                       transcript_mul_shift,               // column 0
-                       transcript_msm_count_shift,         // column 1
-                       transcript_accumulator_x_shift,     // column 2
-                       transcript_accumulator_y_shift,     // column 3
-                       precompute_scalar_sum_shift,        // column 4
-                       precompute_s1hi_shift,              // column 5
-                       precompute_dx_shift,                // column 6
-                       precompute_dy_shift,                // column 7
-                       precompute_tx_shift,                // column 8
-                       precompute_ty_shift,                // column 9
-                       msm_transition_shift,               // column 10
-                       msm_add_shift,                      // column 11
-                       msm_double_shift,                   // column 12
-                       msm_skew_shift,                     // column 13
-                       msm_accumulator_x_shift,            // column 14
-                       msm_accumulator_y_shift,            // column 15
-                       msm_count_shift,                    // column 16
-                       msm_round_shift,                    // column 17
-                       msm_add1_shift,                     // column 18
-                       msm_pc_shift,                       // column 19
-                       precompute_pc_shift,                // column 20
-                       transcript_pc_shift,                // column 21
-                       precompute_round_shift,             // column 22
-                       transcript_accumulator_empty_shift, // column 23
-                       precompute_select_shift,            // column 24
-                       z_perm_shift);                      // column 25
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_mul_shift,               // column 0
+                              transcript_msm_count_shift,         // column 1
+                              transcript_accumulator_x_shift,     // column 2
+                              transcript_accumulator_y_shift,     // column 3
+                              precompute_scalar_sum_shift,        // column 4
+                              precompute_s1hi_shift,              // column 5
+                              precompute_dx_shift,                // column 6
+                              precompute_dy_shift,                // column 7
+                              precompute_tx_shift,                // column 8
+                              precompute_ty_shift,                // column 9
+                              msm_transition_shift,               // column 10
+                              msm_add_shift,                      // column 11
+                              msm_double_shift,                   // column 12
+                              msm_skew_shift,                     // column 13
+                              msm_accumulator_x_shift,            // column 14
+                              msm_accumulator_y_shift,            // column 15
+                              msm_count_shift,                    // column 16
+                              msm_round_shift,                    // column 17
+                              msm_add1_shift,                     // column 18
+                              msm_pc_shift,                       // column 19
+                              precompute_pc_shift,                // column 20
+                              transcript_pc_shift,                // column 21
+                              precompute_round_shift,             // column 22
+                              transcript_accumulator_empty_shift, // column 23
+                              precompute_select_shift,            // column 24
+                              z_perm_shift);                      // column 25
     };
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -299,17 +296,11 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
                                      WitnessEntities<DataType>::pointer_view(),
                                      ShiftedEntities<DataType>::pointer_view())
-        const char* get_entity_name(const DataType& elem) const
+        void print() const
         {
-            const char* name = PrecomputedEntities<DataType>::get_entity_name(elem);
-            if (name != nullptr) {
-                return name;
-            }
-            name = WitnessEntities<DataType>::get_entity_name(elem);
-            if (name != nullptr) {
-                return name;
-            }
-            return ShiftedEntities<DataType>::get_entity_name(elem);
+            PrecomputedEntities<DataType>::print();
+            WitnessEntities<DataType>::print();
+            ShiftedEntities<DataType>::print();
         }
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()

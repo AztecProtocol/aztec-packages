@@ -260,6 +260,7 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
+    commitments.print();
     auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
                                             commitments.get_to_be_shifted(),
                                             claimed_evaluations.get_unshifted(),
