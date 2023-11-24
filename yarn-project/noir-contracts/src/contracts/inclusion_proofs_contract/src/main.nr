@@ -18,11 +18,15 @@ contract InclusionProofs {
             HISTORIC_BLOCKS_TREE_HEIGHT,
         },
         oracle::{
+            get_block_data::get_block_data,
             get_membership_witness::{
                 get_membership_witness,
                 MembershipWitness,
             },
-            get_block_data::get_block_data,
+            get_low_nullifier_membership_witness::{
+                get_low_nullifier_membership_witness,
+                LowNullifierMembershipWitness,
+            },
         },
         // oracle::debug_log::debug_log_format,
     };
@@ -125,6 +129,25 @@ contract InclusionProofs {
             block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving membership of a note in note hash tree failed"
         );
+    }
+
+    #[aztec(private)]
+    fn proveNullifierNonInclusion(
+        owner: AztecAddress,
+        block_number: Field, // The block at which we'll prove that the nullifier does not exists
+    ) {
+        // TODO: assert that block number is less than the block number of context.block_data
+        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        //     or modifying the private context so that we somehow expose it.
+        
+        let balances = storage.balances.at(owner.address);
+        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let notes = balances.get_notes(options);
+        let note = notes[0].unwrap();
+
+        let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
+
+        let low_nullifier_membership_witness = get_low_nullifier_membership_witness(block_number, nullifier);
     }
 
     // Computes note hash and nullifier.
