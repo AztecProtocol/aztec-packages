@@ -2,10 +2,7 @@ mod types;
 
 // A demonstration of private liquidity mining.
 contract LiquidityMining {
-    use dep::std::{
-        merkle::compute_merkle_root,
-        hash::pedersen_hash_with_separator,
-    };
+    use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{
             map::Map,
@@ -21,7 +18,6 @@ contract LiquidityMining {
         constants_gen::{
             NOTE_HASH_TREE_HEIGHT,
             HISTORIC_BLOCKS_TREE_HEIGHT,
-            GENERATOR_INDEX__BLOCK_HASH,
         },
         oracle::{
             get_membership_witness::{
@@ -95,22 +91,10 @@ contract LiquidityMining {
 
         // 1.c)
         let block_data = get_block_data(block_number);
+        let block_hash = block_data.block_hash();
 
         // TODO: This should be injected directly from kernel --> GETTING IT FROM ORACLE IS NOT SAFE!
         let blocks_tree_root = block_data.blocks_tree_root;
-        
-        // TODO: Seems to make sense to move the following to `HistoricBlockData` struct.
-        // TODO: Would make sense to unify the ordering in `HistoricBlockData::serialize` function and the ordering
-        // in the block hash preimage --> This seems to require changes in the circuits.
-        let inputs = [
-            block_data.global_variables_hash,
-            block_data.note_hash_tree_root,
-            block_data.nullifier_tree_root,
-            block_data.contract_tree_root,
-            block_data.l1_to_l2_messages_tree_root,
-            block_data.public_data_tree_root
-        ];
-        let block_hash = pedersen_hash_with_separator(inputs, GENERATOR_INDEX__BLOCK_HASH);
 
         // 1.d)
         let blocks_tree_id = 5;
