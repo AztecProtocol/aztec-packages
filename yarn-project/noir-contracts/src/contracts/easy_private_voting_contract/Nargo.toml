@@ -1,5 +1,5 @@
 [package]
-name = "simple_private_voting_contract"
+name = "easy_private_voting_contract"
 authors = [""]
 compiler_version = ">=0.18.0"
 type = "contract"
