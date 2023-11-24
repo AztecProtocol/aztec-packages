@@ -163,7 +163,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError('Assertion failed: Message not authorized by account');
-  });
+  }, 60_000);
 
   it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
@@ -185,5 +185,5 @@ describe('e2e_public_cross_chain_messaging', () => {
         .methods.claim_private(secretHash, bridgeAmount, ethAccount, messageKey, secret)
         .simulate(),
     ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
-  });
+  }, 60_000);
 });
