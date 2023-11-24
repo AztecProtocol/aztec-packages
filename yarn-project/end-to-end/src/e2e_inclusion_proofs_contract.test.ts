@@ -29,26 +29,26 @@ describe('e2e_inclusion_proofs_contract', () => {
 
   afterAll(() => teardown());
 
-  it('mints and claims', async () => {
-    // The account which apes into the pool
-    const ape = accounts[0].address;
+  it('creates a note and proves its existence', async () => {
+    // Owner of a note
+    const owner = accounts[0].address;
     {
-      // Mint
-      const mintAmount = 100n;
-      const receipt = await contract.methods.mint(ape, mintAmount).send().wait({ debug: true });
+      // Create note
+      const amount = 100n;
+      const receipt = await contract.methods.create_note(owner, amount).send().wait({ debug: true });
       const { newCommitments, visibleNotes } = receipt.debugInfo!;
       expect(newCommitments.length).toBe(1);
       expect(visibleNotes.length).toBe(1);
-      const [noteAmount, noteOwner, _randomness] = visibleNotes[0].note.items;
-      expect(noteAmount.value).toBe(mintAmount);
-      expect(noteOwner).toEqual(ape.toField());
+      const [receivedAmount, receivedOwner, _randomness] = visibleNotes[0].note.items;
+      expect(receivedAmount.toBigInt()).toBe(amount);
+      expect(receivedOwner).toEqual(owner.toField());
     }
 
     {
-      // Claim
+      // Prove note inclusion in a given block.
       // We prove the note existence at current block number because we don't currently have historical data
       const blockNumber = await pxe.getBlockNumber();
-      const receipt = await contract.methods.claim(accounts[0].address, blockNumber).send().wait({ debug: true });
+      const receipt = await contract.methods.proveNoteInclusion(accounts[0].address, blockNumber).send().wait({ debug: true });
       const { newNullifiers } = receipt.debugInfo!;
       expect(newNullifiers.length).toBe(2); // tx hash and note nullifier
     }
