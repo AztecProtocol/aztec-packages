@@ -204,6 +204,14 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
         DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
                                      DerivedWitnessEntities<DataType>::pointer_view())
+        const char* get_entity_name(const DataType& elem) const
+        {
+            const char* name = WireEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            return DerivedWitnessEntities<DataType>::get_entity_name(elem);
+        }
         RefVector<DataType> get_to_be_shifted()
         {
             return { this->transcript_mul,
@@ -291,7 +299,18 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
                                      WitnessEntities<DataType>::pointer_view(),
                                      ShiftedEntities<DataType>::pointer_view())
-
+        const char* get_entity_name(const DataType& elem) const
+        {
+            const char* name = PrecomputedEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            name = WitnessEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            return ShiftedEntities<DataType>::get_entity_name(elem);
+        }
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {

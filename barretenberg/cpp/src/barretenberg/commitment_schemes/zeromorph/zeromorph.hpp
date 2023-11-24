@@ -515,8 +515,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param concatenation_groups_commitments
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(std::vector<Commitment> f_commitments,
-                                    std::vector<Commitment> g_commitments,
+    static Commitment compute_C_Z_x(const std::vector<Commitment>& f_commitments,
+                                    const std::vector<Commitment>& g_commitments,
                                     std::vector<Commitment>& C_q_k,
                                     FF rho,
                                     FF batched_evaluation,
@@ -613,7 +613,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @brief Utility for native batch multiplication of group elements
      * @note This is used only for native verification and is not optimized for efficiency
      */
-    static Commitment batch_mul_native(std::vector<Commitment> points, std::vector<FF> scalars)
+    static Commitment batch_mul_native(const std::vector<Commitment>& points, const std::vector<FF>& scalars)
     {
         auto result = points[0] * scalars[0];
         for (size_t idx = 1; idx < scalars.size(); ++idx) {

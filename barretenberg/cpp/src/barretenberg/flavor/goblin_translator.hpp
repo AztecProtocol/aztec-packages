@@ -246,6 +246,18 @@ class GoblinTranslator {
         DEFINE_COMPOUND_POINTER_VIEW(WireWitnessEntities<DataType>::pointer_view(),
                                      DerivedWitnessEntities<DataType>::pointer_view(),
                                      ConcatenatedRangeConstraints<DataType>::pointer_view())
+        [[nodiscard]] const char* get_entity_name(const DataType& elem) const
+        {
+            const char* name = WireWitnessEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            name = DerivedWitnessEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            return ConcatenatedRangeConstraints<DataType>::get_entity_name(elem);
+        }
         RefVector<DataType> get_wires() { return WireWitnessEntities<DataType>::get_all(); };
 
         RefVector<DataType> get_to_be_shifted()
@@ -455,7 +467,18 @@ class GoblinTranslator {
         DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
                                      WitnessEntities<DataType>::pointer_view(),
                                      ShiftedEntities<DataType>::pointer_view())
-
+        const char* get_entity_name(const DataType& elem) const
+        {
+            const char* name = PrecomputedEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            name = WitnessEntities<DataType>::get_entity_name(elem);
+            if (name != nullptr) {
+                return name;
+            }
+            return ShiftedEntities<DataType>::get_entity_name(elem);
+        }
         /**
          * @brief Get the polynomials that are concatenated for the permutation relation
          *
