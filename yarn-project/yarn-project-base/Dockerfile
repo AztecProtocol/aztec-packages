@@ -60,7 +60,7 @@ COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 # Copy in nargo
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
 # Copy in noir packages
-COPY --from=noir-packages /usr/src/noir /usr/src/noir
+COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.

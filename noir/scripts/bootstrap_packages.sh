@@ -16,3 +16,15 @@ export cargoExtraArgs="--features noirc_frontend/aztec"
 
 yarn
 yarn build
+
+yarn workspaces foreach pack
+
+rm -rf packages && mkdir -p packages
+tar zxfv acvm-repo/acvm_js/package.tgz -C packages && mv packages/package packages/acvm_js
+tar zxfv compiler/source-resolver/package.tgz -C packages && mv packages/package packages/source-resolver
+tar zxfv compiler/wasm/package.tgz -C packages && mv packages/package packages/noir_wasm
+tar zxfv tooling/noir_codegen/package.tgz -C packages && mv packages/package packages/noir_codegen
+tar zxfv tooling/noir_js/package.tgz -C packages && mv packages/package packages/noir_js
+tar zxfv tooling/noir_js_backend_barretenberg/package.tgz -C packages && mv packages/package packages/backend_barretenberg
+tar zxfv tooling/noir_js_types/package.tgz -C packages && mv packages/package packages/types
+tar zxfv tooling/noirc_abi_wasm/package.tgz -C packages && mv packages/package packages/noirc_abi

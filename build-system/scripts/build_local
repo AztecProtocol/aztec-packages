@@ -11,9 +11,10 @@ set -eu
 
 TARGET_PROJECT=${1:-}
 ONLY_TARGET=${ONLY_TARGET:-}
+NO_CACHE=${NO_CACHE:-}
 MANIFEST="build_manifest.yml"
 
-if [ -n "${NO_CACHE:-}" ]; then
+if [ -n "$NO_CACHE" ]; then
   ADDITIONAL_ARGS="${ADDITIONAL_ARGS:-} --no-cache"
 fi
 

@@ -1,14 +1,13 @@
 Dockerfile*
 .dockerignore
 
-target
-node_modules
+packages
+**/package.tgz
 **/target
 **/node_modules
 **/outputs
 
 # Source resolver
-compiler/source-resolver/node_modules
 compiler/source-resolver/lib
 compiler/source-resolver/lib-node
 

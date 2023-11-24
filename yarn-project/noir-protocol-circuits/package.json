@@ -32,10 +32,10 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
-    "@noir-lang/acvm_js": "portal:../../noir/acvm-repo/acvm_js/outputs/out/acvm_js",
-    "@noir-lang/backend_barretenberg": "portal:../../noir/tooling/noir_js_backend_barretenberg",
-    "@noir-lang/noir_js": "portal:../../noir/tooling/noir_js",
-    "@noir-lang/noirc_abi": "portal:../../noir/tooling/noirc_abi_wasm/outputs/out/noirc_abi_wasm",
+    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
+    "@noir-lang/backend_barretenberg": "portal:../../noir/packages/backend_barretenberg",
+    "@noir-lang/noir_js": "portal:../../noir/packages/noir_js",
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
