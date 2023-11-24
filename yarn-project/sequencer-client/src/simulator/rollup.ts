@@ -13,13 +13,6 @@ import { CircuitSimulationStats } from '@aztec/types/stats';
 import { RollupSimulator } from './index.js';
 
 /**
- *
- */
-function executeBaseRollup(_input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-  return {} as any;
-}
-
-/**
  * Implements the rollup circuit simulator.
  */
 export class RealRollupCircuitSimulator implements RollupSimulator {
