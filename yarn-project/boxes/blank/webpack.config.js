@@ -1,4 +1,3 @@
-import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
@@ -40,21 +39,6 @@ export default (_, argv) => ({
       },
     }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          from: `${dirname(require.resolve(`@aztec/circuits.js`)).replace(
-            /\/dest$/,
-            '',
-          )}/resources/aztec3-circuits.wasm`,
-          to: 'aztec3-circuits.wasm',
-        },
-        {
-          from: './src/index.html',
-          to: 'index.html',
-        },
-      ],
-    }),
   ],
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],

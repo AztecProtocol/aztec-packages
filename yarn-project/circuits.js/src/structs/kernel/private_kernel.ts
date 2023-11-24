@@ -23,7 +23,6 @@ import { PreviousKernelData } from './previous_kernel_data.js';
 
 /**
  * Private call data.
- * @see circuits/cpp/src/aztec3/circuits/abis/call_stack_item.hpp
  */
 export class PrivateCallData {
   constructor(

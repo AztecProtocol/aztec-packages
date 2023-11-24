@@ -45,7 +45,6 @@ fi
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" > $HOOKS_DIR/pre-commit
-echo "(cd circuits/cpp && ./format.sh staged)" >> $HOOKS_DIR/pre-commit
 # TODO: Call cci_gen to ensure .circleci/config.yml is up-to-date!
 chmod +x $HOOKS_DIR/pre-commit
 
@@ -65,13 +64,9 @@ if [[ -f .bootstrapped && $(cat .bootstrapped) -eq "$VERSION" ]]; then
 
   echo -e '\n\033[1mRebuild barretenberg wasm...\033[0m'
   (cd barretenberg/cpp && cmake --build --preset default && cmake --build --preset wasm && cmake --build --preset wasm-threads)
-
-  echo -e '\n\033[1mRebuild circuits wasm...\033[0m'
-  (cd circuits/cpp && cmake --build --preset wasm -j --target aztec3-circuits.wasm)
 else
   # Heavy bootstrap.
   barretenberg/bootstrap.sh
-  circuits/cpp/bootstrap.sh
   yarn-project/bootstrap.sh
 
   echo $VERSION > .bootstrapped

@@ -13,9 +13,16 @@ import { CircuitSimulationStats } from '@aztec/types/stats';
 import { RollupSimulator } from './index.js';
 
 /**
- * Implements the rollup circuit simulator using the wasm circuits implementation.
+ *
  */
-export class WasmRollupCircuitSimulator implements RollupSimulator {
+function executeBaseRollup(_input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
+  return {} as any;
+}
+
+/**
+ * Implements the rollup circuit simulator.
+ */
+export class RealRollupCircuitSimulator implements RollupSimulator {
   private log = createDebugLogger('aztec:rollup-simulator');
 
   /**
