@@ -136,7 +136,7 @@ If you have a private function which calls a public function, remember that sequ
 PS: when calling from private to public, `msg_sender` is the contract address which is calling the public function.
 
 ### Deterministic nullifiers
-In the [avoid replay attacks section](#prevent-the-same-user-flow-from-happening-twice-or-avoiding-replay-attacks-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
+In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
 E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this  "nullifier secrets" as explained [here](../../../../concepts/foundation/accounts/keys.md#nullifier-secrets). E.g.:
 
