@@ -2,4 +2,6 @@ target
 node_modules
 **/target
 **/node_modules
+**/outputs/out
 Dockerfile*
+.dockerignore
