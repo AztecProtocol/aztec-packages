@@ -1024,6 +1024,7 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
+      - noir-packages: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
