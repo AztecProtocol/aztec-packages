@@ -64,9 +64,8 @@ contract InclusionProofs {
     // Proves that the owner owned a ValueNote at block `block_number`.
     //
     // The scheme works as follows:
-    // 1) Get historic block data from oracle.
-    // 2) From that get the blocks tree root (this will eventually be injected by kernel since this is not safe and
-    //    is for experimental purposes only).
+    // 1) Get the blocks tree root from context.
+    // 2) Get historic block data from oracle.
     // 3) Compute block hash from the historic block data obtained in 1).
     // 4) Get the membership witness of a block in the blocks tree.
     // 5) Prove that the block hash is in the blocks tree.
@@ -81,14 +80,14 @@ contract InclusionProofs {
         owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the note exists
     ) {
-        let balances = storage.balances.at(owner.address);
+        // TODO: assert that block number is less than the block number of block data
+        // --> This will require a new oracle method that returns given global variables hash preimage
 
-        // 1)
-        let block_data = get_block_data(block_number);
+        // 1) 
+        let blocks_tree_root = context.block_data.blocks_tree_root;
 
         // 2)
-        // TODO: This should be injected directly from kernel --> GETTING IT FROM ORACLE IS NOT SAFE!
-        let blocks_tree_root = block_data.blocks_tree_root;
+        let block_data = get_block_data(block_number);
 
         // 3)
         let block_hash = block_data.block_hash();
@@ -107,6 +106,7 @@ contract InclusionProofs {
         );
 
         // 6)
+        let balances = storage.balances.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
         let note = notes[0].unwrap();
