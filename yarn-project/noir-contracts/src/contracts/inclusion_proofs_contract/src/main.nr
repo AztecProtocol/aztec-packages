@@ -122,7 +122,7 @@ contract InclusionProofs {
         // 9)
         assert(
             block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
-            "Proving membership of a note in note has tree failed"
+            "Proving membership of a note in note hash tree failed"
         );
     }
 
