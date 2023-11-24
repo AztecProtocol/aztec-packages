@@ -66,11 +66,15 @@ if [[ -f .bootstrapped && $(cat .bootstrapped) -eq "$VERSION" ]]; then
   echo -e '\n\033[1mRebuild barretenberg wasm...\033[0m'
   (cd barretenberg/cpp && cmake --build --preset default && cmake --build --preset wasm && cmake --build --preset wasm-threads)
 
+  echo -e '\n\033[1mRebuild noir...\033[0m'
+  noir/bootstrap.sh
+
   echo -e '\n\033[1mRebuild circuits wasm...\033[0m'
   (cd circuits/cpp && cmake --build --preset wasm -j --target aztec3-circuits.wasm)
 else
   # Heavy bootstrap.
   barretenberg/bootstrap.sh
+  noir/bootstrap.sh
   circuits/cpp/bootstrap.sh
   yarn-project/bootstrap.sh
 

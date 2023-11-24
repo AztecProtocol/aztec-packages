@@ -43,6 +43,8 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache bash jq curl
@@ -55,6 +57,10 @@ COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Copy in bb.js
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
+# Copy in nargo
+COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
+# Copy in noir packages
+COPY --from=noir-packages /usr/src/noir /usr/src/noir
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.

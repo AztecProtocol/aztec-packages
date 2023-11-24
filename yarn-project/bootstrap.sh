@@ -25,6 +25,7 @@ done
 # Run remake bindings before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
 yarn workspace @aztec/circuits.js remake-bindings
 yarn workspace @aztec/circuits.js remake-constants
+yarn workspace @aztec/noir-protocol-circuits noir:build
 
 (cd noir-contracts && ./bootstrap.sh)
 (cd .. && l1-contracts/bootstrap.sh)

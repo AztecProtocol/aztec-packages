@@ -93,7 +93,7 @@ for E in "${PROJECTS[@]}"; do
   # Ensure index is updated before we call git diff-index.
   git status > /dev/null
 
-  if (git diff-index --name-only HEAD; git ls-files --others --exclude-standard) | grep -qE "$GREP_PATTERN"; then
+  if (cd $(git rev-parse --show-toplevel) && git diff-index --name-only HEAD; git ls-files --others --exclude-standard) | grep -qE "$GREP_PATTERN"; then
     echo -e "${YELLOW}Project or dependency has local modifications! Building...${RESET}"
     docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $DEPLOY_IMAGE_URI .
   else
