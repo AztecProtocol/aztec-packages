@@ -123,7 +123,7 @@ import {
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
 } from './types/rollup_root_types.js';
 
-/* eslint-disable */
+/* eslint-disable camelcase */
 
 /**
  * Maps a field to a noir field.
@@ -1250,6 +1250,11 @@ export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs)
   };
 }
 
+/**
+ * Maps a nullifier leaf preimage to noir
+ * @param nullifierLeafPreimage - The nullifier leaf preimage.
+ * @returns The noir nullifier leaf preimage.
+ */
 export function mapNullifierLeafPreimageToNoir(
   nullifierLeafPreimage: NullifierLeafPreimage,
 ): NullifierLeafPreimageNoir {
@@ -1260,6 +1265,11 @@ export function mapNullifierLeafPreimageToNoir(
   };
 }
 
+/**
+ * Maps a nullifier membership witness to noir.
+ * @param membershipWitness - The nullifier membership witness.
+ * @returns The noir nullifier membership witness.
+ */
 export function mapNullifierMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
 ): NullifierMembershipWitnessNoir {
@@ -1272,6 +1282,11 @@ export function mapNullifierMembershipWitnessToNoir(
   };
 }
 
+/**
+ * Maps a membership witness of the historic blocks tree to noir.
+ * @param membershipWitness - The membership witness.
+ * @returns The noir membership witness.
+ */
 export function mapHistoricBlocksTreeRootMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
 ): HistoricBlocksTreeRootMembershipWitnessNoir {
@@ -1284,6 +1299,11 @@ export function mapHistoricBlocksTreeRootMembershipWitnessToNoir(
   };
 }
 
+/**
+ * Maps the inputs to the base rollup to noir.
+ * @param input - The circuits.js base rollup inputs.
+ * @returns The noir base rollup inputs.
+ */
 export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupInputsNoir {
   return {
     kernel_data: inputs.kernelData.map(mapPreviousKernelDataToNoir) as FixedLengthArray<PreviousKernelDataNoir, 2>,

@@ -13,7 +13,6 @@ impl NullifierLeafPreimage {
         }
     }
 
-    // TODO(Kev): Check if this is needed.
     pub fn is_empty(self) -> bool {
         (self.leaf_value == 0) & (self.next_index == 0) & (self.next_value == 0)
     }

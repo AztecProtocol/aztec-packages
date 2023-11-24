@@ -61,14 +61,13 @@ struct BaseRollupInputs {
 impl BaseRollupInputs {
     pub fn base_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {        
         // Verify the previous kernel proofs
-        // TODO(Kev) : Change this two to a named constant
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             let proof = self.kernel_data[i].proof;
             assert(verify_kernel_proof(proof), "kernel proof verification failed");
         };
 
         // Verify the kernel chain_id and versions
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             assert(self.kernel_data[i].public_inputs.constants.tx_context.chain_id ==
                    self.constants.global_variables.chain_id, "kernel chain_id does not match the rollup chain_id");
             assert(self.kernel_data[i].public_inputs.constants.tx_context.version ==
@@ -134,7 +133,7 @@ impl BaseRollupInputs {
 
     fn calculate_contract_leaves(self) -> [Field; NUM_CONTRACT_LEAVES] {
         let mut contract_leaves = [0; NUM_CONTRACT_LEAVES];
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             let new_contracts = self.kernel_data[i].public_inputs.end.new_contracts;
 
             // loop over the new contracts
@@ -166,7 +165,7 @@ impl BaseRollupInputs {
     fn calculate_commitments_subtree(self) -> Field {
         let mut commitment_tree_leaves = [0; NOTE_HASH_SUBTREE_WIDTH];
         
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             let new_commitments = self.kernel_data[i].public_inputs.end.new_commitments;
 
             // Our commitments size MUST be 4 to calculate our subtrees correctly
@@ -232,7 +231,7 @@ impl BaseRollupInputs {
         let mut new_index = start_insertion_index;
 
         // For each kernel circuit
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             let new_nullifiers = self.kernel_data[i].public_inputs.end.new_nullifiers;
             // For each of our nullifiers
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX { 
@@ -404,7 +403,7 @@ impl BaseRollupInputs {
         // 2 unencrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             let new_commitments = kernel_data[i].public_inputs.end.new_commitments;
             let new_nullifiers = kernel_data[i].public_inputs.end.new_nullifiers;
             let public_data_update_requests = kernel_data[i].public_inputs.end.public_data_update_requests;
@@ -484,7 +483,7 @@ impl BaseRollupInputs {
         // against the historical root provided in the rollup constants
         let historic_root = self.constants.start_historic_blocks_tree_roots_snapshot.root;
 
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
             // Rebuild the block hash
             let historical_block_data = self.kernel_data[i].public_inputs.constants.block_data;
             let previous_block_hash = historical_block_data.block.hash();
