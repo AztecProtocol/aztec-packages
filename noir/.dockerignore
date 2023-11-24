@@ -1,7 +1,18 @@
+Dockerfile*
+.dockerignore
+
 target
 node_modules
 **/target
 **/node_modules
-**/outputs/out
-Dockerfile*
-.dockerignore
+**/outputs
+
+# Noir.js
+tooling/noir_js/lib
+
+# Wasm build atifacts
+compiler/wasm/nodejs
+compiler/wasm/web
+tooling/noirc_abi_wasm/nodejs
+tooling/noirc_abi_wasm/web
+tooling/noir_js/lib
