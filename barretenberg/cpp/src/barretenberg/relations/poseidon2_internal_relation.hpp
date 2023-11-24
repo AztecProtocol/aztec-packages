@@ -56,43 +56,40 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto q_poseidon2_internal = View(in.q_poseidon2_internal);
 
         // add round constants
-        auto tmp1 = w_l + q_l;
+        auto v1 = w_l + q_l;
 
         // apply s-box round
-        auto v1 = tmp1 * tmp1;
-        v1 *= v1;
-        v1 *= tmp1;
-        auto v2 = w_r;
-        auto v3 = w_o;
-        auto v4 = w_4;
+        auto u1 = v1 * v1;
+        u1 *= u1;
+        u1 *= v1;
 
         // matrix mul with 4 muls and 7 additions
-        auto sum = v1 + v2 + v3 + v4;
+        auto sum = v1 + w_r + w_o + w_4;
         {
-            v1 *= crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-            v1 += sum;
+            auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+            t0 += sum;
             auto tmp = q_poseidon2_internal * (v1 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
-            auto tmp2 = v2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-            tmp2 += sum;
-            auto tmp = q_poseidon2_internal * (tmp2 - w_r_shift);
+            auto t1 = w_r * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+            t1 += sum;
+            auto tmp = q_poseidon2_internal * (t1 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            auto tmp3 = v3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-            tmp3 += sum;
-            auto tmp = q_poseidon2_internal * (tmp3 - w_o_shift);
+            auto t2 = w_o * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+            t2 += sum;
+            auto tmp = q_poseidon2_internal * (t2 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            auto tmp4 = v4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-            tmp4 += sum;
-            auto tmp = q_poseidon2_internal * (tmp4 - w_4_shift);
+            auto t3 = w_4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+            t3 += sum;
+            auto tmp = q_poseidon2_internal * (t3 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
