@@ -65,7 +65,10 @@
       "inherits": "clang16-dbg",
       "binaryDir": "build-asan",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4",
+        "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "ON",

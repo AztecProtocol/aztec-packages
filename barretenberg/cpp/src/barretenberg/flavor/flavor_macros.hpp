@@ -4,7 +4,20 @@
 #include "barretenberg/common/std_array.hpp"
 #include <array>
 #include <iostream>
+#include <sstream>
 
+inline std::vector<std::string> _string_split_by_comma(const std::string& s)
+{
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokens_stream(s);
+
+    while (std::getline(tokens_stream, token, ',')) {
+        tokens.push_back(token);
+    }
+
+    return tokens;
+}
 template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
 {
     return std::array{ &refs... };
@@ -25,7 +38,7 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
 #define DEFINE_PRINT(DataType, ...)                                                                                    \
     void print() const                                                                                                 \
     {                                                                                                                  \
-        const char* entity_names[] = { #__VA_ARGS__ };                                                                 \
+        auto entity_names = _string_split_by_comma(#__VA_ARGS__);                                                      \
         size_t i = 0;                                                                                                  \
         for (const DataType& elem : get_all()) {                                                                       \
             std::cout << entity_names[i] << ": " << elem << std::endl;                                                 \
@@ -54,7 +67,7 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
     DataType __VA_ARGS__;                                                                                              \
     DEFINE_POINTER_VIEW(__VA_ARGS__)                                                                                   \
     DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
-    DEFINE_PRINT(DataType, ...)
+    DEFINE_PRINT(DataType, __VA_ARGS__)
 
 #define DEFINE_COMPOUND_POINTER_VIEW(...)                                                                              \
     [[nodiscard]] auto pointer_view()                                                                                  \
