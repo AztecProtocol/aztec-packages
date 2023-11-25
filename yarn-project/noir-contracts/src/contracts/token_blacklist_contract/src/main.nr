@@ -52,7 +52,9 @@ contract TokenBlacklist {
         safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN},
         roles::UserFlags,
     };
+    // docs:start:interface
     use crate::interfaces::SlowMap;
+    // docs:end:interface
 
     struct Storage {
         admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
@@ -100,12 +102,12 @@ contract TokenBlacklist {
             }
         }
     }
-
+    // docs:start:constructor
     #[aztec(private)]
     fn constructor(admin: AztecAddress, slow_updates_contract: AztecAddress) {
         let mut slow_note = FieldNote::new(slow_updates_contract.address);
         storage.slow_update.initialize(&mut slow_note, Option::none(), false);
-
+    // docs:end:constructor
         let selector = compute_selector("_initialize((Field),(Field))");
         context.call_public_function(context.this_address(),
             selector,
@@ -291,6 +293,7 @@ contract TokenBlacklist {
         1
     }
 
+    // docs:start:transfer_private
     #[aztec(private)]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> Field {
         let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
@@ -298,6 +301,7 @@ contract TokenBlacklist {
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = UserFlags::new(slow.read_at(&mut context, to.address) as u120);
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+     // docs:end:transfer_private
 
         if (from.address != context.msg_sender()) {
             assert_current_call_valid_authwit(&mut context, from);

@@ -86,7 +86,7 @@ Calling a private Aztec.nr function in a public kernel is not allowed.
 
 #### 3005 - PUBLIC_KERNEL\_\_NON_EMPTY_PRIVATE_CALL_STACK
 
-Public functions are executed after all the private functions are (see [private-public execution](../../concepts/foundation/communication/public_private_calls.md)). As such, private call stack must be empty when executing in the public kernel.
+Public functions are executed after all the private functions are (see [private-public execution](../../concepts/foundation/communication/public_private_calls/main.md)). As such, private call stack must be empty when executing in the public kernel.
 
 #### 3011 - PUBLIC_KERNEL\_\_CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH
 

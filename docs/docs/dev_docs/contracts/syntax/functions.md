@@ -20,7 +20,7 @@ In Aztec there are multiple different types of visibility that can be applied to
 
 ### Data Visibility
 
-Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls.md).
+Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls/main.md).
 
 In the following sections, we are going to see how these two "types" co-exists and interact.
 
