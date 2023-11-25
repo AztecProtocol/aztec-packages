@@ -10,7 +10,8 @@ RUN apk update \
         bash \
         jq
 WORKDIR /usr/src/noir
-COPY scripts/install_wasm-bindgen.sh scripts/install_wasm-bindgen.sh
-RUN ./scripts/install_wasm-bindgen.sh
 COPY . .
 RUN ./scripts/bootstrap_packages.sh
+
+FROM scratch
+COPY --from=0 /usr/src/noir/packages /usr/src/noir/packages
