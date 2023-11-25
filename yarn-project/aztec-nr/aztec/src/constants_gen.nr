@@ -1,5 +1,7 @@
 global ARGS_LENGTH: Field = 16;
 global RETURN_VALUES_LENGTH: Field = 4;
+
+// docs:start:constants
 global MAX_NEW_COMMITMENTS_PER_CALL: Field = 16;
 global MAX_NEW_NULLIFIERS_PER_CALL: Field = 16;
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: Field = 4;
@@ -22,6 +24,8 @@ global MAX_READ_REQUESTS_PER_TX: Field = 128;
 global MAX_PENDING_READ_REQUESTS_PER_TX: Field = 128;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
+// docs:end:constants
+
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: Field = 16;
 global KERNELS_PER_BASE_ROLLUP: Field = 2;
 global MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP: Field = 128;
