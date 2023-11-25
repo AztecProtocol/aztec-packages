@@ -242,7 +242,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       this.db
         .createReadStream({
           gte: indexToKeyLeaf(this.getName(), startingIndex),
-          lte: indexToKeyLeaf(this.getName(), 2n ** BigInt(this.getDepth())),
+          lte: indexToKeyLeaf(this.getName(), BigInt((2n ** BigInt(this.getDepth())).toString().replace(/\d/g, '9'))),
         })
         .on('data', function (data) {
           const index = Number(data.key);
