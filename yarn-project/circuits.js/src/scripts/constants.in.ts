@@ -119,7 +119,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
 
   fileContent.split('\n').forEach(l => {
     const line = l.trim();
-    if (!line || line.startsWith('//')) {
+    if (!line || line.match(/^\/\/|\/?\*/)) {
       return;
     }
 
