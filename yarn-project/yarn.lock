@@ -3583,9 +3583,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@noir-lang/noir_js@portal:../noir/packages/noir_js/::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@noir-lang/noir_js@portal:../noir/packages/noir_js/::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@noir-lang/acvm_js": 0.34.0
     "@noir-lang/noirc_abi": 0.19.3
@@ -3607,9 +3607,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@noir-lang/source-resolver@portal:../noir/packages/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@noir-lang/source-resolver@portal:../noir/packages/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
   linkType: soft
 
