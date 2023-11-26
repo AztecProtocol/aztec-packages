@@ -1,11 +1,23 @@
 
 import lldb
+import re
 
+def simplify_vector_type(type_string):
+    simplified_type = re.sub(r"vector<([^,]+), allocator<\1>>", r"\1[]", type_string)
+    simplified_type = re.sub(r"RefVector<([^,]+)>", r"\1[]", simplified_type)
+    return simplified_type
+
+def shorten_namespace(line):
+    # Split the namespace into parts
+    line = re.sub(r'(\w+::)+(\w+)', r'\2', line)
+    # Keep only the first and last parts for brevity, or the entire namespace if it's short
+    return line
 def simplify_name(name):
-    return name \
+    return simplify_vector_type(shorten_namespace(name \
         .replace("barretenberg::field<barretenberg::Bn254FqParams>", "fq") \
         .replace("barretenberg::field<barretenberg::Bn254FrParams>", "fr") \
-        .replace("barretenberg::group_elements::affine_element<fq, fr, barretenberg::Bn254G1Params>", "g1_affine_element")
+        .replace("barretenberg::group_elements::affine_element<fq, fr, barretenberg::Bn254G1Params>", "g1") \
+        .replace("RefVector<g1_affine_element>", "g1[]")))
 
 def visit_objects(value, func, path=[]):
     """
@@ -95,6 +107,15 @@ def set_highlight(debugger, command, result, internal_dict):
     value = frame.EvaluateExpression(command)
     highlighted_fields = _get_fields(value)
 
+def bbstack(debugger, command, result, internal_dict):
+    thread = debugger.GetSelectedTarget().GetProcess().GetSelectedThread()
+    # Print the stack trace
+    for frame in thread:
+        if "HandleSehExceptionsInMethodIfSupported" in frame.GetFunctionName():
+            break
+        addr = str(frame.GetPCAddress()).split(" at ")[-1]
+        print(f"Frame #{frame.idx}: {simplify_name(frame.GetFunctionName())} at {addr}")
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand('command script add -f debug_helpers.print_members print_members')
     debugger.HandleCommand('command script add -f debug_helpers.set_highlight set_highlight')
+    debugger.HandleCommand('command script add -f debug_helpers.bbstack bbstack')
