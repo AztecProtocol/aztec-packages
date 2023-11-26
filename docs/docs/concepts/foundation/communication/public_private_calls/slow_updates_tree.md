@@ -2,7 +2,7 @@
 title: Privately access Public State
 ---
 
-n Aztec, private and public execution environments are completely separate and operate with distinct state management. In the previous section we learned that functions can call private functions, and public functions can save messages to a merkle tree to then be read by a private function.
+In Aztec, private and public execution environments are completely separate and operate with distinct state management. In the previous section we learned that functions can call private functions, and public functions can save messages to a merkle tree to then be read by a private function.
 
 It is also possible to access persistent data across both private and public state using a **slow updates tree**, which we will talk about on this page. Please note that we are still experimenting with this feature and it is not something that has ever been achieved before.
 
