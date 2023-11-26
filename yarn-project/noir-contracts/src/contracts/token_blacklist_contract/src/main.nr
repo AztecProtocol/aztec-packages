@@ -92,6 +92,7 @@ contract TokenBlacklist {
                         )
                     },
                 ),
+                // docs:start:slow_updates_storage
                 // Below is an abomination to have same value in private and public (immutable in solidity).
                 slow_update: ImmutableSingleton::new(context, 7, FieldNoteMethods),
                 public_slow_update: PublicState::new(
@@ -99,6 +100,8 @@ contract TokenBlacklist {
                     8,
                     AztecAddressSerializationMethods,
                 ),
+                // docs:end:slow_updates_storage
+
             }
         }
     }
@@ -123,8 +126,10 @@ contract TokenBlacklist {
     #[aztec(private)]
     fn init_slow_tree(user: AztecAddress) {
         let roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false }.get_value() as Field;
+        // docs:start:get_and_update_private
         let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
         slow.update_at_private(&mut context, user.address, roles);
+        // docs:end:get_and_update_private
         context.call_public_function(context.this_address(),
             compute_selector("_init_slow_tree((Field))"),
             [context.msg_sender()]);
@@ -148,7 +153,9 @@ contract TokenBlacklist {
 
     #[aztec(public)]
     fn mint_public(to: AztecAddress, amount: Field) -> Field {
+        // docs:start:get_public
         let slow = SlowMap::at(storage.public_slow_update.read());
+        // docs:end:get_public
         let to_roles = UserFlags::new(slow.read_at_pub(context, to.address) as u120);
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
@@ -340,8 +347,10 @@ contract TokenBlacklist {
     internal fn _initialize(new_admin: AztecAddress, slow_updates_contract: AztecAddress) {
         assert(new_admin.address != 0, "invalid admin");
         storage.admin.write(new_admin);
+        // docs:start:write_slow_update_public
         storage.public_slow_update.write(slow_updates_contract);
         SlowMap::at(slow_updates_contract).initialize(context);
+        // docs:end:write_slow_update_public
     }
 
     /// Internal ///

@@ -15,7 +15,7 @@ On this page you will learn:
 
 ## The need for a slow updates tree
 
-This structure was created specifically to privately & publicly access data that is not updated often. It should be used to store data that is non-sensitive yet crucial for private smart contracts to access. Using a slow updates tree, it is possible to:
+This structure was created specifically to privately & publicly access data that is not updated often. It should be used to store data that is not sensitive but should be accessible from private smart contracts. Using a slow updates tree, it is possible to:
 
 - Update public data from public and private functions
 - Access public data from a public function

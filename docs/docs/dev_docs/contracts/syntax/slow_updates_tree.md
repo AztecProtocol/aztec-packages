@@ -20,10 +20,10 @@ The `TokenBlacklist` contract is a token contract that does not allow blackliste
 
 1. **TokenBlacklist.nr Contract:** This is the primary smart contract that utilizes the Slow Updates Tree for managing blacklisted addresses
 2. **SlowMap Interface**: This interface is used within the `TokenBlacklist` contract to interact with the Slow Updates Tree. It provides methods for reading and updating values in the tree in both public and private contexts.
-3. **SlowTree.nr Contract**: This is the smart contract we talked about previously.
+3. **SlowTree.nr Contract**: This is a smart contract that instantiates a slow updates tree and allows us to access and manipulate its contents.
 4. **SlowMap type**: This is a type in the Azetc library that is utilized by the SlowTree contract.
 
-Let’s see how the TokenBlacklist Contract utilizes the SlowMap interface to interact with the SlowTree contract we talked about previously.
+Let’s see how these components work together to allow private and public functions to read a tree of blacklisted accounts:
 
 ## TokenBlacklist Contract
 
@@ -33,7 +33,7 @@ You can find the full code for the TokenBlacklist smart contract [here](https://
 
 The contract first imports the **`SlowMap`** interface:
 
-#include_code interface yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr
+#include_code interface yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 The **`SlowMap`** interface allows the contract to interact with its attached SlowTree. It abstracts these functions so they do not have to be implemented in the TokenBlacklist contract.
 
@@ -41,7 +41,7 @@ The **`SlowMap`** interface allows the contract to interact with its attached Sl
 
 The contract's constructor takes the address of the slow updates contract:
 
-#include_code constructor yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr
+#include_code constructor yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 This initialization sets up the connection between the **`TokenBlacklist`** contract and a previously deployed SlowTree, allowing it to use the SlowMap interface to directly interact with the SlowTree. 
 
@@ -49,7 +49,7 @@ This initialization sets up the connection between the **`TokenBlacklist`** cont
 
 In the private transfer function, the contract uses the **`SlowMap`** interface to check if a user is blacklisted:
 
-#include_code transfer_private yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr
+#include_code transfer_private yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 Here, the contract reads the roles of the sender and recipient from the SlowTree using the **`read_at`** function in the **`SlowMap`**interface. It checks if either party is blacklisted, and if so, the transaction does not go ahead.
 
@@ -61,13 +61,13 @@ For example, the `read_at()` function in the interface calls the `read_at()` pri
 
 ## A SlowTree.nr smart contract
 
-The TokenBlacklist contract interacts with this SlowTree contract through the SlowMap interface. Here you can find all the functions included in this SlowTree contract and how it works.
+The TokenBlacklist contract interacts with this SlowTree contract through the SlowMap interface. The SlowTree is a contract that utilizes the slow update tree library and instansiates and manipulates a tree. Here you can find some of the functions included in this SlowTree contract and how it works.
 
 **Global Constants and Storage Structure:**
 
 At the start of the contract, we define global constants and storage struct:
 
-#include_code constants_and_storage yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code constants_and_storage yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 - `TREE_HEIGHT`, `MEMBERSHIP_SIZE`, and `UPDATE_SIZE` are constants that define the dimensions of the tree and the proof sizes.
 - `EMPTY_ROOT` represents the initial state of the tree root.
@@ -75,56 +75,40 @@ At the start of the contract, we define global constants and storage struct:
 
 **Initialization**
 
-#include_code initialize yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code initialize yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 An empty Slow Tree is initialized for `msg_sender` by calling the `initialize()` method in the `SlowMap` library.
 
 **Reading and Updating in Public Context**
 
-#include_code read_at_pub yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code read_at_pub yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
-#include_code update_at_pub yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code update_at_pub yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 - **`read_at_pub`** allows reading a value from the tree in a public context. It works by getting the value at the key that correlates to `msg_sender()` by caling `read_at()` from the `SlowMap` library.
 - **`update_at_public`** enables the public update of the tree by calling `update_at()` from the `SlowMap`using a `SlowUpdateProof` This is what a SlowUpdateProof looks like:
 
-```rust
-// The slow update proof. Containing two merkle paths
-// One for the before and one for the after trees.
-// M = 2 * N + 4
-struct SlowUpdateProof<N, M> {
-  index: Field,
-  new_value: Field,
-  before: SlowUpdateInner<N>,
-  after: SlowUpdateInner<N>,
-}
-```
+#include_code slow_update_proof yarn-project/aztec-nr/slow-updates-tree/src/slow_map.nr rust
 
 **Reading in Private Context**
 
-#include_code read_at_private yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code read_at_private yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 - **`read_at`** is a private function that retrieves a value at a given index. It utilizes a **`MembershipProof`** to ensure indexes are the same. This is what a MembershipProof looks like:
 
-```rust
-struct MembershipProof<N, M> {
-    index: Field,
-    value: Field,
-    sibling_path: [Field; N],
-}
-```
+#include_code membership_proof yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/types.nr rust
 
 **Updating from private context**
 
-#include_code update_at_private yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code update_at_private yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 - **`update_at_private()`** updates a value in the tree privately. It uses **`SlowUpdateProof`** to validate the update before committing it.
 
 **Ensuring Tree is Valid**
 
-#include_code assert_current_root yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code assert_current_root yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
-#include_code _update yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr
+#include_code _update yarn-project/noir-contracts/src/contracts/slow_tree_contract/src/main.nr rust
 
 `_assert_current_root` and `_update` are internal functions that ensure the tree is what is expected, and is called when reading & updating the tree from private state respectively. They are used to verify that the state of the tree before and after an update is as expected.
 
@@ -136,19 +120,7 @@ Under the hood, Aztec provides a library for the implementation of a slow_update
 
 This function is called when the token wants to check that the account has not been blacklisted. 
 
-```rust
-
-pub fn read_at(self: Self, key: Field) -> Field {
-    let time = self.context.public.unwrap().timestamp() as u120;
-    let leaf = self.read_leaf_at(key);
-    if time <= leaf.next_change as u120 {
-        leaf.before
-    } else {
-        leaf.after
-    }
-}
-
-```
+#include_code read_at yarn-project/aztec-nr/slow-updates-tree/src/slow_map.nr rust
 
 This function reads the current value of a specific key in the tree. It does this through:
 
@@ -160,14 +132,7 @@ This function reads the current value of a specific key in the tree. It does thi
 
 `read_at()` calls the `read_leaf_at()` function which reads a specific leaf from the tree using a key.
 
-```rust
-
-pub fn read_leaf_at(self: Self, key: Field) -> Leaf {
-    let derived_storage_slot = pedersen_hash([self.storage_slot, key]);
-    storage_read(derived_storage_slot, deserialize_leaf)
-}
-
-```
+#include_code read_leaf_at yarn-project/aztec-nr/slow-updates-tree/src/slow_map.nr rust
 
 1. **Deriving the storage slot**: It first derives a storage slot specific to the key using a Pedersen hash. This derivation ensures that each key has a unique and consistent location in storage.
 2. Leaf Retrieval: It then reads the leaf data from the storage slot. The leaf data includes `before`, `after`, and `next_change` timestamps, which are used in the `read_at()` function.
@@ -180,53 +145,26 @@ You can utilize this example to implement a slow updates tree in your own smart 
 2. Copy the SlowMap interface for easy interaction with your deployed SlowTree
 3. Import the SlowMap interface into your contract
 
-```rust
-use crate::interfaces::SlowMap;
-```
-
-4. Take the slow_updates_tree address into the constructor (or hardcode it for test purposes)
-
-```rust
-fn constructor(slow_updates_contract: AztecAddress) {}
-```
+#include_code interface yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 5. Store a slow updates tree in both public and private storage
 
-```rust
-slow_update: ImmutableSingleton::new(context, 7, FieldNoteMethods),
-                public_slow_update: PublicState::new(
-                    context,
-                    8,
-                    AztecAddressSerializationMethods,
-                ),
-```
+#include_code slow_updates_storage yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 6. Store the SlowTree address in private storage as a FieldNote
 
-```rust
-let mut slow_note = FieldNote::new(slow_updates_contract.address);
-        storage.slow_update.initialize(&mut slow_note, Option::none(), false);
-```
+#include_code constructor yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 7. Store the SlowTree address in public storage and initialize an instance of SlowMap using this address
 
-```rust
-storage.public_slow_update.write(slow_updates_contract);
-        SlowMap::at(slow_updates_contract).initialize(context);
-```
+#include_code write_slow_update_public yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
-8. Now you can read from private functions:
+8. Now you can read and update from private functions:
 
-```rust
-let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
-```
+#include_code get_and_update_private yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 9. Or from public functions:
 
-```rust
-let slow = SlowMap::at(storage.public_slow_update.read());
-```
-
-You can also update by using the `update_at_private()` function in the interface.
+#include_code get_public yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
 Learn more by checking out the [slow_updates_tree library](https://github.com/AztecProtocol/aztec-nr/blob/master/slow-updates-tree/src/slow_map.nr).
