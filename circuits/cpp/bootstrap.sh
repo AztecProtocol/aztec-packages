@@ -1,22 +1,25 @@
 #!/bin/bash
 # Takes a list of targets from commandline
-# Takes CLEAN as an environment variable. If passed, cleans build artifacts
 set -eu
+
+cd "$(dirname "$0")"
+
+CMD=${1:-}
+
+if [ -n "$CMD" ]; then
+  if [ "$CMD" = "clean" ]; then
+    git clean -fdx
+    exit 0
+  else
+    echo "Unknown command: $CMD"
+    exit 1
+  fi
+fi
 
 export WASI_VERSION=20
 
-# Navigate to script folder
-cd "$(dirname "$0")"
-
 # Update the submodule
 git submodule update --init --recursive
-
-# Remove all untracked files and directories.
-if [ -n "${CLEAN:-}" ]; then
-  # Clean.
-  rm -rf ./build
-  rm -rf ./build-wasm
-fi
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then
