@@ -213,7 +213,7 @@ Calling a public function from another public function is quite similar to what 
 
 ### Private -> Public
 
-As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../concepts/foundation/communication/public_private_calls.md).
+As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../concepts/foundation/communication/public_private_calls/main.md).
 
 Private function execution takes place on the users device, where it keeps track of any public function calls that have been made. Whenever private execution completes, and a kernel proof is produced, the transaction sent to the network will include all of the public calls that were dispatched.
 When the sequencer receives the messages, it will take over and execute the public parts of the transaction.
