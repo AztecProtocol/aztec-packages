@@ -51,7 +51,7 @@ echo "#################################"
 
 # Build native.
 cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-cmake --build --preset $PRESET ${@/#/--target }
+cmake --build --preset $PRESET --target bb
 
 if [ ! -d ./srs_db/grumpkin ]; then
   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests

@@ -54,11 +54,17 @@ git submodule update --init --recursive
 PROJECTS=(
   barretenberg
   noir
-  circuits
+  circuits/cpp
   l1-contracts
   yarn-project
 )
 
 for P in "${PROJECTS[@]}"; do
+  echo "**************************************"
+  echo -e "\033[1mBootstrapping $P...\033[0m"
+  echo "**************************************"
+  echo
   $P/bootstrap.sh
+  echo
+  echo
 done
