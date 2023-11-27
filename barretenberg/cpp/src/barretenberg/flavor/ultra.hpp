@@ -442,7 +442,7 @@ class Ultra {
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
-                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
+                            [[maybe_unused]] const std::shared_ptr<BaseTranscript> transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -483,7 +483,7 @@ class Ultra {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public BaseTranscript<FF> {
+    class Transcript : public BaseTranscript {
       public:
         // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
@@ -507,7 +507,7 @@ class Ultra {
 
         // Used by verifier to initialize the transcript
         Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
         static Transcript prover_init_empty()
@@ -530,7 +530,7 @@ class Ultra {
          * structure. Must be called in order to access the structure of the proof.
          *
          */
-        void deserialize_full_transcript() override
+        void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
@@ -567,7 +567,7 @@ class Ultra {
          * deserialize_full_transcript() was called and some transcript variable was modified.
          *
          */
-        void serialize_full_transcript() override
+        void serialize_full_transcript()
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it

@@ -27,13 +27,14 @@ template <ECCVMFlavor Flavor> void ECCVMComposer_<Flavor>::compute_witness(Circu
 }
 
 template <ECCVMFlavor Flavor>
-ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& circuit_constructor)
+ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& circuit_constructor,
+                                                           std::shared_ptr<BaseTranscript> transcript)
 {
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
     compute_commitment_key(proving_key->circuit_size);
 
-    ECCVMProver_<Flavor> output_state(proving_key, commitment_key);
+    ECCVMProver_<Flavor> output_state(proving_key, commitment_key, transcript);
 
     return output_state;
 }

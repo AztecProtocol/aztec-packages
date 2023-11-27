@@ -22,11 +22,15 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
-    using Transcript = typename Flavor::Transcript;
+    using Transcript = BaseTranscript;
+    // using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key,
+                          std::shared_ptr<PCSCommitmentKey> commitment_key,
+                          std::shared_ptr<Transcript>);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
@@ -43,7 +47,7 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    Transcript transcript;
+    std::shared_ptr<Transcript> transcript;
 
     TranslationEvaluations translation_evaluations;
 

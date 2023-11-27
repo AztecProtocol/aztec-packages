@@ -10,6 +10,7 @@
 namespace proof_system::honk {
 template <ECCVMFlavor Flavor> class ECCVMComposer_ {
   public:
+    using FF = typename Flavor::FF;
     using CircuitConstructor = ECCVMCircuitBuilder<Flavor>;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -59,7 +60,8 @@ template <ECCVMFlavor Flavor> class ECCVMComposer_ {
 
     void compute_witness(CircuitConstructor& circuit_constructor);
 
-    ECCVMProver_<Flavor> create_prover(CircuitConstructor& circuit_constructor);
+    ECCVMProver_<Flavor> create_prover(CircuitConstructor& circuit_constructor,
+                                       std::shared_ptr<BaseTranscript> transcript);
     ECCVMVerifier_<Flavor> create_verifier(CircuitConstructor& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);

@@ -14,6 +14,7 @@
 namespace proof_system::honk {
 using Flavor = honk::flavor::GoblinTranslator;
 using Curve = typename Flavor::Curve;
+using FF = typename Flavor::FF;
 using CircuitBuilder = typename Flavor::CircuitBuilder;
 using ProvingKey = typename Flavor::ProvingKey;
 using VerificationKey = typename Flavor::VerificationKey;
@@ -200,7 +201,8 @@ void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_builder)
  * @return GoblinTranslatorProver
  */
 
-GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder)
+GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder,
+                                                               std::shared_ptr<Transcript> transcript)
 {
 
     // Compute total number of gates, dyadic circuit size, etc.
@@ -213,7 +215,7 @@ GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& c
 
     compute_commitment_key(proving_key->circuit_size);
 
-    GoblinTranslatorProver output_state(proving_key, commitment_key);
+    GoblinTranslatorProver output_state(proving_key, commitment_key, transcript);
 
     return output_state;
 }

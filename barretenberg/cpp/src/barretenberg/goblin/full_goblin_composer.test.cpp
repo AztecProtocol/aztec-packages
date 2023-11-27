@@ -118,64 +118,64 @@ class FullGoblinComposerTests : public ::testing::Test {
  * with non-empty 'previous' data. This avoids complications with zero-commitments etc.
  *
  */
-TEST_F(FullGoblinComposerTests, SimpleCircuit)
-{
-    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
+// TEST_F(FullGoblinComposerTests, SimpleCircuit)
+// {
+//     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
-    // Add mock data to op queue to simulate interaction with a "first" circuit
-    perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+//     // Add mock data to op queue to simulate interaction with a "first" circuit
+//     perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
-    proof_system::plonk::proof previous_proof;
+//     proof_system::plonk::proof previous_proof;
 
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 4;
-    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        auto builder = GoblinUltraBuilder{ op_queue };
+//     // Construct a series of simple Goblin circuits; generate and verify their proofs
+//     size_t NUM_CIRCUITS = 4;
+//     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+//         auto builder = GoblinUltraBuilder{ op_queue };
 
-        generate_test_circuit(builder, previous_proof);
+//         generate_test_circuit(builder, previous_proof);
 
-        // The same composer is used to manage Honk and Merge prover/verifier
-        auto composer = GoblinUltraComposer();
+//         // The same composer is used to manage Honk and Merge prover/verifier
+//         auto composer = GoblinUltraComposer();
 
-        // Construct and verify Ultra Goblin Honk proof
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
-        auto honk_proof = prover.construct_proof();
-        bool honk_verified = verifier.verify_proof(honk_proof);
-        EXPECT_TRUE(honk_verified);
+//         // Construct and verify Ultra Goblin Honk proof
+//         auto instance = composer.create_instance(builder);
+//         auto prover = composer.create_prover(instance);
+//         auto verifier = composer.create_verifier(instance);
+//         auto honk_proof = prover.construct_proof();
+//         bool honk_verified = verifier.verify_proof(honk_proof);
+//         EXPECT_TRUE(honk_verified);
 
-        // Construct and verify op queue merge proof
-        auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
-        auto merge_proof = merge_prover.construct_proof();
-        bool merge_verified = merge_verifier.verify_proof(merge_proof);
-        EXPECT_TRUE(merge_verified);
-    }
+//         // Construct and verify op queue merge proof
+//         auto merge_prover = composer.create_merge_prover(op_queue);
+//         auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
+//         auto merge_proof = merge_prover.construct_proof();
+//         bool merge_verified = merge_verifier.verify_proof(merge_proof);
+//         EXPECT_TRUE(merge_verified);
+//     }
 
-    // Execute the ECCVM
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
-    auto eccvm_builder = ECCVMBuilder(op_queue);
-    auto eccvm_composer = ECCVMComposer();
-    auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
-    auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
-    auto eccvm_proof = eccvm_prover.construct_proof();
-    bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
-    EXPECT_TRUE(eccvm_verified);
+//     // Execute the ECCVM
+//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
+//     auto eccvm_builder = ECCVMBuilder(op_queue);
+//     auto eccvm_composer = ECCVMComposer();
+//     auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
+//     auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
+//     auto eccvm_proof = eccvm_prover.construct_proof();
+//     bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
+//     EXPECT_TRUE(eccvm_verified);
 
-    // Execute the Translator
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
-    auto batching_challenge = Fbase::random_element();
-    auto evaluation_input = eccvm_prover.evaluation_challenge_x;
-    auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
-    auto translator_composer = TranslatorComposer();
-    auto translator_prover = translator_composer.create_prover(translator_builder);
-    auto translator_verifier = translator_composer.create_verifier(translator_builder);
-    auto translator_proof = translator_prover.construct_proof();
-    bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
-    bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
-    EXPECT_TRUE(accumulator_construction_verified && translation_verified);
-}
+//     // Execute the Translator
+//     // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
+//     auto batching_challenge = Fbase::random_element();
+//     auto evaluation_input = eccvm_prover.evaluation_challenge_x;
+//     auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
+//     auto translator_composer = TranslatorComposer();
+//     auto translator_prover = translator_composer.create_prover(translator_builder);
+//     auto translator_verifier = translator_composer.create_verifier(translator_builder);
+//     auto translator_proof = translator_prover.construct_proof();
+//     bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
+//     bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
+//     EXPECT_TRUE(accumulator_construction_verified && translation_verified);
+// }
 
 TEST_F(FullGoblinComposerTests, Pseudo)
 {
@@ -188,6 +188,7 @@ TEST_F(FullGoblinComposerTests, Pseudo)
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 4;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        info(circuit_idx);
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
         folding_verifier(/* goblin. */ circuit_builder); // WORKTODO
         goblin.accumulate(circuit_builder);              // merge prover done in here

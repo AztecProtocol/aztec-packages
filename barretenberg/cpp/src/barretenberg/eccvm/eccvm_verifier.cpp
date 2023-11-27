@@ -49,12 +49,12 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = Transcript{ proof.proof_data };
+    transcript = std::make_shared<Transcript>(proof.proof_data);
 
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();
 
-    const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
+    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
 
     if (circuit_size != key->circuit_size) {
         return false;
@@ -62,7 +62,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Utility for extracting commitments from transcript
     const auto receive_commitment = [&](const std::string& label) {
-        return transcript.template receive_from_prover<Commitment>(label);
+        return transcript->template receive_from_prover<Commitment>(label);
     };
 
     // Get commitments to VM wires
@@ -142,7 +142,9 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.lookup_read_counts_1 = receive_commitment(commitment_labels.lookup_read_counts_1);
 
     // Get challenge for sorted list batching and wire four memory records
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto challenges = transcript->get_challenges("beta", "gamma");
+    FF beta = challenges[0];
+    FF gamma = challenges[1];
     relation_parameters.gamma = gamma;
     auto beta_sqr = beta * beta;
     relation_parameters.beta = beta;
@@ -158,7 +160,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-    auto alpha = transcript.get_challenge("alpha");
+    FF alpha = transcript->get_challenge("alpha");
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, transcript);
 
@@ -176,7 +178,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     auto batched_commitment_to_be_shifted = GroupElement::zero();
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
-    FF rho = transcript.get_challenge("rho");
+    FF rho = transcript->get_challenge("rho");
     std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
@@ -235,7 +237,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     {
         auto hack_commitment = receive_commitment("Translation:hack_commitment");
 
-        FF evaluation_challenge_x = transcript.get_challenge("Translation:evaluation_challenge_x");
+        FF evaluation_challenge_x = transcript->get_challenge("Translation:evaluation_challenge_x");
 
         // Construct arrays of commitments and evaluations to be batched
         const size_t NUM_UNIVARIATES = 6;
@@ -244,15 +246,15 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
             commitments.transcript_z1, commitments.transcript_z2, hack_commitment
         };
         std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
-            transcript.template receive_from_prover<FF>("Translation:op"),
-            transcript.template receive_from_prover<FF>("Translation:Px"),
-            transcript.template receive_from_prover<FF>("Translation:Py"),
-            transcript.template receive_from_prover<FF>("Translation:z1"),
-            transcript.template receive_from_prover<FF>("Translation:z2"),
-            transcript.template receive_from_prover<FF>("Translation:hack_evaluation")
+            transcript->template receive_from_prover<FF>("Translation:op"),
+            transcript->template receive_from_prover<FF>("Translation:Px"),
+            transcript->template receive_from_prover<FF>("Translation:Py"),
+            transcript->template receive_from_prover<FF>("Translation:z1"),
+            transcript->template receive_from_prover<FF>("Translation:z2"),
+            transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
         };
 
-        FF batching_challenge = transcript.get_challenge("Translation:batching_challenge");
+        FF batching_challenge = transcript->get_challenge("Translation:batching_challenge");
 
         // Constuct batched commitment and batched evaluation
         auto batched_commitment = transcript_commitments[0];

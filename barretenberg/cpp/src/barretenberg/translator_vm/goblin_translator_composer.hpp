@@ -19,6 +19,7 @@ class GoblinTranslatorComposer {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Polynomial = typename Flavor::Polynomial;
+    using Transcript = BaseTranscript;
     static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
 
     static constexpr std::string_view NAME_STRING = "GoblinTranslator";
@@ -52,7 +53,7 @@ class GoblinTranslatorComposer {
 
     void compute_witness(CircuitBuilder& circuit_builder);
 
-    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_builder);
+    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_builder, std::shared_ptr<Transcript> transcript);
     GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_builder);
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)

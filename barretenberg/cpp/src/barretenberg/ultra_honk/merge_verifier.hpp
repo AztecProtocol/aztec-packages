@@ -26,11 +26,12 @@ template <typename Flavor> class MergeVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
   public:
-    BaseTranscript<FF> transcript;
+    std::shared_ptr<BaseTranscript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
-    explicit MergeVerifier_(std::unique_ptr<VerifierCommitmentKey> verification_key);
+    explicit MergeVerifier_(std::unique_ptr<VerifierCommitmentKey> verification_key,
+                            std::shared_ptr<BaseTranscript> transcript);
     bool verify_proof(const plonk::proof& proof);
 };
 
