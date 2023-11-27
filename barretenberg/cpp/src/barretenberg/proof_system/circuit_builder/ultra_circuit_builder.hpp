@@ -206,6 +206,25 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             return valid;
         }
 
+        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec)
+        {
+            std::unordered_set<cached_partial_non_native_field_multiplication,
+                               CachedPartialNonNativeFieldMultiplicationHash,
+                               CachedPartialNonNativeFieldMultiplicationEqual>
+                seen;
+
+            std::vector<cached_partial_non_native_field_multiplication> uniqueVec;
+
+            for (const auto& item : vec) {
+                if (seen.find(item) == seen.end()) {
+                    seen.insert(item);
+                    uniqueVec.push_back(item);
+                }
+            }
+
+            vec.swap(uniqueVec);
+        }
+
         bool operator<(const cached_partial_non_native_field_multiplication& other) const
         {
             if (a < other.a) {
@@ -218,6 +237,36 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                 return true;
             }
             return other.b < b;
+        }
+    };
+
+    struct CachedPartialNonNativeFieldMultiplicationHash {
+        size_t operator()(const cached_partial_non_native_field_multiplication& obj) const
+        {
+            size_t combined_hash = 0;
+
+            // Hash combiner function
+            auto hash_combiner = [](size_t lhs, size_t rhs) {
+                return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+            };
+
+            // Combine hash for each element in arrays 'a' and 'b'
+            for (const auto& elem : obj.a) {
+                combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
+            }
+            for (const auto& elem : obj.b) {
+                combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
+            }
+
+            return combined_hash;
+        }
+    };
+
+    struct CachedPartialNonNativeFieldMultiplicationEqual {
+        bool operator()(const cached_partial_non_native_field_multiplication& lhs,
+                        const cached_partial_non_native_field_multiplication& rhs) const
+        {
+            return lhs == rhs;
         }
     };
 
