@@ -1,4 +1,5 @@
 import {
+  AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
@@ -22,6 +23,7 @@ describe('e2e_block_building', () => {
   let logger: DebugLogger;
   let owner: Wallet;
   let minter: Wallet;
+  let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
 
   describe('multi-txs block', () => {
@@ -32,16 +34,19 @@ describe('e2e_block_building', () => {
         teardown,
         pxe,
         logger,
+        aztecNode,
         wallets: [owner, minter],
       } = await setup(2));
     }, 100_000);
 
+    afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
 
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
+      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
       const methods = times(TX_COUNT, () => deployer.deploy());
 
@@ -53,7 +58,9 @@ describe('e2e_block_building', () => {
       // Send them simultaneously to be picked up by the sequencer
       const txs = await Promise.all(methods.map(method => method.send()));
       logger(`Txs sent with hashes: `);
-      for (const tx of txs) logger(` ${await tx.getTxHash()}`);
+      for (const tx of txs) {
+        logger(` ${await tx.getTxHash()}`);
+      }
 
       // Await txs to be mined and assert they are all mined on the same block
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
@@ -66,6 +73,9 @@ describe('e2e_block_building', () => {
     }, 60_000);
 
     it('can call public function from different tx in same block', async () => {
+      // Ensure both txs will land on the same block
+      await aztecNode.setConfig({ minTxsPerBlock: 2 });
+
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
       const deployer = TokenContract.deploy(owner, owner.getCompleteAddress());
@@ -111,7 +121,9 @@ describe('e2e_block_building', () => {
     it('drops tx with private nullifier already emitted on the same block', async () => {
       const nullifier = Fr.random();
       const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
-      for (const call of calls) await call.simulate();
+      for (const call of calls) {
+        await call.simulate();
+      }
       const [tx1, tx2] = calls.map(call => call.send());
       await tx1.wait();
       await expect(tx2.wait()).rejects.toThrowError(/dropped/);
@@ -120,7 +132,9 @@ describe('e2e_block_building', () => {
     it('drops tx with public nullifier already emitted on the same block', async () => {
       const secret = Fr.random();
       const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
-      for (const call of calls) await call.simulate();
+      for (const call of calls) {
+        await call.simulate();
+      }
       const [tx1, tx2] = calls.map(call => call.send());
       await tx1.wait();
       await expect(tx2.wait()).rejects.toThrowError(/dropped/);
@@ -142,7 +156,9 @@ describe('e2e_block_building', () => {
         contract.methods.emit_nullifier(emittedPublicNullifier),
       ];
 
-      for (const call of calls) await call.simulate();
+      for (const call of calls) {
+        await call.simulate();
+      }
       const [tx1, tx2] = calls.map(call => call.send());
       await tx1.wait();
       await expect(tx2.wait()).rejects.toThrowError(/dropped/);

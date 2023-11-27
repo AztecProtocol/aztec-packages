@@ -49,6 +49,17 @@ export class ContractDeploymentData {
   public static empty(): ContractDeploymentData {
     return new ContractDeploymentData(Point.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
   }
+
+  isEmpty() {
+    return (
+      this.deployerPublicKey.isZero() &&
+      this.constructorVkHash.isZero() &&
+      this.functionTreeRoot.isZero() &&
+      this.contractAddressSalt.isZero() &&
+      this.portalContractAddress.isZero()
+    );
+  }
+
   /**
    * Deserializes contract deployment data rom a buffer or reader.
    * @param buffer - Buffer to read from.
@@ -58,9 +69,9 @@ export class ContractDeploymentData {
     const reader = BufferReader.asReader(buffer);
     return new ContractDeploymentData(
       reader.readObject(Point),
-      reader.readFr(),
-      reader.readFr(),
-      reader.readFr(),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       new EthAddress(reader.readBytes(32)),
     );
   }
@@ -131,8 +142,8 @@ export class TxContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readObject(ContractDeploymentData),
-      reader.readFr(),
-      reader.readFr(),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 

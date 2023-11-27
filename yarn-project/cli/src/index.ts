@@ -20,7 +20,7 @@ import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
+import { compileNoir, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, ExtendedNote, LogFilter } from '@aztec/types';
 
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
@@ -129,18 +129,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '-m, --mnemonic',
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
-    .action(async options => {
+    .action(options => {
       let privKey;
       let publicKey;
       if (options.mnemonic) {
         const acc = mnemonicToAccount(options.mnemonic);
         // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
-        const key = GrumpkinScalar.fromBufferWithReduction(Buffer.from(acc.getHdKey().privateKey!));
-        publicKey = await generatePublicKey(key);
+        const key = GrumpkinScalar.fromBufferReduce(Buffer.from(acc.getHdKey().privateKey!));
+        publicKey = generatePublicKey(key);
       } else {
         const key = GrumpkinScalar.random();
-        privKey = key.toString(true);
-        publicKey = await generatePublicKey(key);
+        privKey = key.toString();
+        publicKey = generatePublicKey(key);
       }
       log(`\nPrivate Key: ${privKey}\nPublic Key: ${publicKey.toString()}\n`);
     });
@@ -174,7 +174,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const actualPrivateKey = privateKey ?? GrumpkinScalar.random();
 
       const account = getSchnorrAccount(client, actualPrivateKey, actualPrivateKey, accountCreationSalt);
-      const { address, publicKey, partialAddress } = await account.getCompleteAddress();
+      const { address, publicKey, partialAddress } = account.getCompleteAddress();
       const tx = await account.deploy();
       const txHash = await tx.getTxHash();
       debugLogger(`Account contract tx sent with hash ${txHash}`);
@@ -188,7 +188,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log(`\nNew account:\n`);
       log(`Address:         ${address.toString()}`);
       log(`Public key:      ${publicKey.toString()}`);
-      if (!privateKey) log(`Private key:     ${actualPrivateKey.toString(true)}`);
+      if (!privateKey) {
+        log(`Private key:     ${actualPrivateKey.toString()}`);
+      }
       log(`Partial address: ${partialAddress.toString()}`);
     });
 
@@ -259,7 +261,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const deployer = new ContractDeployer(contractArtifact, client, publicKey);
 
       const constructor = getFunctionArtifact(contractArtifact, 'constructor');
-      if (!constructor) throw new Error(`Constructor not found in contract ABI`);
+      if (!constructor) {
+        throw new Error(`Constructor not found in contract ABI`);
+      }
 
       debugLogger(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
       const args = encodeArgs(rawArgs, constructorArtifact!.parameters);
@@ -295,8 +299,11 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const client = await createCompatibleClient(options.rpcUrl, debugLogger);
       const address = options.contractAddress;
       const isDeployed = await isContractDeployed(client, address);
-      if (isDeployed) log(`\nContract found at ${address.toString()}\n`);
-      else log(`\nNo contract found at ${address.toString()}\n`);
+      if (isDeployed) {
+        log(`\nContract found at ${address.toString()}\n`);
+      } else {
+        log(`\nNo contract found at ${address.toString()}\n`);
+      }
     });
 
   program
@@ -392,8 +399,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (follow) {
-        if (txHash) throw Error('Cannot use --follow with --tx-hash');
-        if (toBlock) throw Error('Cannot use --follow with --to-block');
+        if (txHash) {
+          throw Error('Cannot use --follow with --tx-hash');
+        }
+        if (toBlock) {
+          throw Error('Cannot use --follow with --to-block');
+        }
       }
 
       const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress, selector };
@@ -407,9 +418,13 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
             .filter(([, value]) => value !== undefined)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
-          if (!follow) log(`No logs found for filter: {${filterOptions}}`);
+          if (!follow) {
+            log(`No logs found for filter: {${filterOptions}}`);
+          }
         } else {
-          if (!follow && !filter.afterLog) log('Logs found: \n');
+          if (!follow && !filter.afterLog) {
+            log('Logs found: \n');
+          }
           logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
           // Set the continuation parameter for the following requests
           filter.afterLog = logs[logs.length - 1].id;
@@ -421,7 +436,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         log('Fetching logs...');
         while (true) {
           const maxLogsHit = await fetchLogs();
-          if (!maxLogsHit) await sleep(1000);
+          if (!maxLogsHit) {
+            await sleep(1000);
+          }
         }
       } else {
         while (await fetchLogs()) {
@@ -723,7 +740,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       await update(projectPath, contract, options.rpcUrl, options.sandboxVersion, log, debugLogger);
     });
 
-  compileContract(program, 'compile', log);
+  compileNoir(program, 'compile', log);
   generateTypescriptInterface(program, 'generate-typescript', log);
   generateNoirInterface(program, 'generate-noir-interface', log);
 

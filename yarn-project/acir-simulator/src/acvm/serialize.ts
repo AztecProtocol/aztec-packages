@@ -12,8 +12,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from './acvm.js';
-import { MessageLoadOracleInputs } from './oracle/index.js';
+import { ACVMField } from './acvm_types.js';
+import { MessageLoadOracleInputs } from './oracle/typed_oracle.js';
 
 /**
  * Adapts the buffer to the field size.
@@ -147,8 +147,8 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.nullifiedCommitments.map(toACVMField),
-    ...publicInputs.privateCallStack.map(toACVMField),
-    ...publicInputs.publicCallStack.map(toACVMField),
+    ...publicInputs.privateCallStackHashes.map(toACVMField),
+    ...publicInputs.publicCallStackHashes.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
     ...publicInputs.encryptedLogsHash.map(toACVMField),
     ...publicInputs.unencryptedLogsHash.map(toACVMField),

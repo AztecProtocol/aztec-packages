@@ -3,6 +3,7 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CallContext,
+  CallRequest,
   CombinedAccumulatedData,
   CombinedConstantData,
   ContractDeploymentData,
@@ -40,6 +41,8 @@ import {
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
   RETURN_VALUES_LENGTH,
@@ -137,7 +140,8 @@ describe('Private kernel', () => {
 
     const privateCall = new PrivateCallData(
       callStackItem,
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => PrivateCallStackItem.empty()),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       MembershipWitness.empty(FUNCTION_TREE_HEIGHT, 0n),
@@ -192,8 +196,8 @@ describe('Private kernel', () => {
       newCommitments,
       newNullifiers,
       nullifiedCommitments,
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, () => Fr.ZERO),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => new Fr(0n)),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty()),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty()),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => new Fr(0n)),
       [Fr.fromString('0x57ee9bb1264085ecf4ba8274b233cdc4'), Fr.fromString('0x8a8910cc6b93b4399a1ebd8fbfb405f8')],
       [Fr.fromString('0x1c9ecec90e28d2461650418635878a5c'), Fr.fromString('0x91e49f47586ecf75f2b0cbb94e897112')],
@@ -311,7 +315,8 @@ describe('Private kernel', () => {
 
     const privateCall = new PrivateCallData(
       callStackItem,
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => PrivateCallStackItem.empty()),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => CallRequest.empty()),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       new MembershipWitness(FUNCTION_TREE_HEIGHT, 7n, [
@@ -343,8 +348,9 @@ describe('Private kernel', () => {
       Fr.ZERO,
     );
 
-    const privateCallStack = makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, () => Fr.ZERO);
-    privateCallStack[0] = Fr.fromString('0x036ce317b74895ab56dc5ed6943f14a73c570ae6cde751a588f4522052bb2b20');
+    const privateCallStack = makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty());
+    privateCallStack[0].hash = Fr.fromString('0x036ce317b74895ab56dc5ed6943f14a73c570ae6cde751a588f4522052bb2b20');
+    privateCallStack[0].callerContractAddress = callContext.msgSender;
 
     const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => Fr.ZERO);
     newCommitments[0] = Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315');
@@ -363,7 +369,7 @@ describe('Private kernel', () => {
       newNullifiers,
       nullifiedCommitments,
       privateCallStack,
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => new Fr(0n)),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty()),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => new Fr(0n)),
       [Fr.fromString('0xd3735899d9fa7162447ca631f0ba2cd5'), Fr.fromString('0xeb57d0965a756d78291da33072610eb2')],
       [Fr.fromString('0xd3735899d9fa7162447ca631f0ba2cd5'), Fr.fromString('0xeb57d0965a756d78291da33072610eb2')],
@@ -460,6 +466,26 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const fnLeafPreimage = new FunctionLeafPreimage(new FunctionSelector(27), false, true, new Fr(1), new Fr(2));
     const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
     expect(fnLeaf.toString()).toMatchSnapshot();
+  });
+
+  it('Public call stack item matches noir', () => {
+    const contractAddress = AztecAddress.fromBigInt(1n);
+    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    const appPublicInputs = PublicCircuitPublicInputs.empty();
+    appPublicInputs.newCommitments[0] = new Fr(1);
+
+    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, false);
+    expect(publicCallStackItem.hash().toString()).toMatchSnapshot();
+  });
+
+  it('Public call stack item request matches noir', () => {
+    const contractAddress = AztecAddress.fromBigInt(1n);
+    const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    const appPublicInputs = PublicCircuitPublicInputs.empty();
+    appPublicInputs.newCommitments[0] = new Fr(1);
+
+    const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, true);
+    expect(publicCallStackItem.hash().toString()).toMatchSnapshot();
   });
 });
 

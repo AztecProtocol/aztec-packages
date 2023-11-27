@@ -8,6 +8,7 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  CallRequest,
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
@@ -119,8 +120,12 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
+  public addCapsule(capsule: Fr[]) {
+    return this.db.addCapsule(capsule);
+  }
+
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
+    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
@@ -276,7 +281,9 @@ export class PXEService implements PXE {
     const commitments = tx.newCommitments;
     for (let i = 0; i < commitments.length; ++i) {
       const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) break;
+      if (commitment.equals(Fr.ZERO)) {
+        break;
+      }
 
       const nonce = computeCommitmentNonce(firstNullifier, i);
       const { siloedNoteHash, uniqueSiloedNoteHash } = await this.simulator.computeNoteHashAndNullifier(
@@ -321,7 +328,9 @@ export class PXEService implements PXE {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    if (simulatePublic) await this.#simulatePublicCalls(tx);
+    if (simulatePublic) {
+      await this.#simulatePublicCalls(tx);
+    }
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -347,13 +356,23 @@ export class PXEService implements PXE {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
+
+    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
+    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
+    // and we would incorrectly return a TxReceipt with status DROPPED
+    const pendingTx = await this.node.getPendingTxByHash(txHash);
+    if (pendingTx) {
+      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
+    }
+
     const settledTx = await this.node.getTx(txHash);
     if (settledTx) {
       const deployedContractAddress = settledTx.newContractData.find(
         c => !c.contractAddress.equals(AztecAddress.ZERO),
       )?.contractAddress;
 
-      return new TxReceipt(
+      txReceipt = new TxReceipt(
         txHash,
         TxStatus.MINED,
         '',
@@ -363,12 +382,7 @@ export class PXEService implements PXE {
       );
     }
 
-    const pendingTx = await this.node.getPendingTxByHash(txHash);
-    if (pendingTx) {
-      return new TxReceipt(txHash, TxStatus.PENDING, '');
-    }
-
-    return new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
+    return txReceipt;
   }
 
   public async getTx(txHash: TxHash): Promise<L2Tx | undefined> {
@@ -622,28 +636,27 @@ export class PXEService implements PXE {
     publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
-    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().hash();
-    const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
+    const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
     const { publicCallStack } = publicInputs.end;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
-    const areEqual = enqueuedPublicCallsHashes.reduce(
+    const areEqual = enqueuedPublicCallStackItems.reduce(
       (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
       true,
     );
 
     if (!areEqual) {
       throw new Error(
-        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallsHashes
-          .map(h => h.toString())
+        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallStackItems
+          .map(h => h.hash.toString())
           .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
       );
     }
 
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallsHashes,
-      Fr.ZERO,
+      enqueuedPublicCallStackItems,
+      CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

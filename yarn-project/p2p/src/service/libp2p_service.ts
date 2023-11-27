@@ -17,7 +17,7 @@ import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
 import { identifyService } from 'libp2p/identify';
 
 import { P2PConfig } from '../config.js';
-import { TxPool } from '../index.js';
+import { TxPool } from '../tx_pool/index.js';
 import { KnownTxLookup } from './known_txs.js';
 import { P2PService } from './service.js';
 import {
@@ -83,8 +83,12 @@ export class LibP2PService implements P2PService {
     }
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
     this.logger(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
-    if (announceHostname) this.logger(`Announcing at ${announceHostname}/tcp/${announcePort ?? tcpListenPort}`);
-    if (enableNat) this.logger(`Enabling NAT in libp2p module`);
+    if (announceHostname) {
+      this.logger(`Announcing at ${announceHostname}/tcp/${announcePort ?? tcpListenPort}`);
+    }
+    if (enableNat) {
+      this.logger(`Enabling NAT in libp2p module`);
+    }
 
     this.node.addEventListener('peer:discovery', evt => {
       const peerId = evt.detail.id;

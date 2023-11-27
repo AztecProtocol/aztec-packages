@@ -34,6 +34,7 @@ import {
   LogFilter,
   LogType,
   MerkleTreeId,
+  SequencerConfig,
   SiblingPath,
   Tx,
   TxHash,
@@ -104,7 +105,7 @@ export class AztecNodeService implements AztecNode {
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
-    // now create the merkle trees and the world state syncher
+    // now create the merkle trees and the world state synchronizer
     const db = await openDb(config);
     const merkleTrees = await MerkleTrees.new(db);
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
@@ -432,6 +433,11 @@ export class AztecNodeService implements AztecNode {
       throw failedTxs[0].error;
     }
     this.log.info(`Simulated tx ${await tx.getTxHash()} succeeds`);
+  }
+
+  public setConfig(config: Partial<SequencerConfig>): Promise<void> {
+    this.sequencer?.updateSequencerConfig(config);
+    return Promise.resolve();
   }
 
   /**

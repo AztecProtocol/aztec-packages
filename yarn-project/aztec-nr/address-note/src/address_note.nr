@@ -18,6 +18,7 @@ use dep::aztec::{
 
 global ADDRESS_NOTE_LEN: Field = 3;
 
+// docs:start:address_note_def
 // Stores an address
 struct AddressNote {
     address: Field,
@@ -36,6 +37,8 @@ impl AddressNote {
             header: NoteHeader::empty(),
         }
     }
+// docs:end:address_note_def
+
 
     pub fn serialize(self) -> [Field; ADDRESS_NOTE_LEN]{
         [self.address, self.owner, self.randomness]
@@ -89,7 +92,7 @@ fn deserialize(serialized_note: [Field; ADDRESS_NOTE_LEN]) -> AddressNote {
     AddressNote::deserialize(serialized_note)
 }
 
-fn serialize(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN]{
+fn serialize(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN] {
     note.serialize()
 }
 

@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace proof_system {
@@ -36,19 +37,20 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     using MSM = proof_system_eccvm::MSM<CycleGroup>;
     using VMOperation = proof_system_eccvm::VMOperation<CycleGroup>;
-    std::vector<VMOperation> vm_operations;
+    std::shared_ptr<ECCOpQueue> op_queue;
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
     using AllPolynomials = typename Flavor::AllPolynomials;
 
-    ECCVMCircuitBuilder() = default;
+    ECCVMCircuitBuilder()
+        : op_queue(std::make_shared<ECCOpQueue>()){};
 
-    ECCVMCircuitBuilder(std::vector<VMOperation> vm_operations)
-        : vm_operations(vm_operations){};
+    ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
+        : op_queue(op_queue){};
 
     [[nodiscard]] uint32_t get_number_of_muls() const
     {
         uint32_t num_muls = 0;
-        for (auto& op : vm_operations) {
+        for (auto& op : op_queue->raw_ops) {
             if (op.mul) {
                 if (op.z1 != 0) {
                     num_muls++;
@@ -144,7 +146,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             }
         };
 
-        for (auto& op : vm_operations) {
+        for (auto& op : op_queue->raw_ops) {
             if (op.mul) {
                 process_mul(op.z1, op.base_point);
                 process_mul(op.z2, AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y });
@@ -177,7 +179,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     void add_accumulate(const AffineElement& to_add)
     {
-        vm_operations.emplace_back(VMOperation{
+        op_queue->raw_ops.emplace_back(VMOperation{
             .add = true,
             .mul = false,
             .eq = false,
@@ -197,7 +199,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         CycleScalar::split_into_endomorphism_scalars(converted, z1, z2);
         z1 = z1.to_montgomery_form();
         z2 = z2.to_montgomery_form();
-        vm_operations.emplace_back(VMOperation{
+        op_queue->raw_ops.emplace_back(VMOperation{
             .add = false,
             .mul = true,
             .eq = false,
@@ -211,7 +213,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     void eq_and_reset(const AffineElement& expected)
     {
-        vm_operations.emplace_back(VMOperation{
+        op_queue->raw_ops.emplace_back(VMOperation{
             .add = false,
             .mul = false,
             .eq = true,
@@ -225,7 +227,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     void empty_row()
     {
-        vm_operations.emplace_back(VMOperation{
+        op_queue->raw_ops.emplace_back(VMOperation{
             .add = false,
             .mul = false,
             .eq = false,
@@ -253,8 +255,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
      multiplication?
      *          transcript_pc: point counter for transcript columns
      *          transcript_msm_count: counts number of muls processed in an ongoing multiscalar multiplication
-     *          transcript_x: input transcript point, x-coordinate
-     *          transcript_y: input transcriot point, y-coordinate
+     *          transcript_Px: input transcript point, x-coordinate
+     *          transcript_Py: input transcriot point, y-coordinate
      *          transcript_op: input transcript opcode value
      *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
      *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
@@ -322,7 +324,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
         std::array<std::vector<size_t>, 2> point_table_read_counts;
         const auto transcript_state =
-            ECCVMTranscriptBuilder<Flavor>::compute_transcript_state(vm_operations, get_number_of_muls());
+            ECCVMTranscriptBuilder<Flavor>::compute_transcript_state(op_queue->raw_ops, get_number_of_muls());
         const auto precompute_table_state =
             ECCVMPrecomputedTablesBuilder<Flavor>::compute_precompute_state(flattened_muls);
         const auto msm_state =
@@ -365,8 +367,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             polys.transcript_msm_transition[i] = transcript_state[i].msm_transition;
             polys.transcript_pc[i] = transcript_state[i].pc;
             polys.transcript_msm_count[i] = transcript_state[i].msm_count;
-            polys.transcript_x[i] = transcript_state[i].base_x;
-            polys.transcript_y[i] = transcript_state[i].base_y;
+            polys.transcript_Px[i] = transcript_state[i].base_x;
+            polys.transcript_Py[i] = transcript_state[i].base_y;
             polys.transcript_z1[i] = transcript_state[i].z1;
             polys.transcript_z2[i] = transcript_state[i].z2;
             polys.transcript_z1zero[i] = transcript_state[i].z1_zero;
@@ -568,14 +570,14 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
     [[nodiscard]] size_t get_num_gates() const
     {
-        // TODO(@zac-williamson) once we have a stable base to work off of, optimise this method!
+        // TODO(@zac-williamson) once we have a stable base to work off of, optimize this method!
         // (issue #2218)
         const auto msms = get_msms();
         const auto flattened_muls = get_flattened_scalar_muls(msms);
 
         std::array<std::vector<size_t>, 2> point_table_read_counts;
         const auto transcript_state =
-            ECCVMTranscriptBuilder<Flavor>::compute_transcript_state(vm_operations, get_number_of_muls());
+            ECCVMTranscriptBuilder<Flavor>::compute_transcript_state(op_queue->raw_ops, get_number_of_muls());
         const auto precompute_table_state =
             ECCVMPrecomputedTablesBuilder<Flavor>::compute_precompute_state(flattened_muls);
         const auto msm_state =

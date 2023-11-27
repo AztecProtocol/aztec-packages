@@ -59,7 +59,7 @@ export class Tx {
     }
 
     const kernelPublicCallStackSize =
-      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isZero());
+      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isEmpty());
     if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
       throw new Error(
         `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected
@@ -155,14 +155,16 @@ export class Tx {
   getTxHash(): Promise<TxHash> {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
     const firstNullifier = this.data?.end.newNullifiers[0];
-    if (!firstNullifier) throw new Error(`Cannot get tx hash since first nullifier is missing`);
+    if (!firstNullifier) {
+      throw new Error(`Cannot get tx hash since first nullifier is missing`);
+    }
     return Promise.resolve(new TxHash(firstNullifier.toBuffer()));
   }
 
   /** Returns stats about this tx. */
   getStats(): TxStats {
     return {
-      txHash: this.data!.end.newNullifiers[0].toString(true),
+      txHash: this.data!.end.newNullifiers[0].toString(),
       encryptedLogCount: this.encryptedLogs.getTotalLogCount(),
       unencryptedLogCount: this.unencryptedLogs.getTotalLogCount(),
       encryptedLogSize: this.encryptedLogs.getSerializedLength(),
