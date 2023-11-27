@@ -51,8 +51,9 @@ pub fn batch_insert(
             
             let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
             let is_next_greater_than = full_field_less_than(nullifier, low_nullifier_preimage.next_value);
+            assert(is_less_than_nullifier, "Invalid nullifier range");
             assert(
-                (is_less_than_nullifier & is_next_greater_than) | 
+                is_next_greater_than | 
                 ((low_nullifier_preimage.next_index == 0) & (low_nullifier_preimage.next_value == 0)), 
                 "Invalid nullifier range"
             );
