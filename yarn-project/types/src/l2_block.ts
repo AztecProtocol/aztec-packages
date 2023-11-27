@@ -54,6 +54,8 @@ export class L2Block {
    */
   public newUnencryptedLogs?: L2BlockL2Logs;
 
+  #l1BlockNumber?: bigint;
+
   constructor(
     /**
      * The number of the L2 block.
@@ -142,7 +144,7 @@ export class L2Block {
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
     private blockHash?: Buffer,
-    private l1BlockNumber?: bigint,
+    l1BlockNumber?: bigint,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
@@ -163,6 +165,8 @@ export class L2Block {
         this.numberOfTxs++;
       }
     }
+
+    this.#l1BlockNumber = l1BlockNumber;
   }
 
   /**
@@ -547,18 +551,18 @@ export class L2Block {
    * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
    */
   public setL1BlockNumber(l1BlockNumber: bigint) {
-    this.l1BlockNumber = l1BlockNumber;
+    this.#l1BlockNumber = l1BlockNumber;
   }
 
   /**
    * Gets the L1 block number that included this block
    */
   public getL1BlockNumber(): bigint {
-    if (typeof this.l1BlockNumber === 'undefined') {
+    if (typeof this.#l1BlockNumber === 'undefined') {
       throw new Error('L1 block number has to be attached before calling "getL1BlockNumber"');
     }
 
-    return this.l1BlockNumber;
+    return this.#l1BlockNumber;
   }
 
   /**
