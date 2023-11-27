@@ -9,7 +9,7 @@ concurrency:
 on:
   push:
     branches:
-      - ad/sync-noir
+      - master
     paths:
       - 'noir/**'
       - '!noir/.gitrepo'
