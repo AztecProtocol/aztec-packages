@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import {
   ContractData,
   ExtendedContractData,
@@ -41,6 +42,7 @@ type ContractIndexValue = [blockNumber: number, contractIndex: number];
 
 type BlockContext = {
   block?: Uint8Array;
+  l1BlockNumber?: Uint8Array;
   encryptedLogs?: Uint8Array;
   unencryptedLogs?: Uint8Array;
   extendedContractData?: Array<Uint8Array>;
@@ -104,6 +106,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       for (const block of blocks) {
         const blockCtx = this.#tables.blocks.get(block.number) ?? {};
         blockCtx.block = block.toBuffer();
+        blockCtx.l1BlockNumber = toBufferBE(block.getL1BlockNumber(), 32);
 
         // no need to await, all writes are enqueued in the transaction
         // awaiting would interrupt the execution flow of this callback and "leak" the transaction to some other part
@@ -547,6 +550,21 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     // inverse range with no start/end will return the last key
     const [lastBlockNumber] = this.#tables.blocks.getKeys({ reverse: true, limit: 1 }).asArray;
     return Promise.resolve(typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1);
+  }
+
+  getL1BlockNumber(): Promise<bigint> {
+    // inverse range with no start/end will return the last value
+    const [lastBlock] = this.#tables.blocks.getRange({ reverse: true, limit: 1 }).asArray;
+    if (!lastBlock) {
+      return Promise.resolve(0n);
+    } else {
+      const blockCtx = lastBlock.value;
+      if (!blockCtx.l1BlockNumber) {
+        return Promise.reject(new Error('L1 block number not found'));
+      } else {
+        return Promise.resolve(toBigIntBE(asBuffer(blockCtx.l1BlockNumber)));
+      }
+    }
   }
 
   #getBlock(blockNumber: number, withLogs = false): L2Block | undefined {

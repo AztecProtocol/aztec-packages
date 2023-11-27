@@ -148,4 +148,9 @@ export interface ArchiverDataStore {
    * @returns The number of the latest L2 block processed.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Gets the number of the latest L1 block processed.
+   */
+  getL1BlockNumber(): Promise<bigint>;
 }

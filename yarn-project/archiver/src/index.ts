@@ -32,7 +32,6 @@ async function main() {
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
     l1Contracts.contractDeploymentEmitterAddress,
-    0, // searchStartBlock
     archiverStore,
   );
 

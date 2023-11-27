@@ -35,7 +35,6 @@ describe('Archiver', () => {
       EthAddress.fromString(inboxAddress),
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
-      0,
       archiverStore,
       1000,
     );
@@ -139,7 +138,6 @@ describe('Archiver', () => {
       EthAddress.fromString(inboxAddress),
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
-      0,
       archiverStore,
       1000,
     );
@@ -217,7 +215,6 @@ describe('Archiver', () => {
       EthAddress.fromString(inboxAddress),
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
-      0,
       archiverStore,
       1000,
     );

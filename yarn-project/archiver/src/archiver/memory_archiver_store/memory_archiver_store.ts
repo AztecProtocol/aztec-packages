@@ -387,4 +387,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
+
+  public getL1BlockNumber(): Promise<bigint> {
+    if (this.l2BlockContexts.length === 0) {
+      return Promise.resolve(0n);
+    }
+    return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.getL1BlockNumber());
+  }
 }

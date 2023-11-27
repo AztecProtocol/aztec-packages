@@ -33,7 +33,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
     beforeEach(() => {
       store = getStore();
-      blocks = Array.from({ length: 10 }).map((_, i) => L2Block.random(i + 1));
+      blocks = Array.from({ length: 10 }).map((_, i) => {
+        const block = L2Block.random(i + 1);
+        block.setL1BlockNumber(BigInt(i + 1));
+        return block;
+      });
     });
 
     describe('addBlocks', () => {
@@ -77,6 +81,17 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it("returns the most recently added block's number", async () => {
         await store.addBlocks(blocks);
         await expect(store.getBlockNumber()).resolves.toEqual(blocks.at(-1)!.number);
+      });
+    });
+
+    describe('getL1BlockNumber', () => {
+      it('returns 0n if no blocks have been added', async () => {
+        await expect(store.getL1BlockNumber()).resolves.toEqual(0n);
+      });
+
+      it('returns the L1 block number in which the most recent L2 block was published', async () => {
+        await store.addBlocks(blocks);
+        await expect(store.getL1BlockNumber()).resolves.toEqual(blocks.at(-1)!.getL1BlockNumber());
       });
     });
 

@@ -67,7 +67,7 @@ export async function processBlockLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
-) {
+): Promise<L2Block[]> {
   const retrievedBlocks: L2Block[] = [];
   for (const log of logs) {
     const blockNum = log.args.blockNum;
@@ -76,6 +76,7 @@ export async function processBlockLogs(
     }
     // TODO: Fetch blocks from calldata in parallel
     const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNum);
+    newBlock.setL1BlockNumber(log.blockNumber!);
     retrievedBlocks.push(newBlock);
     expectedL2BlockNumber++;
   }
