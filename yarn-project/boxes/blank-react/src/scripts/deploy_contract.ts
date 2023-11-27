@@ -10,7 +10,9 @@ export async function deployContract(
   const tx = new DeployMethod(activeWallet.publicKey, pxe, contractArtifact, typedArgs).send({
     contractAddressSalt: salt,
   });
+  console.log('tx', tx);
   await tx.wait();
+  console.log('tx receipt', tx.getReceipt());
   const receipt = await tx.getReceipt();
   if (receipt.contractAddress) {
     return receipt.contractAddress;

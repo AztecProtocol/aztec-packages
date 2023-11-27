@@ -37,7 +37,6 @@
   "dependencies": {
     "@aztec/aztec-ui": "^0.1.14",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "serve": "^14.2.1"
   },
   "devDependencies": {
