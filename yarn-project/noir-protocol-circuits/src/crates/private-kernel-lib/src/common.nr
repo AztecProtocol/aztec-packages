@@ -356,7 +356,7 @@ pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
     assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
 
-pub fn validate_call_stack(private_call: PrivateCallData, request: CallRequest) {
+pub fn validate_call_against_request(private_call: PrivateCallData, request: CallRequest) {
     let call_stack_item = private_call.call_stack_item;
     assert(request.hash == call_stack_item.hash(), "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
 

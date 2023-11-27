@@ -270,7 +270,7 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
  * @param builder The circuit builder
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  */
- pub fn validate_call_stack(public_call: PublicCallData, request: CallRequest) {
+ pub fn validate_call_against_request(public_call: PublicCallData, request: CallRequest) {
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     let call_stack_item = public_call.call_stack_item;

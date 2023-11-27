@@ -18,7 +18,7 @@ struct PrivateKernelInputsInner {
 impl PrivateKernelInputsInner {
     fn pop_and_validate_this_private_call_hash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder){
         let call_request = public_inputs.end.private_call_stack.pop();
-        common::validate_call_stack(self.private_call, call_request);
+        common::validate_call_against_request(self.private_call, call_request);
     }
 
     fn validate_contract_tree_root(self) {
