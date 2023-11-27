@@ -29,16 +29,7 @@ type L1ToL2MessageAndCount = {
   confirmedCount: number;
 };
 
-enum IndexData {
-  TX = 0,
-  CONTRACT = 1,
-}
-
-type TxIndexKey = [prefix: IndexData.TX, txHash: Buffer];
-type TxIndexValue = [blockNumber: number, txIndex: number];
-
-type ContractIndexKey = [prefix: IndexData.CONTRACT, contractAddress: Buffer];
-type ContractIndexValue = [blockNumber: number, contractIndex: number];
+type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockContext = {
   block?: Uint8Array;
@@ -56,8 +47,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   #tables: {
     /** Where block information will be stored */
     blocks: Database<BlockContext, number>;
-    /** Data indexed to a block */
-    blockIndexedData: Database<TxIndexValue | ContractIndexValue, TxIndexKey | ContractIndexKey>;
+    /** Transactions index */
+    txIndex: Database<BlockIndexValue, Buffer>;
+    /** Contracts index */
+    contractIndex: Database<BlockIndexValue, Buffer>;
     /** L1 to L2 messages */
     l1ToL2Messages: Database<L1ToL2MessageAndCount, Buffer>;
     /** Pending L1 to L2 messages sorted by their fee, in buckets (dupSort=true)  */
@@ -72,8 +65,12 @@ export class LMDBArchiverStore implements ArchiverDataStore {
         keyEncoding: 'ordered-binary',
         encoding: 'msgpack',
       }),
-      blockIndexedData: db.openDB('block_index', {
-        keyEncoding: 'ordered-binary',
+      txIndex: db.openDB('tx_index', {
+        keyEncoding: 'binary',
+        encoding: 'msgpack',
+      }),
+      contractIndex: db.openDB('contract_index', {
+        keyEncoding: 'binary',
         encoding: 'msgpack',
       }),
       l1ToL2Messages: db.openDB('l1_to_l2_messages', {
@@ -117,7 +114,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
           if (tx.txHash.isZero()) {
             continue;
           }
-          void this.#tables.blockIndexedData.put([IndexData.TX, tx.txHash.buffer], [block.number, i]);
+          void this.#tables.txIndex.put(tx.txHash.buffer, [block.number, i]);
         }
 
         for (const [i, contractData] of block.newContractData.entries()) {
@@ -125,10 +122,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
             continue;
           }
 
-          void this.#tables.blockIndexedData.put(
-            [IndexData.CONTRACT, contractData.contractAddress.toBuffer()],
-            [block.number, i],
-          );
+          void this.#tables.contractIndex.put(contractData.contractAddress.toBuffer(), [block.number, i]);
         }
       }
 
@@ -173,7 +167,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 tx.
    */
   getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    const [blockNumber, txIndex] = this.#tables.blockIndexedData.get([IndexData.TX, txHash.buffer]) ?? [];
+    const [blockNumber, txIndex] = this.#tables.txIndex.get(txHash.buffer) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return Promise.resolve(undefined);
     }
@@ -372,7 +366,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.#tables.blockIndexedData.get([IndexData.TX, filter.txHash.buffer]) ?? [];
+    const [blockNumber, txIndex] = this.#tables.txIndex.get(filter.txHash.buffer) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
@@ -479,7 +473,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    const [blockNumber, _] = this.#tables.blockIndexedData.get([IndexData.CONTRACT, contractAddress.toBuffer()]) ?? [];
+    const [blockNumber, _] = this.#tables.contractIndex.get(contractAddress.toBuffer()) ?? [];
 
     if (typeof blockNumber !== 'number') {
       return Promise.resolve(undefined);
@@ -521,8 +515,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    const [blockNumber, index] =
-      this.#tables.blockIndexedData.get([IndexData.CONTRACT, contractAddress.toBuffer()]) ?? [];
+    const [blockNumber, index] = this.#tables.contractIndex.get(contractAddress.toBuffer()) ?? [];
     if (typeof blockNumber !== 'number' || typeof index !== 'number') {
       return Promise.resolve(undefined);
     }
