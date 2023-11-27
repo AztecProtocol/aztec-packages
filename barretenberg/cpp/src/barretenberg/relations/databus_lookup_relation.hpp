@@ -37,7 +37,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @return true
      * @return false
      */
-    template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
+    template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
         return (row.q_busread == 1 || row.calldata_read_counts > 0);
     }
@@ -49,7 +49,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @param in
      * @return auto&
      */
-    template <typename AllEntities> static auto& get_lookup_inverse_polynomial(AllEntities& in)
+    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
         return in.lookup_inverses;
     }
