@@ -180,20 +180,20 @@ contract InclusionProofs {
         let low_nullifier_leaf = witness.leaf_data.hash();
         assert(
             block_data.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
-            "Proving membership of a nullifier in nullifier tree failed"
+            "Proving membership of a low nullifier in the nullifier tree failed"
         );
 
         // 9.b) Prove that the low nullifier is smaller than the nullifier
         assert(
             witness.leaf_data.value as u120 < nullifier as u120,
-            "Proving that the nullifier is not included in the nullifier tree failed"
+            "Proving that the low nullifier is smaller than the nullifier failed"
         );
 
         // 9.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
             witness.leaf_data.next_value as u120 > nullifier as u120,
-            "Proving that the nullifier is not included in the nullifier tree failed"
+            "Proving that low_nullifier.next_value > nullifier failed"
         );
     }
 
