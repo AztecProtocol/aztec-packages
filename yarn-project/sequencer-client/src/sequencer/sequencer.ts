@@ -191,7 +191,9 @@ export class Sequencer {
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
       const l1ToL2Messages = await this.getPendingL1ToL2Messages();
-      this.log('Successfully retrieved L1 to L2 messages from contract');
+      this.log(
+        `Successfully retrieved L1 to L2 messages from contract ${l1ToL2Messages.map(m => m.toString()).join(', ')}`,
+      );
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
