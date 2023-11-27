@@ -949,6 +949,19 @@ jobs:
             should_deploy || exit 0
             deploy_ecr mainnet-fork
 
+  deploy-noir-push:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy noir push"
+          command: |
+            should_deploy || exit 0
+            deploy_ecr mainnet-fork
+
   deploy-npm:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1207,3 +1220,4 @@ workflows:
       - deploy-dockerhub: *defaults_deploy
       - deploy-npm: *defaults_deploy
       - deploy-mainnet-fork: *defaults_deploy
+      - deploy-noir-push: *defaults_deploy
