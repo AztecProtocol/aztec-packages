@@ -416,7 +416,7 @@ async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<
  * Executes the base rollup with the given inputs using the acvm.
  */
 async function executeBaseRollupWithACVM(input: BaseRollupInputType): Promise<BaseRollupReturnType> {
-  const initialWitnessMap = abiEncode(BaseRollupJson.abi, input, null);
+  const initialWitnessMap = abiEncode(BaseRollupJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
   //
@@ -434,7 +434,7 @@ async function executeBaseRollupWithACVM(input: BaseRollupInputType): Promise<Ba
   );
 
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(BaseRollupJson.abi, _witnessMap);
+  const decodedInputs: DecodedInputs = abiDecode(BaseRollupJson.abi as Abi, _witnessMap);
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as BaseRollupReturnType;
