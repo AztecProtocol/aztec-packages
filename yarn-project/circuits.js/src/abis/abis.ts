@@ -1,36 +1,38 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import {
-  AztecAddress,
+  FUNCTION_SELECTOR_NUM_BYTES,
+  FUNCTION_TREE_HEIGHT,
+  GeneratorIndex,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+} from '../constants.gen.js';
+import {
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FUNCTION_SELECTOR_NUM_BYTES,
-  FUNCTION_TREE_HEIGHT,
-  Fr,
   FunctionData,
   FunctionLeafPreimage,
-  GeneratorIndex,
   GlobalVariables,
   NewContractData,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
-  PublicKey,
   TxContext,
   TxRequest,
   VerificationKey,
-} from '../index.js';
+} from '../structs/index.js';
+import { PublicKey } from '../types/index.js';
 import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
@@ -491,21 +493,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
 }
 
 /**
- * Computes a call stack item hash.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
- */
-export function computeCallStackItemHash(callStackItem: PrivateCallStackItem | PublicCallStackItem): Fr {
-  if (callStackItem instanceof PrivateCallStackItem) {
-    return computePrivateCallStackItemHash(callStackItem);
-  } else if (callStackItem instanceof PublicCallStackItem) {
-    return computePublicCallStackItemHash(callStackItem);
-  } else {
-    throw new Error(`Unexpected call stack item type`);
-  }
-}
-
-/**
  *
  */
 function computeCallContextHash(input: CallContext) {
@@ -536,8 +523,8 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     ...input.newCommitments.map(fr => fr.toBuffer()),
     ...input.newNullifiers.map(fr => fr.toBuffer()),
     ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
-    ...input.privateCallStack.map(fr => fr.toBuffer()),
-    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
+    ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
@@ -605,7 +592,7 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.returnValues.map(fr => fr.toBuffer()),
     ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
     ...input.contractStorageReads.map(computeContractStorageReadsHash),
-    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newCommitments.map(fr => fr.toBuffer()),
     ...input.newNullifiers.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
