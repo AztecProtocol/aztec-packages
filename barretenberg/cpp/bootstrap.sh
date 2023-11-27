@@ -21,6 +21,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   OS=macos
 elif [[ "$OSTYPE" == "linux-gnu" ]]; then
   OS=linux
+elif [[ "$OSTYPE" == "linux-musl" ]]; then
+  OS=linux
 else
   echo "Unknown OS: $OSTYPE"
   exit 1
