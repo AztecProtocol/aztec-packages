@@ -10,6 +10,7 @@ import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
+import { LeafData } from './leaf_data.js';
 
 /**
  * Interface providing methods for retrieving information about content of the state trees.
