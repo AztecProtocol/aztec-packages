@@ -17,18 +17,20 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance
 }
 
 template <UltraFlavor Flavor>
-UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Instance> instance)
+UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Instance> instance,
+                                                           std::shared_ptr<Transcript> transcript)
 {
-    UltraProver_<Flavor> output_state(instance);
+    UltraProver_<Flavor> output_state(instance, transcript);
 
     return output_state;
 }
 
 template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<Instance> instance)
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<Instance> instance,
+                                                               std::shared_ptr<Transcript> transcript)
 {
     auto verification_key = instance->compute_verification_key();
-    UltraVerifier_<Flavor> output_state(verification_key);
+    UltraVerifier_<Flavor> output_state(transcript, verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 

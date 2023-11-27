@@ -12,7 +12,7 @@ class AvmMiniVerifier {
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
-
+    using Transcript = Flavor::Transcript;
   public:
     explicit AvmMiniVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
     AvmMiniVerifier(AvmMiniVerifier&& other) noexcept;
@@ -26,7 +26,7 @@ class AvmMiniVerifier {
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    BaseTranscript transcript;
+    std::shared_ptr<Transcript> transcript;
 };
 
 } // namespace proof_system::honk

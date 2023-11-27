@@ -529,7 +529,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            [[maybe_unused]] const BaseTranscript& transcript)
+                            [[maybe_unused]] const std::shared_ptr<BaseTranscript> transcript)
         {
             static_cast<void>(transcript);
             Base::lagrange_first = verification_key->lagrange_first;

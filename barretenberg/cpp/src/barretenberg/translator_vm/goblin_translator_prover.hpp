@@ -19,6 +19,7 @@ class GoblinTranslatorProver {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
+    using Transcript = BaseTranscript;
 
     static size_t constexpr MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
     static size_t constexpr FULL_CIRCUIT_SIZE = Flavor::FULL_CIRCUIT_SIZE;
@@ -26,6 +27,10 @@ class GoblinTranslatorProver {
   public:
     explicit GoblinTranslatorProver(std::shared_ptr<ProvingKey> input_key,
                                     std::shared_ptr<CommitmentKey> commitment_key);
+
+    explicit GoblinTranslatorProver(std::shared_ptr<ProvingKey> input_key,
+                                    std::shared_ptr<CommitmentKey> commitment_key,
+                                    std::shared_ptr<Transcript> transcript);
 
     void execute_preamble_round();
     void execute_wire_and_sorted_constraints_commitments_round();
@@ -35,7 +40,7 @@ class GoblinTranslatorProver {
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
-    BaseTranscript transcript;
+    std::shared_ptr<Transcript> transcript;
 
     proof_system::RelationParameters<FF> relation_parameters;
 
