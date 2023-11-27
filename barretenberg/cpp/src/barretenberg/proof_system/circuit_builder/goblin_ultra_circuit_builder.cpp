@@ -25,8 +25,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     // Most polynomials are handled via the conventional Ultra method
     UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
 
-    // All that remains is to handle databus related polynomials. In what follows we populate the calldata with some
-    // mock data then constuct a single calldata read gate
+    // All that remains is to handle databus related and poseidon2 related polynomials. In what follows we populate the
+    // calldata with some mock data then constuct a single calldata read gate
 
     // Populate the calldata with some data
     public_calldata.emplace_back(this->add_variable(FF(5)));
@@ -60,6 +60,50 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->q_lookup_type.emplace_back(0);
     this->q_elliptic.emplace_back(0);
     this->q_aux.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(0);
+    this->q_poseidon2_internal.emplace_back(0);
+
+    ++this->num_gates;
+
+    // mock gates that use poseidon selectors, with all zeros as input
+    this->w_l.emplace_back(this->zero_idx);
+    this->w_r.emplace_back(this->zero_idx);
+    this->w_o.emplace_back(this->zero_idx);
+    this->w_4.emplace_back(this->zero_idx);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(0);
+    this->q_2.emplace_back(0);
+    this->q_3.emplace_back(0);
+    this->q_c.emplace_back(0);
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(0);
+    this->q_sort.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    this->q_busread.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(1);
+    this->q_poseidon2_internal.emplace_back(1);
+
+    ++this->num_gates;
+
+    // second gate that stores the output of all zeros of the poseidon gates
+    this->w_l.emplace_back(this->zero_idx);
+    this->w_r.emplace_back(this->zero_idx);
+    this->w_o.emplace_back(this->zero_idx);
+    this->w_4.emplace_back(this->zero_idx);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(0);
+    this->q_2.emplace_back(0);
+    this->q_3.emplace_back(0);
+    this->q_c.emplace_back(0);
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(0);
+    this->q_sort.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    this->q_busread.emplace_back(0);
     this->q_poseidon2_external.emplace_back(0);
     this->q_poseidon2_internal.emplace_back(0);
 
