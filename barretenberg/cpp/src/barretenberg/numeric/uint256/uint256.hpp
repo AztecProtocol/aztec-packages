@@ -45,10 +45,11 @@ class alignas(32) uint256_t {
             if (!valid) {
                 throw_or_abort("Error, uint256 constructed from string_view with invalid hex parameter");
             }
-            uint8_t res = ((Input >= 'a') && (Input <= 'f'))   ? (Input - 87)
-                          : ((Input >= 'A') && (Input <= 'F')) ? (Input - 55)
-                          : ((Input >= '0') && (Input <= '9')) ? (Input - 48)
-                                                               : 0;
+            uint8_t res =
+                ((Input >= 'a') && (Input <= 'f'))   ? (Input - (static_cast<uint8_t>('a') - static_cast<uint8_t>(10)))
+                : ((Input >= 'A') && (Input <= 'F')) ? (Input - (static_cast<uint8_t>('A') - static_cast<uint8_t>(10)))
+                : ((Input >= '0') && (Input <= '9')) ? (Input - static_cast<uint8_t>('0'))
+                                                     : 0;
             return res;
         };
 

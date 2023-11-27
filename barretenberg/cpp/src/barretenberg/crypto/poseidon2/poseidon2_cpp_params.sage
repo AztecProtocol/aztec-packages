@@ -17,7 +17,7 @@ p = 2188824287183927522224640574525727508854836440041603434369820418657580849561
 n = len(p.bits()) # bit
 # t = 12 # GoldiLocks (t = 12 for sponge, t = 8 for compression)
 # t = 16 # BabyBear (t = 24 for sponge, t = 16 for compression)
-t = 4 # BN254/BN256, BLS12-381, Pallas, Vesta (t = 3 for sponge, t = 2 for compression)
+t = 4 # BN254/BN256, BLS12-381, Pallas, Vesta (t = 4 for sponge, t = 3 for compression)
 
 FIELD = 1
 SBOX = 0
