@@ -50,10 +50,11 @@ jobs:
           repository: noir-lang/noir
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       - name: Create PR for Aztec Branch
+        continue-on-error: true
         uses: repo-sync/pull-request@v2
         with:
           github_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           pr_title: 'feat: aztec-packages'
-          pr_body: 'Change this to a description of the body of changes.'
+          pr_body: 'Development from Aztec.'
           destination_branch: 'master'
           source_branch: 'aztec'
