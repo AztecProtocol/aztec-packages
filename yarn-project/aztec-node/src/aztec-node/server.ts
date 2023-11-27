@@ -35,7 +35,7 @@ import {
   L2Tx,
   LogFilter,
   LogType,
-  LowNullifierWitness,
+  LowNullifierMembershipWitness,
   MerkleTreeId,
   SequencerConfig,
   SiblingPath,
@@ -355,15 +355,18 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns a low nullifier witness for a given nullifier at a given block.
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find the low nullifier index for.
-   * @returns The low nullifier witness.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public async getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined> {
+  public async getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState();
     const { index } = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, index);
@@ -374,7 +377,7 @@ export class AztecNodeService implements AztecNode {
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
-    return new LowNullifierWitness(BigInt(index), leafData, siblingPath);
+    return new LowNullifierMembershipWitness(BigInt(index), leafData, siblingPath);
   }
 
   /**

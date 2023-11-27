@@ -10,7 +10,7 @@ import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
-import { LowNullifierWitness } from './low_nullifier_witness.js';
+import { LowNullifierMembershipWitness } from './low_nullifier_witness.js';
 
 /**
  * Interface providing methods for retrieving information about content of the state trees.
@@ -65,15 +65,18 @@ export interface StateInfoProvider {
   getHistoricBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>>;
 
   /**
-   * Returns a low nullifier witness for a given nullifier at a given block.
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find the low nullifier index for.
-   * @returns The low nullifier witness.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined>;
+  getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined>;
 
   /**
    * Get the a given block.

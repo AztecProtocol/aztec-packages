@@ -4,12 +4,12 @@ import { SiblingPath } from '../sibling_path.js';
 import { LeafData } from './leaf_data.js';
 
 /**
- * Low nullifier witness.
- * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
- * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
- * we are trying to prove non-inclusion for.
+ * Low nullifier membership witness.
+ * @remarks Low nullifier membership witness can be used to perform a nullifier non-inclusion proof by leveraging
+ * the "linked list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than
+ * the nullifier we are trying to prove non-inclusion for.
  */
-export class LowNullifierWitness {
+export class LowNullifierMembershipWitness {
   constructor(
     /**
      * The index of low nullifier.

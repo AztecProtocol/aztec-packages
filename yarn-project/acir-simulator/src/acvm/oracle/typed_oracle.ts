@@ -3,7 +3,14 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { CompleteAddress, LowNullifierWitness, MerkleTreeId, Note, PublicKey, UnencryptedL2Log } from '@aztec/types';
+import {
+  CompleteAddress,
+  LowNullifierMembershipWitness,
+  MerkleTreeId,
+  Note,
+  PublicKey,
+  UnencryptedL2Log,
+} from '@aztec/types';
 
 /**
  * Information about a note needed during execution.
@@ -80,7 +87,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getLowNullifierWitness(_blockNumber: number, _nullifier: Fr): Promise<LowNullifierWitness | undefined> {
+  getLowNullifierMembershipWitness(
+    _blockNumber: number,
+    _nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
     throw new Error('Not available.');
   }
 

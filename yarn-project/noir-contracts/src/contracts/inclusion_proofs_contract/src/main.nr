@@ -23,8 +23,8 @@ contract InclusionProofs {
                 get_membership_witness,
                 MembershipWitness,
             },
-            get_low_nullifier_witness::{
-                get_low_nullifier_witness,
+            get_low_nullifier_membership_witness::{
+                get_low_nullifier_membership_witness,
                 LowNullifierMembershipWitness,
             },
         },
@@ -172,7 +172,7 @@ contract InclusionProofs {
         let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
 
         // 8) Get the membership witness of a low nullifier of the nullifier
-        let witness = get_low_nullifier_witness(block_number, nullifier);
+        let witness = get_low_nullifier_membership_witness(block_number, nullifier);
 
         // 9) Prove that the nullifier is not included in the nullifier tree
 

@@ -3,7 +3,7 @@ import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress, LowNullifierWitness, MerkleTreeId } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, LowNullifierMembershipWitness, MerkleTreeId } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -52,16 +52,19 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Returns a low nullifier witness for a given nullifier at a given block.
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find the low nullifier index for.
-   * @returns The low nullifier witness.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public async getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined> {
-    return await this.db.getLowNullifierWitness(blockNumber, nullifier);
+  public async getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
+    return await this.db.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
