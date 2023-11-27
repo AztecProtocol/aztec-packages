@@ -1,3 +1,4 @@
+import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
@@ -67,6 +68,17 @@ export default (_, argv) => ({
       },
     }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: './src/assets',
+        },
+        {
+          from: './src/app/index.html',
+          to: 'index.html',
+        },
+      ],
+    }),
   ],
   resolve: {
     plugins: [new ResolveTypeScriptPlugin()],
