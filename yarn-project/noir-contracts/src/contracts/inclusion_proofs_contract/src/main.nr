@@ -186,7 +186,7 @@ contract InclusionProofs {
         // 9.b) Prove that the low nullifier is smaller than the nullifier
         assert(
             witness.leaf_data.value as u120 < nullifier as u120,
-            "Proving that the low nullifier is smaller than the nullifier failed"
+            "Proving that low_nullifier.value < nullifier failed"
         );
 
         // 9.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
