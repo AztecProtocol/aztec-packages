@@ -2,13 +2,15 @@
 title: Core Concepts
 ---
 
+import Image from '@theme/IdealImage';
+
 This page outlines Aztec concepts that are essential for developers to understand. Reading and understanding these concepts will help you massively when you start to dive deeper into smart contracts.
 
 A little bit of time here can save a lot down the road.
 
 # Aztec Overview
 
-TODO diagram
+<Image img={require('/img/aztec_high_level_network_architecture.png')} />
 
 To sum this up:
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs) or Aztec CLI
@@ -25,19 +27,16 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 * The PXE and the Public VM cannot directly communicate with each other
 * Private transactions in the PXE are executed first, followed by public transactions
 
-You can call a public transaction from a private transaction by using this:
+You can call a public function from a private function by using this:
 
-TODO include code
+#include_code call_public_function yarn-project/noir-contracts/src/contracts/card_game_contract/src/main.nr rust
 
-You cannot call a private transaction from a public transaction, but you can use an append-only merkle tree to save messages from a public function call. These can later be executed by a private function.
-
-TODO include code if we have anything
+You cannot call a private function from a public function, but you can use a
+slow updates tree to read and write to public state from a private function. 
 
 ### Data types
 
 Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an append-only UTXO tree, and a nullifier is created when notes are spent.
-
-TODO diagram maybe
 
 Public state works similarly to other chains like Ethereum, behaving more like a public ledger. 
 
@@ -56,11 +55,11 @@ Currently, when writing Aztec.nr smart contracts, you will need to define two th
 
 The storage struct looks like this:
 
-TODO include code
+#include_code storage_struct yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 The storage impl block looks like this:
 
-TODO include code
+#include_code storage_init yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
 
 The `init` function must declare the storage struct with an instantiation defining how variables are accessed and manipulated. Each variable must be given a storage slot, which can be anything except 0.
 
@@ -84,3 +83,8 @@ You can write your own account contract to define the rules by which user transa
 Aztec smart contracts are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. It is similar to Rust. Outside of Aztec, Noir is used for writing circuits that can be verified in Solidity.
 
 You do not need to understand Noir to write Aztec contracts. However, it may be useful to reference the [Noir docs](https://noir-lang.org) when you start writing more advanced contracts.
+
+Now you're ready to dive into coding:
+
+1. [Learn how to interact with a smart contract in Aztec.js](./aztecjs-getting-started.md)
+2. [Write your first Aztec smart contract](./aztecnr-getting-started.md)
