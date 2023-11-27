@@ -453,6 +453,12 @@ class GoblinTranslator {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
+        // Initialize members
+        AllEntities()
+            : PrecomputedEntities<DataType>{}
+            , WitnessEntities<DataType>{}
+            , ShiftedEntities<DataType>{}
+        {}
         // get_wires provided by WitnessEntities
 
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),

@@ -288,6 +288,12 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
+        // Initialize members
+        AllEntities()
+            : PrecomputedEntities<DataType>{}
+            , WitnessEntities<DataType>{}
+            , ShiftedEntities<DataType>{}
+        {}
         // get_wires is inherited
 
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),

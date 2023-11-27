@@ -13,19 +13,22 @@ def shorten_namespace(line):
     # Keep only the first and last parts for brevity, or the entire namespace if it's short
     return line
 def simplify_name(name):
+    if name is None:
+        return name
     return simplify_vector_type(shorten_namespace(name \
         .replace("barretenberg::field<barretenberg::Bn254FqParams>", "fq") \
         .replace("barretenberg::field<barretenberg::Bn254FrParams>", "fr") \
         .replace("barretenberg::group_elements::affine_element<fq, fr, barretenberg::Bn254G1Params>", "g1") \
         .replace("RefVector<g1_affine_element>", "g1[]")))
 
+RECURSE_LIMIT = 8
+
 def visit_objects(value, func, path=[]):
     """
     Traverses the object structure and applies the given function to each object.
     """
-    if func(value, path):
+    if func(value, path) or len(path) >= RECURSE_LIMIT:
         return
-    
     # Iterate over all child members of the object
     for i in range(value.GetNumChildren()):
         child = value.GetChildAtIndex(i)
@@ -69,9 +72,12 @@ def _visit_print_selected(value, path):
     fields = _get_fields(value)
     if len(fields) == len(highlighted_fields):
         if fields == highlighted_fields:
+            tabs = ''
             for part in path[:-1]:
-                print(simplify_name(part))
-            visit_objects(value, _visit_print_member)
+                print(tabs + simplify_name(part))
+                tabs += '  '
+
+            visit_objects(value, lambda x, subpath: _visit_print_member(x, path + ["", ""] + subpath))
             return True
 
 def print_members(debugger, command, result, internal_dict):
@@ -101,11 +107,21 @@ def set_highlight(debugger, command, result, internal_dict):
     """
     global highlighted_fields
     # Retrieve the target object
-    frame = debugger.GetSelectedTarget().GetProcess().GetSelectedThread().GetSelectedFrame()
+    thread = debugger.GetSelectedTarget().GetProcess().GetSelectedThread()
+    frame = thread.GetSelectedFrame()
     
     # Evaluate the command to get the object
     value = frame.EvaluateExpression(command)
     highlighted_fields = _get_fields(value)
+    # for other_frame in thread:
+    #     if other_frame.GetFrameID() <= frame.GetFrameID():
+    #         continue
+    #     if "HandleSehExceptionsInMethodIfSupported" in frame.GetFunctionName():
+    #         break
+    #     addr = str(frame.GetPCAddress()).split(" at ")[-1]
+    #     print(f"Frame #{other_frame.idx}: {simplify_name(other_frame.GetFunctionName())} at {addr}")
+    #     for var in other_frame.get_all_variables():
+    #         visit_objects(var, _visit_print_selected)
 
 def bbstack(debugger, command, result, internal_dict):
     thread = debugger.GetSelectedTarget().GetProcess().GetSelectedThread()
