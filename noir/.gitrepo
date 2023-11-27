@@ -6,7 +6,7 @@
 [subrepo]
 	remote = git@github.com:noir-lang/noir
 	branch = master
-	commit = a0eab0c8520d8cd4e033b1736f5b7ae830fc76da
+	commit = 2ca9b059317f0513ea21153ebdb468c4f6633de5
 	parent = 8f1cb832cd0adeff0da69da293bb45a3748583e7
 	method = merge
 	cmdver = 0.4.6
