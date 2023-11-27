@@ -1,0 +1,18 @@
+FROM ubuntu:lunar
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y \
+  build-essential \
+  curl \
+  git \
+  cmake \
+  lsb-release \
+  wget \
+  software-properties-common \
+  gnupg \
+  ninja-build \
+  npm
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN npm install -g yarn
+COPY . .
+RUN ./bootstrap.sh

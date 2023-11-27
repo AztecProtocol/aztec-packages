@@ -28,8 +28,8 @@ if [ -n "$CMD" ]; then
       rm -rf $SUBMODULE
     done
 
-    # Remove all untracked files, directories, and .gitignore files.
-    git clean -fdx
+    # Remove all untracked files, directories, nested repos, and .gitignore files.
+    git clean -ffdx
 
     exit 0
   else
@@ -38,10 +38,10 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-if [ ! -f ~/.nvm/nvm.sh ]; then
-  echo "Nvm not found at ~/.nvm"
-  exit 1
-fi
+# if [ ! -f ~/.nvm/nvm.sh ]; then
+#   echo "Nvm not found at ~/.nvm"
+#   exit 1
+# fi
 
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)

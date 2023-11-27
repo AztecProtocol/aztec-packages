@@ -8,7 +8,7 @@ CMD=${1:-}
 
 if [ -n "$CMD" ]; then
   if [ "$CMD" = "clean" ]; then
-    git clean -fdx
+    git clean -ffdx
     exit 0
   else
     echo "Unknown command: $CMD"
@@ -27,7 +27,7 @@ else
 fi
 
 # Download ignition transcripts.
-(cd ./srs_db && ./download_ignition.sh 3)
+(cd ./srs_db && ./download_ignition.sh 0)
 
 # Pick native toolchain file.
 ARCH=$(uname -m)
