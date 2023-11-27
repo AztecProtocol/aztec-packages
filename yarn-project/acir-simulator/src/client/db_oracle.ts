@@ -3,7 +3,7 @@ import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@azte
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block, LeafData, MerkleTreeId } from '@aztec/types';
+import { L2Block, LowNullifierWitness, MerkleTreeId } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
@@ -135,30 +135,15 @@ export interface DBOracle extends CommitmentsDB {
   getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
 
   /**
-   * Returns a previous index at a block for a given value in the nullifier tree.
+   * Returns a low nullifier witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier index for.
+   * @returns The low nullifier witness.
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
    */
-  getLowNullifierIndex(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }>;
-
-  /**
-   * Returns a leaf data at a block for a given index in the nullifier tree.
-   * @param blockNumber - The block number at which to get the index.
-   * @param index - The index of the leaf to get.
-   */
-  getNullifierLeafData(blockNumber: number, index: bigint): Promise<LeafData | undefined>;
+  getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined>;
 
   /**
    * Fetch a block corresponding to the given block number.

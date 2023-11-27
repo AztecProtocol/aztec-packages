@@ -30,13 +30,13 @@ struct LowNullifierMembershipWitness {
     path: [Field; NULLIFIER_TREE_HEIGHT],
 }
 
-#[oracle(getLowNullifierMembershipWitness)]
-fn get_low_nullifier_membership_witness_oracle(_block_number: Field, _nullifier: Field) -> [Field; LOW_NULLIFIER_MEMBERSHIP_WITNESS] {}
+#[oracle(getLowNullifierWitness)]
+fn get_low_nullifier_witness_oracle(_block_number: Field, _nullifier: Field) -> [Field; LOW_NULLIFIER_MEMBERSHIP_WITNESS] {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_low_nullifier_membership_witness(block_number: Field, nullifier: Field) -> LowNullifierMembershipWitness {
-    let fields = get_low_nullifier_membership_witness_oracle(block_number, nullifier);
+unconstrained pub fn get_low_nullifier_witness(block_number: Field, nullifier: Field) -> LowNullifierMembershipWitness {
+    let fields = get_low_nullifier_witness_oracle(block_number, nullifier);
     LowNullifierMembershipWitness {
         index: fields[0],
         leaf_data: LeafData {

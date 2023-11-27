@@ -3,7 +3,7 @@ import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, LowNullifierWitness, MerkleTreeId } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -52,28 +52,16 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches the index and sibling path for a leaf value
-   * @param blockNumber - The block number at which to get the membership witness.
-   * @param nullifier - The nullifier we try to find the low nullifier witness for (to prove non-inclusion).
-   * @returns The index and sibling path concatenated [index, sibling_path]
+   * Returns a low nullifier witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier index for.
+   * @returns The low nullifier witness.
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
    */
-  public async getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<Fr[]> {
-    const { index } = await this.db.getLowNullifierIndex(blockNumber, nullifier);
-    if (!index) {
-      throw new Error(`Low nullifier not found for nullifier ${nullifier}`);
-    }
-    const leafData = await this.db.getNullifierLeafData(blockNumber, index);
-    if (!leafData) {
-      throw new Error(`Leaf data not found for index ${index}`);
-    }
-    const siblingPath = await this.db.getSiblingPath(blockNumber, MerkleTreeId.NULLIFIER_TREE, index);
-    return [
-      new Fr(index),
-      new Fr(leafData.value),
-      new Fr(leafData.nextIndex),
-      new Fr(leafData.nextValue),
-      ...siblingPath,
-    ];
+  public async getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined> {
+    return await this.db.getLowNullifierWitness(blockNumber, nullifier);
   }
 
   /**

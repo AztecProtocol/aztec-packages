@@ -10,7 +10,7 @@ import {
   PublicKey,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, L2Block, LeafData, MerkleTreeId, StateInfoProvider } from '@aztec/types';
+import { KeyStore, L2Block, LowNullifierWitness, MerkleTreeId, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -156,34 +156,8 @@ export class SimulatorOracle implements DBOracle {
     }
   }
 
-  /**
-   * Returns a previous index at a block for a given value in the nullifier tree.
-   * @param blockNumber - The block number at which to get the index.
-   * @param nullifier - Nullifier we try to find the low nullifier index for.
-   */
-  public async getLowNullifierIndex(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }> {
-    
-  }
-
-  /**
-   * Returns a leaf data at a block for a given index in the nullifier tree.
-   * @param blockNumber - The block number at which to get the index.
-   * @param index - The index of the leaf to get.
-   */
-  getNullifierLeafData(blockNumber: number, index: bigint): Promise<LeafData | undefined> {
-    
+  public getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined> {
+    return this.stateInfoProvider.getLowNullifierWitness(blockNumber, nullifier);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {

@@ -23,8 +23,8 @@ contract InclusionProofs {
                 get_membership_witness,
                 MembershipWitness,
             },
-            get_low_nullifier_membership_witness::{
-                get_low_nullifier_membership_witness,
+            get_low_nullifier_witness::{
+                get_low_nullifier_witness,
                 LowNullifierMembershipWitness,
             },
         },
@@ -147,7 +147,7 @@ contract InclusionProofs {
 
         let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
 
-        let low_nullifier_membership_witness = get_low_nullifier_membership_witness(block_number, nullifier);
+        let low_nullifier_membership_witness = get_low_nullifier_witness(block_number, nullifier);
     }
 
     // Computes note hash and nullifier.
