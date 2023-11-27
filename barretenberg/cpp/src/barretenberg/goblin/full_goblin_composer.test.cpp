@@ -1,4 +1,5 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
@@ -8,13 +9,11 @@
 
 #include <gtest/gtest.h>
 
+#pragma GCC diagnostic ignored "-Wunused-variable"
+
 using namespace proof_system::honk;
 
 namespace test_full_goblin_composer {
-
-namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
 
 class FullGoblinComposerTests : public ::testing::Test {
   protected:
@@ -30,9 +29,15 @@ class FullGoblinComposerTests : public ::testing::Test {
     using Point = Curve::AffineElement;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using OpQueue = proof_system::ECCOpQueue;
+    using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
     using ECCVMFlavor = flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
     using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
+    using TranslatorFlavor = flavor::GoblinTranslator;
+    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
+    using TranslatorComposer = GoblinTranslatorComposer;
+    using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
+    using Proof = proof_system::plonk::proof;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
@@ -41,7 +46,7 @@ class FullGoblinComposerTests : public ::testing::Test {
      *
      * @param builder
      */
-    static void generate_test_circuit(proof_system::GoblinUltraCircuitBuilder& builder)
+    static void generate_test_circuit(GoblinUltraBuilder& builder, [[maybe_unused]] const Proof& previous_proof = {})
     {
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
@@ -104,36 +109,6 @@ class FullGoblinComposerTests : public ::testing::Test {
         // Store the commitment data for use by the prover of the next circuit
         op_queue->set_commitment_data(op_queue_commitments);
     }
-
-    /**
-     * @brief Construct and a verify a Honk proof
-     *
-     */
-    static bool construct_and_verify_honk_proof(GoblinUltraComposer& composer,
-                                                proof_system::GoblinUltraCircuitBuilder& builder)
-    {
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-
-        return verified;
-    }
-
-    /**
-     * @brief Construct and verify a Goblin ECC op queue merge proof
-     *
-     */
-    static bool construct_and_verify_merge_proof(GoblinUltraComposer& composer, std::shared_ptr<OpQueue>& op_queue)
-    {
-        auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
-        auto merge_proof = merge_prover.construct_proof();
-        bool verified = merge_verifier.verify_proof(merge_proof);
-
-        return verified;
-    }
 };
 
 /**
@@ -150,22 +125,31 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     // Add mock data to op queue to simulate interaction with a "first" circuit
     perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
+    proof_system::plonk::proof previous_proof;
+
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 3;
+    size_t NUM_CIRCUITS = 4;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         proof_system::GoblinUltraCircuitBuilder builder{ op_queue };
 
-        generate_test_circuit(builder);
+        generate_test_circuit(builder, previous_proof);
 
         // The same composer is used to manage Honk and Merge prover/verifier
         proof_system::honk::GoblinUltraComposer composer;
 
         // Construct and verify Ultra Goblin Honk proof
-        bool honk_verified = construct_and_verify_honk_proof(composer, builder);
+        auto instance = composer.create_instance(builder);
+        auto prover = composer.create_prover(instance);
+        auto verifier = composer.create_verifier(instance);
+        auto honk_proof = prover.construct_proof();
+        bool honk_verified = verifier.verify_proof(honk_proof);
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify op queue merge proof
-        bool merge_verified = construct_and_verify_merge_proof(composer, op_queue);
+        auto merge_prover = composer.create_merge_prover(op_queue);
+        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
+        auto merge_proof = merge_prover.construct_proof();
+        bool merge_verified = merge_verifier.verify_proof(merge_proof);
         EXPECT_TRUE(merge_verified);
     }
 
@@ -192,5 +176,28 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
     EXPECT_TRUE(accumulator_construction_verified && translation_verified);
 }
+
+TEST_F(FullGoblinComposerTests, Pseudo)
+{
+    barretenberg::Goblin goblin;
+
+    perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
+    const auto folding_verifier = [](GoblinUltraBuilder& builder) { generate_test_circuit(builder); };
+
+    // Construct a series of simple Goblin circuits; generate and verify their proofs
+    size_t NUM_CIRCUITS = 4;
+    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+        GoblinUltraBuilder circuit_builder{ goblin.op_queue };
+        folding_verifier(/* goblin. */ circuit_builder); // WORKTODO
+        goblin.accumulate(circuit_builder);              // merge prover done in here
+    }
+
+    auto vms_verified = goblin.prove();
+    bool verified = goblin.verified && vms_verified;
+    // bool verified = goblin.verify(proof)
+    EXPECT_TRUE(verified);
+}
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
 } // namespace test_full_goblin_composer
