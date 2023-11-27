@@ -209,35 +209,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             WireEntities<DataType>::print();
             DerivedWitnessEntities<DataType>::print();
         }
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return { this->transcript_mul,
-                     this->transcript_msm_count,
-                     this->transcript_accumulator_x,
-                     this->transcript_accumulator_y,
-                     this->precompute_scalar_sum,
-                     this->precompute_s1hi,
-                     this->precompute_dx,
-                     this->precompute_dy,
-                     this->precompute_tx,
-                     this->precompute_ty,
-                     this->msm_transition,
-                     this->msm_add,
-                     this->msm_double,
-                     this->msm_skew,
-                     this->msm_accumulator_x,
-                     this->msm_accumulator_y,
-                     this->msm_count,
-                     this->msm_round,
-                     this->msm_add1,
-                     this->msm_pc,
-                     this->precompute_pc,
-                     this->transcript_pc,
-                     this->precompute_round,
-                     this->transcript_accumulator_empty,
-                     this->precompute_select,
-                     this->z_perm };
-        }
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return {}; };
@@ -314,7 +285,35 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        // get_to_be_shifted is inherited
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { this->transcript_mul,
+                     this->transcript_msm_count,
+                     this->transcript_accumulator_x,
+                     this->transcript_accumulator_y,
+                     this->precompute_scalar_sum,
+                     this->precompute_s1hi,
+                     this->precompute_dx,
+                     this->precompute_dy,
+                     this->precompute_tx,
+                     this->precompute_ty,
+                     this->msm_transition,
+                     this->msm_add,
+                     this->msm_double,
+                     this->msm_skew,
+                     this->msm_accumulator_x,
+                     this->msm_accumulator_y,
+                     this->msm_count,
+                     this->msm_round,
+                     this->msm_add1,
+                     this->msm_pc,
+                     this->precompute_pc,
+                     this->transcript_pc,
+                     this->precompute_round,
+                     this->transcript_accumulator_empty,
+                     this->precompute_select,
+                     this->z_perm };
+        }
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 

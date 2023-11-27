@@ -139,7 +139,7 @@ class GoblinTranslator {
     template <typename DataType> class WireWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              op,
+                              op,                                           // column 0
                               x_lo_y_hi,                                    // column 1
                               x_hi_z_1,                                     // column 2
                               y_lo_z_2,                                     // column 3
@@ -256,8 +256,96 @@ class GoblinTranslator {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return concatenate(WireWitnessEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all());
-        }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/790) Further duplication reduction
+            return {
+                this->x_lo_y_hi,
+                this->x_hi_z_1,
+                this->y_lo_z_2,
+                this->p_x_low_limbs,
+                this->p_x_low_limbs_range_constraint_0,
+                this->p_x_low_limbs_range_constraint_1,
+                this->p_x_low_limbs_range_constraint_2,
+                this->p_x_low_limbs_range_constraint_3,
+                this->p_x_low_limbs_range_constraint_4,
+                this->p_x_low_limbs_range_constraint_tail,
+                this->p_x_high_limbs,
+                this->p_x_high_limbs_range_constraint_0,
+                this->p_x_high_limbs_range_constraint_1,
+                this->p_x_high_limbs_range_constraint_2,
+                this->p_x_high_limbs_range_constraint_3,
+                this->p_x_high_limbs_range_constraint_4,
+                this->p_x_high_limbs_range_constraint_tail,
+                this->p_y_low_limbs,
+                this->p_y_low_limbs_range_constraint_0,
+                this->p_y_low_limbs_range_constraint_1,
+                this->p_y_low_limbs_range_constraint_2,
+                this->p_y_low_limbs_range_constraint_3,
+                this->p_y_low_limbs_range_constraint_4,
+                this->p_y_low_limbs_range_constraint_tail,
+                this->p_y_high_limbs,
+                this->p_y_high_limbs_range_constraint_0,
+                this->p_y_high_limbs_range_constraint_1,
+                this->p_y_high_limbs_range_constraint_2,
+                this->p_y_high_limbs_range_constraint_3,
+                this->p_y_high_limbs_range_constraint_4,
+                this->p_y_high_limbs_range_constraint_tail,
+                this->z_low_limbs,
+                this->z_low_limbs_range_constraint_0,
+                this->z_low_limbs_range_constraint_1,
+                this->z_low_limbs_range_constraint_2,
+                this->z_low_limbs_range_constraint_3,
+                this->z_low_limbs_range_constraint_4,
+                this->z_low_limbs_range_constraint_tail,
+                this->z_high_limbs,
+                this->z_high_limbs_range_constraint_0,
+                this->z_high_limbs_range_constraint_1,
+                this->z_high_limbs_range_constraint_2,
+                this->z_high_limbs_range_constraint_3,
+                this->z_high_limbs_range_constraint_4,
+                this->z_high_limbs_range_constraint_tail,
+                this->accumulators_binary_limbs_0,
+                this->accumulators_binary_limbs_1,
+                this->accumulators_binary_limbs_2,
+                this->accumulators_binary_limbs_3,
+                this->accumulator_low_limbs_range_constraint_0,
+                this->accumulator_low_limbs_range_constraint_1,
+                this->accumulator_low_limbs_range_constraint_2,
+                this->accumulator_low_limbs_range_constraint_3,
+                this->accumulator_low_limbs_range_constraint_4,
+                this->accumulator_low_limbs_range_constraint_tail,
+                this->accumulator_high_limbs_range_constraint_0,
+                this->accumulator_high_limbs_range_constraint_1,
+                this->accumulator_high_limbs_range_constraint_2,
+                this->accumulator_high_limbs_range_constraint_3,
+                this->accumulator_high_limbs_range_constraint_4,
+                this->accumulator_high_limbs_range_constraint_tail,
+                this->quotient_low_binary_limbs,
+                this->quotient_high_binary_limbs,
+                this->quotient_low_limbs_range_constraint_0,
+                this->quotient_low_limbs_range_constraint_1,
+                this->quotient_low_limbs_range_constraint_2,
+                this->quotient_low_limbs_range_constraint_3,
+                this->quotient_low_limbs_range_constraint_4,
+                this->quotient_low_limbs_range_constraint_tail,
+                this->quotient_high_limbs_range_constraint_0,
+                this->quotient_high_limbs_range_constraint_1,
+                this->quotient_high_limbs_range_constraint_2,
+                this->quotient_high_limbs_range_constraint_3,
+                this->quotient_high_limbs_range_constraint_4,
+                this->quotient_high_limbs_range_constraint_tail,
+                this->relation_wide_limbs,
+                this->relation_wide_limbs_range_constraint_0,
+                this->relation_wide_limbs_range_constraint_1,
+                this->relation_wide_limbs_range_constraint_2,
+                this->relation_wide_limbs_range_constraint_3,
+                this->ordered_range_constraints_0,
+                this->ordered_range_constraints_1,
+                this->ordered_range_constraints_2,
+                this->ordered_range_constraints_3,
+                this->ordered_range_constraints_4,
+                this->z_perm,
+            };
+        };
 
         /**
          * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
@@ -581,9 +669,7 @@ class GoblinTranslator {
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_all());
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
         // get_to_be_shifted is inherited
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
