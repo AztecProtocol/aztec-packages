@@ -6,7 +6,7 @@ name: Mirror to noir repo
 on:
   push:
     branches:
-      - master
+      - ad/sync-noir
     paths:
       - 'noir/**'
       - '!noir/.gitrepo'
