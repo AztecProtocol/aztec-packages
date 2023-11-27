@@ -1,10 +1,12 @@
+import Image from '@theme/IdealImage';
+
 # Writing a private voting smart contract in Aztec.nr
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, and state management.
 
 We will build this:
 
-TODO Image
+<Image img={require('/img/tutorials/voting_flow.png')} />
 
 * The contract will be initiated with an admin, stored publicly
 * A voter can vote privately, which will call a public function and update the votes publically. This keeps who they are, what they have voted for, and whether or not they have voted private - but the vote itself public
@@ -242,8 +244,8 @@ You can follow this pattern to test `end_vote()` and access control of other fun
 
 ## Next steps
 
-Now you have learned the foundations of Aztec smart contracts, you can start to play around with some more advanced features.
+Now you have learned the foundations of Aztec smart contracts, you can start to play around with some more advanced features. Some ideas:
 
-1. Add some more features into this contract, like the admin can distribute votes, people can delegate their votes, or vote Ids can have names
-2. Create a frontend for this contract using [Aztec.js](../aztecjs/main.md).
-3. Go to the [next tutorial](writing_token_contract.md) and learn how to write a token contract
+* Add some more features into this contract, like the admin can distribute votes, people can delegate their votes, or voteIds can have more data like names, descriptions, etc
+* Create a frontend for this contract using [Aztec.js](../aztecjs/main.md).
+* Go to the [next tutorial](writing_token_contract.md) and learn how to write a token contract

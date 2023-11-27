@@ -1,4 +1,4 @@
-contract Voting {
+contract EasyPrivateVoting {
     // docs:start:imports
     use dep::aztec::{
 	context::{PrivateContext, Context},
@@ -69,7 +69,7 @@ contract Voting {
     // docs:end:initialize
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as public and expose private context
-    fn cast_vote(vote: Field) {
+    fn cast_vote(voteId: Field) {
      // docs:end:cast_vote
      // docs:start:nullifier
         let secret = get_secret_key(context.msg_sender()); // get secret key of caller of function
@@ -80,20 +80,20 @@ contract Voting {
         context.call_public_function(
             context.this_address(), 
             compute_selector("add_to_tally_public(Field)"), 
-            [vote]);
+            [voteId]);
     }
     // docs:end:call_add_to_tally_public
 
     // docs:start:add_to_tally_public
     #[aztec(public)]
-    internal fn add_to_tally_public(vote: Field) {
+    internal fn add_to_tally_public(voteId: Field) {
     // docs:end:add_to_tally_public
     // docs:start:assert_vote_not_ended
         assert(storage.voteEnded.read() == false, "Vote has ended"); // assert that vote has not ended
     // docs:end:assert_vote_not_ended
     // docs:start:add_vote_to_tally
-        let new_tally = storage.tally.at(vote).read() + 1;
-        storage.tally.at(vote).write(new_tally);
+        let new_tally = storage.tally.at(voteId).read() + 1;
+        storage.tally.at(voteId).write(new_tally);
     }
     // docs:end:add_vote_to_tally
 
@@ -105,8 +105,8 @@ contract Voting {
     }
     // docs:end:end_vote
     // docs:start:get_vote
-    unconstrained fn get_vote(vote: Field) -> Field {
-        storage.tally.at(vote).read()
+    unconstrained fn get_vote(voteId: Field) -> Field {
+        storage.tally.at(voteId).read()
     }
     // docs:end:get_vote
     // docs:start:compute_note_hash_and_nullifier
