@@ -49,5 +49,12 @@ describe('e2e_inclusion_proofs_contract', () => {
       const blockNumber = await pxe.getBlockNumber();
       await contract.methods.proveNoteInclusion(accounts[0].address, blockNumber).send().wait();
     }
+
+    {
+      // Prove that the note has not been nullified
+      // We prove the note existence at current block number because we don't currently have historical data
+      const blockNumber = await pxe.getBlockNumber();
+      await contract.methods.proveNullifierNonInclusion(accounts[0].address, blockNumber).send().wait();
+    }
   });
 });

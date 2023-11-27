@@ -139,15 +139,62 @@ contract InclusionProofs {
         // TODO: assert that block number is less than the block number of context.block_data
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+
+        // 1) Get blocks tree root from context
+        let blocks_tree_root = context.block_data.blocks_tree_root;
+
+        // 2) Get historic block data from oracle
+        let block_data = get_block_data(block_number);
+
+        // 3) Compute block hash from the historic block data obtained in 1)
+        let block_hash = block_data.block_hash();
+
+        // 4) Get the membership witness of a block in the blocks tree
+        let blocks_tree_id = 5;
+        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
+            get_membership_witness(block_number, blocks_tree_id, block_hash);
+
+        // 5) Prove that the block hash is in the blocks tree
+        // In our test case this should be tree root at the latest block and should correspond to the membership
+        // witness we obtain from oracle
+        assert(
+            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
+            "Proving membership of a block in blocks tree failed"
+        );
         
+        // 6) Get the note/preimage from PXE
         let balances = storage.balances.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
         let note = notes[0].unwrap();
 
+        // 7) Compute the nullifier from the note
         let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
 
-        let low_nullifier_membership_witness = get_low_nullifier_witness(block_number, nullifier);
+        // 8) Get the membership witness of a low nullifier of the nullifier
+        let witness = get_low_nullifier_witness(block_number, nullifier);
+
+        // 9) Prove that the nullifier is not included in the nullifier tree
+
+        // 9.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
+        let low_nullifier_leaf = witness.leaf_data.hash();
+        assert(
+            block_data.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
+            "Proving membership of a nullifier in nullifier tree failed"
+        );
+
+        // 9.b) Prove that the low nullifier is smaller than the nullifier
+        assert(
+            witness.leaf_data.value as u120 < nullifier as u120,
+            "Proving that the nullifier is not included in the nullifier tree failed"
+        );
+
+        // 9.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
+        // included in the nullifier tree
+        assert(
+            witness.leaf_data.next_value as u120 > nullifier as u120,
+            "Proving that the nullifier is not included in the nullifier tree failed"
+        );
     }
 
     // Computes note hash and nullifier.
