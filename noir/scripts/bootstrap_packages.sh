@@ -17,6 +17,8 @@ export cargoExtraArgs="--features noirc_frontend/aztec"
 yarn
 yarn build
 
+# We create a folder called packages, that contains each package as it would be published to npm, named correctly.
+# These can be useful for testing, or portaling into other projects.
 yarn workspaces foreach pack
 
 rm -rf packages && mkdir -p packages

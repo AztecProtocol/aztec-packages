@@ -16,7 +16,7 @@ if [ -n "$CMD" ]; then
 fi
 
 # Clean
-git clean -fdx
+rm -rf broadcast cache out serve
 
 # Install foundry.
 . ./scripts/install_foundry.sh
