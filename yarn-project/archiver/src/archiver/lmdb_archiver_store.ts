@@ -65,7 +65,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   constructor(db: RootDatabase, logsMaxPageSize: number = 1000) {
     this.#tables = {
       blocks: db.openDB('blocks', {
-        keyEncoding: 'ordered-binary',
+        keyEncoding: 'uint32',
         encoding: 'msgpack',
       }),
       txIndex: db.openDB('tx_index', {
