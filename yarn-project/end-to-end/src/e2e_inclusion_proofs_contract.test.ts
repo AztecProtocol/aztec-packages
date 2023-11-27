@@ -19,11 +19,12 @@ describe('e2e_inclusion_proofs_contract', () => {
   let accounts: CompleteAddress[];
 
   let contract: InclusionProofsContract;
+  const publicValue = 236n;
 
   beforeAll(async () => {
     ({ pxe, teardown, wallets, accounts } = await setup(1));
 
-    contract = await InclusionProofsContract.deploy(wallets[0]).send().deployed();
+    contract = await InclusionProofsContract.deploy(wallets[0], publicValue).send().deployed();
   }, 100_000);
 
   afterAll(() => teardown());

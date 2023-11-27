@@ -87,6 +87,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _index: Fr): Promise<Fr[]> {
+    throw new Error('Not available.');
+  }
+
   getLowNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,

@@ -7,8 +7,13 @@ contract InclusionProofs {
         state_vars::{
             map::Map,
             set::Set,
+            public_state::PublicState,
         },
-        types::address::AztecAddress,
+        selector::compute_selector,
+        types::{
+            address::AztecAddress,
+            type_serialization::field_serialization::FieldSerializationMethods,
+        },
         context::Context,
         note::{
             note_getter_options::NoteGetterOptions,
@@ -18,6 +23,8 @@ contract InclusionProofs {
         constants_gen::{
             NOTE_HASH_TREE_HEIGHT,
             HISTORIC_BLOCKS_TREE_HEIGHT,
+            PUBLIC_DATA_TREE_HEIGHT,
+            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         },
         oracle::{
             get_block_data::get_block_data,
@@ -25,11 +32,13 @@ contract InclusionProofs {
                 get_membership_witness,
                 MembershipWitness,
             },
+            get_sibling_path::get_sibling_path,
             get_low_nullifier_membership_witness::{
                 get_low_nullifier_membership_witness,
                 LowNullifierMembershipWitness,
             },
         },
+        hash::pedersen_hash,
         // oracle::debug_log::debug_log_format,
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
@@ -41,6 +50,7 @@ contract InclusionProofs {
 
     struct Storage {
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        public_value: PublicState<Field, 1>,
     }
 
     impl Storage {
@@ -53,12 +63,25 @@ contract InclusionProofs {
                         Set::new(context, slot, ValueNoteMethods)
                     },
                 ),
+                public_value: PublicState::new(
+                    context,
+                    2, // Storage slot
+                    FieldSerializationMethods,
+                ),
             }
         }
     }
 
     #[aztec(private)]
-    fn constructor() {}
+    fn constructor(public_value: Field) {
+        let selector = compute_selector("_initialize((Field))");
+        context.call_public_function(context.this_address(), selector, [public_value]);
+    }
+
+    #[aztec(public)]
+    internal fn _initialize(value: Field) {
+        storage.public_value.write(value);
+    }
 
     // Mints `amount` of LP tokens to `owner`.
     #[aztec(private)]
@@ -201,6 +224,58 @@ contract InclusionProofs {
         assert(
             full_field_greater_than(witness.leaf_data.next_value, nullifier),
             "Proving that low_nullifier.next_value > nullifier failed"
+        );
+    }
+
+    #[aztec(private)]
+    fn provePublicValueInclusion(
+        public_value: Field,
+        block_number: Field, // The block at which we'll prove that the public value exists
+    ) {
+        // TODO: assert that block number is less than the block number of context.block_data
+        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        //     or modifying the private context so that we somehow expose it.
+
+        // 1) 
+        let blocks_tree_root = context.block_data.blocks_tree_root;
+
+        // 2)
+        let block_data = get_block_data(block_number);
+
+        // 3)
+        let block_hash = block_data.block_hash();
+
+        // 4)
+        let blocks_tree_id = 5;
+        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
+            get_membership_witness(block_number, blocks_tree_id, block_hash);
+
+        // 5)
+        // In our test case this should be tree root at the latest block and should correspond to the membership
+        // witness we obtain from oracle
+        assert(
+            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
+            "Proving membership of a block in blocks tree failed"
+        );
+
+        // 6)
+        // We have to compute the leaf index here because unlike in the case of note commitments, public values are
+        // siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
+        // value in the public data tree.
+        let public_value_leaf_index = pedersen_hash(
+            [context.this_address(), storage.public_value.storage_slot],
+            GENERATOR_INDEX__PUBLIC_LEAF_INDEX
+        );
+
+        // 7)
+        let public_data_tree_id = 3;
+        let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
+            get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
+
+        // 8)
+        assert(
+            block_data.note_hash_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
+            "Proving membership of a value in public data tree failed"
         );
     }
 

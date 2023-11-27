@@ -52,6 +52,17 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
+   * Fetches the sibling path for at a given index, block from and tree.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - The tree id
+   * @param index - Index of the leaf to get sibling path for
+   * @returns The index and sibling path concatenated [index, sibling_path]
+   */
+  public getSiblingPath(blockNumber: number, treeId: MerkleTreeId, index: Fr): Promise<Fr[]> {
+    return this.db.getSiblingPath(blockNumber, treeId, index.toBigInt());
+  }
+
+  /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.

@@ -64,6 +64,15 @@ export class Oracle {
     return witness.map(toACVMField);
   }
 
+  async getSiblingPath([blockNumber]: ACVMField[], [treeId]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
+    const parsedTreeId = frToNumber(fromACVMField(treeId));
+    const parsedIndex = fromACVMField(index);
+
+    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedIndex);
+    return path.map(toACVMField);
+  }
+
   async getLowNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
