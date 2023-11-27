@@ -1,3 +1,5 @@
+mod utils;
+
 // A demonstration of inclusion proofs.
 contract InclusionProofs {
     use dep::std::merkle::compute_merkle_root;
@@ -31,6 +33,11 @@ contract InclusionProofs {
         // oracle::debug_log::debug_log_format,
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
+
+    use crate::utils::{
+        full_field_less_than,
+        full_field_greater_than,
+    };
 
     struct Storage {
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
@@ -185,14 +192,14 @@ contract InclusionProofs {
 
         // 9.b) Prove that the low nullifier is smaller than the nullifier
         assert(
-            witness.leaf_data.value as u120 < nullifier as u120,
+            full_field_less_than(witness.leaf_data.value, nullifier),
             "Proving that low_nullifier.value < nullifier failed"
         );
 
         // 9.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
-            witness.leaf_data.next_value as u120 > nullifier as u120,
+            full_field_greater_than(witness.leaf_data.next_value, nullifier),
             "Proving that low_nullifier.next_value > nullifier failed"
         );
     }
