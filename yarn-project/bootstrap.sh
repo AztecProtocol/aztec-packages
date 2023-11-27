@@ -33,8 +33,7 @@ for package in "@aztec/foundation" "@aztec/noir-compiler"; do
   yarn workspace $package build
 done
 
-# Run remake bindings before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
-yarn workspace @aztec/circuits.js remake-bindings
+# Run remake constants before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
 yarn workspace @aztec/circuits.js remake-constants
 yarn workspace @aztec/noir-protocol-circuits noir:build
 
