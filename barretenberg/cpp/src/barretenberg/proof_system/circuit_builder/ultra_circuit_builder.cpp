@@ -1665,8 +1665,8 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
             c.b[j] = this->real_variable_index[c.b[j]];
         }
     }
-    std::sort(cached_partial_non_native_field_multiplications.begin(),
-              cached_partial_non_native_field_multiplications.end());
+    std::stable_sort(cached_partial_non_native_field_multiplications.begin(),
+                     cached_partial_non_native_field_multiplications.end());
 
     auto last = std::unique(cached_partial_non_native_field_multiplications.begin(),
                             cached_partial_non_native_field_multiplications.end());

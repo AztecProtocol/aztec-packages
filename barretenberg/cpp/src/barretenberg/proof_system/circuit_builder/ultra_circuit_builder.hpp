@@ -217,25 +217,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             if (b < other.b) {
                 return true;
             }
-            if (other.b < b) {
-                return false;
-            }
-
-            if (uint256_t(lo_0) < uint256_t(other.lo_0)) {
-                return true;
-            }
-            if (uint256_t(other.lo_0) < uint256_t(lo_0)) {
-                return false;
-            }
-
-            if (uint256_t(hi_0) < uint256_t(other.hi_0)) {
-                return true;
-            }
-            if (uint256_t(other.hi_0) < uint256_t(hi_0)) {
-                return false;
-            }
-
-            return uint256_t(hi_1) < uint256_t(other.hi_1);
+            return other.b < b;
         }
     };
 
