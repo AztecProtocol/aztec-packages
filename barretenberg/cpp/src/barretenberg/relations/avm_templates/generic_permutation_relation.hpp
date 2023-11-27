@@ -27,6 +27,7 @@ template <typename FF_> class GenericPermutationRelationImpl {
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
     {
+        // WIRE/SELECTOR enabling the permutation
         return (row.enable_set_permutation == 1);
     }
 
@@ -76,9 +77,14 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto& permutation_set_1 = View(in.permutation_set_column_1);
+        const auto write_term_entities =
+            std::forward_as_tuple(View(in.permutation_set_column_1), View(in.permutation_set_column_2));
+        auto result = Accumulator(0);
+        constexpr size_t tuple_size = std::tuple_size_v<decltype(write_term_entities)>;
+        barretenberg::constexpr_for<0, tuple_size, 1>(
+            [&]<size_t i>() { result = result * params.beta + std::get<i>(write_term_entities); });
         const auto& gamma = params.gamma;
-        return permutation_set_1 + gamma;
+        return result + gamma;
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
@@ -88,9 +94,15 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         // read term:
         static_assert(read_index < READ_TERMS);
-        const auto& permutation_set_2 = View(in.permutation_set_column_2);
+        const auto read_term_entitites =
+            std::forward_as_tuple(View(in.permutation_set_column_3), View(in.permutation_set_column_4));
+        auto result = Accumulator(0);
+        constexpr size_t tuple_size = std::tuple_size_v<decltype(read_term_entitites)>;
+        barretenberg::constexpr_for<0, tuple_size, 1>(
+            [&]<size_t i>() { result = result * params.beta + std::get<i>(read_term_entitites); });
+
         const auto& gamma = params.gamma;
-        return permutation_set_2 + gamma;
+        return result + gamma;
     }
 
     /**

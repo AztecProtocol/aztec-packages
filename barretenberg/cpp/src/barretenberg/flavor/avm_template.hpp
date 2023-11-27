@@ -33,17 +33,17 @@ class AVMTemplate {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = 2;
+    static constexpr size_t NUM_WIRES = 4;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 5;
+    static constexpr size_t NUM_ALL_ENTITIES = 7;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 5;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<sumcheck::GenericPermutationRelation<FF>>;
@@ -88,12 +88,24 @@ class AVMTemplate {
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType column_0;             // column 0
-        DataType column_1;             // column 1
-        DataType permutation_inverses; // column 2
+        DataType permutation_set_column_1; // column 0
+        DataType permutation_set_column_2; // column 1
+        DataType permutation_set_column_3; // column 1
+        DataType permutation_set_column_4; // column 1
+        DataType permutation_inverses;     // column 2
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES, &column_0, &column_1, &permutation_inverses)
-        std::vector<HandleType> get_wires() override { return { column_0, column_1 }; };
+        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
+                            &permutation_set_column_1,
+                            &permutation_set_column_2,
+                            &permutation_set_column_3,
+                            &permutation_set_column_4,
+                            &permutation_inverses)
+        std::vector<HandleType> get_wires() override
+        {
+            return {
+                permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4
+            };
+        };
         // The sorted concatenations of table and witness data needed for plookup.
         std::vector<HandleType> get_sorted_polynomials() { return {}; };
     };
@@ -114,6 +126,8 @@ class AVMTemplate {
         DataType enable_set_permutation;   // column 0
         DataType permutation_set_column_1; // column 1
         DataType permutation_set_column_2; // column 2
+        DataType permutation_set_column_3; // column 2
+        DataType permutation_set_column_4; // column 2
         DataType permutation_inverses;     // column 3
 
         // defines a method pointer_view that returns the following, with const and non-const variants
@@ -122,20 +136,21 @@ class AVMTemplate {
                             &enable_set_permutation,
                             &permutation_set_column_1,
                             &permutation_set_column_2,
+                            &permutation_set_column_3,
+                            &permutation_set_column_4,
                             &permutation_inverses)
         std::vector<HandleType> get_wires() override
         {
             return {
-                permutation_set_column_1,
-                permutation_set_column_2,
+                permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4
             };
         };
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
             return {
-                lagrange_first,           enable_set_permutation, permutation_set_column_1,
-                permutation_set_column_2, permutation_inverses,
+                lagrange_first,           enable_set_permutation,   permutation_set_column_1, permutation_set_column_2,
+                permutation_set_column_3, permutation_set_column_4, permutation_inverses,
             };
         };
 
@@ -278,6 +293,8 @@ class AVMTemplate {
         {
             Base::permutation_set_column_1 = "PERMUTATION_SET_COLUMN_1";
             Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
+            Base::permutation_set_column_3 = "PERMUTATION_SET_COLUMN_3";
+            Base::permutation_set_column_4 = "PERMUTATION_SET_COLUMN_4";
             Base::permutation_inverses = "PERMUTATION_INVERSES";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
@@ -323,6 +340,8 @@ class AVMTemplate {
 
         void deserialize_full_transcript() override
         {
+            // TODO
+            abort();
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
             circuit_size = BaseTranscript<FF>::template deserialize_from_buffer<uint32_t>(
@@ -351,6 +370,8 @@ class AVMTemplate {
 
         void serialize_full_transcript() override
         {
+            // TODO
+            abort();
             size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
             BaseTranscript<FF>::proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);

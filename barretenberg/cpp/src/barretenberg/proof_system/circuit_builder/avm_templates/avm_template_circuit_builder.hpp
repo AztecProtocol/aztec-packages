@@ -49,6 +49,8 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
         for (size_t i = 0; i < num_gates; ++i) {
             polys.permutation_set_column_1[i] = wires[0][i];
             polys.permutation_set_column_2[i] = wires[1][i];
+            polys.permutation_set_column_3[i] = wires[2][i];
+            polys.permutation_set_column_4[i] = wires[3][i];
             polys.enable_set_permutation[i] = 1;
         }
         return polys;

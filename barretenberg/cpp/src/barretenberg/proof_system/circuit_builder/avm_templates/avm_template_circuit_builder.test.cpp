@@ -24,11 +24,13 @@ TYPED_TEST(AVMTemplateCircuitBuilderTests, BaseCase)
     proof_system::AVMTemplateCircuitBuilder<Flavor> circuit_builder;
 
     std::vector<FF> column_0;
+    std::vector<FF> column_1;
     for (size_t i = 0; i < 16; i++) {
         column_0.emplace_back(FF::random_element());
+        column_1.emplace_back(FF::random_element());
     }
     for (size_t i = 0; i < 16; i++) {
-        circuit_builder.add_row({ column_0[i], column_0[15 - i] });
+        circuit_builder.add_row({ column_0[i], column_1[i], column_0[15 - i], column_1[15 - i] });
     }
 
     bool result = circuit_builder.check_circuit();
