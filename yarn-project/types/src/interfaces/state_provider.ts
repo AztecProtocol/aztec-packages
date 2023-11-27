@@ -10,7 +10,6 @@ import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
-import { LeafData } from './leaf_data.js';
 import { LowNullifierWitness } from './low_nullifier_witness.js';
 
 /**
@@ -74,10 +73,7 @@ export interface StateInfoProvider {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<LowNullifierWitness | undefined>;
+  getLowNullifierWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierWitness | undefined>;
 
   /**
    * Get the a given block.
