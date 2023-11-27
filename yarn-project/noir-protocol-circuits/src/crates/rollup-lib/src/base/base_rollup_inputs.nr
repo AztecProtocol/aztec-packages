@@ -42,6 +42,7 @@ struct BaseRollupInputs {
     start_public_data_tree_root: Field,
     start_historic_blocks_tree_snapshot: AppendOnlyTreeSnapshot,
 
+    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
@@ -184,17 +185,15 @@ impl BaseRollupInputs {
 
     //TODO: This should be done in-circuit
     unconstrained fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
-        let mut new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
-
         for i in 0..2 {
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j];
+                assert_eq(self.new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j], self.kernel_data[i].public_inputs.end.new_nullifiers[j]);
             }
         };
 
         crate::indexed_tree::batch_insert(
             self.start_nullifier_tree_snapshot,
-            new_nullifiers,
+            self.new_nullifiers,
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,

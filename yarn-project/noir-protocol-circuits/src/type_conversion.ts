@@ -1329,6 +1329,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     start_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startContractTreeSnapshot),
     start_public_data_tree_root: mapFieldToNoir(inputs.startPublicDataTreeRoot),
     start_historic_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startHistoricBlocksTreeSnapshot),
+    new_nullifiers: newNullifiers.map(({ nullifier }) => mapFieldToNoir(nullifier)) as FixedLengthArray<NoirField, 128>,
     sorted_new_nullifiers: sortedNewNullifiers.map(({ nullifier }) => mapFieldToNoir(nullifier)) as FixedLengthArray<
       NoirField,
       128
