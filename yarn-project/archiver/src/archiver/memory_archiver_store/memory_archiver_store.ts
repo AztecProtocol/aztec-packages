@@ -1,6 +1,7 @@
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
+  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -14,6 +15,7 @@ import {
   LogFilter,
   LogId,
   LogType,
+  PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/types';
@@ -108,20 +110,20 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
-    for (const msg of messages) {
-      this.pendingL1ToL2Messages.addMessage(msg.entryKey!, msg);
+  public addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
+    for (const { message } of messages) {
+      this.pendingL1ToL2Messages.addMessage(message.entryKey!, message);
     }
     return Promise.resolve(true);
   }
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param messages - The message keys to be removed from the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
-    messageKeys.forEach(messageKey => {
+  public cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
+    messages.forEach(({ messageKey }) => {
       this.pendingL1ToL2Messages.removeMessage(messageKey);
     });
     return Promise.resolve(true);

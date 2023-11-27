@@ -4,6 +4,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   BufferReader,
+  CancelledL1ToL2Message,
   ContractData,
   EncodedContractFunction,
   ExtendedContractData,
@@ -11,6 +12,7 @@ import {
   L1ToL2Message,
   L2Actor,
   L2Block,
+  PendingL1ToL2Message,
 } from '@aztec/types';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
@@ -22,20 +24,24 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  */
 export function processPendingL1ToL2MessageAddedLogs(
   logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
-): L1ToL2Message[] {
-  const l1ToL2Messages: L1ToL2Message[] = [];
-  for (const log of logs) {
+): PendingL1ToL2Message[] {
+  const l1ToL2Messages: PendingL1ToL2Message[] = [];
+  for (const [index, log] of logs.entries()) {
     const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
       log.args;
     l1ToL2Messages.push(
-      new L1ToL2Message(
-        new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
-        new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
-        Fr.fromString(content),
-        Fr.fromString(secretHash),
-        deadline,
-        Number(fee),
-        Fr.fromString(entryKey),
+      new PendingL1ToL2Message(
+        new L1ToL2Message(
+          new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
+          new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
+          Fr.fromString(content),
+          Fr.fromString(secretHash),
+          deadline,
+          Number(fee),
+          Fr.fromString(entryKey),
+        ),
+        log.blockNumber!,
+        index,
       ),
     );
   }
@@ -49,10 +55,10 @@ export function processPendingL1ToL2MessageAddedLogs(
  */
 export function processCancelledL1ToL2MessagesLogs(
   logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
-): Fr[] {
-  const cancelledL1ToL2Messages: Fr[] = [];
-  for (const log of logs) {
-    cancelledL1ToL2Messages.push(Fr.fromString(log.args.entryKey));
+): CancelledL1ToL2Message[] {
+  const cancelledL1ToL2Messages: CancelledL1ToL2Message[] = [];
+  for (const [index, log] of logs.entries()) {
+    cancelledL1ToL2Messages.push(new CancelledL1ToL2Message(Fr.fromString(log.args.entryKey), log.blockNumber!, index));
   }
   return cancelledL1ToL2Messages;
 }

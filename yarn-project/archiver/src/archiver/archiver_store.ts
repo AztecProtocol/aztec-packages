@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
+  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
@@ -10,6 +11,7 @@ import {
   L2Tx,
   LogFilter,
   LogType,
+  PendingL1ToL2Message,
   TxHash,
 } from '@aztec/types';
 
@@ -58,14 +60,14 @@ export interface ArchiverDataStore {
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean>;
+  addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean>;
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param message - The message keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
+  cancelPendingL1ToL2Messages(message: CancelledL1ToL2Message[]): Promise<boolean>;
 
   /**
    * Messages that have been published in an L2 block are confirmed.

@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
+  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -15,6 +16,7 @@ import {
   LogFilter,
   LogId,
   LogType,
+  PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/types';
@@ -29,6 +31,17 @@ type L1ToL2MessageAndCount = {
   pendingCount: number;
   confirmedCount: number;
 };
+
+type L1ToL2MessageBlockKey = `${string}:${'newMessage' | 'cancelledMessage'}:${number}:${string}`;
+
+function l1ToL2MessageBlockKey(
+  l1BlockNumber: bigint,
+  key: 'newMessage' | 'cancelledMessage',
+  indexInBlock: number,
+  messageKey: Buffer,
+): L1ToL2MessageBlockKey {
+  return `${toBufferBE(l1BlockNumber, 32).toString('hex')}:${key}:${indexInBlock}:${messageKey.toString('hex')}`;
+}
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -54,6 +67,8 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     contractIndex: Database<BlockIndexValue, Buffer>;
     /** L1 to L2 messages */
     l1ToL2Messages: Database<L1ToL2MessageAndCount, Buffer>;
+    /** Which blocks emitted which messages */
+    l1ToL2MessagesByBlock: Database<true, L1ToL2MessageBlockKey>;
     /** Pending L1 to L2 messages sorted by their fee, in buckets (dupSort=true)  */
     pendingMessagesByFee: Database<Buffer, number>;
   };
@@ -78,6 +93,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       }),
       l1ToL2Messages: db.openDB('l1_to_l2_messages', {
         keyEncoding: 'binary',
+        encoding: 'msgpack',
+      }),
+      l1ToL2MessagesByBlock: db.openDB('l1_to_l2_message_nonces', {
+        keyEncoding: 'ordered-binary',
         encoding: 'msgpack',
       }),
       pendingMessagesByFee: db.openDB('pending_messages_by_fee', {
@@ -212,21 +231,29 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[]): Promise<boolean> {
+  addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const message of messages) {
+      for (const { message, blockNumber, indexInBlock } of messages) {
         const entryKey = message.entryKey?.toBuffer();
         if (!entryKey) {
           throw new Error('Message does not have an entry key');
         }
 
-        const exists = this.#tables.l1ToL2Messages.doesExist(entryKey);
-        if (!exists) {
-          void this.#tables.l1ToL2Messages.put(entryKey, {
+        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'newMessage', indexInBlock, entryKey);
+        if (this.#tables.l1ToL2MessagesByBlock.doesExist(dupeKey)) {
+          continue;
+        } else {
+          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, true);
+        }
+
+        let messageWithCount = this.#tables.l1ToL2Messages.get(entryKey);
+        if (!messageWithCount) {
+          messageWithCount = {
             message: message.toBuffer(),
             pendingCount: 0,
             confirmedCount: 0,
-          });
+          };
+          void this.#tables.l1ToL2Messages.put(entryKey, messageWithCount);
         }
 
         this.#updateMessageCountInTx(entryKey, message, 1, 0);
@@ -237,13 +264,20 @@ export class LMDBArchiverStore implements ArchiverDataStore {
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param messages - The message keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  cancelPendingL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+  cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const messageKey of messageKeys) {
+      for (const { blockNumber, indexInBlock, messageKey } of messages) {
         const entryKey = messageKey.toBuffer();
+        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'cancelledMessage', indexInBlock, entryKey);
+        if (this.#tables.l1ToL2MessagesByBlock.doesExist(dupeKey)) {
+          continue;
+        } else {
+          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, true);
+        }
+
         const message = this.#getL1ToL2Message(entryKey);
         this.#updateMessageCountInTx(entryKey, message, -1, 0);
       }
