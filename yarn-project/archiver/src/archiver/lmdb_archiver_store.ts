@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { createDebugLogger } from '@aztec/foundation/log';
 import {
   ContractData,
   ExtendedContractData,
@@ -58,6 +59,8 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   };
 
   #logsMaxPageSize: number;
+
+  #log = createDebugLogger('aztec:archiver:lmdb');
 
   constructor(db: RootDatabase, logsMaxPageSize: number = 1000) {
     this.#tables = {
@@ -283,13 +286,20 @@ export class LMDBArchiverStore implements ArchiverDataStore {
 
       loopOverFees: for (const fee of fees) {
         const pendingMessages = this.#tables.pendingMessagesByFee.getValues(fee, { transaction });
+        this.#log(`Found pending messages for ${fee}`);
 
         for (const messageKey of pendingMessages) {
           const messageWithCount = this.#tables.l1ToL2Messages.get(messageKey, { transaction });
           if (!messageWithCount || messageWithCount.pendingCount === 0) {
+            this.#log(
+              `Message ${messageKey.toString(
+                'hex',
+              )} has no pending count but it got picked up by getPEndingL1ToL2MessageKeys`,
+            );
             continue;
           }
           const toAdd = Array(messageWithCount.pendingCount).fill(Fr.fromBuffer(messageKey));
+          this.#log(`Adding ${toAdd.length} copies of ${messageKey.toString('hex')} for ${fee}`);
           messages.push(...toAdd);
 
           if (messages.length >= limit) {
@@ -313,8 +323,12 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    */
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
     const value = this.#tables.l1ToL2Messages.get(messageKey.toBuffer());
-    if (!value || value.confirmedCount === 0) {
+    if (!value) {
       return Promise.reject(new Error(`Message with key ${messageKey} not found`));
+    }
+
+    if (value.confirmedCount === 0) {
+      return Promise.reject(new Error(`Message with key ${messageKey} not confirmed`));
     }
 
     return Promise.resolve(L1ToL2Message.fromBuffer(value.message));
@@ -460,6 +474,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       if (!blockCtx.extendedContractData) {
         blockCtx.extendedContractData = [];
       }
+      this.#log(`Adding ${data.length} extended contract data to block ${blockNum}`);
       blockCtx.extendedContractData.push(...data.map(data => data.toBuffer()));
       void this.#tables.blocks.put(blockNum, blockCtx);
 
@@ -587,6 +602,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     }
 
     if (start < INITIAL_L2_BLOCK_NUM) {
+      this.#log(`Clamping start block ${start} to ${INITIAL_L2_BLOCK_NUM}`);
       start = INITIAL_L2_BLOCK_NUM;
     }
 
@@ -630,9 +646,17 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     value.pendingCount = Math.max(0, value.pendingCount + deltaPendingCount);
     value.confirmedCount = Math.max(0, value.confirmedCount + deltaConfirmedCount);
 
+    this.#log(
+      `Updating count of ${messageKey.toString('hex')} to ${value.pendingCount} pending and ${
+        value.confirmedCount
+      } confirmed}`,
+    );
+
     if (value.pendingCount === 0) {
+      this.#log(`Removing message ${messageKey.toString('hex')} from pending messages group with fee ${message.fee}`);
       void this.#tables.pendingMessagesByFee.remove(message.fee, messageKey);
     } else if (value.pendingCount > 0) {
+      this.#log(`Adding message ${messageKey.toString('hex')} to pending message group with fee ${message.fee}`);
       void this.#tables.pendingMessagesByFee.put(message.fee, messageKey);
     }
 
