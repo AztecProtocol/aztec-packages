@@ -1,4 +1,4 @@
-import { Archiver } from '@aztec/archiver';
+import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
   Fr,
@@ -100,7 +100,8 @@ export class AztecNodeService implements AztecNode {
     const [nodeDb, worldStateDb] = await openDb(config, log);
 
     // first create and sync the archiver
-    const archiver = await Archiver.createAndSync(config, nodeDb);
+    const archiverStore = new LMDBArchiverStore(nodeDb, config.maxLogs);
+    const archiver = await Archiver.createAndSync(config, archiverStore, true);
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future

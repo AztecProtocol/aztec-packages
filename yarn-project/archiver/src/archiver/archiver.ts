@@ -96,13 +96,13 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
    * @param config - The archiver's desired configuration.
-   * @param rootDB - The database for the archiver.
+   * @param archiverStore - The backing store for the archiver.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
   public static async createAndSync(
     config: ArchiverConfig,
-    rootDB?: RootDatabase,
+    archiverStore: ArchiverDataStore,
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.rpcUrl, config.apiKey);
@@ -121,9 +121,6 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     });
     const searchStartBlock = Number((await registryContract.read.getCurrentSnapshot()).blockNumber);
 
-    const archiverStore = rootDB
-      ? new LMDBArchiverStore(rootDB, config.maxLogs ?? 1000)
-      : new MemoryArchiverStore(config.maxLogs ?? 1000);
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
