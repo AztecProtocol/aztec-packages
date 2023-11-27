@@ -563,7 +563,7 @@ fn test_u256_greater_than() {
 //             inputs.kernel_data = inputs.kernel_data.map(|_| {
 //                 let mut builder = PreviousKernelDataBuilder::new();
 //                 let _nullifier = builder.end.new_nullifiers.pop();
-//                 builder.next_is_public().is_public()
+//                 builder.is_public()
 //             });
 
 //             inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
