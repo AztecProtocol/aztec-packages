@@ -24,6 +24,14 @@ export class WasmRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
+    const l2L1msgs = input.kernelData.flatMap(kernelData => kernelData.publicInputs.end.newL2ToL1Msgs);
+    this.log('Non-zero L2L1Msgs', {
+      messages: l2L1msgs
+        .filter(msg => !msg.isZero())
+        .map(msg => msg.toString())
+        .join(', '),
+    });
+
     const [duration, result] = await elapsed(() => executeBaseRollup(input));
 
     this.log(`Simulated base rollup circuit`, {
