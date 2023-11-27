@@ -74,7 +74,7 @@ contract InclusionProofs {
 
     #[aztec(private)]
     fn constructor(public_value: Field) {
-        let selector = compute_selector("_initialize((Field))");
+        let selector = compute_selector("_initialize(Field)");
         context.call_public_function(context.this_address(), selector, [public_value]);
     }
 

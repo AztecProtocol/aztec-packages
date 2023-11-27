@@ -58,4 +58,9 @@ describe('e2e_inclusion_proofs_contract', () => {
       await contract.methods.proveNullifierNonInclusion(accounts[0].address, blockNumber).send().wait();
     }
   });
+
+  it('proves an existence of a public value in private context', async () => {
+    const blockNumber = await pxe.getBlockNumber();
+    await contract.methods.provePublicValueInclusion(accounts[0].address, blockNumber).send().wait();
+  });
 });
