@@ -28,11 +28,27 @@ auto& engine = numeric::random::get_debug_engine();
 
 TEST_F(AvmMiniTests, basic)
 {
-    // barretenberg::srs::init_crs_factory("../srs_db/ignition");
-
+    auto trace_builder = proof_system::AvmMiniTraceBuilder();
     auto circuit_builder = proof_system::AvmMiniCircuitBuilder();
 
-    auto rows = proof_system::AvmMiniTraceBuilder::build_trace();
+    trace_builder.callDataCopy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
+
+    // ctx.setFFMem(2, FF(45));
+    // ctx.setFFMem(3, FF(23));
+    // ctx.setFFMem(4, FF(12));
+
+    trace_builder.add(2, 3, 4);
+    trace_builder.add(4, 5, 5);
+    // ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(5, 5, 5);
+    //  ctx.add(3, 5, 6);
+    //  ctx.add(5, 6, 7);
+
+    trace_builder.returnOP(1, 8);
+
+    auto rows = trace_builder.finalize();
 
     info("Built circuit with ", rows.size(), " rows");
 
