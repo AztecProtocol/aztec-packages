@@ -112,7 +112,7 @@ Therefore our constructor must call a public function by using `context.call_pub
 #include_code constructor yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
 `context.call_public_function()` takes three arguments:
-1. The caller of the function (to keep things private, we are using `context.this_address()` which refers to the contract address)
+1. The contract address whose method we want to call
 2. The selector of the function to call (we can use `compute_selector()` for this)
 3. The arguments of the function (we pass the `admin`)
 
@@ -131,44 +131,27 @@ For the sake of simplicity, we will have three requirements:
 2. They can only vote once in this contract
 3. Who they are is private, but their actual vote is not
 
-Initialize a private function called `cast_vote`:
-```rust
-#include_code cast_vote yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr raw
-}
-```
+To ensure someone only votes once, we will create a nullifier as part of the function call. If they try to vote again, the function will revert as it creates the same nullifier again, which can't be added to the nullifier tree (as that indicates a double spend).
 
-To ensure someone only votes once, we will create a nullifier as part of the function call. If they try to vote again, the function will revert as it creates the same nullifier again, which can't be added to the nullifier tree (as that indicates a double spend)
+Create a private function called `cast_vote`:
 
-We could create a nullifier with the address directly, but this would be easy to reverse-engineer. We should instead create a nullifier with the account's secret key:
+#include_code cast_vote yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
-#include_code nullifier yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
+In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like [nullifier secrets](../../concepts/foundation/accounts/keys.md#nullifier-secrets).
 
-Paste this within the `cast_vote()` function. This makes an oracle call fetch the caller's secret key, hashes it to create a nullifier, and pushes the nullifier to Aztec. 
+To do this, we make an [oracle call](../contracts/syntax/functions.md#oracle-functions) to fetch the caller's secret key, hash it to create a nullifier, and push the nullifier to Aztec. The `secret.high` and `secret.low` values here refer to how we divide a large [Grumpkin scalar](https://github.com/AztecProtocol/aztec-packages/blob/7fb35874eae3f2cad5cb922282a619206573592c/noir/noir_stdlib/src/grumpkin_scalar.nr) value into its higher and lower parts. This allows for faster cryptographic computations so our hash can still be secure but is calculated faster.
 
-Now we can move on to updating the `tally` to reflect this vote. As we know from before, a private function cannot update public state directly, so we will call a new public function:
+After pushing the nullifier, we update the `tally` to reflect this vote. As we know from before, a private function cannot update public state directly, so we are calling a public function.
 
-#include_code call_add_to_tally_public yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
+Create this new public function like this:
 
-This function will be similar to the `_initialize()` function we wrote earlier, ie it is internal and is writing to a public varible. 
+#include_code add_to_tally_public yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
-Create a new public function like this:
-
-```rust
-#include_code add_to_tally_public yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr raw
-}
-```
-
-The first thing we need to do is assert that the voting has not ended:
-
-#include_code assert_vote_not_ended yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
+The first thing we do here is assert that the vote has not ended.
 
 `assert()` takes two arguments: the assertion, in this case that `storage.voteEnded` is not false, and the error thrown if the assertion fails.
 
-The code after the assertion will only run if the assertion is true. Paste this:
-
-#include_code add_vote_to_tally yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
-
-The `Field` element allows us to use `+` to add to an integer. In this snippet, we read the current vote tally at the voteId, add 1 to it, and write this new number to the voteId.
+The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the voteId, add 1 to it, and write this new number to the voteId. The `Field` element allows us to use `+` to add to an integer. 
 
 ## Getting the number of votes
 
@@ -176,7 +159,7 @@ We will create a function that anyone can call that will return the number of vo
 
 #include_code get_vote yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state.
+We set it as `unconstrained` and do not annotate it because it is only reading from state. You can read more about unconstrained functions [here](../../concepts/advanced/acir_simulator.md#unconstrained-functions).
 
 ## Allowing an admin to end a voting period
 
@@ -190,7 +173,7 @@ Here, we are asserting that the `msg_sender()` is equal to the admin stored in p
 
 ## compute_note_hash_and_nullifier
 
-Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error.
+Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error. This is explained in more detail [here](../contracts/resources/common_patterns/main.md#working-with-compute_note_hash_and_nullifier).
 
 At the end of the contract, paste this:
 

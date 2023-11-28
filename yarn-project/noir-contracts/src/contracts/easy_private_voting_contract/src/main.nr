@@ -56,7 +56,7 @@ contract EasyPrivateVoting {
             // we cannot update public state directly from private function but we can call public function (which queues it)
             context.this_address(),// address that calls public function. here we are using contract address for privacy
             compute_selector("_initialize((Field))"), // function selector
-            [admin.address] // parameters for set_admin()
+            [admin.address] // parameters
         );
     }
     // docs:end:constructor
@@ -70,32 +70,24 @@ contract EasyPrivateVoting {
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(voteId: Field) {
-     // docs:end:cast_vote
-     // docs:start:nullifier
         let secret = get_secret_key(context.msg_sender()); // get secret key of caller of function
         let nullifier = dep::std::hash::pedersen_hash([context.msg_sender(), secret.low, secret.high]); // compute nullifier with this secret key so others can't descrypt it
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT); // push nullifier
-    // docs:end:nullifier
-    // docs:start:call_add_to_tally_public
         context.call_public_function(
             context.this_address(), 
             compute_selector("add_to_tally_public(Field)"), 
             [voteId]);
     }
-    // docs:end:call_add_to_tally_public
+    // docs:end:cast_vote
 
     // docs:start:add_to_tally_public
     #[aztec(public)]
     internal fn add_to_tally_public(voteId: Field) {
-    // docs:end:add_to_tally_public
-    // docs:start:assert_vote_not_ended
         assert(storage.voteEnded.read() == false, "Vote has ended"); // assert that vote has not ended
-    // docs:end:assert_vote_not_ended
-    // docs:start:add_vote_to_tally
         let new_tally = storage.tally.at(voteId).read() + 1;
         storage.tally.at(voteId).write(new_tally);
     }
-    // docs:end:add_vote_to_tally
+    // docs:end:add_to_tally_public
 
     // docs:start:end_vote
     #[aztec(public)] 
