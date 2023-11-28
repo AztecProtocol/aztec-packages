@@ -37,10 +37,7 @@ template <typename FF_> class ECCVMLookupRelationImpl {
      * @param in
      * @return auto&
      */
-    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
-    {
-        return in.lookup_inverses;
-    }
+    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
 
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
