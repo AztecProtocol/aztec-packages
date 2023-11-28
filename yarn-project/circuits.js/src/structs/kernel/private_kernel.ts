@@ -6,11 +6,13 @@ import {
   FUNCTION_TREE_HEIGHT,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
-} from '../../cbind/constants.gen.js';
+} from '../../constants.gen.js';
 import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
+import { CallRequest } from '../call_request.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
@@ -21,7 +23,6 @@ import { PreviousKernelData } from './previous_kernel_data.js';
 
 /**
  * Private call data.
- * @see circuits/cpp/src/aztec3/circuits/abis/call_stack_item.hpp
  */
 export class PrivateCallData {
   constructor(
@@ -32,7 +33,11 @@ export class PrivateCallData {
     /**
      * Other private call stack items to be processed.
      */
-    public privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    /**
+     * Other public call stack items to be processed.
+     */
+    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * The proof of the execution of this private call.
      */
@@ -71,9 +76,9 @@ export class PrivateCallData {
    */
   static getFields(fields: FieldsOf<PrivateCallData>) {
     return [
-      // NOTE: Must have same order as CPP.
       fields.callStackItem,
-      fields.privateCallStackPreimages,
+      fields.privateCallStack,
+      fields.publicCallStack,
       fields.proof,
       fields.vk,
       fields.functionLeafMembershipWitness,
