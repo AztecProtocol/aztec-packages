@@ -8,7 +8,7 @@ We will build this:
 
 <Image img={require('/img/tutorials/voting_flow.png')} />
 
-* The contract will be initiated with an admin, stored publicly
+* The contract will be initialized with an admin, stored publicly
 * A voter can vote privately, which will call a public function and update the votes publically. This keeps who they are, what they have voted for, and whether or not they have voted private - but the vote itself public
 * The admin can end the voting period, which is a public boolean
 
@@ -70,7 +70,7 @@ Inside this, paste these imports:
 We are using various utils within the Aztec library:
 
 * `context` - exposes things such as the contract address, msg_sender, etc
-* `oracle::get_secret_key` - get the secret key from an account to help us create a nullifier
+* `oracle::get_secret_key` - get your secret key to help us create a randomized nullifier
 * `selector::compute_selector` - compute a function selector so we can call functions from other functions
 * `state_vars::{ map::Map, public_state::PublicState, }` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicState to hold our public values that we mentioned earlier
 * `types::type_serialization::{..}` - various serialization methods for defining how to use these types
@@ -90,7 +90,7 @@ Define the storage struct like so:
 
 In this contract, we will store three vars:
 1. admin, as an Aztec address held in public state
-2. tally, as a map of Fields held in public state
+2. tally, as a map with key as the persona and value as the number (in Field) held in public state
 3. voteEnded, as a boolean held in public state
 
 Under the struct, define the impl block like this:
@@ -126,24 +126,24 @@ This function is set as `internal` so that it can only be called from within the
 
 ## Casting a vote privately
 
-For the sake of simplicity, we will assume three things:
+For the sake of simplicity, we will have three requirements:
 1. Everyone with an Aztec account gets a vote
 2. They can only vote once in this contract
 3. Who they are is private, but their actual vote is not
 
 Initialize a private function called `cast_vote`:
 ```rust
-#include_code initialize yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr raw
+#include_code cast_vote yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr raw
 }
 ```
 
-To ensure someone only votes once, we will create a nullifier. If they try to vote again, a nullifier will be found and the function will stop.
+To ensure someone only votes once, we will create a nullifier as part of the function call. If they try to vote again, the function will revert as it creates the same nullifier again, which can't be added to the nullifier tree (as that indicates a double spend)
 
 We could create a nullifier with the address directly, but this would be easy to reverse-engineer. We should instead create a nullifier with the account's secret key:
 
 #include_code nullifier yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
-Paste this within the `cast_vote()` function. This gets the caller's secret key, hashes it to create a nullifier, and pushes the nullifier to Aztec. 
+Paste this within the `cast_vote()` function. This makes an oracle call fetch the caller's secret key, hashes it to create a nullifier, and pushes the nullifier to Aztec. 
 
 Now we can move on to updating the `tally` to reflect this vote. As we know from before, a private function cannot update public state directly, so we will call a new public function:
 
@@ -190,13 +190,13 @@ Here, we are asserting that the `msg_sender()` is equal to the admin stored in p
 
 ## compute_note_hash_and_nullifier
 
-Every Aztec contract that has private functions must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error.
+Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error.
 
 At the end of the contract, paste this:
 
 #include_code compute_note_hash_and_nullifier yarn-project/noir-contracts/src/contracts/easy_private_voting_contract/src/main.nr rust
 
-We can simply return `[0,0,0,0]` because we are not using any note types in our contract and are instead emitting a custom nullifier.
+We can simply return `[0,0,0,0]` because we are not creating any notes in our contract.
 
 ## Compiling and deploying
 
@@ -213,7 +213,7 @@ This should create a new directory called `target` and a JSON artifact inside it
 Once it is compiled you can deploy it to the sandbox. Ensure your [sandbox is running](../cli/sandbox-reference.md) and run this in the same dir as before:
 
 ```bash
-aztec-cli deploy ./target/Voting.json --args ADMIN_ADDRESS
+aztec-cli deploy ./target/Voting.json --args $ADMIN_ADDRESS
 ```
 
 The constructor takes an address as an argument to set the admin, so you can use an address that is deployed with the sandbox - check the sandbox terminal or run `aztec-cli get-accounts`.
@@ -223,7 +223,7 @@ You should see a success message with the contract address. Now we can start cal
 Cast a vote like this:
 
 ```bash
-aztec-cli send cast_vote --contract ./target/Voting.json --contract-address CONTRACT_ADDRESS --args 1 --private-key PRIVATE_KEY
+aztec-cli send cast_vote --contract-artifact ./target/Voting.json --contract-address $CONTRACT_ADDRESS --args 1 --private-key $PRIVATE_KEY
 ```
 
 You can get the contract address from the sandbox terminal or the message printed when you deployed the contract. You can also get a private key from the sandbox terminal, or generate one with `aztec-cli generate-private-key`.

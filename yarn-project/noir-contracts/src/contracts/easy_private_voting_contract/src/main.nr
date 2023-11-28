@@ -68,7 +68,7 @@ contract EasyPrivateVoting {
     }
     // docs:end:initialize
     // docs:start:cast_vote
-    #[aztec(private)] // annotation to mark function as public and expose private context
+    #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(voteId: Field) {
      // docs:end:cast_vote
      // docs:start:nullifier
