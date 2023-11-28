@@ -1004,6 +1004,8 @@ workflows:
           <<: *defaults
       - noir-packages: *defaults
       - noir-acir-tests: *defaults
+          requires:
+            - noir-ecr-manifest
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
