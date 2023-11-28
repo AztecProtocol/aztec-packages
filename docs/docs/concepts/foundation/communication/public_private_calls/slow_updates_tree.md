@@ -2,15 +2,15 @@
 title: Privately access Public State
 ---
 
-In Aztec, private and public execution environments are completely separate and operate with distinct state management. In the previous section we learned that functions can call private functions, and public functions can save messages to a merkle tree to then be read by a private function.
+In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state (only sequencers can do that!)
 
-It is also possible to access persistent data across both private and public state using a **slow updates tree**, which we will talk about on this page. Please note that we are still experimenting with this feature and it is not something that has ever been achieved before.
+But, what about historical public data (or public data that changes infrequently)? Through a **slow updates tree**, you can have private functions access historical public state. Please note that we are still experimenting with this feature.
 
 On this page you will learn:
 
 1. Why a slow updates tree exists & use cases
 2. How it works
-3. How it can be used to access data in public & private domains
+3. How it can be used to access historical public data
 4. Limitations
 
 ## The need for a slow updates tree
@@ -75,8 +75,8 @@ The current tree is replaced with the pending tree at the end of each epoch. The
 
 ### Accessing Data
 
-*From public state* Directly from the state
-*From private state:* Performs a membership proof for the values in the tree, ensuring that they are part of the commitment.
+**From public state:** Accessed directly from the state
+**From private state:** Performs a membership proof for the values in the tree, ensuring that they are part of the commitment.
 
 ### Updating Values
 
