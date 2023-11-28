@@ -141,7 +141,7 @@ jobs:
 
   build-mac-intel:
     name: Build on Mac x86_64-apple-darwin
-    runs-on: macos-13
+    runs-on: macos-13-large
     steps:
       - name: Checkout
         uses: actions/checkout@v3
