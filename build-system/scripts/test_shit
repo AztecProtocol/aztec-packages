@@ -1,0 +1,17 @@
+#!/bin/bash
+set -eu
+
+# TEST_STUFF=${TEST_STUFF:-}
+unset TEST_STUFF
+
+function test_fn {
+  if [ "$TEST_STUFF" -eq 1 ]; then
+    echo 'TEST_STUFF is 1'
+  else
+    echo 'TEST_STUFF is not 1'
+  fi
+}
+
+test_fn
+
+echo 'end'
