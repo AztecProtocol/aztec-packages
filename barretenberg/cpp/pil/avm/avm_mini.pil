@@ -4,7 +4,6 @@ namespace avmMini(%N);
 
     //===== CONSTANT POLYNOMIALS ==================================================
     pol constant clk(i) { i };
-    pol constant positive(i) { (i + 1) };
     pol constant first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                      // only in first element of shifted polynomials.
     
@@ -71,12 +70,13 @@ namespace avmMini(%N);
     // We need: m_lastAccess == 1 ==> m_addr' > m_addr
     // The above implies: m_addr' == m_addr ==> m_lastAccess == 0
     // This condition does not apply on the last row.
+    // clk + 1 used as an expression for positive integers
     // TODO: Uncomment when lookups are supported
-    // (1 - first) * (1 - last) * m_lastAccess { (m_addr' - m_addr) } in positive; // Gated inclusion check. Is it supported?
+    // (1 - first) * (1 - last) * m_lastAccess { (m_addr' - m_addr) } in clk + 1; // Gated inclusion check. Is it supported?
     
     // TODO: following constraint
     // m_addr' == m_addr && m_clk == m_clk' ==> m_sub_clk' - m_sub_clk > 0
-    // Can be enforced with (1 - first) * (1 - last) * (1 - m_lastAccess) { 6 * (m_clk' - m_clk) + m_sub_clk' - m_sub_clk } in positive
+    // Can be enforced with (1 - first) * (1 - last) * (1 - m_lastAccess) { 6 * (m_clk' - m_clk) + m_sub_clk' - m_sub_clk } in clk + 1
     
     // Alternatively to the above, one could require 
     // that m_addr' - m_addr is 0 or 1 (needs to add placeholders m_addr values):

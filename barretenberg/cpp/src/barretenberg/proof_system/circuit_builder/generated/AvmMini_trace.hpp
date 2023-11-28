@@ -24,6 +24,13 @@ class AvmMiniTraceBuilder {
     static const size_t N = 256;
     static const size_t MemSize = 1024;
 
+    static const uint32_t SubClkLoadA = 0;
+    static const uint32_t SubClkLoadB = 1;
+    static const uint32_t SubClkLoadC = 2;
+    static const uint32_t SubClkStoreA = 3;
+    static const uint32_t SubClkStoreB = 4;
+    static const uint32_t SubClkStoreC = 5;
+
     AvmMiniTraceBuilder();
 
     // Temporary helper to initialize memory.

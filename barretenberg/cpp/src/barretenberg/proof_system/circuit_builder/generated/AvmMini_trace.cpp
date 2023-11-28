@@ -66,32 +66,32 @@ void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, u
 
 void AvmMiniTraceBuilder::loadAInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 0, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadA, addr, val, false);
 }
 
 void AvmMiniTraceBuilder::loadBInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 1, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadB, addr, val, false);
 }
 
 void AvmMiniTraceBuilder::loadCInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 2, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadC, addr, val, false);
 }
 
 void AvmMiniTraceBuilder::storeAInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 3, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreA, addr, val, true);
 }
 
 void AvmMiniTraceBuilder::storeBInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 4, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreB, addr, val, true);
 }
 
 void AvmMiniTraceBuilder::storeCInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), 5, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreC, addr, val, true);
 }
 
 // Addition over finite field with direct memory access.
@@ -146,7 +146,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, st
     // This offset points to the first storing operation (pertaining to intermediate register Ia).
     // s0 + offset:       Ia memory store operation
     // s0 + offset + 1:   Ib memory store operation
-    // s0 + offset + 1:   Ic memory store operation
+    // s0 + offset + 2:   Ic memory store operation
 
     uint32_t offset = 0;
 
@@ -228,7 +228,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t s0, uint32_t s1)
     // This offset points to the first loading operation (pertaining to intermediate register Ia).
     // s0 + offset:       Ia memory load operation
     // s0 + offset + 1:   Ib memory load operation
-    // s0 + offset + 1:   Ic memory load operation
+    // s0 + offset + 2:   Ic memory load operation
 
     uint32_t offset = 0;
     std::vector<FF> returnMem;
