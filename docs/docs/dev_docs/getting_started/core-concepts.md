@@ -65,6 +65,8 @@ The `init` function must declare the storage struct with an instantiation defini
 
 The impl block is likely to be abstracted away at a later date.
 
+Learn more about how to use storage [here](../contracts/syntax/storage/main.md).
+
 # Portals
 
 Aztec allows you to interact with Ethereum privately - ie no-one knows where the transaction is coming from, just that it is coming from somewhere on Aztec.
@@ -73,14 +75,18 @@ This is achieved through portals - these are smart contracts written in Solidity
 
 A portal can be associated with multiple Aztec contracts, but an Aztec contract can only be associated with one portal. 
 
+Learn more about how to work with portals [here](../contracts/portals/main.md).
+
 # Account Abstraction
 
 Every account in Aztec is a smart contract. This allows implementing different schemes for transaction signing, nonce management, and fee payments.
 
 You can write your own account contract to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed.
 
+Learn more about account contracts [here](../../concepts/foundation/accounts/main.md).
+
 # Noir Language
-Aztec smart contracts are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. It is similar to Rust. Outside of Aztec, Noir is used for writing circuits that can be verified in Solidity.
+Aztec smart contracts are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. Its syntax is similar to Rust. Outside of Aztec, Noir is used for writing circuits that can be verified in Solidity.
 
 A cursory understanding of Noir is sufficient for writing Aztec contracts. The [Noir docs](https://noir-lang.org) will be a helpful reference when you start writing more advanced contracts.
 
