@@ -37,15 +37,13 @@ template <typename FF_> class GenericPermutationRelationImpl {
      *@details The first subrelation establishes correspondence between the inverse polynomial elements and the terms.
      *The second relation computes the inverses of individual terms, which are then summed up with sumcheck
      *
-     *
      */
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
      *
-     * @tparam AllValues
-     * @param row
+     * @param row All values at row
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
@@ -58,9 +56,6 @@ template <typename FF_> class GenericPermutationRelationImpl {
     /**
      * @brief Get the inverse permutation polynomial
      *
-     * @tparam AllEntities
-     * @param in
-     * @return auto&
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
@@ -73,10 +68,6 @@ template <typename FF_> class GenericPermutationRelationImpl {
     /**
      * @brief Get selector/wire switching on(1) or off(0) inverse computation
      *
-     * @tparam Accumulator
-     * @tparam AllEntities
-     * @param in
-     * @return Accumulator
      */
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
@@ -91,11 +82,7 @@ template <typename FF_> class GenericPermutationRelationImpl {
     /**
      * @brief Compute if the value from the first set exists in this row
      *
-     * @tparam Accumulator
      * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
-     * @tparam AllEntities
-     * @param in
-     * @return Accumulator
      */
     template <typename Accumulator, size_t read_index, typename AllEntities>
     static Accumulator compute_read_term_predicate(const AllEntities& in)
@@ -113,11 +100,7 @@ template <typename FF_> class GenericPermutationRelationImpl {
     /**
      * @brief Compute if the value from the second set exists in this row
      *
-     * @tparam Accumulator
      * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     * @tparam AllEntities
-     * @param in
-     * @return Accumulator
      */
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate(const AllEntities& in)
@@ -136,14 +119,10 @@ template <typename FF_> class GenericPermutationRelationImpl {
      *
      * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columnes is
      * in the first set
-     * @tparam Accumulator
+     *
      * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
-
-     * @tparam AllEntities
-     * @tparam Parameters
-     * @param in
+     *
      * @param params Used for beta and gamma
-     * @return Accumulator
      */
     template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
@@ -174,13 +153,9 @@ template <typename FF_> class GenericPermutationRelationImpl {
      * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columnes is
      * in the second set
      *
-     * @tparam Accumulator
      * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
-     * @tparam AllEntities
-     * @tparam Parameters
-     * @param in
-     * @param params
-     * @return Accumulator
+     *
+     * @param params Used for beta and gamma
      */
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
