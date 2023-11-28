@@ -3,7 +3,10 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   CallContext,
+  CallRequest,
+  CallerContext,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -16,6 +19,7 @@ import {
   FunctionData,
   FunctionSelector,
   GlobalVariables,
+  HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
@@ -32,7 +36,9 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
+  NULLIFIER_TREE_HEIGHT,
   NewContractData,
+  NullifierLeafPreimage,
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
@@ -59,6 +65,8 @@ import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   CallContext as CallContextNoir,
+  CallRequest as CallRequestNoir,
+  CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
@@ -102,6 +110,12 @@ import {
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_private_previous_types.js';
+import {
+  BaseRollupInputs as BaseRollupInputsNoir,
+  HistoricBlocksTreeRootMembershipWitness as HistoricBlocksTreeRootMembershipWitnessNoir,
+  NullifierLeafPreimage as NullifierLeafPreimageNoir,
+  NullifierMembershipWitness as NullifierMembershipWitnessNoir,
+} from './types/rollup_base_types.js';
 import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
 import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -332,6 +346,23 @@ export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
  * @param callContext - The call context.
  * @returns The noir call context.
  */
+export function mapCallContextFromNoir(callContext: CallContextNoir): CallContext {
+  return new CallContext(
+    mapAztecAddressFromNoir(callContext.msg_sender),
+    mapAztecAddressFromNoir(callContext.storage_contract_address),
+    mapEthAddressFromNoir(callContext.portal_contract_address),
+    mapFunctionSelectorFromNoir(callContext.function_selector),
+    callContext.is_delegate_call,
+    callContext.is_static_call,
+    callContext.is_contract_deployment,
+  );
+}
+
+/**
+ * Maps a call context to a noir call context.
+ * @param callContext - The call context.
+ * @returns The noir call context.
+ */
 export function mapCallContextToNoir(callContext: CallContext): CallContextNoir {
   return {
     msg_sender: mapAztecAddressToNoir(callContext.msgSender),
@@ -341,6 +372,56 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
     is_contract_deployment: callContext.isContractDeployment,
+  };
+}
+
+/**
+ * Maps a caller context to a noir caller context.
+ * @param callContext - The caller context.
+ * @returns The noir caller context.
+ */
+export function mapCallerContextFromNoir(callerContext: CallerContextNoir): CallerContext {
+  return new CallerContext(
+    mapAztecAddressFromNoir(callerContext.msg_sender),
+    mapAztecAddressFromNoir(callerContext.storage_contract_address),
+  );
+}
+
+/**
+ * Maps a caller context to a noir caller context.
+ * @param callContext - The caller context.
+ * @returns The noir caller context.
+ */
+export function mapCallerContextToNoir(callerContext: CallerContext): CallerContextNoir {
+  return {
+    msg_sender: mapAztecAddressToNoir(callerContext.msgSender),
+    storage_contract_address: mapAztecAddressToNoir(callerContext.storageContractAddress),
+  };
+}
+
+/**
+ * Maps a noit call request to a call request.
+ * @param callRequest - The noir call request.
+ * @returns The call request.
+ */
+export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallRequest {
+  return new CallRequest(
+    mapFieldFromNoir(callRequest.hash),
+    mapAztecAddressFromNoir(callRequest.caller_contract_address),
+    mapCallerContextFromNoir(callRequest.caller_context),
+  );
+}
+
+/**
+ * Maps a call request to a noir call request.
+ * @param privateCallStackItem - The call stack item.
+ * @returns The noir call stack item.
+ */
+export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir {
+  return {
+    hash: mapFieldToNoir(callRequest.hash),
+    caller_contract_address: mapAztecAddressToNoir(callRequest.callerContractAddress),
+    caller_context: mapCallerContextToNoir(callRequest.callerContext),
   };
 }
 
@@ -356,7 +437,7 @@ export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockD
       note_hash_tree_root: mapFieldToNoir(historicalBlockData.noteHashTreeRoot),
       nullifier_tree_root: mapFieldToNoir(historicalBlockData.nullifierTreeRoot),
       contract_tree_root: mapFieldToNoir(historicalBlockData.contractTreeRoot),
-      l1_to_l2_data_tree_root: mapFieldToNoir(historicalBlockData.l1ToL2MessagesTreeRoot),
+      l1_to_l2_messages_tree_root: mapFieldToNoir(historicalBlockData.l1ToL2MessagesTreeRoot),
       public_data_tree_root: mapFieldToNoir(historicalBlockData.publicDataTreeRoot),
       global_variables_hash: mapFieldToNoir(historicalBlockData.globalVariablesHash),
     },
@@ -374,7 +455,7 @@ export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBl
     mapFieldFromNoir(historicalBlockData.block.note_hash_tree_root),
     mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
     mapFieldFromNoir(historicalBlockData.block.contract_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.l1_to_l2_data_tree_root),
+    mapFieldFromNoir(historicalBlockData.block.l1_to_l2_messages_tree_root),
     mapFieldFromNoir(historicalBlockData.blocks_tree_root),
     mapFieldFromNoir(historicalBlockData.private_kernel_vk_tree_root),
     mapFieldFromNoir(historicalBlockData.block.public_data_tree_root),
@@ -405,11 +486,13 @@ export function mapPrivateCircuitPublicInputsToNoir(
       NoirField,
       16
     >,
-    private_call_stack: privateCircuitPublicInputs.privateCallStack.map(mapFieldToNoir) as FixedLengthArray<
+    private_call_stack_hashes: privateCircuitPublicInputs.privateCallStackHashes.map(
+      mapFieldToNoir,
+    ) as FixedLengthArray<NoirField, 4>,
+    public_call_stack_hashes: privateCircuitPublicInputs.publicCallStackHashes.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
       4
     >,
-    public_call_stack: privateCircuitPublicInputs.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
     new_l2_to_l1_msgs: privateCircuitPublicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     encrypted_logs_hash: privateCircuitPublicInputs.encryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
@@ -494,9 +577,14 @@ export function mapReadRequestMembershipWitnessToNoir(
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
-    private_call_stack_preimages: privateCallData.privateCallStackPreimages.map(
-      mapPrivateCallStackItemToNoir,
-    ) as FixedLengthArray<PrivateCallStackItemNoir, 4>,
+    private_call_stack: privateCallData.privateCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      4
+    >,
+    public_call_stack: privateCallData.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      4
+    >,
     proof: {},
     vk: {},
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
@@ -668,9 +756,13 @@ export function mapCombinedAccumulatedDataFromNoir(
     mapTupleFromNoir(
       combinedAccumulatedData.private_call_stack,
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapFieldFromNoir,
+      mapCallRequestFromNoir,
     ),
-    mapTupleFromNoir(combinedAccumulatedData.public_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.public_call_stack,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      mapCallRequestFromNoir,
+    ),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.encrypted_logs_hash, 2, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.unencrypted_logs_hash, 2, mapFieldFromNoir),
@@ -707,8 +799,16 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
     mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(finalAccumulatedData.nullified_commitments, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.private_call_stack, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.public_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(
+      finalAccumulatedData.private_call_stack,
+      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+      mapCallRequestFromNoir,
+    ),
+    mapTupleFromNoir(
+      finalAccumulatedData.public_call_stack,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      mapCallRequestFromNoir,
+    ),
     mapTupleFromNoir(finalAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(finalAccumulatedData.encrypted_logs_hash, 2, mapFieldFromNoir),
     mapTupleFromNoir(finalAccumulatedData.unencrypted_logs_hash, 2, mapFieldFromNoir),
@@ -744,8 +844,14 @@ export function mapCombinedAccumulatedDataToNoir(
       NoirField,
       64
     >,
-    private_call_stack: combinedAccumulatedData.privateCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 8>,
-    public_call_stack: combinedAccumulatedData.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 8>,
+    private_call_stack: combinedAccumulatedData.privateCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      8
+    >,
+    public_call_stack: combinedAccumulatedData.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<
+      CallRequestNoir,
+      8
+    >,
     new_l2_to_l1_msgs: combinedAccumulatedData.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     encrypted_logs_hash: combinedAccumulatedData.encryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
@@ -991,7 +1097,7 @@ export function mapPublicCircuitPublicInputsToNoir(
       StorageReadNoir,
       16
     >,
-    public_call_stack: publicInputs.publicCallStack.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
+    public_call_stack_hashes: publicInputs.publicCallStackHashes.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
     new_commitments: publicInputs.newCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
     new_nullifiers: publicInputs.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
     new_l2_to_l1_msgs: publicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
@@ -1073,9 +1179,7 @@ export function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStac
 export function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
   return {
     call_stack_item: mapPublicCallStackItemToNoir(publicCall.callStackItem),
-    public_call_stack_preimages: publicCall.publicCallStackPreimages.map(
-      mapPublicCallStackItemToNoir,
-    ) as FixedLengthArray<PublicCallStackItemNoir, 4>,
+    public_call_stack: publicCall.publicCallStack.map(mapCallRequestToNoir) as FixedLengthArray<CallRequestNoir, 4>,
     proof: {},
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(publicCall.portalContractAddress)),
     bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),
@@ -1237,5 +1341,97 @@ export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs)
       PreviousRollupDataNoir,
       2
     >,
+  };
+}
+
+/**
+ * Maps a nullifier leaf preimage to noir
+ * @param nullifierLeafPreimage - The nullifier leaf preimage.
+ * @returns The noir nullifier leaf preimage.
+ */
+export function mapNullifierLeafPreimageToNoir(
+  nullifierLeafPreimage: NullifierLeafPreimage,
+): NullifierLeafPreimageNoir {
+  return {
+    leaf_value: mapFieldToNoir(nullifierLeafPreimage.leafValue),
+    next_value: mapFieldToNoir(nullifierLeafPreimage.nextValue),
+    next_index: mapFieldToNoir(new Fr(nullifierLeafPreimage.nextIndex)),
+  };
+}
+
+/**
+ * Maps a nullifier membership witness to noir.
+ * @param membershipWitness - The nullifier membership witness.
+ * @returns The noir nullifier membership witness.
+ */
+export function mapNullifierMembershipWitnessToNoir(
+  membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
+): NullifierMembershipWitnessNoir {
+  return {
+    leaf_index: membershipWitness.leafIndex.toString(),
+    sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof NULLIFIER_TREE_HEIGHT
+    >,
+  };
+}
+
+/**
+ * Maps a membership witness of the historic blocks tree to noir.
+ * @param membershipWitness - The membership witness.
+ * @returns The noir membership witness.
+ */
+export function mapHistoricBlocksTreeRootMembershipWitnessToNoir(
+  membershipWitness: MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
+): HistoricBlocksTreeRootMembershipWitnessNoir {
+  return {
+    leaf_index: membershipWitness.leafIndex.toString(),
+    sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof HISTORIC_BLOCKS_TREE_HEIGHT
+    >,
+  };
+}
+
+/**
+ * Maps the inputs to the base rollup to noir.
+ * @param input - The circuits.js base rollup inputs.
+ * @returns The noir base rollup inputs.
+ */
+export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupInputsNoir {
+  return {
+    kernel_data: inputs.kernelData.map(mapPreviousKernelDataToNoir) as FixedLengthArray<PreviousKernelDataNoir, 2>,
+    start_note_hash_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startNoteHashTreeSnapshot),
+    start_nullifier_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startNullifierTreeSnapshot),
+    start_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startContractTreeSnapshot),
+    start_public_data_tree_root: mapFieldToNoir(inputs.startPublicDataTreeRoot),
+    start_historic_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startHistoricBlocksTreeSnapshot),
+    low_nullifier_leaf_preimages: inputs.lowNullifierLeafPreimages.map(
+      mapNullifierLeafPreimageToNoir,
+    ) as FixedLengthArray<NullifierLeafPreimageNoir, 128>,
+    low_nullifier_membership_witness: inputs.lowNullifierMembershipWitness.map(
+      mapNullifierMembershipWitnessToNoir,
+    ) as FixedLengthArray<NullifierMembershipWitnessNoir, 128>,
+    new_commitments_subtree_sibling_path: inputs.newCommitmentsSubtreeSiblingPath.map(
+      mapFieldToNoir,
+    ) as FixedLengthArray<NoirField, 25>,
+    new_nullifiers_subtree_sibling_path: inputs.newNullifiersSubtreeSiblingPath.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      13
+    >,
+    new_contracts_subtree_sibling_path: inputs.newContractsSubtreeSiblingPath.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      15
+    >,
+    new_public_data_update_requests_sibling_paths: inputs.newPublicDataUpdateRequestsSiblingPaths.map(siblingPath =>
+      siblingPath.map(mapFieldToNoir),
+    ) as FixedLengthArray<FixedLengthArray<NoirField, 254>, 32>,
+    new_public_data_reads_sibling_paths: inputs.newPublicDataReadsSiblingPaths.map(siblingPath =>
+      siblingPath.map(mapFieldToNoir),
+    ) as FixedLengthArray<FixedLengthArray<NoirField, 254>, 32>,
+    historic_blocks_tree_root_membership_witnesses: inputs.historicBlocksTreeRootMembershipWitnesses.map(
+      mapHistoricBlocksTreeRootMembershipWitnessToNoir,
+    ) as FixedLengthArray<HistoricBlocksTreeRootMembershipWitnessNoir, 2>,
+    constants: mapConstantRollupDataToNoir(inputs.constants),
   };
 }

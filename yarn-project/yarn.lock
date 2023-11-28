@@ -67,7 +67,7 @@ __metadata:
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/acvm_js": 0.30.0
+    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.3
     "@types/memdown": ^3.0.2
@@ -103,6 +103,7 @@ __metadata:
     debug: ^4.3.4
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
+    lmdb: ^2.9.1
     lodash.omit: ^4.5.0
     lodash.times: ^4.3.2
     ts-jest: ^29.1.0
@@ -161,6 +162,7 @@ __metadata:
     koa: ^2.14.2
     koa-router: ^12.0.0
     levelup: ^5.1.1
+    lmdb: ^2.9.1
     memdown: ^6.1.1
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
@@ -275,9 +277,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/bb.js@npm:0.7.10":
-  version: 0.7.10
-  resolution: "@aztec/bb.js@npm:0.7.10"
+"@aztec/bb.js@npm:0.15.1":
+  version: 0.15.1
+  resolution: "@aztec/bb.js@npm:0.15.1"
   dependencies:
     comlink: ^4.4.1
     commander: ^10.0.1
@@ -285,7 +287,7 @@ __metadata:
     tslib: ^2.4.0
   bin:
     bb.js: dest/node/main.js
-  checksum: 0410278e6ec2a6ecdcbaa58633b181ec1d91e1c267c76e7e587fb69c8f2fd394e79f65bd96cfcdb2a2b20fe5abeb86ababd45bd6364ba07555fc0643bf0e4307
+  checksum: b3d94eb6db1d1579fa7266486d4b1c6ddc408f1d36bd2585b50e623aa90222d273e56464284b94677979840c1119c5385aa961462d3a1af6cb9a2ba1cf9655f9
   languageName: node
   linkType: hard
 
@@ -348,26 +350,15 @@ __metadata:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@msgpack/msgpack": ^3.0.0-beta2
-    "@noble/curves": ^1.0.0
-    "@types/detect-node": ^2.0.0
     "@types/jest": ^29.5.0
-    "@types/lodash.camelcase": ^4.3.7
     "@types/lodash.chunk": ^4.2.7
-    "@types/lodash.mapvalues": ^4.6.7
     "@types/lodash.times": ^4.3.7
     "@types/node": ^18.7.23
-    cross-fetch: ^3.1.5
-    detect-node: ^2.1.0
     eslint: ^8.35.0
     jest: ^29.5.0
-    lodash.capitalize: ^4.2.1
     lodash.chunk: ^4.2.0
-    lodash.mapvalues: ^4.6.0
-    lodash.snakecase: ^4.1.1
     lodash.times: ^4.3.2
     prettier: ^2.8.4
-    ts-dedent: ^2.2.0
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -457,6 +448,7 @@ __metadata:
     koa: ^2.14.2
     koa-static: ^5.0.0
     levelup: ^5.1.1
+    lmdb: ^2.9.1
     lodash.compact: ^3.0.1
     lodash.every: ^4.6.0
     lodash.times: ^4.3.2
@@ -610,8 +602,8 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@ltd/j-toml": ^1.38.0
-    "@noir-lang/noir_wasm": 0.18.0-6ca33a2.aztec
-    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
+    "@noir-lang/noir_wasm": "portal:../../noir/packages/noir_wasm"
+    "@noir-lang/source-resolver": "portal:../../noir/packages/source-resolver"
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
     "@types/lodash.camelcase": ^4.3.7
@@ -680,10 +672,10 @@ __metadata:
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
-    "@noir-lang/acvm_js": ^0.30.0
-    "@noir-lang/backend_barretenberg": ^0.7.10
-    "@noir-lang/noir_js": ^0.16.0
-    "@noir-lang/noirc_abi": ^0.16.0
+    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
+    "@noir-lang/backend_barretenberg": "portal:../../noir/packages/backend_barretenberg"
+    "@noir-lang/noir_js": "portal:../../noir/packages/noir_js"
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
@@ -3271,6 +3263,48 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@lmdb/lmdb-darwin-arm64@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-darwin-arm64@npm:2.9.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@lmdb/lmdb-darwin-x64@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-darwin-x64@npm:2.9.1"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@lmdb/lmdb-linux-arm64@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-linux-arm64@npm:2.9.1"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@lmdb/lmdb-linux-arm@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-linux-arm@npm:2.9.1"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@lmdb/lmdb-linux-x64@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-linux-x64@npm:2.9.1"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@lmdb/lmdb-win32-x64@npm:2.9.1":
+  version: 2.9.1
+  resolution: "@lmdb/lmdb-win32-x64@npm:2.9.1"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
 "@ltd/j-toml@npm:^1.38.0":
   version: 1.38.0
   resolution: "@ltd/j-toml@npm:1.38.0"
@@ -3428,10 +3462,45 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@msgpack/msgpack@npm:^3.0.0-beta2":
-  version: 3.0.0-beta2
-  resolution: "@msgpack/msgpack@npm:3.0.0-beta2"
-  checksum: d86e5d48146051952d6bea35a6cf733a401cf65ad5614d79689aa48c7076021737ca2c782978dd1b6c0c9c45888b246e379e45ae906179e3a0e8ef4ee6f221c1
+"@msgpackr-extract/msgpackr-extract-darwin-arm64@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-darwin-arm64@npm:3.0.2"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@msgpackr-extract/msgpackr-extract-darwin-x64@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-darwin-x64@npm:3.0.2"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@msgpackr-extract/msgpackr-extract-linux-arm64@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-linux-arm64@npm:3.0.2"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@msgpackr-extract/msgpackr-extract-linux-arm@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-linux-arm@npm:3.0.2"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@msgpackr-extract/msgpackr-extract-linux-x64@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-linux-x64@npm:3.0.2"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@msgpackr-extract/msgpackr-extract-win32-x64@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@msgpackr-extract/msgpackr-extract-win32-x64@npm:3.0.2"
+  conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
@@ -3567,74 +3636,59 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/acvm_js@npm:0.28.0":
-  version: 0.28.0
-  resolution: "@noir-lang/acvm_js@npm:0.28.0"
-  checksum: 2eaeabb2a510702fa437dff7ea3a6c54aa11d2930d11d3a1a1dfda1d27fd5e28b268f96c4db85e1d76ba96cb49c509018d7c897c432de5e8d3d01b04778cf82f
+"@noir-lang/acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/acvm_js@npm:0.30.0, @noir-lang/acvm_js@npm:^0.30.0":
-  version: 0.30.0
-  resolution: "@noir-lang/acvm_js@npm:0.30.0"
-  checksum: 4209b8b572f35b90c577a3235303c9fdf4be0dbf20ac750c3580faac8256efd5f3810e10a1646d38b1607b67fbd11ec57c8a5c90935662be55b6edfa8a6b0c10
-  languageName: node
-  linkType: hard
-
-"@noir-lang/backend_barretenberg@npm:^0.7.10":
-  version: 0.7.10
-  resolution: "@noir-lang/backend_barretenberg@npm:0.7.10"
+"@noir-lang/backend_barretenberg@portal:../noir/packages/backend_barretenberg::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/backend_barretenberg@portal:../noir/packages/backend_barretenberg::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/bb.js": 0.7.10
-    "@noir-lang/types": 0.14.1
+    "@aztec/bb.js": 0.15.1
+    "@noir-lang/types": 0.19.3
     fflate: ^0.8.0
-  peerDependencies:
-    "@noir-lang/backend_barretenberg": 0.7.10
-  checksum: d42e2405f70d493bb9251e63d58ca084e00d2c4653acb1ba6be2dd490f592b014a404c975d32f202ae65ed117d551ddc3acfa6dc8b5ecb587d21410b6ff9e8c5
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/noir_js@npm:^0.16.0":
-  version: 0.16.0
-  resolution: "@noir-lang/noir_js@npm:0.16.0"
+"@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.28.0
-    "@noir-lang/noirc_abi": 0.16.0
-    "@noir-lang/types": 0.14.1
-    fflate: ^0.8.0
-  checksum: fcb5cc730795800f8cf5093c99afac494c8ad26fa78a325ddbacd4fabedc08bdcaa9a002adfa746c853c237edd2098812ec8ec10a918e4a4100c19ed2f7fcb60
+    "@noir-lang/acvm_js": 0.34.0
+    "@noir-lang/noirc_abi": 0.19.3
+    "@noir-lang/types": 0.19.3
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec":
-  version: 0.18.0-6ca33a2.aztec
-  resolution: "@noir-lang/noir_wasm@npm:0.18.0-6ca33a2.aztec"
+"@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   peerDependencies:
-    "@noir-lang/source-resolver": 0.18.0-6ca33a2.aztec
-  checksum: 1654cf4a86b600ad33717306253e94623efb017a9a99fc90a1ecde8b3fe909e8a8b5a339dd84ec5b20daa2c15aa60697cda6b84b90f4f201647f68581a5655be
+    "@noir-lang/source-resolver": 0.19.3
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/noirc_abi@npm:0.16.0, @noir-lang/noirc_abi@npm:^0.16.0":
-  version: 0.16.0
-  resolution: "@noir-lang/noirc_abi@npm:0.16.0"
-  checksum: 41308bbf64b8b895bea00a8534eb7a6aad6872f6b4dfab653194e273ae51fed93001e99c1eaf8a6aa6d791c3b1a7d09ea9730db4da1be6a172b37dbf6fa1b077
+"@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec":
-  version: 0.18.0-6ca33a2.aztec
-  resolution: "@noir-lang/source-resolver@npm:0.18.0-6ca33a2.aztec"
-  checksum: 95f3426f7c40737be2f40bf793ecc555ecab7f1a782f27fd3dbcbf37197db0d2bf3fe8a5554e69e842cdb59a7e2d11a575d32ef82d92312c438cf892f5a98a6a
+"@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@noir-lang/types@npm:0.14.1":
-  version: 0.14.1
-  resolution: "@noir-lang/types@npm:0.14.1"
-  checksum: 0c2a7967a62ad3348567d72302c4485a5612d4fd514437f25362cafb9fdc0bca47771bd9d97685b6098ebffd500f2d1e5d7104a38a510397cb9258435cb7f037
+"@noir-lang/types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@noir-lang/types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@noir-lang/noirc_abi": 0.19.3
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@npmcli/fs@npm:^1.0.0":
   version: 1.1.1
@@ -4822,15 +4876,6 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: 0f065989408a9e0584e6c27495be2cd4602e62650f55266aa195812582444463c0c8570c674ae84f947c11748f49ab43fd5b482fa120e08eeee4c23b162edc38
-  languageName: node
-  linkType: hard
-
-"@types/lodash.mapvalues@npm:^4.6.7":
-  version: 4.6.7
-  resolution: "@types/lodash.mapvalues@npm:4.6.7"
-  dependencies:
-    "@types/lodash": "*"
-  checksum: f28db2c0629ddff44f42ee545c35a6079ab7619d14e41eea6963a014da535346b13595391787570267b9c20457a2cc5f6d2c390e87e40f12a7618e4b7b5d6682
   languageName: node
   linkType: hard
 
@@ -8636,7 +8681,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cross-fetch@npm:^3.1.4, cross-fetch@npm:^3.1.5":
+"cross-fetch@npm:^3.1.4":
   version: 3.1.8
   resolution: "cross-fetch@npm:3.1.8"
   dependencies:
@@ -9080,6 +9125,13 @@ __metadata:
   version: 5.3.0
   resolution: "detect-browser@npm:5.3.0"
   checksum: dd6e08d55da1d9e0f22510ac79872078ae03d9dfa13c5e66c96baedc1c86567345a88f96949161f6be8f3e0fafa93bf179bdb1cd311b14f5f163112fcc70ab49
+  languageName: node
+  linkType: hard
+
+"detect-libc@npm:^2.0.1":
+  version: 2.0.2
+  resolution: "detect-libc@npm:2.0.2"
+  checksum: 2b2cd3649b83d576f4be7cc37eb3b1815c79969c8b1a03a40a4d55d83bc74d010753485753448eacb98784abf22f7dbd3911fd3b60e29fda28fed2d1a997944d
   languageName: node
   linkType: hard
 
@@ -14216,6 +14268,41 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lmdb@npm:^2.9.1":
+  version: 2.9.1
+  resolution: "lmdb@npm:2.9.1"
+  dependencies:
+    "@lmdb/lmdb-darwin-arm64": 2.9.1
+    "@lmdb/lmdb-darwin-x64": 2.9.1
+    "@lmdb/lmdb-linux-arm": 2.9.1
+    "@lmdb/lmdb-linux-arm64": 2.9.1
+    "@lmdb/lmdb-linux-x64": 2.9.1
+    "@lmdb/lmdb-win32-x64": 2.9.1
+    msgpackr: ^1.9.9
+    node-addon-api: ^6.1.0
+    node-gyp: latest
+    node-gyp-build-optional-packages: 5.1.1
+    ordered-binary: ^1.4.1
+    weak-lru-cache: ^1.2.2
+  dependenciesMeta:
+    "@lmdb/lmdb-darwin-arm64":
+      optional: true
+    "@lmdb/lmdb-darwin-x64":
+      optional: true
+    "@lmdb/lmdb-linux-arm":
+      optional: true
+    "@lmdb/lmdb-linux-arm64":
+      optional: true
+    "@lmdb/lmdb-linux-x64":
+      optional: true
+    "@lmdb/lmdb-win32-x64":
+      optional: true
+  bin:
+    download-lmdb-prebuilds: bin/download-prebuilds.js
+  checksum: 1f0a8754cc019586c8e34bd45e4ee1df99f6f5732e8dc04f951cf631895a179dfd913123773206935a580cfe80bce117800a3ccf0a2cc8187821badfdaa71cd4
+  languageName: node
+  linkType: hard
+
 "load-json-file@npm:^6.2.0":
   version: 6.2.0
   resolution: "load-json-file@npm:6.2.0"
@@ -14330,13 +14417,6 @@ __metadata:
   version: 4.5.0
   resolution: "lodash.isequal@npm:4.5.0"
   checksum: da27515dc5230eb1140ba65ff8de3613649620e8656b19a6270afe4866b7bd461d9ba2ac8a48dcc57f7adac4ee80e1de9f965d89d4d81a0ad52bb3eec2609644
-  languageName: node
-  linkType: hard
-
-"lodash.mapvalues@npm:^4.6.0":
-  version: 4.6.0
-  resolution: "lodash.mapvalues@npm:4.6.0"
-  checksum: 0ff1b252fda318fc36e47c296984925e98fbb0fc5a2ecc4ef458f3c739a9476d47e40c95ac653e8314d132aa59c746d4276527b99d6e271940555c6e12d2babd
   languageName: node
   linkType: hard
 
@@ -15263,6 +15343,49 @@ __metadata:
   languageName: node
   linkType: hard
 
+"msgpackr-extract@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "msgpackr-extract@npm:3.0.2"
+  dependencies:
+    "@msgpackr-extract/msgpackr-extract-darwin-arm64": 3.0.2
+    "@msgpackr-extract/msgpackr-extract-darwin-x64": 3.0.2
+    "@msgpackr-extract/msgpackr-extract-linux-arm": 3.0.2
+    "@msgpackr-extract/msgpackr-extract-linux-arm64": 3.0.2
+    "@msgpackr-extract/msgpackr-extract-linux-x64": 3.0.2
+    "@msgpackr-extract/msgpackr-extract-win32-x64": 3.0.2
+    node-gyp: latest
+    node-gyp-build-optional-packages: 5.0.7
+  dependenciesMeta:
+    "@msgpackr-extract/msgpackr-extract-darwin-arm64":
+      optional: true
+    "@msgpackr-extract/msgpackr-extract-darwin-x64":
+      optional: true
+    "@msgpackr-extract/msgpackr-extract-linux-arm":
+      optional: true
+    "@msgpackr-extract/msgpackr-extract-linux-arm64":
+      optional: true
+    "@msgpackr-extract/msgpackr-extract-linux-x64":
+      optional: true
+    "@msgpackr-extract/msgpackr-extract-win32-x64":
+      optional: true
+  bin:
+    download-msgpackr-prebuilds: bin/download-prebuilds.js
+  checksum: 5adb809b965bac41c310e60373d54c955fe78e4d134ab036d0f9ee5b322cec0a739878d395e17c1ac82d840705896b2dafae6a8cc04ad34c14d2de4b06b58330
+  languageName: node
+  linkType: hard
+
+"msgpackr@npm:^1.9.9":
+  version: 1.9.9
+  resolution: "msgpackr@npm:1.9.9"
+  dependencies:
+    msgpackr-extract: ^3.0.2
+  dependenciesMeta:
+    msgpackr-extract:
+      optional: true
+  checksum: b63182d99f479d79f0d082fd2688ce7cf699b1aee71e20f28591c30b48743bb57868fdd72656759a892891072d186d864702c756434520709e8fe7e0d350a119
+  languageName: node
+  linkType: hard
+
 "multicast-dns@npm:^7.2.5":
   version: 7.2.5
   resolution: "multicast-dns@npm:7.2.5"
@@ -15392,6 +15515,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-addon-api@npm:^6.1.0":
+  version: 6.1.0
+  resolution: "node-addon-api@npm:6.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 3a539510e677cfa3a833aca5397300e36141aca064cdc487554f2017110709a03a95da937e98c2a14ec3c626af7b2d1b6dabe629a481f9883143d0d5bff07bf2
+  languageName: node
+  linkType: hard
+
 "node-cleanup@npm:^2.1.2":
   version: 2.1.2
   resolution: "node-cleanup@npm:2.1.2"
@@ -15435,6 +15567,30 @@ __metadata:
   version: 1.3.1
   resolution: "node-forge@npm:1.3.1"
   checksum: 08fb072d3d670599c89a1704b3e9c649ff1b998256737f0e06fbd1a5bf41cae4457ccaee32d95052d80bbafd9ffe01284e078c8071f0267dc9744e51c5ed42a9
+  languageName: node
+  linkType: hard
+
+"node-gyp-build-optional-packages@npm:5.0.7":
+  version: 5.0.7
+  resolution: "node-gyp-build-optional-packages@npm:5.0.7"
+  bin:
+    node-gyp-build-optional-packages: bin.js
+    node-gyp-build-optional-packages-optional: optional.js
+    node-gyp-build-optional-packages-test: build-test.js
+  checksum: bcb4537af15bcb3811914ea0db8f69284ca10db1cc7543a167a4c41ae4b9b5044b133f789fdadad0b7adc6931f6ae7def3c75b0bc7b05836881aae52400163e6
+  languageName: node
+  linkType: hard
+
+"node-gyp-build-optional-packages@npm:5.1.1":
+  version: 5.1.1
+  resolution: "node-gyp-build-optional-packages@npm:5.1.1"
+  dependencies:
+    detect-libc: ^2.0.1
+  bin:
+    node-gyp-build-optional-packages: bin.js
+    node-gyp-build-optional-packages-optional: optional.js
+    node-gyp-build-optional-packages-test: build-test.js
+  checksum: f3cb197862516e6879377adaa58142ae9013ab69c86cf2645f8b008db339354145d8ebd9140a13ec7ece5ce28a372ca7e14660379d3a3dd7b908a6f2743606e9
   languageName: node
   linkType: hard
 
@@ -15862,6 +16018,13 @@ __metadata:
     strip-ansi: ^6.0.0
     wcwidth: ^1.0.1
   checksum: 28d476ee6c1049d68368c0dc922e7225e3b5600c3ede88fade8052837f9ed342625fdaa84a6209302587c8ddd9b664f71f0759833cbdb3a4cf81344057e63c63
+  languageName: node
+  linkType: hard
+
+"ordered-binary@npm:^1.4.1":
+  version: 1.4.1
+  resolution: "ordered-binary@npm:1.4.1"
+  checksum: 274940b4ef983562e11371c84415c265432a4e1337ab85f8e7669eeab6afee8f655c6c12ecee1cd121aaf399c32f5c781b0d50e460bd42da004eba16dcc66574
   languageName: node
   linkType: hard
 
@@ -19072,13 +19235,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-dedent@npm:^2.2.0":
-  version: 2.2.0
-  resolution: "ts-dedent@npm:2.2.0"
-  checksum: 93ed8f7878b6d5ed3c08d99b740010eede6bccfe64bce61c5a4da06a2c17d6ddbb80a8c49c2d15251de7594a4f93ffa21dd10e7be75ef66a4dc9951b4a94e2af
-  languageName: node
-  linkType: hard
-
 "ts-essentials@npm:^7.0.3":
   version: 7.0.3
   resolution: "ts-essentials@npm:7.0.3"
@@ -20062,6 +20218,13 @@ __metadata:
   dependencies:
     defaults: ^1.0.3
   checksum: 814e9d1ddcc9798f7377ffa448a5a3892232b9275ebb30a41b529607691c0491de47cba426e917a4d08ded3ee7e9ba2f3fe32e62ee3cd9c7d3bafb7754bd553c
+  languageName: node
+  linkType: hard
+
+"weak-lru-cache@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "weak-lru-cache@npm:1.2.2"
+  checksum: 0fbe16839d193ed82ddb4fe331ca8cfaee2ecbd42596aa02366c708956cf41f7258f2d5411c3bc9aa099c26058dc47afbd2593d449718a18e4ef4d870c5ace18
   languageName: node
   linkType: hard
 

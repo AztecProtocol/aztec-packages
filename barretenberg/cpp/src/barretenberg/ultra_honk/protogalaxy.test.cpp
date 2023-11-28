@@ -87,34 +87,10 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
 std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instance_size, size_t num_public_inputs)
 {
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, num_public_inputs);
-    // Compute and store commitments to all precomputed polynomials
-    verification_key->q_m = Affine(Projective::random_element());
-    verification_key->q_l = Affine(Projective::random_element());
-    verification_key->q_r = Affine(Projective::random_element());
-    verification_key->q_o = Affine(Projective::random_element());
-    verification_key->q_c = Affine(Projective::random_element());
-    verification_key->sigma_1 = Affine(Projective::random_element());
-    verification_key->sigma_2 = Affine(Projective::random_element());
-    verification_key->sigma_3 = Affine(Projective::random_element());
-    verification_key->id_1 = Affine(Projective::random_element());
-    verification_key->id_2 = Affine(Projective::random_element());
-    verification_key->id_3 = Affine(Projective::random_element());
-    verification_key->lagrange_first = Affine(Projective::random_element());
-    verification_key->lagrange_last = Affine(Projective::random_element());
-
-    verification_key->q_4 = Affine(Projective::random_element());
-    verification_key->q_arith = Affine(Projective::random_element());
-    verification_key->q_sort = Affine(Projective::random_element());
-    verification_key->q_elliptic = Affine(Projective::random_element());
-    verification_key->q_aux = Affine(Projective::random_element());
-    verification_key->q_lookup = Affine(Projective::random_element());
-    verification_key->sigma_4 = Affine(Projective::random_element());
-    verification_key->id_4 = Affine(Projective::random_element());
-    verification_key->table_1 = Affine(Projective::random_element());
-    verification_key->table_2 = Affine(Projective::random_element());
-    verification_key->table_3 = Affine(Projective::random_element());
-    verification_key->table_4 = Affine(Projective::random_element());
-
+    auto vk_view = verification_key->pointer_view();
+    for (auto& view : vk_view) {
+        (*view) = Affine(Projective::random_element());
+    }
     return verification_key;
 }
 
