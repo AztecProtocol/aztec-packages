@@ -52,20 +52,6 @@ barretenberg-acir-tests-bb.js:
   dependencies:
     - bb.js
 
-circuits-wasm-linux-clang:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-wasm-linux-clang
-
-circuits-x86_64-linux-clang-assert:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
-
 l1-contracts:
   buildDir: l1-contracts
 
@@ -76,9 +62,10 @@ yarn-project-base:
     - ^yarn-project/yarn-project-base/
     - ^yarn-project/yarn.lock
   dependencies:
-    - circuits-wasm-linux-clang
     - l1-contracts
     - bb.js
+    - noir
+    - noir-packages
 
 yarn-project:
   buildDir: yarn-project
@@ -165,3 +152,7 @@ docs:
 
 noir:
   buildDir: noir
+
+noir-packages:
+  buildDir: noir
+  dockerfile: Dockerfile.packages
