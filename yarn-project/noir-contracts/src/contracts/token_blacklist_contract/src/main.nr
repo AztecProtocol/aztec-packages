@@ -92,8 +92,8 @@ contract TokenBlacklist {
                         )
                     },
                 ),
-                // docs:start:slow_updates_storage
                 // Below is an abomination to have same value in private and public (immutable in solidity).
+                // docs:start:slow_updates_storage
                 slow_update: ImmutableSingleton::new(context, 7, FieldNoteMethods),
                 public_slow_update: PublicState::new(
                     context,
@@ -147,13 +147,18 @@ contract TokenBlacklist {
         storage.admin.write(new_admin);
         // docs:start:write_slow_update_public
         storage.public_slow_update.write(slow_updates_contract);
-        SlowMap::at(slow_updates_contract).initialize(context);
         // docs:end:write_slow_update_public
+        // docs:start:slowmap_initialize
+        SlowMap::at(slow_updates_contract).initialize(context);
+        // docs:end:slowmap_initialize
+
     }
 
     #[aztec(private)]
     fn update_roles(user: AztecAddress, roles: Field) {
+        // docs:start:slowmap_at
         let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
+        // docs:end:slowmap_at
         let caller_roles = UserFlags::new(slow.read_at(&mut context, context.msg_sender()) as u120);
         assert(caller_roles.is_admin, "caller is not admin");
 
@@ -161,11 +166,13 @@ contract TokenBlacklist {
     }
 
     #[aztec(public)]
-    // docs:start:get_public
     fn mint_public(to: AztecAddress, amount: Field) {
+        // docs:start:get_public
         let slow = SlowMap::at(storage.public_slow_update.read());
-    // docs:end:get_public
+        // docs:end:get_public
+        // docs:start:read_at_pub
         let to_roles = UserFlags::new(slow.read_at_pub(context, to.address) as u120);
+         // docs:end:read_at_pub
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let caller_roles = UserFlags::new(slow.read_at_pub(context, context.msg_sender()) as u120);
@@ -261,7 +268,9 @@ contract TokenBlacklist {
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
         let slow = SlowMap::at(AztecAddress::new(storage.slow_update.get_note().value));
+        // docs:start:slowmap_read_at
         let to_roles = UserFlags::new(slow.read_at(&mut context, to.address) as u120);
+        // docs:end:slowmap_read_at
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let pending_shields = storage.pending_shields;

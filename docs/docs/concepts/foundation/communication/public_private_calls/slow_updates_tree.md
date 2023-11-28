@@ -1,10 +1,10 @@
 ---
-title: Privately access Public State
+title: Privately access Historic Public Data
 ---
 
-In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state (only sequencers can do that!)
+In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state - only sequencers can do that.
 
-But, what about historical public data (or public data that changes infrequently)? Through a **slow updates tree**, you can have private functions access historical public state. Please note that we are still experimenting with this feature.
+But, what about historical public data (or public data that changes infrequently)? Through a **slow updates tree**, private functions can access historical public state. Please note that we are still experimenting with this feature.
 
 On this page you will learn:
 
@@ -15,11 +15,11 @@ On this page you will learn:
 
 ## The need for a slow updates tree
 
-This structure was created specifically to privately & publicly access data that is not updated often. It should be used to store data that is not sensitive but should be accessible from private smart contracts. Using a slow updates tree, it is possible to:
+This structure was created specifically to privately & publicly access historical public data that is not updated often. It should be used to store data that is not sensitive but needs to be accessible from private smart contracts. Using a slow updates tree, it is possible to:
 
-- Update public data from public and private functions
-- Access public data from a public function
-- Access public data from a private function _without revealing which contract we're executing_
+- Access historic public data from a private function
+- Access historic public data from a public function
+- Update public data (that does not need updated often) from public and private functions 
 
 This data structure is ideal for these use cases:
 
@@ -28,15 +28,15 @@ This data structure is ideal for these use cases:
 
 ## How it works
 
-We developed the Slow Update Tree in response to help balance public and private execution in a blockchain context.
+We developed the Slow Update Tree to help balance public and private execution in a blockchain context.
 
 Earlier systems typically used either fully public or entirely private state trees, which led to privacy leaks if reading public data from private state.
 
-Using a shared state tree, it is possible to privately access public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
+Using a shared state tree, it is possible to privately access historic public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
 
 ```mermaid
 graph TD;
-    Cm[Commitment1] --> Vm1[Value1]
+    Cm[CommitmentToKnowingAValue] --> Vm1[Value1]
     Cm --> Vm2[Value2]
     Cm --> Vmn[Value3]
     Vm1 --> Mp1[Membership Proof for Value1]
@@ -92,4 +92,6 @@ This could potentially lead to delays in state changes - for example an address 
 
 ### Complexity in State Management
 
-Developers are used to instant state updates, so the Slow Update Tree might take some getting used to. This should not be too much of an issue. 
+Developers are used to instant state updates, so the Slow Update Tree might take some getting used to. But we believe this won't take long!
+
+For a code walkthrough of how a token blacklist contract can use a slow updates tree, read [this](../../../../dev_docs/contracts/syntax/slow_updates_tree.md).
