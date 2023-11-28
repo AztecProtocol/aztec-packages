@@ -156,7 +156,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         ).resolves.toEqual(true);
       });
 
-      it('allows duplicates', async () => {
+      it('allows duplicate pending messages in different positions in the same block', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await expect(
           store.addPendingL1ToL2Messages([
@@ -164,6 +164,31 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
             new PendingL1ToL2Message(message, 1n, 1),
           ]),
         ).resolves.toEqual(true);
+
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
+      });
+
+      it('allows duplicate pending messages in different blocks', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await expect(
+          store.addPendingL1ToL2Messages([
+            new PendingL1ToL2Message(message, 1n, 0),
+            new PendingL1ToL2Message(message, 2n, 0),
+          ]),
+        ).resolves.toEqual(true);
+
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
+      });
+
+      it('is idempotent', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await expect(
+          store.addPendingL1ToL2Messages([
+            new PendingL1ToL2Message(message, 1n, 0),
+            new PendingL1ToL2Message(message, 1n, 0),
+          ]),
+        ).resolves.toEqual(true);
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 
@@ -255,6 +280,58 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         await store.addPendingL1ToL2Messages([new PendingL1ToL2Message(message, 2n, 0)]);
         await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([message.entryKey!]);
+      });
+
+      it('allows adding and cancelling in the same block', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await store.addPendingL1ToL2Messages([new PendingL1ToL2Message(message, 1n, 0)]);
+        await store.cancelPendingL1ToL2Messages([new CancelledL1ToL2Message(message.entryKey!, 1n, 0)]);
+        await expect(store.getPendingL1ToL2MessageKeys(1)).resolves.toEqual([]);
+      });
+
+      it('allows duplicates cancellations in different positions in the same block', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await store.addPendingL1ToL2Messages([
+          new PendingL1ToL2Message(message, 1n, 0),
+          new PendingL1ToL2Message(message, 1n, 1),
+        ]);
+
+        await store.cancelPendingL1ToL2Messages([
+          new CancelledL1ToL2Message(message.entryKey!, 2n, 0),
+          new CancelledL1ToL2Message(message.entryKey!, 2n, 1),
+        ]);
+
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([]);
+      });
+
+      it('allows duplicates cancellations in different blocks', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await store.addPendingL1ToL2Messages([
+          new PendingL1ToL2Message(message, 1n, 0),
+          new PendingL1ToL2Message(message, 1n, 1),
+        ]);
+
+        await store.cancelPendingL1ToL2Messages([
+          new CancelledL1ToL2Message(message.entryKey!, 2n, 0),
+          new CancelledL1ToL2Message(message.entryKey!, 3n, 0),
+        ]);
+
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([]);
+      });
+
+      it('is idempotent', async () => {
+        const message = L1ToL2Message.random(Fr.random());
+        await store.addPendingL1ToL2Messages([
+          new PendingL1ToL2Message(message, 1n, 0),
+          new PendingL1ToL2Message(message, 1n, 1),
+        ]);
+
+        await store.cancelPendingL1ToL2Messages([
+          new CancelledL1ToL2Message(message.entryKey!, 2n, 0),
+          new CancelledL1ToL2Message(message.entryKey!, 2n, 0),
+        ]);
+
+        await expect(store.getPendingL1ToL2MessageKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 
