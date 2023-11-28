@@ -29,8 +29,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr std::string_view NAME_STRING = "UltraHonk";
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-    std::shared_ptr<ProvingKey> proving_key;
-    std::shared_ptr<VerificationKey> verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
     std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
@@ -41,11 +39,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     explicit UltraComposer_(std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
         : crs_factory_(std::move(crs_factory))
-    {}
-
-    UltraComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
-        : proving_key(std::move(p_key))
-        , verification_key(std::move(v_key))
     {}
 
     UltraComposer_(UltraComposer_&& other) noexcept = default;
