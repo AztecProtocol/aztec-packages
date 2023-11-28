@@ -158,14 +158,14 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
      * to ensure that data is read exactly once.
      *
      * The first is the problem of eventually consistent ETH service providers like Infura.
-     * We are not currently handling this correctly in the case of L1 to L2 messages and we will
-     * want to re-visit L2 Block and contract data retrieval at a later stage. This is not
-     * currently a problem but will need to be addressed before a mainnet release.
+     * We currently read from the last L1 block that we saw emit an L2 block. This could mean
+     * that the archiver ends up looking at the same L1 block multiple times (e.g. if we last saw
+     * an L2 block emitted at L1 block 10, we'd constantly ask for L1 blocks from 11 onwards until
+     * we see another L2 block). For this to work message and block processing need to be idempotent.
+     * We should re-visit this before mainnet launch.
      *
      * The second is that in between the various calls to L1, the block number can move meaning some
      * of the following calls will return data for blocks that were not present during earlier calls.
-     * This is a problem for example when setting the last block number marker for L1 to L2 messages -
-     * this.lastProcessedBlockNumber = currentBlockNumber;
      * It's possible that we actually received messages in block currentBlockNumber + 1 meaning the next time
      * we do this sync we get the same message again. Additionally, the call to get cancelled L1 to L2 messages
      * could read from a block not present when retrieving pending messages. If a message was added and cancelled
