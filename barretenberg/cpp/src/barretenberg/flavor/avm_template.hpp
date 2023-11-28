@@ -90,9 +90,9 @@ class AVMTemplate {
       public:
         DataType permutation_set_column_1; // column 0
         DataType permutation_set_column_2; // column 1
-        DataType permutation_set_column_3; // column 1
-        DataType permutation_set_column_4; // column 1
-        DataType permutation_inverses;     // column 2
+        DataType permutation_set_column_3; // column 2
+        DataType permutation_set_column_4; // column 3
+        DataType permutation_inverses;     // column 4
 
         DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
                             &permutation_set_column_1,
@@ -123,12 +123,12 @@ class AVMTemplate {
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
         DataType lagrange_first;           // column 0
-        DataType enable_set_permutation;   // column 0
-        DataType permutation_set_column_1; // column 1
-        DataType permutation_set_column_2; // column 2
-        DataType permutation_set_column_3; // column 2
-        DataType permutation_set_column_4; // column 2
-        DataType permutation_inverses;     // column 3
+        DataType enable_set_permutation;   // column 1
+        DataType permutation_set_column_1; // column 2
+        DataType permutation_set_column_2; // column 3
+        DataType permutation_set_column_3; // column 4
+        DataType permutation_set_column_4; // column 5
+        DataType permutation_inverses;     // column 6
 
         // defines a method pointer_view that returns the following, with const and non-const variants
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
@@ -340,7 +340,7 @@ class AVMTemplate {
 
         void deserialize_full_transcript() override
         {
-            // TODO
+            // TODO. Codepath is dead for now, becaused there is no composer
             abort();
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
@@ -370,7 +370,7 @@ class AVMTemplate {
 
         void serialize_full_transcript() override
         {
-            // TODO
+            // TODO. Codepath is dead for now, becaused there is no composer
             abort();
             size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
             BaseTranscript<FF>::proof_data.clear();
