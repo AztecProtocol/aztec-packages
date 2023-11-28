@@ -184,7 +184,7 @@ impl HistoricBlockData {
     }
 
     pub fn block_hash(self) -> Field {
-        // TODO: Unify the ordering in `HistoricBlockData::serialize` function and the ordering
+        // TODO(#3442): Unify the ordering in `HistoricBlockData::serialize` function and the ordering
         // in the block hash preimage --> This requires changes in the circuits.
         let inputs = [
             self.global_variables_hash,
