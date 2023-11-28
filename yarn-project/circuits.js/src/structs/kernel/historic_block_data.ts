@@ -37,7 +37,7 @@ export class HistoricBlockData {
     /**
      * Root of the private kernel vk tree at the time of when this information was assembled.
      */
-    public privateKernelVkTreeRoot: Fr, // future enhancement
+    public privateKernelVkTreeRoot: Fr, // TODO(#3441) future enhancement
     /**
      * Current public state tree hash.
      */
