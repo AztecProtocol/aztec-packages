@@ -490,8 +490,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Compute the grand product polynomial
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
-    prover_polynomials.z_perm_shift =
-        polynomial_container[z_perm_index].shifted(); // TODO(https://github.com/AztecProtocol/barretenberg/issues/784)
+    prover_polynomials.z_perm_shift = polynomial_container[z_perm_index].shifted();
 
     using Relations = typename Flavor::Relations;
 
