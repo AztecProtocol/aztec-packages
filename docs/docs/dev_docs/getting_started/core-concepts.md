@@ -27,7 +27,7 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 * The PXE and the Public VM cannot directly communicate with each other
 * Private transactions in the PXE are executed first, followed by public transactions
 
-You can call a public function from a private function by using this:
+You can call a public function from a private function by using `context.call_public_function`, like this:
 
 #include_code call_public_function yarn-project/noir-contracts/src/contracts/card_game_contract/src/main.nr rust
 
