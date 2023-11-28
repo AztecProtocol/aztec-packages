@@ -1,6 +1,6 @@
 mod utils;
 
-// A demonstration of inclusion proofs.
+// A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
@@ -48,14 +48,14 @@ contract InclusionProofs {
     };
 
     struct Storage {
-        balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        private_values: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
         public_value: PublicState<Field, 1>,
     }
 
     impl Storage {
         fn init(context: Context) -> Self {
             Storage {
-                balances: Map::new(
+                private_values: Map::new(
                     context,
                     1, // Storage slot
                     |context, slot| {
@@ -82,15 +82,15 @@ contract InclusionProofs {
         storage.public_value.write(value);
     }
 
-    // Mints `amount` of LP tokens to `owner`.
+    // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(
         owner: AztecAddress,
-        amount: Field,
+        value: Field,
     ) {
-        let owner_balance = storage.balances.at(owner.address);
-        let mut note = ValueNote::new(amount, owner.address);
-        owner_balance.insert(&mut note, true);
+        let owner_private_values = storage.private_values.at(owner.address);
+        let mut note = ValueNote::new(value, owner.address);
+        owner_private_values.insert(&mut note, true);
     }
 
 
@@ -109,9 +109,9 @@ contract InclusionProofs {
         let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
 
         // 2) Get the note from PXE.
-        let balances = storage.balances.at(owner.address);
+        let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
-        let notes = balances.get_notes(options);
+        let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
         // 3) Compute the commitment from the note
@@ -146,9 +146,9 @@ contract InclusionProofs {
         let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
 
         // 2) Get the note from PXE
-        let balances = storage.balances.at(owner.address);
+        let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
-        let notes = balances.get_notes(options);
+        let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
         // 3) Compute the nullifier from the note
