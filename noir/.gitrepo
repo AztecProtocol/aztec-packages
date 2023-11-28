@@ -6,7 +6,7 @@
 [subrepo]
 	remote = https://github.com/noir-lang/noir
 	branch = arv/cow_test_aztec
-	commit = 80a9b1e3447171973fe24182baab234b853eb4ae
-	parent = a7285d0a64efcc516b2fd6949275a2b89fe5f082
+	commit = bdf7b72fa014bca47d67fdf526a1a821209adbfb
+	parent = f6184521f3d2a320f0bd63c83716fcfcdadd6e33
 	method = merge
 	cmdver = 0.4.6
