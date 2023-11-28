@@ -18,8 +18,5 @@ fn get_membership_witness_oracle<M>(_block_number: Field, _tree_id: Field, _leaf
 
 unconstrained pub fn get_membership_witness<N, M>(block_number: Field, tree_id: Field, leaf: Field) -> MembershipWitness<N, M> {
     let fields: [Field; M] = get_membership_witness_oracle(block_number, tree_id, leaf);
-    MembershipWitness {
-        index: fields[0],
-        path: arr_copy_slice(fields, [0; N], 1),
-    }
+    MembershipWitness { index: fields[0], path: arr_copy_slice(fields, [0; N], 1) }
 }

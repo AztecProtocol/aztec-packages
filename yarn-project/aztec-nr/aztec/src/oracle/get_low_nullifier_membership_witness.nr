@@ -40,11 +40,7 @@ unconstrained pub fn get_low_nullifier_membership_witness(block_number: Field, n
     let fields = get_low_nullifier_membership_witness_oracle(block_number, nullifier);
     LowNullifierMembershipWitness {
         index: fields[0],
-        leaf_data: LeafData {
-            value: fields[1],
-            next_index: fields[2],
-            next_value: fields[3],
-        },
-        path: arr_copy_slice(fields, [0; NULLIFIER_TREE_HEIGHT], 1 + LEAF_DATA_LENGTH),
+        leaf_data: LeafData { value: fields[1], next_index: fields[2], next_value: fields[3] },
+        path: arr_copy_slice(fields, [0; NULLIFIER_TREE_HEIGHT], 1 + LEAF_DATA_LENGTH)
     }
 }

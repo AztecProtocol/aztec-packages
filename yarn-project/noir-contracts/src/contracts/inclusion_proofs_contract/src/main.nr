@@ -39,7 +39,6 @@ contract InclusionProofs {
             },
         },
         hash::pedersen_hash,
-        // oracle::debug_log::debug_log_format,
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
 
@@ -96,19 +95,6 @@ contract InclusionProofs {
 
 
     // Proves that the owner owned a ValueNote at block `block_number`.
-    //
-    // The scheme works as follows:
-    // 1) Get the blocks tree root from context.
-    // 2) Get historic block data from oracle.
-    // 3) Compute block hash from the historic block data obtained in 1).
-    // 4) Get the membership witness of a block in the blocks tree.
-    // 5) Prove that the block hash is in the blocks tree.
-    // 6) Get the note/preimage from PXE.
-    // 7) Compute the commitment from the note.
-    // 8) Get the membership witness of the note in the note hash tree.
-    // 9) Verify that the commitment is in the note hash tree.
-    // --> Now we have traversed the trees all the way up to blocks tree root. Last thing remaining is to verify that
-    //     the blocks tree root is in the grandfather tree. That will be done in the root rollup circuit.
     #[aztec(private)]
     fn proveNoteInclusion(
         owner: AztecAddress,
@@ -118,49 +104,34 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) 
-        let blocks_tree_root = context.block_data.blocks_tree_root;
+        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        //    root.
+        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
 
-        // 2)
-        let block_data = get_block_data(block_number);
-
-        // 3)
-        let block_hash = block_data.block_hash();
-
-        // 4)
-        let blocks_tree_id = 5;
-        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
-            get_membership_witness(block_number, blocks_tree_id, block_hash);
-
-        // 5)
-        // In our test case this should be tree root at the latest block and should correspond to the membership
-        // witness we obtain from oracle
-        assert(
-            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
-            "Proving membership of a block in blocks tree failed"
-        );
-
-        // 6)
+        // 2) Get the note from PXE.
         let balances = storage.balances.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
         let note = notes[0].unwrap();
 
-        // 7)
+        // 3) Compute the commitment from the note
         let note_commitment = note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, note);
 
-        // 8)
+        // 4) Get the membership witness of the note in the note hash tree
         let note_hash_tree_id = 2;
         let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
             get_membership_witness(block_number, note_hash_tree_id, note_commitment);
 
-        // 9)
+        // 5) Verify that the commitment is in the note hash tree
         assert(
             block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving membership of a note in note hash tree failed"
         );
+
+        // --> Now we have traversed the trees all the way up to blocks tree root.
     }
 
+    // Proves that the note was not yet nullified at block `block_number`.
     #[aztec(private)]
     fn proveNullifierNonInclusion(
         owner: AztecAddress,
@@ -170,61 +141,46 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) Get blocks tree root from context
-        let blocks_tree_root = context.block_data.blocks_tree_root;
+        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        //    root.
+        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
 
-        // 2) Get historic block data from oracle
-        let block_data = get_block_data(block_number);
-
-        // 3) Compute block hash from the historic block data obtained in 1)
-        let block_hash = block_data.block_hash();
-
-        // 4) Get the membership witness of a block in the blocks tree
-        let blocks_tree_id = 5;
-        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
-            get_membership_witness(block_number, blocks_tree_id, block_hash);
-
-        // 5) Prove that the block hash is in the blocks tree
-        // In our test case this should be tree root at the latest block and should correspond to the membership
-        // witness we obtain from oracle
-        assert(
-            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
-            "Proving membership of a block in blocks tree failed"
-        );
-        
-        // 6) Get the note/preimage from PXE
+        // 2) Get the note from PXE
         let balances = storage.balances.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = balances.get_notes(options);
         let note = notes[0].unwrap();
 
-        // 7) Compute the nullifier from the note
+        // 3) Compute the nullifier from the note
         let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
 
-        // 8) Get the membership witness of a low nullifier of the nullifier
+        // 4) Get the membership witness of a low nullifier of the nullifier
         let witness = get_low_nullifier_membership_witness(block_number, nullifier);
 
-        // 9) Prove that the nullifier is not included in the nullifier tree
+        // 5) Prove that the nullifier is not included in the nullifier tree
 
-        // 9.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
+        // 5.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
         let low_nullifier_leaf = witness.leaf_data.hash();
         assert(
             block_data.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
             "Proving membership of a low nullifier in the nullifier tree failed"
         );
 
-        // 9.b) Prove that the low nullifier is smaller than the nullifier
+        // 5.b) Prove that the low nullifier is smaller than the nullifier
         assert(
             full_field_less_than(witness.leaf_data.value, nullifier),
             "Proving that low_nullifier.value < nullifier failed"
         );
 
-        // 9.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
+        // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
             full_field_greater_than(witness.leaf_data.next_value, nullifier),
             "Proving that low_nullifier.next_value > nullifier failed"
         );
+
+        // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
+        //     was not yet included in the nullifier tree.
     }
 
     #[aztec(private)]
@@ -236,47 +192,32 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) 
-        let blocks_tree_root = context.block_data.blocks_tree_root;
+        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        //    root.
+        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
 
-        // 2)
-        let block_data = get_block_data(block_number);
-
-        // 3)
-        let block_hash = block_data.block_hash();
-
-        // 4)
-        let blocks_tree_id = 5;
-        let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> =
-            get_membership_witness(block_number, blocks_tree_id, block_hash);
-
-        // 5)
-        // In our test case this should be tree root at the latest block and should correspond to the membership
-        // witness we obtain from oracle
-        assert(
-            blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path),
-            "Proving membership of a block in blocks tree failed"
-        );
-
-        // 6)
+        // 2) Compute the public value leaf index.
         // We have to compute the leaf index here because unlike in the case of note commitments, public values are
-        // siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
+        // not siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
         // value in the public data tree.
         let public_value_leaf_index = pedersen_hash(
             [context.this_address(), storage.public_value.storage_slot],
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX
         );
 
-        // 7)
+        // 3) Get the sibling path of the public value leaf index in the public data tree at block `block_number`.
         let public_data_tree_id = 3;
         let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
             get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
 
-        // 8)
+        // 4) Verify that the public value provided on input is in the public data tree
         assert(
             block_data.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
             "Proving membership of a value in public data tree failed"
         );
+
+        // --> Now we have traversed the trees all the way up to blocks tree root and that way verified that
+        //     a specific `public_value` was really set in a given contract storage slot at block `block_number`.
     }
 
     // Computes note hash and nullifier.
