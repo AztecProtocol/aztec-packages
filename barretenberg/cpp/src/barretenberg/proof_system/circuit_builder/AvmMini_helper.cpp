@@ -8,6 +8,13 @@
 
 namespace proof_system {
 
+/**
+ * @brief Routine to log some slice of a trace of the AVM. Used to debug or in some unit tests.
+ *
+ * @param trace The whole trace for AVM as a vector of rows.
+ * @param beg The index of the beginning of the slice. (included)
+ * @param end The index of the end of the slice (not included).
+ */
 void log_avmMini_trace(std::vector<Row> const& trace, size_t beg, size_t end)
 {
     info("Built circuit with ", trace.size(), " trace");

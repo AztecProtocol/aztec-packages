@@ -13,11 +13,20 @@
 #include "barretenberg/relations/generated/AvmMini.hpp"
 namespace proof_system {
 
+/**
+ * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
+ *        underlying traces.
+ */
 AvmMiniTraceBuilder::AvmMiniTraceBuilder()
 {
+    mainTrace.reserve(N);
     memTrace.reserve(N);
 }
 
+/**
+ * @brief Resetting the internal state so that a new trace can be rebuilt using the same object.
+ *
+ */
 void AvmMiniTraceBuilder::reset()
 {
     mainTrace.clear();
@@ -25,6 +34,10 @@ void AvmMiniTraceBuilder::reset()
     ffMemory.fill(FF(0));
 }
 
+/**
+ * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm.
+ *
+ */
 bool AvmMiniTraceBuilder::compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right)
 {
     if (left.m_addr < right.m_addr) {
@@ -48,6 +61,15 @@ bool AvmMiniTraceBuilder::compareMemEntries(const MemoryTraceEntry& left, const 
     return left.m_sub_clk < right.m_sub_clk;
 }
 
+/**
+ * @brief A method to insert a row/entry in the memory trace.
+ *
+ * @param m_clk Main clock
+ * @param m_sub_clk Sub-clock used to order load/store sub operations
+ * @param m_addr Address pertaining to the memory operation
+ * @param m_val Value (FF) pertaining to the memory operation
+ * @param m_rw Boolean telling whether it is a load (false) or store operation (true).
+ */
 void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, bool m_rw)
 {
     memTrace.emplace_back(MemoryTraceEntry{
@@ -64,37 +86,85 @@ void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, u
 //       loadAInMemTrace, loadBInMemTrace, loadCInMemTrace
 //       storeAInMemTrace, storeBInMemTrace, storeCInMemTrace
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory load into the intermediate
+ *        register Ia.
+ *
+ * @param addr The memory address
+ * @param val The value to be loaded
+ */
 void AvmMiniTraceBuilder::loadAInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadA, addr, val, false);
 }
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory load into the intermediate
+ *        register Ib.
+ *
+ * @param addr The memory address
+ * @param val The value to be loaded
+ */
 void AvmMiniTraceBuilder::loadBInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadB, addr, val, false);
 }
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory load into the intermediate
+ *        register Ic.
+ *
+ * @param addr The memory address
+ * @param val The value to be loaded
+ */
 void AvmMiniTraceBuilder::loadCInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadC, addr, val, false);
 }
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory store from the intermediate
+ *        register Ia.
+ *
+ * @param addr The memory address
+ * @param val The value to be stored
+ */
 void AvmMiniTraceBuilder::storeAInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreA, addr, val, true);
 }
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory store from the intermediate
+ *        register Ib.
+ *
+ * @param addr The memory address
+ * @param val The value to be stored
+ */
 void AvmMiniTraceBuilder::storeBInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreB, addr, val, true);
 }
 
+/**
+ * @brief Add a memory trace entry corresponding to a memory store from the intermediate
+ *        register Ic.
+ *
+ * @param addr The memory address
+ * @param val The value to be stored
+ */
 void AvmMiniTraceBuilder::storeCInMemTrace(uint32_t addr, FF val)
 {
     insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreC, addr, val, true);
 }
 
-// Addition over finite field with direct memory access.
+/**
+ * @brief Addition over finite field with direct memory access.
+ *
+ * @param s0 An index in ffMemory pointing to the first operand of the addition.
+ * @param s1 An index in ffMemory pointing to the second operand of the addition.
+ * @param d0 An index in ffMemory pointing to the output of the addition.
+ */
 void AvmMiniTraceBuilder::add(uint32_t s0, uint32_t s1, uint32_t d0)
 {
     // a + b = c
@@ -130,16 +200,23 @@ void AvmMiniTraceBuilder::add(uint32_t s0, uint32_t s1, uint32_t d0)
     });
 };
 
-// CALLDATACOPY opcode with direct memory access, i.e.,
-// M_F[d0:d0+s1] = M_calldata[s0:s0+s1]
-// Simplified version with exclusively memory store operations and
-// values from M_calldata passed by an array and loaded into
-// intermediate registers.
-// Assume that caller passes callDataMem which is large enough so that no out-of-bound
-// memory issues occur.
-// TODO: Implement the indirect memory version (maybe not required)
-// TODO: taking care of intermediate register values consistency and propagating their
-// values to the next row when not overwritten.
+/**
+ * @brief CALLDATACOPY opcode with direct memory access, i.e.,
+ *        M_F[d0:d0+s1] = M_calldata[s0:s0+s1]
+ *        Simplified version with exclusively memory store operations and
+ *        values from M_calldata passed by an array and loaded into
+ *        intermediate registers.
+ *        Assume that caller passes callDataMem which is large enough so that
+ *        no out-of-bound memory issues occur.
+ *        TODO: Implement the indirect memory version (maybe not required)
+ *        TODO: taking care of intermediate register values consistency and propagating their
+ *        values to the next row when not overwritten.
+ *
+ * @param s0 The starting index of the region in calldata to be copied.
+ * @param s1 The number of finite field elements to be copied into memory.
+ * @param d0 The starting index of memory where calldata will be copied to.
+ * @param callDataMem The vector containing calldata.
+ */
 void AvmMiniTraceBuilder::callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, std::vector<FF> const& callDataMem)
 {
     // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
@@ -216,12 +293,19 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, st
     }
 }
 
-// RETURN opcode with direct memory access, i.e.,
-// return M_F[s0:s0+s1]
-// Simplified version with exclusively memory load operations into
-// intermediate registers and then values are copied to the returned vector.
-// TODO: Implement the indirect memory version (maybe not required)
-// TODO: taking care of flagging this row as the last one? Special STOP flag?
+/**
+ * @brief RETURN opcode with direct memory access, i.e.,
+ *        return M_F[s0:s0+s1]
+ *        Simplified version with exclusively memory load operations into
+ *        intermediate registers and then values are copied to the returned vector.
+ *        TODO: Implement the indirect memory version (maybe not required)
+ *        TODO: taking care of flagging this row as the last one? Special STOP flag?
+ *
+ * @param s0 The starting index of the memory region to be returned.
+ * @param s1 The number of elements to be returned.
+ * @return The returned memory region as a std::vector.
+ */
+
 std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t s0, uint32_t s1)
 {
     // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
@@ -292,14 +376,23 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t s0, uint32_t s1)
     return returnMem;
 }
 
-// Temporary helper to initialize memory.
+/**
+ * @brief Helper to initialize ffMemory. (Testing purpose mostly.)
+ *
+ */
 void AvmMiniTraceBuilder::setFFMem(size_t idx, FF el)
 {
     ffMemory.at(idx) = el;
 };
 
-// Finalisation of the memory trace and incorporating it to the main trace.
-// In particular, setting .m_lastAccess and adding shifted values (first row).
+/**
+ * @brief Finalisation of the memory trace and incorporating it to the main trace.
+ *        In particular, sorting the memory trace, setting .m_lastAccess and
+ *        adding shifted values (first row). The main trace is moved at the end of
+ *        this call.
+ *
+ * @return The main trace
+ */
 std::vector<Row> AvmMiniTraceBuilder::finalize()
 {
     size_t memTraceSize = memTrace.size();
