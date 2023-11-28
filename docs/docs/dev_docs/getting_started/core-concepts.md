@@ -44,7 +44,7 @@ Working with private state is creates commitments and nullifiers to state, where
 
 We have abstractions for working with private state so you don't have to worry about these commitments and nullifiers. However, it is important to understand that the types and libraries you use will be different when working with private state and public state.
 
-For example, let's say you're trying to work with an integer. We have a library called `EasyPrivateUint` that acts like an int but in the background is actually updating notes in private state. For the public side, we instead have something called `SafeU120`. You cannot use EasyPrivateUint in a public environment, and you cannot use SafeU120 in a private environment.
+For example, let's say you're trying to work with an integer. We have a library called `EasyPrivateUint` that acts like an integer but in the background is actually updating notes in private state. For the public side, we instead have something called `SafeU120`. You cannot use EasyPrivateUint in a public environment, and you cannot use SafeU120 in a private environment.
 
 # Storage
 
