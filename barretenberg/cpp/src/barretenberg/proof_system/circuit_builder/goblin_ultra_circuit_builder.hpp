@@ -134,6 +134,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         }
         public_calldata.emplace_back(witness_index);
     }
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
+    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 };
 extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
 using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;

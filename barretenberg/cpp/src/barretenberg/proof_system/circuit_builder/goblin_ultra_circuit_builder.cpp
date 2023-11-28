@@ -1,9 +1,11 @@
 #include "goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
 using namespace barretenberg;
+using namespace crypto;
 
 namespace proof_system {
 
@@ -242,6 +244,52 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
 
     num_ecc_op_gates += 2;
 };
+
+template <typename FF>
+void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
+{
+    this->w_l.emplace_back(in.a);
+    this->w_r.emplace_back(in.b);
+    this->w_o.emplace_back(in.c);
+    this->w_4.emplace_back(in.d);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    this->q_2.emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+    this->q_3.emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+    this->q_c.emplace_back(0);
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    this->q_sort.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    this->q_busread.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(1);
+    this->q_poseidon2_internal.emplace_back(0);
+}
+
+template <typename FF>
+void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
+{
+    this->w_l.emplace_back(in.a);
+    this->w_r.emplace_back(in.b);
+    this->w_o.emplace_back(in.c);
+    this->w_4.emplace_back(in.d);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    this->q_2.emplace_back(0);
+    this->q_3.emplace_back(0);
+    this->q_c.emplace_back(0);
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(0);
+    this->q_sort.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    this->q_busread.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(0);
+    this->q_poseidon2_internal.emplace_back(1);
+}
 
 template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
 } // namespace proof_system
