@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "./AvmMini_trace.hpp"
+#include "./generated/AvmMini_circuit_builder.hpp"
 
-#include "barretenberg/relations/generated/AvmMini.hpp"
 namespace proof_system {
 
 AvmMiniTraceBuilder::AvmMiniTraceBuilder()
@@ -327,17 +327,17 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         auto const& src = memTrace.at(i);
         auto& dest = mainTrace.at(i);
 
-        dest.avmMini_m_clk = FF(src.m_clk);
-        dest.avmMini_m_sub_clk = FF(src.m_sub_clk);
-        dest.avmMini_m_addr = FF(src.m_addr);
-        dest.avmMini_m_val = src.m_val;
-        dest.avmMini_m_rw = FF(static_cast<uint32_t>(src.m_rw));
+        dest.memTrace_m_clk = FF(src.m_clk);
+        dest.memTrace_m_sub_clk = FF(src.m_sub_clk);
+        dest.memTrace_m_addr = FF(src.m_addr);
+        dest.memTrace_m_val = src.m_val;
+        dest.memTrace_m_rw = FF(static_cast<uint32_t>(src.m_rw));
 
         if (i + 1 < memTraceSize) {
             auto const& next = memTrace.at(i + 1);
-            dest.avmMini_m_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
+            dest.memTrace_m_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
         } else {
-            dest.avmMini_m_lastAccess = FF(1);
+            dest.memTrace_m_lastAccess = FF(1);
         }
     }
 

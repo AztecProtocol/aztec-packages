@@ -1,44 +1,33 @@
 
 #pragma once
-#include "../relation_parameters.hpp"
-#include "../relation_types.hpp"
+#include "../../relation_parameters.hpp"
+#include "../../relation_types.hpp"
 
 namespace proof_system::AvmMini_vm {
 
-template <typename FF> struct Row {
-    FF avmMini_clk{};
-    FF avmMini_positive{};
-    FF avmMini_first{};
+template <typename FF> struct Avm_miniRow {
+    FF avmMini_rwb{};
+    FF avmMini_mem_op_b{};
     FF avmMini_subop{};
+    FF avmMini_mem_op_a{};
     FF avmMini_ia{};
+    FF avmMini_mem_op_c{};
+    FF avmMini_rwc{};
+    FF avmMini_rwa{};
     FF avmMini_ib{};
     FF avmMini_ic{};
-    FF avmMini_mem_op_a{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_mem_op_c{};
-    FF avmMini_rwa{};
-    FF avmMini_rwb{};
-    FF avmMini_rwc{};
-    FF avmMini_mem_idx_a{};
-    FF avmMini_mem_idx_b{};
-    FF avmMini_mem_idx_c{};
-    FF avmMini_last{};
-    FF avmMini_m_clk{};
-    FF avmMini_m_sub_clk{};
-    FF avmMini_m_addr{};
-    FF avmMini_m_val{};
-    FF avmMini_m_lastAccess{};
-    FF avmMini_m_rw{};
-    FF avmMini_m_val_shift{};
-    FF avmMini_m_addr_shift{};
-    FF avmMini_m_rw_shift{};
 };
 
 #define DECLARE_VIEWS(index)                                                                                           \
     using View = typename std::tuple_element<index, ContainerOverSubrelations>::type;                                  \
     [[maybe_unused]] auto avmMini_clk = View(new_term.avmMini_clk);                                                    \
-    [[maybe_unused]] auto avmMini_positive = View(new_term.avmMini_positive);                                          \
     [[maybe_unused]] auto avmMini_first = View(new_term.avmMini_first);                                                \
+    [[maybe_unused]] auto memTrace_m_clk = View(new_term.memTrace_m_clk);                                              \
+    [[maybe_unused]] auto memTrace_m_sub_clk = View(new_term.memTrace_m_sub_clk);                                      \
+    [[maybe_unused]] auto memTrace_m_addr = View(new_term.memTrace_m_addr);                                            \
+    [[maybe_unused]] auto memTrace_m_val = View(new_term.memTrace_m_val);                                              \
+    [[maybe_unused]] auto memTrace_m_lastAccess = View(new_term.memTrace_m_lastAccess);                                \
+    [[maybe_unused]] auto memTrace_m_rw = View(new_term.memTrace_m_rw);                                                \
     [[maybe_unused]] auto avmMini_subop = View(new_term.avmMini_subop);                                                \
     [[maybe_unused]] auto avmMini_ia = View(new_term.avmMini_ia);                                                      \
     [[maybe_unused]] auto avmMini_ib = View(new_term.avmMini_ib);                                                      \
@@ -53,22 +42,16 @@ template <typename FF> struct Row {
     [[maybe_unused]] auto avmMini_mem_idx_b = View(new_term.avmMini_mem_idx_b);                                        \
     [[maybe_unused]] auto avmMini_mem_idx_c = View(new_term.avmMini_mem_idx_c);                                        \
     [[maybe_unused]] auto avmMini_last = View(new_term.avmMini_last);                                                  \
-    [[maybe_unused]] auto avmMini_m_clk = View(new_term.avmMini_m_clk);                                                \
-    [[maybe_unused]] auto avmMini_m_sub_clk = View(new_term.avmMini_m_sub_clk);                                        \
-    [[maybe_unused]] auto avmMini_m_addr = View(new_term.avmMini_m_addr);                                              \
-    [[maybe_unused]] auto avmMini_m_val = View(new_term.avmMini_m_val);                                                \
-    [[maybe_unused]] auto avmMini_m_lastAccess = View(new_term.avmMini_m_lastAccess);                                  \
-    [[maybe_unused]] auto avmMini_m_rw = View(new_term.avmMini_m_rw);                                                  \
-    [[maybe_unused]] auto avmMini_m_val_shift = View(new_term.avmMini_m_val_shift);                                    \
-    [[maybe_unused]] auto avmMini_m_addr_shift = View(new_term.avmMini_m_addr_shift);                                  \
-    [[maybe_unused]] auto avmMini_m_rw_shift = View(new_term.avmMini_m_rw_shift);
+    [[maybe_unused]] auto memTrace_m_rw_shift = View(new_term.memTrace_m_rw_shift);                                    \
+    [[maybe_unused]] auto memTrace_m_addr_shift = View(new_term.memTrace_m_addr_shift);                                \
+    [[maybe_unused]] auto memTrace_m_val_shift = View(new_term.memTrace_m_val_shift);
 
-template <typename FF_> class AvmMiniImpl {
+template <typename FF_> class avm_miniImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS{
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -142,44 +125,9 @@ template <typename FF_> class AvmMiniImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += tmp;
         }
-        // Contribution 8
-        {
-            DECLARE_VIEWS(8);
-
-            auto tmp = (avmMini_m_lastAccess * (-avmMini_m_lastAccess + FF(1)));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += tmp;
-        }
-        // Contribution 9
-        {
-            DECLARE_VIEWS(9);
-
-            auto tmp = (avmMini_m_rw * (-avmMini_m_rw + FF(1)));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += tmp;
-        }
-        // Contribution 10
-        {
-            DECLARE_VIEWS(10);
-
-            auto tmp = (((-avmMini_first + FF(1)) * (-avmMini_m_lastAccess + FF(1))) *
-                        (avmMini_m_addr_shift - avmMini_m_addr));
-            tmp *= scaling_factor;
-            std::get<10>(evals) += tmp;
-        }
-        // Contribution 11
-        {
-            DECLARE_VIEWS(11);
-
-            auto tmp = (((((-avmMini_first + FF(1)) * (-avmMini_last + FF(1))) * (-avmMini_m_lastAccess + FF(1))) *
-                         (-avmMini_m_rw_shift + FF(1))) *
-                        (avmMini_m_val_shift - avmMini_m_val));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += tmp;
-        }
     }
 };
 
-template <typename FF> using AvmMini = Relation<AvmMiniImpl<FF>>;
+template <typename FF> using avm_mini = Relation<avm_miniImpl<FF>>;
 
 } // namespace proof_system::AvmMini_vm
