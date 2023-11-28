@@ -104,13 +104,10 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
         return output_state;
     };
-    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier(std::vector<std::shared_ptr<Instance>> instances)
+    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier()
     {
-        std::vector<std::shared_ptr<VerificationKey>> vks;
-        for (const auto& inst : instances) {
-            vks.emplace_back(inst->verification_key);
-        }
-        VerifierInstances insts(vks);
+
+        auto insts = VerifierInstances();
         ProtoGalaxyVerifier_<VerifierInstances> output_state(insts);
 
         return output_state;

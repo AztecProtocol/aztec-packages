@@ -100,12 +100,19 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    VerifierInstances_(std::vector<std::shared_ptr<VerificationKey>> vks)
+    // VerifierInstances_(std::vector<std::shared_ptr<VerificationKey>> vks)
+    // {
+    //     ASSERT(vks.size() == NUM);
+    //     for (size_t idx = 0; idx < vks.size(); idx++) {
+    //         Instance inst;
+    //         inst.verification_key = std::move(vks[idx]);
+    //         _data[idx] = std::make_unique<Instance>(inst);
+    //     }
+    // };
+    VerifierInstances_()
     {
-        ASSERT(vks.size() == NUM);
-        for (size_t idx = 0; idx < vks.size(); idx++) {
+        for (size_t idx = 0; idx < NUM; idx++) {
             Instance inst;
-            inst.verification_key = std::move(vks[idx]);
             _data[idx] = std::make_unique<Instance>(inst);
         }
     };

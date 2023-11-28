@@ -85,12 +85,12 @@ class GoblinUltra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType q_m;             // column 0
         DataType q_c;             // column 1
         DataType q_l;             // column 2
         DataType q_r;             // column 3
         DataType q_o;             // column 4
         DataType q_4;             // column 5
+        DataType q_m;             // column 0
         DataType q_arith;         // column 6
         DataType q_sort;          // column 7
         DataType q_elliptic;      // column 8
@@ -115,12 +115,12 @@ class GoblinUltra {
         DataType databus_id;      // column 27 // id polynomial, i.e. id_i = i
 
         DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
-                            &q_m,
                             &q_c,
                             &q_l,
                             &q_r,
                             &q_o,
                             &q_4,
+                            &q_m,
                             &q_arith,
                             &q_sort,
                             &q_elliptic,

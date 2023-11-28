@@ -82,12 +82,12 @@ class Ultra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType q_m;            // column 0
         DataType q_c;            // column 1
         DataType q_l;            // column 2
         DataType q_r;            // column 3
         DataType q_o;            // column 4
         DataType q_4;            // column 5
+        DataType q_m;            // column 0
         DataType q_arith;        // column 6
         DataType q_sort;         // column 7
         DataType q_elliptic;     // column 8
@@ -109,12 +109,12 @@ class Ultra {
         DataType lagrange_last;  // column 24
 
         DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
-                            &q_m,
                             &q_c,
                             &q_l,
                             &q_r,
                             &q_o,
                             &q_4,
+                            &q_m,
                             &q_arith,
                             &q_sort,
                             &q_elliptic,
@@ -196,12 +196,12 @@ class Ultra {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
+        DataType q_m;                // column 5
         DataType q_c;                // column 0
         DataType q_l;                // column 1
         DataType q_r;                // column 2
         DataType q_o;                // column 3
         DataType q_4;                // column 4
-        DataType q_m;                // column 5
         DataType q_arith;            // column 6
         DataType q_sort;             // column 7
         DataType q_elliptic;         // column 8
@@ -296,6 +296,16 @@ class Ultra {
 
             };
         };
+
+        std::vector<HandleType> get_precomputed()
+        {
+            return { q_c,          q_l,   q_r,      q_o,     q_4,     q_m,     q_arith, q_sort,
+                     q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
+                     id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
+                     lagrange_last
+
+            };
+        }
         std::vector<HandleType> get_to_be_shifted() override
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
@@ -411,32 +421,31 @@ class Ultra {
             z_lookup = "Z_LOOKUP";
             sorted_accum = "SORTED_ACCUM";
 
-            // The ones beginning with "__" are only used for debugging
-            q_c = "__Q_C";
-            q_l = "__Q_L";
-            q_r = "__Q_R";
-            q_o = "__Q_O";
-            q_4 = "__Q_4";
-            q_m = "__Q_M";
-            q_arith = "__Q_ARITH";
-            q_sort = "__Q_SORT";
-            q_elliptic = "__Q_ELLIPTIC";
-            q_aux = "__Q_AUX";
-            q_lookup = "__Q_LOOKUP";
-            sigma_1 = "__SIGMA_1";
-            sigma_2 = "__SIGMA_2";
-            sigma_3 = "__SIGMA_3";
-            sigma_4 = "__SIGMA_4";
-            id_1 = "__ID_1";
-            id_2 = "__ID_2";
-            id_3 = "__ID_3";
-            id_4 = "__ID_4";
-            table_1 = "__TABLE_1";
-            table_2 = "__TABLE_2";
-            table_3 = "__TABLE_3";
-            table_4 = "__TABLE_4";
-            lagrange_first = "__LAGRANGE_FIRST";
-            lagrange_last = "__LAGRANGE_LAST";
+            q_c = "Q_C";
+            q_l = "Q_L";
+            q_r = "Q_R";
+            q_o = "Q_O";
+            q_4 = "Q_4";
+            q_m = "Q_M";
+            q_arith = "Q_ARITH";
+            q_sort = "Q_SORT";
+            q_elliptic = "Q_ELLIPTIC";
+            q_aux = "Q_AUX";
+            q_lookup = "Q_LOOKUP";
+            sigma_1 = "SIGMA_1";
+            sigma_2 = "SIGMA_2";
+            sigma_3 = "SIGMA_3";
+            sigma_4 = "SIGMA_4";
+            id_1 = "ID_1";
+            id_2 = "ID_2";
+            id_3 = "ID_3";
+            id_4 = "ID_4";
+            table_1 = "TABLE_1";
+            table_2 = "TABLE_2";
+            table_3 = "TABLE_3";
+            table_4 = "TABLE_4";
+            lagrange_first = "LAGRANGE_FIRST";
+            lagrange_last = "LAGRANGE_LAST";
         };
     };
 
@@ -447,11 +456,11 @@ class Ultra {
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
+            q_c = verification_key->q_c;
             q_l = verification_key->q_l;
             q_r = verification_key->q_r;
             q_o = verification_key->q_o;
             q_4 = verification_key->q_4;
-            q_c = verification_key->q_c;
             q_arith = verification_key->q_arith;
             q_sort = verification_key->q_sort;
             q_elliptic = verification_key->q_elliptic;

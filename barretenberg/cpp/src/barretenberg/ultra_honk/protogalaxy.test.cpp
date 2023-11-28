@@ -6,10 +6,13 @@ using namespace barretenberg;
 using namespace proof_system::honk;
 
 using Flavor = flavor::Ultra;
+using VerificationKey = Flavor::VerificationKey;
 using Instance = ProverInstance_<Flavor>;
 using Instances = ProverInstances_<Flavor, 2>;
 using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 using FF = Flavor::FF;
+using Affine = Flavor::Commitment;
+using Projective = Flavor::GroupElement;
 using Builder = Flavor::CircuitBuilder;
 using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
@@ -79,6 +82,40 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
     full_polynomials.z_lookup_shift = input_polynomials[42];
 
     return full_polynomials;
+}
+
+std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instance_size, size_t num_public_inputs)
+{
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, num_public_inputs);
+    // Compute and store commitments to all precomputed polynomials
+    verification_key->q_m = Affine(Projective::random_element());
+    verification_key->q_l = Affine(Projective::random_element());
+    verification_key->q_r = Affine(Projective::random_element());
+    verification_key->q_o = Affine(Projective::random_element());
+    verification_key->q_c = Affine(Projective::random_element());
+    verification_key->sigma_1 = Affine(Projective::random_element());
+    verification_key->sigma_2 = Affine(Projective::random_element());
+    verification_key->sigma_3 = Affine(Projective::random_element());
+    verification_key->id_1 = Affine(Projective::random_element());
+    verification_key->id_2 = Affine(Projective::random_element());
+    verification_key->id_3 = Affine(Projective::random_element());
+    verification_key->lagrange_first = Affine(Projective::random_element());
+    verification_key->lagrange_last = Affine(Projective::random_element());
+
+    verification_key->q_4 = Affine(Projective::random_element());
+    verification_key->q_arith = Affine(Projective::random_element());
+    verification_key->q_sort = Affine(Projective::random_element());
+    verification_key->q_elliptic = Affine(Projective::random_element());
+    verification_key->q_aux = Affine(Projective::random_element());
+    verification_key->q_lookup = Affine(Projective::random_element());
+    verification_key->sigma_4 = Affine(Projective::random_element());
+    verification_key->id_4 = Affine(Projective::random_element());
+    verification_key->table_1 = Affine(Projective::random_element());
+    verification_key->table_2 = Affine(Projective::random_element());
+    verification_key->table_3 = Affine(Projective::random_element());
+    verification_key->table_4 = Affine(Projective::random_element());
+
+    return verification_key;
 }
 
 class ProtoGalaxyTests : public ::testing::Test {
@@ -280,12 +317,14 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     }
 
     auto accumulator = std::make_shared<Instance>();
+    accumulator->instance_size = instance_size;
     accumulator->prover_polynomials = full_polynomials;
     accumulator->folding_parameters = { betas, target_sum };
     accumulator->relation_parameters = relation_parameters;
     accumulator->alpha = alpha;
-    accumulator->is_accumulator = true;
+    accumulator->is_accumulator = 1;
     accumulator->public_inputs = std::vector<FF>{ FF::random_element() };
+    accumulator->verification_key = construct_ultra_verification_key(instance_size, 1);
 
     auto builder = typename Flavor::CircuitBuilder();
     auto composer = UltraComposer();
@@ -294,11 +333,11 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     auto instance = composer.create_instance(builder);
     auto instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance };
     auto folding_prover = composer.create_folding_prover(instances);
-    // auto folding_verifier = composer.create_folding_verifier(instances);
+    auto folding_verifier = composer.create_folding_verifier();
 
     auto result = folding_prover.fold_instances();
-
-    // folding_verifier.verify_folding_proof(result.folding_data);
+    auto a = folding_verifier.verify_folding_proof(result.folding_data);
+    EXPECT_EQ(a, true);
 }
 
 } // namespace protogalaxy_tests

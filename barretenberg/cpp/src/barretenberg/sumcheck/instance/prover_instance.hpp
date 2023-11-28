@@ -47,13 +47,15 @@ template <class Flavor> class ProverInstance_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
     FoldingParameters folding_parameters;
-    bool is_accumulator = false;
+    uint32_t is_accumulator = 0;
+    size_t instance_size;
 
     ProverInstance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
+        instance_size = proving_key->circuit_size;
     }
 
     // ProverInstance_(FoldingResult<Flavor> result)

@@ -11,8 +11,10 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
     using FF = typename Flavor::FF;
+    using Commitment = typename Flavor::Commitment;
     using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
+
     VerifierInstances instances;
     BaseTranscript<FF> transcript;
 
@@ -65,5 +67,5 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
 };
 
 extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
+// extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

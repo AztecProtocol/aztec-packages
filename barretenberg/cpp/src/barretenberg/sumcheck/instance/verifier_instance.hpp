@@ -11,11 +11,12 @@ template <class Flavor> class VerifierInstance_ {
 
     std::shared_ptr<VerificationKey> verification_key;
     std::vector<FF> public_inputs;
-    size_t pub_inputs_offset;
+    size_t pub_inputs_offset = 0;
     size_t public_input_size;
     size_t instance_size;
     RelationParameters<FF> relation_parameters;
     FF alpha;
+    uint32_t is_accumulator = 0;
     FoldingParameters folding_parameters;
 };
 } // namespace proof_system::honk

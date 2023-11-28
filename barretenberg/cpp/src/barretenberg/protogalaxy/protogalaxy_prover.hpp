@@ -442,7 +442,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             for (auto [acc_poly_view, inst_poly_view] : zip_view(
                      acc_prover_polynomials.pointer_view(), instances[inst_idx]->prover_polynomials.pointer_view())) {
                 for (size_t el_idx = 0; el_idx < inst_poly_view->size(); el_idx++) {
-                    info((*acc_poly_view)[el_idx]);
                     (*acc_poly_view)[el_idx] += (*inst_poly_view)[el_idx] * lagranges[inst_idx];
                 }
             }
@@ -464,16 +463,23 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         next_accumulator->alpha = instances.alpha.evaluate(challenge);
         transcript.send_to_verifier("folded_alpha", next_accumulator->alpha);
 
-        // auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-        //                                                 instances[0]->public_inputs.size());
-        // auto acc_vk_view = acc_vk->pointer_view();
-        // for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-        //     auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
-        //     for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
-        //         (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
-        //     }
-        // }
-        // next_accumulator->verification_key = acc_vk;
+        auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
+                                                        instances[0]->public_inputs.size());
+        auto acc_vk_view = acc_vk->pointer_view();
+        for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+            auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
+            for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
+                (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
+            }
+        }
+        next_accumulator->verification_key = acc_vk;
+        auto labels = typename Flavor::CommitmentLabels().get_precomputed();
+        for (size_t idx = 0; idx < labels.size(); idx++) {
+            info(labels[idx]);
+            info((*acc_vk_view[idx]));
+            transcript.send_to_verifier("new" + labels[idx], (*acc_vk_view[idx]));
+        }
+        // auto a = labels.get_precomputed();
         //  TODO send vk to verifier too
         // these two thingies have been folded already
         // next_accumulator->alpha = instances.alpha;
@@ -483,5 +489,5 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
+// extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk
