@@ -9,7 +9,7 @@ We will build this:
 <Image img={require('/img/tutorials/voting_flow.png')} />
 
 * The contract will be initialized with an admin, stored publicly
-* A voter can vote privately, which will call a public function and update the votes publically. This keeps who they are, what they have voted for, and whether or not they have voted private - but the vote itself public
+* A voter can vote privately, which will call a public function and update the votes publically
 * The admin can end the voting period, which is a public boolean
 
 To keep things simple, we won't create ballots or allow for delegate voting. 
@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Set up a project
 
-First, create a new contract project with [`nargo`](../getting_started/aztecnr-getting-started.md). 
+First, [create a new contract project with `nargo`](../getting_started/aztecnr-getting-started.md). 
 
 ```bash
 nargo new --contract private_voting
