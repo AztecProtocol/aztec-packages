@@ -49,6 +49,7 @@ template <class Flavor> class ProverInstance_ {
     FoldingParameters folding_parameters;
     uint32_t is_accumulator = 0;
     size_t instance_size;
+    size_t log_instance_size;
 
     ProverInstance_(Circuit& circuit)
     {
@@ -56,6 +57,7 @@ template <class Flavor> class ProverInstance_ {
         compute_proving_key(circuit);
         compute_witness(circuit);
         instance_size = proving_key->circuit_size;
+        log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     }
 
     // ProverInstance_(FoldingResult<Flavor> result)

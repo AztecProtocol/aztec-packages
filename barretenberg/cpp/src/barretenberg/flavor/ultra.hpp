@@ -82,12 +82,12 @@ class Ultra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
+        DataType q_m;            // column 0
         DataType q_c;            // column 1
         DataType q_l;            // column 2
         DataType q_r;            // column 3
         DataType q_o;            // column 4
         DataType q_4;            // column 5
-        DataType q_m;            // column 0
         DataType q_arith;        // column 6
         DataType q_sort;         // column 7
         DataType q_elliptic;     // column 8
@@ -109,12 +109,12 @@ class Ultra {
         DataType lagrange_last;  // column 24
 
         DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
+                            &q_m,
                             &q_c,
                             &q_l,
                             &q_r,
                             &q_o,
                             &q_4,
-                            &q_m,
                             &q_arith,
                             &q_sort,
                             &q_elliptic,
@@ -196,12 +196,12 @@ class Ultra {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType q_m;                // column 5
         DataType q_c;                // column 0
         DataType q_l;                // column 1
         DataType q_r;                // column 2
         DataType q_o;                // column 3
         DataType q_4;                // column 4
+        DataType q_m;                // column 5
         DataType q_arith;            // column 6
         DataType q_sort;             // column 7
         DataType q_elliptic;         // column 8
@@ -299,13 +299,15 @@ class Ultra {
 
         std::vector<HandleType> get_precomputed()
         {
-            return { q_c,          q_l,   q_r,      q_o,     q_4,     q_m,     q_arith, q_sort,
+            return { q_m,          q_c,   q_l,      q_r,     q_o,     q_4,     q_arith, q_sort,
                      q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
                      id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
                      lagrange_last
 
             };
         }
+
+        std::vector<HandleType> get_witness() { return { w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
         std::vector<HandleType> get_to_be_shifted() override
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
@@ -349,8 +351,8 @@ class Ultra {
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
-     * at one point.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
+     * evaluated at one point.
      */
     class AllValues : public AllEntities<FF, FF> {
       public:
@@ -485,7 +487,7 @@ class Ultra {
 
     class FoldingParameters {
       public:
-        std::vector<FF> gate_separation_challenges;
+        std::vector<FF> gate_challenges;
         FF target_sum;
     };
 

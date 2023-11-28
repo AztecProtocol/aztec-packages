@@ -35,9 +35,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
         return pows;
     }
 
-    static std::vector<FF> update_gate_separation_challenges(const FF perturbator_challenge,
-                                                             const std::vector<FF>& gate_challenges,
-                                                             const std::vector<FF>& round_challenges)
+    static std::vector<FF> update_gate_challenges(const FF perturbator_challenge,
+                                                  const std::vector<FF>& gate_challenges,
+                                                  const std::vector<FF>& round_challenges)
     {
         auto log_instance_size = gate_challenges.size();
         std::vector<FF> next_gate_challenges(log_instance_size);

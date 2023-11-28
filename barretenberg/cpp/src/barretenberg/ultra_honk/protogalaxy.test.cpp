@@ -318,6 +318,7 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
 
     auto accumulator = std::make_shared<Instance>();
     accumulator->instance_size = instance_size;
+    accumulator->log_instance_size = log_instance_size;
     accumulator->prover_polynomials = full_polynomials;
     accumulator->folding_parameters = { betas, target_sum };
     accumulator->relation_parameters = relation_parameters;

@@ -14,6 +14,7 @@ template <class Flavor> class VerifierInstance_ {
     size_t pub_inputs_offset = 0;
     size_t public_input_size;
     size_t instance_size;
+    size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
     FF alpha;
     uint32_t is_accumulator = 0;

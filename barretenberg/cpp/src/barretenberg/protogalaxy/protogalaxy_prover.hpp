@@ -89,9 +89,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return pows;
     }
 
-    static std::vector<FF> update_gate_separation_challenges(const FF perturbator_challenge,
-                                                             const std::vector<FF>& gate_challenges,
-                                                             const std::vector<FF>& round_challenges)
+    static std::vector<FF> update_gate_challenges(const FF perturbator_challenge,
+                                                  const std::vector<FF>& gate_challenges,
+                                                  const std::vector<FF>& round_challenges)
     {
         auto log_instance_size = gate_challenges.size();
         std::vector<FF> next_gate_challenges(log_instance_size);
@@ -206,7 +206,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto full_honk_evaluations = compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
-        const auto betas = accumulator->folding_parameters.gate_separation_challenges;
+        const auto betas = accumulator->folding_parameters.gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
@@ -256,10 +256,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                         const std::vector<FF>& pow_betas_star)
     {
-        size_t common_circuit_size = instances[0]->prover_polynomials.get_polynomial_size();
-        auto pow_betas_star = compute_pow_polynomial_at_values(instances.betas_star, common_circuit_size);
+        size_t common_instance_size = instances[0]->instance_size;
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -267,10 +267,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
         size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t desired_num_threads = common_circuit_size / min_iterations_per_thread;
+        size_t desired_num_threads = common_instance_size / min_iterations_per_thread;
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
-        size_t iterations_per_thread = common_circuit_size / num_threads;    // actual iterations per thread
+        size_t iterations_per_thread = common_instance_size / num_threads;   // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
@@ -417,14 +417,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
         transcript.send_to_verifier("next_target_sum", next_target_sum);
         for (size_t idx = 0; idx < instances.betas_star.size(); idx++) {
-            transcript.send_to_verifier("betas_star_" + std::to_string(idx), instances.betas_star[idx]);
+            transcript.send_to_verifier("next_gate_challenge_" + std::to_string(idx), instances.betas_star[idx]);
         }
 
         std::array<barretenberg::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> storage;
-        size_t instance_size = instances[0]->prover_polynomials.get_polynomial_size();
-
         for (auto& polynomial : storage) {
-            polynomial = typename Flavor::Polynomial(instance_size);
+            polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
             for (auto& value : polynomial) {
                 value = FF(0);
             }
@@ -457,11 +455,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             }
         }
         for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
-            transcript.send_to_verifier("folded_public_input_" + std::to_string(idx), folded_public_inputs[idx]);
+            transcript.send_to_verifier("next_public_input_" + std::to_string(idx), folded_public_inputs[idx]);
         }
 
         next_accumulator->alpha = instances.alpha.evaluate(challenge);
-        transcript.send_to_verifier("folded_alpha", next_accumulator->alpha);
+        transcript.send_to_verifier("next_alpha", next_accumulator->alpha);
 
         auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
                                                         instances[0]->public_inputs.size());
@@ -475,14 +473,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         next_accumulator->verification_key = acc_vk;
         auto labels = typename Flavor::CommitmentLabels().get_precomputed();
         for (size_t idx = 0; idx < labels.size(); idx++) {
-            info(labels[idx]);
-            info((*acc_vk_view[idx]));
-            transcript.send_to_verifier("new" + labels[idx], (*acc_vk_view[idx]));
+            transcript.send_to_verifier("next_" + labels[idx], (*acc_vk_view[idx]));
         }
-        // auto a = labels.get_precomputed();
-        //  TODO send vk to verifier too
-        // these two thingies have been folded already
-        // next_accumulator->alpha = instances.alpha;
+
         // next_accumulator->relation_parameters = instances.relation_parameters;
         return next_accumulator;
     }
