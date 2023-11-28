@@ -218,7 +218,7 @@ You can now try running this command again to ensure our nullifier works.
 Get the number of votes like this:
 
 ```bash
-aztec-cli call get_vote --contract ./target/Voting.json --contract-address CONTRACT_ADDRESS --args 1
+aztec-cli call get_vote --contract-artifact ./target/Voting.json --contract-address $CONTRACT_ADDRESS --args 1
 ```
 
 This should return `1n`. 
