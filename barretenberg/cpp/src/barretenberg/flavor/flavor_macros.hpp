@@ -1,23 +1,17 @@
 #pragma once
 
+// Macros for defining the flavor classes.
+// These are used to derive iterator methods along with the body of a 'flavor' class.
+// DEFINE_FLAVOR_MEMBERS lets you define a flavor entity as a collection of individual members, and derive an iterator.
+// while DEFINE_COMPOUND_GET_ALL and DEFINE_COMPOUND_POINTER_VIEW let you combine the iterators of substructures or base
+// classes.
+
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include <array>
 #include <iostream>
 #include <sstream>
 
-inline std::vector<std::string> _string_split_by_comma(const std::string& s)
-{
-    std::vector<std::string> tokens;
-    std::string token;
-    std::istringstream tokens_stream(s);
-
-    while (std::getline(tokens_stream, token, ',')) {
-        tokens.push_back(token);
-    }
-
-    return tokens;
-}
 template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
 {
     return std::array{ &refs... };
