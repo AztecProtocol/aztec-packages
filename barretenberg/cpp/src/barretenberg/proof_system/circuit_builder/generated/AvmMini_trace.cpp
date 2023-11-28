@@ -53,10 +53,8 @@ void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, u
         .m_rw = m_rw,
     };
 
-    long insertionIndex =
-        std::lower_bound(memTrace.begin(), memTrace.end(), newMemEntry, compareMemEntries) - memTrace.begin();
-
-    memTrace.insert(memTrace.begin() + insertionIndex, newMemEntry);
+    auto insertionIndex = std::lower_bound(memTrace.begin(), memTrace.end(), newMemEntry, compareMemEntries);
+    memTrace.insert(insertionIndex, newMemEntry);
 }
 
 // Memory operations need to be performed before the addition of the corresponding row in

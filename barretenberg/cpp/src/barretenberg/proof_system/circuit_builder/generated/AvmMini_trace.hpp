@@ -12,7 +12,6 @@ using FF = Flavor::FF;
 using Row = proof_system::AvmMini_vm::Row<barretenberg::fr>;
 
 namespace proof_system {
-using namespace barretenberg;
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
