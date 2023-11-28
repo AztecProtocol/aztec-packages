@@ -82,7 +82,7 @@ You can write your own account contract to define the rules by which user transa
 # Noir Language
 Aztec smart contracts are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. It is similar to Rust. Outside of Aztec, Noir is used for writing circuits that can be verified in Solidity.
 
-You do not need to understand Noir to write Aztec contracts. However, it may be useful to reference the [Noir docs](https://noir-lang.org) when you start writing more advanced contracts.
+A cursory understanding of Noir is sufficient for writing Aztec contracts. The [Noir docs](https://noir-lang.org) will be a helpful reference when you start writing more advanced contracts.
 
 Now you're ready to dive into coding:
 
