@@ -274,7 +274,7 @@ contract InclusionProofs {
 
         // 8)
         assert(
-            block_data.note_hash_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
+            block_data.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
             "Proving membership of a value in public data tree failed"
         );
     }

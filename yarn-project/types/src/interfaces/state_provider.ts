@@ -4,6 +4,7 @@ import {
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
@@ -25,7 +26,7 @@ export interface StateInfoProvider {
   findLeafIndex(treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
-   * Returns the sibling path for the given index in the contract tree.
+   * Returns a sibling path for the given index in the contract tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
@@ -33,7 +34,7 @@ export interface StateInfoProvider {
   getContractSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
 
   /**
-   * Returns the sibling path for the given index in the note hash tree.
+   * Returns a sibling path for the given index in the note hash tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
@@ -49,7 +50,7 @@ export interface StateInfoProvider {
   getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex>;
 
   /**
-   * Returns the sibling path for a leaf in the committed l1 to l2 data tree.
+   * Returns a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
@@ -57,12 +58,20 @@ export interface StateInfoProvider {
   getL1ToL2MessageSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Returns the sibling path for a leaf in the committed historic blocks tree.
+   * Returns a sibling path for a leaf in the committed historic blocks tree.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getHistoricBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof HISTORIC_BLOCKS_TREE_HEIGHT>>;
+
+  /**
+   * Returns a sibling path for a leaf in the committed public data tree.
+   * @param leafIndex - Index of the leaf in the tree.
+   * @returns The sibling path.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
+   */
+  getPublicDataTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
