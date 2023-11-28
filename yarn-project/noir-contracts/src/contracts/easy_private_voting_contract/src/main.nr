@@ -55,7 +55,7 @@ contract EasyPrivateVoting {
         context.call_public_function(
             // we cannot update public state directly from private function but we can call public function (which queues it)
             context.this_address(),// address that calls public function. here we are using contract address for privacy
-            compute_selector("_initialize((Field))"), // selector of  set_admin()
+            compute_selector("_initialize((Field))"), // function selector
             [admin.address] // parameters for set_admin()
         );
     }
