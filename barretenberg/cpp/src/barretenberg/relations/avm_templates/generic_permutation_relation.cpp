@@ -1,7 +1,7 @@
 #include "generic_permutation_relation.hpp"
 #include "barretenberg/flavor/avm_template.hpp"
 #include "barretenberg/flavor/relation_definitions_fwd.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -25,9 +25,9 @@ void GenericPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations& a
                                                     const Parameters& params,
                                                     const FF& scaling_factor)
 {
-    lookup_library::accumulate_logderivative_permutation_subrelation_contributions<FF,
-                                                                                   GenericPermutationRelationImpl<FF>>(
-        accumulator, in, params, scaling_factor);
+    logderivative_library::
+        accumulate_logderivative_permutation_subrelation_contributions<FF, GenericPermutationRelationImpl<FF>>(
+            accumulator, in, params, scaling_factor);
 }
 
 template class GenericPermutationRelationImpl<barretenberg::fr>;

@@ -2,7 +2,7 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/avm_template.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace proof_system {
@@ -75,7 +75,7 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
 
         auto polynomials = compute_polynomials();
         const size_t num_rows = polynomials.get_polynomial_size();
-        proof_system::honk::lookup_library::
+        proof_system::honk::logderivative_library::
             compute_logderivative_inverse<Flavor, honk::sumcheck::GenericPermutationRelation<FF>>(
                 polynomials, params, num_rows);
 
