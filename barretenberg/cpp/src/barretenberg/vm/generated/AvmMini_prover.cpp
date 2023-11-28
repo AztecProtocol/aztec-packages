@@ -1,3 +1,5 @@
+
+
 #include "AvmMini_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -55,11 +57,11 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.memTrace_m_val = key->memTrace_m_val;
     prover_polynomials.memTrace_m_val_shift = key->memTrace_m_val.shifted();
 
-    prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
-    prover_polynomials.memTrace_m_rw_shift = key->memTrace_m_rw.shifted();
-
     prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
     prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
+
+    prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
+    prover_polynomials.memTrace_m_rw_shift = key->memTrace_m_rw.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);

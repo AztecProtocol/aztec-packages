@@ -39,8 +39,8 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
     FF memTrace_m_val_shift{};
-    FF memTrace_m_rw_shift{};
     FF memTrace_m_addr_shift{};
+    FF memTrace_m_rw_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -95,8 +95,8 @@ class AvmMiniCircuitBuilder {
         }
 
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
 
         return polys;
     }

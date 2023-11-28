@@ -167,8 +167,8 @@ class AvmMiniFlavor {
         DataType avmMini_last;
 
         DataType memTrace_m_val_shift;
-        DataType memTrace_m_rw_shift;
         DataType memTrace_m_addr_shift;
+        DataType memTrace_m_rw_shift;
 
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &avmMini_clk,
@@ -194,8 +194,8 @@ class AvmMiniFlavor {
                             &avmMini_mem_idx_c,
                             &avmMini_last,
                             &memTrace_m_val_shift,
-                            &memTrace_m_rw_shift,
-                            &memTrace_m_addr_shift)
+                            &memTrace_m_addr_shift,
+                            &memTrace_m_rw_shift)
 
         std::vector<HandleType> get_wires() override
         {
@@ -223,8 +223,8 @@ class AvmMiniFlavor {
                 avmMini_mem_idx_c,
                 avmMini_last,
                 memTrace_m_val_shift,
-                memTrace_m_rw_shift,
                 memTrace_m_addr_shift,
+                memTrace_m_rw_shift,
 
             };
         };
@@ -262,8 +262,8 @@ class AvmMiniFlavor {
         {
             return {
                 memTrace_m_val,
-                memTrace_m_rw,
                 memTrace_m_addr,
+                memTrace_m_rw,
 
             };
         };
@@ -272,8 +272,8 @@ class AvmMiniFlavor {
         {
             return {
                 memTrace_m_val_shift,
-                memTrace_m_rw_shift,
                 memTrace_m_addr_shift,
+                memTrace_m_rw_shift,
 
             };
         };
