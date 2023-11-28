@@ -63,6 +63,19 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  public async getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
+    return await this.db.getNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.

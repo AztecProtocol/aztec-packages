@@ -77,6 +77,22 @@ export class Oracle {
     return path.map(toACVMField);
   }
 
+  async getNullifierMembershipWitness(
+    [blockNumber]: ACVMField[],
+    [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
+  ): Promise<ACVMField[]> {
+    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
+    const parsedNullifier = fromACVMField(nullifier);
+
+    const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
+    if (!witness) {
+      throw new Error(
+        `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
+      );
+    }
+    return witness.toFieldArray().map(toACVMField);
+  }
+
   async getLowNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)

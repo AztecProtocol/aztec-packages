@@ -376,6 +376,32 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  public async getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
+    const committedDb = await this.#getWorldState();
+    const index = await committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    if (!index) {
+      return undefined;
+    }
+    const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, Number(index));
+    if (!leafData) {
+      return undefined;
+    }
+    const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+      MerkleTreeId.NULLIFIER_TREE,
+      BigInt(index),
+    );
+    return new LowNullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+  }
+
+  /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.

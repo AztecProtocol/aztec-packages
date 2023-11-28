@@ -83,6 +83,14 @@ export interface StateInfoProvider {
   getPublicDataTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
   /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierMembershipWitness | undefined>;
+
+  /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
    * @param blockNumber - The block number at which to get the index.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.

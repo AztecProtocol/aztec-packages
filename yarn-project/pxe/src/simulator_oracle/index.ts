@@ -160,6 +160,13 @@ export class SimulatorOracle implements DBOracle {
     }
   }
 
+  public getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
+    return this.stateInfoProvider.getNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
   public getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,

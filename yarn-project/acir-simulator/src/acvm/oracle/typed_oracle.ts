@@ -91,6 +91,13 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getNullifierMembershipWitness(
+    _blockNumber: number,
+    _nullifier: Fr,
+  ): Promise<LowNullifierMembershipWitness | undefined> {
+    throw new Error('Not available.');
+  }
+
   getLowNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,

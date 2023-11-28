@@ -34,9 +34,10 @@ contract InclusionProofs {
                 MembershipWitness,
             },
             get_sibling_path::get_sibling_path,
-            get_low_nullifier_membership_witness::{
+            get_nullifier_membership_witness::{
                 get_low_nullifier_membership_witness,
-                LowNullifierMembershipWitness,
+                get_nullifier_membership_witness,
+                NullifierMembershipWitness,
             },
         },
         hash::pedersen_hash,
@@ -123,7 +124,7 @@ contract InclusionProofs {
         let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
             get_membership_witness(block_number, note_hash_tree_id, note_commitment);
 
-        // 5) Verify that the commitment is in the note hash tree
+        // 5) Prove that the commitment is in the note hash tree
         assert(
             block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving membership of a note in note hash tree failed"
@@ -201,13 +202,17 @@ contract InclusionProofs {
         let block_data = get_block_data(block_number, context);
 
         // 2) Get the membership witness of the nullifier
-        let nullifier_tree_id = 1; // TODO(#3443)
-        let witness: MembershipWitness<NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT + 1> =
-            get_membership_witness(block_number, nullifier_tree_id, nullifier);
+        let witness = get_nullifier_membership_witness(block_number, nullifier);
 
-        // 3) Verify that the nullifier is in the nullifier tree
+        // 3) Check that the witness we obtained matches the nullifier
+        assert(witness.leaf_data.value == nullifier, "Nullifier does not match value in witness");
+
+        // 4) Compute the nullifier tree leaf
+        let nullifier_leaf = witness.leaf_data.hash();
+
+        // 5) Prove that the nullifier is in the nullifier tree
         assert(
-            block_data.nullifier_tree_root == compute_merkle_root(nullifier, witness.index, witness.path),
+            block_data.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
             "Proving membership of a nullifier in nullifier tree failed"
         );
 
@@ -242,7 +247,7 @@ contract InclusionProofs {
         let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
             get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
 
-        // 4) Verify that the public value provided on input is in the public data tree
+        // 4) Prove that the public value provided on input is in the public data tree
         assert(
             block_data.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
             "Proving membership of a value in public data tree failed"

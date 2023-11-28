@@ -9,6 +9,7 @@ import { LeafData } from './leaf_data.js';
  * the "linked list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than
  * the nullifier we are trying to prove non-inclusion for.
  */
+// TODO: rename to NullifierNonMembershipWitness
 export class LowNullifierMembershipWitness {
   constructor(
     /**
