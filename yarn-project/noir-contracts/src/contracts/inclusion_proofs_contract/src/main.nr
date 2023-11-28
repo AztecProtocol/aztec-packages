@@ -22,6 +22,7 @@ contract InclusionProofs {
         },
         constants_gen::{
             NOTE_HASH_TREE_HEIGHT,
+            NULLIFIER_TREE_HEIGHT,
             HISTORIC_BLOCKS_TREE_HEIGHT,
             PUBLIC_DATA_TREE_HEIGHT,
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
@@ -177,6 +178,37 @@ contract InclusionProofs {
         assert(
             full_field_greater_than(witness.leaf_data.next_value, nullifier),
             "Proving that low_nullifier.next_value > nullifier failed"
+        );
+
+        // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
+        //     was not yet included in the nullifier tree.
+    }
+
+    // Proves nullifier existed at block `block_number`.
+    // Note: I am not getting a nullifier of the note that was created in this contract in this function because it is
+    //       currently not possible to obtain a nullified note from PXE.
+    #[aztec(private)]
+    fn proveNullifierInclusion(
+        nullifier: Field,
+        block_number: Field, // The block at which we'll prove that the nullifier not exists in the tree
+    ) {
+        // TODO: assert that block number is less than the block number of context.block_data
+        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        //     or modifying the private context so that we somehow expose it.
+
+        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        //    root.
+        let block_data = get_block_data(block_number, context);
+
+        // 2) Get the membership witness of the nullifier
+        let nullifier_tree_id = 1; // TODO(#3443)
+        let witness: MembershipWitness<NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT + 1> =
+            get_membership_witness(block_number, nullifier_tree_id, nullifier);
+
+        // 3) Verify that the nullifier is in the nullifier tree
+        assert(
+            block_data.nullifier_tree_root == compute_merkle_root(nullifier, witness.index, witness.path),
+            "Proving membership of a nullifier in nullifier tree failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier

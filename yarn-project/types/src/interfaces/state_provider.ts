@@ -4,6 +4,7 @@ import {
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 
@@ -32,6 +33,14 @@ export interface StateInfoProvider {
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
   getContractSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
+
+  /**
+   * Returns a sibling path for the given index in the nullifier tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
+   */
+  getNullifierTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
 
   /**
    * Returns a sibling path for the given index in the note hash tree.

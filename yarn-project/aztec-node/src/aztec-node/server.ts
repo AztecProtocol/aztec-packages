@@ -311,6 +311,16 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Returns a sibling path for the given index in the nullifier tree.
+   * @param leafIndex - The index of the leaf for which the sibling path is required.
+   * @returns The sibling path for the leaf index.
+   */
+  public async getNullifierTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>> {
+    const committedDb = await this.#getWorldState();
+    return committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
+  }
+
+  /**
    * Returns a sibling path for the given index in the data tree.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.

@@ -63,4 +63,12 @@ describe('e2e_inclusion_proofs_contract', () => {
     const blockNumber = await pxe.getBlockNumber();
     await contract.methods.provePublicValueInclusion(publicValue, blockNumber).send().wait();
   });
+
+  it('proves existence of a nullifier in private context', async () => {
+    const blockNumber = await pxe.getBlockNumber();
+    const block = await pxe.getBlock(blockNumber);
+    const nullifier = block?.newNullifiers[0];
+
+    await contract.methods.proveNullifierInclusion(nullifier!, blockNumber).send().wait();
+  });
 });
