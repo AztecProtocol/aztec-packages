@@ -111,8 +111,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
-    for (const { message } of messages) {
-      this.pendingL1ToL2Messages.addMessage(message.entryKey!, message);
+    for (const { message, blockNumber, indexInBlock } of messages) {
+      this.pendingL1ToL2Messages.addMessage(message.entryKey!, message, blockNumber, indexInBlock);
     }
     return Promise.resolve(true);
   }
@@ -123,8 +123,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
-    messages.forEach(({ entryKey }) => {
-      this.pendingL1ToL2Messages.removeMessage(entryKey);
+    messages.forEach(({ entryKey, blockNumber, indexInBlock }) => {
+      this.pendingL1ToL2Messages.removeMessage(entryKey, blockNumber, indexInBlock);
     });
     return Promise.resolve(true);
   }
@@ -137,8 +137,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
     messageKeys.forEach(messageKey => {
-      this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
-      this.pendingL1ToL2Messages.removeMessage(messageKey);
+      this.confirmedL1ToL2Messages.addMessageUnsafe(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
+      this.pendingL1ToL2Messages.removeMessageUnsafe(messageKey);
     });
     return Promise.resolve(true);
   }
