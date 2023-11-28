@@ -17,7 +17,7 @@ contract EasyPrivateVoting {
     // docs:start:storage_struct
     struct Storage {
     admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>, // admin can end vote
-    tally: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // we will store vote as key and number of votes as value
+    tally: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // we will store candidate as key and number of votes as value
     voteEnded: PublicState<bool, BOOL_SERIALIZED_LEN>, // voteEnded is boolean
 }
     // docs:end:storage_struct
@@ -69,23 +69,23 @@ contract EasyPrivateVoting {
     // docs:end:initialize
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
-    fn cast_vote(voteId: Field) {
+    fn cast_vote(candidate: Field) {
         let secret = get_secret_key(context.msg_sender()); // get secret key of caller of function
         let nullifier = dep::std::hash::pedersen_hash([context.msg_sender(), secret.low, secret.high]); // compute nullifier with this secret key so others can't descrypt it
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT); // push nullifier
         context.call_public_function(
             context.this_address(), 
             compute_selector("add_to_tally_public(Field)"), 
-            [voteId]);
+            [candidate]);
     }
     // docs:end:cast_vote
 
     // docs:start:add_to_tally_public
     #[aztec(public)]
-    internal fn add_to_tally_public(voteId: Field) {
+    internal fn add_to_tally_public(candidate: Field) {
         assert(storage.voteEnded.read() == false, "Vote has ended"); // assert that vote has not ended
-        let new_tally = storage.tally.at(voteId).read() + 1;
-        storage.tally.at(voteId).write(new_tally);
+        let new_tally = storage.tally.at(candidate).read() + 1;
+        storage.tally.at(candidate).write(new_tally);
     }
     // docs:end:add_to_tally_public
 
@@ -97,8 +97,8 @@ contract EasyPrivateVoting {
     }
     // docs:end:end_vote
     // docs:start:get_vote
-    unconstrained fn get_vote(voteId: Field) -> Field {
-        storage.tally.at(voteId).read()
+    unconstrained fn get_vote(candidate: Field) -> Field {
+        storage.tally.at(candidate).read()
     }
     // docs:end:get_vote
     // docs:start:compute_note_hash_and_nullifier
