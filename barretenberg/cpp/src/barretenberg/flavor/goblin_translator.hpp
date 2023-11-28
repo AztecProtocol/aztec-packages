@@ -262,11 +262,12 @@ class GoblinTranslator {
                                ConcatenatedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but WireToBeShiftedEntities
-        RefVector<DataType> get_unshifted()
+        // everything but ConcatenatedRangeConstraints
+        RefVector<DataType> get_unshifted_wires()
         {
-            return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
-                               ConcatenatedRangeConstraints<DataType>::get_all());
+            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedEntities<DataType>::get_all(),
+                               DerivedWitnessEntities<DataType>::get_all());
         };
         RefVector<DataType> get_to_be_shifted()
         {
@@ -591,7 +592,10 @@ class GoblinTranslator {
         };
 
         // Gemini-specific getters.
-        // get_unshifted is inherited
+        RefVector<DataType> get_unshifted()
+        {
+            return concatenate(this->get_unshifted_wires(), PrecomputedEntities<DataType>::get_all());
+        }
         // get_to_be_shifted is inherited
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
 
