@@ -55,11 +55,11 @@ export class ViewDataOracle extends TypedOracle {
    * Fetches a sibling path at a given block and index from a tree specified by `treeId`.
    * @param blockNumber - The block number at which to get the membership witness.
    * @param treeId - Id of the tree to get the sibling path from.
-   * @param index - Index of the leaf to get sibling path for
+   * @param leafIndex - Index of the leaf to get sibling path for
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public getSiblingPath(blockNumber: number, treeId: MerkleTreeId, index: Fr): Promise<Fr[]> {
-    return this.db.getSiblingPath(blockNumber, treeId, index.toBigInt());
+  public getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr): Promise<Fr[]> {
+    return this.db.getSiblingPath(blockNumber, treeId, leafIndex.toBigInt());
   }
 
   /**

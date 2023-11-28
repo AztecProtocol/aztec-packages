@@ -49,27 +49,31 @@ export class Oracle {
   async getMembershipWitness(
     [blockNumber]: ACVMField[],
     [treeId]: ACVMField[],
-    [leaf]: ACVMField[],
+    [leafValue]: ACVMField[],
   ): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
     const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeaf = fromACVMField(leaf);
+    const parsedLeafValue = fromACVMField(leafValue);
 
-    const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeaf);
+    const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
     if (!witness) {
       throw new Error(
-        `Leaf ${leaf} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
+        `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
       );
     }
     return witness.map(toACVMField);
   }
 
-  async getSiblingPath([blockNumber]: ACVMField[], [treeId]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+  async getSiblingPath(
+    [blockNumber]: ACVMField[],
+    [treeId]: ACVMField[],
+    [leafIndex]: ACVMField[],
+  ): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
     const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedIndex = fromACVMField(index);
+    const parsedLeafIndex = fromACVMField(leafIndex);
 
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedIndex);
+    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
     return path.map(toACVMField);
   }
 

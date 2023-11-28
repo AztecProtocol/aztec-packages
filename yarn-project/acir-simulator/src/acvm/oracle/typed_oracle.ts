@@ -83,11 +83,11 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leaf: Fr): Promise<Fr[] | undefined> {
+  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
     throw new Error('Not available.');
   }
 
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _index: Fr): Promise<Fr[]> {
+  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
     throw new Error('Not available.');
   }
 
