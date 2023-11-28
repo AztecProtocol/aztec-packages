@@ -106,7 +106,7 @@ contract InclusionProofs {
 
         // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
+        let block_data = get_block_data(block_number, context);
 
         // 2) Get the note from PXE.
         let private_values = storage.private_values.at(owner.address);
@@ -143,7 +143,7 @@ contract InclusionProofs {
 
         // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
+        let block_data = get_block_data(block_number, context);
 
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner.address);
@@ -194,7 +194,7 @@ contract InclusionProofs {
 
         // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = get_block_data(block_number, context.block_data.blocks_tree_root);
+        let block_data = get_block_data(block_number, context);
 
         // 2) Compute the public value leaf index.
         // We have to compute the leaf index here because unlike in the case of note commitments, public values are
