@@ -34,18 +34,6 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
         return _refs_to_pointer_array(__VA_ARGS__);                                                                    \
     }
 
-// Debug tool for printing
-#define DEFINE_PRINT(DataType, ...)                                                                                    \
-    void print() const                                                                                                 \
-    {                                                                                                                  \
-        auto entity_names = _string_split_by_comma(#__VA_ARGS__);                                                      \
-        size_t i = 0;                                                                                                  \
-        for (const DataType& elem : get_all()) {                                                                       \
-            std::cout << entity_names[i] << ": " << elem << std::endl;                                                 \
-            i++;                                                                                                       \
-        }                                                                                                              \
-    }
-
 #define DEFINE_REF_VIEW(...)                                                                                           \
     [[nodiscard]] auto get_all()                                                                                       \
     {                                                                                                                  \
@@ -66,8 +54,7 @@ template <typename... Refs> auto _refs_to_pointer_array(Refs&... refs)
 #define DEFINE_FLAVOR_MEMBERS(DataType, ...)                                                                           \
     DataType __VA_ARGS__;                                                                                              \
     DEFINE_POINTER_VIEW(__VA_ARGS__)                                                                                   \
-    DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
-    DEFINE_PRINT(DataType, __VA_ARGS__)
+    DEFINE_REF_VIEW(__VA_ARGS__)
 
 #define DEFINE_COMPOUND_POINTER_VIEW(...)                                                                              \
     [[nodiscard]] auto pointer_view()                                                                                  \

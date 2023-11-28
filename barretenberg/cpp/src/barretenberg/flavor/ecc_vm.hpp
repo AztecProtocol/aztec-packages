@@ -204,16 +204,14 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
         DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
                                      DerivedWitnessEntities<DataType>::pointer_view())
-        void print() const
-        {
-            WireEntities<DataType>::print();
-            DerivedWitnessEntities<DataType>::print();
-        }
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
 
+    /**
+     * @brief Represents polynomials shifted by 1 or their evaluations, defined relative to WitnessEntities.
+     */
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -273,12 +271,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
                                      WitnessEntities<DataType>::pointer_view(),
                                      ShiftedEntities<DataType>::pointer_view())
-        void print() const
-        {
-            PrecomputedEntities<DataType>::print();
-            WitnessEntities<DataType>::print();
-            ShiftedEntities<DataType>::print();
-        }
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
