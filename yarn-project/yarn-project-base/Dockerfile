@@ -1,7 +1,7 @@
 # This base Dockerfile is for:
 #  - Caching the workspace dependencies.
 #  - Running workspace checks (package.json inheritance, tsconfig.json project references).
-#  - Bringing in any upstream artifacts such as circuits.wasm and L1 contracts.
+#  - Bringing in any upstream resources such as L1 contract artifacts and bb.js.
 #  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artifacts).
 #
 # When installing workspace dependencies, there are issues with doing this naively:
@@ -40,21 +40,30 @@
 #      RUN yarn cache clean && yarn workspaces focus --production
 #  - Create final slim image by copying /usr/src into a fresh image.
 #
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache bash jq curl
 
-# Bring in circuits wasms.
-COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
-# Copy ignition download script.
-COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
 # Copy L1 contracts.
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Copy in bb.js
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
+# Copy in nargo
+COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
+# Copy in noir packages
+COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
+
+# TODO: FIX: For some reason the source-resolver package needs to be in compiler dir or we get errors like:
+#              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'
+# This affects both ubuntu and alpine builds.
+RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /usr/src/noir/compiler
+# For some reason this is only needed in alpine builds, otherwise we get errors like:
+#   Error: Cannot find module '@noir-lang/source-resolver'
+COPY --from=noir-packages /usr/src/noir/node_modules/@noir-lang /usr/src/noir/node_modules/@noir-lang
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
