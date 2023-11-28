@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::ssa::ir::{
     function::Function,
@@ -19,27 +19,27 @@ pub(super) struct Block {
     /// Maps a ValueId to the Expression it represents.
     /// Multiple ValueIds can map to the same Expression, e.g.
     /// dereferences to the same allocation.
-    pub(super) expressions: im::OrdMap<ValueId, Expression>,
+    pub(super) expressions: BTreeMap<ValueId, Expression>,
 
     /// Each expression is tracked as to how many aliases it
     /// may have. If there is only 1, we can attempt to optimize
     /// out any known loads to that alias. Note that "alias" here
     /// includes the original reference as well.
-    pub(super) aliases: im::OrdMap<Expression, AliasSet>,
+    pub(super) aliases: BTreeMap<Expression, AliasSet>,
 
     /// Each allocate instruction result (and some reference block parameters)
     /// will map to a Reference value which tracks whether the last value stored
     /// to the reference is known.
-    pub(super) references: im::OrdMap<ValueId, ReferenceValue>,
+    pub(super) references: BTreeMap<ValueId, ReferenceValue>,
 
     /// The last instance of a `Store` instruction to each address in this block
-    pub(super) last_stores: im::OrdMap<ValueId, InstructionId>,
+    pub(super) last_stores: BTreeMap<ValueId, InstructionId>,
 }
 
 /// An `Expression` here is used to represent a canonical key
 /// into the aliases map since otherwise two dereferences of the
 /// same address will be given different ValueIds.
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(super) enum Expression {
     Dereference(Box<Expression>),
     ArrayElement(Box<Expression>),
@@ -111,7 +111,10 @@ impl Block {
     }
 
     fn invalidate_all_references(&mut self) {
-        self.references.clear();
+        for reference_value in self.references.values_mut() {
+            *reference_value = ReferenceValue::Unknown;
+        }
+
         self.last_stores.clear();
     }
 
@@ -134,7 +137,7 @@ impl Block {
         }
 
         // Keep only the references present in both maps.
-        let mut intersection = im::OrdMap::new();
+        let mut intersection = BTreeMap::new();
         for (value_id, reference) in &other.references {
             if let Some(existing) = self.references.get(value_id) {
                 intersection.insert(*value_id, existing.unify(*reference));

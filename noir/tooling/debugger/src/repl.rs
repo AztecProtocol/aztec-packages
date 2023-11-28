@@ -4,7 +4,8 @@ use acvm::acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use acvm::acir::native_types::{Witness, WitnessMap};
 use acvm::{BlackBoxFunctionSolver, FieldElement};
 
-use nargo::{artifacts::debug::DebugArtifact, ops::DefaultForeignCallExecutor, NargoError};
+use nargo::artifacts::debug::DebugArtifact;
+use nargo::NargoError;
 
 use easy_repl::{command, CommandStatus, Repl};
 use std::cell::RefCell;
@@ -32,13 +33,8 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         debug_artifact: &'a DebugArtifact,
         initial_witness: WitnessMap,
     ) -> Self {
-        let context = DebugContext::new(
-            blackbox_solver,
-            circuit,
-            debug_artifact,
-            initial_witness.clone(),
-            Box::new(DefaultForeignCallExecutor::new(true)),
-        );
+        let context =
+            DebugContext::new(blackbox_solver, circuit, debug_artifact, initial_witness.clone());
         Self {
             context,
             blackbox_solver,
@@ -278,7 +274,6 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
             self.circuit,
             self.debug_artifact,
             self.initial_witness.clone(),
-            Box::new(DefaultForeignCallExecutor::new(true)),
         );
         for opcode_location in breakpoints {
             self.context.add_breakpoint(opcode_location);

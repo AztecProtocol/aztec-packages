@@ -12,7 +12,6 @@ export {
   and,
 } from '@noir-lang/acvm_js';
 
-export { InputMap } from '@noir-lang/noirc_abi';
 export { WitnessMap, ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@noir-lang/acvm_js';
 
 export { Noir } from './program.js';

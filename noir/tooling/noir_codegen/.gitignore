@@ -2,4 +2,3 @@ crs
 lib
 
 !test/*/target
-test/codegen

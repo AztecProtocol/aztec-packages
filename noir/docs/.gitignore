@@ -7,7 +7,7 @@
 # Generated files
 .docusaurus
 .cache-loader
-/docs/docs/noir_js/reference/
+/docs/noir_js/reference/
 
 # Misc
 .DS_Store
