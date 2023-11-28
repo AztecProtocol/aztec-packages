@@ -31,8 +31,7 @@ You can call a public function from a private function by using `context.call_pu
 
 #include_code call_public_function yarn-project/noir-contracts/src/contracts/card_game_contract/src/main.nr rust
 
-You cannot call a private function from a public function, but you can use a
-slow updates tree to read historic public state and stage writes to public state from a private function. 
+You cannot call a private function from a public function, but you can use a slow updates tree to read historic public state and stage writes to public state from a private function. 
 
 ### Data types
 
@@ -40,7 +39,7 @@ Private state works with UTXOs, or what we call notes. To keep things private, e
 
 Public state works similarly to other chains like Ethereum, behaving more like a public ledger. 
 
-Working with private state is creates commitments and nullifiers to state, whereas working with public state is like directly updating state.
+Working with private state is like creating commitments and nullifiers to state, whereas working with public state is like directly updating state.
 
 We have abstractions for working with private state so you don't have to worry about these commitments and nullifiers. However, it is important to understand that the types and libraries you use will be different when working with private state and public state.
 
@@ -86,6 +85,7 @@ You can write your own account contract to define the rules by which user transa
 Learn more about account contracts [here](../../concepts/foundation/accounts/main.md).
 
 # Noir Language
+
 Aztec smart contracts are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. Its syntax is similar to Rust. Outside of Aztec, Noir is used for writing circuits that can be verified in Solidity.
 
 A cursory understanding of Noir is sufficient for writing Aztec contracts. The [Noir docs](https://noir-lang.org) will be a helpful reference when you start writing more advanced contracts.
