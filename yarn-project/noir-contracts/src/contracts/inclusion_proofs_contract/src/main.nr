@@ -118,7 +118,7 @@ contract InclusionProofs {
         let note_commitment = note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, note);
 
         // 4) Get the membership witness of the note in the note hash tree
-        let note_hash_tree_id = 2;
+        let note_hash_tree_id = 2; // TODO(#3443)
         let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
             get_membership_witness(block_number, note_hash_tree_id, note_commitment);
 
@@ -206,7 +206,7 @@ contract InclusionProofs {
         );
 
         // 3) Get the sibling path of the public value leaf index in the public data tree at block `block_number`.
-        let public_data_tree_id = 3;
+        let public_data_tree_id = 3; // TODO(#3443)
         let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
             get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
 

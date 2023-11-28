@@ -28,7 +28,7 @@ pub fn get_block_data(block_number: Field, context: PrivateContext) -> HistoricB
     let block_hash = block_data.block_hash();
 
     // 3) Get the membership wintess of the block in the blocks tree
-    let blocks_tree_id = 5;
+    let blocks_tree_id = 5; // TODO(#3443)
     let witness: MembershipWitness<HISTORIC_BLOCKS_TREE_HEIGHT, HISTORIC_BLOCKS_TREE_HEIGHT + 1> = get_membership_witness(block_number, blocks_tree_id, block_hash);
 
     // 4) Check that the block is in the blocks tree (i.e. the witness is valid)
