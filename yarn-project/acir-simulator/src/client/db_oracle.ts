@@ -130,7 +130,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param blockNumber - The block number at which to get the sibling path.
    * @param treeId - The id of the tree to search.
    * @param leafIndex - The index of the leaf.
-   * @returns - The sibling path of the leaf. Undefined if it does not exist in the tree.
+   * @returns - The sibling path of the leaf.
    */
   getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
 
