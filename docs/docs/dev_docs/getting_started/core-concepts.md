@@ -40,7 +40,7 @@ Private state works with UTXOs, or what we call notes. To keep things private, e
 
 Public state works similarly to other chains like Ethereum, behaving more like a public ledger. 
 
-Working with private state is like creating commitments and nullifiers, whereas working with public state is like directly updating state.
+Working with private state is creates commitments and nullifiers to state, whereas working with public state is like directly updating state.
 
 We have abstractions for working with private state so you don't have to worry about these commitments and nullifiers. However, it is important to understand that the types and libraries you use will be different when working with private state and public state.
 
