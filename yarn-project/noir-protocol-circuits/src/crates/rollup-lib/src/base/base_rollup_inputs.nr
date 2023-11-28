@@ -42,7 +42,6 @@ struct BaseRollupInputs {
     start_public_data_tree_root: Field,
     start_historic_blocks_tree_snapshot: AppendOnlyTreeSnapshot,
 
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
@@ -185,15 +184,17 @@ impl BaseRollupInputs {
 
     //TODO: This should be done in-circuit
     unconstrained fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
+        let mut new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+
         for i in 0..2 {
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-                assert_eq(self.new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j], self.kernel_data[i].public_inputs.end.new_nullifiers[j]);
+                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j];
             }
         };
 
         crate::indexed_tree::batch_insert(
             self.start_nullifier_tree_snapshot,
-            self.new_nullifiers,
+            new_nullifiers,
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,
@@ -599,12 +600,12 @@ fn test_u256_greater_than() {
 //                 [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], 
 //                 [0; NULLIFIER_SUBTREE_HEIGHT]
 //             );
-            
+
 //             let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
 //                 root: start_nullifier_tree.get_root(),
 //                 next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
 //             };
-            
+
 //             let start_contract_tree = NonEmptyMerkleTree::new(self.pre_existing_contracts, [0; CONTRACT_TREE_HEIGHT], [0; CONTRACT_TREE_HEIGHT - 1], [0; 1]);
 //             let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
 //                 root: start_contract_tree.get_root(),
@@ -624,7 +625,7 @@ fn test_u256_greater_than() {
 //             self.constants.start_historic_blocks_tree_roots_snapshot = start_historic_blocks_tree_snapshot;
 
 //             let mut new_public_data_reads_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
-            
+
 //             for i in 0..self.public_data_reads.max_len() {
 //                 if (i as u64) < (self.public_data_reads.len() as u64) {
 //                     let index = self.public_data_reads.get_unchecked(i);
@@ -696,7 +697,7 @@ fn test_u256_greater_than() {
 //                 new_contracts_subtree_sibling_path, 
 //                 new_public_data_update_requests_sibling_paths,  
 //                 new_public_data_reads_sibling_paths,  
-                
+
 //                 historic_blocks_tree_root_membership_witnesses: [
 //                     HistoricBlocksTreeRootMembershipWitness {
 //                         leaf_index: 0,
@@ -707,7 +708,7 @@ fn test_u256_greater_than() {
 //                         sibling_path: start_historic_blocks_tree.get_sibling_path(1)
 //                     },
 //                 ],
-                
+
 //                 constants: self.constants,
 //             }
 //         }
@@ -1003,7 +1004,6 @@ fn test_u256_greater_than() {
 //         builder.fails();
 //     }
 
-
 //     #[test(should_fail_with = "Nullifier subtree is malformed")]
 //     fn new_nullifier_tree_double_spend_same_batch() {
 //         let mut builder = BaseRollupInputsBuilder::new();
@@ -1030,7 +1030,6 @@ fn test_u256_greater_than() {
 
 //         builder.fails();
 //     }
-
 
 //     #[test]
 //     fn empty_block_calldata_hash() {

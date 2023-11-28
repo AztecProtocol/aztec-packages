@@ -26,6 +26,7 @@ fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
     calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
 }
 
+// TODO(Alvaro) generalize this to not only nullifiers
 pub fn batch_insert(
     start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot, 
     nullifiers_to_insert: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
