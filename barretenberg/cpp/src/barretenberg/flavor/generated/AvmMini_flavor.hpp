@@ -39,18 +39,15 @@ class AvmMiniFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 25;
 
-    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
+    using Relations = std::tuple<AvmMini_vm::mem_trace<FF>, AvmMini_vm::avm_mini<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static constexpr size_t NUMBER_OF_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
@@ -169,9 +166,9 @@ class AvmMiniFlavor {
         DataType avmMini_mem_idx_c;
         DataType avmMini_last;
 
+        DataType memTrace_m_val_shift;
         DataType memTrace_m_rw_shift;
         DataType memTrace_m_addr_shift;
-        DataType memTrace_m_val_shift;
 
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &avmMini_clk,
@@ -196,9 +193,9 @@ class AvmMiniFlavor {
                             &avmMini_mem_idx_b,
                             &avmMini_mem_idx_c,
                             &avmMini_last,
+                            &memTrace_m_val_shift,
                             &memTrace_m_rw_shift,
-                            &memTrace_m_addr_shift,
-                            &memTrace_m_val_shift)
+                            &memTrace_m_addr_shift)
 
         std::vector<HandleType> get_wires() override
         {
@@ -225,9 +222,9 @@ class AvmMiniFlavor {
                 avmMini_mem_idx_b,
                 avmMini_mem_idx_c,
                 avmMini_last,
+                memTrace_m_val_shift,
                 memTrace_m_rw_shift,
                 memTrace_m_addr_shift,
-                memTrace_m_val_shift,
 
             };
         };
@@ -264,9 +261,9 @@ class AvmMiniFlavor {
         std::vector<HandleType> get_to_be_shifted() override
         {
             return {
+                memTrace_m_val,
                 memTrace_m_rw,
                 memTrace_m_addr,
-                memTrace_m_val,
 
             };
         };
@@ -274,9 +271,9 @@ class AvmMiniFlavor {
         std::vector<HandleType> get_shifted() override
         {
             return {
+                memTrace_m_val_shift,
                 memTrace_m_rw_shift,
                 memTrace_m_addr_shift,
-                memTrace_m_val_shift,
 
             };
         };
