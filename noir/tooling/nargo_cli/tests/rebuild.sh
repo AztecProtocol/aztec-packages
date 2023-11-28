@@ -45,7 +45,7 @@ base_path="$current_dir/execution_success"
 rm -rf $current_dir/acir_artifacts
 mkdir -p $current_dir/acir_artifacts
 
-# Gather directories to process
+# Gather directories to process.
 dirs_to_process=()
 for dir in $base_path/*; do
     if [[ ! -d $dir ]] || [[ " ${excluded_dirs[@]} " =~ " $(basename "$dir") " ]]; then
@@ -55,8 +55,18 @@ for dir in $base_path/*; do
 done
 
 # Process each directory in parallel
+pids=()
 for dir in "${dirs_to_process[@]}"; do
     process_dir "$dir" "$current_dir" &
+    pids+=($!)
 done
 
-wait # Wait for all background processes to finish
+# Check the exit status of each background job.
+for pid in "${pids[@]}"; do
+    wait $pid || exit_status=$?
+done
+
+# Exit with a failure status if any job failed.
+if [ ! -z "$exit_status" ]; then
+    exit $exit_status
+fi
