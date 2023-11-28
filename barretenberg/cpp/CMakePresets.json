@@ -65,10 +65,7 @@
       "inherits": "clang16-dbg",
       "binaryDir": "build-asan",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CFLAGS": "-gdwarf-4",
-        "CXXFLAGS": "-gdwarf-4",
-        "LDFLAGS": "-gdwarf-4"
+        "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
@@ -141,18 +138,6 @@
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
         "LDFLAGS": "-fsanitize=thread"
-      }
-    },
-    {
-      "name": "ubsan",
-      "displayName": "Debugging build with undefined behavior sanitizer on Clang-16",
-      "description": "Build with undefined behavior sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
-      "binaryDir": "build-ubsan",
-      "environment": {
-        "CFLAGS": "-fsanitize=undefined",
-        "CXXFLAGS": "-fsanitize=undefined",
-        "LDFLAGS": "-fsanitize=undefined"
       }
     },
     {
@@ -350,11 +335,6 @@
       "name": "tsan",
       "inherits": "default",
       "configurePreset": "tsan"
-    },
-    {
-      "name": "ubsan",
-      "inherits": "default",
-      "configurePreset": "ubsan"
     },
     {
       "name": "coverage",
