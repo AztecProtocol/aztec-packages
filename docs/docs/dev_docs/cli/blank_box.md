@@ -98,11 +98,11 @@ The Sandbox runs on `localhost:8080` by default. With the `SANDBOX_URL`, we set 
 
 `index.ts` imports from [`@aztec/aztec.js`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js). It also imports the `BlankContractAbi`, which is generated from the contract defined in `./src/contracts/src/main.nr`.
 
-#include_code imports boxes/blank/src/index.ts typescript
+#include_code imports ../boxes/blank/src/index.ts typescript
 
 ### Deployment
 
-#include_code deploy boxes/blank/src/index.ts typescript
+#include_code deploy ../boxes/blank/src/index.ts typescript
 
 To deploy, it gets one of the pre-initialized wallets that comes with the Sandbox with `getSandboxAccountsWallets`. Using that wallet, the contract ABI, optional salt (used to deterministically calculate the contract address, like [CREATE2 in Ethereum](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)), and the PXE, we can create a contract deployment transaction and send it to the sandbox network. The constructor defined in the Blank contract doesn't take any arguments, so we pass an empty array.
 
