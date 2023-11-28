@@ -1,4 +1,4 @@
-mod nullifier_leaf_preimage;
+mod indexed_tree_leaf_preimage;
 mod append_only_tree_snapshot;
 mod global_variables;
 mod constant_rollup_data;

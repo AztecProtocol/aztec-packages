@@ -1,4 +1,4 @@
-use crate::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
+use crate::abis::indexed_tree_leaf_preimage::IndexedTreeLeafPreimage;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;

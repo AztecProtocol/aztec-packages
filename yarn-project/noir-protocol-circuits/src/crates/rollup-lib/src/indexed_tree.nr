@@ -1,5 +1,5 @@
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
-use crate::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
+use crate::abis::indexed_tree_leaf_preimage::IndexedTreeLeafPreimage;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 
 use dep::aztec::constants_gen::{
@@ -22,8 +22,8 @@ fn check_permutation<N>(original_array: [Field; N], sorted_array: [Field; N], in
     }
 }
 
-fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
-    calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
+fn create_nullifier_subtree<N>(leaves: [IndexedTreeLeafPreimage; N]) -> Field {
+    calculate_subtree(leaves.map(|leaf:IndexedTreeLeafPreimage| leaf.hash()))
 }
 
 // TODO(Alvaro) generalize this to not only nullifiers
@@ -33,7 +33,7 @@ pub fn batch_insert(
     sorted_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     new_nullifiers_subtree_sibling_path: [Field; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
-    low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+    low_indexed_tree_leaf_preimages: [IndexedTreeLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
 ) -> AppendOnlyTreeSnapshot {
     // A permutation to the nullifiers is provided to make the insertion use only one insertion strategy
@@ -41,13 +41,13 @@ pub fn batch_insert(
 
     // Now, update the existing leaves with the new nullifiers
     let mut current_nullifier_tree_root = start_nullifier_tree_snapshot.root;
-    let mut nullifier_insertion_subtree = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+    let mut nullifier_insertion_subtree = [IndexedTreeLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
     let start_insertion_index = start_nullifier_tree_snapshot.next_available_leaf_index;
 
     for i in 0..sorted_nullifiers.len() {
         let nullifier = sorted_nullifiers[i];
         if nullifier != 0 {
-            let low_nullifier_preimage = low_nullifier_leaf_preimages[i];
+            let low_nullifier_preimage = low_indexed_tree_leaf_preimages[i];
             let witness = low_nullifier_membership_witness[i];
             
             let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
@@ -60,7 +60,7 @@ pub fn batch_insert(
             );
 
             // Recreate the original low nullifier from the preimage
-            let original_low_nullifier = NullifierLeafPreimage{
+            let original_low_nullifier = IndexedTreeLeafPreimage{
                 leaf_value : low_nullifier_preimage.leaf_value,
                 next_value : low_nullifier_preimage.next_value,
                 next_index : low_nullifier_preimage.next_index,
@@ -77,7 +77,7 @@ pub fn batch_insert(
             let nullifier_index = sorted_nullifiers_indexes[i];
 
             // Calculate the new value of the low_nullifier_leaf
-            let updated_low_nullifier = NullifierLeafPreimage{
+            let updated_low_nullifier = IndexedTreeLeafPreimage{
                 leaf_value : low_nullifier_preimage.leaf_value,
                 next_value : nullifier,
                 next_index : start_insertion_index+nullifier_index, 
@@ -86,7 +86,7 @@ pub fn batch_insert(
             current_nullifier_tree_root = crate::components::root_from_sibling_path(
                 updated_low_nullifier.hash(), witness.leaf_index, witness.sibling_path);
 
-            nullifier_insertion_subtree[nullifier_index] = NullifierLeafPreimage {
+            nullifier_insertion_subtree[nullifier_index] = IndexedTreeLeafPreimage {
                 leaf_value : nullifier,
                 next_value : low_nullifier_preimage.next_value,
                 next_index : low_nullifier_preimage.next_index,

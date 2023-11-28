@@ -1,4 +1,4 @@
-use crate::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
+use crate::abis::indexed_tree_leaf_preimage::IndexedTreeLeafPreimage;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE};
@@ -44,7 +44,7 @@ struct BaseRollupInputs {
 
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
-    low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+    low_indexed_tree_leaf_preimages: [IndexedTreeLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
     low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
 
     // For inserting the new subtrees into their respective trees:
@@ -198,13 +198,13 @@ impl BaseRollupInputs {
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,
-            self.low_nullifier_leaf_preimages,
+            self.low_indexed_tree_leaf_preimages,
             self.low_nullifier_membership_witness,
         )
     }
 
-    fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
+    fn create_nullifier_subtree<N>(self, leaves: [IndexedTreeLeafPreimage; N]) -> Field {
+        calculate_subtree(leaves.map(|leaf:IndexedTreeLeafPreimage| leaf.hash()))
     }
 
     // TODO this should be changed to append only and done in-circuit
@@ -498,7 +498,7 @@ fn test_u256_greater_than() {
 //         merkle_tree::{calculate_subtree, calculate_empty_tree_root},
 //         abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
 //         abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-//         abis::nullifier_leaf_preimage::NullifierLeafPreimage,
+//         abis::indexed_tree_leaf_preimage::IndexedTreeLeafPreimage,
 //         abis::constant_rollup_data::ConstantRollupData,
 //         tests::merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
 //         components,
@@ -541,7 +541,7 @@ fn test_u256_greater_than() {
 //     struct BaseRollupInputsBuilder {
 //         kernel_data: [PreviousKernelDataBuilder; KERNELS_PER_BASE_ROLLUP],
 //         pre_existing_notes: [Field; NOTE_HASH_SUBTREE_WIDTH],
-//         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+//         pre_existing_nullifiers: [IndexedTreeLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
 //         pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
 //         pre_existing_public_data: [Field; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP],
 //         pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
@@ -595,7 +595,7 @@ fn test_u256_greater_than() {
 //             let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
 
 //             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
-//                 self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+//                 self.pre_existing_nullifiers.map(|preimage: IndexedTreeLeafPreimage| preimage.hash()), 
 //                 [0; NULLIFIER_TREE_HEIGHT], 
 //                 [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], 
 //                 [0; NULLIFIER_SUBTREE_HEIGHT]
@@ -656,7 +656,7 @@ fn test_u256_greater_than() {
 //                 }
 //             }
 
-//             let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+//             let mut low_indexed_tree_leaf_preimages: [IndexedTreeLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
 //             let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
 
 //             for i in 0..self.new_nullifiers.max_len() {
@@ -667,7 +667,7 @@ fn test_u256_greater_than() {
 //                     if (new_nullifier.existing_index.is_some()) {
 //                         let low_index = new_nullifier.existing_index.unwrap_unchecked();
 //                         let mut low_preimage = self.pre_existing_nullifiers[low_index];
-//                         low_nullifier_leaf_preimages[i] = low_preimage;
+//                         low_indexed_tree_leaf_preimages[i] = low_preimage;
 //                         low_nullifier_membership_witness[i] = NullifierMembershipWitness {
 //                             leaf_index: low_index as Field,
 //                             sibling_path: start_nullifier_tree.get_sibling_path(low_index as Field)
@@ -689,7 +689,7 @@ fn test_u256_greater_than() {
 //                 start_public_data_tree_root,
 //                 start_historic_blocks_tree_snapshot,
 
-//                 low_nullifier_leaf_preimages,
+//                 low_indexed_tree_leaf_preimages,
 //                 low_nullifier_membership_witness,
 
 //                 new_commitments_subtree_sibling_path, 
@@ -848,12 +848,12 @@ fn test_u256_greater_than() {
 
 //         let mut builder = BaseRollupInputsBuilder::new();
 
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 7,
 //             next_index : 1,
 //         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 0,
 //             next_index : 0,
@@ -866,12 +866,12 @@ fn test_u256_greater_than() {
 //     fn nullifier_insertion_test() {
 //         let mut builder = BaseRollupInputsBuilder::new();
 
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 7,
 //             next_index : 1,
 //         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 0,
 //             next_index : 0,
@@ -882,21 +882,21 @@ fn test_u256_greater_than() {
 //             value: 1,
 //         });
 
-//         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
-//         tree_nullifiers[0] = NullifierLeafPreimage {
+//         let mut tree_nullifiers = [IndexedTreeLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+//         tree_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 1,
 //             next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
 //         };
 //         tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
-//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = NullifierLeafPreimage {
+//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = IndexedTreeLeafPreimage {
 //             leaf_value : 1,
 //             next_value : 7,
 //             next_index : 1,
 //         };
 
 //         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-//             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+//             tree_nullifiers.map(|preimage: IndexedTreeLeafPreimage| preimage.hash()), 
 //             [0; NULLIFIER_TREE_HEIGHT], 
 //             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
 //             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
@@ -914,12 +914,12 @@ fn test_u256_greater_than() {
 //     fn new_nullifier_tree_all_larger() {
 //         let mut builder = BaseRollupInputsBuilder::new();
 
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 7,
 //             next_index : 1,
 //         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 0,
 //             next_index : 0,
@@ -936,10 +936,10 @@ fn test_u256_greater_than() {
 //             });
 //         }
 
-//         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+//         let mut tree_nullifiers = [IndexedTreeLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
 //         tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
 
-//         tree_nullifiers[1] = NullifierLeafPreimage {
+//         tree_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 8,
 //             next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
@@ -947,21 +947,21 @@ fn test_u256_greater_than() {
 
 //         let last_index = builder.new_nullifiers.max_len() - 1;
 //         for i in 0..last_index {
-//             tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i] = NullifierLeafPreimage {
+//             tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i] = IndexedTreeLeafPreimage {
 //                 leaf_value : (8 + i) as Field,
 //                 next_value : (8 + i + 1) as Field,
 //                 next_index : (MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i) as u32 + 1,
 //             };
 //         }
 
-//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP+last_index] = NullifierLeafPreimage {
+//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP+last_index] = IndexedTreeLeafPreimage {
 //             leaf_value : (8 + last_index) as Field,
 //             next_value : 0,
 //             next_index : 0,
 //         };
 
 //         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-//             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+//             tree_nullifiers.map(|preimage: IndexedTreeLeafPreimage| preimage.hash()), 
 //             [0; NULLIFIER_TREE_HEIGHT], 
 //             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
 //             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
@@ -981,12 +981,12 @@ fn test_u256_greater_than() {
 //     fn new_nullifier_tree_double_spend() {
 //         let mut builder = BaseRollupInputsBuilder::new();
 
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 7,
 //             next_index : 1,
 //         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 0,
 //             next_index : 0,
@@ -1008,12 +1008,12 @@ fn test_u256_greater_than() {
 //     fn new_nullifier_tree_double_spend_same_batch() {
 //         let mut builder = BaseRollupInputsBuilder::new();
 
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[0] = IndexedTreeLeafPreimage {
 //             leaf_value : 0,
 //             next_value : 7,
 //             next_index : 1,
 //         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+//         builder.pre_existing_nullifiers[1] = IndexedTreeLeafPreimage {
 //             leaf_value : 7,
 //             next_value : 0,
 //             next_index : 0,

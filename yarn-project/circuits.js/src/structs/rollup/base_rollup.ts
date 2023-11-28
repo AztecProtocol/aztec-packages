@@ -22,10 +22,10 @@ import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
- * Class containing the data of a preimage of a single leaf in the nullifier tree.
+ * Class containing the data of a preimage of a single leaf in an indexed tree.
  * Note: It's called preimage because this data gets hashed before being inserted as a node into the `IndexedTree`.
  */
-export class NullifierLeafPreimage {
+export class IndexedTreeLeafPreimage {
   constructor(
     /**
      * Leaf value inside the indexed tree's linked list.
@@ -46,7 +46,7 @@ export class NullifierLeafPreimage {
   }
 
   static empty() {
-    return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0);
+    return new IndexedTreeLeafPreimage(Fr.ZERO, Fr.ZERO, 0);
   }
 }
 
@@ -145,10 +145,18 @@ export class BaseRollupInputs {
     public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
+     * The nullifiers to be inserted in the tree, sorted high to low.
+     */
+    public sortedNewNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
+    /**
+     * The indexes of the sorted nullifiers to the original ones.
+     */
+    public sortednewNullifiersIndexes: Tuple<UInt32, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
+    /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
      * See `StandardIndexedTree.batchInsert` function for more details.
      */
-    public lowNullifierLeafPreimages: Tuple<NullifierLeafPreimage, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
+    public lowNullifierLeafPreimages: Tuple<IndexedTreeLeafPreimage, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
     /**
      * Membership witnesses for the nullifiers which need to be updated to perform the batch insertion of the new
      * nullifiers.
@@ -210,6 +218,8 @@ export class BaseRollupInputs {
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
       fields.startHistoricBlocksTreeSnapshot,
+      fields.sortedNewNullifiers,
+      fields.sortednewNullifiersIndexes,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,

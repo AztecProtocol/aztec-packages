@@ -30,6 +30,7 @@ import {
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
+  IndexedTreeLeafPreimage,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -65,7 +66,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
-  NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
@@ -906,7 +906,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+    x => new IndexedTreeLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
     seed + 0x1000,
   );
 
@@ -920,20 +920,23 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
+  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
+  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
+
   const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
   const newPublicDataReadsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
   const historicBlocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x7000),
+    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x9000),
   );
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -946,6 +949,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     startContractTreeSnapshot,
     startPublicDataTreeRoot,
     startHistoricBlocksTreeSnapshot,
+    sortedNewNullifiers,
+    sortednewNullifiersIndexes,
     lowNullifierLeafPreimages,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
