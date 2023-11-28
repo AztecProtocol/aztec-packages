@@ -36,8 +36,14 @@
   },
   "dependencies": {
     "@aztec/aztec-ui": "^0.1.14",
-    "@aztec/aztec.js": "portal:../yarn-project/aztec.js",
+    "@aztec/aztec.js": "portal:../../yarn-project/aztec.js",
     "serve": "^14.2.1"
+  },
+  "resolutions": {
+    "@aztec/circuits.js": "portal:../../yarn-project/circuits.js",
+    "@aztec/foundation": "portal:../../yarn-project/foundation",
+    "@aztec/types": "portal:../../yarn-project/types",
+    "@aztec/ethereum": "portal:../../yarn-project/ethereum"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -78,5 +84,6 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts"
+  "types": "./dest/index.d.ts",
+  "packageManager": "yarn@4.0.2"
 }
