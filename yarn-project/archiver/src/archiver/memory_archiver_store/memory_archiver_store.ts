@@ -123,8 +123,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
-    messages.forEach(({ messageKey }) => {
-      this.pendingL1ToL2Messages.removeMessage(messageKey);
+    messages.forEach(({ entryKey }) => {
+      this.pendingL1ToL2Messages.removeMessage(entryKey);
     });
     return Promise.resolve(true);
   }

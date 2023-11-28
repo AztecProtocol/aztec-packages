@@ -82,7 +82,7 @@ export class PendingL1ToL2Message {
 export class CancelledL1ToL2Message {
   constructor(
     /** the message */
-    public readonly messageKey: Fr,
+    public readonly entryKey: Fr,
     /** the L1 block this message was emitted in */
     public readonly blockNumber: bigint,
     /** at which index in the L1 block this message was emitted */

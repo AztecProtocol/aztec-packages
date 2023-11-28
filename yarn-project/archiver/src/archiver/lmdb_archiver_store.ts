@@ -32,15 +32,14 @@ type L1ToL2MessageAndCount = {
   confirmedCount: number;
 };
 
-type L1ToL2MessageBlockKey = `${string}:${'newMessage' | 'cancelledMessage'}:${number}:${string}`;
+type L1ToL2MessageBlockKey = `${string}:${'newMessage' | 'cancelledMessage'}:${number}`;
 
 function l1ToL2MessageBlockKey(
   l1BlockNumber: bigint,
   key: 'newMessage' | 'cancelledMessage',
   indexInBlock: number,
-  messageKey: Buffer,
 ): L1ToL2MessageBlockKey {
-  return `${toBufferBE(l1BlockNumber, 32).toString('hex')}:${key}:${indexInBlock}:${messageKey.toString('hex')}`;
+  return `${toBufferBE(l1BlockNumber, 32).toString('hex')}:${key}:${indexInBlock}`;
 }
 
 type BlockIndexValue = [blockNumber: number, index: number];
@@ -68,7 +67,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     /** L1 to L2 messages */
     l1ToL2Messages: Database<L1ToL2MessageAndCount, Buffer>;
     /** Which blocks emitted which messages */
-    l1ToL2MessagesByBlock: Database<true, L1ToL2MessageBlockKey>;
+    l1ToL2MessagesByBlock: Database<Buffer, L1ToL2MessageBlockKey>;
     /** Pending L1 to L2 messages sorted by their fee, in buckets (dupSort=true)  */
     pendingMessagesByFee: Database<Buffer, number>;
   };
@@ -97,7 +96,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       }),
       l1ToL2MessagesByBlock: db.openDB('l1_to_l2_message_nonces', {
         keyEncoding: 'ordered-binary',
-        encoding: 'msgpack',
+        encoding: 'binary',
       }),
       pendingMessagesByFee: db.openDB('pending_messages_by_fee', {
         keyEncoding: 'ordered-binary',
@@ -234,29 +233,39 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
       for (const { message, blockNumber, indexInBlock } of messages) {
-        const entryKey = message.entryKey?.toBuffer();
-        if (!entryKey) {
+        const messageKey = message.entryKey?.toBuffer();
+        if (!messageKey) {
           throw new Error('Message does not have an entry key');
         }
 
-        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'newMessage', indexInBlock, entryKey);
-        if (this.#tables.l1ToL2MessagesByBlock.doesExist(dupeKey)) {
+        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'newMessage', indexInBlock);
+        const messageInBlock = this.#tables.l1ToL2MessagesByBlock.get(dupeKey);
+
+        if (messageInBlock?.equals(messageKey)) {
           continue;
         } else {
-          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, true);
+          if (messageInBlock) {
+            this.#log(
+              `Previously add pending message ${messageInBlock.toString(
+                'hex',
+              )} at ${dupeKey.toString()}, now got ${messageKey.toString('hex')}`,
+            );
+          }
+
+          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, messageKey);
         }
 
-        let messageWithCount = this.#tables.l1ToL2Messages.get(entryKey);
+        let messageWithCount = this.#tables.l1ToL2Messages.get(messageKey);
         if (!messageWithCount) {
           messageWithCount = {
             message: message.toBuffer(),
             pendingCount: 0,
             confirmedCount: 0,
           };
-          void this.#tables.l1ToL2Messages.put(entryKey, messageWithCount);
+          void this.#tables.l1ToL2Messages.put(messageKey, messageWithCount);
         }
 
-        this.#updateMessageCountInTx(entryKey, message, 1, 0);
+        this.#updateMessageCountInTx(messageKey, message, 1, 0);
       }
       return true;
     });
@@ -269,17 +278,25 @@ export class LMDBArchiverStore implements ArchiverDataStore {
    */
   cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const { blockNumber, indexInBlock, messageKey } of messages) {
-        const entryKey = messageKey.toBuffer();
-        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'cancelledMessage', indexInBlock, entryKey);
-        if (this.#tables.l1ToL2MessagesByBlock.doesExist(dupeKey)) {
+      for (const { blockNumber, indexInBlock, entryKey } of messages) {
+        const messageKey = entryKey.toBuffer();
+        const dupeKey = l1ToL2MessageBlockKey(blockNumber, 'cancelledMessage', indexInBlock);
+        const messageInBlock = this.#tables.l1ToL2MessagesByBlock.get(dupeKey);
+        if (messageInBlock?.equals(messageKey)) {
           continue;
         } else {
-          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, true);
+          if (messageInBlock) {
+            this.#log(
+              `Previously add pending message ${messageInBlock.toString(
+                'hex',
+              )} at ${dupeKey.toString()}, now got ${messageKey.toString('hex')}`,
+            );
+          }
+          void this.#tables.l1ToL2MessagesByBlock.put(dupeKey, messageKey);
         }
 
-        const message = this.#getL1ToL2Message(entryKey);
-        this.#updateMessageCountInTx(entryKey, message, -1, 0);
+        const message = this.#getL1ToL2Message(messageKey);
+        this.#updateMessageCountInTx(messageKey, message, -1, 0);
       }
       return true;
     });
@@ -288,15 +305,15 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   /**
    * Messages that have been published in an L2 block are confirmed.
    * Add them to the confirmed store, also remove them from the pending store.
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param entryKeys - The message keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
+  confirmL1ToL2Messages(entryKeys: Fr[]): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
-      for (const messageKey of messageKeys) {
-        const entryKey = messageKey.toBuffer();
-        const message = this.#getL1ToL2Message(entryKey);
-        this.#updateMessageCountInTx(entryKey, message, -1, 1);
+      for (const entryKey of entryKeys) {
+        const messageKey = entryKey.toBuffer();
+        const message = this.#getL1ToL2Message(messageKey);
+        this.#updateMessageCountInTx(messageKey, message, -1, 1);
       }
       return true;
     });
