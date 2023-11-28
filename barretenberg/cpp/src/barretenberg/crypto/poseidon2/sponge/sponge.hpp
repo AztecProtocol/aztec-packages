@@ -117,6 +117,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
             cache[i - 1] = cache[i];
         }
         cache_size -= 1;
+        cache[cache_size] = 0;
         return result;
     }
 
