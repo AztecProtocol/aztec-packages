@@ -5,9 +5,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import {
   CompleteAddress,
-  LowNullifierMembershipWitness,
   MerkleTreeId,
   Note,
+  NullifierMembershipWitness,
   PublicKey,
   UnencryptedL2Log,
 } from '@aztec/types';
@@ -91,17 +91,14 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getNullifierMembershipWitness(
-    _blockNumber: number,
-    _nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new Error('Not available.');
   }
 
   getLowNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     throw new Error('Not available.');
   }
 

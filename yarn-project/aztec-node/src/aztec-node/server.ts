@@ -36,8 +36,8 @@ import {
   L2Tx,
   LogFilter,
   LogType,
-  LowNullifierMembershipWitness,
   MerkleTreeId,
+  NullifierMembershipWitness,
   SequencerConfig,
   SiblingPath,
   Tx,
@@ -384,7 +384,7 @@ export class AztecNodeService implements AztecNode {
   public async getNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState();
     const index = await committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     if (!index) {
@@ -398,7 +398,7 @@ export class AztecNodeService implements AztecNode {
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
-    return new LowNullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), leafData, siblingPath);
   }
 
   /**
@@ -413,7 +413,7 @@ export class AztecNodeService implements AztecNode {
   public async getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState();
     const { index } = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, index);
@@ -424,7 +424,7 @@ export class AztecNodeService implements AztecNode {
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
-    return new LowNullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), leafData, siblingPath);
   }
 
   /**

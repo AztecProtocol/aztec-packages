@@ -3,7 +3,7 @@ import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress, LowNullifierMembershipWitness, MerkleTreeId } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId, NullifierMembershipWitness } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -71,7 +71,7 @@ export class ViewDataOracle extends TypedOracle {
   public async getNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     return await this.db.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
@@ -87,7 +87,7 @@ export class ViewDataOracle extends TypedOracle {
   public async getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     return await this.db.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 

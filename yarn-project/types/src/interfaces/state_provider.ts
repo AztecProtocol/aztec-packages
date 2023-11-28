@@ -12,7 +12,7 @@ import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
-import { LowNullifierMembershipWitness } from './low_nullifier_witness.js';
+import { NullifierMembershipWitness } from './nullifier_witness.js';
 
 /**
  * Interface providing methods for retrieving information about content of the state trees.
@@ -88,7 +88,7 @@ export interface StateInfoProvider {
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
@@ -99,10 +99,7 @@ export interface StateInfoProvider {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined>;
+  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Get a block specified by its number.

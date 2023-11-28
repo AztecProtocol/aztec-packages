@@ -10,7 +10,7 @@ import {
   PublicKey,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, L2Block, LowNullifierMembershipWitness, MerkleTreeId, StateInfoProvider } from '@aztec/types';
+import { KeyStore, L2Block, MerkleTreeId, NullifierMembershipWitness, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -163,14 +163,14 @@ export class SimulatorOracle implements DBOracle {
   public getNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     return this.stateInfoProvider.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined> {
+  ): Promise<NullifierMembershipWitness | undefined> {
     return this.stateInfoProvider.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 

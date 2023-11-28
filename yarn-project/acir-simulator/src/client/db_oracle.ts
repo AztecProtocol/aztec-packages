@@ -3,7 +3,7 @@ import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@azte
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block, LowNullifierMembershipWitness, MerkleTreeId } from '@aztec/types';
+import { L2Block, MerkleTreeId, NullifierMembershipWitness } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
@@ -140,7 +140,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<LowNullifierMembershipWitness | undefined>;
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Returns a low nullifier membership witness for a given nullifier at a given block.
@@ -151,10 +151,7 @@ export interface DBOracle extends CommitmentsDB {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  getLowNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<LowNullifierMembershipWitness | undefined>;
+  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 
   /**
    * Fetch a block corresponding to the given block number.
