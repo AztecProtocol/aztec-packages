@@ -54,7 +54,7 @@ contract EasyPrivateVoting {
     fn constructor(admin: AztecAddress) { // called when contract is deployed
         context.call_public_function(
             // we cannot update public state directly from private function but we can call public function (which queues it)
-            context.this_address(),// address that calls public function. here we are using contract address for privacy
+            context.this_address(), // contract address whose method we want to call
             compute_selector("_initialize((Field))"), // function selector
             [admin.address] // parameters
         );
