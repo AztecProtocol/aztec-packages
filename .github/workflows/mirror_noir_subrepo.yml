@@ -9,7 +9,10 @@ concurrency:
 on:
   push:
     branches:
-      - temp
+      - master
+    paths:
+      - 'noir/**'
+      - '!noir/.gitrepo'
 
 jobs:
   mirror_repo:
