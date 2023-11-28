@@ -258,17 +258,21 @@ class GoblinTranslator {
         RefVector<DataType> get_wires()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
-                               WireToBeShiftedEntities<DataType>::get_all());
+                               WireToBeShiftedEntities<DataType>::get_all(),
+                               ConcatenatedRangeConstraints<DataType>::get_all());
         };
 
         // everything but WireToBeShiftedEntities
-        RefVector<DataType> get_unshifted_wires()
+        RefVector<DataType> get_unshifted()
         {
-            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all(),
+            return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
                                ConcatenatedRangeConstraints<DataType>::get_all());
         };
-        RefVector<DataType> get_to_be_shifted_wires() { return WireToBeShiftedEntities<DataType>::get_all(); };
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
+                               DerivedWitnessEntities<DataType>::get_all());
+        };
 
         /**
          * @brief Get the polynomials that need to be constructed from other polynomials by concatenation
@@ -587,12 +591,8 @@ class GoblinTranslator {
         };
 
         // Gemini-specific getters.
-        RefVector<DataType> get_unshifted() { return WitnessEntities<DataType>::get_unshifted_wires(); };
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return concatenate(WitnessEntities<DataType>::get_unshifted_wires(),
-                               PrecomputedEntities<DataType>::get_all());
-        };
+        // get_unshifted is inherited
+        // get_to_be_shifted is inherited
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
 
         /**

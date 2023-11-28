@@ -20,7 +20,7 @@ GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& ot
 
 GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVerifier&& other) noexcept
 {
-    key = other.key;
+    key = std::move(other.key);
     pcs_verification_key = (std::move(other.pcs_verification_key));
     commitments.clear();
     pcs_fr_elements.clear();
