@@ -165,9 +165,9 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Get the a given block.
+   * Get a block specified by its number.
    * @param number - The block number being requested.
-   * @returns The blocks requested.
+   * @returns The requested block.
    */
   public async getBlock(number: number): Promise<L2Block | undefined> {
     return await this.blockSource.getBlock(number);

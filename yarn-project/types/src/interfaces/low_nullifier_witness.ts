@@ -26,8 +26,8 @@ export class LowNullifierMembershipWitness {
   ) {}
 
   /**
-   * Returns a field array representation of the low nullifier witness.
-   * @returns A field array representation of the low nullifier witness.
+   * Returns a field array representation of a low nullifier witness.
+   * @returns A field array representation of a low nullifier witness.
    */
   public toFieldArray(): Fr[] {
     return [

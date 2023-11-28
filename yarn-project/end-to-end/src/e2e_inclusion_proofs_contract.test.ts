@@ -33,14 +33,14 @@ describe('e2e_inclusion_proofs_contract', () => {
     // Owner of a note
     const owner = accounts[0].address;
     {
-      // Create note
-      const amount = 100n;
-      const receipt = await contract.methods.create_note(owner, amount).send().wait({ debug: true });
+      // Create a note
+      const value = 100n;
+      const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
       const { newCommitments, visibleNotes } = receipt.debugInfo!;
       expect(newCommitments.length).toBe(1);
       expect(visibleNotes.length).toBe(1);
-      const [receivedAmount, receivedOwner, _randomness] = visibleNotes[0].note.items;
-      expect(receivedAmount.toBigInt()).toBe(amount);
+      const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
+      expect(receivedValue.toBigInt()).toBe(value);
       expect(receivedOwner).toEqual(owner.toField());
     }
 

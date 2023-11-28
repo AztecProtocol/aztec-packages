@@ -36,9 +36,9 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches the index and sibling path for a leaf value
+   * Fetches the index and sibling path of a leaf at a given block from a given tree.
    * @param blockNumber - The block number at which to get the membership witness.
-   * @param treeId - The tree id
+   * @param treeId - Id of the tree to get the sibling path from.
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
@@ -52,9 +52,9 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches the sibling path for at a given index, block from and tree.
+   * Fetches a sibling path at a given block and index from a tree specified by `treeId`.
    * @param blockNumber - The block number at which to get the membership witness.
-   * @param treeId - The tree id
+   * @param treeId - Id of the tree to get the sibling path from.
    * @param index - Index of the leaf to get sibling path for
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
