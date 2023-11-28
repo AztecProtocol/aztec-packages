@@ -13,6 +13,11 @@
 #include "barretenberg/relations/generated/AvmMini.hpp"
 namespace proof_system {
 
+AvmMiniTraceBuilder::AvmMiniTraceBuilder()
+{
+    memTrace.reserve(N);
+}
+
 void AvmMiniTraceBuilder::reset()
 {
     mainTrace.clear();
@@ -45,16 +50,13 @@ bool AvmMiniTraceBuilder::compareMemEntries(const MemoryTraceEntry& left, const 
 
 void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, bool m_rw)
 {
-    auto newMemEntry = MemoryTraceEntry{
+    memTrace.emplace_back(MemoryTraceEntry{
         .m_clk = m_clk,
         .m_sub_clk = m_sub_clk,
         .m_addr = m_addr,
         .m_val = m_val,
         .m_rw = m_rw,
-    };
-
-    auto insertionIndex = std::lower_bound(memTrace.begin(), memTrace.end(), newMemEntry, compareMemEntries);
-    memTrace.insert(insertionIndex, newMemEntry);
+    });
 }
 
 // Memory operations need to be performed before the addition of the corresponding row in
@@ -308,6 +310,9 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
     // elements
     assert(memTraceSize < N);
     assert(mainTraceSize < N);
+
+    // Sort memTrace
+    std::sort(memTrace.begin(), memTrace.end(), compareMemEntries);
 
     // Fill the rest with zeros.
     size_t zeroRowsNum = N - mainTraceSize - 1;

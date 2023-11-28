@@ -24,6 +24,8 @@ class AvmMiniTraceBuilder {
     static const size_t N = 256;
     static const size_t MemSize = 1024;
 
+    AvmMiniTraceBuilder();
+
     // Temporary helper to initialize memory.
     void setFFMem(size_t idx, FF el);
 
@@ -51,7 +53,7 @@ class AvmMiniTraceBuilder {
     };
 
     std::vector<Row> mainTrace;
-    std::vector<MemoryTraceEntry> memTrace; // Sorted entries by m_clk, m_sub_clk
+    std::vector<MemoryTraceEntry> memTrace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
     std::array<FF, MemSize> ffMemory{};     // Memory table for finite field elements
     // Used for simulation of memory table
 
