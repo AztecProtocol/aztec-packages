@@ -1,3 +1,9 @@
+/**
+ * @file avm_template_circuit_builder.hpp
+ * @author Rumata888
+ * @brief A circuit builder for the AVM toy version used to showcase permutation and lookup mechanisms for PIL
+ *
+ */
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -51,25 +57,29 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
             polys.permutation_set_column_2[i] = wires[1][i];
             polys.permutation_set_column_3[i] = wires[2][i];
             polys.permutation_set_column_4[i] = wires[3][i];
+            // By default the permutation is over all rows where we place data
             polys.enable_set_permutation[i] = 1;
         }
         return polys;
     }
 
+    /**
+     * @brief Check that the circuit is correct (proof should work)
+     *
+     */
     bool check_circuit()
     {
+        // For now only gamma and beta are used
         const FF gamma = FF::random_element();
         const FF beta = FF::random_element();
-        const FF beta_sqr = beta.sqr();
-        const FF beta_cube = beta_sqr * beta;
         proof_system::RelationParameters<typename Flavor::FF> params{
             .eta = 0,
             .beta = beta,
             .gamma = gamma,
             .public_input_delta = 0,
             .lookup_grand_product_delta = 0,
-            .beta_sqr = beta_sqr,
-            .beta_cube = beta_cube,
+            .beta_sqr = 0,
+            .beta_cube = 0,
             .eccvm_set_permutation_delta = 0,
         };
 
@@ -78,30 +88,6 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
         proof_system::honk::logderivative_library::
             compute_logderivative_inverse<Flavor, honk::sumcheck::GenericPermutationRelation<FF>>(
                 polynomials, params, num_rows);
-
-        // const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
-        //     typename Relation::SumcheckArrayOfValuesOverSubrelations result;
-        //     for (auto& r : result) {
-        //         r = 0;
-        //     }
-        //     constexpr size_t NUM_SUBRELATIONS = result.size();
-
-        //     for (size_t i = 0; i < num_rows; ++i) {
-        //         Relation::accumulate(result, polynomials.get_row(i), params, 1);
-
-        //         bool x = true;
-        //         for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
-        //             if (result[j] != 0) {
-        //                 info("Relation ", relation_name, ", subrelation index ", j, " failed at row ", i);
-        //                 x = false;
-        //             }
-        //         }
-        //         if (!x) {
-        //             return false;
-        //         }
-        //     }
-        //     return true;
-        // };
 
         using PermutationRelation = honk::sumcheck::GenericPermutationRelation<FF>;
         typename honk::sumcheck::GenericPermutationRelation<typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations

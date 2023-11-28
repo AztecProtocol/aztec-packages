@@ -30,11 +30,14 @@ TYPED_TEST(AVMTemplateCircuitBuilderTests, BaseCase)
         column_1.emplace_back(FF::random_element());
     }
     for (size_t i = 0; i < 16; i++) {
+        // Put the same values but in inverse order
         circuit_builder.add_row({ column_0[i], column_1[i], column_0[15 - i], column_1[15 - i] });
     }
 
+    // Test that the permutation with correct values works
     bool result = circuit_builder.check_circuit();
     EXPECT_EQ(result, true);
+    // And that it fails with incorrct values
     circuit_builder.wires[0][5] = FF::random_element();
     result = circuit_builder.check_circuit();
     EXPECT_EQ(result, false);

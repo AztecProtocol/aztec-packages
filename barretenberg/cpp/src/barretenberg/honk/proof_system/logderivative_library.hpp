@@ -210,8 +210,8 @@ void accumulate_logderivative_permutation_subrelation_contributions(ContainerOve
     // To get the inverses (1 / read_term), (1 / write_term), we have a commitment to the product ofinver ses
     // i.e. permutation_inverses =  (1 / read_term) * (1 / write_term)
     // The purpose of this next section is to derive individual inverse terms using `permutation_inverses`
-    // i.e. (1 / read_term) = permutation_inverse * write_term
-    //      (1 / write_term) = permutation_inverse * read_term
+    // i.e. (1 / read_term) = permutation_inverses * write_term
+    //      (1 / write_term) = permutation_inverses * read_term
     permutation_terms[0] = permutation_relation.template compute_read_term<Accumulator, 0>(in, params);
     permutation_terms[1] = permutation_relation.template compute_write_term<Accumulator, 0>(in, params);
 
@@ -242,8 +242,8 @@ void accumulate_logderivative_permutation_subrelation_contributions(ContainerOve
     std::get<1>(accumulator) +=
         permutation_relation.template compute_read_term_predicate<Accumulator, 0>(in) * denominator_accumulator[0];
 
-    // each predicate is degree-1, `lookup_read_counts` is degree-1
-    // degree of relation = NUM_TOTAL_TERMS + 2
+    // each predicate is degree-1
+    // degree of relation = NUM_TOTAL_TERMS + 1
     std::get<1>(accumulator) -=
         permutation_relation.template compute_write_term_predicate<Accumulator, 0>(in) * denominator_accumulator[1];
 }
