@@ -1211,4 +1211,8 @@ workflows:
           requires:
             - deploy-mainnet-fork
           <<: *defaults_deploy
+      - deploy-devnet:
+          requires:
+            - deploy-contracts
+          <<: *defaults_deploy
 
