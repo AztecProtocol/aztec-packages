@@ -1,4 +1,4 @@
-import { AccountWallet, CompleteAddress, PXE } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, CompleteAddress, Fr, PXE } from '@aztec/aztec.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -29,7 +29,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
   afterAll(() => teardown());
 
-  it('creates a note and proves its existence', async () => {
+  it('proves note existence and its nullifier non-existence and nullifier non-existence failure case', async () => {
     // Owner of a note
     const owner = accounts[0].address;
     {
@@ -48,14 +48,16 @@ describe('e2e_inclusion_proofs_contract', () => {
       // Prove note inclusion in a given block.
       // We prove the note existence at current block number because we don't currently have historical data
       const blockNumber = await pxe.getBlockNumber();
-      await contract.methods.proveNoteInclusion(owner, blockNumber).send().wait();
+      const ignoredCommitment = 0; // Not ignored only when the note doesn't exist
+      await contract.methods.proveNoteInclusion(owner, blockNumber, ignoredCommitment).send().wait();
     }
 
     {
       // Prove that the note has not been nullified
       // We prove the note existence at current block number because we don't currently have historical data
       const blockNumber = await pxe.getBlockNumber();
-      await contract.methods.proveNullifierNonInclusion(owner, blockNumber, 0).send().wait();
+      const ignoredNullifier = 0; // Not ignored only when the note doesn't exist
+      await contract.methods.proveNullifierNonInclusion(owner, blockNumber, ignoredNullifier).send().wait();
     }
 
     {
@@ -75,9 +77,28 @@ describe('e2e_inclusion_proofs_contract', () => {
     }
   });
 
+  it('note existence failure case', async () => {
+    // Owner of a note
+    const owner = AztecAddress.random();
+
+    const blockNumber = await pxe.getBlockNumber();
+    const randomNoteCommitment = Fr.random();
+    await expect(
+      contract.methods.proveNoteInclusion(owner, blockNumber, randomNoteCommitment).send().wait(),
+    ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in tree/);
+  });
+
   it('proves an existence of a public value in private context', async () => {
     const blockNumber = await pxe.getBlockNumber();
     await contract.methods.provePublicValueInclusion(publicValue, blockNumber).send().wait();
+  });
+
+  it('public value existence failure case', async () => {
+    const blockNumber = await pxe.getBlockNumber();
+    const randomPublicValue = Fr.random();
+    await expect(
+      contract.methods.provePublicValueInclusion(randomPublicValue, blockNumber).send().wait(),
+    ).rejects.toThrow(/Proving membership of a value in public data tree failed/);
   });
 
   it('proves existence of a nullifier in private context', async () => {
@@ -86,5 +107,14 @@ describe('e2e_inclusion_proofs_contract', () => {
     const nullifier = block?.newNullifiers[0];
 
     await contract.methods.proveNullifierInclusion(nullifier!, blockNumber).send().wait();
+  });
+
+  it('nullifier existence failure case', async () => {
+    const blockNumber = await pxe.getBlockNumber();
+    const randomNullifier = Fr.random();
+
+    await expect(contract.methods.proveNullifierInclusion(randomNullifier, blockNumber).send().wait()).rejects.toThrow(
+      /Low nullifier witness not found for nullifier 0x[0-9a-fA-F]+ at block/,
+    );
   });
 });

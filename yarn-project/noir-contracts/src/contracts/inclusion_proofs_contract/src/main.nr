@@ -101,6 +101,7 @@ contract InclusionProofs {
     fn proveNoteInclusion(
         owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the note exists
+        spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
         // TODO: assert that block number is less than the block number of context.block_data
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
@@ -114,10 +115,15 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = private_values.get_notes(options);
-        let note = notes[0].unwrap();
+        let maybe_note = notes[0];
 
         // 3) Compute the commitment from the note
-        let note_commitment = note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, note);
+        let note_commitment = if maybe_note.is_some() {
+            note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, maybe_note.unwrap_unchecked())
+        } else {
+            // Note was not found so we will use the spare commitment
+            spare_commitment
+        };
 
         // 4) Get the membership witness of the note in the note hash tree
         let note_hash_tree_id = 2; // TODO(#3443)
