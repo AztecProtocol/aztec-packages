@@ -354,12 +354,12 @@ template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomi
 }
 
 /**
- * @brief Commit to the wire polynomials which are part of the witness with the exception of the fourth wire, which is
- * only commited to after adding memory records.
+ * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
+ * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
+ * DataBus columns
  */
 template <class Flavor> void ProverInstance_<Flavor>::compute_wire_commitments()
 {
-
     witness_commitments.w_l = commitment_key->commit(proving_key->w_l);
     witness_commitments.w_r = commitment_key->commit(proving_key->w_r);
     witness_commitments.w_o = commitment_key->commit(proving_key->w_o);
@@ -369,6 +369,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_wire_commitments()
         witness_commitments.ecc_op_wire_2 = commitment_key->commit(proving_key->ecc_op_wire_2);
         witness_commitments.ecc_op_wire_3 = commitment_key->commit(proving_key->ecc_op_wire_3);
         witness_commitments.ecc_op_wire_4 = commitment_key->commit(proving_key->ecc_op_wire_4);
+
         witness_commitments.calldata = commitment_key->commit(proving_key->calldata);
         witness_commitments.calldata_read_counts = commitment_key->commit(proving_key->calldata_read_counts);
     }

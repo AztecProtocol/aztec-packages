@@ -377,7 +377,6 @@ class Ultra {
 
     /**
      * @brief A container for the witness commitments.
-     *
      */
     using WitnessCommitments = WitnessEntities<Commitment, CommitmentHandle>;
 
