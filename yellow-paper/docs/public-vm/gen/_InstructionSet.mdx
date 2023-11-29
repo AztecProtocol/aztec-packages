@@ -235,7 +235,7 @@ import CodeBlock from '@theme/CodeBlock'
 	}</CodeBlock></td>
 </tr>
 <tr>
-	<td><a id='isa-table-blockl1gaslimit'/><Markdown>[`TXL1GASLIMIT`](#isa-section-blockl1gaslimit)</Markdown></td>
+	<td><a id='isa-table-blockl1gaslimit'/><Markdown>[`BLOCKL1GASLIMIT`](#isa-section-blockl1gaslimit)</Markdown></td>
 	<td><Markdown>Total amount of "L1 gas" that a block can consume</Markdown></td>
 	<td><CodeBlock language="jsx">{
 		`M[dstOffset] = Globals.l1GasLimit`
@@ -320,7 +320,7 @@ import CodeBlock from '@theme/CodeBlock'
 </tr>
 <tr>
 	<td><a id='isa-table-historicroot'/><Markdown>[`HISTORICROOT`](#isa-section-historicroot)</Markdown></td>
-	<td><Markdown>Get an root from the HistoricBlockData</Markdown></td>
+	<td><Markdown>Get a root from the HistoricBlockData</Markdown></td>
 	<td><CodeBlock language="jsx">{
 		`M[dstOffset] = HistoricBlockData.<root>`
 	}</CodeBlock></td>
@@ -807,7 +807,7 @@ Get the block's beneficiary address
 - **Tag suboperations**: `T[dstOffset] = u32`
 
 
-### `TXL1GASLIMIT` <a id='isa-section-blockl1gaslimit'/>
+### `BLOCKL1GASLIMIT` <a id='isa-section-blockl1gaslimit'/>
 Total amount of "L1 gas" that a block can consume
 
 [See in table.](#isa-table-blockl1gaslimit)
@@ -953,7 +953,7 @@ Remaining "L2 gas" for this call (after this instruction).
 
 
 ### `<HISTORICROOT>` <a id='isa-section-historicroot'/>
-Get an root from the HistoricBlockData
+Get a root from the HistoricBlockData
 
 [See in table.](#isa-table-historicroot)
 
