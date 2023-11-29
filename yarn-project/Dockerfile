@@ -7,6 +7,9 @@ RUN apk add bash perl
 # Copy in the entire workspace.
 COPY . .
 
+# Importantly we need to set this option due to our use of portals.
+ENV NODE_OPTIONS=--preserve-symlinks
+
 RUN yarn workspace @aztec/foundation build && \
   yarn workspace @aztec/noir-compiler build && \
   yarn workspace @aztec/noir-contracts noir:build:all && \

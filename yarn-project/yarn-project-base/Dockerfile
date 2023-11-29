@@ -51,7 +51,7 @@ RUN apk update && apk add --no-cache bash jq curl
 # Copy L1 contracts.
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Copy in bb.js
-COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
+COPY --from=bb.js /usr/src/barretenberg/ts/package /usr/src/barretenberg/ts/package
 # Copy in nargo
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
 # Copy in noir packages
@@ -59,11 +59,7 @@ COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
 # TODO: FIX: For some reason the source-resolver package needs to be in compiler dir or we get errors like:
 #              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'
-# This affects both ubuntu and alpine builds.
 RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /usr/src/noir/compiler
-# For some reason this is only needed in alpine builds, otherwise we get errors like:
-#   Error: Cannot find module '@noir-lang/source-resolver'
-COPY --from=noir-packages /usr/src/noir/node_modules/@noir-lang /usr/src/noir/node_modules/@noir-lang
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
