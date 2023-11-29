@@ -318,7 +318,7 @@ const INSTRUCTION_SET = [
         ],
         "Expression": "`M[dstOffset] = cast<dest-type>(M[aOffset])`",
         "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dest-type` specified in the bytecode.",
+        "Details": "Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = dest-type`",
     },
