@@ -42,37 +42,20 @@ We can define a number of requirements that serve to provide a transparent and f
 
 ## Gas Metering
 
-Broadly speaking, resource consumption incurred by the sequencer falls into categories of transaction specific consumption and amortised, per-rollup consumption. Each operation performed by the sequencer can be attributed with a fixed amount of gas per unit representing it's level of resource consumption. The unit will differ between operations, for example in some operations it may be per-byte whilst in others it could be per-opcode. What matters is that we are able to determine the total gas consumption of any given transaction. 
+Broadly speaking, resource consumption incurred by the sequencer falls into categories of transaction specific consumption and amortised, per-rollup consumption. Each operation performed by the sequencer can be attributed with a fixed amount of gas per unit representing it's level of resource consumption. The unit will differ between operations, for example in some operations it may be per-byte whilst in others it could be per-opcode. What matters is that we are able to determine the total gas consumption of any given transaction.
 
-### Amortised Consumption
+### Examples of Gas Consuming Operations
 
-Rollups consist of multiple transactions, allowing for amortisation of certain costs in the production and verification of those rollups. The amortisable costs over a rollup of `N` transactions are:
+Examples of operations for which we want to measure gas consumption are:
 
-<!-- prettier-ignore -->
-| Action | Resource Domain | Amortisation Calculation |
-|---|---|---|
-| Publishing the rollup start and end state as part of the rollup transaction on Ethereum | L1 | Fixed quantity of calldata / N |
-| Executing the rollup transaction on Ethereum, including the ZK verifier | L1 | Fixed verification gas / N |
-| Generating witnesses and proving the rollup circuits | L2 | Sum of Base, Merge and Root rollup circuits gas* / N |
+1. Execution of public function bytecode and proving public function execution
+2. Executing and proving the rollup circuits
+3. Validating that a transaction is not attempting to double spend
+4. Accessing and/or modifying contract storage
+5. Executing L1 verification
+6. Publishing to a data availability layer and verifying the published data
 
-\* To expand on the summing of base, merge and rollup circuits. The rollup has a binary tree structure so it can be deterministically calculated how many of each of the base, merge and root rollup circuits are required for an `N` transaction rollup. A fixed gas value can be applied to each of these components.
-
-### Transaction Specific Consumption
-
-Transaction specific consumption also consists of both L1 and L2 components:
-
-<!-- prettier-ignore -->
-| Action | Resource Domain | Consumption Calculation |
-| -------- | -------- | -------- |
-| Verifying nullifiers    | L2     | Gas per nullifier     | |
-| Verifying log preimages | L2 | Gas per preimage field | |
-| Verifying contract deployment data | L2 | Gas per preimage field | |  
-| Publishing contract data and state updates to L1     | L1     | Gas per byte of calldata     | |
-| Publishing notes/tags    | L1     | Gas per byte for storage and verification     | |
-| Publishing L2->L1 messages | L1 | Gas per byte + processing & storing of the message | |
-| Executing a public function     | L2     | Gas based on function opcodes     | |
-| Proving the public VM circuit for a public function     | L2     | Gas per public function     | |
-| Proving the public kernel     | L2     | Gas per public function   | |
+Some operations are specific to a transaction, such as public function execution. The quantity of gas consumed is solely determined by the nature of the requested function. Other costs such as L1 verification are amortised over all of the transactions within a rollup. These amortised gas values will be apportioned by the sequencer at the point of creating a rollup based on the rollup's size.
 
 ## Attributing Transaction Gas
 
