@@ -73,7 +73,9 @@ describe('e2e_inclusion_proofs_contract', () => {
       // on low_nullifier.value < nullifier.value check.
       await expect(
         contract.methods.proveNullifierNonInclusion(owner, blockNumber, nullifier).send().wait(),
-      ).rejects.toThrowError(/Proving that low_nullifier.value < nullifier.value failed/);
+      ).rejects.toThrowError(
+        /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+      );
     }
   });
 
@@ -85,7 +87,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     const randomNoteCommitment = Fr.random();
     await expect(
       contract.methods.proveNoteInclusion(owner, blockNumber, randomNoteCommitment).send().wait(),
-    ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in tree/);
+    ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in NOTE_HASH_TREE/);
   });
 
   it('proves an existence of a public value in private context', async () => {
@@ -98,7 +100,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     const randomPublicValue = Fr.random();
     await expect(
       contract.methods.provePublicValueInclusion(randomPublicValue, blockNumber).send().wait(),
-    ).rejects.toThrow(/Proving membership of a value in public data tree failed/);
+    ).rejects.toThrow(/Proving public value inclusion failed/);
   });
 
   it('proves existence of a nullifier in private context', async () => {

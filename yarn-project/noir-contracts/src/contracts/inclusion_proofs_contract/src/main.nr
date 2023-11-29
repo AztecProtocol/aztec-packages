@@ -133,7 +133,7 @@ contract InclusionProofs {
         // 5) Prove that the commitment is in the note hash tree
         assert(
             block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
-            "Proving membership of a note in note hash tree failed"
+            "Proving note inclusion failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root.
@@ -177,20 +177,20 @@ contract InclusionProofs {
         let low_nullifier_leaf = witness.leaf_data.hash();
         assert(
             block_data.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
-            "Proving membership of a low nullifier in the nullifier tree failed"
+            "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
         );
 
         // 5.b) Prove that the low nullifier is smaller than the nullifier
         assert(
             full_field_less_than(witness.leaf_data.value, nullifier),
-            "Proving that low_nullifier.value < nullifier.value failed"
+            "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed"
         );
 
         // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
             full_field_greater_than(witness.leaf_data.next_value, nullifier),
-            "Proving that low_nullifier.next_value > nullifier.value failed"
+            "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
@@ -237,7 +237,7 @@ contract InclusionProofs {
         // 5) Prove that the nullifier is in the nullifier tree
         assert(
             block_data.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
-            "Proving membership of a nullifier in nullifier tree failed"
+            "Proving nullifier inclusion failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
@@ -274,7 +274,7 @@ contract InclusionProofs {
         // 4) Prove that the public value provided on input is in the public data tree
         assert(
             block_data.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
-            "Proving membership of a value in public data tree failed"
+            "Proving public value inclusion failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root and that way verified that
