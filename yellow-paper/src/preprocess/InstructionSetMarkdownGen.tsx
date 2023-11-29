@@ -21,10 +21,14 @@ function instructionSetPreface() {
     return preface;
 }
 
+function toOpcode(index) {
+    return '0x' + index.toString(16).padStart(2, '0');
+}
+
 function htmlInstructionSetTable() {
     let table = "## Instructions Table\n";
     table += "\n<table>\n";
-    let header = "";
+    let header = "<th>Opcode</th>";
     for (let t = 0; t < TOPICS_IN_TABLE.length; t++) {
         header += `<th>${TOPICS_IN_TABLE[t]}</th>`;
     }
@@ -34,7 +38,8 @@ function htmlInstructionSetTable() {
         const instr = INSTRUCTION_SET[i];
         const name = instr['Name'];
         let row = `<tr>\n`;
-        row += `\t<td><a id='isa-table-${instr['id']}'/><Markdown>[${stripBraces(name)}](#isa-section-${instr['id']})</Markdown></td>`;
+        row += `\t<td style={{'text-align': 'center'}}>${toOpcode(i)}</td>`;
+        row += `\t<td style={{'text-align': 'center'}}><a id='isa-table-${instr['id']}'/><Markdown>[${stripBraces(name)}](#isa-section-${instr['id']})</Markdown></td>`;
 
         for (let t = 0; t < TOPICS_IN_TABLE.length; t++) {
             const topic = TOPICS_IN_TABLE[t];
@@ -62,7 +67,11 @@ function markdownSublist(items) {
     let markdown = "";
     for (let i = 0; i < items.length; i++) {
         let item = items[i];
-        markdown += `\n\t- **${item['name']}**: ${item['description']}`;
+        if (typeof item === 'string') {
+            markdown += `\n\t- ${item}`;
+        } else {
+            markdown += `\n\t- **${item['name']}**: ${item['description']}`;
+        }
     }
     return markdown;
 }
@@ -72,15 +81,16 @@ function markdownInstructionSetSection() {
     for (let i = 0; i < INSTRUCTION_SET.length; i++) {
         const instr = INSTRUCTION_SET[i];
         const name = instr['Name'];
-        let subsection = `### ${name} <a id='isa-section-${instr['id']}'/>\n`;
+        let subsection = `### <a id='isa-section-${instr['id']}'/>${name} (${toOpcode(i)})\n`;
         subsection += `${instr['Summary']}\n\n`;
         subsection += `[See in table.](#isa-table-${instr['id']})\n\n`;
         for (let t = 0; t < TOPICS_IN_SECTIONS.length; t++) {
             const topic = TOPICS_IN_SECTIONS[t];
-            if (topic == 'Name' || topic == 'Summary' || !instr[topic]) continue; // skip
-            let item = `- **${topic}**: `
             let field = instr[topic];
-            if (Array.isArray(field)) {
+            if (topic == 'Name' || topic == 'Summary' || !field || field.length == 0) continue; // skip
+
+            let item = `- **${topic}**: `
+            if (Array.isArray(field) ) {
                 item += markdownSublist(field);
             } else if (field[0] == '\n') { // if string starts with newline, assume it's a multi-line code block
                 item += `\n<CodeBlock language="jsx">\n{\`${field.trim()}\`}\n</CodeBlock>`;

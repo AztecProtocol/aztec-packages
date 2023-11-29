@@ -2,14 +2,20 @@ const TOPICS_IN_TABLE = [
     'Name', 'Summary', 'Expression'
 ];
 const TOPICS_IN_SECTIONS = [
-    'Name', 'Summary', 'Category', 'Args', 'Expression', 'Details', 'Tag checks', 'Tag updates'
+    'Name', 'Summary', 'Category', 'Flags', 'Args', 'Expression', 'Details', 'Tag checks', 'Tag updates'
 ];
+
+const OP_TYPE_DESCR = "The [type/size](./Types) to check inputs against and tag the output with.";
+const DEST_TYPE_DESCR = "The [type/size](./Types) to tag the output with when different from `op-type`.";
+
 const INSTRUCTION_SET = [
     {
-        "code": "",
         "id": "add",
         "Name": "`ADD`",
         "Category": "arithmetic",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -24,10 +30,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "sub",
         "Name": "`SUB`",
         "Category": "arithmetic",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -42,10 +50,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "div",
         "Name": "`DIV`",
         "Category": "arithmetic",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -60,10 +70,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "eq",
         "Name": "`EQ`",
         "Category": "conditional",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -78,10 +90,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "lt",
         "Name": "`LT`",
         "Category": "conditional",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -96,10 +110,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "lte",
         "Name": "`LTE`",
         "Category": "conditional",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -114,10 +130,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "and",
         "Name": "`AND`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -132,10 +150,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "or",
         "Name": "`OR`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -150,10 +170,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "xor",
         "Name": "`XOR`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -168,10 +190,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "not",
         "Name": "`NOT`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "1",
         "#memwrites": "1",
         "Args": [
@@ -185,10 +209,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "shl",
         "Name": "`SHL`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -203,10 +229,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "shr",
         "Name": "`SHR`",
         "Category": "bitwise",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -221,10 +249,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "set",
         "Name": "`SET`",
         "Category": "memory",
+        "Flags": [
+            {"name": "op-type", "description": OP_TYPE_DESCR},
+        ],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -238,10 +268,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
-        "code": "",
         "id": "mov",
         "Name": "`MOV`",
         "Category": "memory",
+        "Flags": [],
         "#memreads": "1",
         "#memwrites": "1",
         "Args": [
@@ -252,13 +282,13 @@ const INSTRUCTION_SET = [
         "Summary": "Move a word from source memory location to destination`.",
         "Details": "",
         "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = T[srcOffset]`",
     },
     {
-        "code": "",
         "id": "cmov",
         "Name": "`CMOV`",
         "Category": "memory",
+        "Flags": [],
         "#memreads": "3",
         "#memwrites": "1",
         "Args": [
@@ -274,10 +304,12 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
     },
     {
-        "code": "",
         "id": "cast",
         "Name": "`CAST`",
         "Category": "types",
+        "Flags": [
+            {"name": "dest-type", "description": DEST_TYPE_DESCR},
+        ],
         "#memreads": "1",
         "#memwrites": "1",
         "Args": [
@@ -291,10 +323,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = dest-type`",
     },
     {
-        "code": "",
         "id": "calldatacopy",
         "Name": "`CALLDATACOPY`",
         "Category": "contract calls",
+        "Flags": [],
         "#memreads": "`s1`",
         "#memwrites": "`s1`",
         "Args": [
@@ -309,10 +341,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset:dstOffset+size] = field`",
     },
     {
-        "code": "",
         "id": "sload",
         "Name": "`SLOAD`",
         "Category": "storage",
+        "Flags": [],
         "#memreads": "2",
         "#memwrites": "1",
         "Args": [
@@ -326,10 +358,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "`T[dstOffset] = field`",
     },
     {
-        "code": "",
         "id": "sstore",
         "Name": "`SSTORE`",
         "Category": "storage",
+        "Flags": [],
         "#memreads": "2",
         "#memwrites": "0",
         "Args": [
@@ -343,10 +375,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "jump",
         "Name": "`JUMP`",
         "Category": "control",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "0",
         "Args": [
@@ -359,10 +391,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "jumpi",
         "Name": "`JUMPI`",
         "Category": "control",
+        "Flags": [],
         "#memreads": "3",
         "#memwrites": "0",
         "Args": [
@@ -376,10 +408,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "return",
         "Name": "`RETURN`",
         "Category": "contract calls",
+        "Flags": [],
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
@@ -393,10 +425,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "revert",
         "Name": "`REVERT`",
         "Category": "contract calls",
+        "Flags": [],
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
@@ -410,10 +442,10 @@ const INSTRUCTION_SET = [
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "call",
         "Name": "`CALL`",
         "Category": "contract calls",
+        "Flags": [],
         "#memreads": "5",
         "#memwrites": "`1+retSize`",
         "Args": [
@@ -443,10 +475,10 @@ T[retOffset:retOffset+retSize] = field
 `,
     },
     {
-        "code": "",
         "id": "staticcall",
         "Name": "`STATICCALL`",
         "Category": "contract calls",
+        "Flags": [],
         "#memreads": "5",
         "#memwrites": "`1+retSize`",
         "Args": [
@@ -474,10 +506,10 @@ T[retOffset:retOffset+retSize] = field
 `,
     },
     {
-        "code": "",
         "id": "ulog",
         "Name": "`ULOG`",
         "Category": "logging",
+        "Flags": [],
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
@@ -491,10 +523,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "",
     },
     {
-        "code": "",
         "id": "chainid",
         "Name": "`CHAINID`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -507,10 +539,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "version",
         "Name": "`VERSION`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -523,10 +555,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "blocknumber",
         "Name": "`BLOCKNUMBER`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -539,10 +571,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "timestamp",
         "Name": "`TIMESTAMP`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -555,10 +587,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u64`",
     },
     {
-        "code": "",
         "id": "coinbase",
         "Name": "`COINBASE`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -571,10 +603,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "blockl1gaslimit",
         "Name": "`BLOCKL1GASLIMIT`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -587,10 +619,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "blockl2gaslimit",
         "Name": "`BLOCKL2GASLIMIT`",
         "Category": "block info",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -603,10 +635,129 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
+        "id": "notesroot",
+        "Name": "`NOTESROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].note_hash_tree_root`",
+        "Summary": "Get the historical note-hash tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "nullroot",
+        "Name": "`NULLIFIERSROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].nullifier_tree_root`",
+        "Summary": "Get the historical nullifier tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "contractsroot",
+        "Name": "`CONTRACTSROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].contracts_tree_root`",
+        "Summary": "Get the historical contracts tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "msgsroot",
+        "Name": "`MSGSROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].l1_to_l2_messages_tree_root`",
+        "Summary": "Get the historical l1-to-l2 messages tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "blocksroot",
+        "Name": "`BLOCKSROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].blocks_tree_root`",
+        "Summary": "Get the historical blocks tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "publicdataroot",
+        "Name": "`PUBLICDATAROOT`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].public_data_tree_root`",
+        "Summary": "Get the historical public data tree root as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
+        "id": "globalshash",
+        "Name": "`GLOBALSHASH`",
+        "Category": "historical access",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = HistoricalBlockData[M[blockNumOffset]].global_variables_hash`",
+        "Summary": "Get the historical global variables hash as of the specified block number.",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = field`",
+    },
+    {
         "id": "origin",
         "Name": "`ORIGIN`",
         "Category": "tx context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -619,10 +770,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "refundee",
         "Name": "`REFUNDEE`",
         "Category": "tx context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -635,10 +786,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "feeperl1gas",
         "Name": "`FEEPERL1GAS`",
         "Category": "tx context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -651,10 +802,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "feeperl2gas",
         "Name": "`FEEPERL2GAS`",
         "Category": "tx context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -667,10 +818,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "caller",
         "Name": "`CALLER`",
         "Category": "call context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -683,10 +834,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "address",
         "Name": "`ADDRESS`",
         "Category": "call context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -699,10 +850,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "portal",
         "Name": "`PORTAL`",
         "Category": "call context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -715,10 +866,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "calldepth",
         "Name": "`CALLDEPTH`",
         "Category": "call context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -731,10 +882,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u8`",
     },
     {
-        "code": "",
         "id": "l1gas",
         "Name": "`L1GAS`",
         "Category": "latest context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -747,10 +898,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
         "id": "l2gas",
         "Name": "`L2GAS`",
         "Category": "latest context",
+        "Flags": [],
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
@@ -763,26 +914,10 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dstOffset] = u32`",
     },
     {
-        "code": "",
-        "id": "historicroot",
-        "Name": "`<HISTORICROOT>`",
-        "Category": "historic access",
-        "#memreads": "0",
-        "#memwrites": "1",
-        "Args": [
-            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
-        ],
-        "Expression": "`M[dstOffset] = HistoricBlockData.<root>`",
-        "Summary": "Get a root from the HistoricBlockData",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = field`",
-    },
-    {
-        "code": "",
         "id": "l1l2msg",
         "Name": "`L1L2MSG`",
         "Category": "l1-l2 messaging",
+        "Flags": [],
         "#memreads": "1",
         "#memwrites": "1",
         "Args": [
