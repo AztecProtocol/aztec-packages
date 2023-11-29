@@ -85,7 +85,7 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapFunctionDataFromNoir(mapFunctionDataToNoir(functionData))).toEqual(functionData);
     });
 
-    it('should map historical block data', () => {
+    it('should map block header', () => {
       const blockHeader = new BlockHeader(
         new Fr(35n),
         new Fr(36n),

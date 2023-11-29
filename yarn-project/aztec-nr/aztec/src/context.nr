@@ -46,7 +46,7 @@ use crate::oracle::{
     public_call::call_public_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal,
     context::get_portal_address,
-    get_block_data::get_block_data,
+    get_block_header::get_block_header,
 };
 
 use dep::std::option::Option;
@@ -129,8 +129,8 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
-    pub fn get_block_data(self, block_number: Field) -> HistoricBlockData {
-        get_block_data(block_number, self)
+    pub fn get_block_header(self, block_number: Field) -> BlockHeader {
+        get_block_header(block_number, self)
     }
 
     pub fn finish(self) -> abi::PrivateCircuitPublicInputs {

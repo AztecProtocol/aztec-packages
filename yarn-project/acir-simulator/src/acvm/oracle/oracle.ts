@@ -109,10 +109,10 @@ export class Oracle {
     return witness.toFieldArray().map(toACVMField);
   }
 
-  async getBlockData([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const blockData = await this.typedOracle.getBlockData(parsedBlockNumber);
+    const blockData = await this.typedOracle.getBlockHeader(parsedBlockNumber);
     if (!blockData) {
       throw new Error(`Block data not found for block ${parsedBlockNumber}.`);
     }

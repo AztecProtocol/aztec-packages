@@ -426,9 +426,9 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
 }
 
 /**
- * Maps a historical block data to a noir historical block data.
- * @param blockHeader - The historical block data.
- * @returns The noir historical block data.
+ * Maps a block header to a noir block header.
+ * @param blockHeader - The block header.
+ * @returns The noir block header.
  */
 export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
   return {
@@ -446,9 +446,9 @@ export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir 
 }
 
 /**
- * Maps a noir historical block data to a historical block data.
- * @param blockHeader - The noir historical block data.
- * @returns The historical block data.
+ * Maps a noir block header to a block header.
+ * @param blockHeader - The noir block header.
+ * @returns The block header.
  */
 export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeader {
   return new BlockHeader(

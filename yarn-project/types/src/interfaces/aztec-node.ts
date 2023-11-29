@@ -139,7 +139,7 @@ export interface AztecNode extends StateInfoProvider {
   getTreeRoots(): Promise<Record<MerkleTreeId, Fr>>;
 
   /**
-   * Returns the currently committed historical block data.
+   * Returns the currently committed block header.
    * @returns The current committed block data.
    */
   getBlockHeader(): Promise<BlockHeader>;

@@ -29,8 +29,10 @@ contract InclusionProofs {
         },
         oracle::{
             get_block_header::get_block_header,
-            get_block_data::get_block_data,
             get_membership_witness::{
+                get_membership_witness,
+                MembershipWitness,
+            },
             get_sibling_path::get_sibling_path,
             get_nullifier_membership_witness::{
                 get_low_nullifier_membership_witness,
@@ -105,7 +107,7 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) Get historical block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
         let block_header = context.get_block_header(block_number);
 
@@ -139,7 +141,7 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) Get historical block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
         let block_header = context.get_block_header(block_number);
 
@@ -210,7 +212,7 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) Get historical block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
         let block_header = context.get_block_header(block_number);
 
@@ -242,7 +244,7 @@ contract InclusionProofs {
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
 
-        // 1) Get historical block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
         let block_header = context.get_block_header(block_number);
 

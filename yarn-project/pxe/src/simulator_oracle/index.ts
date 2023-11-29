@@ -152,7 +152,7 @@ export class SimulatorOracle implements DBOracle {
       case MerkleTreeId.NOTE_HASH_TREE:
         return (await this.stateInfoProvider.getNoteHashSiblingPath(leafIndex)).toFieldArray();
       case MerkleTreeId.BLOCKS_TREE:
-        return (await this.stateInfoProvider.getHistoricBlocksTreeSiblingPath(leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getHistoricalBlocksTreeSiblingPath(leafIndex)).toFieldArray();
       case MerkleTreeId.PUBLIC_DATA_TREE:
         return (await this.stateInfoProvider.getPublicDataTreeSiblingPath(leafIndex)).toFieldArray();
       default:
@@ -179,7 +179,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieve the databases view of the Historical Block Data object.
+   * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
    * @returns A Promise that resolves to a BlockHeader object.

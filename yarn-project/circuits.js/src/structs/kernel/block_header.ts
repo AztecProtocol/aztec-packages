@@ -88,7 +88,7 @@ export class BlockHeader {
   }
 
   /**
-   * Return the historical block data as an array of items in the order they are serialized in noir.
+   * Return the block header as an array of items in the order they are serialized in noir.
    * @returns Array of items in the order they are stored in the contract
    */
   toArray(): Fr[] {

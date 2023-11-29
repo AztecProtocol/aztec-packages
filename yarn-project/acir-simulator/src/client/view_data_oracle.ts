@@ -96,12 +96,12 @@ export class ViewDataOracle extends TypedOracle {
    * @param blockNumber - The block number at which to get the historic block data.
    * @returns Historic block data extracted from a block with block number `blockNumber`.
    */
-  public async getBlockData(blockNumber: number): Promise<HistoricBlockData | undefined> {
+  public async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     const block = await this.db.getBlock(blockNumber);
     if (!block) {
       return undefined;
     }
-    return new HistoricBlockData(
+    return new BlockHeader(
       block.endNoteHashTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,

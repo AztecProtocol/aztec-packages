@@ -73,7 +73,7 @@ struct ConstantsPacker {
                  MAX_NOTES_PER_PAGE,
                  VIEW_NOTE_ORACLE_RETURN_LENGTH,
                  CALL_CONTEXT_LENGTH,
-                 HISTORICAL_BLOCK_DATA_LENGTH,
+                 BLOCK_HEADER_LENGTH,
                  FUNCTION_DATA_LENGTH,
                  CONTRACT_DEPLOYMENT_DATA_LENGTH,
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,

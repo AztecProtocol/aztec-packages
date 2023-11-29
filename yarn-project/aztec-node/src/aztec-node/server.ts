@@ -499,7 +499,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the currently committed historical block data.
+   * Returns the currently committed block header.
    * @returns The current committed block data.
    */
   public async getBlockHeader(): Promise<BlockHeader> {

@@ -101,8 +101,8 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 }
 
 /**
- * Converts a historical block data into ACVM fields.
- * @param blockHeader - The historical block data object to convert.
+ * Converts a block header into ACVM fields.
+ * @param blockHeader - The block header object to convert.
  * @returns The ACVM fields.
  */
 export function toACVMBlockHeader(blockHeader: BlockHeader): ACVMField[] {

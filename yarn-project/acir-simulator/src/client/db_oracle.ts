@@ -109,7 +109,7 @@ export interface DBOracle extends CommitmentsDB {
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
-   * Retrieve the databases view of the Historical Block Data object.
+   * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
    * @returns A Promise that resolves to a BlockHeader object.

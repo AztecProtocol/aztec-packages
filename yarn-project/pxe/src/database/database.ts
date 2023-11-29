@@ -91,21 +91,21 @@ export interface Database extends ContractDatabase {
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
   /**
-   * Retrieve the stored Historical Block Data from the database.
-   * The function returns a Promise that resolves to the Historical Block Data.
+   * Retrieve the stored Block Header from the database.
+   * The function returns a Promise that resolves to the Block Header.
    * This data is required to reproduce block attestations.
-   * Throws an error if the historical block data is not available within the database.
+   * Throws an error if the block header is not available within the database.
    *
    * note: this data is a combination of the tree roots and the global variables hash.
    */
   getBlockHeader(): BlockHeader;
 
   /**
-   * Set the latest Historical Block Data.
+   * Set the latest Block Header.
    * This function updates the 'global variables hash' and `tree roots` property of the instance
    * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param blockHeader - An object containing the most recent historical block data.
+   * @param blockHeader - An object containing the most recent block header.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
   setBlockHeader(blockHeader: BlockHeader): Promise<void>;
