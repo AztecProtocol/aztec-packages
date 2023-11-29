@@ -7,7 +7,6 @@ import {
   ConstantRollupData,
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
-  IndexedTreeLeafPreimage,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
@@ -23,6 +22,7 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
@@ -570,7 +570,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     if (nullifier.value === 0n) {
       return {
         index: 0,
-        leafPreimage: IndexedTreeLeafPreimage.empty(),
+        leafPreimage: NullifierLeafPreimage.empty(),
         witness: this.makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
       };
     }
@@ -585,7 +585,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     return {
       index: prevValueIndex,
-      leafPreimage: new IndexedTreeLeafPreimage(
+      leafPreimage: new NullifierLeafPreimage(
         bigintToFr(prevValueInfo.value),
         bigintToFr(prevValueInfo.nextValue),
         bigintToNum(prevValueInfo.nextIndex),
@@ -750,12 +750,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
         i < nullifierWitnessLeaves.length
-          ? new IndexedTreeLeafPreimage(
+          ? new NullifierLeafPreimage(
               new Fr(nullifierWitnessLeaves[i].leafData.value),
               new Fr(nullifierWitnessLeaves[i].leafData.nextValue),
               Number(nullifierWitnessLeaves[i].leafData.nextIndex),
             )
-          : new IndexedTreeLeafPreimage(Fr.ZERO, Fr.ZERO, 0),
+          : new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0),
       ),
       lowNullifierMembershipWitness: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
         i < lowNullifierMembershipWitnesses.length

@@ -1,10 +1,10 @@
-struct IndexedTreeLeafPreimage {
+struct NullifierLeafPreimage {
     leaf_value : Field,
     next_value :Field,
     next_index : u32,
 }
 
-impl IndexedTreeLeafPreimage {
+impl NullifierLeafPreimage {
     pub fn default() -> Self {
         Self {
             leaf_value : 0,

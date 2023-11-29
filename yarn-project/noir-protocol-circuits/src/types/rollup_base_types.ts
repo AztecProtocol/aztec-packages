@@ -152,7 +152,7 @@ export interface AppendOnlyTreeSnapshot {
   next_available_leaf_index: u32;
 }
 
-export interface IndexedTreeLeafPreimage {
+export interface NullifierLeafPreimage {
   leaf_value: Field;
   next_value: Field;
   next_index: u32;
@@ -193,7 +193,7 @@ export interface BaseRollupInputs {
   start_historic_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
   sorted_new_nullifiers: FixedLengthArray<Field, 128>;
   sorted_new_nullifiers_indexes: FixedLengthArray<u32, 128>;
-  low_indexed_tree_leaf_preimages: FixedLengthArray<IndexedTreeLeafPreimage, 128>;
+  low_nullifier_leaf_preimages: FixedLengthArray<NullifierLeafPreimage, 128>;
   low_nullifier_membership_witness: FixedLengthArray<NullifierMembershipWitness, 128>;
   new_commitments_subtree_sibling_path: FixedLengthArray<Field, 25>;
   new_nullifiers_subtree_sibling_path: FixedLengthArray<Field, 13>;

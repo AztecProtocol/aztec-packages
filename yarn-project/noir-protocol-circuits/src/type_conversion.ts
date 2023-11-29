@@ -21,7 +21,6 @@ import {
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
-  IndexedTreeLeafPreimage,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -39,6 +38,7 @@ import {
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
   NewContractData,
+  NullifierLeafPreimage,
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
@@ -113,7 +113,7 @@ import {
 import {
   BaseRollupInputs as BaseRollupInputsNoir,
   HistoricBlocksTreeRootMembershipWitness as HistoricBlocksTreeRootMembershipWitnessNoir,
-  IndexedTreeLeafPreimage as IndexedTreeLeafPreimageNoir,
+  NullifierLeafPreimage as NullifierLeafPreimageNoir,
   NullifierMembershipWitness as NullifierMembershipWitnessNoir,
 } from './types/rollup_base_types.js';
 import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
@@ -1357,8 +1357,8 @@ export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs)
  * @returns The noir nullifier leaf preimage.
  */
 export function mapNullifierLeafPreimageToNoir(
-  nullifierLeafPreimage: IndexedTreeLeafPreimage,
-): IndexedTreeLeafPreimageNoir {
+  nullifierLeafPreimage: NullifierLeafPreimage,
+): NullifierLeafPreimageNoir {
   return {
     leaf_value: mapFieldToNoir(nullifierLeafPreimage.leafValue),
     next_value: mapFieldToNoir(nullifierLeafPreimage.nextValue),
@@ -1418,9 +1418,9 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
       NoirField,
       128
     >,
-    low_indexed_tree_leaf_preimages: inputs.lowNullifierLeafPreimages.map(
+    low_nullifier_leaf_preimages: inputs.lowNullifierLeafPreimages.map(
       mapNullifierLeafPreimageToNoir,
-    ) as FixedLengthArray<IndexedTreeLeafPreimageNoir, 128>,
+    ) as FixedLengthArray<NullifierLeafPreimageNoir, 128>,
     low_nullifier_membership_witness: inputs.lowNullifierMembershipWitness.map(
       mapNullifierMembershipWitnessToNoir,
     ) as FixedLengthArray<NullifierMembershipWitnessNoir, 128>,

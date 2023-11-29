@@ -30,7 +30,6 @@ import {
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
-  IndexedTreeLeafPreimage,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -66,6 +65,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierLeafPreimage,
   OptionallyRevealedData,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
@@ -906,7 +906,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new IndexedTreeLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
     seed + 0x1000,
   );
 
