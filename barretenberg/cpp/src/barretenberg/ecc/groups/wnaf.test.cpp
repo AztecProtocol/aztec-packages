@@ -36,7 +36,7 @@ void recover_fixed_wnaf(const uint64_t* wnaf, bool skew, uint64_t& hi, uint64_t&
 
 TEST(wnaf, WnafZero)
 {
-    uint64_t buffer[2]{ 0, 0 };
+    std::array<uint64_t, 2> buffer{ 0, 0 };
     uint64_t wnaf[WNAF_SIZE(5)] = { 0 };
     bool skew = false;
     wnaf::fixed_wnaf<1, 5>(buffer, wnaf, skew, 0);
@@ -60,7 +60,7 @@ TEST(wnaf, WnafTwoBitWindow)
     constexpr uint32_t num_quads = (num_bits >> 1) + 1;
     uint64_t wnaf[num_quads] = { 0 };
     bool skew = false;
-    barretenberg::wnaf::fixed_wnaf<256, 1, window>(&input.data[0], wnaf, skew, 0);
+    barretenberg::wnaf::fixed_wnaf<256, 1, window>({ input.data[0], input.data[1] }, wnaf, skew, 0);
 
     /**
      * For representing even numbers, we define a skew:
@@ -109,7 +109,7 @@ TEST(wnaf, WnafFixed)
     buffer.data[1] &= 0x7fffffffffffffffUL;
     uint64_t wnaf[WNAF_SIZE(5)] = { 0 };
     bool skew = false;
-    wnaf::fixed_wnaf<1, 5>(&buffer.data[0], wnaf, skew, 0);
+    wnaf::fixed_wnaf<1, 5>({ buffer.data[0], buffer.data[1] }, wnaf, skew, 0);
     uint64_t recovered_hi = 0;
     uint64_t recovered_lo = 0;
     recover_fixed_wnaf(wnaf, skew, recovered_hi, recovered_lo, 5);
@@ -119,7 +119,7 @@ TEST(wnaf, WnafFixed)
 
 TEST(wnaf, WnafFixedSimpleLo)
 {
-    uint64_t rand_buffer[2]{ 1, 0 };
+    std::array<uint64_t, 2> rand_buffer = { 0, 1 };
     uint64_t wnaf[WNAF_SIZE(5)]{ 0 };
     bool skew = false;
     wnaf::fixed_wnaf<1, 5>(rand_buffer, wnaf, skew, 0);
@@ -132,7 +132,7 @@ TEST(wnaf, WnafFixedSimpleLo)
 
 TEST(wnaf, WnafFixedSimpleHi)
 {
-    uint64_t rand_buffer[2] = { 0, 1 };
+    std::array<uint64_t, 2> rand_buffer = { 0, 1 };
     uint64_t wnaf[WNAF_SIZE(5)] = { 0 };
     bool skew = false;
     wnaf::fixed_wnaf<1, 5>(rand_buffer, wnaf, skew, 0);
@@ -148,16 +148,13 @@ TEST(wnaf, WnafFixedWithEndoSplit)
     fr k = engine.get_random_uint256();
     k.data[3] &= 0x0fffffffffffffffUL;
 
-    fr k1{ 0, 0, 0, 0 };
-    fr k2{ 0, 0, 0, 0 };
-
-    fr::split_into_endomorphism_scalars(k, k1, k2);
+    auto [k1, k2] = fr::split_into_endomorphism_scalars(k);
     uint64_t wnaf[WNAF_SIZE(5)] = { 0 };
     uint64_t endo_wnaf[WNAF_SIZE(5)] = { 0 };
     bool skew = false;
     bool endo_skew = false;
-    wnaf::fixed_wnaf<1, 5>(&k1.data[0], wnaf, skew, 0);
-    wnaf::fixed_wnaf<1, 5>(&k2.data[0], endo_wnaf, endo_skew, 0);
+    wnaf::fixed_wnaf<1, 5>(k1, wnaf, skew, 0);
+    wnaf::fixed_wnaf<1, 5>(k2, endo_wnaf, endo_skew, 0);
 
     fr k1_recovered{ 0, 0, 0, 0 };
     fr k2_recovered{ 0, 0, 0, 0 };

@@ -150,10 +150,10 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
         k_u256 = k_u256 >> stagger;
         if (is_lo) {
             barretenberg::wnaf::fixed_wnaf<num_bits - lo_stagger, 1, wnaf_size>(
-                &k_u256.data[0], &wnaf_values[0], skew_without_stagger, 0);
+                { k_u256.data[0], k_u256.data[1] }, &wnaf_values[0], skew_without_stagger, 0);
         } else {
             barretenberg::wnaf::fixed_wnaf<num_bits - hi_stagger, 1, wnaf_size>(
-                &k_u256.data[0], &wnaf_values[0], skew_without_stagger, 0);
+                { k_u256.data[2], k_u256.data[2] }, &wnaf_values[0], skew_without_stagger, 0);
         }
 
         // Number of rounds that are needed to reconstruct the scalar without staggered bits
@@ -372,7 +372,8 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
 
     uint64_t wnaf_values[num_rounds] = { 0 };
     bool skew = false;
-    barretenberg::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(&scalar_multiplier.data[0], &wnaf_values[0], skew, 0);
+    barretenberg::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(
+        { scalar_multiplier.data[0], scalar_multiplier.data[1] }, &wnaf_values[0], skew, 0);
 
     std::vector<field_t<C>> wnaf_entries;
     for (size_t i = 0; i < num_rounds; ++i) {
