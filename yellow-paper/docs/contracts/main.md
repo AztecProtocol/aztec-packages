@@ -1,0 +1,261 @@
+---
+title: Cross-chain communication
+description: How the L1 contracts facilitate cross-chain communication
+---
+
+This section are to describe what our L1 contracts do, what each of them are responsible for and how they interact with the circuits. 
+
+Note that the only reason that we even have any contracts is to facilitate cross-chain communication. The contracts are not required for the rollup to function, but required to bridge assets and to reduce the cost of light nodes.
+
+:::info Assumption
+- Blocks and their content have been defined in earlier so we will not go into detail on that here.
+:::
+
+We have multiple contracts, some that exist already, and some that are to be build. The collection of these contracts is called the L1 contracts and it was makes up the rollup precense on L1.  
+
+**Existing contracts**:
+- Registry
+- State transitioner
+- Inbox
+- Outbox
+
+**To be build contracts**
+- Sequencer Selection contract(s)
+
+## Registry
+The registry is a contract that holds the addresses of the other contracts. It is a simple contract that keeps track of where the other contracts are, it is to give the nodes a single source of truth for where the other contracts are. Also allows us to handle upgrades.
+
+## State transitioner
+The state transitioner is the contract that handles the state and perform the state transition on L1. It makes sure that the proof is valid and that L1 is updated accordingly.
+
+:::info
+It is a fully validating light node.
+:::
+
+Whenever a block is received it is to:
+- Compute the "starting" state of the block (the state before the block is applied)
+- Check that the starting state is the same as the current state
+- Check the global variables provided (block number, timestamp, version, chainId)
+    - The block number MUST be the next block number
+    - The timestamp MUST:
+        - be newer than the previous block inclusion
+        - not be in the future
+    - The version MUST be the same as the current version
+    - The chainId MUST be the same as the current chainId
+- Compute the "ending" state of the block (the state after the block is applied)
+- Compute a single public inputs hash from the block content
+    - - **Circuit:** MUST match the computation of the circuit
+- Validate the proof
+- Update state root to the ending state
+- Consume the L1 to L2 messages specified in the block from the inbox
+    - **Circuit:** The proof MUST only be valid if it inserted these messages into the L2 outbox
+- Insert the L2 to L1 messages specified in the block to the outbox
+    - **Circuit:** The proof MUST only be valid if it consumed these messages from the L2 inbox
+
+:::info
+- We compute a single hash since each public input increase costs of the proof verification.
+- Time constraints might change depending on the exact sequencer selection mechanism.
+:::
+
+## Portals - Linking L1 and L2
+
+When deploying a contract on L2, it is possible to specify a "portal" address. This address is will be the recipient of any message sent from the L2 contract out to L1. 
+
+:::info
+Strictly it could be sending to multiple, but we need to be able to set one for access control purposes on L2.
+:::
+
+
+## Message Bridges
+
+To let users communicate between L1 and the L2, we are using message bridges, namely an L1 inbox that is paired to an L2 outbox, and an L2 inbox that is paired to an L1 outbox. 
+
+![Alt text](images/com-abs-6.png)
+
+:::info Naming
+The naming is based from the PoV of the state transitioner. 
+:::
+
+While we logically have 4 boxes, we practically only require 3 of those. The L2 inbox is not real - but  only logical. This is due to the fact that they are always inserted and then consumed in the same block! Insertions require a L2 transaction, and it is then to be consumed and moved to the L1 outbox by the state transitioner in the same block.
+
+Messages that are communicated between the L1 and L2 need to contain a minimum of information to ensure that they can correctly consumed by users. Specifically the messages should be as described below:
+
+```solidity
+struct L1Actor {
+    address: actor,
+    uint256: chainId,
+}
+
+struct L2Actor {
+    bytes32: actor,
+    uint256: version,
+}
+
+struct L1ToL2Msg {
+    L1Actor: sender,
+    L2Actor: recipient,
+    bytes32: content,
+    bytes32: secretHash,
+    uint32 deadline,
+    uint64 fee,
+}
+
+struct L2ToL1Msg {
+    L2Actor: sender,
+    L1Actor: recipient,
+    bytes32: content,
+}
+```
+
+Since any data that is moving from one chain to the other at some point will live on L1, it will be PUBLIC. While this is fine for L1 consumption (which is public in itself), we want to ensure that the L2 consumption can be private.
+To support this, we use a nullifier scheme similar to what we are doing for all the other notes (**REFERENCE**). As part of the nullifier computation we then use the `secret` which hashes to the `secretHash`, this ensures that only actors with knowledge of `secret` will be able to see when it is spent on L2.
+
+:::warning Moving messages
+Any message that is consumed on one side MUST be moved to the other side. This is to ensure that the messages are not consumed twice and that the message existed. The contracts can handle one side, but the circuits must handle the other.
+:::
+
+:::info Is `secretHash` required?
+We are using the `secretHash` to ensure that the user can spend the message privately with a generic nullifier computation. However, as the nullifier computation is almost entirely controlled by the app circuit (except the siloing) applications could be made to simply use a different nullifier computation and have it become part of the content. However, this reduces the developer burden and is quite easy to mess up. For those reasons we have decided to use the `secretHash` as part of the message.
+:::
+
+
+### Inbox
+When we say inbox, we are generally referring to the L1 contract that handles the L1 to L2 messages. The L2 inbox is not a real contract, but a logical contract that is handled by the kernel.
+
+The inbox is logically a multi-set that builds messages based on the caller and user-provided content (multi-set meaning that repetition are allowed). Anyone are able to insert messages into the inbox, but only the state transitioner are able to consume messages from it. When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" (message tree), it must be atomic.
+
+When a message is inserted into the inbox, the inbox MUST fill in the following fields:
+- `L1Actor.actor`: The sender of the message (the caller), `msg.sender`
+- `L1Actor.chainId`: The chainId of the L1 chain sending the message, `block.chainId`
+
+We MUST populate these values in the inbox, since we cannot rely on the user providing anything meaningful. From the `L1ToL2Msg` we compute a hash of the message. This hash is what is moved by the state transitioner to the L2 outbox. 
+
+:::info Why a single hash?
+Since the L1 to L2 have much more freedom than L2 to L1, we cannot ensure that they happen in the same tx. Therefore, we need to store some persistent data that can be moved. Storage is expensive, so we want to store as little as possible.
+:::
+
+##### L2 Inbox
+While the L2 inbox is not a real contract, it is a logical contract that apply mutations to the data similar to the L1 inbox to ensure that the sender cannot fake his position. 
+
+As for the L1 variant, we must populate the some fields:
+- `L2Actor.actor`: The sender of the message (the caller) [also in L1 inbox]
+- `L2Actor.version`: The version of the L2 chain sending the message [also in L1 inbox]
+- `L1Actor.actor` The recipient of the message (the portal)
+- `L1Actor.chainId` The chainId of the L1 chain receiving the message
+
+In practice, this is done at the kernel layer of the L2, and the message hash is a public output of the circuit that is inserted into the L1 outbox for later consumption.
+
+:::info
+Note that while we are letting the inbox populate more values that what we did for the L1 inbox. This is more an opinionated decision than a purely technical one. We could let the contract itself populated the `L1Actor` like we did for L1, but we decided to let the kernel do it instead, since access control can be quite tedious to get right in private execution. By having the `portal` contract that is specified at the time of deployment, we can insert this value and ensure that it is controlled by the contract.
+If we have a better alternative for access control (e.g., slow updates), this could be changed to be more similar to the L1 inbox.
+:::
+
+### Outbox
+The outboxes are the location where a user can consume messages from, an outbox can only contain elements that have previously been removed from an inbox. 
+
+Our L1 outbox is pretty simple, as the L1 inbox it is a multi-set, where the messages are inserted by the state transitioner, the recipient can consume it (removing it from the outbox).
+
+:::info
+When consuming a message on L1, the portal contract must check that it was sent from the expected contract. Since it is possible 
+:::
+
+#### L2 Outbox
+The L2 outbox is quite different. It is merely a merkle tree that is populated with the messages moved by the state transitioner. As mentioned earlier, the messages are consumed by emitting a nullifier from the application circuit. 
+
+This means that all validation is done by the application circuit. The application should:
+- Ensure that the message exists in the outbox (message tree)
+- Ensure that the user knows `secret` that hashes to the `secretHash` of the message
+- Compute a nullifier that includes the `secret` along with the msg hash and the index of the message in the tree
+    - The index is included to ensure that the nullifier is unique for each message
+
+
+## Logical Execution
+Below, we will outline the logical execution of a L2 block and how the contracts interact with the circuits. We will be executing cross-chain communication before and after the block itself.
+
+1. A portal contracts on L1 want to send a message for L2
+2. The portal contract calls `sendL2Message` on the inbox contract
+3. The inbox contract inserts the message into its storage
+4. On the L2, as part of a rollup, a transaction tries to consume a message from the L2 outbox.
+5. (logically in outbox, practically in application): The outbox ensures that the message is included and that the caller knows the secret to spend it
+6. The nullifier of the message is emitted to privately spend the message
+7. As part of the transaction, the contract wish to send a message to L1
+8. The inbox populates the message with sender and recipient information
+9. The inbox inserts the message into its storage
+10. The rollup include messages from the L1 inbox that are to be inserted into the L2 outbox.
+11. The outbox state is updated to include the messages
+12. The rollup block is submitted to L1 
+13. The state transitioner receives the block and verifies the proof + validate constraints on block.
+14. The state transitioner updates it state to the ending state of the block
+15. The state transitioner ask the registry for the L1 inbox address
+16. The state transitioner retrieves the L1 inbox address
+17. The state transitioner consumes the messages from the L1 inbox that was specified in the block. Note that they have logically been inserted into the L2 outbox, ensuring atomicity.
+18. The inbox updates it local state by deleting the messages that was consumed
+19. The state transitioner ask the registry for the L1 outbox address
+20. The state transitioner retrieves the L1 outbox address
+21. The state transitioner inserts the messages into the L1 inbox that was specified in the block. Note that they have logically been consumed from the L2 outbox, ensuring atomicity.
+22. The outbox updates it local state by inserting the messages
+23. The portal later consumes the message from the L1 outbox
+24. The outbox updates it local state by deleting the message
+
+
+```mermaid
+sequenceDiagram
+    autonumber
+    title Logical Interactions of Crosschain Messages
+
+    participant P2 as Portal (L2)
+
+    participant I2 as Inbox (L2)
+    participant O2 as Outbox (L2)
+    participant R2 as Rollup (L2)
+    participant R as Validating Light Node (L1)
+    participant Reg as Registry
+    participant I as Inbox
+    participant O as Outbox
+
+    participant P as Portal
+
+    P->>I: Send msg to L2
+    I->>I: Populate msg values
+    I->>I: Update state (insert)
+
+    loop tx in txs
+
+        loop msg in tx.l1ToL2Consume
+            P2->>O2: Consume msg
+            O2->>O2: Validate msg
+            O2->>O2: Update state (nullify)
+        end
+
+        loop msg in tx.l2ToL1Msgs
+            P2->>I2: Add msg
+            I2->>I2: Populate msg values
+            I2->>I2: Update state (insert)
+        end
+    end
+
+    loop msg in l1ToL2Msgs 
+        R2->>O2: Insert msg
+        O2->>O2: Update state (insert)
+    end
+
+    R2->>R: Block (Proof + Data)
+
+    R->>R: Verify proof
+    R->>R: Update State 
+
+    R->>Reg: Where is the Inbox?
+    Reg->>R: Here is the address
+
+    R->>I: Consume l1ToL2Msgs from L1
+    I->>I: Update state (delete)
+
+    R->>Reg: Where is the Outbox?
+    Reg->>R: Here is the address
+
+    R->>O: Insert Messages from L2
+    O->>O: Update state (insert)
+
+    P->>O: Consume a msg
+    O->>O: Update state (delete)
+```
