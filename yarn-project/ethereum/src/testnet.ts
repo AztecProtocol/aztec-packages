@@ -2,7 +2,7 @@ import { Chain } from 'viem';
 
 import { EthereumChain } from './ethereum_chain.js';
 
-const {DEPLOY_TAG='aztec-dev'} = process.env;
+const { DEPLOY_TAG='aztec-dev' } = process.env
 
 export const createTestnetChain = (apiKey: string) => {
   const chain: Chain = {
