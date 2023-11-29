@@ -773,7 +773,7 @@ T[retOffset:retOffset+retSize] = field
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = HistoricBlockData.<root>`",
-        "Summary": "Get an root from the HistoricBlockData",
+        "Summary": "Get a root from the HistoricBlockData",
         "Details": "",
         "Tag checks": "",
         "Tag suboperations": "`T[dstOffset] = field`",
