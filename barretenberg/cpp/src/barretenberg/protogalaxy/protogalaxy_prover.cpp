@@ -26,6 +26,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         }
 
         if (!static_cast<bool>(instance->is_accumulator)) {
+            transcript.send_to_verifier(domain_separator + "_pub_inputs_offset",
+                                        static_cast<uint32_t>(instance->pub_inputs_offset));
             auto [eta, beta, gamma] = transcript.get_challenges(
                 domain_separator + "_eta", domain_separator + "_beta", domain_separator + "_gamma");
             instance->compute_sorted_accumulator_polynomials(eta);

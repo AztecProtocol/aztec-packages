@@ -44,7 +44,8 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
                     domain_separator + "_gate_challenge_" + std::to_string(idx));
             }
         } else {
-
+            inst->pub_inputs_offset =
+                transcript.template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
             auto [eta, beta, gamma] = transcript.get_challenges(
                 domain_separator + "_eta", domain_separator + "_beta", domain_separator + "_gamma");
             const FF public_input_delta = compute_public_input_delta<Flavor>(
