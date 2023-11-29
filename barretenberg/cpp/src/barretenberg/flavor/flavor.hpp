@@ -143,7 +143,7 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
 // Because of how Gemini is written, is importat to put the polynomials out in this order.
 auto get_unshifted_then_shifted(const auto& all_entities)
 {
-    return concatenate_arrays(all_entities.get_unshifted(), all_entities.get_shifted());
+    return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**

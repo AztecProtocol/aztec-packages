@@ -63,7 +63,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
  * trace rather than at each individual row. For example, a subrelation of this type arises in the log derivative lookup
  * argument.
  *
- * @tparam relation_idx Index into a tuple of provided relations
+ * @tparam relation_idx Index into a tuple of provided relationsp
  * @tparam Flavor
  */
 template <typename Flavor, typename Relation>

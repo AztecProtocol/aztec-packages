@@ -5,6 +5,7 @@
 #include <iterator>
 #include <stdexcept>
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/794) namespace this once convenient
 /**
  * @brief A template class for a reference array. Behaves as if std::array<T&, N> was possible.
  *

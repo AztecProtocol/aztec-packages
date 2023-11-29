@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/794) namespace this once convenient
 /**
  * @brief A template class for a reference vector. Behaves as if std::vector<T&> was possible.
  *
@@ -19,8 +20,6 @@
  */
 template <typename T> class RefVector {
   public:
-    RefVector() = default;
-
     explicit RefVector(const std::vector<T*>& ptr_vector)
         : storage(ptr_vector)
     {}
@@ -38,8 +37,6 @@ template <typename T> class RefVector {
         storage.push_back(&ref);
         (storage.push_back(&rest), ...);
     }
-
-    RefVector(const RefVector& other) = default;
 
     T& operator[](std::size_t idx) const
     {
