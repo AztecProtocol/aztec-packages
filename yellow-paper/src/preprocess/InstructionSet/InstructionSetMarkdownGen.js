@@ -1,8 +1,12 @@
 const fs = require("fs");
 const path = require("path");
-const childProcess = require("child_process");
 
-const { TOPICS_IN_TABLE, TOPICS_IN_SECTIONS, INSTRUCTION_SET } = require('./InstructionSet');
+const {
+    TOPICS_IN_TABLE,
+    TOPICS_IN_SECTIONS,
+    INSTRUCTION_SET,
+    instructionSize
+} = require('./InstructionSet');
 
 function escapeBraces(str) {
     return str.replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -104,7 +108,7 @@ function markdownInstructionSetSection() {
     return markdown;
 }
 
-async function run() {
+async function generateInstructionSet() {
     const rootDir = path.join(__dirname, "../../../");
     const docsDir = path.join(rootDir, "docs", "docs");
 
@@ -123,4 +127,7 @@ async function run() {
 
     console.log("Preprocessing complete.");
 }
-run();
+
+module.exports = {
+    generateInstructionSet,
+};

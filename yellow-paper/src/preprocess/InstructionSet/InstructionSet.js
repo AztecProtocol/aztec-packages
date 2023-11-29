@@ -1,20 +1,22 @@
+const {instructionSize} = require('./InstructionSize');
+
 const TOPICS_IN_TABLE = [
-    'Name', 'Summary', 'Expression'
+    "Name", "Summary", "Bit-size", "Expression",
 ];
 const TOPICS_IN_SECTIONS = [
-    'Name', 'Summary', 'Category', 'Flags', 'Args', 'Expression', 'Details', 'Tag checks', 'Tag updates'
+    "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "Tag checks", "Tag updates", "Bit-size",
 ];
 
-const OP_TYPE_DESCR = "The [type/size](./Types) to check inputs against and tag the output with.";
-const DEST_TYPE_DESCR = "The [type/size](./Types) to tag the output with when different from `op-type`.";
+const OP_TYPE_DESCRIPTION = "The [type/size](./Types) to check inputs against and tag the output with.";
+const DEST_TYPE_DESCRIPTION = "The [type/size](./Types) to tag the output with when different from `op-type`.";
 
-const INSTRUCTION_SET = [
+const INSTRUCTION_SET_RAW = [
     {
         "id": "add",
         "Name": "`ADD`",
         "Category": "arithmetic",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -34,7 +36,7 @@ const INSTRUCTION_SET = [
         "Name": "`SUB`",
         "Category": "arithmetic",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -54,7 +56,7 @@ const INSTRUCTION_SET = [
         "Name": "`DIV`",
         "Category": "arithmetic",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -74,7 +76,7 @@ const INSTRUCTION_SET = [
         "Name": "`EQ`",
         "Category": "conditional",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -94,7 +96,7 @@ const INSTRUCTION_SET = [
         "Name": "`LT`",
         "Category": "conditional",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -114,7 +116,7 @@ const INSTRUCTION_SET = [
         "Name": "`LTE`",
         "Category": "conditional",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -134,7 +136,7 @@ const INSTRUCTION_SET = [
         "Name": "`AND`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -154,7 +156,7 @@ const INSTRUCTION_SET = [
         "Name": "`OR`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -174,7 +176,7 @@ const INSTRUCTION_SET = [
         "Name": "`XOR`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -194,7 +196,7 @@ const INSTRUCTION_SET = [
         "Name": "`NOT`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "1",
         "#memwrites": "1",
@@ -213,7 +215,7 @@ const INSTRUCTION_SET = [
         "Name": "`SHL`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -233,7 +235,7 @@ const INSTRUCTION_SET = [
         "Name": "`SHR`",
         "Category": "bitwise",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": OP_TYPE_DESCRIPTION},
         ],
         "#memreads": "2",
         "#memwrites": "1",
@@ -258,7 +260,7 @@ const INSTRUCTION_SET = [
         "#memreads": "0",
         "#memwrites": "1",
         "Args": [
-            {"name": "const", "description": "a constant value from the bytecode to store in memory", "mode": "immediate", "type": "not field"},
+            {"name": "const", "description": "a constant value from the bytecode to store in memory (any type except `field`)", "mode": "immediate"},
             {"name": "dstOffset", "description": "memory offset specifying where to store the constant"},
         ],
         "Expression": "`M[dstOffset] = const`",
@@ -308,7 +310,7 @@ const INSTRUCTION_SET = [
         "Name": "`CAST`",
         "Category": "types",
         "Flags": [
-            {"name": "dest-type", "description": DEST_TYPE_DESCR},
+            {"name": "dest-type", "description": DEST_TYPE_DESCRIPTION},
         ],
         "#memreads": "1",
         "#memwrites": "1",
@@ -941,6 +943,7 @@ T[retOffset:retOffset+retSize] = field
         "Tag updates": "`T[dst*Offset] = field`",
     },
 ];
+const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {instr['Bit-size'] = instructionSize(instr); return instr;});
 
 module.exports = {
   TOPICS_IN_TABLE,
