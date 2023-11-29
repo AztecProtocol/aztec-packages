@@ -96,23 +96,31 @@ yarn-project:
   dependencies:
     - yarn-project-base
 
+yarn-project-prod:
+  buildDir: yarn-project
+  dockerfile: Dockerfile.prod
+  rebuildPatterns:
+    - ^yarn-project/Dockerfile.prod
+  dependencies:
+    - yarn-project
+
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
-    - yarn-project
+    - yarn-project-prod
 
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
   dependencies:
-    - yarn-project
+    - yarn-project-prod
 
 cli:
   buildDir: yarn-project
   projectDir: yarn-project/cli
   dependencies:
-    - yarn-project
+    - yarn-project-prod
 
 boxes-blank-react:
   buildDir: yarn-project

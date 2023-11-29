@@ -346,6 +346,17 @@ jobs:
           name: Build
           command: build yarn-project | add_timestamps
 
+  yarn-project-prod:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project-prod | add_timestamps
+
   yarn-project-formatting:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -985,6 +996,11 @@ defaults_yarn_project: &defaults_yarn_project
     - yarn-project
   <<: *defaults
 
+defaults_yarn_project_prod: &defaults_yarn_project_prod
+  requires:
+    - yarn-project-prod
+  <<: *defaults
+
 defaults_deploy: &defaults_deploy
   requires:
     - end
@@ -1073,11 +1089,11 @@ workflows:
       - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
       - build-docs: *defaults_yarn_project
-      - aztec-sandbox-x86_64: *defaults_yarn_project
-      - aztec-sandbox-arm64: *defaults_yarn_project
-      - cli-x86_64: *defaults_yarn_project
-      - cli-arm64: *defaults_yarn_project
-      - aztec-faucet: *defaults_yarn_project
+      - aztec-sandbox-x86_64: *defaults_yarn_project_prod
+      - aztec-sandbox-arm64: *defaults_yarn_project_prod
+      - cli-x86_64: *defaults_yarn_project_prod
+      - cli-arm64: *defaults_yarn_project_prod
+      - aztec-faucet: *defaults_yarn_project_prod
       - ecr-manifest:
           requires:
             - aztec-sandbox-x86_64

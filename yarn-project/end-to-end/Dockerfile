@@ -6,7 +6,7 @@ RUN yarn build:web
 
 WORKDIR /usr/src/yarn-project/end-to-end
 # Productionify. See comment in yarn-project-base/Dockerfile.
-RUN yarn cache clean && yarn workspaces focus --production
+RUN yarn workspaces focus --production && yarn cache clean
 
 # Create final, minimal size image.
 # TODO: Not very minimal as chromium adds about 500MB of bloat :/ Separate or install at test runtime?

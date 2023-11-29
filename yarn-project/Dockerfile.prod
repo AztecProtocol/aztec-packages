@@ -1,0 +1,18 @@
+# This productionifies the workspace, removing all developer dependencies and producing a final slim image from which
+# we then generate downstream multiarch containers to execute the specific projects.
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS yarn-project
+
+ARG COMMIT_TAG=""
+RUN ./scripts/version_packages.sh
+# Productionify. See comment in yarn-project-base/Dockerfile.
+RUN yarn workspaces focus @aztec/cli @aztec/aztec-sandbox @aztec/aztec-faucet --production && \
+    yarn cache clean && \
+    rm -rf ./**/src
+
+# Create fresh minimal size image.
+FROM node:18-alpine
+COPY --from=yarn-project /usr/src/yarn-project /usr/src/yarn-project
+COPY --from=yarn-project /usr/src/barretenberg/ts/package /usr/src/barretenberg/ts/package
+COPY --from=yarn-project /usr/src/noir/packages /usr/src/noir/packages
+# Just until weird source-resolver bug fixed.
+COPY --from=yarn-project /usr/src/noir/compiler /usr/src/noir/compiler
