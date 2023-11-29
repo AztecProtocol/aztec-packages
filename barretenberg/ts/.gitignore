@@ -6,3 +6,4 @@ dest
 *.log
 /crs
 package.tgz
+package

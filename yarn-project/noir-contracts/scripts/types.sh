@@ -43,13 +43,11 @@ write_export() {
 process() {
   CONTRACT=$1
 
-  export NODE_OPTIONS="--preserve-symlinks --no-warnings"
-
   cd $ROOT
-  yarn ts-node --esm src/scripts/copy_source.ts $CONTRACT_NAME
+  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_source.ts $CONTRACT_NAME
 
   echo "Creating types for $CONTRACT"
-  yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
+  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
 }
 
 format(){

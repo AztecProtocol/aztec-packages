@@ -61,6 +61,12 @@ COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 #              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'
 RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /usr/src/noir/compiler
 
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
+
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .

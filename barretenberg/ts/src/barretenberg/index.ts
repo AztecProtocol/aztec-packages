@@ -3,7 +3,7 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasmWorker, fetchModule } from '../barretenberg_wasm/index.js';
+import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
 
 const debug = createDebug('bb.js:wasm');
@@ -23,10 +23,10 @@ export class Barretenberg extends BarretenbergApi {
    * and blocking the main thread in the browser is not allowed.
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
-  static async new(threads?: number) {
+  static async new(desiredThreads?: number) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const module = await fetchModule(threads);
+    const { module, threads } = await fetchModuleAndThreads(desiredThreads);
     await wasm.init(module, threads, proxy(debug));
     return new Barretenberg(worker, wasm);
   }
@@ -50,8 +50,8 @@ export class BarretenbergSync extends BarretenbergApiSync {
 
   static async new() {
     const wasm = new BarretenbergWasmMain();
-    const module = await fetchModule(1);
-    await wasm.init(module, 1);
+    const { module, threads } = await fetchModuleAndThreads(1);
+    await wasm.init(module, threads);
     return new BarretenbergSync(wasm);
   }
 

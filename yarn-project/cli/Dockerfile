@@ -29,6 +29,6 @@ RUN corepack enable
 RUN addgroup -S aztec && adduser -S aztec -G aztec
 USER aztec
 
-ENV NODE_OPTIONS="--preseve-symlinks --no-warnings"
+ENV NODE_OPTIONS="--no-warnings"
 
 ENTRYPOINT ["node", "/usr/src/yarn-project/cli/dest/bin/index.js"]
