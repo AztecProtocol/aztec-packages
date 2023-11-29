@@ -1,6 +1,6 @@
 # Terraform to setup a prototype network of Aztec Boot Nodes in AWS
 # It sets up 2 boot nodes with different ports/keys etc.
-# Some duplication across the 2 defined services, could possibly 
+# Some duplication across the 2 defined services, could possibly
 # be refactored to use modules as and when we build out infrastructure for real
 
 terraform {
@@ -97,7 +97,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-1",
-    "image": "${var.ECR_URL}/p2p-bootstrap:aztec3-packages-prod",
+    "image": "${var.DOCKERHUB_ACCOUNT}/p2p-bootstrap:${var.DEPLOY_TAG}",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -281,7 +281,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-2",
-    "image": "${var.ECR_URL}/p2p-bootstrap:aztec3-packages-prod",
+    "image": "${var.DOCKERHUB_ACCOUNT}/p2p-bootstrap:${var.DEPLOY_TAG}",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,

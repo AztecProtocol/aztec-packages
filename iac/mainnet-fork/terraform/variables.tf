@@ -10,6 +10,10 @@ variable "FORK_API_KEY" {
   type = string
 }
 
-variable "ECR_URL" {
+variable "DOCKERHUB_ACCOUNT" {
+  type = string
+}
+
+variable "DEPLOY_TAG" {
   type = string
 }

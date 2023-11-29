@@ -926,7 +926,19 @@ jobs:
           name: "Deploy mainnet fork"
           command: |
             should_deploy || exit 0
-            deploy_ecr mainnet-fork
+            deploy mainnet-fork
+
+  deploy-contracts:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy L1 contracts to mainnet fork"
+          working_directory: l1-contracts
+          command: ./scripts/ci_deploy_contracts.sh
 
   deploy-npm:
     machine:
@@ -955,6 +967,23 @@ jobs:
             deploy_dockerhub noir x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
             deploy_dockerhub cli x86_64,arm64
+            deploy_dockerhub faucet x86_64,arm64
+            deploy_dockerhub mainnet-fork x86_64,arm64
+
+  deploy-devnet:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy devnet to AWS"
+          command: |
+            should_deploy || exit 0
+            deploy p2p-bootstrap
+            deploy aztec-node
+            deploy aztec-faucet
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -1177,3 +1206,8 @@ workflows:
       - deploy-dockerhub: *defaults_deploy
       - deploy-npm: *defaults_deploy
       - deploy-mainnet-fork: *defaults_deploy
+      - deploy-contracts:
+          requires:
+            - deploy-mainnet-fork
+          <<: *defaults_deploy
+

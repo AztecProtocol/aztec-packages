@@ -1,6 +1,6 @@
 # Terraform to setup a prototype network of Aztec Nodes in AWS
 # It sets up 2 full nodes with different ports/keys etc.
-# Some duplication across the 2 defined services, could possibly 
+# Some duplication across the 2 defined services, could possibly
 # be refactored to use modules as and when we build out infrastructure for real
 
 
@@ -49,6 +49,14 @@ data "terraform_remote_state" "aztec-network_iac" {
   }
 }
 
+data "terraform_remote_state" "l1_contracts" {
+  backend = "s3"
+  config = {
+    bucket = "aztec-terraform"
+    key    = "${var.DEPLOY_TAG}/l1-contracts"
+    region = "eu-west-2"
+  }
+}
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group-1" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-node-1"
@@ -99,7 +107,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-1",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-sandbox:${var.DEPLOY_TAG}",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -112,8 +120,16 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
     ],
     "environment": [
       {
+        "name": "MODE",
+        "value": "node"
+      },
+      {
         "name": "NODE_ENV",
         "value": "production"
+      },
+      {
+        "name": "DEPLOY_TAG",
+        "value": "${var.DEPLOY_TAG}"
       },
       {
         "name": "AZTEC_NODE_PORT",
@@ -149,19 +165,19 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
-        "value": "${var.CONTRACT_DEPLOYMENT_EMITTER_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.contract_deployment_emitter_address}"
       },
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "${var.ROLLUP_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "${var.INBOX_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
       },
       {
         "name": "API_KEY",
@@ -189,7 +205,7 @@ resource "aws_ecs_task_definition" "aztec-node-1" {
       },
       {
         "name": "BOOTSTRAP_NODES",
-        "value": "/dns4/aztec-dev-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/aztec-dev-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
+        "value": "/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-2.local/tcp/${var.BOOTNODE_2_LISTEN_PORT}/p2p/${var.BOOTNODE_2_PEER_ID},/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-1.local/tcp/${var.BOOTNODE_1_LISTEN_PORT}/p2p/${var.BOOTNODE_1_PEER_ID}"
       },
       {
         "name": "P2P_ENABLED",
@@ -400,7 +416,7 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-2",
-    "image": "${var.ECR_URL}/aztec-node:aztec3-packages-prod",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-node:${var.DEPLOY_TAG}",
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -450,19 +466,19 @@ resource "aws_ecs_task_definition" "aztec-node-2" {
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
-        "value": "${var.CONTRACT_DEPLOYMENT_EMITTER_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.contract_deployment_emitter_address}"
       },
       {
         "name": "ROLLUP_CONTRACT_ADDRESS",
-        "value": "${var.ROLLUP_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address}"
       },
       {
         "name": "INBOX_CONTRACT_ADDRESS",
-        "value": "${var.INBOX_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
-        "value": "${var.REGISTRY_CONTRACT_ADDRESS}"
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.registry_contract_address}"
       },
       {
         "name": "API_KEY",

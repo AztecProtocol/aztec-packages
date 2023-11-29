@@ -3,7 +3,8 @@ variable "DEPLOY_TAG" {
 }
 
 variable "BOOTNODE_1_LISTEN_PORT" {
-  type = string
+  type    = string
+  default = 40500
 }
 
 variable "BOOTNODE_1_PRIVATE_KEY" {
@@ -11,7 +12,8 @@ variable "BOOTNODE_1_PRIVATE_KEY" {
 }
 
 variable "BOOTNODE_2_LISTEN_PORT" {
-  type = string
+  type    = string
+  default = 40501
 }
 
 variable "BOOTNODE_2_PRIVATE_KEY" {
@@ -23,9 +25,11 @@ variable "ECR_URL" {
 }
 
 variable "P2P_MIN_PEERS" {
-  type = string
+  type    = string
+  default = 50
 }
 
 variable "P2P_MAX_PEERS" {
-  type = string
+  type    = string
+  default = 100
 }
