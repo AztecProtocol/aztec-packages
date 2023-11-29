@@ -240,131 +240,131 @@ class RelationCorrectnessTests : public ::testing::Test {
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-// /**
-//  * @brief Test the correctness of the Ultra Honk relations
-//  *
-//  * @details Check that the constraints encoded by the relations are satisfied by the polynomials produced by the
-//  * Ultra Honk Composer for a real circuit.
-//  *
-//  * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for he first
-//  few
-//  * indices
-//  *
-//  */
-// // TODO(luke): Add a gate that sets q_arith = 3 to check secondary arithmetic relation
-// TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
-// {
-//     using Flavor = flavor::Ultra;
-//     using FF = typename Flavor::FF;
+/**
+ * @brief Test the correctness of the Ultra Honk relations
+ *
+ * @details Check that the constraints encoded by the relations are satisfied by the polynomials produced by the
+ * Ultra Honk Composer for a real circuit.
+ *
+ * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for he first
+ few
+ * indices
+ *
+ */
+// TODO(luke): Add a gate that sets q_arith = 3 to check secondary arithmetic relation
+TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
+{
+    using Flavor = flavor::Ultra;
+    using FF = typename Flavor::FF;
 
-//     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
-//     // by each relation are non-trivially exercised.
-//     auto builder = proof_system::UltraCircuitBuilder();
+    // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
+    // by each relation are non-trivially exercised.
+    auto builder = proof_system::UltraCircuitBuilder();
 
-//     // Create an assortment of representative gates
-//     create_some_add_gates<Flavor>(builder);
-//     create_some_lookup_gates<Flavor>(builder);
-//     create_some_genperm_sort_gates<Flavor>(builder);
-//     create_some_elliptic_curve_addition_gates<Flavor>(builder);
-//     create_some_RAM_gates<Flavor>(builder);
+    // Create an assortment of representative gates
+    create_some_add_gates<Flavor>(builder);
+    create_some_lookup_gates<Flavor>(builder);
+    create_some_genperm_sort_gates<Flavor>(builder);
+    create_some_elliptic_curve_addition_gates<Flavor>(builder);
+    create_some_RAM_gates<Flavor>(builder);
 
-//     // Create a prover (it will compute proving key and witness)
-//     auto composer = UltraComposer();
-//     auto instance = composer.create_instance(builder);
-//     auto proving_key = instance->proving_key;
-//     auto circuit_size = proving_key->circuit_size;
+    // Create a prover (it will compute proving key and witness)
+    auto composer = UltraComposer();
+    auto instance = composer.create_instance(builder);
+    auto proving_key = instance->proving_key;
+    auto circuit_size = proving_key->circuit_size;
 
-//     // Generate eta, beta and gamma
-//     FF eta = FF::random_element();
-//     FF beta = FF::random_element();
-//     FF gamma = FF::random_element();
+    // Generate eta, beta and gamma
+    FF eta = FF::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
-//     instance->initialize_prover_polynomials();
-//     instance->compute_sorted_accumulator_polynomials(eta);
-//     instance->compute_grand_product_polynomials(beta, gamma);
+    instance->initialize_prover_polynomials();
+    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_grand_product_polynomials(beta, gamma);
 
-//     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-//     ensure_non_zero(proving_key->q_arith);
-//     ensure_non_zero(proving_key->q_sort);
-//     ensure_non_zero(proving_key->q_lookup);
-//     ensure_non_zero(proving_key->q_elliptic);
-//     ensure_non_zero(proving_key->q_aux);
+    // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
+    ensure_non_zero(proving_key->q_arith);
+    ensure_non_zero(proving_key->q_sort);
+    ensure_non_zero(proving_key->q_lookup);
+    ensure_non_zero(proving_key->q_elliptic);
+    ensure_non_zero(proving_key->q_aux);
 
-//     // Construct the round for applying sumcheck relations and results for storing computed results
-//     using Relations = typename Flavor::Relations;
+    // Construct the round for applying sumcheck relations and results for storing computed results
+    using Relations = typename Flavor::Relations;
 
-//     auto prover_polynomials = instance->prover_polynomials;
-//     auto params = instance->relation_parameters;
-//     // Check that each relation is satisfied across each row of the prover polynomials
-//     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
-// }
+    auto prover_polynomials = instance->prover_polynomials;
+    auto params = instance->relation_parameters;
+    // Check that each relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
+}
 
-// TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
-// {
-//     using Flavor = flavor::GoblinUltra;
-//     using FF = typename Flavor::FF;
+TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
+{
+    using Flavor = flavor::GoblinUltra;
+    using FF = typename Flavor::FF;
 
-//     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
-//     // by each relation are non-trivially exercised.
-//     auto builder = proof_system::GoblinUltraCircuitBuilder();
+    // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
+    // by each relation are non-trivially exercised.
+    auto builder = proof_system::GoblinUltraCircuitBuilder();
 
-//     // Create an assortment of representative gates
-//     create_some_add_gates<Flavor>(builder);
-//     create_some_lookup_gates<Flavor>(builder);
-//     create_some_genperm_sort_gates<Flavor>(builder);
-//     create_some_elliptic_curve_addition_gates<Flavor>(builder);
-//     create_some_RAM_gates<Flavor>(builder);
-//     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
+    // Create an assortment of representative gates
+    create_some_add_gates<Flavor>(builder);
+    create_some_lookup_gates<Flavor>(builder);
+    create_some_genperm_sort_gates<Flavor>(builder);
+    create_some_elliptic_curve_addition_gates<Flavor>(builder);
+    create_some_RAM_gates<Flavor>(builder);
+    create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
 
-//     // Create a prover (it will compute proving key and witness)
-//     auto composer = GoblinUltraComposer();
-//     auto instance = composer.create_instance(builder);
-//     auto proving_key = instance->proving_key;
-//     auto circuit_size = proving_key->circuit_size;
+    // Create a prover (it will compute proving key and witness)
+    auto composer = GoblinUltraComposer();
+    auto instance = composer.create_instance(builder);
+    auto proving_key = instance->proving_key;
+    auto circuit_size = proving_key->circuit_size;
 
-//     // Generate eta, beta and gamma
-//     FF eta = FF::random_element();
-//     FF beta = FF::random_element();
-//     FF gamma = FF::random_element();
+    // Generate eta, beta and gamma
+    FF eta = FF::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
-//     instance->initialize_prover_polynomials();
-//     instance->compute_sorted_accumulator_polynomials(eta);
-//     instance->compute_logderivative_inverse(beta, gamma);
-//     instance->compute_grand_product_polynomials(beta, gamma);
+    instance->initialize_prover_polynomials();
+    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_logderivative_inverse(beta, gamma);
+    instance->compute_grand_product_polynomials(beta, gamma);
 
-//     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-//     ensure_non_zero(proving_key->q_arith);
-//     ensure_non_zero(proving_key->q_sort);
-//     ensure_non_zero(proving_key->q_lookup);
-//     ensure_non_zero(proving_key->q_elliptic);
-//     ensure_non_zero(proving_key->q_aux);
-//     ensure_non_zero(proving_key->q_busread);
+    // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
+    ensure_non_zero(proving_key->q_arith);
+    ensure_non_zero(proving_key->q_sort);
+    ensure_non_zero(proving_key->q_lookup);
+    ensure_non_zero(proving_key->q_elliptic);
+    ensure_non_zero(proving_key->q_aux);
+    ensure_non_zero(proving_key->q_busread);
 
-//     ensure_non_zero(proving_key->calldata);
-//     ensure_non_zero(proving_key->calldata_read_counts);
-//     ensure_non_zero(proving_key->lookup_inverses);
+    ensure_non_zero(proving_key->calldata);
+    ensure_non_zero(proving_key->calldata_read_counts);
+    ensure_non_zero(proving_key->lookup_inverses);
 
-//     // Construct the round for applying sumcheck relations and results for storing computed results
-//     using Relations = typename Flavor::Relations;
-//     auto prover_polynomials = instance->prover_polynomials;
-//     auto params = instance->relation_parameters;
+    // Construct the round for applying sumcheck relations and results for storing computed results
+    using Relations = typename Flavor::Relations;
+    auto prover_polynomials = instance->prover_polynomials;
+    auto params = instance->relation_parameters;
 
-//     // Check that each relation is satisfied across each row of the prover polynomials
-//     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
-//     check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
-//     check_linearly_dependent_relation<Flavor, std::tuple_element_t<7, Relations>>(
-//         circuit_size, prover_polynomials, params);
-// }
+    // Check that each relation is satisfied across each row of the prover polynomials
+    check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
+    check_linearly_dependent_relation<Flavor, std::tuple_element_t<7, Relations>>(
+        circuit_size, prover_polynomials, params);
+}
 
 /**
  * @brief Test the correctness of GolbinTranslator's Permutation Relation
