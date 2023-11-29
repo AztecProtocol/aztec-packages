@@ -29,9 +29,8 @@ template <typename T, std::size_t... Ns> std::array<T, (Ns + ...)> concatenate(c
 
     std::size_t offset = 0;
     auto copy_into = [&](const auto& array) {
-        for (const auto& element : array) {
-            result[offset++] = element;
-        }
+        std::copy(array.begin(), array.end(), result.begin() + offset);
+        offset += array.size();
     };
 
     (copy_into(arrays), ...);
