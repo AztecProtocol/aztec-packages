@@ -15,7 +15,7 @@ On this page you will learn:
 
 ## The need for a slow updates tree
 
-This structure was created specifically to privately & publicly access historical public data that is not updated often. It should be used to store data that is not sensitive but needs to be accessible from private smart contracts. Using a slow updates tree, it is possible to:
+This structure was created specifically to privately & publicly access historical public data. It should be used to store public data that doesn't change often.
 
 - Access historic public data from a private function
 - Access historic public data from a public function
@@ -28,15 +28,15 @@ This data structure is ideal for these use cases:
 
 ## How it works
 
-We developed the Slow Update Tree to help balance public and private execution in a blockchain context.
+We developed the Slow Updates Tree to help balance public and private execution in a blockchain context. Earlier systems typically used either fully public or entirely private state trees.
 
-Earlier systems typically used either fully public or entirely private state trees, which led to privacy leaks if reading public data from private state.
+**First iteration: Shared State Tree** 
 
 Using a shared state tree, it is possible to privately access historic public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
 
 ```mermaid
 graph TD;
-    Cm[CommitmentToKnowingAValue] --> Vm1[Value1]
+    Cm[Commmitment1] --> Vm1[Value1]
     Cm --> Vm2[Value2]
     Cm --> Vmn[Value3]
     Vm1 --> Mp1[Membership Proof for Value1]
@@ -44,9 +44,28 @@ graph TD;
     St --> Cm
 ```
 
-However this means that any changes to the commitment will invalidate our membership proof, and make our read fail.
+Note: a *commitment* refers to a cryptographic assurance that a specific set of data is included in the tree. In the current design, we are using Merkle trees to commit to the values.
 
-To solve this, the Slow Update Tree is a dual-tree structure - using a current and pending tree - that updates at the end of an epoch. This way, we can ensure that the values are stable throughout the epoch, and that the membership proofs are not invalidated by changes in other contracts more than once every epoch.
+However, these would be contract-specific trees, so we will be leaking the contract address of the contract doing a lookup. 
+
+**Second iteration: Multi-level Shared State Tree**
+
+This privacy issue can be solved by organizing data into layers, with each contract having its own commitment within a larger tree. Only the top-level commitment is revealed.
+
+```mermaid
+graph TD;
+    C[Top Commitment] -->|Contains| C1[Commitment1]
+    C -->|Contains| Cm[Commitment2]
+    Cm -->|Contains| Vm1[Value1]
+    Cm -->|Contains| Vm2[Value2]
+    Cm -->|Contains| Vmn[Valuen]
+```
+
+However, this means that any canges in any contract's data will change the top-level commitment and invalidate the proofs for all other contracts.
+
+**Third iteration: Slow Updates Tree**
+
+To solve this, the Slow Updates Tree is a dual-tree structure - a current tree and a pending tree. Any updates are added to the pending tree, which then becomes the current tree at the end of an epoch. The pending tree is replicated from the current tree, and the cycle begins again.
 
 ```mermaid
 graph TD;
@@ -63,22 +82,16 @@ graph TD;
     PendingM --> PValueN[Pending Value n]
 ```
 
-### Dual Tree Structure
+This way, we can ensure that the values are stable throughout the epoch, and that the membership proofs are not invalidated by changes in other contracts more than once every epoch.
 
-The Slow Update Tree operates on a dual-tree mechanism - a _current_ tree and a _pending_ tree. These trees manage the state data that needs to be shared between public and private executions.
-
-This _slow update_ mechanism minimizes the invalidation of reads and writes due to concurrent updates.
-
-### Epoch-Based Updates
-
-The current tree is replaced with the pending tree at the end of each epoch. Then a new pending tree is created, the epoch restarts, and the cycle begins again.
+## Reads and Writes
 
 ### Accessing Data
 
-**From public state:** Accessed directly from the state
-**From private state:** Performs a membership proof for the values in the tree, ensuring that they are part of the commitment.
+*From public state:* Accessed directly from the state
+*From private state:* Performs a membership proof for the values in the tree, ensuring that they are part of the commitment.
 
-### Updating Values
+### Updating Data
 
 Updates are made to the pending tree. Then at the end of each epoch, the updates in the pending tree are committed and it becomes the current tree.
 
@@ -86,12 +99,10 @@ Updates are made to the pending tree. Then at the end of each epoch, the updates
 
 ### Delayed State Finality
 
-Updates in the Slow Update Tree are only finalized at the end of an epoch.
+Updates in the Slow Updates Tree are only finalized at the end of an epoch.
 
-This could potentially lead to delays in state changes - for example an address may be added to a blacklist but this will not be reflected in the state until the end of the current epoch.
+Developers are used to instant state updates, so the Slow Updates Tree might take some getting used to. But we believe this won't take long!
 
-### Complexity in State Management
-
-Developers are used to instant state updates, so the Slow Update Tree might take some getting used to. But we believe this won't take long!
+## Dive into the code
 
 For a code walkthrough of how a token blacklist contract can use a slow updates tree, read [this](../../../../dev_docs/contracts/syntax/slow_updates_tree.md).
