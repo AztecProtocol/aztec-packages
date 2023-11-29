@@ -29,10 +29,8 @@ contract InclusionProofs {
         },
         oracle::{
             get_block_header::get_block_header,
+            get_block_data::get_block_data,
             get_membership_witness::{
-                get_membership_witness,
-                MembershipWitness,
-            },
             get_sibling_path::get_sibling_path,
             get_nullifier_membership_witness::{
                 get_low_nullifier_membership_witness,
@@ -111,15 +109,6 @@ contract InclusionProofs {
         //    root.
         let block_header = context.get_block_header(block_number);
 
-        // 2) Get the note from PXE.
-        let private_values = storage.private_values.at(owner.address);
-        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
-        let notes = private_values.get_notes(options);
-        let maybe_note = notes[0];
-
-        // 3) Compute the commitment from the note
-        let note_commitment = if maybe_note.is_some() {
-            note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, maybe_note.unwrap_unchecked())
         } else {
             // Note was not found so we will use the spare commitment
             spare_commitment
