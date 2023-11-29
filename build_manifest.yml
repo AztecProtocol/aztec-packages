@@ -9,7 +9,7 @@ noir-packages:
 noir-acir-tests:
   buildDir: noir/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
-  dockerfile: ../../../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  dockerfile: ../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
   rebuildPatterns:
     - ^noir/test_programs
     - ^barretenberg/acir_tests/Dockerfile.noir_acir_tests
