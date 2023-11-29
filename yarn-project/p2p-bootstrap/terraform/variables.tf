@@ -33,3 +33,7 @@ variable "P2P_MAX_PEERS" {
   type    = string
   default = 100
 }
+
+variable "DOCKERHUB_ACCOUNT" {
+  type = string
+}
