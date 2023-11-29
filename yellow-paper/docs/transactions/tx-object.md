@@ -35,6 +35,7 @@ Output of the last iteration of the private kernel circuit. Includes _accumulate
 | encryptedLogPreimagesLength | Field | Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations. |
 | unencryptedLogPreimagesLength | Field | Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations. |
 | newContracts | NewContractData[] | All the new contracts deployed in this transaction. |
+| maxBlockNum | Field | Maximum block number (inclusive) for inclusion of this transaction in a block. |
 
 **Historic block data**
 
