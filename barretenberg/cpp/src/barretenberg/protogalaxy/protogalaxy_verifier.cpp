@@ -112,6 +112,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
     auto folded_alpha = FF(0);
+    auto folded_parameters = proof_system::RelationParameters<FF>{};
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         auto inst_public_inputs = instance->public_inputs;
@@ -119,6 +120,12 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
             folded_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
         }
         folded_alpha += instance->alpha * lagranges[inst_idx];
+        folded_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
+        folded_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
+        folded_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
+        folded_parameters.public_input_delta += instance->relation_parameters.public_input_delta * lagranges[inst_idx];
+        folded_parameters.lookup_grand_product_delta +=
+            instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
 
     for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
@@ -126,9 +133,31 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (public_input == folded_public_inputs[idx]);
     }
 
-    auto alpha = transcript.template receive_from_prover<FF>("next_alpha");
-    verified = verified & (alpha == folded_alpha);
+    auto next_alpha = transcript.template receive_from_prover<FF>("next_alpha");
+    verified = verified & (next_alpha == folded_alpha);
 
+    auto next_eta = transcript.template receive_from_prover<FF>("next_eta");
+    info(next_eta);
+    info(folded_parameters.eta);
+    verified = verified & (next_eta == folded_parameters.eta);
+    auto next_beta = transcript.template receive_from_prover<FF>("next_beta");
+    info(next_beta);
+    info(folded_parameters.beta);
+    verified = verified & (next_beta == folded_parameters.beta);
+    auto next_gamma = transcript.template receive_from_prover<FF>("next_gamma");
+    verified = verified & (next_gamma == folded_parameters.gamma);
+    info(next_gamma);
+    info(folded_parameters.gamma);
+    auto next_public_input_delta = transcript.template receive_from_prover<FF>("next_public_input_delta");
+    info(next_public_input_delta);
+    info(folded_parameters.public_input_delta);
+    verified = verified & (next_public_input_delta == folded_parameters.public_input_delta);
+    auto next_lookup_grand_product_delta =
+        transcript.template receive_from_prover<FF>("next_lookup_grand_product_delta");
+    verified = verified & (next_lookup_grand_product_delta == folded_parameters.lookup_grand_product_delta);
+    info(next_lookup_grand_product_delta);
+    info(folded_parameters.lookup_grand_product_delta);
+    info(verified);
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto acc_vk_view = acc_vk->pointer_view();
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {

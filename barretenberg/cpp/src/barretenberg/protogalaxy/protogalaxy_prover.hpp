@@ -45,8 +45,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     BaseTranscript<FF> transcript;
 
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(ProverInstances insts)
-        : instances(insts){};
+    ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts)
+        : instances(ProverInstances(insts)){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -367,13 +367,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static void fold_relation_parameters(ProverInstances& instances)
     {
         // array of parameters to be computed
-        auto& folded_parameters = instances.relation_parameters.to_fold;
         size_t param_idx = 0;
-        for (auto& folded_parameter : folded_parameters) {
+        for (auto& folded_parameter : instances.relation_parameters.to_fold) {
             Univariate<FF, ProverInstances::NUM> tmp(0);
             size_t instance_idx = 0;
             for (auto& instance : instances) {
-                tmp.value_at(instance_idx) = instance->relation_parameters.to_fold[param_idx];
+                tmp.value_at(instance_idx) = instance->relation_parameters.to_fold[param_idx].get();
                 instance_idx++;
             }
             folded_parameter.get() = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
@@ -461,6 +460,24 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         next_accumulator->alpha = instances.alpha.evaluate(challenge);
         transcript.send_to_verifier("next_alpha", next_accumulator->alpha);
 
+        auto combined_relation_parameters = instances.relation_parameters;
+        auto folded_relation_parameters = proof_system::RelationParameters<FF>{
+            combined_relation_parameters.eta.evaluate(challenge),
+            combined_relation_parameters.beta.evaluate(challenge),
+            combined_relation_parameters.gamma.evaluate(challenge),
+            combined_relation_parameters.public_input_delta.evaluate(challenge),
+            combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
+        };
+        transcript.send_to_verifier("next_eta", folded_relation_parameters.eta);
+        info(folded_relation_parameters.eta);
+        transcript.send_to_verifier("next_beta", folded_relation_parameters.beta);
+        transcript.send_to_verifier("next_gamma", folded_relation_parameters.gamma);
+        transcript.send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
+        transcript.send_to_verifier("next_lookup_grand_product_delta",
+                                    folded_relation_parameters.lookup_grand_product_delta);
+
+        next_accumulator->relation_parameters = folded_relation_parameters;
+
         auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
                                                         instances[0]->public_inputs.size());
         auto acc_vk_view = acc_vk->pointer_view();
@@ -476,7 +493,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             transcript.send_to_verifier("next_" + labels[idx], (*acc_vk_view[idx]));
         }
 
-        // next_accumulator->relation_parameters = instances.relation_parameters;
         return next_accumulator;
     }
 };
