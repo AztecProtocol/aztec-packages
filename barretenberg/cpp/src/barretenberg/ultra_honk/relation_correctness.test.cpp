@@ -246,8 +246,8 @@ class RelationCorrectnessTests : public ::testing::Test {
  * @details Check that the constraints encoded by the relations are satisfied by the polynomials produced by the
  * Ultra Honk Composer for a real circuit.
  *
- * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for the first few
- * indices
+ * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for the first
+ * few indices
  *
  */
 // TODO(luke): Add a gate that sets q_arith = 3 to check secondary arithmetic relation
