@@ -409,13 +409,24 @@ export class AztecNodeService implements AztecNode {
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
+   *
+   * Note: This function returns the membership witness of the nullifier itself and not the low nullifier when
+   * the nullifier already exists in the tree. This is because the `getPreviousValueIndex` function returns the
+   * index of the nullifier itself when it already exists in the tree.
+   * TODO: This is a confusing behavior and we should eventually address that.
    */
   public async getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState();
-    const { index } = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    const { index, alreadyPresent } = await committedDb.getPreviousValueIndex(
+      MerkleTreeId.NULLIFIER_TREE,
+      nullifier.toBigInt(),
+    );
+    if (alreadyPresent) {
+      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+    }
     const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, index);
     if (!leafData) {
       return undefined;

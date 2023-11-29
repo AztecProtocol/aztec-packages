@@ -138,6 +138,7 @@ contract InclusionProofs {
     fn proveNullifierNonInclusion(
         owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the nullifier does not exists
+        spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
         // TODO: assert that block number is less than the block number of context.block_data
         // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
@@ -151,10 +152,15 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = private_values.get_notes(options);
-        let note = notes[0].unwrap();
+        let maybe_note = notes[0];
 
         // 3) Compute the nullifier from the note
-        let nullifier = note_utils::compute_siloed_nullifier(ValueNoteMethods, note);
+        let nullifier = if maybe_note.is_some() {
+            note_utils::compute_siloed_nullifier(ValueNoteMethods, maybe_note.unwrap_unchecked())
+        } else {
+            // Note was not found so we will use the spare nullifier
+            spare_nullifier
+        };
 
         // 4) Get the membership witness of a low nullifier of the nullifier
         let witness = get_low_nullifier_membership_witness(block_number, nullifier);
@@ -171,18 +177,30 @@ contract InclusionProofs {
         // 5.b) Prove that the low nullifier is smaller than the nullifier
         assert(
             full_field_less_than(witness.leaf_data.value, nullifier),
-            "Proving that low_nullifier.value < nullifier failed"
+            "Proving that low_nullifier.value < nullifier.value failed"
         );
 
         // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
             full_field_greater_than(witness.leaf_data.next_value, nullifier),
-            "Proving that low_nullifier.next_value > nullifier failed"
+            "Proving that low_nullifier.next_value > nullifier.value failed"
         );
 
         // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
         //     was not yet included in the nullifier tree.
+    }
+
+    #[aztec(private)]
+    fn nullifyNote(
+        owner: AztecAddress,
+    ) {
+        let private_values = storage.private_values.at(owner.address);
+        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let notes = private_values.get_notes(options);
+        let note = notes[0].unwrap();
+
+        private_values.remove(note);
     }
 
     // Proves nullifier existed at block `block_number`.

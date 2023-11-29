@@ -48,14 +48,30 @@ describe('e2e_inclusion_proofs_contract', () => {
       // Prove note inclusion in a given block.
       // We prove the note existence at current block number because we don't currently have historical data
       const blockNumber = await pxe.getBlockNumber();
-      await contract.methods.proveNoteInclusion(accounts[0].address, blockNumber).send().wait();
+      await contract.methods.proveNoteInclusion(owner, blockNumber).send().wait();
     }
 
     {
       // Prove that the note has not been nullified
       // We prove the note existence at current block number because we don't currently have historical data
       const blockNumber = await pxe.getBlockNumber();
-      await contract.methods.proveNullifierNonInclusion(accounts[0].address, blockNumber).send().wait();
+      await contract.methods.proveNullifierNonInclusion(owner, blockNumber, 0).send().wait();
+    }
+
+    {
+      // We test the failure case now --> The proof should fail when the nullifier already exists
+      const receipt = await contract.methods.nullifyNote(owner).send().wait({ debug: true });
+      const { newNullifiers } = receipt.debugInfo!;
+      expect(newNullifiers.length).toBe(2);
+
+      const blockNumber = await pxe.getBlockNumber();
+      const nullifier = newNullifiers[1];
+      // Note: getLowNullifierMembershipWitness returns the membership witness of the nullifier itself and not
+      // the low nullifier when the nullifier already exists in the tree and for this reason the execution fails
+      // on low_nullifier.value < nullifier.value check.
+      await expect(
+        contract.methods.proveNullifierNonInclusion(owner, blockNumber, nullifier).send().wait(),
+      ).rejects.toThrowError(/Proving that low_nullifier.value < nullifier.value failed/);
     }
   });
 
