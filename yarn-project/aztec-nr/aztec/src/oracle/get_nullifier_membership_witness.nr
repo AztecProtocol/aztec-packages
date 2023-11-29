@@ -7,7 +7,7 @@ global LEAF_DATA_LENGTH: Field = 3;
 global NULLIFIER_MEMBERSHIP_WITNESS: Field = 24;
 
 // Noir version of LeafData interface from indexed merkle tree.
-// replace with /mnt/user-data/jan/aztec-packages/yarn-project/noir-protocol-circuits/src/crates/rollup-lib/src/abis/nullifier_leaf_preimage.nr
+// TODO(#3470) replace with /mnt/user-data/jan/aztec-packages/yarn-project/noir-protocol-circuits/src/crates/rollup-lib/src/abis/nullifier_leaf_preimage.nr
 struct LeafData {
     value: Field,
     next_index: Field,
