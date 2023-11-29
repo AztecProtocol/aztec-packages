@@ -2,7 +2,7 @@ const TOPICS_IN_TABLE = [
     'Name', 'Summary', 'Expression'
 ];
 const TOPICS_IN_SECTIONS = [
-    'Name', 'Summary', 'Category', 'Args', 'Expression', 'Details', 'Tag checks', 'Tag suboperations'
+    'Name', 'Summary', 'Category', 'Args', 'Expression', 'Details', 'Tag checks', 'Tag updates'
 ];
 const INSTRUCTION_SET = [
     {
@@ -21,7 +21,7 @@ const INSTRUCTION_SET = [
         "Summary": "Addition (a + b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -39,7 +39,7 @@ const INSTRUCTION_SET = [
         "Summary": "Subtraction (a - b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -57,7 +57,7 @@ const INSTRUCTION_SET = [
         "Summary": "Unsigned division (a / b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -75,7 +75,7 @@ const INSTRUCTION_SET = [
         "Summary": "Equality check (a == b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -93,7 +93,7 @@ const INSTRUCTION_SET = [
         "Summary": "Less-than check (a < b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -111,7 +111,7 @@ const INSTRUCTION_SET = [
         "Summary": "Less-than-or-equals check (a <= b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -129,7 +129,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise AND (a & b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -147,7 +147,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise OR (a | b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -165,7 +165,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise XOR (a ^ b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -182,7 +182,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise NOT (inversion)",
         "Details": "",
         "Tag checks": "`T[aOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -200,7 +200,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise leftward shift (a << b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -218,7 +218,7 @@ const INSTRUCTION_SET = [
         "Summary": "Bitwise rightward shift (a >> b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == op-type`",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -235,7 +235,7 @@ const INSTRUCTION_SET = [
         "Summary": "Set a memory word from a constant in the bytecode.",
         "Details": "Set memory word at `dstOffset` to `const`'s immediate value. `const` _cannot be `field` type_!",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -252,7 +252,7 @@ const INSTRUCTION_SET = [
         "Summary": "Move a word from source memory location to destination`.",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = op-type`",
+        "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
         "code": "",
@@ -271,7 +271,7 @@ const INSTRUCTION_SET = [
         "Summary": "Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`).",
         "Details": "One of two source memory locations is chosen based on the condition. `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
+        "Tag updates": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
     },
     {
         "code": "",
@@ -288,7 +288,7 @@ const INSTRUCTION_SET = [
         "Summary": "Type cast",
         "Details": "Cast a word in memory based on the `dest-type` specified in the bytecode.",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = dest-type`",
+        "Tag updates": "`T[dstOffset] = dest-type`",
     },
     {
         "code": "",
@@ -306,7 +306,7 @@ const INSTRUCTION_SET = [
         "Summary": "Copy calldata into memory.",
         "Details": "Calldata is read-only and cannot be directly operated on by other instructions. This instruction moves words from calldata into memory so they can be operated on normally.",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset:dstOffset+size] = field`",
+        "Tag updates": "`T[dstOffset:dstOffset+size] = field`",
     },
     {
         "code": "",
@@ -323,7 +323,7 @@ const INSTRUCTION_SET = [
         "Summary": "Load a word from storage.",
         "Details": "Load a word from this contract's persistent storage into memory.",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = field`",
+        "Tag updates": "`T[dstOffset] = field`",
     },
     {
         "code": "",
@@ -340,7 +340,7 @@ const INSTRUCTION_SET = [
         "Summary": "Write a word to storage.",
         "Details": "Store a word from memory into this contract's persistent storage.",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -356,7 +356,7 @@ const INSTRUCTION_SET = [
         "Summary": "Jump to a location in the bytecode.",
         "Details": "Target location is an immediate value (a constant in the bytecode).",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -373,7 +373,7 @@ const INSTRUCTION_SET = [
         "Summary": "Conditionally jump to a location in the bytecode.",
         "Details": "Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -390,7 +390,7 @@ const INSTRUCTION_SET = [
         "Summary": "Halt execution with `success`, optionally returning some data.",
         "Details": "Return control flow to the calling context/contract.",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -407,7 +407,7 @@ const INSTRUCTION_SET = [
         "Summary": "Halt execution with `failure`, optionally returning some data.",
         "Details": "Return control flow to the calling context/contract.",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -437,7 +437,7 @@ M[successOffset] = call(
                     and then resumes execution in the current CallContext. A non-existent contract or one
                     with no code will return success. Nested call has an incremented \`CallContext.calldepth\`.`,
         "Tag checks": "`T[l1GasOffset] == T[l2GasOffset] == u32`",
-        "Tag suboperations": `
+        "Tag updates": `
 T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field
 `,
@@ -468,7 +468,7 @@ M[successOffset] = staticcall(
         "Summary": "Call into another contract, disallowing persistent state modifications.",
         "Details": "Same as `CALL`, but the callee is cannot modify persistent state. Disallowed instructions are `SSTORE`, `ULOG`, `CALL`.",
         "Tag checks": "`T[l1GasOffset] == T[l2GasOffset] == u32`",
-        "Tag suboperations": `
+        "Tag updates": `
 T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field
 `,
@@ -488,7 +488,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Emit an unencrypted log with data from the `field` memory page",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "",
+        "Tag updates": "",
     },
     {
         "code": "",
@@ -504,7 +504,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get this rollup's L1 chain ID",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -520,7 +520,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get this rollup's L2 version ID",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -536,7 +536,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get this block's number",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -552,7 +552,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get this L2 block's timestamp",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u64`",
+        "Tag updates": "`T[dstOffset] = u64`",
     },
     {
         "code": "",
@@ -568,7 +568,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get the block's beneficiary address",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -584,7 +584,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Total amount of \"L1 gas\" that a block can consume",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -600,7 +600,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Total amount of \"L2 gas\" that a block can consume",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -616,7 +616,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get the transaction's origination address",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -632,7 +632,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "The recipient of fee refunds for this transaction",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -648,7 +648,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "The fee to be paid per \"L1 gas\" - set by the transaction's original caller",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -664,7 +664,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "The fee to be paid per \"L2 gas\" - set by the transaction's original caller",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -680,7 +680,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get the address of the sender (the caller's context)",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -696,7 +696,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get the address of the currently executing l2 contract",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -712,7 +712,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get the address of the l1 portal contract",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -728,7 +728,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get how many calls deep the current call context is",
         "Details": "Note: security issues with EVM's tx.origin can be resolved by asserting the `calldepth == 0`.",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u8`",
+        "Tag updates": "`T[dstOffset] = u8`",
     },
     {
         "code": "",
@@ -744,7 +744,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Remaining \"L1 gas\" for this call (after this instruction).",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -760,7 +760,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Remaining \"L2 gas\" for this call (after this instruction).",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = u32`",
+        "Tag updates": "`T[dstOffset] = u32`",
     },
     {
         "code": "",
@@ -776,7 +776,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Get a root from the HistoricBlockData",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dstOffset] = field`",
+        "Tag updates": "`T[dstOffset] = field`",
     },
     {
         "code": "",
@@ -803,7 +803,7 @@ T[retOffset:retOffset+retSize] = field
         "Summary": "Retrieve an L1-to-L2 message by key",
         "Details": "",
         "Tag checks": "",
-        "Tag suboperations": "`T[dst*Offset] = field`",
+        "Tag updates": "`T[dst*Offset] = field`",
     },
 ];
 

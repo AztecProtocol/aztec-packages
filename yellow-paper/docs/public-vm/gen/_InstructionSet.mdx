@@ -354,7 +354,7 @@ Addition (a + b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] + M[bOffset] mod 2^k`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `SUB` <a id='isa-section-sub'/>
@@ -369,7 +369,7 @@ Subtraction (a - b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `DIV` <a id='isa-section-div'/>
@@ -384,7 +384,7 @@ Unsigned division (a / b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] / M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `EQ` <a id='isa-section-eq'/>
@@ -399,7 +399,7 @@ Equality check (a == b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] == M[bOffset] ? 1 : 0`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `LT` <a id='isa-section-lt'/>
@@ -414,7 +414,7 @@ Less-than check (a < b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] < M[bOffset] ? 1 : 0`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `LTE` <a id='isa-section-lte'/>
@@ -429,7 +429,7 @@ Less-than-or-equals check (a <= b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] <= M[bOffset] ? 1 : 0`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `AND` <a id='isa-section-and'/>
@@ -444,7 +444,7 @@ Bitwise AND (a & b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] AND M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `OR` <a id='isa-section-or'/>
@@ -459,7 +459,7 @@ Bitwise OR (a | b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] OR M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `XOR` <a id='isa-section-xor'/>
@@ -474,7 +474,7 @@ Bitwise XOR (a ^ b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] XOR M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `NOT` <a id='isa-section-not'/>
@@ -488,7 +488,7 @@ Bitwise NOT (inversion)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = NOT M[aOffset]`
 - **Tag checks**: `T[aOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `SHL` <a id='isa-section-shl'/>
@@ -503,7 +503,7 @@ Bitwise leftward shift (a << b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] << M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `SHR` <a id='isa-section-shr'/>
@@ -518,7 +518,7 @@ Bitwise rightward shift (a >> b)
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] >> M[bOffset]`
 - **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `SET` <a id='isa-section-set'/>
@@ -532,7 +532,7 @@ Set a memory word from a constant in the bytecode.
 	- **dstOffset**: memory offset specifying where to store the constant
 - **Expression**: `M[dstOffset] = const`
 - **Details**: Set memory word at `dstOffset` to `const`'s immediate value. `const` _cannot be `field` type_!
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `MOV` <a id='isa-section-mov'/>
@@ -545,7 +545,7 @@ Move a word from source memory location to destination`.
 	- **srcOffset**: memory offset of word to move
 	- **dstOffset**: memory offset specifying where to store that word
 - **Expression**: `M[dstOffset] = M[srcOffset]`
-- **Tag suboperations**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = op-type`
 
 
 ### `CMOV` <a id='isa-section-cmov'/>
@@ -561,7 +561,7 @@ Move a word (conditionally chosen) from one memory location to another (`d = con
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[condOffset] > 0 ? M[aOffset] : M[bOffset]`
 - **Details**: One of two source memory locations is chosen based on the condition. `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.
-- **Tag suboperations**: `T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`
+- **Tag updates**: `T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`
 
 
 ### `CAST` <a id='isa-section-cast'/>
@@ -575,7 +575,7 @@ Type cast
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = cast<dest-type>(M[aOffset])`
 - **Details**: Cast a word in memory based on the `dest-type` specified in the bytecode.
-- **Tag suboperations**: `T[dstOffset] = dest-type`
+- **Tag updates**: `T[dstOffset] = dest-type`
 
 
 ### `CALLDATACOPY` <a id='isa-section-calldatacopy'/>
@@ -590,7 +590,7 @@ Copy calldata into memory.
 	- **dstOffset**: memory offset specifying where to copy the first word to
 - **Expression**: `M[dstOffset:dstOffset+size] = calldata[cdOffset:cdOffset+size]`
 - **Details**: Calldata is read-only and cannot be directly operated on by other instructions. This instruction moves words from calldata into memory so they can be operated on normally.
-- **Tag suboperations**: `T[dstOffset:dstOffset+size] = field`
+- **Tag updates**: `T[dstOffset:dstOffset+size] = field`
 
 
 ### `SLOAD` <a id='isa-section-sload'/>
@@ -604,7 +604,7 @@ Load a word from storage.
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = storage[M[slotOffset]]`
 - **Details**: Load a word from this contract's persistent storage into memory.
-- **Tag suboperations**: `T[dstOffset] = field`
+- **Tag updates**: `T[dstOffset] = field`
 
 
 ### `SSTORE` <a id='isa-section-sstore'/>
@@ -697,7 +697,7 @@ Call into another contract.
                     and then resumes execution in the current CallContext. A non-existent contract or one
                     with no code will return success. Nested call has an incremented `CallContext.calldepth`.
 - **Tag checks**: `T[l1GasOffset] == T[l2GasOffset] == u32`
-- **Tag suboperations**: 
+- **Tag updates**: 
 <CodeBlock language="jsx">
 {`T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field`}
@@ -728,7 +728,7 @@ Call into another contract, disallowing persistent state modifications.
 </CodeBlock>
 - **Details**: Same as `CALL`, but the callee is cannot modify persistent state. Disallowed instructions are `SSTORE`, `ULOG`, `CALL`.
 - **Tag checks**: `T[l1GasOffset] == T[l2GasOffset] == u32`
-- **Tag suboperations**: 
+- **Tag updates**: 
 <CodeBlock language="jsx">
 {`T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field`}
@@ -756,7 +756,7 @@ Get this rollup's L1 chain ID
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.chainId`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `VERSION` <a id='isa-section-version'/>
@@ -768,7 +768,7 @@ Get this rollup's L2 version ID
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.version`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `BLOCKNUMBER` <a id='isa-section-blocknumber'/>
@@ -780,7 +780,7 @@ Get this block's number
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.blocknumber`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `TIMESTAMP` <a id='isa-section-timestamp'/>
@@ -792,7 +792,7 @@ Get this L2 block's timestamp
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.timestamp`
-- **Tag suboperations**: `T[dstOffset] = u64`
+- **Tag updates**: `T[dstOffset] = u64`
 
 
 ### `COINBASE` <a id='isa-section-coinbase'/>
@@ -804,7 +804,7 @@ Get the block's beneficiary address
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.coinbase`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `BLOCKL1GASLIMIT` <a id='isa-section-blockl1gaslimit'/>
@@ -816,7 +816,7 @@ Total amount of "L1 gas" that a block can consume
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.l1GasLimit`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `BLOCKL2GASLIMIT` <a id='isa-section-blockl2gaslimit'/>
@@ -828,7 +828,7 @@ Total amount of "L2 gas" that a block can consume
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = Globals.l2GasLimit`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `ORIGIN` <a id='isa-section-origin'/>
@@ -840,7 +840,7 @@ Get the transaction's origination address
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = TxContext.origin`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `REFUNDEE` <a id='isa-section-refundee'/>
@@ -852,7 +852,7 @@ The recipient of fee refunds for this transaction
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = TxContext.refundee`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `FEEPERL1GAS` <a id='isa-section-feeperl1gas'/>
@@ -864,7 +864,7 @@ The fee to be paid per "L1 gas" - set by the transaction's original caller
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = TxContext.feePerL1Gas`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `FEEPERL2GAS` <a id='isa-section-feeperl2gas'/>
@@ -876,7 +876,7 @@ The fee to be paid per "L2 gas" - set by the transaction's original caller
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = TxContext.feePerL2Gas`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `CALLER` <a id='isa-section-caller'/>
@@ -888,7 +888,7 @@ Get the address of the sender (the caller's context)
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = CallContext.sender`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `ADDRESS` <a id='isa-section-address'/>
@@ -900,7 +900,7 @@ Get the address of the currently executing l2 contract
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = CallContext.storageContractAddress`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `PORTAL` <a id='isa-section-portal'/>
@@ -912,7 +912,7 @@ Get the address of the l1 portal contract
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = CallContext.portalAddress`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `CALLDEPTH` <a id='isa-section-calldepth'/>
@@ -925,7 +925,7 @@ Get how many calls deep the current call context is
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = CallContext.calldepth`
 - **Details**: Note: security issues with EVM's tx.origin can be resolved by asserting the `calldepth == 0`.
-- **Tag suboperations**: `T[dstOffset] = u8`
+- **Tag updates**: `T[dstOffset] = u8`
 
 
 ### `L1GAS` <a id='isa-section-l1gas'/>
@@ -937,7 +937,7 @@ Remaining "L1 gas" for this call (after this instruction).
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = LatestContext.l1Gas`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `L2GAS` <a id='isa-section-l2gas'/>
@@ -949,7 +949,7 @@ Remaining "L2 gas" for this call (after this instruction).
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = LatestContext.l2Gas`
-- **Tag suboperations**: `T[dstOffset] = u32`
+- **Tag updates**: `T[dstOffset] = u32`
 
 
 ### `<HISTORICROOT>` <a id='isa-section-historicroot'/>
@@ -961,7 +961,7 @@ Get a root from the HistoricBlockData
 - **Args**: 
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = HistoricBlockData.<root>`
-- **Tag suboperations**: `T[dstOffset] = field`
+- **Tag updates**: `T[dstOffset] = field`
 
 
 ### `L1L2MSG` <a id='isa-section-l1l2msg'/>
@@ -985,5 +985,5 @@ Retrieve an L1-to-L2 message by key
     M[dstRootOffset]
 } = getL1ToL2Message(M[keyOffset])`}
 </CodeBlock>
-- **Tag suboperations**: `T[dst*Offset] = field`
+- **Tag updates**: `T[dst*Offset] = field`
 
