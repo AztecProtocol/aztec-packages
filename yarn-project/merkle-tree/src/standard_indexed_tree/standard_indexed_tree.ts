@@ -1,9 +1,9 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { SiblingPath } from '@aztec/types';
+import { LeafData, SiblingPath } from '@aztec/types';
 
-import { BatchInsertionResult, IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
+import { BatchInsertionResult, IndexedTree } from '../interfaces/indexed_tree.js';
 import { TreeBase } from '../tree_base.js';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');

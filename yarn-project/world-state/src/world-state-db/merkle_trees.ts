@@ -17,7 +17,6 @@ import {
   AppendOnlyTree,
   BatchInsertionResult,
   IndexedTree,
-  LeafData,
   Pedersen,
   SparseTree,
   StandardIndexedTree,
@@ -26,7 +25,7 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
