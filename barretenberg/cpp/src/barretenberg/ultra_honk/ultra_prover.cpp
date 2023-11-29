@@ -54,13 +54,12 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitment
     }
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // Commit to Goblin ECC op wires
         auto op_wire_comms = instance->witness_commitments.get_ecc_op_wires();
         auto labels = commitment_labels.get_ecc_op_wires();
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             transcript.send_to_verifier(labels[idx], op_wire_comms[idx]);
         }
-        // Commit to DataBus columns
+
         transcript.send_to_verifier(commitment_labels.calldata, instance->witness_commitments.calldata);
         transcript.send_to_verifier(commitment_labels.calldata_read_counts,
                                     instance->witness_commitments.calldata_read_counts);
