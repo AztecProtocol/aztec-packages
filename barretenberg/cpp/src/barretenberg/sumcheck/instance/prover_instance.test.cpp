@@ -62,7 +62,7 @@ template <class Flavor> class InstanceTests : public testing::Test {
 
         // Construct mock sorted list polynomials.
         std::vector<Polynomial> sorted_lists;
-        auto sorted_list_polynomials = instance.proving_key->get_sorted_polynomials();
+        auto sorted_list_polynomials = instance.sorted_polynomials;
         for (auto& sorted_list_poly : sorted_list_polynomials) {
             Polynomial random_polynomial = get_random_polynomial(instance.proving_key->circuit_size);
             sorted_lists.emplace_back(random_polynomial);

@@ -66,7 +66,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
@@ -180,10 +180,6 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         DataType w_r;                  // column 1
         DataType w_o;                  // column 2
         DataType w_4;                  // column 3
-        DataType sorted_1;             // column 4
-        DataType sorted_2;             // column 5
-        DataType sorted_3;             // column 6
-        DataType sorted_4;             // column 7
         DataType sorted_accum;         // column 8
         DataType z_perm;               // column 9
         DataType z_lookup;             // column 10
@@ -200,10 +196,6 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
                             &w_r,
                             &w_o,
                             &w_4,
-                            &sorted_1,
-                            &sorted_2,
-                            &sorted_3,
-                            &sorted_4,
                             &sorted_accum,
                             &z_perm,
                             &z_lookup,
@@ -220,8 +212,6 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
-        // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**

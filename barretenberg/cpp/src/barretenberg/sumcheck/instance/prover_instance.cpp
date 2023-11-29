@@ -66,11 +66,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
         construct_databus_polynomials(circuit);
     }
 
-    // Construct the sorted concatenated list polynomials for the lookup argument
-    polynomial s_1(dyadic_circuit_size);
-    polynomial s_2(dyadic_circuit_size);
-    polynomial s_3(dyadic_circuit_size);
-    polynomial s_4(dyadic_circuit_size);
+    // Initialise the sorted concatenated list polynomials for the lookup argument
+    for (auto& s_i : sorted_polynomials) {
+        s_i = Polynomial(dyadic_circuit_size);
+    }
 
     // The sorted list polynomials have (tables_size + lookups_size) populated entries. We define the index below so
     // that these entries are written into the last indices of the polynomials. The values on the first
@@ -116,20 +115,13 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
 
         for (const auto& entry : lookup_gates) {
             const auto components = entry.to_sorted_list_components(table.use_twin_keys);
-            s_1[s_index] = components[0];
-            s_2[s_index] = components[1];
-            s_3[s_index] = components[2];
-            s_4[s_index] = table_index;
+            sorted_polynomials[0][s_index] = components[0];
+            sorted_polynomials[1][s_index] = components[1];
+            sorted_polynomials[2][s_index] = components[2];
+            sorted_polynomials[3][s_index] = table_index;
             ++s_index;
         }
     }
-
-    // Polynomial memory is zeroed out when constructed with size hint, so we don't have to initialize trailing
-    // space
-    proving_key->sorted_1 = s_1;
-    proving_key->sorted_2 = s_2;
-    proving_key->sorted_3 = s_3;
-    proving_key->sorted_4 = s_4;
 
     // Copy memory read/write record data into proving key. Prover needs to know which gates contain a read/write
     // 'record' witness on the 4th wire. This wire value can only be fully computed once the first 3 wire
@@ -361,6 +353,27 @@ template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomi
     }
 }
 
+/**
+ * @brief Commit to the wire polynomials which are part of the witness with the exception of the fourth wire, which is
+ * only commited to after adding memory records.
+ */
+template <class Flavor> void ProverInstance_<Flavor>::compute_wire_commitments()
+{
+
+    witness_commitments.w_l = commitment_key->commit(proving_key->w_l);
+    witness_commitments.w_r = commitment_key->commit(proving_key->w_r);
+    witness_commitments.w_o = commitment_key->commit(proving_key->w_o);
+
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        witness_commitments.ecc_op_wire_1 = commitment_key->commit(proving_key->ecc_op_wire_1);
+        witness_commitments.ecc_op_wire_2 = commitment_key->commit(proving_key->ecc_op_wire_2);
+        witness_commitments.ecc_op_wire_3 = commitment_key->commit(proving_key->ecc_op_wire_3);
+        witness_commitments.ecc_op_wire_4 = commitment_key->commit(proving_key->ecc_op_wire_4);
+        witness_commitments.calldata = commitment_key->commit(proving_key->calldata);
+        witness_commitments.calldata_read_counts = commitment_key->commit(proving_key->calldata_read_counts);
+    }
+}
+
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
 {
     relation_parameters.eta = eta;
@@ -369,10 +382,14 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
     prover_polynomials.sorted_accum = proving_key->sorted_accum;
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
 
+    witness_commitments.sorted_accum = commitment_key->commit(prover_polynomials.sorted_accum);
+
     // Finalize fourth wire polynomial by adding lookup memory records
     add_plookup_memory_records_to_wire_4(eta);
     prover_polynomials.w_4 = proving_key->w_4;
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
+
+    witness_commitments.w_4 = commitment_key->commit(prover_polynomials.w_4);
 }
 
 /**
@@ -391,8 +408,6 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
     const size_t circuit_size = proving_key->circuit_size;
 
     auto sorted_list_accumulator = Polynomial{ circuit_size };
-
-    auto sorted_polynomials = proving_key->get_sorted_polynomials();
 
     // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
     for (size_t i = 0; i < circuit_size; ++i) {
@@ -463,6 +478,8 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     // Compute permutation and lookup grand product polynomials
     lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
+
+    witness_commitments.lookup_inverses = commitment_key->commit(prover_polynomials.lookup_inverses);
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
@@ -479,6 +496,9 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
 
     // Compute permutation and lookup grand product polynomials
     grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
+
+    witness_commitments.z_perm = commitment_key->commit(prover_polynomials.z_perm);
+    witness_commitments.z_lookup = commitment_key->commit(prover_polynomials.z_lookup);
 }
 
 /**
