@@ -20,6 +20,7 @@
  */
 template <typename T> class RefVector {
   public:
+    RefVector() = default;
     explicit RefVector(const std::vector<T*>& ptr_vector)
         : storage(ptr_vector)
     {}
@@ -99,6 +100,9 @@ template <typename T> class RefVector {
         return ret;
     }
 
+    std::vector<T*>& get_storage() { return storage; }
+    const std::vector<T*>& get_storage() const { return storage; }
+
   private:
     std::vector<T*> storage;
 };
@@ -121,17 +125,19 @@ template <typename T, typename... Ts> RefVector(T&, Ts&...) -> RefVector<T>;
  */
 template <typename T> RefVector<T> concatenate(const RefVector<T>& ref_vector, const auto&... ref_vectors)
 {
-    std::vector<T*> concatenated;
+    RefVector<T> concatenated;
     // Reserve our final space
-    concatenated.reserve(ref_vector.size + (ref_vectors.size() + ...));
+    concatenated.get_storage().reserve(ref_vector.size() + (ref_vectors.size() + ...));
 
-    auto append = [&](const auto& vec) { std::copy(vec.begin(), vec.end(), std::back_inserter(concatenated)); };
+    auto append = [&](const auto& vec) {
+        std::copy(vec.get_storage().begin(), vec.get_storage().end(), std::back_inserter(concatenated.get_storage()));
+    };
 
     append(ref_vector);
     // Unpack and append each RefVector's elements to concatenated
     (append(ref_vectors), ...);
 
-    return RefVector<T>{ concatenated };
+    return concatenated;
 }
 
 template <typename T> static std::vector<RefVector<T>> to_vector_of_ref_vectors(std::vector<std::vector<T>>& vec)
