@@ -18,7 +18,7 @@ Fulfilling these requirements will enable users to privately identify, retrieve,
 
 The network will constrain:
 
-1. The encyrption of a user's note.
+1. The encryption of a user's note.
 2. The generation of the tag for that note.
 3. The publication of that note to the correct data availability layer.
 
@@ -27,7 +27,7 @@ Constraining [note encryption](./encryption-and-decryption.md) and tagging will 
 1. It enables a user to select their preferred [note discovery protocol](./note-discovery.md)  and/or encryption scheme.
 2. It ensures that notes are correctly encrypted with a user's public encryption key.
 3. It ensures that notes are correctly tagged for a user's chosen [note discovery protocol](./note-discovery.md) .
-4. It provides scope for upgrdaing these functions or introducing new schemes as the field progresses.
+4. It provides scope for upgrading these functions or introducing new schemes as the field progresses.
 5. It protects applications from malicious account contracts providing unprovable functions.
 
 Constraining publication to the correct data availability layer will be performed via a combination of the protocol circuits and the rollup contract on L1.
