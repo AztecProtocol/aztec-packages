@@ -981,6 +981,7 @@ jobs:
           name: "Deploy devnet to AWS"
           command: |
             should_deploy || exit 0
+            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
             deploy p2p-bootstrap
             deploy aztec-node
             deploy aztec-faucet
