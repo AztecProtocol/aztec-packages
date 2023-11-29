@@ -212,7 +212,7 @@ impl BaseRollupInputs {
                 let is_less_than_nullifier = full_field_less_than(low_leaf.leaf_value, nullifier);
                 let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_value);
 
-                is_less_than_nullifier & (
+                (!low_leaf.is_empty()) & is_less_than_nullifier & (
                     is_next_greater_than | 
                     ((low_leaf.next_index == 0) & (low_leaf.next_value == 0))
                 )
