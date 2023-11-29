@@ -15,7 +15,7 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
-  HistoricBlockData,
+  HistoricalBlockData,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -52,7 +52,7 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getHistoricBlockData } from './utils.js';
+import { getHistoricalBlockData } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -75,7 +75,7 @@ export class PublicProcessorFactory {
     prevGlobalVariables: GlobalVariables,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockData = await getHistoricBlockData(this.merkleTree, prevGlobalVariables);
+    const blockData = await getHistoricalBlockData(this.merkleTree, prevGlobalVariables);
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
@@ -104,7 +104,7 @@ export class PublicProcessor {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
-    protected blockData: HistoricBlockData,
+    protected blockData: HistoricalBlockData,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
 
@@ -293,7 +293,7 @@ export class PublicProcessor {
       publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      historicBlockData: this.blockData,
+      historicalBlockData: this.blockData,
     });
   }
 

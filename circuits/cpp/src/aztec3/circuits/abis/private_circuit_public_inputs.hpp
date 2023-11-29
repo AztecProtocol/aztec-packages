@@ -3,7 +3,7 @@
 #include "call_context.hpp"
 #include "contract_deployment_data.hpp"
 
-#include "aztec3/circuits/abis/historic_block_data.hpp"
+#include "aztec3/circuits/abis/historical_block_data.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -46,7 +46,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     fr encrypted_log_preimages_length = 0;
     fr unencrypted_log_preimages_length = 0;
 
-    HistoricBlockData<NCT> historic_block_data{};
+    HistoricalBlockData<NCT> historical_block_data{};
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
@@ -69,7 +69,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    unencrypted_logs_hash,
                    encrypted_log_preimages_length,
                    unencrypted_log_preimages_length,
-                   historic_block_data,
+                   historical_block_data,
                    contract_deployment_data,
                    chain_id,
                    version);
@@ -85,7 +85,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
                encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
                unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
-               historic_block_data == other.historic_block_data &&
+               historical_block_data == other.historical_block_data &&
                contract_deployment_data == other.contract_deployment_data && chain_id == other.chain_id &&
                version == other.version;
     };
@@ -122,7 +122,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(encrypted_log_preimages_length),
             to_ct(unencrypted_log_preimages_length),
 
-            to_circuit_type(historic_block_data),
+            to_circuit_type(historical_block_data),
 
             to_circuit_type(contract_deployment_data),
 
@@ -162,7 +162,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(encrypted_log_preimages_length),
             to_nt(unencrypted_log_preimages_length),
 
-            to_native_type(historic_block_data),
+            to_native_type(historical_block_data),
 
             to_native_type(contract_deployment_data),
 
@@ -201,7 +201,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         inputs.push_back(encrypted_log_preimages_length);
         inputs.push_back(unencrypted_log_preimages_length);
 
-        spread_arr_into_vec(historic_block_data.to_array(), inputs);
+        spread_arr_into_vec(historical_block_data.to_array(), inputs);
 
         inputs.push_back(contract_deployment_data.hash());
 
@@ -252,7 +252,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     opt_fr encrypted_log_preimages_length;
     opt_fr unencrypted_log_preimages_length;
 
-    std::optional<HistoricBlockData<NCT>> historic_block_data;
+    std::optional<HistoricalBlockData<NCT>> historical_block_data;
 
     std::optional<ContractDeploymentData<NCT>> contract_deployment_data;
 
@@ -275,7 +275,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    unencrypted_logs_hash,
                    encrypted_log_preimages_length,
                    unencrypted_log_preimages_length,
-                   historic_block_data,
+                   historical_block_data,
                    contract_deployment_data,
                    chain_id,
                    version);
@@ -305,7 +305,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         opt_fr const& encrypted_log_preimages_length,
         opt_fr const& unencrypted_log_preimages_length,
 
-        std::optional<HistoricBlockData<NCT>> const& historic_block_data,
+        std::optional<HistoricalBlockData<NCT>> const& historical_block_data,
 
         std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data,
 
@@ -326,7 +326,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , unencrypted_logs_hash(unencrypted_logs_hash)
         , encrypted_log_preimages_length(encrypted_log_preimages_length)
         , unencrypted_log_preimages_length(unencrypted_log_preimages_length)
-        , historic_block_data(historic_block_data)
+        , historical_block_data(historical_block_data)
         , contract_deployment_data(contract_deployment_data)
         , chain_id(chain_id)
         , version(version){};
@@ -359,7 +359,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         new_inputs.encrypted_log_preimages_length = std::nullopt;
         new_inputs.unencrypted_log_preimages_length = std::nullopt;
 
-        new_inputs.historic_block_data = std::nullopt;
+        new_inputs.historical_block_data = std::nullopt;
 
         new_inputs.contract_deployment_data = std::nullopt;
 
@@ -425,7 +425,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         make_unused_element_zero(builder, encrypted_log_preimages_length);
         make_unused_element_zero(builder, unencrypted_log_preimages_length);
 
-        make_unused_element_zero(builder, historic_block_data);
+        make_unused_element_zero(builder, historical_block_data);
 
         make_unused_element_zero(builder, contract_deployment_data);
 
@@ -465,7 +465,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         (*encrypted_log_preimages_length).set_public();
         (*unencrypted_log_preimages_length).set_public();
 
-        (*historic_block_data).set_public();
+        (*historical_block_data).set_public();
 
         (*contract_deployment_data).set_public();
 
@@ -507,7 +507,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_ct(encrypted_log_preimages_length),
             to_ct(unencrypted_log_preimages_length),
 
-            to_circuit_type(historic_block_data),
+            to_circuit_type(historical_block_data),
 
             to_circuit_type(contract_deployment_data),
 
@@ -549,7 +549,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                                                 to_nt(encrypted_log_preimages_length),
                                                                 to_nt(unencrypted_log_preimages_length),
 
-                                                                to_native_type(historic_block_data),
+                                                                to_native_type(historical_block_data),
 
                                                                 to_native_type(contract_deployment_data),
 
@@ -592,7 +592,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         inputs.push_back(*encrypted_log_preimages_length);
         inputs.push_back(*unencrypted_log_preimages_length);
 
-        spread_arr_opt_into_vec((*historic_block_data).to_array(), inputs);
+        spread_arr_opt_into_vec((*historical_block_data).to_array(), inputs);
 
         inputs.push_back((*contract_deployment_data).hash());
 
@@ -630,7 +630,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             .encrypted_log_preimages_length = encrypted_log_preimages_length.value(),
             .unencrypted_log_preimages_length = unencrypted_log_preimages_length.value(),
 
-            .historic_block_data = historic_block_data.value(),
+            .historical_block_data = historical_block_data.value(),
 
             .contract_deployment_data = contract_deployment_data.value(),
 

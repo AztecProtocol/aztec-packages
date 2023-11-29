@@ -356,7 +356,7 @@
               "name": "block_data",
               "type": {
                 "kind": "struct",
-                "path": "aztec::abi::HistoricBlockData",
+                "path": "aztec::abi::HistoricalBlockData",
                 "fields": [
                   {
                     "name": "note_hash_tree_root",
@@ -623,7 +623,7 @@
               "name": "block_data",
               "type": {
                 "kind": "struct",
-                "path": "aztec::abi::HistoricBlockData",
+                "path": "aztec::abi::HistoricalBlockData",
                 "fields": [
                   {
                     "name": "note_hash_tree_root",

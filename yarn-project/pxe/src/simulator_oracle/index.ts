@@ -6,7 +6,7 @@ import {
   Fr,
   FunctionSelector,
   GrumpkinPrivateKey,
-  HistoricBlockData,
+  HistoricalBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
 import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
@@ -135,12 +135,12 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieve the databases view of the Historic Block Data object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   * Retrieve the databases view of the Historical Block Data object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricBlockData object.
+   * @returns A Promise that resolves to a HistoricalBlockData object.
    */
-  getHistoricBlockData(): Promise<HistoricBlockData> {
-    return Promise.resolve(this.db.getHistoricBlockData());
+  getHistoricalBlockData(): Promise<HistoricalBlockData> {
+    return Promise.resolve(this.db.getHistoricalBlockData());
   }
 }

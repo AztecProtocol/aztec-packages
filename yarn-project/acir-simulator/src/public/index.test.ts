@@ -2,7 +2,7 @@ import {
   CallContext,
   FunctionData,
   GlobalVariables,
-  HistoricBlockData,
+  HistoricalBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
@@ -34,14 +34,14 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockData: HistoricBlockData;
+  let blockData: HistoricalBlockData;
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockData = HistoricBlockData.empty();
+    blockData = HistoricalBlockData.empty();
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 

@@ -3,7 +3,7 @@ import {
   ContractDeploymentData,
   FunctionData,
   GlobalVariables,
-  HistoricBlockData,
+  HistoricalBlockData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
@@ -101,19 +101,19 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 }
 
 /**
- * Converts a historic block data into ACVM fields.
- * @param historicBlockData - The historic block data object to convert.
+ * Converts a historical block data into ACVM fields.
+ * @param historicalBlockData - The historical block data object to convert.
  * @returns The ACVM fields.
  */
-export function toACVMHistoricBlockData(historicBlockData: HistoricBlockData): ACVMField[] {
+export function toACVMHistoricalBlockData(historicalBlockData: HistoricalBlockData): ACVMField[] {
   return [
-    toACVMField(historicBlockData.noteHashTreeRoot),
-    toACVMField(historicBlockData.nullifierTreeRoot),
-    toACVMField(historicBlockData.contractTreeRoot),
-    toACVMField(historicBlockData.l1ToL2MessagesTreeRoot),
-    toACVMField(historicBlockData.blocksTreeRoot),
-    toACVMField(historicBlockData.publicDataTreeRoot),
-    toACVMField(historicBlockData.globalVariablesHash),
+    toACVMField(historicalBlockData.noteHashTreeRoot),
+    toACVMField(historicalBlockData.nullifierTreeRoot),
+    toACVMField(historicalBlockData.contractTreeRoot),
+    toACVMField(historicalBlockData.l1ToL2MessagesTreeRoot),
+    toACVMField(historicalBlockData.blocksTreeRoot),
+    toACVMField(historicalBlockData.publicDataTreeRoot),
+    toACVMField(historicalBlockData.globalVariablesHash),
   ];
 }
 
@@ -156,7 +156,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMHistoricBlockData(publicInputs.historicBlockData),
+    ...toACVMHistoricalBlockData(publicInputs.historicalBlockData),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
 

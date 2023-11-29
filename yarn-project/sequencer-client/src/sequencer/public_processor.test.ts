@@ -9,7 +9,7 @@ import {
   Fr,
   FunctionData,
   GlobalVariables,
-  HistoricBlockData,
+  HistoricalBlockData,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -85,7 +85,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        HistoricBlockData.empty(),
+        HistoricalBlockData.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -140,7 +140,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        HistoricBlockData.empty(),
+        HistoricalBlockData.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );

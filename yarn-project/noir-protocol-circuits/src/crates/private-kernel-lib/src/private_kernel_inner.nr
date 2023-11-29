@@ -59,7 +59,7 @@ impl PrivateKernelInputsInner {
         //TODO(David): feels like update_end_values should happen later
         common::update_end_values(self.private_call, &mut public_inputs);
 
-        // ensure that historic/purported contract tree root matches the one in previous kernel
+        // ensure that historical/purported contract tree root matches the one in previous kernel
         self.validate_contract_tree_root();
 
         let this_call_stack_item = self.private_call.call_stack_item;
@@ -171,7 +171,7 @@ mod tests {
     fn private_function_incorrect_contract_tree_root_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        // Set historic_tree_root to a wrong value (the correct value + 1).
+        // Set historical_tree_root to a wrong value (the correct value + 1).
         let contract_tree_root = builder.previous_kernel.block_data.block.contract_tree_root;
         builder.previous_kernel.block_data.block.contract_tree_root = contract_tree_root + 1;
 

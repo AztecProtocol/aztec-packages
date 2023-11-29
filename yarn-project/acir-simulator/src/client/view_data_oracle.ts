@@ -1,4 +1,4 @@
-import { HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { HistoricalBlockData, PublicKey } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -16,8 +16,8 @@ import { pickNotes } from './pick_notes.js';
 export class ViewDataOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
-    /** Data required to reconstruct the block hash, it contains historic roots. */
-    protected readonly historicBlockData: HistoricBlockData,
+    /** Data required to reconstruct the block hash, it contains historical roots. */
+    protected readonly historicalBlockData: HistoricalBlockData,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
@@ -121,7 +121,7 @@ export class ViewDataOracle extends TypedOracle {
    */
   public async getL1ToL2Message(msgKey: Fr) {
     const message = await this.db.getL1ToL2Message(msgKey);
-    return { ...message, root: this.historicBlockData.l1ToL2MessagesTreeRoot };
+    return { ...message, root: this.historicalBlockData.l1ToL2MessagesTreeRoot };
   }
 
   /**

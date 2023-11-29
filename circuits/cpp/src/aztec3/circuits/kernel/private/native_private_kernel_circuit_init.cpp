@@ -2,7 +2,7 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/historic_block_data.hpp"
+#include "aztec3/circuits/abis/historical_block_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -26,7 +26,7 @@ void initialize_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
     // Define the constants data.
     auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
     auto const constants = CombinedConstantData<NT>{
-        .block_data = private_call_public_inputs.historic_block_data,
+        .block_data = private_call_public_inputs.historical_block_data,
         .tx_context = private_inputs.tx_request.tx_context,
     };
 

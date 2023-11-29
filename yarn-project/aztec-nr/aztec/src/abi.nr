@@ -11,7 +11,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     GENERATOR_INDEX__FUNCTION_ARGS,
-    HISTORIC_BLOCK_DATA_LENGTH,
+    HISTORICAL_BLOCK_DATA_LENGTH,
     CONTRACT_DEPLOYMENT_DATA_LENGTH,
     CALL_CONTEXT_LENGTH,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -93,7 +93,7 @@ impl ContractDeploymentData {
 // docs:start:private-context-inputs
 struct PrivateContextInputs {
     call_context : CallContext,
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
 }
@@ -103,7 +103,7 @@ struct PrivateContextInputs {
 // docs:start:public-context-inputs
 struct PublicContextInputs {
     call_context: CallContext,
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
 
     public_global_variables: PublicGlobalVariables,
 }
@@ -140,8 +140,8 @@ impl CallContext {
     }
 }
 
-// docs:start:historic-block-data
-struct HistoricBlockData {
+// docs:start:historical-block-data
+struct HistoricalBlockData {
     note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
@@ -150,11 +150,11 @@ struct HistoricBlockData {
     public_data_tree_root: Field,
     global_variables_hash: Field,
 }
-// docs:end:historic-block-data
+// docs:end:historical-block-data
 
-impl HistoricBlockData {
+impl HistoricalBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    pub fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
+    pub fn serialize(self) -> [Field; HISTORICAL_BLOCK_DATA_LENGTH] {
         [
             self.note_hash_tree_root,
             self.nullifier_tree_root,
@@ -207,7 +207,7 @@ struct PrivateCircuitPublicInputs {
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
     contract_deployment_data: ContractDeploymentData,
     chain_id: Field,
     version: Field,
@@ -314,7 +314,7 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
     prover_address: Field,
 }
 

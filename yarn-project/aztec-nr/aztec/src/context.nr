@@ -19,7 +19,7 @@ use crate::abi::{
     hash_args,
     CallContext,
     ContractDeploymentData,
-    HistoricBlockData,
+    HistoricalBlockData,
     FunctionData,
     PrivateCircuitPublicInputs,
     PublicCircuitPublicInputs,
@@ -70,7 +70,7 @@ struct PrivateContext {
     new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     // encrypted_logs_preimages: Vec<Field>,
@@ -284,7 +284,7 @@ impl PrivateContext {
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 141),
                 encrypted_log_preimages_length: fields[143],
                 unencrypted_log_preimages_length: fields[144],
-                block_data: HistoricBlockData {
+                block_data: HistoricalBlockData {
                     // Must match order in `private_circuit_public_inputs.hpp`
                     note_hash_tree_root : fields[145],
                     nullifier_tree_root : fields[146],
@@ -386,7 +386,7 @@ impl PrivateContext {
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
-                block_data: HistoricBlockData::empty(),
+                block_data: HistoricalBlockData::empty(),
                 prover_address: 0,
             },
             is_execution_request: true,
@@ -434,7 +434,7 @@ struct PublicContext {
     unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
     unencrypted_logs_preimages_length: Field,
 
-    block_data: HistoricBlockData,
+    block_data: HistoricalBlockData,
     prover_address: Field,
 }
 

@@ -3,7 +3,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
-  HistoricBlockData,
+  HistoricalBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -395,14 +395,14 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the currently committed historic block data.
+   * Returns the currently committed historical block data.
    * @returns The current committed block data.
    */
-  public async getHistoricBlockData(): Promise<HistoricBlockData> {
+  public async getHistoricalBlockData(): Promise<HistoricalBlockData> {
     const committedDb = await this.#getWorldState();
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
-    return new HistoricBlockData(
+    return new HistoricalBlockData(
       roots[MerkleTreeId.NOTE_HASH_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],

@@ -1,4 +1,4 @@
-import { CompleteAddress, Fr, GrumpkinScalar, HistoricBlockData } from '@aztec/circuits.js';
+import { CompleteAddress, Fr, GrumpkinScalar, HistoricalBlockData } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/types';
@@ -14,10 +14,10 @@ describe('Synchronizer', () => {
   let database: Database;
   let synchronizer: TestSynchronizer;
   let roots: Record<MerkleTreeId, Fr>;
-  let blockData: HistoricBlockData;
+  let blockData: HistoricalBlockData;
 
   beforeEach(() => {
-    blockData = HistoricBlockData.random();
+    blockData = HistoricalBlockData.random();
     roots = {
       [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
       [MerkleTreeId.NOTE_HASH_TREE]: blockData.noteHashTreeRoot,
@@ -34,7 +34,7 @@ describe('Synchronizer', () => {
 
   it('sets tree roots from aztec node on initial sync', async () => {
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+    aztecNode.getHistoricalBlockData.mockResolvedValue(blockData);
 
     await synchronizer.initialSync();
 
@@ -55,7 +55,7 @@ describe('Synchronizer', () => {
   it('overrides tree roots from initial sync once current block number is larger', async () => {
     // Initial sync is done on block with height 3
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+    aztecNode.getHistoricalBlockData.mockResolvedValue(blockData);
 
     await synchronizer.initialSync();
     const roots0 = database.getTreeRoots();

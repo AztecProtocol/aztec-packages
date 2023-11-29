@@ -3,7 +3,7 @@ import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  HISTORIC_BLOCKS_TREE_HEIGHT,
+  HISTORICAL_BLOCKS_TREE_HEIGHT,
   KERNELS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
@@ -56,9 +56,9 @@ export class NullifierLeafPreimage {
 export class ConstantRollupData {
   constructor(
     /**
-     * Snapshot of the historic blocks roots tree at the start of the rollup.
+     * Snapshot of the historical blocks roots tree at the start of the rollup.
      */
-    public startHistoricBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startHistoricalBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -100,7 +100,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startHistoricBlocksTreeRootsSnapshot,
+      fields.startHistoricalBlocksTreeRootsSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -140,9 +140,9 @@ export class BaseRollupInputs {
      */
     public startPublicDataTreeRoot: Fr,
     /**
-     * Snapshot of the historic blocks tree at the start of the base rollup circuit.
+     * Snapshot of the historical blocks tree at the start of the base rollup circuit.
      */
-    public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startHistoricalBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
@@ -186,10 +186,10 @@ export class BaseRollupInputs {
       typeof MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP
     >,
     /**
-     * Membership witnesses of historic blocks referred by each of the 2 kernels.
+     * Membership witnesses of historical blocks referred by each of the 2 kernels.
      */
-    public historicBlocksTreeRootMembershipWitnesses: Tuple<
-      MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
+    public historicalBlocksTreeRootMembershipWitnesses: Tuple<
+      MembershipWitness<typeof HISTORICAL_BLOCKS_TREE_HEIGHT>,
       typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
@@ -209,7 +209,7 @@ export class BaseRollupInputs {
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
-      fields.startHistoricBlocksTreeSnapshot,
+      fields.startHistoricalBlocksTreeSnapshot,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,
@@ -217,7 +217,7 @@ export class BaseRollupInputs {
       fields.newContractsSubtreeSiblingPath,
       fields.newPublicDataUpdateRequestsSiblingPaths,
       fields.newPublicDataReadsSiblingPaths,
-      fields.historicBlocksTreeRootMembershipWitnesses,
+      fields.historicalBlocksTreeRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

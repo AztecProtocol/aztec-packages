@@ -10,7 +10,7 @@
 #include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
-#include "aztec3/circuits/abis/historic_block_data.hpp"
+#include "aztec3/circuits/abis/historical_block_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
@@ -34,7 +34,7 @@ using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
-using aztec3::circuits::abis::HistoricBlockData;
+using aztec3::circuits::abis::HistoricalBlockData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::TxContext;
@@ -52,7 +52,7 @@ using aztec3::utils::array_length;
  * @param first_nullifier used when computing nonce for unique_siloed_commitments (note hash tree leaves)
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
- * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_note_hash_tree_root>
+ * @return std::tuple<read_requests, read_request_memberships_witnesses, historical_note_hash_tree_root>
  */
 std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, NOTE_HASH_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
@@ -285,7 +285,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args_vec);
         private_circuit_public_inputs = opt_private_circuit_public_inputs.remove_optionality();
         // TODO(suyash): this should likely be handled as part of the DB/Oracle/Context infrastructure
-        private_circuit_public_inputs.historic_block_data.contract_tree_root = contract_tree_root;
+        private_circuit_public_inputs.historical_block_data.contract_tree_root = contract_tree_root;
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
         private_circuit_public_inputs.unencrypted_logs_hash = unencrypted_logs_hash;
@@ -305,7 +305,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .unencrypted_logs_hash = unencrypted_logs_hash,
             .encrypted_log_preimages_length = encrypted_log_preimages_length,
             .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-            .historic_block_data = HistoricBlockData<NT>{ .contract_tree_root = contract_tree_root },
+            .historical_block_data = HistoricalBlockData<NT>{ .contract_tree_root = contract_tree_root },
             .contract_deployment_data = contract_deployment_data,
         };
     }
@@ -490,9 +490,9 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
         .block_data =
-            HistoricBlockData<NT>{
-                .note_hash_tree_root = private_circuit_public_inputs.historic_block_data.note_hash_tree_root,
-                .contract_tree_root = private_circuit_public_inputs.historic_block_data.contract_tree_root,
+            HistoricalBlockData<NT>{
+                .note_hash_tree_root = private_circuit_public_inputs.historical_block_data.note_hash_tree_root,
+                .contract_tree_root = private_circuit_public_inputs.historical_block_data.contract_tree_root,
             },
         .tx_context = tx_context,
     };

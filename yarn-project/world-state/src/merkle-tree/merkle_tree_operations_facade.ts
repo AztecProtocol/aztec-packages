@@ -127,8 +127,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param globalVariablesHash - The hash of the current global variables to include in the block hash.
    * @returns Empty promise.
    */
-  public updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateHistoricBlocksTree(globalVariablesHash, this.includeUncommitted);
+  public updateHistoricalBlocksTree(globalVariablesHash: Fr): Promise<void> {
+    return this.trees.updateHistoricalBlocksTree(globalVariablesHash, this.includeUncommitted);
   }
 
   /**

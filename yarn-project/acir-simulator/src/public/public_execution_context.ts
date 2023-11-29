@@ -1,4 +1,4 @@
-import { CallContext, FunctionData, FunctionSelector, GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
+import { CallContext, FunctionData, FunctionSelector, GlobalVariables, HistoricalBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,7 +9,7 @@ import {
   TypedOracle,
   toACVMCallContext,
   toACVMGlobalVariables,
-  toACVMHistoricBlockData,
+  toACVMHistoricalBlockData,
   toACVMWitness,
 } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
@@ -31,7 +31,7 @@ export class PublicExecutionContext extends TypedOracle {
      * Data for this execution.
      */
     public readonly execution: PublicExecution,
-    private readonly historicBlockData: HistoricBlockData,
+    private readonly historicalBlockData: HistoricalBlockData,
     private readonly globalVariables: GlobalVariables,
     private readonly packedArgsCache: PackedArgsCache,
     private readonly sideEffectCounter: SideEffectCounter,
@@ -48,7 +48,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Generates the initial witness for a public function.
    * @param args - The arguments to the function.
    * @param callContext - The call context of the function.
-   * @param historicBlockData - Historic Trees roots and data required to reconstruct block hash.
+   * @param historicalBlockData - Historical Trees roots and data required to reconstruct block hash.
    * @param globalVariables - The global variables.
    * @param witnessStartIndex - The index where to start inserting the parameters.
    * @returns The initial witness.
@@ -57,7 +57,7 @@ export class PublicExecutionContext extends TypedOracle {
     const { callContext, args } = this.execution;
     const fields = [
       ...toACVMCallContext(callContext),
-      ...toACVMHistoricBlockData(this.historicBlockData),
+      ...toACVMHistoricalBlockData(this.historicalBlockData),
       ...toACVMGlobalVariables(this.globalVariables),
 
       ...args,
@@ -104,7 +104,7 @@ export class PublicExecutionContext extends TypedOracle {
   public async getL1ToL2Message(msgKey: Fr) {
     // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
     const message = await this.commitmentsDb.getL1ToL2Message(msgKey);
-    return { ...message, root: this.historicBlockData.l1ToL2MessagesTreeRoot };
+    return { ...message, root: this.historicalBlockData.l1ToL2MessagesTreeRoot };
   }
 
   /**
@@ -210,7 +210,7 @@ export class PublicExecutionContext extends TypedOracle {
 
     const context = new PublicExecutionContext(
       nestedExecution,
-      this.historicBlockData,
+      this.historicalBlockData,
       this.globalVariables,
       this.packedArgsCache,
       this.sideEffectCounter,

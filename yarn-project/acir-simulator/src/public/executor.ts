@@ -1,4 +1,4 @@
-import { GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
+import { GlobalVariables, HistoricalBlockData } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractPublicCircuitPublicInputs } from '../acvm/index.js';
@@ -81,7 +81,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockData: HistoricBlockData,
+    private readonly blockData: HistoricalBlockData,
   ) {}
 
   /**

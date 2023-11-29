@@ -3,7 +3,7 @@ import {
   ContractDeploymentData,
   FunctionData,
   FunctionSelector,
-  HistoricBlockData,
+  HistoricalBlockData,
   PublicCallRequest,
   ReadRequestMembershipWitness,
   TxContext,
@@ -20,7 +20,7 @@ import {
   NoteData,
   toACVMCallContext,
   toACVMContractDeploymentData,
-  toACVMHistoricBlockData,
+  toACVMHistoricalBlockData,
   toACVMWitness,
 } from '../acvm/index.js';
 import { SideEffectCounter } from '../common/index.js';
@@ -64,8 +64,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
-    /** Data required to reconstruct the block hash, it contains historic roots. */
-    protected readonly historicBlockData: HistoricBlockData,
+    /** Data required to reconstruct the block hash, it contains historical roots. */
+    protected readonly historicalBlockData: HistoricalBlockData,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
@@ -75,7 +75,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
-    super(contractAddress, historicBlockData, authWitnesses, db, undefined, log);
+    super(contractAddress, historicalBlockData, authWitnesses, db, undefined, log);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -98,7 +98,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     const fields = [
       ...toACVMCallContext(this.callContext),
-      ...toACVMHistoricBlockData(this.historicBlockData),
+      ...toACVMHistoricalBlockData(this.historicalBlockData),
       ...toACVMContractDeploymentData(contractDeploymentData),
 
       this.txContext.chainId,
@@ -326,7 +326,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.historicBlockData,
+      this.historicalBlockData,
       this.authWitnesses,
       this.packedArgsCache,
       this.noteCache,

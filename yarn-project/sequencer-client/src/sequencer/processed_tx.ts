@@ -1,7 +1,7 @@
 import {
   CombinedAccumulatedData,
   Fr,
-  HistoricBlockData,
+  HistoricalBlockData,
   Proof,
   PublicKernelPublicInputs,
   makeEmptyProof,
@@ -88,12 +88,12 @@ export async function makeProcessedTx(
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(
-  historicTreeRoots: HistoricBlockData,
+  historicalTreeRoots: HistoricalBlockData,
   chainId: Fr,
   version: Fr,
 ): Promise<ProcessedTx> {
   const emptyKernelOutput = PublicKernelPublicInputs.empty();
-  emptyKernelOutput.constants.blockData = historicTreeRoots;
+  emptyKernelOutput.constants.blockData = historicalTreeRoots;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   const emptyProof = makeEmptyProof();

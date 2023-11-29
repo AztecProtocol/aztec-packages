@@ -19,8 +19,8 @@ import {
   FunctionData,
   FunctionSelector,
   GlobalVariables,
-  HISTORIC_BLOCKS_TREE_HEIGHT,
-  HistoricBlockData,
+  HISTORICAL_BLOCKS_TREE_HEIGHT,
+  HistoricalBlockData,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -112,7 +112,7 @@ import {
 } from './types/public_kernel_private_previous_types.js';
 import {
   BaseRollupInputs as BaseRollupInputsNoir,
-  HistoricBlocksTreeRootMembershipWitness as HistoricBlocksTreeRootMembershipWitnessNoir,
+  HistoricalBlocksTreeRootMembershipWitness as HistoricalBlocksTreeRootMembershipWitnessNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   NullifierMembershipWitness as NullifierMembershipWitnessNoir,
 } from './types/rollup_base_types.js';
@@ -430,7 +430,7 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
  * @param historicalBlockData - The historical block data.
  * @returns The noir historical block data.
  */
-export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockData): HistoricalBlockDataNoir {
+export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricalBlockData): HistoricalBlockDataNoir {
   return {
     blocks_tree_root: mapFieldToNoir(historicalBlockData.blocksTreeRoot),
     block: {
@@ -450,8 +450,8 @@ export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricBlockD
  * @param historicalBlockData - The noir historical block data.
  * @returns The historical block data.
  */
-export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricBlockData {
-  return new HistoricBlockData(
+export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricalBlockData {
+  return new HistoricalBlockData(
     mapFieldFromNoir(historicalBlockData.block.note_hash_tree_root),
     mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
     mapFieldFromNoir(historicalBlockData.block.contract_tree_root),
@@ -504,7 +504,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     >,
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
-    historical_block_data: mapHistoricalBlockDataToNoir(privateCircuitPublicInputs.historicBlockData),
+    historical_block_data: mapHistoricalBlockDataToNoir(privateCircuitPublicInputs.historicalBlockData),
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
@@ -1067,8 +1067,8 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
  */
 export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
   return {
-    start_historic_blocks_tree_roots_snapshot: mapAppendOnlyTreeSnapshotToNoir(
-      constantRollupData.startHistoricBlocksTreeRootsSnapshot,
+    start_historical_blocks_tree_roots_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      constantRollupData.startHistoricalBlocksTreeRootsSnapshot,
     ),
     private_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.privateKernelVkTreeRoot),
     public_kernel_vk_tree_root: mapFieldToNoir(constantRollupData.publicKernelVkTreeRoot),
@@ -1103,7 +1103,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     new_l2_to_l1_msgs: publicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     unencrypted_logs_hash: publicInputs.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
-    historical_block_data: mapHistoricalBlockDataToNoir(publicInputs.historicBlockData),
+    historical_block_data: mapHistoricalBlockDataToNoir(publicInputs.historicalBlockData),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
   };
@@ -1115,7 +1115,7 @@ export function mapPublicCircuitPublicInputsToNoir(
  */
 export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
   return new ConstantRollupData(
-    mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.start_historic_blocks_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(constantRollupData.start_historical_blocks_tree_roots_snapshot),
     mapFieldFromNoir(constantRollupData.private_kernel_vk_tree_root),
     mapFieldFromNoir(constantRollupData.public_kernel_vk_tree_root),
     mapFieldFromNoir(constantRollupData.base_rollup_vk_hash),
@@ -1283,10 +1283,10 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     start_l1_to_l2_messages_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
       rootRollupInputs.startL1ToL2MessagesTreeSnapshot,
     ),
-    start_historic_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
-      rootRollupInputs.startHistoricBlocksTreeSnapshot,
+    start_historical_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      rootRollupInputs.startHistoricalBlocksTreeSnapshot,
     ),
-    new_historic_blocks_tree_sibling_path: rootRollupInputs.newHistoricBlocksTreeSiblingPath.map(
+    new_historical_blocks_tree_sibling_path: rootRollupInputs.newHistoricalBlocksTreeSiblingPath.map(
       mapFieldToNoir,
     ) as FixedLengthArray<NoirField, 16>,
   };
@@ -1311,20 +1311,20 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_contract_tree_snapshot),
     mapFieldFromNoir(rootRollupPublicInputs.start_public_data_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.end_public_data_tree_root),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historic_note_hash_tree_roots_snapshot),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historic_note_hash_tree_roots_snapshot),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historic_contract_tree_roots_snapshot),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historic_contract_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historical_note_hash_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historical_note_hash_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historical_contract_tree_roots_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historical_contract_tree_roots_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_l1_to_l2_messages_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_l1_to_l2_messages_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(
-      rootRollupPublicInputs.start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+      rootRollupPublicInputs.start_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot,
     ),
     mapAppendOnlyTreeSnapshotFromNoir(
-      rootRollupPublicInputs.end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+      rootRollupPublicInputs.end_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot,
     ),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_historic_blocks_tree_snapshot),
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_historic_blocks_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_historical_blocks_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_historical_blocks_tree_snapshot),
     mapTupleFromNoir(rootRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
   );
@@ -1377,18 +1377,18 @@ export function mapNullifierMembershipWitnessToNoir(
 }
 
 /**
- * Maps a membership witness of the historic blocks tree to noir.
+ * Maps a membership witness of the historical blocks tree to noir.
  * @param membershipWitness - The membership witness.
  * @returns The noir membership witness.
  */
-export function mapHistoricBlocksTreeRootMembershipWitnessToNoir(
-  membershipWitness: MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
-): HistoricBlocksTreeRootMembershipWitnessNoir {
+export function mapHistoricalBlocksTreeRootMembershipWitnessToNoir(
+  membershipWitness: MembershipWitness<typeof HISTORICAL_BLOCKS_TREE_HEIGHT>,
+): HistoricalBlocksTreeRootMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: membershipWitness.siblingPath.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      typeof HISTORIC_BLOCKS_TREE_HEIGHT
+      typeof HISTORICAL_BLOCKS_TREE_HEIGHT
     >,
   };
 }
@@ -1405,7 +1405,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     start_nullifier_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startNullifierTreeSnapshot),
     start_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startContractTreeSnapshot),
     start_public_data_tree_root: mapFieldToNoir(inputs.startPublicDataTreeRoot),
-    start_historic_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startHistoricBlocksTreeSnapshot),
+    start_historical_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startHistoricalBlocksTreeSnapshot),
     low_nullifier_leaf_preimages: inputs.lowNullifierLeafPreimages.map(
       mapNullifierLeafPreimageToNoir,
     ) as FixedLengthArray<NullifierLeafPreimageNoir, 128>,
@@ -1429,9 +1429,9 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     new_public_data_reads_sibling_paths: inputs.newPublicDataReadsSiblingPaths.map(siblingPath =>
       siblingPath.map(mapFieldToNoir),
     ) as FixedLengthArray<FixedLengthArray<NoirField, 254>, 32>,
-    historic_blocks_tree_root_membership_witnesses: inputs.historicBlocksTreeRootMembershipWitnesses.map(
-      mapHistoricBlocksTreeRootMembershipWitnessToNoir,
-    ) as FixedLengthArray<HistoricBlocksTreeRootMembershipWitnessNoir, 2>,
+    historical_blocks_tree_root_membership_witnesses: inputs.historicalBlocksTreeRootMembershipWitnesses.map(
+      mapHistoricalBlocksTreeRootMembershipWitnessToNoir,
+    ) as FixedLengthArray<HistoricalBlocksTreeRootMembershipWitnessNoir, 2>,
     constants: mapConstantRollupDataToNoir(inputs.constants),
   };
 }

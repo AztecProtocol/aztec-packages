@@ -162,8 +162,8 @@ The contract tree contains information about every function of every contract de
 
 ## Trees of historic trees' roots
 
-- `treeOfHistoricNoteHashTreeRoots`: for membership checks against historic roots of the `noteHashTree`
-- `treeOfHistoricContractTreeRoots`: for membership checks against historic roots of the `contractTree`
+- `treeOfHistoricalNoteHashTreeRoots`: for membership checks against historical roots of the `noteHashTree`
+- `treeOfHistoricalContractTreeRoots`: for membership checks against historical roots of the `contractTree`
 
 ## Trees of valid Kernel/Rollup circuit Verification Keys
 

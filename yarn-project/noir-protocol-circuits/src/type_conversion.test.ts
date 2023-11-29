@@ -5,7 +5,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  HistoricBlockData,
+  HistoricalBlockData,
   Point,
   TxContext,
 } from '@aztec/circuits.js';
@@ -86,7 +86,7 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
     });
 
     it('should map historical block data', () => {
-      const historicalBlockData = new HistoricBlockData(
+      const historicalBlockData = new HistoricalBlockData(
         new Fr(35n),
         new Fr(36n),
         new Fr(37n),

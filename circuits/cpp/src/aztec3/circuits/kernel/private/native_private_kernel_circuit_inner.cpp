@@ -58,7 +58,7 @@ void pop_and_validate_this_private_call_hash(
 void validate_contract_tree_root(DummyCircuitBuilder& builder, PrivateKernelInputsInner<NT> const& private_inputs)
 {
     auto const& purported_contract_tree_root =
-        private_inputs.private_call.call_stack_item.public_inputs.historic_block_data.contract_tree_root;
+        private_inputs.private_call.call_stack_item.public_inputs.historical_block_data.contract_tree_root;
     auto const& previous_kernel_contract_tree_root =
         private_inputs.previous_kernel.public_inputs.constants.block_data.contract_tree_root;
     builder.do_assert(
@@ -122,7 +122,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBu
     // TODO(dbanks12): feels like update_end_values should happen later
     common_update_end_values(builder, private_inputs.private_call, public_inputs);
 
-    // ensure that historic/purported contract tree root matches the one in previous kernel
+    // ensure that historical/purported contract tree root matches the one in previous kernel
     validate_contract_tree_root(builder, private_inputs);
 
     const auto private_call_stack_item = private_inputs.private_call.call_stack_item;

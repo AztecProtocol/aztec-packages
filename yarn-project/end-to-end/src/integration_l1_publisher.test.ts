@@ -28,10 +28,10 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  getHistoricBlockData,
+  getHistoricalBlockData,
   getL1Publisher,
   getVerificationKeys,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/sequencer-client';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -152,9 +152,9 @@ describe('L1Publisher integration', () => {
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
-      historicTreeRoots,
+    const historicalTreeRoots = await getHistoricalBlockData(builderDb, prevGlobals);
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(
+      historicalTreeRoots,
       new Fr(chainId),
       new Fr(config.version),
     );
@@ -166,7 +166,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.blockData = await getHistoricBlockData(builderDb, prevGlobals);
+    kernelOutput.constants.blockData = await getHistoricalBlockData(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
