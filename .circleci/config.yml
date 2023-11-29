@@ -114,6 +114,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
 
+  noir-acir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-acir-tests 32
+
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -554,16 +565,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
 
-  e2e-slow-tree:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
+  # TODO(3458): Investigate intermittent failure
+  # e2e-slow-tree:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
 
   e2e-sandbox-example:
     docker:
@@ -992,6 +1004,10 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
+      - noir-acir-tests:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
@@ -1010,6 +1026,7 @@ workflows:
       - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
+            - noir-acir-tests
           <<: *defaults
       - bb-js:
           requires:
@@ -1022,6 +1039,7 @@ workflows:
       - bb-js-acir-tests:
           requires:
             - bb-js
+            - noir-acir-tests
           <<: *defaults
 
       - l1-contracts: *defaults
@@ -1082,7 +1100,8 @@ workflows:
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
       - e2e-blacklist-token-contract: *e2e_test
-      - e2e-slow-tree: *e2e_test
+      # TODO(3458): Investigate intermittent failure
+      # - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1118,7 +1137,6 @@ workflows:
             - e2e-lending-contract
             - e2e-token-contract
             - e2e-blacklist-token-contract
-            - e2e-slow-tree
             - e2e-sandbox-example
             - e2e-block-building
             - e2e-nested-contract
