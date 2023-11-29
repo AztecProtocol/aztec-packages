@@ -573,7 +573,7 @@ T[retOffset:retOffset+retSize] = field
     {
         "code": "",
         "id": "blockl1gaslimit",
-        "Name": "`TXL1GASLIMIT`",
+        "Name": "`BLOCKL1GASLIMIT`",
         "Category": "block info",
         "#memreads": "0",
         "#memwrites": "1",
