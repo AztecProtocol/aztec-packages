@@ -253,7 +253,7 @@ const INSTRUCTION_SET = [
         "Name": "`SET`",
         "Category": "memory",
         "Flags": [
-            {"name": "op-type", "description": OP_TYPE_DESCR},
+            {"name": "op-type", "description": "The [type/size](./Types) to check inputs against and tag the output with. `field` type is NOT supported for SET."},
         ],
         "#memreads": "0",
         "#memwrites": "1",
