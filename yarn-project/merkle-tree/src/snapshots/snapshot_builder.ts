@@ -6,13 +6,13 @@ import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 export interface SnapshotBuilder {
   /**
    * Creates a snapshot of the tree at the given version.
-   * @param version - The version to snapshot the tree at.
+   * @param block - The version to snapshot the tree at.
    */
-  snapshot(version: number): Promise<SiblingPathSource>;
+  snapshot(block: number): Promise<SiblingPathSource>;
 
   /**
    * Returns a snapshot of the tree at the given version.
-   * @param version - The version of the snapshot to return.
+   * @param block - The version of the snapshot to return.
    */
-  getSnapshot(version: number): Promise<SiblingPathSource>;
+  getSnapshot(block: number): Promise<SiblingPathSource>;
 }

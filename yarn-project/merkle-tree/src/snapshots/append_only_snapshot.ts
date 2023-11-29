@@ -7,11 +7,16 @@ import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { SnapshotBuilder } from './snapshot_builder.js';
 
-const nodeVersionKey = (name: string, level: number, index: bigint) =>
-  `snapshot:${name}:node:${level}:${index}:version`;
-const nodePreviousValueKey = (name: string, level: number, index: bigint) =>
-  `snapshot:${name}:node:${level}:${index}:value`;
-const snapshotMetaKey = (name: string, version: number) => `snapshot:${name}:${version}`;
+// stores the last block that modified this node
+const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) =>
+  `snapshot:node:${treeName}:${level}:${index}:block`;
+
+// stores the value of the node at the above block
+const historicalNodeKey = (treeName: string, level: number, index: bigint) =>
+  `snapshot:node:${treeName}:${level}:${index}:value`;
+
+// metadata for a snapshot - currently just the count of leaves
+const snapshotLeafCountKey = (treeName: string, block: number) => `snapshot:leafCount:${treeName}:${block}`;
 
 /**
  * A more space-efficient way of storing snapshots of AppendOnlyTrees that trades space need for slower
@@ -23,27 +28,28 @@ const snapshotMetaKey = (name: string, version: number) => `snapshot:${name}:${v
  * M - count of snapshots
  * H - tree height
  *
- * Space complexity: O(N) (stores the previous value for each node and at which snapshot it was last modified)
+ * Space complexity: O(N + M) (N nodes - stores the last snapshot for each node and M - ints, for each snapshot stores up to which leaf its written to)
  * Sibling path access:
  *  Best case: O(H) database reads + O(1) hashes
  *  Worst case: O(H) database reads + O(H) hashes
  */
 export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
   constructor(private db: LevelUp, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {}
-  async getSnapshot(version: number): Promise<SiblingPathSource> {
-    const filledLeavesAtVersion = await this.#getLeafCountAtVersion(version);
+  async getSnapshot(block: number): Promise<SiblingPathSource> {
+    const leafCount = await this.#getLeafCountAtBlock(block);
 
-    if (typeof filledLeavesAtVersion === 'undefined') {
-      throw new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`);
+    if (typeof leafCount === 'undefined') {
+      throw new Error(`Snapshot for tree ${this.tree.getName()} at block ${block} does not exist`);
     }
 
-    return new AppendOnlySnapshot(this.db, version, filledLeavesAtVersion, this.tree, this.hasher);
+    return new AppendOnlySnapshot(this.db, block, leafCount, this.tree, this.hasher);
   }
 
-  async snapshot(version: number): Promise<SiblingPathSource> {
-    const leafCountAtVersion = await this.#getLeafCountAtVersion(version);
-    if (typeof leafCountAtVersion !== 'undefined') {
-      throw new Error(`Version ${version} of tree ${this.tree.getName()} already exists`);
+  async snapshot(block: number): Promise<SiblingPathSource> {
+    const leafCountAtBlock = await this.#getLeafCountAtBlock(block);
+    if (typeof leafCountAtBlock !== 'undefined') {
+      // no-op, we already have a snapshot
+      return new AppendOnlySnapshot(this.db, block, leafCountAtBlock, this.tree, this.hasher);
     }
 
     const batch = this.db.batch();
@@ -52,15 +58,16 @@ export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
     const treeName = this.tree.getName();
     const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 
-    // walk the BF and update latest values
+    // walk the tree in BF and store latest nodes
     while (queue.length > 0) {
       const [node, level, index] = queue.shift()!;
 
-      const previousValue = await this.db.get(nodePreviousValueKey(treeName, level, index)).catch(() => undefined);
-      if (!previousValue || !node.equals(previousValue)) {
-        // console.log(`Node at ${level}:${index} has changed`);
-        batch.put(nodeVersionKey(treeName, level, index), String(version));
-        batch.put(nodePreviousValueKey(treeName, level, index), node);
+      const historicalValue = await this.db.get(historicalNodeKey(treeName, level, index)).catch(() => undefined);
+      if (!historicalValue || !node.equals(historicalValue)) {
+        // we've never seen this node before or it's different than before
+        // update the historical tree and tag it with the block that modified it
+        batch.put(nodeModifiedAtBlockKey(treeName, level, index), String(block));
+        batch.put(historicalNodeKey(treeName, level, index), node);
       } else {
         // if this node hasn't changed, that means, nothing below it has changed either
         continue;
@@ -72,6 +79,7 @@ export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
         continue;
       }
 
+      // these could be undefined because zero hashes aren't stored in the tree
       const [lhs, rhs] = await Promise.all([
         this.tree.getNode(level + 1, 2n * index),
         this.tree.getNode(level + 1, 2n * index + 1n),
@@ -87,18 +95,18 @@ export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
     }
 
     const leafCount = this.tree.getNumLeaves(false);
-    batch.put(snapshotMetaKey(treeName, version), leafCount);
+    batch.put(snapshotLeafCountKey(treeName, block), String(leafCount));
     await batch.write();
 
-    return new AppendOnlySnapshot(this.db, version, leafCount, this.tree, this.hasher);
+    return new AppendOnlySnapshot(this.db, block, leafCount, this.tree, this.hasher);
   }
 
-  async #getLeafCountAtVersion(version: number): Promise<bigint | undefined> {
-    const filledLeavesAtVersion = await this.db
-      .get(snapshotMetaKey(this.tree.getName(), version))
+  async #getLeafCountAtBlock(block: number): Promise<bigint | undefined> {
+    const leafCount = await this.db
+      .get(snapshotLeafCountKey(this.tree.getName(), block))
       .then(x => BigInt(x.toString()))
       .catch(() => undefined);
-    return filledLeavesAtVersion;
+    return leafCount;
   }
 }
 
@@ -108,13 +116,13 @@ export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
 class AppendOnlySnapshot implements SiblingPathSource {
   constructor(
     private db: LevelUp,
-    private version: number,
-    private leafCountAtVersion: bigint,
+    private block: number,
+    private leafCount: bigint,
     private tree: TreeBase & AppendOnlyTree,
     private hasher: Hasher,
   ) {}
 
-  public async getSiblingPath<N extends number>(index: bigint, _: boolean): Promise<SiblingPath<N>> {
+  public async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const path: Buffer[] = [];
     const depth = this.tree.getDepth();
     let level = depth;
@@ -123,54 +131,55 @@ class AppendOnlySnapshot implements SiblingPathSource {
       const isRight = index & 0x01n;
       const siblingIndex = isRight ? index - 1n : index + 1n;
 
-      const sibling = await this.#getHistoricNodeValue(level, siblingIndex);
+      const sibling = await this.#getHistoricalNodeValue(level, siblingIndex);
       path.push(sibling);
 
       level -= 1;
       index >>= 1n;
     }
 
-    return new SiblingPath<N>(this.tree.getDepth() as N, path);
+    return new SiblingPath<N>(depth as N, path);
   }
 
-  async #getHistoricNodeValue(level: number, index: bigint): Promise<Buffer> {
-    const lastNodeVersion = await this.#getNodeVersion(level, index);
+  async #getHistoricalNodeValue(level: number, index: bigint): Promise<Buffer> {
+    const blockNumber = await this.#getBlockNumberThatModifiedNode(level, index);
 
     // node has never been set
-    if (typeof lastNodeVersion === 'undefined') {
-      // console.log(`node ${level}:${index} not found, returning zero hash`);
+    if (typeof blockNumber === 'undefined') {
       return this.tree.getZeroHash(level);
     }
 
     // node was set some time in the past
-    if (lastNodeVersion <= this.version) {
-      // console.log(`node ${level}:${index} unchanged ${lastNodeVersion} <= ${this.version}`);
-      return this.db.get(nodePreviousValueKey(this.tree.getName(), level, index));
+    if (blockNumber <= this.block) {
+      return this.db.get(historicalNodeKey(this.tree.getName(), level, index));
     }
 
     // the node has been modified since this snapshot was taken
-    // because we're working with an AppendOnly tree, historic leaves never change
+    // because we're working with an AppendOnly tree, historical leaves never change
     // so what we do instead is rebuild this Merkle path up using zero hashes as needed
-    // worst case this will do O(H-1) hashes
+    // worst case this will do O(H) hashes
+    //
+    // we first check if this subtree was touched by the block
+    // compare how many leaves this block added to the leaf interval of this subtree
+    // if they don't intersect then the whole subtree was a hash of zero
+    // if they do then we need to rebuild the merkle tree
     const depth = this.tree.getDepth();
     const leafStart = index * 2n ** BigInt(depth - level);
-    if (leafStart >= this.leafCountAtVersion) {
-      // console.log(`subtree rooted at ${level}:${index} outside of snapshot, returning zero hash`);
+    if (leafStart >= this.leafCount) {
       return this.tree.getZeroHash(level);
     }
 
     const [lhs, rhs] = await Promise.all([
-      this.#getHistoricNodeValue(level + 1, 2n * index),
-      this.#getHistoricNodeValue(level + 1, 2n * index + 1n),
+      this.#getHistoricalNodeValue(level + 1, 2n * index),
+      this.#getHistoricalNodeValue(level + 1, 2n * index + 1n),
     ]);
 
-    // console.log(`recreating node ${level}:${index}`);
     return this.hasher.hash(lhs, rhs);
   }
 
-  async #getNodeVersion(level: number, index: bigint): Promise<number | undefined> {
+  async #getBlockNumberThatModifiedNode(level: number, index: bigint): Promise<number | undefined> {
     try {
-      const value: Buffer | string = await this.db.get(nodeVersionKey(this.tree.getName(), level, index));
+      const value: Buffer | string = await this.db.get(nodeModifiedAtBlockKey(this.tree.getName(), level, index));
       return parseInt(value.toString(), 10);
     } catch (err) {
       return undefined;

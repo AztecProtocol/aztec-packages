@@ -26,16 +26,16 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends S
         await expect(snapshotBuilder.snapshot(1)).resolves.toBeDefined();
       });
 
-      it('refuses to take the same snapshot twice', async () => {
+      it('is idempotent', async () => {
         await modifyTree(tree);
         await tree.commit();
 
-        const version = 1;
-        await snapshotBuilder.snapshot(version);
-        await expect(snapshotBuilder.snapshot(version)).rejects.toThrow();
+        const block = 1;
+        const snapshot = await snapshotBuilder.snapshot(block);
+        await expect(snapshotBuilder.snapshot(block)).resolves.toEqual(snapshot);
       });
 
-      it('returns the same path if tree has not advanced', async () => {
+      it('returns the same path if tree has not diverged', async () => {
         await modifyTree(tree);
         await tree.commit();
         const snapshot = await snapshotBuilder.snapshot(1);
@@ -65,24 +65,6 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends S
         }
       });
 
-      it('returns historic paths at old snapshots', async () => {
-        await modifyTree(tree);
-        await tree.commit();
-        const snapshot = await snapshotBuilder.snapshot(1);
-
-        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
-        const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
-
-        await modifyTree(tree);
-        await tree.commit();
-
-        await snapshotBuilder.snapshot(2);
-
-        for (const [index, path] of historicPaths.entries()) {
-          expect(path).toEqual(expectedPaths[index]);
-        }
-      });
-
       it('retains old snapshots even if new one are created', async () => {
         await modifyTree(tree);
         await tree.commit();
@@ -97,6 +79,31 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends S
         await snapshotBuilder.snapshot(2);
 
         // check that snapshot 2 has not influenced snapshot(1) at all
+        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
+
+        for (const [index, path] of historicPaths.entries()) {
+          expect(path).toEqual(expectedPaths[index]);
+        }
+      });
+
+      it('retains old snapshots even if new one are created and the tree diverges', async () => {
+        await modifyTree(tree);
+        await tree.commit();
+
+        const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
+
+        const snapshot = await snapshotBuilder.snapshot(1);
+
+        await modifyTree(tree);
+        await tree.commit();
+
+        await snapshotBuilder.snapshot(2);
+
+        await modifyTree(tree);
+        await tree.commit();
+
+        // check that snapshot 2 has not influenced snapshot(1) at all
+        // and that the diverging tree does not influence the old snapshot
         const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
 
         for (const [index, path] of historicPaths.entries()) {

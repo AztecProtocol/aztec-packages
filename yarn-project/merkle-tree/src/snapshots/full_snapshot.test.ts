@@ -2,18 +2,18 @@ import levelup, { LevelUp } from 'levelup';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';
 import { createMemDown } from '../test/utils/create_mem_down.js';
-import { IncrementalSnapshotBuilder } from './incremental_snapshot.js';
+import { FullSnapshotBuilder } from './full_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
 describe('FullSnapshotBuilder', () => {
   let tree: StandardTree;
-  let snapshotBuilder: IncrementalSnapshotBuilder;
+  let snapshotBuilder: FullSnapshotBuilder;
   let db: LevelUp;
 
   beforeEach(async () => {
     db = levelup(createMemDown());
     tree = await newTree(StandardTree, db, new Pedersen(), 'test', 4);
-    snapshotBuilder = new IncrementalSnapshotBuilder(db, tree);
+    snapshotBuilder = new FullSnapshotBuilder(db, tree);
   });
 
   describeSnapshotBuilderTestSuite(

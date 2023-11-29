@@ -6,10 +6,12 @@ import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { SnapshotBuilder } from './snapshot_builder.js';
 
+// ket for a node's children
 const snapshotChildKey = (node: Buffer, child: 0 | 1) =>
-  Buffer.concat([Buffer.from('snapshot'), node, Buffer.from(String(child))]);
+  Buffer.concat([Buffer.from('snapshot:node:'), node, Buffer.from(':' + child)]);
 
-const snapshotRootKey = (treeName: string, version: number) => `snapshot:${treeName}:${version}`;
+// metadata for a snapshot - the root of the historical tree
+const snapshotRootKey = (treeName: string, block: number) => `snapshot:root:${treeName}:${block}`;
 
 /**
  * Builds a full snapshot of a tree. This implementation works for any Merkle tree and stores
@@ -25,14 +27,14 @@ const snapshotRootKey = (treeName: string, version: number) => `snapshot:${treeN
  * Worst case space complexity: O(N * M)
  * Sibling path access: O(H) database reads
  */
-export class IncrementalSnapshotBuilder implements SnapshotBuilder {
+export class FullSnapshotBuilder implements SnapshotBuilder {
   constructor(private db: LevelUp, private tree: TreeBase) {}
 
-  async snapshot(version: number): Promise<SiblingPathSource> {
-    const existingRoot = await this.#getRootAtVersion(version);
+  async snapshot(block: number): Promise<SiblingPathSource> {
+    const historicalRoot = await this.#getRootAtBlock(block);
 
-    if (existingRoot) {
-      throw new Error(`Version ${version} for tree ${this.tree.getName()} already exists`);
+    if (historicalRoot) {
+      return new FullSnapshot(this.db, historicalRoot, this.tree);
     }
 
     const batch = this.db.batch();
@@ -40,7 +42,7 @@ export class IncrementalSnapshotBuilder implements SnapshotBuilder {
     const depth = this.tree.getDepth();
     const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 
-    // walk the tree BF and store each of its nodes in the database
+    // walk the tree breadth-first and store each of its nodes in the database
     // for each node we save two keys
     //   <node hash>:0 -> <left child's hash>
     //   <node hash>:1 -> <right child's hash>
@@ -49,6 +51,7 @@ export class IncrementalSnapshotBuilder implements SnapshotBuilder {
       // check if the database already has a child for this tree
       // if it does, then we know we've seen the whole subtree below it before
       // and we don't have to traverse it anymore
+      // we use the left child here, but it could be anything that shows we've stored the node before
       const exists: Buffer | undefined = await this.db.get(snapshotChildKey(node, 0)).catch(() => undefined);
       if (exists) {
         continue;
@@ -81,34 +84,38 @@ export class IncrementalSnapshotBuilder implements SnapshotBuilder {
       }
     }
 
-    batch.put(snapshotRootKey(this.tree.getName(), version), root);
+    batch.put(snapshotRootKey(this.tree.getName(), block), root);
     await batch.write();
 
-    return new IncrementalSnapshot(this.db, root, this.tree);
+    return new FullSnapshot(this.db, root, this.tree);
   }
 
   async getSnapshot(version: number): Promise<SiblingPathSource> {
-    const historicRoot = await this.#getRootAtVersion(version);
+    const historicRoot = await this.#getRootAtBlock(version);
 
     if (!historicRoot) {
       throw new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`);
     }
 
-    return new IncrementalSnapshot(this.db, historicRoot, this.tree);
+    return new FullSnapshot(this.db, historicRoot, this.tree);
   }
 
-  #getRootAtVersion(version: number): Promise<Buffer | undefined> {
-    return this.db.get(snapshotRootKey(this.tree.getName(), version)).catch(() => undefined);
+  async #getRootAtBlock(version: number): Promise<Buffer | undefined> {
+    try {
+      return await this.db.get(snapshotRootKey(this.tree.getName(), version));
+    } catch (err) {
+      return undefined;
+    }
   }
 }
 
 /**
  * A source of sibling paths from a snapshot tree
  */
-class IncrementalSnapshot implements SiblingPathSource {
+class FullSnapshot implements SiblingPathSource {
   constructor(private db: LevelUp, private historicRoot: Buffer, private tree: TreeBase) {}
 
-  async getSiblingPath<N extends number>(index: bigint, _includeUncommitted: boolean): Promise<SiblingPath<N>> {
+  async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const root = this.historicRoot;
     const pathFromRoot = this.#getPathFromRoot(index);
     const siblings: Buffer[] = [];
