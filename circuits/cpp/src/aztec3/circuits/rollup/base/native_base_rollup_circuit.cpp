@@ -140,7 +140,7 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
 
     for (size_t i = 0; i < 2; i++) {
         // Rebuild the block hash
-        auto historical_block = baseRollupInputs.kernel_data[i].public_inputs.constants.block_data;
+        auto historical_block = baseRollupInputs.kernel_data[i].public_inputs.constants.block_header;
 
         auto note_hash_tree_root = historical_block.note_hash_tree_root;
         auto nullifier_tree_root = historical_block.nullifier_tree_root;

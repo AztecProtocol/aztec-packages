@@ -4,6 +4,7 @@ import {
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockHeader,
   CallContext,
   CallRequest,
   CallerContext,
@@ -20,7 +21,6 @@ import {
   FunctionSelector,
   GlobalVariables,
   HISTORICAL_BLOCKS_TREE_HEIGHT,
-  HistoricalBlockData,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -64,6 +64,7 @@ import {
 import { Tuple } from '@aztec/foundation/serialize';
 
 import {
+  BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
@@ -75,7 +76,6 @@ import {
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
-  HistoricalBlockData as HistoricalBlockDataNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
   Address as NoirAztecAddress,
@@ -427,39 +427,39 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
 
 /**
  * Maps a historical block data to a noir historical block data.
- * @param historicalBlockData - The historical block data.
+ * @param blockHeader - The historical block data.
  * @returns The noir historical block data.
  */
-export function mapHistoricalBlockDataToNoir(historicalBlockData: HistoricalBlockData): HistoricalBlockDataNoir {
+export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
   return {
-    blocks_tree_root: mapFieldToNoir(historicalBlockData.blocksTreeRoot),
+    blocks_tree_root: mapFieldToNoir(blockHeader.blocksTreeRoot),
     block: {
-      note_hash_tree_root: mapFieldToNoir(historicalBlockData.noteHashTreeRoot),
-      nullifier_tree_root: mapFieldToNoir(historicalBlockData.nullifierTreeRoot),
-      contract_tree_root: mapFieldToNoir(historicalBlockData.contractTreeRoot),
-      l1_to_l2_messages_tree_root: mapFieldToNoir(historicalBlockData.l1ToL2MessagesTreeRoot),
-      public_data_tree_root: mapFieldToNoir(historicalBlockData.publicDataTreeRoot),
-      global_variables_hash: mapFieldToNoir(historicalBlockData.globalVariablesHash),
+      note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
+      nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),
+      contract_tree_root: mapFieldToNoir(blockHeader.contractTreeRoot),
+      l1_to_l2_messages_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessagesTreeRoot),
+      public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
+      global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
     },
-    private_kernel_vk_tree_root: mapFieldToNoir(historicalBlockData.privateKernelVkTreeRoot),
+    private_kernel_vk_tree_root: mapFieldToNoir(blockHeader.privateKernelVkTreeRoot),
   };
 }
 
 /**
  * Maps a noir historical block data to a historical block data.
- * @param historicalBlockData - The noir historical block data.
+ * @param blockHeader - The noir historical block data.
  * @returns The historical block data.
  */
-export function mapHistoricalBlockDataFromNoir(historicalBlockData: HistoricalBlockDataNoir): HistoricalBlockData {
-  return new HistoricalBlockData(
-    mapFieldFromNoir(historicalBlockData.block.note_hash_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.nullifier_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.contract_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.l1_to_l2_messages_tree_root),
-    mapFieldFromNoir(historicalBlockData.blocks_tree_root),
-    mapFieldFromNoir(historicalBlockData.private_kernel_vk_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.public_data_tree_root),
-    mapFieldFromNoir(historicalBlockData.block.global_variables_hash),
+export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeader {
+  return new BlockHeader(
+    mapFieldFromNoir(blockHeader.block.note_hash_tree_root),
+    mapFieldFromNoir(blockHeader.block.nullifier_tree_root),
+    mapFieldFromNoir(blockHeader.block.contract_tree_root),
+    mapFieldFromNoir(blockHeader.block.l1_to_l2_messages_tree_root),
+    mapFieldFromNoir(blockHeader.blocks_tree_root),
+    mapFieldFromNoir(blockHeader.private_kernel_vk_tree_root),
+    mapFieldFromNoir(blockHeader.block.public_data_tree_root),
+    mapFieldFromNoir(blockHeader.block.global_variables_hash),
   );
 }
 
@@ -504,7 +504,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     >,
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
-    historical_block_data: mapHistoricalBlockDataToNoir(privateCircuitPublicInputs.historicalBlockData),
+    block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.blockHeader),
     contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
@@ -887,7 +887,7 @@ export function mapCombinedAccumulatedDataToNoir(
  */
 export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
   return new CombinedConstantData(
-    mapHistoricalBlockDataFromNoir(combinedConstantData.block_data),
+    mapBlockHeaderFromNoir(combinedConstantData.block_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
   );
 }
@@ -899,7 +899,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
  */
 export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
   return {
-    block_data: mapHistoricalBlockDataToNoir(combinedConstantData.blockData),
+    block_header: mapBlockHeaderToNoir(combinedConstantData.blockHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
   };
 }
@@ -1103,7 +1103,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     new_l2_to_l1_msgs: publicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     unencrypted_logs_hash: publicInputs.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
-    historical_block_data: mapHistoricalBlockDataToNoir(publicInputs.historicalBlockData),
+    block_header: mapBlockHeaderToNoir(publicInputs.blockHeader),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
   };

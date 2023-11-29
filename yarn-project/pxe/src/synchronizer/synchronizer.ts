@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, HistoricalBlockData, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -68,13 +68,10 @@ export class Synchronizer {
   }
 
   protected async initialSync() {
-    const [blockNumber, historicalBlockData] = await Promise.all([
-      this.node.getBlockNumber(),
-      this.node.getHistoricalBlockData(),
-    ]);
+    const [blockNumber, blockHeader] = await Promise.all([this.node.getBlockNumber(), this.node.getBlockHeader()]);
     this.initialSyncBlockNumber = blockNumber;
     this.synchedToBlock = this.initialSyncBlockNumber;
-    await this.db.setHistoricalBlockData(historicalBlockData);
+    await this.db.setBlockHeader(blockHeader);
   }
 
   protected async work(limit = 1, retryInterval = 1000): Promise<void> {
@@ -204,7 +201,7 @@ export class Synchronizer {
     }
 
     const globalsHash = computeGlobalsHash(latestBlock.block.globalVariables);
-    const blockData = new HistoricalBlockData(
+    const blockHeader = new BlockHeader(
       block.endNoteHashTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,
@@ -215,7 +212,7 @@ export class Synchronizer {
       globalsHash,
     );
 
-    await this.db.setHistoricalBlockData(blockData);
+    await this.db.setBlockHeader(blockHeader);
   }
 
   /**

@@ -171,14 +171,14 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 
     // Set historical tree roots data in the public inputs.
     for (size_t i = 0; i < 2; i++) {
-        kernel_data[i].public_inputs.constants.block_data.note_hash_tree_root = note_hash_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.nullifier_tree_root = nullifier_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.nullifier_tree_root = nullifier_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.contract_tree_root = contract_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.l1_to_l2_messages_tree_root = l1_to_l2_msg_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.blocks_tree_root = historical_blocks_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.public_data_tree_root = public_data_tree.root();
-        kernel_data[i].public_inputs.constants.block_data.global_variables_hash = prev_global_variables_hash;
+        kernel_data[i].public_inputs.constants.block_header.note_hash_tree_root = note_hash_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.nullifier_tree_root = nullifier_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.nullifier_tree_root = nullifier_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.contract_tree_root = contract_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.l1_to_l2_messages_tree_root = l1_to_l2_msg_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.blocks_tree_root = historical_blocks_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.public_data_tree_root = public_data_tree.root();
+        kernel_data[i].public_inputs.constants.block_header.global_variables_hash = prev_global_variables_hash;
     }
 
     // Then we collect all sibling paths for the reads in the left tx, and then apply the update requests while

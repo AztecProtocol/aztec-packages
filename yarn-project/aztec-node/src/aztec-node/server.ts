@@ -1,9 +1,9 @@
 import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
 import {
+  BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
-  HistoricalBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -398,11 +398,11 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed historical block data.
    * @returns The current committed block data.
    */
-  public async getHistoricalBlockData(): Promise<HistoricalBlockData> {
+  public async getBlockHeader(): Promise<BlockHeader> {
     const committedDb = await this.#getWorldState();
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
-    return new HistoricalBlockData(
+    return new BlockHeader(
       roots[MerkleTreeId.NOTE_HASH_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],

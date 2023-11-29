@@ -1,4 +1,4 @@
-import { FunctionSelector, HistoricalBlockData } from '@aztec/circuits.js';
+import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -34,7 +34,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       ContractData,
       Fr,
       FunctionSelector,
-      HistoricalBlockData,
+      BlockHeader,
       L2Block,
       L2Tx,
       LogId,

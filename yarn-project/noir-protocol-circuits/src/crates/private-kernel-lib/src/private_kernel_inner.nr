@@ -22,8 +22,8 @@ impl PrivateKernelInputsInner {
     }
 
     fn validate_contract_tree_root(self) {
-        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.historical_block_data.contract_tree_root();
-        let previous_kernel_contract_tree_root = self.previous_kernel.public_inputs.constants.block_data.contract_tree_root();
+        let purported_contract_tree_root = self.private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
+        let previous_kernel_contract_tree_root = self.previous_kernel.public_inputs.constants.block_header.contract_tree_root();
 
         assert(purported_contract_tree_root == previous_kernel_contract_tree_root, "purported_contract_tree_root does not match previous_kernel_contract_tree_root");
     }
@@ -52,7 +52,7 @@ impl PrivateKernelInputsInner {
         self.pop_and_validate_this_private_call_hash(&mut public_inputs);
 
         common::validate_read_requests(
-            public_inputs.constants.block_data.note_hash_tree_root(),
+            public_inputs.constants.block_header.note_hash_tree_root(),
             self.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
             self.private_call.read_request_membership_witnesses);
 
@@ -172,8 +172,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Set historical_tree_root to a wrong value (the correct value + 1).
-        let contract_tree_root = builder.previous_kernel.block_data.block.contract_tree_root;
-        builder.previous_kernel.block_data.block.contract_tree_root = contract_tree_root + 1;
+        let contract_tree_root = builder.previous_kernel.block_header.block.contract_tree_root;
+        builder.previous_kernel.block_header.block.contract_tree_root = contract_tree_root + 1;
 
         builder.failed();
     }
@@ -608,8 +608,8 @@ mod tests {
         builder.private_call.append_read_requests(1);
 
         // Set the root to be a different root so the above read request is not under this root.
-        let old_root = builder.previous_kernel.block_data.block.note_hash_tree_root;
-        builder.previous_kernel.block_data.block.note_hash_tree_root = old_root + 1;
+        let old_root = builder.previous_kernel.block_header.block.note_hash_tree_root;
+        builder.previous_kernel.block_header.block.note_hash_tree_root = old_root + 1;
 
         builder.failed();
     }

@@ -1,12 +1,12 @@
 import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  BlockHeader,
   CompleteAddress,
   EthAddress,
   Fr,
   FunctionSelector,
   GrumpkinPrivateKey,
-  HistoricalBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
 import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
@@ -138,9 +138,9 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Historical Block Data object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricalBlockData object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHistoricalBlockData(): Promise<HistoricalBlockData> {
-    return Promise.resolve(this.db.getHistoricalBlockData());
+  getBlockHeader(): Promise<BlockHeader> {
+    return Promise.resolve(this.db.getBlockHeader());
   }
 }

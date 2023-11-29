@@ -1,4 +1,4 @@
-import { HistoricalBlockData } from '@aztec/circuits.js';
+import { BlockHeader } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -149,7 +149,7 @@ export interface AztecNode extends StateInfoProvider {
    * Returns the currently committed historical block data.
    * @returns The current committed block data.
    */
-  getHistoricalBlockData(): Promise<HistoricalBlockData>;
+  getBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Simulates the public part of a transaction with the current state.

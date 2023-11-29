@@ -1,4 +1,4 @@
-import { CompleteAddress, HistoricalBlockData, PublicKey } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/types';
@@ -98,17 +98,17 @@ export interface Database extends ContractDatabase {
    *
    * note: this data is a combination of the tree roots and the global variables hash.
    */
-  getHistoricalBlockData(): HistoricalBlockData;
+  getBlockHeader(): BlockHeader;
 
   /**
    * Set the latest Historical Block Data.
    * This function updates the 'global variables hash' and `tree roots` property of the instance
    * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param historicalBlockData - An object containing the most recent historical block data.
+   * @param blockHeader - An object containing the most recent historical block data.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHistoricalBlockData(historicalBlockData: HistoricalBlockData): Promise<void>;
+  setBlockHeader(blockHeader: BlockHeader): Promise<void>;
 
   /**
    * Adds complete address to the database.

@@ -1,4 +1,4 @@
-import { CompleteAddress, GrumpkinPrivateKey, HistoricalBlockData, PublicKey } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, GrumpkinPrivateKey, PublicKey } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -111,7 +111,7 @@ export interface DBOracle extends CommitmentsDB {
    * Retrieve the databases view of the Historical Block Data object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricalBlockData object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHistoricalBlockData(): Promise<HistoricalBlockData>;
+  getBlockHeader(): Promise<BlockHeader>;
 }

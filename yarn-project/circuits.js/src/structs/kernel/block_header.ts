@@ -5,14 +5,14 @@ import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 
 /**
- * The string encoding used for serializing HistoricalBlockData objects.
+ * The string encoding used for serializing BlockHeader objects.
  */
 const STRING_ENCODING: BufferEncoding = 'hex';
 
 /**
  * Information about the tree roots used for both public and private kernels.
  */
-export class HistoricalBlockData {
+export class BlockHeader {
   constructor(
     /**
      * Root of the note hash tree at the time of when this information was assembled.
@@ -48,12 +48,12 @@ export class HistoricalBlockData {
     public globalVariablesHash: Fr,
   ) {}
 
-  static from(fields: FieldsOf<HistoricalBlockData>) {
-    return new HistoricalBlockData(...HistoricalBlockData.getFields(fields));
+  static from(fields: FieldsOf<BlockHeader>) {
+    return new BlockHeader(...BlockHeader.getFields(fields));
   }
 
   static random() {
-    return new HistoricalBlockData(
+    return new BlockHeader(
       Fr.random(),
       Fr.random(),
       Fr.random(),
@@ -65,7 +65,7 @@ export class HistoricalBlockData {
     );
   }
 
-  static getFields(fields: FieldsOf<HistoricalBlockData>) {
+  static getFields(fields: FieldsOf<BlockHeader>) {
     return [
       fields.noteHashTreeRoot,
       fields.nullifierTreeRoot,
@@ -79,7 +79,7 @@ export class HistoricalBlockData {
   }
 
   toBuffer() {
-    return serializeToBuffer(...HistoricalBlockData.getFields(this));
+    return serializeToBuffer(...BlockHeader.getFields(this));
   }
 
   toString() {
@@ -106,7 +106,7 @@ export class HistoricalBlockData {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new HistoricalBlockData(
+    return new BlockHeader(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -119,7 +119,7 @@ export class HistoricalBlockData {
   }
 
   static fromString(str: string) {
-    return HistoricalBlockData.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return BlockHeader.fromBuffer(Buffer.from(str, STRING_ENCODING));
   }
 
   isEmpty() {
@@ -136,6 +136,6 @@ export class HistoricalBlockData {
   }
 
   static empty() {
-    return new HistoricalBlockData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new BlockHeader(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }

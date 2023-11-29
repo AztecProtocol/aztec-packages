@@ -57,7 +57,7 @@ import {
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getHistoricalBlockData } from '../sequencer/utils.js';
+import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
@@ -115,7 +115,7 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicalTreeRoots = await getHistoricalBlockData(builderDb);
+    const historicalTreeRoots = await getBlockHeader(builderDb);
     return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
   };
 
@@ -162,7 +162,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.blockData = await getHistoricalBlockData(expectsDb);
+    kernelOutput.constants.blockHeader = await getBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -298,7 +298,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.blockData = await getHistoricalBlockData(builderDb);
+      kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

@@ -9,6 +9,7 @@ import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockHeader,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CONTRACT_TREE_HEIGHT,
   CallContext,
@@ -29,7 +30,6 @@ import {
   FunctionSelector,
   G1AffineElement,
   HISTORICAL_BLOCKS_TREE_HEIGHT,
-  HistoricalBlockData,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -119,8 +119,8 @@ export function makeTxContext(seed: number): TxContext {
  * @param seed - The seed to use for generating the combined historical tree roots.
  * @returns A combined historical tree roots object.
  */
-export function makeHistoricalBlockData(seed: number): HistoricalBlockData {
-  return new HistoricalBlockData(
+export function makeBlockHeader(seed: number): BlockHeader {
+  return new BlockHeader(
     fr(seed),
     fr(seed + 1),
     fr(seed + 2),
@@ -138,7 +138,7 @@ export function makeHistoricalBlockData(seed: number): HistoricalBlockData {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHistoricalBlockData(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeBlockHeader(seed), makeTxContext(seed + 4));
 }
 
 /**
@@ -340,7 +340,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    makeHistoricalBlockData(seed + 0xa00),
+    makeBlockHeader(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -679,7 +679,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    historicalBlockData: makeHistoricalBlockData(seed + 0xd00),
+    blockHeader: makeBlockHeader(seed + 0xd00),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
