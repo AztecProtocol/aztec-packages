@@ -53,15 +53,14 @@ function getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitness
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const encodeTreeValue = (leafData: LeafData) => {
+export const encodeTreeValue = (leafData: LeafData) => {
   const valueAsBuffer = toBufferBE(leafData.value, 32);
   const indexAsBuffer = toBufferBE(leafData.nextIndex, 32);
   const nextValueAsBuffer = toBufferBE(leafData.nextValue, 32);
   return Buffer.concat([valueAsBuffer, indexAsBuffer, nextValueAsBuffer]);
 };
 
-const decodeTreeValue = (buf: Buffer) => {
+export const decodeTreeValue = (buf: Buffer) => {
   const value = toBigIntBE(buf.subarray(0, 32));
   const nextIndex = toBigIntBE(buf.subarray(32, 64));
   const nextValue = toBigIntBE(buf.subarray(64, 96));

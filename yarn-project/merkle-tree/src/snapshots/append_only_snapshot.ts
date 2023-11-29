@@ -5,7 +5,7 @@ import { LevelUp } from 'levelup';
 import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
-import { SnapshotBuilder } from './snapshot_builder.js';
+import { TreeSnapshotBuilder } from './snapshot_builder.js';
 
 // stores the last block that modified this node
 const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) =>
@@ -33,7 +33,7 @@ const snapshotLeafCountKey = (treeName: string, block: number) => `snapshot:leaf
  *  Best case: O(H) database reads + O(1) hashes
  *  Worst case: O(H) database reads + O(H) hashes
  */
-export class AppendOnlySnapshotBuilder implements SnapshotBuilder {
+export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
   constructor(private db: LevelUp, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {}
   async getSnapshot(block: number): Promise<SiblingPathSource> {
     const leafCount = await this.#getLeafCountAtBlock(block);

@@ -1,8 +1,8 @@
 import { TreeBase } from '../tree_base.js';
-import { SnapshotBuilder } from './snapshot_builder.js';
+import { TreeSnapshotBuilder } from './snapshot_builder.js';
 
 /** Creates a test suit for snapshots */
-export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends SnapshotBuilder>(
+export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends TreeSnapshotBuilder>(
   getTree: () => T,
   getSnapshotBuilder: () => S,
   modifyTree: (tree: T) => Promise<void>,
