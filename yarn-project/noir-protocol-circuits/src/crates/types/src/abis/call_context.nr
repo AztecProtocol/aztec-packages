@@ -12,6 +12,8 @@ struct CallContext{
     is_delegate_call : bool,
     is_static_call : bool,
     is_contract_deployment : bool,
+
+    start_side_effect_counter : Field,  // maybe an int?  but seems unlikely to overflow
 }
 
 impl CallContext {
@@ -24,6 +26,7 @@ impl CallContext {
             self.is_delegate_call as Field,
             self.is_static_call as Field,
             self.is_contract_deployment as Field,
+            self.start_side_effect_counter,
         ], constants_gen::GENERATOR_INDEX__CALL_CONTEXT)
     }
 
@@ -35,6 +38,7 @@ impl CallContext {
         assert(self.is_delegate_call == false);
         assert(self.is_static_call == false);
         assert(self.is_contract_deployment == false);
+        assert(self.start_side_effect_counter == 0);
     }
 
     fn eq(self, call_context: CallContext) -> bool {
@@ -45,5 +49,6 @@ impl CallContext {
             & (call_context.is_delegate_call == self.is_delegate_call)
             & (call_context.is_static_call == self.is_static_call)
             & (call_context.is_contract_deployment == self.is_contract_deployment)
+            & (call_context.start_side_effect_counter== self.start_side_effect_counter)
     }
 }

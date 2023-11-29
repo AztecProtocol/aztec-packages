@@ -32,6 +32,8 @@ struct CombinedAccumulatedData {
 
     new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_TX],
     new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+
+    // TODO: delete nullified_commitments when we do incremental squashes
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
