@@ -41,7 +41,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
     // A permutation to the values is provided to make the insertion use only one insertion strategy
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes, is_equal);
 
-    // Now, update the existing leaves with the new nullifiers
+    // Now, update the existing leaves with the new leaves
     let mut current_tree_root = start_snapshot.root;
     let mut insertion_subtree: [Leaf; SubtreeWidth] = dep::std::unsafe::zeroed();
     let start_insertion_index = start_snapshot.next_available_leaf_index;
@@ -52,18 +52,9 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
             let low_leaf_preimage = low_leaf_preimages[i];
             let witness = low_leaf_membership_witnesses[i];
             
-            // let is_less_than_nullifier = full_field_less_than(low_nullifier_preimage.leaf_value, nullifier);
-            // let is_next_greater_than = full_field_less_than(nullifier, low_nullifier_preimage.next_value);
-            // assert(is_less_than_nullifier, "Invalid nullifier range");
-            // assert(
-            //     is_next_greater_than | 
-            //     ((low_nullifier_preimage.next_index == 0) & (low_nullifier_preimage.next_value == 0)), 
-            //     "Invalid nullifier range"
-            // );
-
             assert(is_valid_low_leaf(low_leaf_preimage, value), "Invalid low leaf");
 
-            // perform membership check for the low nullifier against the original root
+            // perform membership check for the low leaf against the original root
             crate::components::assert_check_membership(
                 hash_leaf(low_leaf_preimage),
                 witness.leaf_index,
@@ -73,22 +64,12 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
 
             let value_index = sorted_values_indexes[i];
 
-            // Calculate the new value of the low_nullifier_leaf
-            // NullifierLeafPreimage{
-            //     leaf_value : low_nullifier_preimage.leaf_value,
-            //     next_value : nullifier,
-            //     next_index : start_insertion_index+nullifier_index, 
-            // };
+            // Calculate the new value of the low_leaf
             let updated_low_leaf= update_low_leaf(low_leaf_preimage, value, start_insertion_index+value_index); 
 
             current_tree_root = crate::components::root_from_sibling_path(
                 hash_leaf(updated_low_leaf), witness.leaf_index, witness.sibling_path);
-
-            // NullifierLeafPreimage {
-            //     leaf_value : nullifier,
-            //     next_value : low_nullifier_preimage.next_value,
-            //     next_index : low_nullifier_preimage.next_index,
-            // };
+            
             insertion_subtree[value_index] = build_insertion_leaf(value, low_leaf_preimage);
         }
     }
@@ -103,7 +84,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
         current_tree_root,
     );
 
-    // Create new nullifier subtree to insert into the whole nullifier tree
+    // Create new subtree to insert into the whole indexed tree
     let subtree_root = calculate_subtree(insertion_subtree.map(hash_leaf));
 
     // Calculate the new root
@@ -117,17 +98,3 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
     }
 }
 
-
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
-}
-
-#[test]
-fn test_u256_less_than() {
-    assert(full_field_less_than(1, 1000));
-    assert(!full_field_less_than(1000, 1000));
-    assert(!full_field_less_than(1000, 1));
-    assert(full_field_less_than(0, 0-1));
-    assert(!full_field_less_than(0-1, 0));
-}

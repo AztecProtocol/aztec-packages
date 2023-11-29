@@ -22,7 +22,7 @@ import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
- * Class containing the data of a preimage of a single leaf in an indexed tree.
+ * Class containing the data of a preimage of a single leaf in the nullifier tree.
  * Note: It's called preimage because this data gets hashed before being inserted as a node into the `IndexedTree`.
  */
 export class NullifierLeafPreimage {
