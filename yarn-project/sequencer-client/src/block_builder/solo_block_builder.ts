@@ -708,7 +708,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...left.data.end.newNullifiers, ...right.data.end.newNullifiers];
 
-    const [nullifierWitnessLeaves, newNullifiersSubtreeSiblingPath] = await this.db.batchInsert(
+    const {
+      lowLeavesWitnessData: nullifierWitnessLeaves,
+      newSubtreeSiblingPath: newNullifiersSubtreeSiblingPath,
+      sortedNewLeaves: sortedNewNullifiers,
+      sortedNewLeavesIndexes: sortednewNullifiersIndexes,
+    } = await this.db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers.map(fr => fr.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
@@ -725,13 +730,6 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const newNullifiersSubtreeSiblingPathArray = newNullifiersSubtreeSiblingPath.toFieldArray();
 
-    const sortedNewNullifiers = newNullifiers
-      .map((nullifier, index) => ({
-        nullifier,
-        index,
-      }))
-      .sort((a, b) => Number(b.nullifier.toBigInt() - a.nullifier.toBigInt()));
-
     return BaseRollupInputs.from({
       constants,
       startNullifierTreeSnapshot,
@@ -739,8 +737,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       startNoteHashTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       startHistoricBlocksTreeSnapshot,
-      sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => sortedNewNullifiers[i].nullifier),
-      sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => sortedNewNullifiers[i].index),
+      sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => Fr.fromBuffer(sortedNewNullifiers[i])),
+      sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => sortednewNullifiersIndexes[i]),
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath: makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>

@@ -1,8 +1,9 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SiblingPath } from '@aztec/types';
 
-import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
+import { BatchInsertionResult, IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
 import { TreeBase } from '../tree_base.js';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');
@@ -421,10 +422,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   >(
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<
-    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
-    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
-  > {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
@@ -434,7 +432,10 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     const startInsertionIndex = this.getNumLeaves(true);
 
     const leavesToInsert = leaves.map(leaf => toBigIntBE(leaf));
-    const sortedDescendingLeaves = leavesToInsert.slice().sort((a, b) => Number(b - a));
+    const sortedDescendingLeafTuples = leavesToInsert
+      .map((leaf, index) => ({ leaf, index }))
+      .sort((a, b) => Number(b.leaf - a.leaf));
+    const sortedDescendingLeaves = sortedDescendingLeafTuples.map(leafTuple => leafTuple.leaf);
 
     // Get insertion path for each leaf
     for (let i = 0; i < leavesToInsert.length; i++) {
@@ -450,7 +451,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       // get the low leaf
       const lowLeaf = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
       if (lowLeaf === undefined) {
-        return [undefined, await this.getSubtreeSiblingPath(subtreeHeight, true)];
+        return {
+          lowLeavesWitnessData: undefined,
+          sortedNewLeaves: sortedDescendingLeafTuples.map(leafTuple => new Fr(leafTuple.leaf).toBuffer()),
+          sortedNewLeavesIndexes: sortedDescendingLeafTuples.map(leafTuple => leafTuple.index),
+          newSubtreeSiblingPath: await this.getSubtreeSiblingPath(subtreeHeight, true),
+        };
       }
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
@@ -488,7 +494,13 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     // Note: In this case we set `hash0Leaf` param to false because batch insertion algorithm use forced null leaf
     // inclusion. See {@link encodeLeaf} for  a more through param explanation.
     await this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
-    return [lowLeavesWitnesses, newSubtreeSiblingPath];
+
+    return {
+      lowLeavesWitnessData: lowLeavesWitnesses,
+      sortedNewLeaves: sortedDescendingLeafTuples.map(leafTuple => Buffer.from(new Fr(leafTuple.leaf).toBuffer())),
+      sortedNewLeavesIndexes: sortedDescendingLeafTuples.map(leafTuple => leafTuple.index),
+      newSubtreeSiblingPath,
+    };
   }
 
   async getSubtreeSiblingPath<SubtreeHeight extends number, SubtreeSiblingPathHeight extends number>(

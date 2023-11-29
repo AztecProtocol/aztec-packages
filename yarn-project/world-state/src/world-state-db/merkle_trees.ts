@@ -15,9 +15,9 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
   AppendOnlyTree,
+  BatchInsertionResult,
   IndexedTree,
   LeafData,
-  LowLeafWitnessData,
   Pedersen,
   SparseTree,
   StandardIndexedTree,
@@ -402,10 +402,7 @@ export class MerkleTrees implements MerkleTreeDb {
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<
-    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
-    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
-  > {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     const tree = this.trees[treeId] as StandardIndexedTree;
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');

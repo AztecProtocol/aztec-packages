@@ -22,6 +22,28 @@ export interface LeafData {
 }
 
 /**
+ * The result of a batch insertion in an indexed merkle tree.
+ */
+export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingPathHeight extends number> {
+  /**
+   * Data for the leaves to be updated when inserting the new ones.
+   */
+  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight>[];
+  /**
+   * Sibling path "pointing to" where the new subtree should be inserted into the tree.
+   */
+  newSubtreeSiblingPath: SiblingPath<SubtreeSiblingPathHeight>;
+  /**
+   * The new leaves being inserted in high to low order. This order corresponds with the order of the low leaves witness.
+   */
+  sortedNewLeaves: Buffer[];
+  /**
+   * The indexes of the sorted new leaves to the original ones.
+   */
+  sortedNewLeavesIndexes: number[];
+}
+
+/**
  * Indexed merkle tree.
  */
 export interface IndexedTree extends AppendOnlyTree {
@@ -63,8 +85,5 @@ export interface IndexedTree extends AppendOnlyTree {
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
     includeUncommitted: boolean,
-  ): Promise<
-    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
-    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
-  >;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 }
