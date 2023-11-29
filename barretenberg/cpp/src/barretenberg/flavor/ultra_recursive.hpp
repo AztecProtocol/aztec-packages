@@ -143,9 +143,9 @@ template <typename BuilderType> class UltraRecursive_ {
         DataType w_r;          // column 1
         DataType w_o;          // column 2
         DataType w_4;          // column 3
-        DataType sorted_accum; // column 8
-        DataType z_perm;       // column 9
-        DataType z_lookup;     // column 10
+        DataType sorted_accum; // column 4
+        DataType z_perm;       // column 5
+        DataType z_lookup;     // column 6
 
         DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES, &w_l, &w_r, &w_o, &w_4, &sorted_accum, &z_perm, &z_lookup, )
 

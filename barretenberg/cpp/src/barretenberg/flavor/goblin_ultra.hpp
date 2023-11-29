@@ -167,16 +167,16 @@ class GoblinUltra {
         DataType w_r;                  // column 1
         DataType w_o;                  // column 2
         DataType w_4;                  // column 3
-        DataType sorted_accum;         // column 8
-        DataType z_perm;               // column 9
-        DataType z_lookup;             // column 10
-        DataType ecc_op_wire_1;        // column 11
-        DataType ecc_op_wire_2;        // column 12
-        DataType ecc_op_wire_3;        // column 13
-        DataType ecc_op_wire_4;        // column 14
-        DataType calldata;             // column 15
-        DataType calldata_read_counts; // column 16
-        DataType lookup_inverses;      // column 17
+        DataType sorted_accum;         // column 4
+        DataType z_perm;               // column 5
+        DataType z_lookup;             // column 6
+        DataType ecc_op_wire_1;        // column 7
+        DataType ecc_op_wire_2;        // column 8
+        DataType ecc_op_wire_3;        // column 9
+        DataType ecc_op_wire_4;        // column 10
+        DataType calldata;             // column 11
+        DataType calldata_read_counts; // column 12
+        DataType lookup_inverses;      // column 13
 
         DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
                             &w_l,
@@ -472,6 +472,10 @@ class GoblinUltra {
         }
     };
 
+    /**
+     * @brief A container for the witness commitments.
+     *
+     */
     using WitnessCommitments = WitnessEntities<Commitment, CommitmentHandle>;
 
     /**
