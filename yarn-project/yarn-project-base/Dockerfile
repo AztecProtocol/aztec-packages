@@ -33,12 +33,14 @@
 #
 # When we build a downstream docker image, we:
 #  - FROM yarn-project as builder, to get the entire built project.
-#  - Do any project specific work.
-#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache.
-#  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
+#  - WORKDIR into the relevant project.
+#  - Do any project specific build work.
+#  - Do a `yarn workspaces focus --production` to install production dependencies from the global.
+#  - Erase the local cache with a `yarn cache clean`.
+#  - Destroy the yarn-project /src folders to save additional space.
 #  - The above can be done with:
-#      RUN yarn cache clean && yarn workspaces focus --production
-#  - Create final slim image by copying /usr/src into a fresh image.
+#      RUN yarn workspaces focus --production && yarn cache clean && rm -rf ../**/src
+#  - Create final slim image by copying needed dirs into a fresh image.
 #
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
@@ -88,4 +90,4 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 RUN yarn prepare:check
 
 # Generate L1 contract TypeScript artifacts.
-RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
+RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts
