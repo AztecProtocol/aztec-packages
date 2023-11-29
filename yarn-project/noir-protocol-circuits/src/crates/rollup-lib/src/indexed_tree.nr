@@ -1,12 +1,6 @@
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 
-use dep::aztec::constants_gen::{
-    MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-    NULLIFIER_SUBTREE_HEIGHT,
-};
 use dep::types::abis::membership_witness::MembershipWitness;
 
 fn check_permutation<T, N>(original_array: [T; N], sorted_array: [T; N], indexes: [u32; N], is_equal: fn (T, T) -> bool) {
@@ -19,6 +13,33 @@ fn check_permutation<T, N>(original_array: [T; N], sorted_array: [T; N], indexes
         assert(!seen_value[index], "Duplicated index");
         seen_value[index] = true;
     }
+}
+
+#[test]
+fn check_permutation_basic_test(){
+    let original_array = [1, 2, 3];
+    let sorted_array = [3, 1, 2];
+    let indexes = [2, 0, 1];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
+}
+
+#[test(should_fail_with = "Duplicated index")]
+fn check_permutation_duplicated_index(){
+    let original_array = [0, 1, 0];
+    let sorted_array = [1, 0, 0];
+    let indexes = [1, 0, 0];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
+}
+
+#[test(should_fail_with = "Invalid index")]
+fn check_permutation_invalid_index(){
+    let original_array = [0, 1, 2];
+    let sorted_array = [1, 0, 0];
+    let indexes = [1, 0, 2];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
 }
 
 pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight, TreeHeight>(
@@ -89,7 +110,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here
-    let subtree_index = start_insertion_index >> (NULLIFIER_SUBTREE_HEIGHT as u32);
+    let subtree_index = start_insertion_index >> (SubtreeHeight as u32);
     let new_root = crate::components::root_from_sibling_path(subtree_root, subtree_index as Field, new_subtree_sibling_path);
 
     AppendOnlyTreeSnapshot {

@@ -559,6 +559,7 @@ mod tests {
         abis::new_contract_data::NewContractData,
         abis::public_data_read::PublicDataRead,
         abis::public_data_update_request::PublicDataUpdateRequest,
+        abis::previous_kernel_data::PreviousKernelData,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{Address, EthAddress},
         utils::bounded_vec::BoundedVec,
@@ -622,6 +623,77 @@ mod tests {
             }
             sibling_path
         }
+
+        fn update_nullifier_tree_with_new_leaves(
+            mut self, 
+            nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>, 
+            kernel_data: &mut [PreviousKernelData; KERNELS_PER_BASE_ROLLUP], 
+            start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
+        ) -> (
+            [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP], 
+            [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+            [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+            [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+        ) {
+            let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+
+            let mut sorted_new_nullifier_tuples = [SortedNullifierTuple {
+                value: 0,
+                original_index: 0,
+            }; MAX_NEW_NULLIFIERS_PER_TEST];
+
+
+            for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
+                sorted_new_nullifier_tuples[i] = SortedNullifierTuple {
+                    value: self.new_nullifiers.get_unchecked(i).value,
+                    original_index: i as u32,
+                };
+            }
+            sorted_new_nullifier_tuples = sorted_new_nullifier_tuples.sort_via(|a: SortedNullifierTuple, b: SortedNullifierTuple| {full_field_less_than(b.value, a.value)});
+
+            let mut sorted_new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+            let mut sorted_new_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+
+            for i in 0..MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP {
+                if (i as u32) < (MAX_NEW_NULLIFIERS_PER_TEST as u32) {
+                    sorted_new_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
+                    sorted_new_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
+                } else {
+                    sorted_new_nullifiers[i] = 0;
+                    sorted_new_nullifiers_indexes[i] = i as u32;
+                }
+            }
+
+            let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
+
+            for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
+                if (i as u64) < (self.new_nullifiers.len() as u64) {
+                    let sorted_tuple = sorted_new_nullifier_tuples[i];
+                    let new_nullifier = sorted_tuple.value;
+                    let original_index = sorted_tuple.original_index;
+
+                    let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
+
+                    kernel_data[0].public_inputs.end.new_nullifiers[original_index] = new_nullifier;
+
+                    let mut low_preimage = pre_existing_nullifiers[low_index];
+                    low_nullifier_leaf_preimages[i] = low_preimage;
+                    low_nullifier_membership_witness[i] = NullifierMembershipWitness {
+                        leaf_index: low_index as Field,
+                        sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
+                    };
+
+                    low_preimage.next_value = new_nullifier;
+                    low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
+                    pre_existing_nullifiers[low_index] = low_preimage;
+
+                    nullifier_tree.update_leaf(low_index, low_preimage.hash());
+                }
+            }
+
+            (low_nullifier_leaf_preimages, low_nullifier_membership_witness, sorted_new_nullifiers, sorted_new_nullifiers_indexes)
+        } 
 
         fn build_inputs(mut self) -> BaseRollupInputs {
             let mut kernel_data = self.kernel_data.map(|builder: PreviousKernelDataBuilder|{
@@ -697,62 +769,13 @@ mod tests {
                 }
             }
 
-            let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
-            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
-
-            let mut sorted_new_nullifier_tuples = [SortedNullifierTuple {
-                value: 0,
-                original_index: 0,
-            }; MAX_NEW_NULLIFIERS_PER_TEST];
-
-
-            for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-                sorted_new_nullifier_tuples[i] = SortedNullifierTuple {
-                    value: self.new_nullifiers.get_unchecked(i).value,
-                    original_index: i as u32,
-                };
-            }
-            sorted_new_nullifier_tuples = sorted_new_nullifier_tuples.sort_via(|a: SortedNullifierTuple, b: SortedNullifierTuple| {full_field_less_than(b.value, a.value)});
-
-            let mut sorted_new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
-            let mut sorted_new_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
-
-            for i in 0..MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP {
-                if (i as u32) < (MAX_NEW_NULLIFIERS_PER_TEST as u32) {
-                    sorted_new_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
-                    sorted_new_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
-                } else {
-                    sorted_new_nullifiers[i] = 0;
-                    sorted_new_nullifiers_indexes[i] = i as u32;
-                }
-            }
-
-            let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
-
-            for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-                if (i as u64) < (self.new_nullifiers.len() as u64) {
-                    let sorted_tuple = sorted_new_nullifier_tuples[i];
-                    let new_nullifier = sorted_tuple.value;
-                    let original_index = sorted_tuple.original_index;
-
-                    let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
-
-                    kernel_data[0].public_inputs.end.new_nullifiers[original_index] = new_nullifier;
-
-                    let mut low_preimage = pre_existing_nullifiers[low_index];
-                    low_nullifier_leaf_preimages[i] = low_preimage;
-                    low_nullifier_membership_witness[i] = NullifierMembershipWitness {
-                        leaf_index: low_index as Field,
-                        sibling_path: start_nullifier_tree.get_sibling_path(low_index as Field)
-                    };
-
-                    low_preimage.next_value = new_nullifier;
-                    low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
-                    pre_existing_nullifiers[low_index] = low_preimage;
-
-                    start_nullifier_tree.update_leaf(low_index, low_preimage.hash());
-                }
-            }
+            let (
+                low_nullifier_leaf_preimages, 
+                low_nullifier_membership_witness,
+                sorted_new_nullifiers,
+                sorted_new_nullifiers_indexes
+            ) = self.update_nullifier_tree_with_new_leaves(&mut start_nullifier_tree, &mut kernel_data, start_nullifier_tree_snapshot);
+            
             let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
 
             BaseRollupInputs {
