@@ -74,7 +74,9 @@ add_subdirectory(barretenberg/srs)
 add_subdirectory(barretenberg/stdlib)
 add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
+add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
+add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
 
 

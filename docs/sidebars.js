@@ -208,6 +208,7 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
+        "dev_docs/getting_started/core-concepts",
         "dev_docs/getting_started/aztecjs-getting-started",
         "dev_docs/getting_started/aztecnr-getting-started",
       ],
@@ -222,6 +223,8 @@ const sidebars = {
       },
       items: [
         "dev_docs/tutorials/writing_token_contract",
+        "dev_docs/tutorials/writing_private_voting_contract",
+
         {
           label: "Writing a DApp",
           type: "category",
@@ -347,10 +350,10 @@ const sidebars = {
             {
               label: "Common Patterns",
               type: "category",
-              //       link: {
-              //         type: "doc",
-              //         id: "dev_docs/contracts/resources/common_patterns/main",
-              //       },
+                    link: {
+                      type: "doc",
+                      id: "dev_docs/contracts/resources/common_patterns/main",
+                    },
               items: [
                 "dev_docs/contracts/resources/common_patterns/authwit",
                 //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
