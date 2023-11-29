@@ -15,7 +15,7 @@
  * for traversal.
  *
  * @tparam T The type of elements stored in the vector.
- * This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing should use arrays of
+ * This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing of values should use
  * shared pointers.
  */
 template <typename T> class RefVector {
@@ -45,19 +45,19 @@ template <typename T> class RefVector {
     }
 
     /**
-     * @brief Nested iterator class for RefArray, based on indexing into the pointer array.
-     * Provides semantics similar to what would be expected if std::array<T&, N> was possible.
+     * @brief Nested iterator class for RefVector, based on indexing into the pointer vector.
+     * Provides semantics similar to what would be expected if std::vector<T&, N> was possible.
      */
     class iterator {
       public:
         /**
-         * @brief Constructs an iterator for a given RefArray object.
+         * @brief Constructs an iterator for a given RefVector object.
          *
-         * @param array Pointer to the RefArray object.
-         * @param pos The starting position in the array.
+         * @param vector Pointer to the RefVector object.
+         * @param pos The starting position in the vector.
          */
-        iterator(RefVector const* array, std::size_t pos)
-            : vector(array)
+        iterator(RefVector const* vector, std::size_t pos)
+            : vector(vector)
             , pos(pos)
         {}
 
@@ -122,11 +122,10 @@ template <typename T, typename... Ts> RefVector(T&, Ts&...) -> RefVector<T>;
 template <typename T> RefVector<T> concatenate(const RefVector<T>& ref_vector, const auto&... ref_vectors)
 {
     std::vector<T*> concatenated;
-    auto append = [&](const auto& ref_vector) {
-        for (std::size_t i = 0; i < ref_vector.size(); ++i) {
-            concatenated.push_back(&ref_vector[i]);
-        }
-    };
+    // Reserve our final space
+    concatenated.reserve(ref_vector.size + (ref_vectors.size() + ...));
+
+    auto append = [&](const auto& vec) { std::copy(vec.begin(), vec.end(), std::back_inserter(concatenated)); };
 
     append(ref_vector);
     // Unpack and append each RefVector's elements to concatenated
