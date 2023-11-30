@@ -527,7 +527,7 @@ TEST(stdlib_plookup, secp256k1_generator)
 
     uint64_t wnaf_entries[18] = { 0 };
     bool skew = false;
-    barretenberg::wnaf::fixed_wnaf<129, 1, 8>(&input_value.data[0], &wnaf_entries[0], skew, 0);
+    barretenberg::wnaf::fixed_wnaf<129, 1, 8>({ input_value.data[0], input_value.data[1] }, &wnaf_entries[0], skew, 0);
 
     std::vector<uint64_t> naf_values;
     for (size_t i = 0; i < 17; ++i) {
