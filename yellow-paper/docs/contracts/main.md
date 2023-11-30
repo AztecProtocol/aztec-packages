@@ -21,15 +21,20 @@ We have multiple contracts, some that exist already, and some that are to be bui
 
 **To be build contracts**
 - Sequencer Selection contract(s)
+- Governance/Upgrade contract(s)
+
+## Purpose of contracts
+The purpose of the L1 contracts are simple:
+- Facilitate cross-chain communication such that L1 liquidity can be used on L2
+- Act as a validating light node for L2 that every L1 node implicitly run
 
 ## Registry
-The registry is a contract that holds the addresses of the other contracts. It is a simple contract that keeps track of where the other contracts are, it is to give the nodes a single source of truth for where the other contracts are. Also allows us to handle upgrades.
+The registry is a contract that holds the addresses of the other contracts. It is a simple contract that keeps track of where the other contracts are, it is to give the nodes a single source of truth for where the other contracts are. Depending on the scheme might be used to handle upgrades, seen as the point of entry to the protocol from a node perspective - it is the only contract that the nodes MUST know about. It can tell them about the rest, and where they need to look for blocks etc. 
+
+Must keep track of current and historical addresses of the contracts. 
 
 ## State transitioner
-The state transitioner is the contract that handles the state and perform the state transition on L1. It makes sure that the proof is valid and that L1 is updated accordingly.
-
-:::info It is a fully validating light node.
-:::
+The state transitioner is the contract that handles the state and perform the state transition on L1. It makes sure that the proof is valid and that L1 is updated accordingly. It is the main component of our fully validating light node.
 
 Whenever a block is received it is to:
 - Compute the "starting" state of the block (the state before the block is applied)
@@ -61,6 +66,8 @@ Whenever a block is received it is to:
 When deploying a contract on L2, it is possible to specify its "portal" address. This is an immutable variable, that can be used to constrain who the L2 contract expect messages from, and who it sends to.
 
 In the current implementation, any messages that are sent from the L2 contract to L1 MUST be sent to the portal address. This was to get around the access control issue of private execution. This is enforced in the kernel.
+
+It practically gives us a 1:M relationship between L1 and L2, where one L1 contract can be specified as the portal for many L2, and communicate with all of them, but each L2 can only communicate with a single L1 contract.
 
 :::warning Comment for discussion
 Plainly speaking, we don't need to restrict the recipient of the message to a single address. We could let the contract itself figure it out. We restricted it for reasons above, but we could lift this requirement. As long as the portal address exists, it CAN be used to constrain it like this.
@@ -109,7 +116,9 @@ struct L2ToL1Msg {
 }
 ```
 
-Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost.
+Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost. The `version` value of the `L2Actor` is the version of the rollup, intended to be used allow specifying what version of the rollup the message is intended for or sent from.
+
+Some additional discussion/comments on the message structure can be found in [The Republic](https://forum.aztec.network/t/the-republic-a-flexible-optional-governance-proposal-with-self-governed-portals/609/2#supporting-pending-messages-5).
 
 :::info Why a single hash?
 Persistent storage is expensive so to reduce overhead we only commit to the messages and then "open" these for consumption later. We need a hash function that is relatively cheap on both L1 and L2, we chose SHA256.
@@ -296,3 +305,15 @@ We will walk briefly through the steps of the diagram above.
 :::info L2 inbox is not real
 As should be clear from above, the L1 inbox don't need to exist for itself, it keeps no state between blocks, as every message created in the block will also be consumed in the same block. 
 :::
+
+
+## Future work
+- Sequencer selection contract(s)
+    - Relies on the sequencer selection scheme being more explicitly defined
+    - Relies on being able to validate the sequencer selection scheme 
+- Improve public inputs hash computation
+    - Currently it is using calldata and blocks to be passed along with the proof, but it should be adapted to better allow other DA layers.
+    - Modularize the computation such that the state transitioner need not know the exact computation but merely use a separate contract as an oracle.
+- Governance/upgrade contract(s)
+    - Relies on the governance/upgrade scheme being more explicitly defined
+- Explorer getting rid of the specific 1:M relationship between L1 and L2
