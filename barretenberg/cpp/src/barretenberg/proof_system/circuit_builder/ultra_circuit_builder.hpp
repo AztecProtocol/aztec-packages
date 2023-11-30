@@ -678,6 +678,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     };
     ~UltraCircuitBuilder_() override = default;
 
+    void check_selector_length_consistency()
+    {
+        bool sizes_consistent = true;
+        size_t nominal_size = selectors.get()[0].size();
+        // for (auto& selector : selectors.get()) {
+        for (size_t idx = 0; idx < selectors.get().size(); ++idx) {
+            sizes_consistent = sizes_consistent && (selectors.get()[idx].size() == nominal_size);
+        }
+        if (!sizes_consistent) {
+            for (size_t idx = 0; idx < selectors.get().size(); ++idx) {
+                info("idx = ", idx);
+                info(selectors.get()[idx].size());
+            }
+        }
+        ASSERT(sizes_consistent);
+    }
+
     void finalize_circuit();
 
     void add_gates_to_ensure_all_polys_are_non_zero();

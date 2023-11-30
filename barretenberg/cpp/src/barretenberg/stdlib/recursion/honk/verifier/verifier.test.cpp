@@ -176,17 +176,27 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
         // Check the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
-        EXPECT_TRUE(outer_circuit.check_circuit());
+        // EXPECT_TRUE(outer_circuit.check_circuit());
 
-        // { // Construct and verify a proof of the recursive verifier circuit
-        //     auto composer = get_composer<OuterBuilder>();
-        //     auto instance = composer.create_instance(outer_circuit);
-        //     auto prover = composer.create_prover(instance);
-        //     auto verifier = composer.create_verifier(instance);
-        //     auto proof = prover.construct_proof();
-        //     bool verified = verifier.verify_proof(proof);
-        //     ASSERT(verified);
-        // }
+        { // Construct and verify a proof of the recursive verifier circuit
+            auto composer = get_composer<OuterBuilder>();
+            auto instance = composer.create_instance(outer_circuit);
+            auto prover = composer.create_prover(instance);
+            auto verifier = composer.create_verifier(instance);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+            (void)verified;
+
+            auto prover_manifest = prover.transcript.get_manifest();
+            auto verifier_manifest = verifier.transcript.get_manifest();
+            // prover_manifest.print();
+            // verifier_manifest.print();
+            for (size_t i = 0; i < prover_manifest.size(); ++i) {
+                EXPECT_EQ(prover_manifest[i], verifier_manifest[i]);
+            }
+
+            ASSERT(verified);
+        }
 
         // Additional check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.

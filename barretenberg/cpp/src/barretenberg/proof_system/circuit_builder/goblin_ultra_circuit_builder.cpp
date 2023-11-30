@@ -44,7 +44,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->w_l.emplace_back(public_calldata[read_idx]);        // populate with value of calldata at read index
     this->w_r.emplace_back(this->add_variable(FF(read_idx))); // populate with read index as witness
     calldata_read_counts[read_idx]++;                         // increment read count at read index
-    q_busread.emplace_back(1);                                // read selector on
+    q_busread().emplace_back(1);                              // read selector on
 
     // populate all other components with zero
     this->w_o.emplace_back(this->zero_idx);
