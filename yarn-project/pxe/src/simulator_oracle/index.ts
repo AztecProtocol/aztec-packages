@@ -152,7 +152,7 @@ export class SimulatorOracle implements DBOracle {
       case MerkleTreeId.NOTE_HASH_TREE:
         return (await this.stateInfoProvider.getNoteHashSiblingPath(leafIndex)).toFieldArray();
       case MerkleTreeId.BLOCKS_TREE:
-        return (await this.stateInfoProvider.getHistoricalBlocksTreeSiblingPath(leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getBlocksTreeSiblingPath(leafIndex)).toFieldArray();
       case MerkleTreeId.PUBLIC_DATA_TREE:
         return (await this.stateInfoProvider.getPublicDataTreeSiblingPath(leafIndex)).toFieldArray();
       default:

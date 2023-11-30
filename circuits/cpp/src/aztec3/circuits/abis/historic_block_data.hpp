@@ -48,7 +48,7 @@ template <typename NCT> struct BlockHeader {
         return note_hash_tree_root == other.note_hash_tree_root && nullifier_tree_root == other.nullifier_tree_root &&
                contract_tree_root == other.contract_tree_root &&
                l1_to_l2_messages_tree_root == other.l1_to_l2_messages_tree_root &&
-               blocks_tree_root == other.historical_block_root &&
+               blocks_tree_root == other.blocks_tree_root &&
                private_kernel_vk_tree_root == other.private_kernel_vk_tree_root &&
                public_data_tree_root == other.public_data_tree_root &&
                global_variables_hash == other.global_variables_hash;

@@ -43,7 +43,7 @@ impl PublicCircuitPublicInputsBuilder {
     pub fn new() -> Self {
         let mut public_inputs: PublicCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
         public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
-        public_inputs.block_header = fixtures::HISTORICAL_BLOCK_DATA;
+        public_inputs.block_header = fixtures::BLOCK_HEADER;
         public_inputs
     }
 

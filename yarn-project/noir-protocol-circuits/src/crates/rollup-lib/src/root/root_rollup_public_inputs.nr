@@ -38,8 +38,8 @@ struct RootRollupPublicInputs {
     start_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot : AppendOnlyTreeSnapshot,
     end_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot : AppendOnlyTreeSnapshot,
 
-    start_historical_blocks_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_historical_blocks_tree_snapshot : AppendOnlyTreeSnapshot,
+    start_blocks_tree_snapshot : AppendOnlyTreeSnapshot,
+    end_blocks_tree_snapshot : AppendOnlyTreeSnapshot,
 
     calldata_hash : [Field; NUM_FIELDS_PER_SHA256],
     l1_to_l2_messages_hash : [Field; NUM_FIELDS_PER_SHA256],

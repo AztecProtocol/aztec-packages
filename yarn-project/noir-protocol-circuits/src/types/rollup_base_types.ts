@@ -163,7 +163,7 @@ export interface NullifierMembershipWitness {
   sibling_path: FixedLengthArray<Field, 20>;
 }
 
-export interface HistoricalBlocksTreeRootMembershipWitness {
+export interface BlocksTreeRootMembershipWitness {
   leaf_index: Field;
   sibling_path: FixedLengthArray<Field, 16>;
 }
@@ -176,7 +176,7 @@ export interface GlobalVariables {
 }
 
 export interface ConstantRollupData {
-  start_historical_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
+  start_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Field;
   public_kernel_vk_tree_root: Field;
   base_rollup_vk_hash: Field;
@@ -190,7 +190,7 @@ export interface BaseRollupInputs {
   start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
   start_public_data_tree_root: Field;
-  start_historical_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  start_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
   low_nullifier_leaf_preimages: FixedLengthArray<NullifierLeafPreimage, 128>;
   low_nullifier_membership_witness: FixedLengthArray<NullifierMembershipWitness, 128>;
   new_commitments_subtree_sibling_path: FixedLengthArray<Field, 25>;
@@ -198,7 +198,7 @@ export interface BaseRollupInputs {
   new_contracts_subtree_sibling_path: FixedLengthArray<Field, 15>;
   new_public_data_update_requests_sibling_paths: FixedLengthArray<FixedLengthArray<Field, 254>, 32>;
   new_public_data_reads_sibling_paths: FixedLengthArray<FixedLengthArray<Field, 254>, 32>;
-  historical_blocks_tree_root_membership_witnesses: FixedLengthArray<HistoricalBlocksTreeRootMembershipWitness, 2>;
+  blocks_tree_root_membership_witnesses: FixedLengthArray<BlocksTreeRootMembershipWitness, 2>;
   constants: ConstantRollupData;
 }
 

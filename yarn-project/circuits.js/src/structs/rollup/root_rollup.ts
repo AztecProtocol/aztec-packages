@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  HISTORICAL_BLOCKS_TREE_HEIGHT,
+  BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
@@ -39,11 +39,11 @@ export class RootRollupInputs {
     /**
      * Snapshot of the historical block roots tree at the start of the rollup.
      */
-    public startHistoricalBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Sibling path of the new historical block roots tree root.
      */
-    public newHistoricalBlocksTreeSiblingPath: Tuple<Fr, typeof HISTORICAL_BLOCKS_TREE_HEIGHT>,
+    public newBlocksTreeSiblingPath: Tuple<Fr, typeof BLOCKS_TREE_HEIGHT>,
   ) {}
 
   toBuffer() {
@@ -60,8 +60,8 @@ export class RootRollupInputs {
       fields.newL1ToL2Messages,
       fields.newL1ToL2MessagesTreeRootSiblingPath,
       fields.startL1ToL2MessagesTreeSnapshot,
-      fields.startHistoricalBlocksTreeSnapshot,
-      fields.newHistoricalBlocksTreeSiblingPath,
+      fields.startBlocksTreeSnapshot,
+      fields.newBlocksTreeSiblingPath,
     ] as const;
   }
 }
@@ -156,13 +156,13 @@ export class RootRollupPublicInputs {
     public endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * Snapshot of the historical blocks tree roots tree at the start of the rollup.
+     * Snapshot of the blocks tree roots tree at the start of the rollup.
      */
-    public startHistoricalBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Snapshot of the historical blocks tree roots tree at the end of the rollup.
+     * Snapshot of the blocks tree roots tree at the end of the rollup.
      */
-    public endHistoricalBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Hash of the calldata.
@@ -194,8 +194,8 @@ export class RootRollupPublicInputs {
       fields.endL1ToL2MessagesTreeSnapshot,
       fields.startTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot,
       fields.endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot,
-      fields.startHistoricalBlocksTreeSnapshot,
-      fields.endHistoricalBlocksTreeSnapshot,
+      fields.startBlocksTreeSnapshot,
+      fields.endBlocksTreeSnapshot,
       fields.calldataHash,
       fields.l1ToL2MessagesHash,
     ] as const;

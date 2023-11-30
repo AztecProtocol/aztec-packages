@@ -14,7 +14,7 @@ global MSG_SENDER = Address { inner: 27 };
 
 global DEPLOYER_PUBLIC_KEY = Point { x: 123456789, y: 123456789 };
 
-global HISTORICAL_BLOCK_DATA = BlockHeader {
+global BLOCK_HEADER = BlockHeader {
     blocks_tree_root: 0,
     block: Block {
         note_hash_tree_root: fixtures::note_hash_tree::ROOT,

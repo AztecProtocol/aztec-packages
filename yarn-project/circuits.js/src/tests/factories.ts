@@ -7,6 +7,7 @@ import {
   ARGS_LENGTH,
   AggregationObject,
   AppendOnlyTreeSnapshot,
+  BLOCKS_TREE_HEIGHT,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   BlockHeader,
@@ -29,7 +30,6 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
-  HISTORICAL_BLOCKS_TREE_HEIGHT,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -726,7 +726,7 @@ export function makeConstantBaseRollupData(
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
   return ConstantRollupData.from({
-    startHistoricalBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    startBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
@@ -840,7 +840,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(HISTORICAL_BLOCKS_TREE_HEIGHT, fr, 0x2400),
+    makeTuple(BLOCKS_TREE_HEIGHT, fr, 0x2400),
   );
 }
 
@@ -874,8 +874,8 @@ export function makeRootRollupPublicInputs(
     endL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startHistoricalBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endHistoricalBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
@@ -902,7 +902,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
-  const startHistoricalBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+  const startBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
@@ -932,8 +932,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x6000,
   );
 
-  const historicalBlocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-    makeMembershipWitness(HISTORICAL_BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x7000),
+  const blocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
+    makeMembershipWitness(BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x7000),
   );
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -945,14 +945,14 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,
-    startHistoricalBlocksTreeSnapshot,
+    startBlocksTreeSnapshot,
     lowNullifierLeafPreimages,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
     newPublicDataUpdateRequestsSiblingPaths,
     newPublicDataReadsSiblingPaths,
-    historicalBlocksTreeRootMembershipWitnesses,
+    blocksTreeRootMembershipWitnesses,
     constants,
   });
 }

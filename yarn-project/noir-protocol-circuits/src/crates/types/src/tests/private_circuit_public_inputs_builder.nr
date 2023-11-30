@@ -101,7 +101,7 @@ impl PrivateCircuitPublicInputsBuilder {
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.contract_deployment_data = contract_deployment_data;
-        public_inputs.block_header = fixtures::HISTORICAL_BLOCK_DATA;
+        public_inputs.block_header = fixtures::BLOCK_HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
 

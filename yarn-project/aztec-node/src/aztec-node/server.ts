@@ -1,10 +1,10 @@
 import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
 import {
+  BLOCKS_TREE_HEIGHT,
   BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
-  HISTORICAL_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -364,13 +364,11 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns a sibling path for a leaf in the committed historical blocks tree.
+   * Returns a sibling path for a leaf in the committed blocks tree.
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public async getHistoricalBlocksTreeSiblingPath(
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof HISTORICAL_BLOCKS_TREE_HEIGHT>> {
+  public async getBlocksTreeSiblingPath(leafIndex: bigint): Promise<SiblingPath<typeof BLOCKS_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState();
     return committedDb.getSiblingPath(MerkleTreeId.BLOCKS_TREE, leafIndex);
   }

@@ -31,7 +31,7 @@ export class BlockHeader {
      */
     public l1ToL2MessagesTreeRoot: Fr,
     /**
-     * Root of the historical blocks tree at the time of when this information was assembled.
+     * Root of the blocks tree at the time of when this information was assembled.
      */
     public blocksTreeRoot: Fr,
     /**

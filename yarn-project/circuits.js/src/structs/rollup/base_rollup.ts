@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
+  BLOCKS_TREE_HEIGHT,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  HISTORICAL_BLOCKS_TREE_HEIGHT,
   KERNELS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
@@ -58,7 +58,7 @@ export class ConstantRollupData {
     /**
      * Snapshot of the historical blocks roots tree at the start of the rollup.
      */
-    public startHistoricalBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -100,7 +100,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startHistoricalBlocksTreeRootsSnapshot,
+      fields.startBlocksTreeRootsSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -140,9 +140,9 @@ export class BaseRollupInputs {
      */
     public startPublicDataTreeRoot: Fr,
     /**
-     * Snapshot of the historical blocks tree at the start of the base rollup circuit.
+     * Snapshot of the blocks tree at the start of the base rollup circuit.
      */
-    public startHistoricalBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
@@ -186,10 +186,10 @@ export class BaseRollupInputs {
       typeof MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP
     >,
     /**
-     * Membership witnesses of historical blocks referred by each of the 2 kernels.
+     * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public historicalBlocksTreeRootMembershipWitnesses: Tuple<
-      MembershipWitness<typeof HISTORICAL_BLOCKS_TREE_HEIGHT>,
+    public blocksTreeRootMembershipWitnesses: Tuple<
+      MembershipWitness<typeof BLOCKS_TREE_HEIGHT>,
       typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
@@ -209,7 +209,7 @@ export class BaseRollupInputs {
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
-      fields.startHistoricalBlocksTreeSnapshot,
+      fields.startBlocksTreeSnapshot,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,
@@ -217,7 +217,7 @@ export class BaseRollupInputs {
       fields.newContractsSubtreeSiblingPath,
       fields.newPublicDataUpdateRequestsSiblingPaths,
       fields.newPublicDataReadsSiblingPaths,
-      fields.historicalBlocksTreeRootMembershipWitnesses,
+      fields.blocksTreeRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

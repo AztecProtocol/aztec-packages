@@ -22,7 +22,7 @@ export interface GlobalVariables {
 }
 
 export interface ConstantRollupData {
-  start_historical_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
+  start_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Field;
   public_kernel_vk_tree_root: Field;
   base_rollup_vk_hash: Field;
@@ -68,8 +68,8 @@ export interface RootRollupInputs {
   new_l1_to_l2_messages: FixedLengthArray<Field, 16>;
   new_l1_to_l2_messages_tree_root_sibling_path: FixedLengthArray<Field, 12>;
   start_l1_to_l2_messages_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_historical_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
-  new_historical_blocks_tree_sibling_path: FixedLengthArray<Field, 16>;
+  start_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  new_blocks_tree_sibling_path: FixedLengthArray<Field, 16>;
 }
 
 export interface RootRollupPublicInputs {
@@ -91,8 +91,8 @@ export interface RootRollupPublicInputs {
   end_l1_to_l2_messages_tree_snapshot: AppendOnlyTreeSnapshot;
   start_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot: AppendOnlyTreeSnapshot;
   end_tree_of_historical_l1_to_l2_messages_tree_roots_snapshot: AppendOnlyTreeSnapshot;
-  start_historical_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_historical_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  start_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  end_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
   calldata_hash: FixedLengthArray<Field, 2>;
   l1_to_l2_messages_hash: FixedLengthArray<Field, 2>;
 }

@@ -143,7 +143,7 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
-  const updateHistoricalBlocksTree = async () => {
+  const updateBlocksTree = async () => {
     const blockHash = computeBlockHashWithGlobals(
       globalVariables,
       rootRollupOutput.endNoteHashTreeSnapshot.root,
@@ -204,8 +204,8 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    await updateHistoricalBlocksTree();
-    rootRollupOutput.endHistoricalBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
+    await updateBlocksTree();
+    rootRollupOutput.endBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 
     const txs = [...txsLeft, ...txsRight];
 
@@ -235,8 +235,8 @@ describe('sequencer/solo_block_builder', () => {
       endPublicDataTreeRoot: rootRollupOutput.endPublicDataTreeRoot,
       startL1ToL2MessagesTreeSnapshot: rootRollupOutput.startL1ToL2MessagesTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
-      startHistoricalBlocksTreeSnapshot: rootRollupOutput.startHistoricalBlocksTreeSnapshot,
-      endHistoricalBlocksTreeSnapshot: rootRollupOutput.endHistoricalBlocksTreeSnapshot,
+      startBlocksTreeSnapshot: rootRollupOutput.startBlocksTreeSnapshot,
+      endBlocksTreeSnapshot: rootRollupOutput.endBlocksTreeSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,

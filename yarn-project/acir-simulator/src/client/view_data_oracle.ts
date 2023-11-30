@@ -106,7 +106,7 @@ export class ViewDataOracle extends TypedOracle {
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,
       block.endL1ToL2MessagesTreeSnapshot.root,
-      block.endHistoricalBlocksTreeSnapshot.root,
+      block.endBlocksTreeSnapshot.root,
       new Fr(0), // TODO(#3441) privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
       block.endPublicDataTreeRoot,
       computeGlobalsHash(block.globalVariables),
