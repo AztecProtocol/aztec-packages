@@ -29,5 +29,4 @@ COPY --from=builder /usr/src/yarn-project/aztec.js/dest/main.js /usr/src/yarn-pr
 
 WORKDIR /usr/src/yarn-project/end-to-end
 
-ENV NODE_OPTIONS=--preserve-symlinks
 ENTRYPOINT ["yarn", "test"]

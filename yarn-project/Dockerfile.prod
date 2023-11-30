@@ -16,3 +16,4 @@ COPY --from=yarn-project /usr/src/barretenberg/ts/package /usr/src/barretenberg/
 COPY --from=yarn-project /usr/src/noir/packages /usr/src/noir/packages
 # Just until weird source-resolver bug fixed.
 COPY --from=yarn-project /usr/src/noir/compiler /usr/src/noir/compiler
+RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
