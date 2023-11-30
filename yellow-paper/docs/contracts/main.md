@@ -128,7 +128,7 @@ We are using the `secretHash` to ensure that the user can spend the message priv
 
 
 ### Inbox
-When we say inbox, we are generally referring to the L1 contract that handles the L1 to L2 messages. The L2 inbox is not a real contract, but a logical contract that is handled by the kernel and rollup circuits.
+When we say inbox, we are generally referring to the L1 contract that handles the L1 to L2 messages.
 
 The inbox is logically a multi-set that builds messages based on the caller and user-provided content (multi-set meaning that repetition are allowed). Anyone are able to insert messages into the inbox, but only the state transitioner are able to consume messages from it. When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" (message tree), it must be atomic.
 
@@ -138,8 +138,21 @@ When a message is inserted into the inbox, the inbox MUST fill in the following 
 
 We MUST populate these values in the inbox, since we cannot rely on the user providing anything meaningful. From the `L1ToL2Msg` we compute a hash of the message. This hash is what is moved by the state transitioner to the L2 outbox. 
 
+Since message from L1 to L2 can be inserted independently of the L2 block, the message transfer (insert into inbox move to outbox) are not synchronous as it is for L2 to L1. This means that the message can be inserted into the inbox, but not yet moved to the outbox. The message will then be moved to the outbox when the state transitioner is consuming the message as part of a block. Since the sequencers are responsible for the ordering of the messages, there is not a known time for this pickup to happen, it async. 
+
+This is done to ensure that the messages are not used to DOS the state transitioner. If the state transitioner was forced to pick up the messages in a specific order or at a fixed rate, it could be used to DOS the state transitioner by inserting a message just before a rollup goes through. 
+While this can be addressed by having a queue of messages and let the sequencer specify the order, this require extra logic and might be difficult to price correctly. To keep this out of protocol, we simply allow the user to attach a fee to the message (see `fee` in `L1ToL2Msg` above). This way, the user can incentivize the sequencer to pick up the message faster.
+
+Since it is possible to land in a case where the sequencer will never pick up the message (e.g., if it is underpriced), the sender must be able to cancel the message. To ensure that this cancellation cannot happen under the feet of the sequencer we use a `deadline`, only after the deadline can it be cancelled. 
+
+The contract that sent the message must itself decide how it is to handle the cancellation. It could be that the contract simply ignores the message, or it could be that it refunds the user. This is up to the contract to decide. 
+
+:::info Error handling
+While we have ensured that the message either arrives to the L2 outbox or is cancelled, we have not ensured that the message is consumed by the L2 contract. This is up to the L2 contract to handle. If the L2 contract does not handle the message, it will be stuck in the outbox forever. Similarly, it is up to the L1 contract to handle the cancellation. If the L1 contract does not handle the cancellation, the user might have a message that is pending forever. Error handling is entirely on the contract developer.
+:::
+
 ##### L2 Inbox
-While the L2 inbox is not a real contract, it is a logical contract that apply mutations to the data similar to the L1 inbox to ensure that the sender cannot fake his position. 
+While the L2 inbox is not a real contract, it is a logical contract that apply mutations to the data similar to the L1 inbox to ensure that the sender cannot fake his position. This logic is handled by the kernel and rollup circuits.
 
 As for the L1 variant, we must populate the some fields:
 - `L2Actor.actor`: The sender of the message (the caller) [also in L1 inbox]
