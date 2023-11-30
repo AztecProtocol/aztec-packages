@@ -58,28 +58,12 @@ data "terraform_remote_state" "l1_contracts" {
   }
 }
 
-# Compute list & map variables
-variable "publisher_private_keys" {
-  description = "List of publisher private keys"
-  type        = list(string)
-  default     = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
-}
-
-
-variable "bootnode_ids" {
-  description = "List of bootnode numbers to their peer IDs"
-  type        = list(string)
-  default     = [var.BOOTNODE_1_PEER_ID, var.BOOTNODE_2_PEER_ID]
-}
-
-variable "node_p2p_private_keys" {
-  description = "List of node p2p peer ID private keys"
-  type        = list(string)
-  default     = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
-}
-
+# Compute local variables
 locals {
-  node_count = length(var.publisher_private_keys)
+  publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
+  bootnode_ids           = [var.BOOTNODE_1_PEER_ID, var.BOOTNODE_2_PEER_ID]
+  node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
+  node_count             = length(local.publisher_private_keys)
   bootnodes = [for i in range(0, local.node_count) :
     "/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-${i + 1}.local/tcp/${var.BOOTNODE_LISTEN_PORT + i}/p2p/${bootnode_ids[i]}"
   ]
@@ -192,7 +176,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "SEQ_PUBLISHER_PRIVATE_KEY",
-        "value": "${var.publisher_private_keys[count.index]}"
+        "value": "${local.publisher_private_keys[count.index]}"
       },
       {
         "name": "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS",
@@ -248,7 +232,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
-        "value": "${var.node_p2p_private_keys[count.index]}"
+        "value": "${local.node_p2p_private_keys[count.index]}"
       },
       {
         "name": "P2P_MIN_PEERS",
