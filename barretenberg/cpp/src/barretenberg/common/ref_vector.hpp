@@ -11,12 +11,11 @@
  * @brief A template class for a reference vector. Behaves as if std::vector<T&> was possible.
  *
  * This class provides a dynamic-size vector of pointers to elements of type T, exposed as references.
- * It offers random access to its elements and provides an iterator class
- * for traversal.
+ * It offers random access to its elements and provides an iterator class for traversal.
  *
  * @tparam T The type of elements stored in the vector.
- * This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing of values should use
- * shared pointers.
+ * @warning This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing of values 
+ * should use shared pointers.
  */
 template <typename T> class RefVector {
   public:
