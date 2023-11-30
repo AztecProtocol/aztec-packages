@@ -4,7 +4,11 @@
 
 set -eu
 
-if [ -n "$COMMIT_TAG" ] || [ "$BRANCH" = "master" ]; then
+# This is when we only want to deploy on master, not release with new COMMIT_TAG.
+# Specifically for deploying devnet.
+RELEASE=${1:-1}
+
+if [ -n "$COMMIT_TAG" ] && [ "$RELEASE" != "0" ] || [ "$BRANCH" = "master" ]; then
   exit 0
 else
   exit 1

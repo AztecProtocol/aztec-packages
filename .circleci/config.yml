@@ -983,7 +983,7 @@ jobs:
       - run:
           name: "Deploy devnet to AWS"
           command: |
-            should_deploy || exit 0
+            should_deploy 0 || exit 0
             export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
             export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
             export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
