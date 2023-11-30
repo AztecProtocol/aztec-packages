@@ -80,7 +80,7 @@ function markdownSublist(items) {
     return markdown;
 }
 
-function markdownInstructionSetSection() {
+function markdownInstructionSetSection(pathToGenDir) {
     let markdown = "## Instructions\n";
     for (let i = 0; i < INSTRUCTION_SET.length; i++) {
         const instr = INSTRUCTION_SET[i];
@@ -103,6 +103,10 @@ function markdownInstructionSetSection() {
             }
             subsection += `${item}\n`;
         }
+        const bitFormatPath = `./images/bit-formats/${name.replace(/`/g, '')}.png`;
+        if (fs.existsSync(`${pathToGenDir}/${bitFormatPath}`)) {
+            subsection += `\n![](${bitFormatPath})`;
+        }
         markdown += `\n${subsection}\n`;
     }
     return markdown;
@@ -121,9 +125,9 @@ async function generateInstructionSet() {
 
     const preface = instructionSetPreface();
     const table = htmlInstructionSetTable();
-    const section = markdownInstructionSetSection();
+    const section = markdownInstructionSetSection(docsDirName);
     const doc = `${preface}\n${table}\n\n${section}`;
-    await fs.writeFileSync(docsFilePath, doc);
+    fs.writeFileSync(docsFilePath, doc);
 
     console.log("Preprocessing complete.");
 }

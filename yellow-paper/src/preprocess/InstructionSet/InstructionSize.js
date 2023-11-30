@@ -16,6 +16,11 @@ function argSize(arg) {
         return DEFAULT_OPERAND_SIZE;
     }
 }
+
+function toOpcode(index) {
+    return '0x' + index.toString(16).padStart(2, '0');
+}
+
 /* Compute bit-size of instruction based on flags and number of operands,
  * whether they are immediate (and op-type if so)
  *
@@ -49,6 +54,27 @@ function instructionSize(instr) {
     return sizeStr;
 }
 
+function instructionBitFormat(instr, index) {
+    let bitFormat = { 'Name': instr['Name'], 'Opcode': {'code': toOpcode(index), 'size': 8}, 'Indirect': 8, 'Args': [], 'Flags': [] };
+
+    //for (let arg of instr['Args']) {
+    for (let a = 0; a < instr['Args'].length; a++) {
+        const arg = instr['Args'][a];
+        const aSize = argSize(arg);
+        if (aSize === undefined) {
+            bitFormat['Args'][a] = {"name": arg['name'], "size": 'N'};
+        } else {
+            bitFormat['Args'][a] = {"name": arg['name'], "size": aSize};
+        }
+    }
+    for (let f = 0; f < instr['Flags'].length; f++) {
+        const flag = instr['Flags'][f];
+        bitFormat['Flags'][f] = {"name": flag['name'], "size": 8};
+    }
+    return bitFormat;
+}
+
 module.exports = {
   instructionSize,
+  instructionBitFormat,
 };

@@ -345,7 +345,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "sload",
         "Name": "`SLOAD`",
-        "Category": "storage",
+        "Category": "storage & messaging",
         "Flags": [],
         "#memreads": "2",
         "#memwrites": "1",
@@ -355,14 +355,14 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = storage[M[slotOffset]]`",
         "Summary": "Load a word from storage.",
-        "Details": "Load a word from this contract's persistent storage into memory.",
+        "Details": "Load a word from this contract's persistent public storage into memory.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = field`",
     },
     {
         "id": "sstore",
         "Name": "`SSTORE`",
-        "Category": "storage",
+        "Category": "storage & messaging",
         "Flags": [],
         "#memreads": "2",
         "#memwrites": "0",
@@ -372,9 +372,63 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`storage[M[slotOffset]] = M[srcOffset]`",
         "Summary": "Write a word to storage.",
-        "Details": "Store a word from memory into this contract's persistent storage.",
+        "Details": "Store a word from memory into this contract's persistent public storage.",
         "Tag checks": "",
         "Tag updates": "",
+    },
+    {
+        "id": "l1l2msgload",
+        "Name": "`L1L2MSGLOAD`",
+        "Category": "storage & messaging",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "keyOffset", "description": "memory offset of the message key"},
+            {"name": "dstMsgOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MESSAGE_LENGTH` words of the retrieved message"},
+            {"name": "dstSibPathOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MSG_TREE_HEIGHT` words of the retrieved message's sibling path"},
+            {"name": "dstLeafIndexOffset", "description": "memory offset specifying where to store the retrieved message's leaf index"},
+            {"name": "dstRootOffset", "description": "memory offset specifying where to store the retrieved message tree root"},
+        ],
+        "Expression": `
+{
+    M[dstMsgOffset],
+    M[dstSibPathOffset],
+    M[dstLeafIndexOffset],
+    M[dstRootOffset]
+} = getL1ToL2Message(M[keyOffset])
+`,
+        "Summary": "Retrieve an L1-to-L2 message by key",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dst*Offset] = field`",
+    },
+    {
+        "id": "sendl2tol1msg",
+        "Name": "`SENDL1TOL2MSG`",
+        "Category": "storage & messaging",
+        "Flags": [],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "keyOffset", "description": "memory offset of the message key"},
+            {"name": "dstMsgOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MESSAGE_LENGTH` words of the retrieved message"},
+            {"name": "dstSibPathOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MSG_TREE_HEIGHT` words of the retrieved message's sibling path"},
+            {"name": "dstLeafIndexOffset", "description": "memory offset specifying where to store the retrieved message's leaf index"},
+            {"name": "dstRootOffset", "description": "memory offset specifying where to store the retrieved message tree root"},
+        ],
+        "Expression": `
+{
+    M[dstMsgOffset],
+    M[dstSibPathOffset],
+    M[dstLeafIndexOffset],
+    M[dstRootOffset]
+} = getL1ToL2Message(M[keyOffset])
+`,
+        "Summary": "Retrieve an L1-to-L2 message by key",
+        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "`T[dst*Offset] = field`",
     },
     {
         "id": "jump",
@@ -914,33 +968,6 @@ T[retOffset:retOffset+retSize] = field
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
-    },
-    {
-        "id": "l1l2msg",
-        "Name": "`L1L2MSG`",
-        "Category": "l1-l2 messaging",
-        "Flags": [],
-        "#memreads": "1",
-        "#memwrites": "1",
-        "Args": [
-            {"name": "keyOffset", "description": "memory offset of the message key"},
-            {"name": "dstMsgOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MESSAGE_LENGTH` words of the retrieved message"},
-            {"name": "dstSibPathOffset", "description": "memory offset specifying where to store the `L1_TO_L2_MSG_TREE_HEIGHT` words of the retrieved message's sibling path"},
-            {"name": "dstLeafIndexOffset", "description": "memory offset specifying where to store the retrieved message's leaf index"},
-            {"name": "dstRootOffset", "description": "memory offset specifying where to store the retrieved message tree root"},
-        ],
-        "Expression": `
-{
-    M[dstMsgOffset],
-    M[dstSibPathOffset],
-    M[dstLeafIndexOffset],
-    M[dstRootOffset]
-} = getL1ToL2Message(M[keyOffset])
-`,
-        "Summary": "Retrieve an L1-to-L2 message by key",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "`T[dst*Offset] = field`",
     },
 ];
 const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {instr['Bit-size'] = instructionSize(instr); return instr;});
