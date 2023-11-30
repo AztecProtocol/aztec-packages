@@ -216,7 +216,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-node-1"
+        "value": "/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
@@ -262,7 +262,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-node-1",
+        "awslogs-group": "/fargate/service/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}",
         "awslogs-region": "eu-west-2",
         "awslogs-stream-prefix": "ecs"
       }
@@ -356,7 +356,7 @@ resource "aws_lb_listener_rule" "api" {
 
 resource "aws_lb_target_group" "aztec-node-target-group" {
   count       = local.node_count
-  name        = "${var.DEPLOY_TAG}-node-1-p2p-target"
+  name        = "${var.DEPLOY_TAG}-node-${count.index + 1}-p2p-target"
   port        = var.NODE_TCP_PORT + count.index
   protocol    = "TCP"
   target_type = "ip"
@@ -385,13 +385,13 @@ resource "aws_security_group_rule" "allow-node-tcp" {
 ## NLB listeners can't have a 'weight' property defined. You will see there isn't one here but that doesn't
 ## stop it trying to automatically specify one and giving an error
 
-# resource "aws_lb_listener" "aztec-node-1-tcp-listener" {
+# resource "aws_lb_listener" "aztec-node-${count.index + 1}-tcp-listener" {
 #   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
-#   port              = "${var.NODE_1_TCP_PORT}"
+#   port              = var.NODE_TCP_PORT + count.index
 #   protocol          = "TCP"
 
 #   tags = {
-#     name = "aztec-node-1-tcp-listener"
+#     name = "aztec-node-${count.index}-tcp-listener"
 #   }
 
 #   default_action {
@@ -399,7 +399,7 @@ resource "aws_security_group_rule" "allow-node-tcp" {
 
 #     forward {
 #       target_group {
-#         arn    = aws_lb_target_group.aztec-bootstrap-1-target-group.arn
+#         arn    = aws_lb_target_group.aztec-bootstrap-${count.index}-target-group.arn
 #       }
 #     }
 #   }
