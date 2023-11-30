@@ -658,8 +658,7 @@ TEST_F(base_rollup_tests, native_compute_membership_blocks_tree_negative)
     ASSERT_TRUE(builder.failed());
     ASSERT_EQ(builder.get_first_failure().message,
               "Membership check failed: base_rollup_circuit: historical root is in rollup constants but not in "
-              "historical block tree roots at kernel input 0 to this "
-              "base rollup circuit");
+              "blocks tree at kernel input 0 to this base rollup circuit");
 }
 
 

@@ -158,16 +158,15 @@ void perform_blocks_tree_membership_checks(DummyBuilder& builder, BaseRollupInpu
         abis::MembershipWitness<NT, BLOCKS_TREE_HEIGHT> const historical_root_witness =
             baseRollupInputs.blocks_tree_root_membership_witnesses[i];
 
-        check_membership<NT>(
-            builder,
-            previous_block_hash,
-            historical_root_witness.leaf_index,
-            historical_root_witness.sibling_path,
-            historical_root,
-            format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                   "historical root is in rollup constants but not in historical block tree roots at kernel input ",
-                   i,
-                   " to this base rollup circuit"));
+        check_membership<NT>(builder,
+                             previous_block_hash,
+                             historical_root_witness.leaf_index,
+                             historical_root_witness.sibling_path,
+                             historical_root,
+                             format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                                    "historical root is in rollup constants but not in blocks tree at kernel input ",
+                                    i,
+                                    " to this base rollup circuit"));
     }
 }
 

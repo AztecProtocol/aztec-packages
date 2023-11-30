@@ -466,7 +466,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Get tree snapshots
     const startL1ToL2MessagesTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
 
-    // Get historical block tree roots
+    // Get blocks tree
     const startBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
     const newBlocksTreeSiblingPathArray = await getRootTreeSiblingPath(MerkleTreeId.BLOCKS_TREE);
 
