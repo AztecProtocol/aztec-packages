@@ -111,6 +111,8 @@ echo "Commit tag version: $COMMIT_TAG_VERSION"
 if [ "$(query_manifest multiarch $REPOSITORY)" == "true" ]; then
   IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY "")
   echo "Building image: $IMAGE_COMMIT_URI"
+  docker buildx create --name builder --use
+  docker buildx inspect --bootstrap
   docker buildx build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --platform linux/amd64,linux/arm64 . --push
 else
   IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
