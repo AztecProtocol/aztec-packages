@@ -58,7 +58,7 @@ export class ConstantRollupData {
     /**
      * Snapshot of the historical blocks roots tree at the start of the rollup.
      */
-    public startBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -100,7 +100,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startBlocksTreeRootsSnapshot,
+      fields.startBlocksTreeSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,

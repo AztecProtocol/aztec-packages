@@ -136,7 +136,7 @@ void perform_blocks_tree_membership_checks(DummyBuilder& builder, BaseRollupInpu
 {
     // For each of the historical_note_hash_tree_membership_checks, we need to do an inclusion proof
     // against the historical root provided in the rollup constants
-    auto historical_root = baseRollupInputs.constants.start_blocks_tree_roots_snapshot.root;
+    auto historical_root = baseRollupInputs.constants.start_blocks_tree_snapshot.root;
 
     for (size_t i = 0; i < 2; i++) {
         // Rebuild the block hash

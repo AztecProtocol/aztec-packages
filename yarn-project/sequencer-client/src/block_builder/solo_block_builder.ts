@@ -560,7 +560,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       mergeRollupVkHash: DELETE_FR,
       privateKernelVkTreeRoot: FUTURE_FR,
       publicKernelVkTreeRoot: FUTURE_FR,
-      startBlocksTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE),
+      startBlocksTreeSnapshot: await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE),
       globalVariables,
     });
   }

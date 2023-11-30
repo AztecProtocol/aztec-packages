@@ -477,24 +477,26 @@ impl BaseRollupInputs {
         U256::from_bytes32(sha_digest).to_u128_limbs()
     }
 
-    // Check all of the provided commitments against the historical tree roots
+    // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
+    // contains roots of all the trees this is sufficient to verify that the tree roots used by kernels are correct
     fn perform_blocks_tree_membership_checks(self) {
-        // For each of the historical_note_hash_tree_membership_checks, we need to do an inclusion proof
-        // against the historical root provided in the rollup constants
-        let historical_root = self.constants.start_blocks_tree_roots_snapshot.root;
+        // For each of the block header (their block hashes), we need to do an inclusion proof
+        // against the blocks tree root from the beginning of a rollup provided in the rollup constants
+        let blocks_treee_root = self.constants.start_blocks_tree_snapshot.root;
 
         for i in 0..KERNELS_PER_BASE_ROLLUP {
             // Rebuild the block hash
             let block_header = self.kernel_data[i].public_inputs.constants.block_header;
             let previous_block_hash = block_header.block.hash();
 
-            let historical_root_witness = self.blocks_tree_root_membership_witnesses[i];
+            let previous_block_hash_witness = self.blocks_tree_root_membership_witnesses[i];
 
+            // Now check that the previous block hash is in the blocks tree from the beginning of the rollup
             components::assert_check_membership(
                 previous_block_hash,
-                historical_root_witness.leaf_index,
-                historical_root_witness.sibling_path,
-                historical_root
+                previous_block_hash_witness.leaf_index,
+                previous_block_hash_witness.sibling_path,
+                blocks_treee_root
             );
         }
     }
@@ -758,7 +760,7 @@ mod tests {
                 next_available_leaf_index: start_blocks_tree.get_next_available_index() as u32,
             };
 
-            self.constants.start_blocks_tree_roots_snapshot = start_blocks_tree_snapshot;
+            self.constants.start_blocks_tree_snapshot = start_blocks_tree_snapshot;
 
             let mut new_public_data_reads_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
             

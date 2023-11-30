@@ -163,7 +163,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                              public_data_tree.root());
     blocks_tree.update_element(0, block_hash);
 
-    ConstantRollupData const constantRollupData = { .start_blocks_tree_roots_snapshot = {
+    ConstantRollupData const constantRollupData = { .start_blocks_tree_snapshot = {
                                                         .root = blocks_tree.root(),
                                                         .next_available_leaf_index = 1,
                                                     } };
