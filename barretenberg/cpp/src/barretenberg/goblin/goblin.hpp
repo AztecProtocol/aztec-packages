@@ -37,22 +37,40 @@ class Goblin {
 
     // GoblinUltraCircuitBuilder circuit_builder{op_queue};  // WORKTODO: need to remove reference-type data members
 
+    /**
+     * @brief
+     *
+     * @param circuit_builder
+     */
     void accumulate(GoblinUltraCircuitBuilder& circuit_builder)
     {
+        // Complete the "kernel" logic by recursively verifying previous merge proof
+        // WORKTODO: auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
+        // WORKTODO: verified = verified && merge_verifier.verify_proof(merge_proof);
+
+        // Construct proof of the "kernel" circuit
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
         auto honk_proof = prover.construct_proof();
-        verified = verified && verifier.verify_proof(honk_proof);
+        // WORKTODO: for now, do a native verification here for good measure.
+        auto verifier = composer.create_verifier(instance);
+        bool honk_verified = verifier.verify_proof(honk_proof);
+        ASSERT(honk_verified);
 
         // Construct and verify op queue merge proof
         auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
         auto merge_proof = merge_prover.construct_proof();
-        verified = verified && merge_verifier.verify_proof(merge_proof);
+        // WORKTODO: for now, do a native verification here for good measure.
+        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
+        bool merge_verified = merge_verifier.verify_proof(merge_proof);
+        ASSERT(merge_verified);
 
+        // WORKTODO: reset the circuit builder? Is this better than just creating a new one?
         // circuit_builder = GoblinUltraCircuitBuilder(); // WORKTODO: need to remove reference-type data members
+
+        // WORKTODO: this needs to return a proof and a verification key for use by the next circuit. Make a struct for
+        // this?
     };
 
     PartialProof prove()

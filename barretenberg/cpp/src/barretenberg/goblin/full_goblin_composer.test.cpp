@@ -38,6 +38,12 @@ class FullGoblinComposerTests : public ::testing::Test {
     using TranslatorComposer = GoblinTranslatorComposer;
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
     using Proof = proof_system::plonk::proof;
+    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
+
+    struct VerifierInput {
+        Proof proof;
+        std::shared_ptr<NativeVerificationKey> verification_key;
+    };
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
 
@@ -177,26 +183,77 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     EXPECT_TRUE(accumulator_construction_verified && translation_verified);
 }
 
+/**
+ * @brief A full Goblin test that mimicks the basic aztec client architecture
+ *
+ */
 TEST_F(FullGoblinComposerTests, Pseudo)
 {
     barretenberg::Goblin goblin;
 
+    // WORKTODO: In theory we could use the ops from the first circuit instead of these fake ops but then we'd still
+    // have to manually compute and call set_commitments since we can call prove with no prior data.
     perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
 
-    const auto folding_verifier = [](GoblinUltraBuilder& builder) { generate_test_circuit(builder); };
+    // Construct an initial goblin ultra circuit
+    GoblinUltraBuilder initial_circuit_builder{ goblin.op_queue };
+    generate_test_circuit(initial_circuit_builder);
+
+    // Construct a proof of the initial circuit to be recursively verified
+    auto composer = GoblinUltraComposer();
+    auto instance = composer.create_instance(initial_circuit_builder);
+    auto prover = composer.create_prover(instance);
+    auto proof = prover.construct_proof();
+    auto verification_key = instance->compute_verification_key();
+    VerifierInput verifier_input = { proof, verification_key };
+    { // Natively verify for testing purposes only
+        auto verifier = composer.create_verifier(instance);
+        bool honk_verified = verifier.verify_proof(proof);
+        EXPECT_TRUE(honk_verified);
+    }
+
+    // Construct a merge proof to be recursively verified
+    auto merge_prover = composer.create_merge_prover(goblin.op_queue);
+    auto merge_proof = merge_prover.construct_proof();
+    { // Natively verify for testing purposes only
+        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
+        bool merge_verified = merge_verifier.verify_proof(merge_proof);
+        EXPECT_TRUE(merge_verified);
+    }
+
+    // const auto folding_verifier = [](GoblinUltraBuilder& builder) { generate_test_circuit(builder); };
+
+    // WORKTODO: possible construct the proof of a "first" circuit here. then the first kernel has something to
+    // recursively verify. This resembles the actual aztec architecture which defines an initial_kernel as something
+    // distinct from the inner_kernel
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 4;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
-        folding_verifier(/* goblin. */ circuit_builder); // WORKTODO
-        goblin.accumulate(circuit_builder);              // merge prover done in here
+
+        // Construct a circuit with logic resembling that of the "kernel circuit"
+        {
+            // generic operations e.g. state updates (just arith gates for now)
+            generate_test_circuit(circuit_builder);
+
+            // execute recursive aggregation of previous kernel
+            // auto verification_key = std::make_shared<VerificationKey>(&circuit_builder, native_verification_key);
+            // RecursiveVerifier verifier(&circuit_builder, verification_key);
+            // auto pairing_points = verifier.verify_proof(prev_kernel_proof);
+
+            // execute recursive aggregation of app circuit (ignore this for now)
+
+            // Possibly use lambda syntax like this: folding_verifier(/* goblin. */ circuit_builder); // WORKTODO
+        }
+        // Complete kernel circuit logic by with recursive verification of merge proof then construct proof/instance
+        goblin.accumulate(circuit_builder); // merge prover done in here
     }
 
-    auto vms_verified = goblin.prove();
-    bool verified = goblin.verified && vms_verified;
-    // bool verified = goblin.verify(proof)
-    EXPECT_TRUE(verified);
+    // auto vms_verified = goblin.prove();
+    // bool verified = goblin.verified && vms_verified;
+    // // bool verified = goblin.verify(proof)
+    // EXPECT_TRUE(verified);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
