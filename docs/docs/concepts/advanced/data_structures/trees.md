@@ -165,6 +165,8 @@ The contract tree contains information about every function of every contract de
 Leaves are hashes of blocks (of block headers).
 Can be used to access any of the trees above at some older point in time by doing a membership check of the old root in the block header and of the block header hash in the blocks tree.
 
+<img src="/img/blocks_tree.svg" alt="Blocks Tree" />
+
 ## Trees of valid Kernel/Rollup circuit Verification Keys
 
 Eventually, we'll have trees of verification keys for various permutations of kernel/rollup circuits. Such permutations might be the number of public inputs, or the logic contained within the circuits.
