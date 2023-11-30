@@ -9,9 +9,9 @@ import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 const snapshotChildKey = (node: Buffer, child: 0 | 1) =>
   Buffer.concat([Buffer.from('snapshot:node:'), node, Buffer.from(':' + child)]);
 
-// metadata for a snapshot - the root of the historical tree
+// metadata for a snapshot
 const snapshotRootKey = (treeName: string, block: number) => `snapshot:root:${treeName}:${block}`;
-const snapshotNumLeavesKey = (treeName: string, block: number) => `snapshot:leafCount:${treeName}:${block}`;
+const snapshotNumLeavesKey = (treeName: string, block: number) => `snapshot:numLeaves:${treeName}:${block}`;
 
 /**
  * Builds a full snapshot of a tree. This implementation works for any Merkle tree and stores

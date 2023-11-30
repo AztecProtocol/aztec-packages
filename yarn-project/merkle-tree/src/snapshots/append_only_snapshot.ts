@@ -14,8 +14,9 @@ const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) 
 const historicalNodeKey = (treeName: string, level: number, index: bigint) =>
   `snapshot:node:${treeName}:${level}:${index}:value`;
 
-// metadata for a snapshot - currently just the count of leaves
-const snapshotLeafCountKey = (treeName: string, block: number) => `snapshot:leafCount:${treeName}:${block}`;
+// metadata for a snapshot
+const snapshotRootKey = (treeName: string, block: number) => `snapshot:root:${treeName}:${block}`;
+const snapshotNumLeavesKey = (treeName: string, block: number) => `snapshot:numLeaves:${treeName}:${block}`;
 
 /**
  * A more space-efficient way of storing snapshots of AppendOnlyTrees that trades space need for slower
@@ -35,20 +36,20 @@ const snapshotLeafCountKey = (treeName: string, block: number) => `snapshot:leaf
 export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
   constructor(private db: LevelUp, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {}
   async getSnapshot(block: number): Promise<TreeSnapshot> {
-    const leafCount = await this.#getLeafCountAtBlock(block);
+    const meta = await this.#getSnapshotMeta(block);
 
-    if (typeof leafCount === 'undefined') {
+    if (typeof meta === 'undefined') {
       throw new Error(`Snapshot for tree ${this.tree.getName()} at block ${block} does not exist`);
     }
 
-    return new AppendOnlySnapshot(this.db, block, leafCount, this.tree, this.hasher);
+    return new AppendOnlySnapshot(this.db, block, meta.numLeaves, meta.root, this.tree, this.hasher);
   }
 
   async snapshot(block: number): Promise<TreeSnapshot> {
-    const leafCountAtBlock = await this.#getLeafCountAtBlock(block);
-    if (typeof leafCountAtBlock !== 'undefined') {
+    const meta = await this.#getSnapshotMeta(block);
+    if (typeof meta !== 'undefined') {
       // no-op, we already have a snapshot
-      return new AppendOnlySnapshot(this.db, block, leafCountAtBlock, this.tree, this.hasher);
+      return new AppendOnlySnapshot(this.db, block, meta.numLeaves, meta.root, this.tree, this.hasher);
     }
 
     const batch = this.db.batch();
@@ -93,19 +94,31 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       }
     }
 
-    const leafCount = this.tree.getNumLeaves(false);
-    batch.put(snapshotLeafCountKey(treeName, block), String(leafCount));
+    const numLeaves = this.tree.getNumLeaves(false);
+    batch.put(snapshotNumLeavesKey(treeName, block), String(numLeaves));
+    batch.put(snapshotRootKey(treeName, block), root);
     await batch.write();
 
-    return new AppendOnlySnapshot(this.db, block, leafCount, this.tree, this.hasher);
+    return new AppendOnlySnapshot(this.db, block, numLeaves, root, this.tree, this.hasher);
   }
 
-  async #getLeafCountAtBlock(block: number): Promise<bigint | undefined> {
-    const leafCount = await this.db
-      .get(snapshotLeafCountKey(this.tree.getName(), block))
-      .then(x => BigInt(x.toString()))
-      .catch(() => undefined);
-    return leafCount;
+  async #getSnapshotMeta(block: number): Promise<
+    | {
+        /** The root of the tree snapshot */
+        root: Buffer;
+        /** The number of leaves in the tree snapshot */
+        numLeaves: bigint;
+      }
+    | undefined
+  > {
+    try {
+      const treeName = this.tree.getName();
+      const root = await this.db.get(snapshotRootKey(treeName, block));
+      const numLeaves = BigInt(await this.db.get(snapshotNumLeavesKey(treeName, block)));
+      return { root, numLeaves };
+    } catch (err) {
+      return undefined;
+    }
   }
 }
 
@@ -117,6 +130,7 @@ class AppendOnlySnapshot implements TreeSnapshot {
     private db: LevelUp,
     private block: number,
     private leafCount: bigint,
+    private historicalRoot: Buffer,
     private tree: TreeBase & AppendOnlyTree,
     private hasher: Hasher,
   ) {}
@@ -149,7 +163,8 @@ class AppendOnlySnapshot implements TreeSnapshot {
   }
 
   getRoot(): Buffer {
-    return this.tree.getRoot(false);
+    // we could recompute it, but it's way cheaper to just store the root
+    return this.historicalRoot;
   }
 
   async getLeafValue(index: bigint): Promise<Buffer | undefined> {

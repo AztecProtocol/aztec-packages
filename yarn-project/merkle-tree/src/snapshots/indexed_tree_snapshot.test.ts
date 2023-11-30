@@ -79,4 +79,18 @@ describe('IndexedTreeSnapshotBuilder', () => {
       expect(actualLeavesAtBlock2).toEqual(expectedLeavesAtBlock2);
     });
   });
+
+  describe('findIndexOfPreviousValue', () => {
+    it('returns the index of the leaf with the closest value to the given value', async () => {
+      await tree.appendLeaves([Buffer.from('a'), Buffer.from('f'), Buffer.from('d')]);
+      await tree.commit();
+      const snapshot = await snapshotBuilder.snapshot(1);
+      const historicalPrevValue = tree.findIndexOfPreviousValue(2n, false);
+
+      await tree.appendLeaves([Buffer.from('c'), Buffer.from('b'), Buffer.from('e')]);
+      await tree.commit();
+
+      await expect(snapshot.findIndexOfPreviousValue(2n)).resolves.toEqual(historicalPrevValue);
+    });
+  });
 });

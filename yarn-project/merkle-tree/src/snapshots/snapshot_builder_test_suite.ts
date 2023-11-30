@@ -141,5 +141,57 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         await expect(snapshotBuilder.getSnapshot(2)).rejects.toThrow();
       });
     });
+
+    describe('getRoot', () => {
+      it('returns the historical root of the tree when the snapshot was taken', async () => {
+        await modifyTree(tree);
+        await tree.commit();
+        const snapshot = await snapshotBuilder.snapshot(1);
+        const historicalRoot = tree.getRoot(false);
+
+        await modifyTree(tree);
+        await tree.commit();
+
+        expect(snapshot.getRoot()).toEqual(historicalRoot);
+        expect(snapshot.getRoot()).not.toEqual(tree.getRoot(false));
+      });
+    });
+
+    describe('getDepth', () => {
+      it('returns the same depth as the tree', async () => {
+        await modifyTree(tree);
+        await tree.commit();
+        const snapshot = await snapshotBuilder.snapshot(1);
+        expect(snapshot.getDepth()).toEqual(tree.getDepth());
+      });
+    });
+
+    describe('getNumLeaves', () => {
+      it('returns the historical leaves count when the snapshot was taken', async () => {
+        await modifyTree(tree);
+        await tree.commit();
+        const snapshot = await snapshotBuilder.snapshot(1);
+        const historicalNumLeaves = tree.getNumLeaves(false);
+
+        await modifyTree(tree);
+        await tree.commit();
+
+        expect(snapshot.getNumLeaves()).toEqual(historicalNumLeaves);
+      });
+    });
+
+    describe('getLeafValue', () => {
+      it('returns the historical leaf value when the snapshot was taken', async () => {
+        await modifyTree(tree);
+        await tree.commit();
+        const snapshot = await snapshotBuilder.snapshot(1);
+        const historicalLeafValue = await tree.getLeafValue(0n, false);
+
+        await modifyTree(tree);
+        await tree.commit();
+
+        await expect(snapshot.getLeafValue(0n)).resolves.toEqual(historicalLeafValue);
+      });
+    });
   });
 }
