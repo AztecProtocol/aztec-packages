@@ -48,14 +48,9 @@ data "terraform_remote_state" "aztec-network_iac" {
   }
 }
 
-variable "bootnode_keys" {
-  description = "private keys for bootnodes"
-  type        = list(string)
-  default     = [var.BOOTNODE_1_PRIVATE_KEY, var.BOOTNODE_2_PRIVATE_KEY]
-}
-
 locals {
-  bootnode_count = length(var.bootnode_keys)
+  bootnode_keys  = [var.BOOTNODE_1_PRIVATE_KEY, var.BOOTNODE_2_PRIVATE_KEY]
+  bootnode_count = length(local.bootnode_keys)
 }
 
 
@@ -140,7 +135,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap" {
       },
       {
         "name": "PEER_ID_PRIVATE_KEY",
-        "value": "${var.bootnode_keys[count.index]}"
+        "value": "${local.bootnode_keys[count.index]}"
       },
       {
         "name": "DEBUG",
