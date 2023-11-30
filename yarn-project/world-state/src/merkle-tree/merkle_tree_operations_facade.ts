@@ -1,15 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
-import { LowLeafWitnessData } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { BatchInsertionResult } from '@aztec/merkle-tree';
+import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
-import {
-  CurrentTreeRoots,
-  HandleL2BlockResult,
-  LeafData,
-  MerkleTreeDb,
-  MerkleTreeOperations,
-  TreeInfo,
-} from '../index.js';
+import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -127,8 +120,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param globalVariablesHash - The hash of the current global variables to include in the block hash.
    * @returns Empty promise.
    */
-  public updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateHistoricBlocksTree(globalVariablesHash, this.includeUncommitted);
+  public updateBlocksTree(globalVariablesHash: Fr): Promise<void> {
+    return this.trees.updateBlocksTree(globalVariablesHash, this.includeUncommitted);
   }
 
   /**
@@ -178,11 +171,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public batchInsert(
+  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]> {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }
