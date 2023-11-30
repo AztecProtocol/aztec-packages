@@ -1,5 +1,5 @@
 ---
-title: Privately access Historic Public Data
+title: Privately access Historical Public Data
 ---
 
 In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state - only sequencers can do that.
@@ -17,8 +17,8 @@ On this page you will learn:
 
 This structure was created specifically to privately & publicly access historical public data. It should be used to store public data that doesn't change often.
 
-- Access historic public data from a private function
-- Access historic public data from a public function
+- Access historical public data from a private function
+- Access historical public data from a public function
 - Update public data (that does not need updated often) from public and private functions 
 
 This data structure is ideal for these use cases:
@@ -32,7 +32,7 @@ We developed the Slow Updates Tree to help balance public and private execution 
 
 **First iteration: Shared State Tree** 
 
-Using a shared state tree, it is possible to privately access historic public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
+Using a shared state tree, it is possible to privately access historical public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
 
 ```mermaid
 graph TD;
