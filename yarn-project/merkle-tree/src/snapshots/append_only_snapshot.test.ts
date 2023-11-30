@@ -17,25 +17,6 @@ describe('AppendOnlySnapshot', () => {
     snapshotBuilder = new AppendOnlySnapshotBuilder(db, tree, hasher);
   });
 
-  it('takes snapshots', async () => {
-    await tree.appendLeaves([Buffer.from('a'), Buffer.from('b'), Buffer.from('c')]);
-    await tree.commit();
-
-    const expectedPathAtSnapshot1 = await tree.getSiblingPath(1n, false);
-
-    const snapshot1 = await snapshotBuilder.snapshot(1);
-
-    await tree.appendLeaves([Buffer.from('d'), Buffer.from('e'), Buffer.from('f')]);
-    await tree.commit();
-
-    const expectedPathAtSnapshot2 = await tree.getSiblingPath(1n, false);
-
-    const snapshot2 = await snapshotBuilder.snapshot(2);
-
-    await expect(snapshot1.getSiblingPath(1n, false)).resolves.toEqual(expectedPathAtSnapshot1);
-    await expect(snapshot2.getSiblingPath(1n, false)).resolves.toEqual(expectedPathAtSnapshot2);
-  });
-
   describeSnapshotBuilderTestSuite(
     () => tree,
     () => snapshotBuilder,

@@ -2,7 +2,6 @@ import { SiblingPath } from '@aztec/types';
 
 import { LevelUp, LevelUpChain } from 'levelup';
 
-import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
@@ -12,6 +11,7 @@ const snapshotChildKey = (node: Buffer, child: 0 | 1) =>
 
 // metadata for a snapshot - the root of the historical tree
 const snapshotRootKey = (treeName: string, block: number) => `snapshot:root:${treeName}:${block}`;
+const snapshotNumLeavesKey = (treeName: string, block: number) => `snapshot:leafCount:${treeName}:${block}`;
 
 /**
  * Builds a full snapshot of a tree. This implementation works for any Merkle tree and stores
@@ -29,20 +29,21 @@ const snapshotRootKey = (treeName: string, block: number) => `snapshot:root:${tr
  * Worst case space complexity: O(N * M)
  * Sibling path access: O(H) database reads
  */
-export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends SiblingPathSource>
+export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends TreeSnapshot>
   implements TreeSnapshotBuilder<S>
 {
   constructor(protected db: LevelUp, protected tree: T) {}
 
   async snapshot(block: number): Promise<S> {
-    const historicalRoot = await this.#getRootAtBlock(block);
+    const snapshotMetadata = await this.#getSnapshotMeta(block);
 
-    if (historicalRoot) {
-      return this.openSnapshot(historicalRoot);
+    if (snapshotMetadata) {
+      return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
     }
 
     const batch = this.db.batch();
     const root = this.tree.getRoot(false);
+    const numLeaves = this.tree.getNumLeaves(false);
     const depth = this.tree.getDepth();
     const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 
@@ -90,9 +91,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     }
 
     batch.put(snapshotRootKey(this.tree.getName(), block), root);
+    batch.put(snapshotNumLeavesKey(this.tree.getName(), block), String(numLeaves));
     await batch.write();
 
-    return this.openSnapshot(root);
+    return this.openSnapshot(root, numLeaves);
   }
 
   protected handleLeaf(_index: bigint, _node: Buffer, _batch: LevelUpChain) {
@@ -100,20 +102,31 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
   }
 
   async getSnapshot(version: number): Promise<S> {
-    const historicRoot = await this.#getRootAtBlock(version);
+    const snapshotMetadata = await this.#getSnapshotMeta(version);
 
-    if (!historicRoot) {
+    if (!snapshotMetadata) {
       throw new Error(`Version ${version} does not exist for tree ${this.tree.getName()}`);
     }
 
-    return this.openSnapshot(historicRoot);
+    return this.openSnapshot(snapshotMetadata.root, snapshotMetadata.numLeaves);
   }
 
-  protected abstract openSnapshot(root: Buffer): S;
+  protected abstract openSnapshot(root: Buffer, numLeaves: bigint): S;
 
-  async #getRootAtBlock(block: number): Promise<Buffer | undefined> {
+  async #getSnapshotMeta(block: number): Promise<
+    | {
+        /** The root of the tree snapshot */
+        root: Buffer;
+        /** The number of leaves in the tree snapshot */
+        numLeaves: bigint;
+      }
+    | undefined
+  > {
     try {
-      return await this.db.get(snapshotRootKey(this.tree.getName(), block));
+      const treeName = this.tree.getName();
+      const root = await this.db.get(snapshotRootKey(treeName, block));
+      const numLeaves = BigInt(await this.db.get(snapshotNumLeavesKey(treeName, block)));
+      return { root, numLeaves };
     } catch (err) {
       return undefined;
     }
@@ -124,7 +137,12 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
  * A source of sibling paths from a snapshot tree
  */
 export class BaseFullTreeSnapshot implements TreeSnapshot {
-  constructor(protected db: LevelUp, protected historicRoot: Buffer, protected tree: TreeBase) {}
+  constructor(
+    protected db: LevelUp,
+    protected historicRoot: Buffer,
+    protected numLeaves: bigint,
+    protected tree: TreeBase,
+  ) {}
 
   async getSiblingPath<N extends number>(index: bigint): Promise<SiblingPath<N>> {
     const siblings: Buffer[] = [];
@@ -138,6 +156,27 @@ export class BaseFullTreeSnapshot implements TreeSnapshot {
     siblings.reverse();
 
     return new SiblingPath<N>(this.tree.getDepth() as N, siblings);
+  }
+
+  async getLeafValue(index: bigint): Promise<Buffer | undefined> {
+    let leafNode: Buffer | undefined = undefined;
+    for await (const [node, _sibling] of this.pathFromRootToLeaf(index)) {
+      leafNode = node;
+    }
+
+    return leafNode;
+  }
+
+  getDepth(): number {
+    return this.tree.getDepth();
+  }
+
+  getRoot(): Buffer {
+    return this.historicRoot;
+  }
+
+  getNumLeaves(): bigint {
+    return this.numLeaves;
   }
 
   protected async *pathFromRootToLeaf(leafIndex: bigint) {

@@ -3,9 +3,8 @@ import { Hasher, SiblingPath } from '@aztec/types';
 import { LevelUp } from 'levelup';
 
 import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
-import { TreeSnapshotBuilder } from './snapshot_builder.js';
+import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 // stores the last block that modified this node
 const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) =>
@@ -35,7 +34,7 @@ const snapshotLeafCountKey = (treeName: string, block: number) => `snapshot:leaf
  */
 export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
   constructor(private db: LevelUp, private tree: TreeBase & AppendOnlyTree, private hasher: Hasher) {}
-  async getSnapshot(block: number): Promise<SiblingPathSource> {
+  async getSnapshot(block: number): Promise<TreeSnapshot> {
     const leafCount = await this.#getLeafCountAtBlock(block);
 
     if (typeof leafCount === 'undefined') {
@@ -45,7 +44,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     return new AppendOnlySnapshot(this.db, block, leafCount, this.tree, this.hasher);
   }
 
-  async snapshot(block: number): Promise<SiblingPathSource> {
+  async snapshot(block: number): Promise<TreeSnapshot> {
     const leafCountAtBlock = await this.#getLeafCountAtBlock(block);
     if (typeof leafCountAtBlock !== 'undefined') {
       // no-op, we already have a snapshot
@@ -113,7 +112,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
 /**
  * a
  */
-class AppendOnlySnapshot implements SiblingPathSource {
+class AppendOnlySnapshot implements TreeSnapshot {
   constructor(
     private db: LevelUp,
     private block: number,
@@ -139,6 +138,36 @@ class AppendOnlySnapshot implements SiblingPathSource {
     }
 
     return new SiblingPath<N>(depth as N, path);
+  }
+
+  getDepth(): number {
+    return this.tree.getDepth();
+  }
+
+  getNumLeaves(): bigint {
+    return this.leafCount;
+  }
+
+  getRoot(): Buffer {
+    return this.tree.getRoot(false);
+  }
+
+  async getLeafValue(index: bigint): Promise<Buffer | undefined> {
+    const leafLevel = this.getDepth();
+    const blockNumber = await this.#getBlockNumberThatModifiedNode(leafLevel, index);
+
+    // leaf hasn't been set yet
+    if (typeof blockNumber === 'undefined') {
+      return undefined;
+    }
+
+    // leaf was set some time in the past
+    if (blockNumber <= this.block) {
+      return this.db.get(historicalNodeKey(this.tree.getName(), leafLevel, index));
+    }
+
+    // leaf has been set but in a block in the future
+    return undefined;
   }
 
   async #getHistoricalNodeValue(level: number, index: bigint): Promise<Buffer> {

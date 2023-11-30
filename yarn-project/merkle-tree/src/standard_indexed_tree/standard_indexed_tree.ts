@@ -3,6 +3,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { LeafData, SiblingPath } from '@aztec/types';
 
 import { IndexedTree } from '../interfaces/indexed_tree.js';
+import { IndexedTreeSnapshotBuilder } from '../snapshots/indexed_tree_snapshot.js';
+import { IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
 import { TreeBase } from '../tree_base.js';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');
@@ -75,6 +77,8 @@ export const decodeTreeValue = (buf: Buffer) => {
  * Indexed merkle tree.
  */
 export class StandardIndexedTree extends TreeBase implements IndexedTree {
+  #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.db, this);
+
   protected leaves: LeafData[] = [];
   protected cachedLeaves: { [key: number]: LeafData } = {};
 
@@ -549,6 +553,14 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
     // Drop the first subtreeHeight items since we only care about the path to the subtree root
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
+  }
+
+  snapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.snapshot(blockNumber);
+  }
+
+  getSnapshot(block: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.getSnapshot(block);
   }
 
   /**

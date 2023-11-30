@@ -40,7 +40,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         await tree.commit();
         const snapshot = await snapshotBuilder.snapshot(1);
 
-        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
+        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
         const expectedPaths = await Promise.all(leaves.map(leaf => tree.getSiblingPath(leaf, false)));
 
         for (const [index, path] of historicPaths.entries()) {
@@ -58,7 +58,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         await modifyTree(tree);
         await tree.commit();
 
-        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
+        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
 
         for (const [index, path] of historicPaths.entries()) {
           expect(path).toEqual(expectedPaths[index]);
@@ -79,7 +79,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         await snapshotBuilder.snapshot(2);
 
         // check that snapshot 2 has not influenced snapshot(1) at all
-        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
+        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
 
         for (const [index, path] of historicPaths.entries()) {
           expect(path).toEqual(expectedPaths[index]);
@@ -104,7 +104,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
 
         // check that snapshot 2 has not influenced snapshot(1) at all
         // and that the diverging tree does not influence the old snapshot
-        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf, false)));
+        const historicPaths = await Promise.all(leaves.map(leaf => snapshot.getSiblingPath(leaf)));
 
         for (const [index, path] of historicPaths.entries()) {
           expect(path).toEqual(expectedPaths[index]);
@@ -126,7 +126,7 @@ export function describeSnapshotBuilderTestSuite<T extends TreeBase, S extends T
         }
 
         const firstSnapshot = await snapshotBuilder.getSnapshot(1);
-        const historicPaths = await Promise.all(leaves.map(leaf => firstSnapshot.getSiblingPath(leaf, false)));
+        const historicPaths = await Promise.all(leaves.map(leaf => firstSnapshot.getSiblingPath(leaf)));
 
         for (const [index, path] of historicPaths.entries()) {
           expect(path).toEqual(expectedPaths[index]);

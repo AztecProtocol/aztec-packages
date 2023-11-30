@@ -1,7 +1,6 @@
-import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { BaseFullTreeSnapshot, BaseFullTreeSnapshotBuilder } from './base_full_snapshot.js';
-import { TreeSnapshotBuilder } from './snapshot_builder.js';
+import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 /**
  * Builds a full snapshot of a tree. This implementation works for any Merkle tree and stores
@@ -18,10 +17,10 @@ import { TreeSnapshotBuilder } from './snapshot_builder.js';
  * Sibling path access: O(H) database reads
  */
 export class FullTreeSnapshotBuilder
-  extends BaseFullTreeSnapshotBuilder<TreeBase, SiblingPathSource>
-  implements TreeSnapshotBuilder<SiblingPathSource>
+  extends BaseFullTreeSnapshotBuilder<TreeBase, TreeSnapshot>
+  implements TreeSnapshotBuilder<TreeSnapshot>
 {
-  protected openSnapshot(root: Buffer): SiblingPathSource {
-    return new BaseFullTreeSnapshot(this.db, root, this.tree);
+  protected openSnapshot(root: Buffer, numLeaves: bigint): TreeSnapshot {
+    return new BaseFullTreeSnapshot(this.db, root, numLeaves, this.tree);
   }
 }
