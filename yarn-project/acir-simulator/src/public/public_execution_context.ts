@@ -48,7 +48,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Generates the initial witness for a public function.
    * @param args - The arguments to the function.
    * @param callContext - The call context of the function.
-   * @param blockHeader - Historical Trees roots and data required to reconstruct block hash.
+   * @param blockHeader - Contains data required to reconstruct a block hash (historical roots etc.).
    * @param globalVariables - The global variables.
    * @param witnessStartIndex - The index where to start inserting the parameters.
    * @returns The initial witness.

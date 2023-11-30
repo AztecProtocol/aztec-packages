@@ -41,7 +41,7 @@ export class RootRollupInputs {
      */
     public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Sibling path of the new historical block roots tree root.
+     * Sibling path of the new block tree root.
      */
     public newBlocksTreeSiblingPath: Tuple<Fr, typeof BLOCKS_TREE_HEIGHT>,
   ) {}

@@ -56,7 +56,7 @@ export class NullifierLeafPreimage {
 export class ConstantRollupData {
   constructor(
     /**
-     * Snapshot of the historical blocks roots tree at the start of the rollup.
+     * Snapshot of the blocks tree at the start of the rollup.
      */
     public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 

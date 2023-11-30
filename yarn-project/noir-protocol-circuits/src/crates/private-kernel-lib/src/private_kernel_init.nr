@@ -451,7 +451,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -464,7 +464,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_leaf_index() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -478,7 +478,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_sibling_path() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 

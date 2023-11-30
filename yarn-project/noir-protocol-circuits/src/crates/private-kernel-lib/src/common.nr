@@ -81,7 +81,7 @@ pub fn validate_read_requests(
         let read_request = read_requests[rr_idx];
         let witness = read_request_membership_witnesses[rr_idx];
         
-        // A pending commitment is the one that is not yet added to private data tree
+        // A pending commitment is the one that is not yet added to note hash tree
         // A "transient read" is when we try to "read" a pending commitment within a transaction
         // between function calls, as opposed to reading the outputs of a previous transaction
         // which is a "pending read".
@@ -92,7 +92,7 @@ pub fn validate_read_requests(
     
         if (read_request != 0) & (witness.is_transient == false) {
             let root_for_read_request = read_request_root_from_siblings(read_request, witness.leaf_index, witness.sibling_path);
-            assert(root_for_read_request == historical_note_hash_tree_root, "private data tree root mismatch");
+            assert(root_for_read_request == historical_note_hash_tree_root, "note hash tree root mismatch");
             
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?

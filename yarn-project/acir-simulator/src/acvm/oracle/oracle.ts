@@ -112,11 +112,11 @@ export class Oracle {
   async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const blockData = await this.typedOracle.getBlockHeader(parsedBlockNumber);
-    if (!blockData) {
-      throw new Error(`Block data not found for block ${parsedBlockNumber}.`);
+    const blockHeader = await this.typedOracle.getBlockHeader(parsedBlockNumber);
+    if (!blockHeader) {
+      throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
-    return blockData.toArray().map(toACVMField);
+    return blockHeader.toArray().map(toACVMField);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {

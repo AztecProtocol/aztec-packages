@@ -163,7 +163,7 @@ The contract tree contains information about every function of every contract de
 ## Blocks Tree
 
 Leaves are hashes of blocks (of block headers).
-Can be used to access any of the trees above at some older point in time by doing a membership witness of the old root in the block header and of the block header hash in the blocs tree.
+Can be used to access any of the trees above at some older point in time by doing a membership check of the old root in the block header and of the block header hash in the blocks tree.
 
 ## Trees of valid Kernel/Rollup circuit Verification Keys
 

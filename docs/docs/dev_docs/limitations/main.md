@@ -116,7 +116,7 @@ As for deploying this all to mainnet, a decentralized sequencer selection and pr
 
 ### You can't read mutable public state from a private function
 
-Private smart contract functions won't be able to read mutable public state yet. We have some [ideas](https://discourse.aztec.network/t/accessing-historical-public-state-from-private-functions/241/7?u=mike) for how to solve this, and will look to implement something very soon.
+Private smart contract functions won't be able to read mutable public state yet. We have some [ideas](https://discourse.aztec.network/t/accessing-historic-public-state-from-private-functions/241/7?u=mike) for how to solve this, and will look to implement something very soon.
 
 #### What are the consequences?
 
