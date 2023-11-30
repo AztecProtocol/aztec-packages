@@ -1213,7 +1213,10 @@ workflows:
       # Production deployment
       - deploy-dockerhub: *defaults_deploy
       - deploy-npm: *defaults_deploy
-      - deploy-mainnet-fork: *defaults_deploy
+      - deploy-mainnet-fork:
+          requires:
+            - deploy-dockerhub
+          <<: *defaults_deploy
       - deploy-contracts:
           requires:
             - deploy-mainnet-fork
