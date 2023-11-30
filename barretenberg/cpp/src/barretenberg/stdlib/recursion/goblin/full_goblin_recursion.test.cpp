@@ -12,11 +12,11 @@
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
-using namespace proof_system::honk;
+// using namespace proof_system::honk;
 
-namespace test_full_goblin_composer {
+namespace goblin_recursion_tests {
 
-class FullGoblinComposerTests : public ::testing::Test {
+class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
@@ -28,18 +28,19 @@ class FullGoblinComposerTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Fbase = Curve::BaseField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using CommitmentKey = proof_system::honk::pcs::CommitmentKey<Curve>;
     using OpQueue = proof_system::ECCOpQueue;
     using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
-    using ECCVMFlavor = flavor::ECCVM;
+    using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
-    using TranslatorFlavor = flavor::GoblinTranslator;
+    using ECCVMComposer = proof_system::honk::ECCVMComposer_<ECCVMFlavor>;
+    using TranslatorFlavor = proof_system::honk::flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = GoblinTranslatorComposer;
+    using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
     using Proof = proof_system::plonk::proof;
-    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
+    using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
+    using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
 
     using RecursiveFlavor = ::proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = ::proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
@@ -49,7 +50,7 @@ class FullGoblinComposerTests : public ::testing::Test {
         std::shared_ptr<NativeVerificationKey> verification_key;
     };
 
-    static constexpr size_t NUM_OP_QUEUE_COLUMNS = flavor::GoblinUltra::NUM_WIRES;
+    static constexpr size_t NUM_OP_QUEUE_COLUMNS = proof_system::honk::flavor::GoblinUltra::NUM_WIRES;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
@@ -122,86 +123,25 @@ class FullGoblinComposerTests : public ::testing::Test {
 };
 
 /**
- * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
- * gates
- * @note We simulate op queue interactions with a previous circuit so the actual circuit under test utilizes an op queue
- * with non-empty 'previous' data. This avoids complications with zero-commitments etc.
- *
- */
-TEST_F(FullGoblinComposerTests, SimpleCircuit)
-{
-    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
-
-    // Add mock data to op queue to simulate interaction with a "first" circuit
-    perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
-    proof_system::plonk::proof previous_proof;
-
-    // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 4;
-    for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        proof_system::GoblinUltraCircuitBuilder builder{ op_queue };
-
-        generate_test_circuit(builder, previous_proof);
-
-        // The same composer is used to manage Honk and Merge prover/verifier
-        proof_system::honk::GoblinUltraComposer composer;
-
-        // Construct and verify Ultra Goblin Honk proof
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
-        auto honk_proof = prover.construct_proof();
-        bool honk_verified = verifier.verify_proof(honk_proof);
-        EXPECT_TRUE(honk_verified);
-
-        // Construct and verify op queue merge proof
-        auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
-        auto merge_proof = merge_prover.construct_proof();
-        bool merge_verified = merge_verifier.verify_proof(merge_proof);
-        EXPECT_TRUE(merge_verified);
-    }
-
-    // Execute the ECCVM
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
-    auto eccvm_builder = ECCVMBuilder(op_queue);
-    auto eccvm_composer = ECCVMComposer();
-    auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
-    auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
-    auto eccvm_proof = eccvm_prover.construct_proof();
-    bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
-    EXPECT_TRUE(eccvm_verified);
-
-    // Execute the Translator
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
-    auto batching_challenge = Fbase::random_element();
-    auto evaluation_input = eccvm_prover.evaluation_challenge_x;
-    proof_system::GoblinTranslatorCircuitBuilder translator_builder{ batching_challenge, evaluation_input, op_queue };
-    GoblinTranslatorComposer translator_composer;
-    GoblinTranslatorProver translator_prover = translator_composer.create_prover(translator_builder);
-    GoblinTranslatorVerifier translator_verifier = translator_composer.create_verifier(translator_builder);
-    proof_system::plonk::proof translator_proof = translator_prover.construct_proof();
-    bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
-    bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
-    EXPECT_TRUE(accumulator_construction_verified && translation_verified);
-}
-
-/**
  * @brief A full Goblin test that mimicks the basic aztec client architecture
  *
  */
-TEST_F(FullGoblinComposerTests, Pseudo)
+TEST_F(GoblinRecursionTests, Pseudo)
 {
     barretenberg::Goblin goblin;
 
     // WORKTODO: In theory we could use the ops from the first circuit instead of these fake ops but then we'd still
-    // have to manually compute and call set_commitments since we can call prove with no prior data.
+    // have to manually compute and call set_commitments (normally performed in the merge prover) since we can call
+    // merge prove with an previous empty aggregate transcript.
     perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
+
+    info("Generating initial circuit.");
 
     // Construct an initial goblin ultra circuit
     GoblinUltraBuilder initial_circuit_builder{ goblin.op_queue };
     generate_test_circuit(initial_circuit_builder);
+
+    info("Proving initial circuit.");
 
     // Construct a proof of the initial circuit to be recursively verified
     auto composer = GoblinUltraComposer();
@@ -213,16 +153,20 @@ TEST_F(FullGoblinComposerTests, Pseudo)
     VerifierInput verifier_input = { proof, verification_key };
 
     { // Natively verify proof for testing purposes only
+        info("Verifying initial circuit.");
         auto verifier = composer.create_verifier(instance);
         bool honk_verified = verifier.verify_proof(proof);
         EXPECT_TRUE(honk_verified);
     }
+
+    info("Constructing merge proof.");
 
     // Construct a merge proof to be recursively verified
     auto merge_prover = composer.create_merge_prover(goblin.op_queue);
     auto merge_proof = merge_prover.construct_proof();
 
     { // Natively verify merge for testing purposes only
+        info("Verifying merge proof.");
         auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
         bool merge_verified = merge_verifier.verify_proof(merge_proof);
         EXPECT_TRUE(merge_verified);
@@ -231,23 +175,45 @@ TEST_F(FullGoblinComposerTests, Pseudo)
     // const auto folding_verifier = [](GoblinUltraBuilder& builder) { generate_test_circuit(builder); };
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 4;
+    size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
 
+        info();
+
         // Construct a circuit with logic resembling that of the "kernel circuit"
         {
+            info("Kernel circuit ", circuit_idx);
+            info("Adding general logic.");
             // generic operations e.g. state updates (just arith gates for now)
             generate_test_circuit(circuit_builder);
 
+            info("Adding recursive aggregation logic.");
             // execute recursive aggregation of previous kernel
-            // RecursiveVerifier verifier{ &circuit_builder, verifier_input.verification_key };
-            // auto pairing_points = verifier.verify_proof(verifier_input.proof);
-            // (void)pairing_points; // WORKTODO: aggregate
+            RecursiveVerifier verifier{ &circuit_builder, verifier_input.verification_key };
+            auto pairing_points = verifier.verify_proof(verifier_input.proof);
+            (void)pairing_points; // WORKTODO: aggregate
         }
 
-        // Complete kernel circuit logic by with recursive verification of merge proof then construct proof/instance
-        goblin.accumulate(circuit_builder); // merge prover done in here
+        info("Constructing proof of Kernel circuit ", circuit_idx);
+
+        // Construct proof of the "kernel" circuit
+        // WORKTODO: Eventually the below block should be the contents of a method like
+        // "goblin.accumulate(circuit_builder)". Should the return be a VerifierInput?
+        {
+            GoblinUltraComposer composer;
+            auto instance = composer.create_instance(circuit_builder);
+            auto prover = composer.create_prover(instance);
+            auto honk_proof = prover.construct_proof();
+            // WORKTODO: for now, do a native verification here for good measure.
+            info("Verifying proof of Kernel circuit ", circuit_idx);
+            auto verifier = composer.create_verifier(instance);
+            bool honk_verified = verifier.verify_proof(honk_proof);
+            ASSERT(honk_verified);
+
+            verifier_input.proof = honk_proof;
+            verifier_input.verification_key = instance->compute_verification_key();
+        }
     }
 
     // auto vms_verified = goblin.prove();
@@ -257,4 +223,4 @@ TEST_F(FullGoblinComposerTests, Pseudo)
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
-} // namespace test_full_goblin_composer
+} // namespace goblin_recursion_tests
