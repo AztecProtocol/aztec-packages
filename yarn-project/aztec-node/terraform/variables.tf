@@ -72,7 +72,7 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 32
+  default = 1
 }
 
 variable "P2P_MIN_PEERS" {

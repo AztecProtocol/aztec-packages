@@ -109,7 +109,7 @@ resource "aws_ecs_task_definition" "aztec-bootstrap" {
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-bootstrap-${count.index + 1}",
-    "image": "${var.DOCKERHUB_ACCOUNT}/p2p-bootstrap:${var.DEPLOY_TAG}",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-sandbox:${var.DEPLOY_TAG}",
     "essential": true,
     "command": ["start"],
     "memoryReservation": 3776,
@@ -125,6 +125,10 @@ resource "aws_ecs_task_definition" "aztec-bootstrap" {
       {
         "name": "NODE_ENV",
         "value": "production"
+      },
+      {
+        "name": "MODE",
+        "value": "p2p-bootstrap"
       },
       {
         "name": "P2P_TCP_LISTEN_PORT",
