@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         call_context::CallContext,
-        block_header::BlockHeader,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
     address::Address,
@@ -13,14 +12,17 @@ use crate::{
     tests::fixtures,
     utils::bounded_vec::BoundedVec,
 };
-use dep::aztec::constants_gen::{
-    MAX_NEW_COMMITMENTS_PER_CALL,
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    MAX_NEW_NULLIFIERS_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    RETURN_VALUES_LENGTH,
+use dep::aztec::{
+    abi::BlockHeader,
+    constants_gen::{
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        RETURN_VALUES_LENGTH,
+    },
 };
 
 struct PublicCircuitPublicInputsBuilder {

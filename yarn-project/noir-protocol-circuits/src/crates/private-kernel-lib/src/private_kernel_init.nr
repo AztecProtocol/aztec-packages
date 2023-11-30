@@ -91,7 +91,7 @@ impl PrivateKernelInputsInit {
         self.validate_this_private_call_against_tx_request();
 
         common::validate_read_requests(
-            public_inputs.constants.block_header.note_hash_tree_root(),
+            public_inputs.constants.block_header.note_hash_tree_root,
             self.private_call.call_stack_item.public_inputs.read_requests,
             self.private_call.read_request_membership_witnesses
         );

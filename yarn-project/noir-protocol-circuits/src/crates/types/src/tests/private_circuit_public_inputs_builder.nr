@@ -2,7 +2,6 @@ use crate::{
     abis::{
         call_context::CallContext,
         complete_address::CompleteAddress,
-        block_header::BlockHeader,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
     },
     contrakt::deployment_data::ContractDeploymentData,
@@ -14,7 +13,10 @@ use crate::{
     utils::bounded_vec::BoundedVec,
 };
 use dep::aztec::{
-    abi::hash_args,
+    abi::{
+        BlockHeader,
+        hash_args,
+    },
     constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,

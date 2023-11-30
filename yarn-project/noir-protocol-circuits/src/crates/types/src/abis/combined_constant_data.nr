@@ -1,5 +1,5 @@
 use crate::transaction::context::TxContext;
-use crate::abis::block_header::BlockHeader;
+use dep::aztec::abi::BlockHeader;
 
 struct CombinedConstantData {
     block_header: BlockHeader,

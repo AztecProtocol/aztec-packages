@@ -184,17 +184,7 @@ impl BlockHeader {
     }
 
     pub fn block_hash(self) -> Field {
-        // TODO(#3442): Unify the ordering in `BlockHeader::serialize` function and the ordering
-        // in the block hash preimage --> This requires changes in the circuits.
-        let inputs = [
-            self.global_variables_hash,
-            self.note_hash_tree_root,
-            self.nullifier_tree_root,
-            self.contract_tree_root,
-            self.l1_to_l2_messages_tree_root,
-            self.public_data_tree_root
-        ];
-        pedersen_hash(inputs, GENERATOR_INDEX__BLOCK_HASH)
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
     }
 }
 

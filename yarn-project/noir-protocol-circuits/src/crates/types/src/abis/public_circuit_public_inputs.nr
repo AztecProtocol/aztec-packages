@@ -8,11 +8,9 @@ use dep::aztec::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     RETURN_VALUES_LENGTH,
 };
+use dep::aztec::abi::BlockHeader;
 use crate::{
-    abis::{
-        call_context::CallContext,
-        block_header::BlockHeader,
-    },
+    abis::call_context::CallContext,
     address::Address,
     contrakt::{
         storage_read::StorageRead,
@@ -66,7 +64,7 @@ impl PublicCircuitPublicInputs{
         inputs.push_array(self.new_l2_to_l1_msgs);
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push_array(self.block_header.to_array());
+        inputs.push_array(self.block_header.serialize());
         inputs.push(self.prover_address.to_field());
 
         assert_eq(inputs.len(), constants_gen::PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH, "Incorrect number of input fields when hashing PublicCircuitPublicInputs");

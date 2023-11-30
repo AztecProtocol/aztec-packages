@@ -4,7 +4,6 @@ use crate::{
         call_request::{CallerContext, CallRequest},
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
-        block_header::BlockHeader,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
@@ -20,6 +19,7 @@ use crate::{
     transaction::context::TxContext,
 };
 use dep::aztec::{
+    abi::BlockHeader,
     constants_gen::{
         EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,

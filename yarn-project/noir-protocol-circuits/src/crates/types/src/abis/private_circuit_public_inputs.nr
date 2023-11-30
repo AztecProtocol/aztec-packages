@@ -1,13 +1,11 @@
 use crate::{
-    abis::{
-        call_context::CallContext,
-        block_header::BlockHeader,
-    },
+    abis::call_context::CallContext,
     contrakt::deployment_data::ContractDeploymentData,
     hash::NUM_FIELDS_PER_SHA256,
     utils::bounded_vec::BoundedVec,
 };
 use dep::aztec::{
+    abi::BlockHeader,
     constants_gen,
     constants_gen::{
         MAX_READ_REQUESTS_PER_CALL,
@@ -73,7 +71,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_header.to_array());
+        fields.push_array(self.block_header.serialize());
         fields.push(self.contract_deployment_data.hash());
         fields.push(self.chain_id);
         fields.push(self.version);

@@ -347,7 +347,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
                                                  private_call.contract_leaf_membership_witness.leaf_index,
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
-        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.block_header.contract_tree_root();
+        let purported_contract_tree_root = private_call.call_stack_item.public_inputs.block_header.contract_tree_root;
         assert_eq(computed_contract_tree_root, purported_contract_tree_root, "computed_contract_tree_root does not match purported_contract_tree_root");
     }
 }
