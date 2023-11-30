@@ -637,13 +637,14 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
     }
 
     uint64_t wnaf_table[num_rounds * 2];
-    std::array<std::array<uint64_t, 2>, 2> endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
+    Fr endo_scalar;
+    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
 
     bool skew = false;
     bool endo_skew = false;
 
-    wnaf::fixed_wnaf(endo_scalars[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
-    wnaf::fixed_wnaf(endo_scalars[1], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
 
     element work_element{ T::one_x, T::one_y, Fq::one() };
     work_element.self_set_infinity();
@@ -782,13 +783,14 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     }
 
     uint64_t wnaf_table[num_rounds * 2];
-    std::array<std::array<uint64_t, 2>, 2> endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
+    Fr endo_scalar;
+    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
 
     bool skew = false;
     bool endo_skew = false;
 
-    wnaf::fixed_wnaf(endo_scalars[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
-    wnaf::fixed_wnaf(endo_scalars[1], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
 
     std::vector<affine_element> work_elements(num_points);
 

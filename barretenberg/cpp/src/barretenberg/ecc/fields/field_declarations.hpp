@@ -368,20 +368,6 @@ template <class Params_> struct alignas(32) field {
         k1.data[1] = t2.data[1];
     }
 
-    /**
-     * @brief Uses split_into_endomorphism_scalars(field, field&, field&) but returns the directly decomposed uint64
-     *pairs representing the uint128.
-     **/
-    static std::array<std::array<uint64_t, 2>, 2> split_into_endomorphism_scalars(const field& k)
-    {
-        // if the modulus is too large, we use more space than we have
-        static_assert(Params::modulus_3 < 0x4000000000000000ULL);
-        field f1;
-        field f2;
-        split_into_endomorphism_scalars(k, f1, f2);
-        return std::array{ std::array{ f1.data[0], f1.data[1] }, std::array{ f2.data[0], f2.data[1] } };
-    }
-
     static void split_into_endomorphism_scalars_384(const field& input, field& k1_out, field& k2_out)
     {
 

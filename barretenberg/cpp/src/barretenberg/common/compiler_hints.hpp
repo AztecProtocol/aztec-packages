@@ -14,9 +14,3 @@
 #define BBERG_PROFILE
 #define BBERG_NO_PROFILE
 #endif
-
-#if defined(__clang__)
-#define BBERG_ALLOW_SHIFT_OVERFLOW __attribute__((no_sanitize("shift")))
-#else
-#define BBERG_ALLOW_SHIFT_OVERFLOW
-#endif

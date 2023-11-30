@@ -219,23 +219,24 @@ void compute_wnaf_states(uint64_t* point_schedule,
     }
 
     parallel_for(num_threads, [&](size_t i) {
+        Fr T0;
         uint64_t* wnaf_table = &point_schedule[(2 * i) * num_initial_points_per_thread];
         const Fr* thread_scalars = &scalars[i * num_initial_points_per_thread];
         bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];
         uint64_t offset = i * num_points_per_thread;
 
         for (uint64_t j = 0; j < num_initial_points_per_thread; ++j) {
-            Fr T0 = thread_scalars[j].from_montgomery_form();
-            std::array<std::array<uint64_t, 2>, 2> endo_scalars = Fr::split_into_endomorphism_scalars(T0);
+            T0 = thread_scalars[j].from_montgomery_form();
+            Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
-            wnaf::fixed_wnaf_with_counts(endo_scalars[0],
+            wnaf::fixed_wnaf_with_counts(&T0.data[0],
                                          &wnaf_table[(j << 1UL)],
                                          skew_table[j << 1ULL],
                                          &thread_round_counts[i][0],
                                          ((j << 1ULL) + offset) << 32ULL,
                                          num_points,
                                          wnaf_bits);
-            wnaf::fixed_wnaf_with_counts(endo_scalars[1],
+            wnaf::fixed_wnaf_with_counts(&T0.data[2],
                                          &wnaf_table[(j << 1UL) + 1],
                                          skew_table[(j << 1UL) + 1],
                                          &thread_round_counts[i][0],
