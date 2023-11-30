@@ -38,7 +38,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_composer()
+    template <typename BuilderT> static auto get_outer_composer()
     {
         if constexpr (IsGoblinBuilder<BuilderT>) {
             return GoblinUltraComposer();
@@ -211,7 +211,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
-            auto composer = get_composer<OuterBuilder>();
+            auto composer = get_outer_composer<OuterBuilder>();
             auto instance = composer.create_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
             auto verifier = composer.create_verifier(instance);
