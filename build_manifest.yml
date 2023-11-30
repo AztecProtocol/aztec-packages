@@ -139,6 +139,7 @@ aztec-sandbox:
   projectDir: yarn-project/aztec-sandbox
   dependencies:
     - yarn-project-prod
+  multiarch: true
 
 aztec-faucet:
   buildDir: yarn-project
@@ -151,6 +152,7 @@ cli:
   projectDir: yarn-project/cli
   dependencies:
     - yarn-project-prod
+  multiarch: true
 
 boxes-blank-react:
   buildDir: yarn-project
