@@ -2,13 +2,13 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-prod AS yarn-proj
 
 # Need new arch specific image.
 FROM node:18-alpine
+COPY --from=yarn-project-prod /usr/src /usr/src
 
 # Set Tini as the default entrypoint, to handle ctrl-c etc.
 # Why not just yarn start? About 1 second difference in startup time.
 # At time of writing it still takes 1.7s to just get the help to print. Needs investigating.
 RUN apk add --no-cache tini
 ENTRYPOINT ["/sbin/tini", "--", "node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
-COPY --from=yarn-project-prod /usr/src /usr/src
 
 # Setup cache volume.
 ENV XDG_CACHE_HOME /cache
