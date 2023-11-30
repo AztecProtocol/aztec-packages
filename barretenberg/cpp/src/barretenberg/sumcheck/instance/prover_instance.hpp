@@ -26,14 +26,18 @@ template <class Flavor> class ProverInstance_ {
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
-    // The CommitmentKey doesn't get folded, it's length might get adjusted depending on the longest instance.
-    std::shared_ptr<CommitmentKey> commitment_key;
 
     ProverPolynomials prover_polynomials;
+    WitnessCommitments witness_commitments;
+    CommitmentLabels commitment_labels;
+
+    std::array<Polynomial, 4> sorted_polynomials;
 
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
@@ -69,9 +73,9 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    std::shared_ptr<VerificationKey> compute_verification_key();
-
     void initialize_prover_polynomials();
+
+    void compute_wire_commitments();
 
     void compute_sorted_accumulator_polynomials(FF);
 

@@ -46,6 +46,7 @@ use crate::oracle::{
     public_call::call_public_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal,
     context::get_portal_address,
+    get_block_data::get_block_data,
 };
 
 use dep::std::option::Option;
@@ -128,6 +129,10 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
+    pub fn get_block_data(self, block_number: Field) -> HistoricBlockData {
+        get_block_data(block_number, self)
+    }
+
     pub fn finish(self) -> abi::PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
@@ -202,7 +207,7 @@ impl PrivateContext {
     ) 
     // docs:end:context_consume_l1_to_l2_message
     {
-        let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, self.this_address(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -543,7 +548,7 @@ impl PublicContext {
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
         let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, this, msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)

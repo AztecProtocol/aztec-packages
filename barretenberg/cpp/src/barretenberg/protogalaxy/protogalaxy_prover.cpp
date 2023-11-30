@@ -19,7 +19,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 
         transcript.send_to_verifier(domain_separator + "_instance_size", instance_size);
         transcript.send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
-
         for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
             auto public_input_i = instance->public_inputs[i];
             transcript.send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
@@ -28,11 +27,45 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         if (!static_cast<bool>(instance->is_accumulator)) {
             transcript.send_to_verifier(domain_separator + "_pub_inputs_offset",
                                         static_cast<uint32_t>(instance->pub_inputs_offset));
-            auto [eta, beta, gamma] = transcript.get_challenges(
-                domain_separator + "_eta", domain_separator + "_beta", domain_separator + "_gamma");
+
+            auto& witness_commitments = instance->witness_commitments;
+
+            // Commit to the first three wire polynomials
+            // We only commit to the fourth wire polynomial after adding memory recordss
+            witness_commitments.w_l = commitment_key->commit(instance->proving_key->w_l);
+            witness_commitments.w_r = commitment_key->commit(instance->proving_key->w_r);
+            witness_commitments.w_o = commitment_key->commit(instance->proving_key->w_o);
+
+            auto wire_comms = witness_commitments.get_wires();
+
+            auto commitment_labels = instance->commitment_labels;
+            auto wire_labels = commitment_labels.get_wires();
+            for (size_t idx = 0; idx < 3; ++idx) {
+                transcript.send_to_verifier(domain_separator + "_" + wire_labels[idx], wire_comms[idx]);
+            }
+
+            auto eta = transcript.get_challenge(domain_separator + "_eta");
             instance->compute_sorted_accumulator_polynomials(eta);
+            witness_commitments.sorted_accum = commitment_key->commit(instance->prover_polynomials.sorted_accum);
+            witness_commitments.w_4 = commitment_key->commit(instance->prover_polynomials.w_4);
+
+            transcript.send_to_verifier(domain_separator + "_" + commitment_labels.sorted_accum,
+                                        witness_commitments.sorted_accum);
+            transcript.send_to_verifier(domain_separator + "_" + commitment_labels.w_4, witness_commitments.w_4);
+
+            auto [beta, gamma] = transcript.get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
             instance->compute_grand_product_polynomials(beta, gamma);
+
+            witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
+            witness_commitments.z_lookup = commitment_key->commit(instance->prover_polynomials.z_lookup);
+
+            transcript.send_to_verifier(domain_separator + "_" + commitment_labels.z_perm,
+                                        instance->witness_commitments.z_perm);
+            transcript.send_to_verifier(domain_separator + "_" + commitment_labels.z_lookup,
+                                        instance->witness_commitments.z_lookup);
+
             instance->alpha = transcript.get_challenge(domain_separator + "_alpha");
+
         } else {
             transcript.send_to_verifier(domain_separator + "_eta", instance->relation_parameters.eta);
             transcript.send_to_verifier(domain_separator + "_beta", instance->relation_parameters.beta);
@@ -50,15 +83,24 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
                 transcript.send_to_verifier(domain_separator + "_gate_challenge_" + std::to_string(idx),
                                             folding_parameters.gate_challenges[idx]);
             }
+
+            auto comm_view = instance->witness_commitments.pointer_view();
+            auto labels = instance->commitment_labels.get_witness();
+            for (size_t idx = 0; idx < labels.size(); idx++) {
+                transcript.send_to_verifier(domain_separator + "_" + labels[idx], (*comm_view[idx]));
+            }
         }
 
         auto vk_view = instance->verification_key->pointer_view();
-        auto labels = typename Flavor::CommitmentLabels().get_precomputed();
+        auto labels = instance->commitment_labels.get_precomputed();
         for (size_t idx = 0; idx < labels.size(); idx++) {
             transcript.send_to_verifier(domain_separator + "_" + labels[idx], (*vk_view[idx]));
         }
     }
 
+    for (auto w : instances[0]->witness_commitments.pointer_view()) {
+        info((*w));
+    }
     fold_relation_parameters(instances);
     fold_alpha(instances);
 }

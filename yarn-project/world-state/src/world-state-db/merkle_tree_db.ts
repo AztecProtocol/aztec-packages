@@ -1,8 +1,8 @@
 import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { LeafData, LowLeafWitnessData } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { BatchInsertionResult } from '@aztec/merkle-tree';
+import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -195,11 +195,11 @@ export interface MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
-  batchInsert(
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).

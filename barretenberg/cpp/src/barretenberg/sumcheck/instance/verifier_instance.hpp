@@ -8,6 +8,8 @@ template <class Flavor> class VerifierInstance_ {
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
     using FoldingParameters = typename Flavor::FoldingParameters;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
 
     std::shared_ptr<VerificationKey> verification_key;
     std::vector<FF> public_inputs;
@@ -19,5 +21,7 @@ template <class Flavor> class VerifierInstance_ {
     FF alpha;
     uint32_t is_accumulator = 0;
     FoldingParameters folding_parameters;
+    WitnessCommitments witness_commitments;
+    CommitmentLabels commitment_labels;
 };
 } // namespace proof_system::honk

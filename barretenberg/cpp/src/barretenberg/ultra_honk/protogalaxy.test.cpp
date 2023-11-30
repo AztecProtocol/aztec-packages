@@ -17,6 +17,7 @@ using Builder = Flavor::CircuitBuilder;
 using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
 using RelationParameters = proof_system::RelationParameters<FF>;
+using WitnessCommitments = typename Flavor::WitnessCommitments;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace protogalaxy_tests {
@@ -92,6 +93,16 @@ std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instanc
         (*view) = Affine(Projective::random_element());
     }
     return verification_key;
+}
+
+WitnessCommitments construct_witness_commitments()
+{
+    WitnessCommitments wc;
+    auto w_view = wc.pointer_view();
+    for (auto& view : w_view) {
+        (*view) = Affine(Projective::random_element());
+    }
+    return wc;
 }
 
 class ProtoGalaxyTests : public ::testing::Test {
@@ -293,6 +304,7 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     }
 
     auto accumulator = std::make_shared<Instance>();
+    accumulator->witness_commitments = construct_witness_commitments();
     accumulator->instance_size = instance_size;
     accumulator->log_instance_size = log_instance_size;
     accumulator->prover_polynomials = full_polynomials;
@@ -309,7 +321,7 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
 
     auto instance = composer.create_instance(builder);
     auto instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance };
-    auto folding_prover = composer.create_folding_prover(instances);
+    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
     auto folding_verifier = composer.create_folding_verifier();
 
     auto result = folding_prover.fold_instances();

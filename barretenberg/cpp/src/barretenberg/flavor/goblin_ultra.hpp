@@ -40,7 +40,7 @@ class GoblinUltra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -167,30 +167,22 @@ class GoblinUltra {
         DataType w_r;                  // column 1
         DataType w_o;                  // column 2
         DataType w_4;                  // column 3
-        DataType sorted_1;             // column 4
-        DataType sorted_2;             // column 5
-        DataType sorted_3;             // column 6
-        DataType sorted_4;             // column 7
-        DataType sorted_accum;         // column 8
-        DataType z_perm;               // column 9
-        DataType z_lookup;             // column 10
-        DataType ecc_op_wire_1;        // column 11
-        DataType ecc_op_wire_2;        // column 12
-        DataType ecc_op_wire_3;        // column 13
-        DataType ecc_op_wire_4;        // column 14
-        DataType calldata;             // column 15
-        DataType calldata_read_counts; // column 16
-        DataType lookup_inverses;      // column 17
+        DataType sorted_accum;         // column 4
+        DataType z_perm;               // column 5
+        DataType z_lookup;             // column 6
+        DataType ecc_op_wire_1;        // column 7
+        DataType ecc_op_wire_2;        // column 8
+        DataType ecc_op_wire_3;        // column 9
+        DataType ecc_op_wire_4;        // column 10
+        DataType calldata;             // column 11
+        DataType calldata_read_counts; // column 12
+        DataType lookup_inverses;      // column 13
 
         DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
                             &w_l,
                             &w_r,
                             &w_o,
                             &w_4,
-                            &sorted_1,
-                            &sorted_2,
-                            &sorted_3,
-                            &sorted_4,
                             &sorted_accum,
                             &z_perm,
                             &z_lookup,
@@ -207,8 +199,6 @@ class GoblinUltra {
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
-        // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**
@@ -481,6 +471,11 @@ class GoblinUltra {
             return result;
         }
     };
+
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment, CommitmentHandle>;
 
     /**
      * @brief A container for commitment labels.

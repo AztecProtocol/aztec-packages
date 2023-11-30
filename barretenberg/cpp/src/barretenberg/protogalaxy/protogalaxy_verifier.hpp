@@ -14,6 +14,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using Commitment = typename Flavor::Commitment;
     using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
 
     VerifierInstances instances;
     BaseTranscript<FF> transcript;

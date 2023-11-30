@@ -43,17 +43,44 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
                 inst->folding_parameters.gate_challenges[idx] = transcript.template receive_from_prover<FF>(
                     domain_separator + "_gate_challenge_" + std::to_string(idx));
             }
+            auto comm_view = inst->witness_commitments.pointer_view();
+            auto labels = inst->commitment_labels.get_witness();
+            for (size_t idx = 0; idx < labels.size(); idx++) {
+                (*comm_view[idx]) =
+                    transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels[idx]);
+            }
         } else {
             inst->pub_inputs_offset =
                 transcript.template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-            auto [eta, beta, gamma] = transcript.get_challenges(
-                domain_separator + "_eta", domain_separator + "_beta", domain_separator + "_gamma");
+
+            auto labels = inst->commitment_labels;
+            auto& witness_commitments = inst->witness_commitments;
+            witness_commitments.w_l =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
+            witness_commitments.w_r =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
+            witness_commitments.w_o =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
+
+            auto eta = transcript.get_challenge(domain_separator + "_eta");
+            witness_commitments.sorted_accum =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
+            witness_commitments.w_4 =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
+
+            auto [beta, gamma] = transcript.get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+            witness_commitments.z_perm =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
+            witness_commitments.z_lookup =
+                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
+
             const FF public_input_delta = compute_public_input_delta<Flavor>(
                 inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
             const FF lookup_grand_product_delta =
                 compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
             inst->relation_parameters =
                 RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+
             inst->alpha = transcript.get_challenge(domain_separator + "_alpha");
         }
 
@@ -111,6 +138,28 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (expected_betas_star[idx] == beta_star);
     }
 
+    info("verified: ", verified);
+    WitnessCommitments acc_witness_commitments;
+    auto acc_comm_view = acc_witness_commitments.pointer_view();
+    for (auto c : acc_comm_view) {
+        (*c) = Commitment::infinity();
+    }
+    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
+        auto inst_comm_view = instances[inst_idx]->witness_commitments.pointer_view();
+        for (size_t comm_idx = 0; comm_idx < inst_comm_view.size(); comm_idx++) {
+            (*acc_comm_view[comm_idx]) = (*acc_comm_view[comm_idx]) + (*inst_comm_view[comm_idx]) * lagranges[inst_idx];
+        }
+    }
+
+    auto witness_labels = typename Flavor::CommitmentLabels().get_witness();
+    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
+        auto c = transcript.template receive_from_prover<Commitment>("next_" + witness_labels[idx]);
+        info(c);
+        info((*acc_comm_view[idx]));
+        assert(c == (*acc_comm_view[idx]));
+        verified = verified & (c == (*acc_comm_view[idx]));
+    }
+
     std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
     auto folded_alpha = FF(0);
     auto folded_parameters = proof_system::RelationParameters<FF>{};
@@ -138,27 +187,21 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     verified = verified & (next_alpha == folded_alpha);
 
     auto next_eta = transcript.template receive_from_prover<FF>("next_eta");
-    info(next_eta);
-    info(folded_parameters.eta);
     verified = verified & (next_eta == folded_parameters.eta);
+
     auto next_beta = transcript.template receive_from_prover<FF>("next_beta");
-    info(next_beta);
-    info(folded_parameters.beta);
     verified = verified & (next_beta == folded_parameters.beta);
+
     auto next_gamma = transcript.template receive_from_prover<FF>("next_gamma");
     verified = verified & (next_gamma == folded_parameters.gamma);
-    info(next_gamma);
-    info(folded_parameters.gamma);
+
     auto next_public_input_delta = transcript.template receive_from_prover<FF>("next_public_input_delta");
-    info(next_public_input_delta);
-    info(folded_parameters.public_input_delta);
     verified = verified & (next_public_input_delta == folded_parameters.public_input_delta);
+
     auto next_lookup_grand_product_delta =
         transcript.template receive_from_prover<FF>("next_lookup_grand_product_delta");
     verified = verified & (next_lookup_grand_product_delta == folded_parameters.lookup_grand_product_delta);
-    info(next_lookup_grand_product_delta);
-    info(folded_parameters.lookup_grand_product_delta);
-    info(verified);
+
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto acc_vk_view = acc_vk->pointer_view();
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {

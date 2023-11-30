@@ -1,24 +1,28 @@
-import { SiblingPath } from '@aztec/types';
+import { LeafData, SiblingPath } from '@aztec/types';
 
 import { LowLeafWitnessData } from '../index.js';
 import { AppendOnlyTree } from './append_only_tree.js';
 
 /**
- * A leaf of a tree.
+ * The result of a batch insertion in an indexed merkle tree.
  */
-export interface LeafData {
+export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingPathHeight extends number> {
   /**
-   * A value of the leaf.
+   * Data for the leaves to be updated when inserting the new ones.
    */
-  value: bigint;
+  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight>[];
   /**
-   * An index of the next leaf.
+   * Sibling path "pointing to" where the new subtree should be inserted into the tree.
    */
-  nextIndex: bigint;
+  newSubtreeSiblingPath: SiblingPath<SubtreeSiblingPathHeight>;
   /**
-   * A value of the next leaf.
+   * The new leaves being inserted in high to low order. This order corresponds with the order of the low leaves witness.
    */
-  nextValue: bigint;
+  sortedNewLeaves: Buffer[];
+  /**
+   * The indexes of the sorted new leaves to the original ones.
+   */
+  sortedNewLeavesIndexes: number[];
 }
 
 /**
@@ -63,8 +67,5 @@ export interface IndexedTree extends AppendOnlyTree {
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
     includeUncommitted: boolean,
-  ): Promise<
-    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
-    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
-  >;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 }

@@ -24,6 +24,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Relations = typename Flavor::Relations;
     using AlphaType = typename ProverInstances::AlphaType;
     using VerificationKey = typename Flavor::VerificationKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using Commitment = typename Flavor::Commitment;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -44,9 +47,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProverInstances instances;
     BaseTranscript<FF> transcript;
 
+    std::shared_ptr<CommitmentKey> commitment_key;
+
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts)
-        : instances(ProverInstances(insts)){};
+    ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts, std::shared_ptr<CommitmentKey> commitment_key)
+        : instances(ProverInstances(insts))
+        , commitment_key(std::move(commitment_key)){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -443,8 +449,26 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 }
             }
         }
-
         next_accumulator->prover_polynomials = acc_prover_polynomials;
+
+        WitnessCommitments acc_witness_commitments;
+        auto acc_comm_view = acc_witness_commitments.pointer_view();
+        for (auto c : acc_comm_view) {
+            (*c) = Commitment::infinity();
+        }
+        for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
+            auto inst_comm_view = instances[inst_idx]->witness_commitments.pointer_view();
+            for (size_t comm_idx = 0; comm_idx < inst_comm_view.size(); comm_idx++) {
+                (*acc_comm_view[comm_idx]) =
+                    (*acc_comm_view[comm_idx]) + (*inst_comm_view[comm_idx]) * lagranges[inst_idx];
+            }
+        }
+        next_accumulator->witness_commitments = acc_witness_commitments;
+        auto witness_labels = next_accumulator->commitment_labels.get_witness();
+        for (size_t idx = 0; idx < witness_labels.size(); idx++) {
+            transcript.send_to_verifier("next_" + witness_labels[idx], (*acc_comm_view[idx]));
+            info((*acc_comm_view[idx]));
+        }
 
         std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
         for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
@@ -469,7 +493,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
         };
         transcript.send_to_verifier("next_eta", folded_relation_parameters.eta);
-        info(folded_relation_parameters.eta);
         transcript.send_to_verifier("next_beta", folded_relation_parameters.beta);
         transcript.send_to_verifier("next_gamma", folded_relation_parameters.gamma);
         transcript.send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
