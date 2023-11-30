@@ -984,6 +984,10 @@ jobs:
           command: |
             should_deploy || exit 0
             export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
+            export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
+            export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
             deploy p2p-bootstrap
             deploy aztec-node
             deploy aztec-faucet

@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
     "environment": [
       {
         "name": "API_KEY",
-        "value": "${var.FORK_API_KEY}"
+        "value": "${var.API_KEY}"
       },
       {
         "name": "MNEMONIC",
@@ -180,7 +180,7 @@ resource "aws_alb_target_group" "mainnet_fork" {
   ]
 
   health_check {
-    path                = "/${var.FORK_API_KEY}"
+    path                = "/${var.API_KEY}"
     matcher             = "404,400"
     interval            = 300
     healthy_threshold   = 2

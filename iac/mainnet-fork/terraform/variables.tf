@@ -6,7 +6,7 @@ variable "FORK_MNEMONIC" {
   type = string
 }
 
-variable "FORK_API_KEY" {
+variable "API_KEY" {
   type = string
 }
 
