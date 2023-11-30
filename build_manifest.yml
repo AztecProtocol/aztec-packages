@@ -1,10 +1,38 @@
 noir:
-  # Add less aggressive rebuildPatterns.
   buildDir: noir
+  rebuildPatterns:
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/backend_interface
+    - ^noir/tooling/bb_abstraction_leaks
+    - ^noir/tooling/debugger
+    - ^noir/tooling/lsp
+    - ^noir/tooling/nargo
+    - ^noir/tooling/nargo_cli
+    - ^noir/tooling/nargo_toml
+    - ^noir/tooling/nargo_fmt
+    - ^noir/tooling/noirc_abi
 
 noir-packages:
   buildDir: noir
   dockerfile: Dockerfile.packages
+  rebuildPatterns:
+    - ^noir/.yarn
+    - ^noir/.yarnrc.yml
+    - ^noir/package.json
+    - ^noir/yarn.lock
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/noir_codegen
+    - ^noir/tooling/noir_js
+    - ^noir/tooling/noir_js_backend_barretenberg
+    - ^noir/tooling/noir_js_types
+    - ^noir/tooling/noirc_abi
+    - ^noir/tooling/noirc_abi_wasm
 
 noir-acir-tests:
   buildDir: noir/test_programs
