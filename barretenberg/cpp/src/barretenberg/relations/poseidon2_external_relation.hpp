@@ -14,9 +14,10 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     };
 
     /**
-     * @brief Expression for the poseidon2 external gate.
+     * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
+     * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as:
-     * q_pos2 * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) +
+     * q_poseidon2_external * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) +
      * \alpha^2 * (t7 - w_3_shift) + \alpha^3 * (t4 - w_4_shift) ) = 0 where:
      *      u1 := (w_1 + q_1)^5
      *      u2 := (w_2 + q_2)^5
@@ -59,26 +60,26 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto q_poseidon2_external = View(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
-        auto v1 = w_l + q_l;
-        auto v2 = w_r + q_r;
-        auto v3 = w_o + q_o;
-        auto v4 = w_4 + q_4;
+        auto s1 = w_l + q_l;
+        auto s2 = w_r + q_r;
+        auto s3 = w_o + q_o;
+        auto s4 = w_4 + q_4;
 
         // apply s-box round
-        auto u1 = v1 * v1;
+        auto u1 = s1 * s1;
         u1 *= u1;
-        u1 *= v1;
-        auto u2 = v2 * v2;
+        u1 *= s1;
+        auto u2 = s2 * s2;
         u2 *= u2;
-        u2 *= v2;
-        auto u3 = v3 * v3;
+        u2 *= s2;
+        auto u3 = s3 * s3;
         u3 *= u3;
-        u3 *= v3;
-        auto u4 = v4 * v4;
+        u3 *= s3;
+        auto u4 = s4 * s4;
         u4 *= u4;
-        u4 *= v4;
+        u4 *= s4;
 
-        // matrix mul with 14 additions
+        // matrix mul v = M_E * u with 14 additions
         auto t0 = u1 + u2; // A + B
         auto t1 = u3 + u4; // C + D
         auto t2 = u2 + u2; // 2B
@@ -91,26 +92,30 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto t5 = t0 + t0;
         t5 += t5;
         t5 += t2;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + 3C + D
-        auto t7 = t2 + t4; // A + 3B + 5D + 7C
+        auto t6 = t3 + t5; // 5A + 7B + C + 3D
+        auto t7 = t2 + t4; // A + 3B + 5C + 7D
 
+        auto v1 = t6;
+        auto v2 = t5;
+        auto v3 = t7;
+        auto v4 = t4;
         {
-            auto tmp = q_poseidon2_external * (t6 - w_l_shift);
+            auto tmp = q_poseidon2_external * (v1 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
-            auto tmp = q_poseidon2_external * (t5 - w_r_shift);
+            auto tmp = q_poseidon2_external * (v2 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            auto tmp = q_poseidon2_external * (t7 - w_o_shift);
+            auto tmp = q_poseidon2_external * (v3 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            auto tmp = q_poseidon2_external * (t4 - w_4_shift);
+            auto tmp = q_poseidon2_external * (v4 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }
