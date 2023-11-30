@@ -100,32 +100,6 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_log_derivative_
     if constexpr (IsGoblinFlavor<Flavor>) {
         instance->compute_logderivative_inverse(beta, gamma);
 
-        for (size_t i = 0; i < instance->proving_key->lookup_inverses.size(); ++i) {
-            if (instance->proving_key->lookup_inverses[i] != 0) {
-                info("lookup_inverses nonzero at idx ", i);
-                info("instance->proving_key->lookup_inverses[i] = ", instance->proving_key->lookup_inverses[i]);
-            }
-            if (instance->proving_key->q_busread[i] != 0) {
-                info("q_busread nonzero at idx ", i);
-                info("instance->proving_key->q_busread[i] = ", instance->proving_key->q_busread[i]);
-                info("instance->proving_key->w_l[i] = ", instance->proving_key->w_l[i]);
-                info("instance->proving_key->w_r[i] = ", instance->proving_key->w_r[i]);
-            }
-            if (instance->proving_key->calldata_read_counts[i] != 0) {
-                info("calldata_read_counts nonzero at idx ", i);
-                info("instance->proving_key->calldata_read_counts[i] = ",
-                     instance->proving_key->calldata_read_counts[i]);
-                info("instance->proving_key->calldata[i] = ", instance->proving_key->calldata[i]);
-                info("instance->proving_key->databus_id[i] = ", instance->proving_key->databus_id[i]);
-            }
-            if (i == 137323 || i == 137325) {
-                info("i = ", i);
-                info("instance->proving_key->q_busread[i] = ", instance->proving_key->q_busread[i]);
-                info("instance->proving_key->w_l[i] = ", instance->proving_key->w_l[i]);
-                info("instance->proving_key->w_r[i] = ", instance->proving_key->w_r[i]);
-            }
-        }
-
         auto lookup_inverses_commitment = commitment_key->commit(instance->proving_key->lookup_inverses);
         transcript.send_to_verifier(commitment_labels.lookup_inverses, lookup_inverses_commitment);
     }
@@ -156,7 +130,6 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
 
     auto sumcheck = Sumcheck(instance->proving_key->circuit_size, transcript);
     instance->alpha = transcript.get_challenge("alpha");
-    info("prover alpha = ", instance->alpha);
     sumcheck_output = sumcheck.prove(instance);
 }
 

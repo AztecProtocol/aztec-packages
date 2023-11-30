@@ -678,21 +678,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     };
     ~UltraCircuitBuilder_() override = default;
 
+    /**
+     * @brief Debug helper method for ensuring all selectors have the same size
+     * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
+     * selectors will lead to an unsatisfiable circuit. This method provides a mechanism for ensuring that each selector
+     * has been updated as expected. Its logic is only active in debug mode.
+     *
+     */
     void check_selector_length_consistency()
     {
-        bool sizes_consistent = true;
+#if NDEBUG
+        // do nothing
+#else
         size_t nominal_size = selectors.get()[0].size();
-        // for (auto& selector : selectors.get()) {
         for (size_t idx = 0; idx < selectors.get().size(); ++idx) {
-            sizes_consistent = sizes_consistent && (selectors.get()[idx].size() == nominal_size);
+            ASSERT(selectors.get()[idx].size() == nominal_size);
         }
-        if (!sizes_consistent) {
-            for (size_t idx = 0; idx < selectors.get().size(); ++idx) {
-                info("idx = ", idx);
-                info(selectors.get()[idx].size());
-            }
-        }
-        ASSERT(sizes_consistent);
+#endif // NDEBUG
     }
 
     void finalize_circuit();

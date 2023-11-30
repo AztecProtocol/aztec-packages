@@ -83,11 +83,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     check_selector_length_consistency();
     ++this->num_gates;
 
-    info("in ultra builder method.");
-    info("q_arith size = ", q_arith.size());
-    info("w_l size = ", w_l.size());
-    info("w_r size = ", w_r.size());
-
     // Some relations depend on wire shifts so we add another gate with
     // wires set to 0 to ensure corresponding constraints are satisfied
     create_poly_gate({ this->zero_idx, this->zero_idx, this->zero_idx, 0, 0, 0, 0, 0 });
