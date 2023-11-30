@@ -1,6 +1,8 @@
+import { LeafData } from '@aztec/types';
+
 import { LevelUp, LevelUpChain } from 'levelup';
 
-import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
+import { IndexedTree } from '../interfaces/indexed_tree.js';
 import { decodeTreeValue, encodeTreeValue } from '../standard_indexed_tree/standard_indexed_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { BaseFullTreeSnapshot, BaseFullTreeSnapshotBuilder } from './base_full_snapshot.js';

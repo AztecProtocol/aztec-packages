@@ -42,7 +42,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     }
 
     const batch = this.db.batch();
-    const root = this.tree.getRoot();
+    const root = this.tree.getRoot(false);
     const depth = this.tree.getDepth();
     const queue: [Buffer, number, bigint][] = [[root, 0, 0n]];
 

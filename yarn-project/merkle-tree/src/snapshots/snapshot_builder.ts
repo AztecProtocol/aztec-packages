@@ -1,4 +1,5 @@
-import { LeafData } from '../interfaces/indexed_tree.js';
+import { LeafData } from '@aztec/types';
+
 import { SiblingPathSource } from '../interfaces/merkle_tree.js';
 
 /**
