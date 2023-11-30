@@ -153,11 +153,7 @@ describe('L1Publisher integration', () => {
 
   const makeEmptyProcessedTx = async () => {
     const blockHeader = await getBlockHeader(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(
-      blockHeader,
-      new Fr(chainId),
-      new Fr(config.version),
-    );
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(blockHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
