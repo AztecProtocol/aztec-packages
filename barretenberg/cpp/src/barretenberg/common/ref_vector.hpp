@@ -14,7 +14,7 @@
  * It offers random access to its elements and provides an iterator class for traversal.
  *
  * @tparam T The type of elements stored in the vector.
- * @warning This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing of values 
+ * @warning This should NOT be used for long-term storage, only for efficient passing. Any long-term sharing of values
  * should use shared pointers.
  */
 template <typename T> class RefVector {
