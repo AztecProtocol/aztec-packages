@@ -1,6 +1,7 @@
 noir:
   buildDir: noir
   rebuildPatterns:
+    - ^noir/Dockerfile
     - ^noir/acvm-repo
     - ^noir/compiler
     - ^noir/aztec_macros
@@ -19,6 +20,7 @@ noir-packages:
   buildDir: noir
   dockerfile: Dockerfile.packages
   rebuildPatterns:
+    - ^noir/Dockerfile.packages
     - ^noir/.yarn
     - ^noir/.yarnrc.yml
     - ^noir/package.json

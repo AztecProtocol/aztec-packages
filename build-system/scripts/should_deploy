@@ -1,7 +1,9 @@
 #!/bin/bash
-# Retuns success if we are expected to do a deploy.
-# At present this is only if we have a commit tag.
-# Once we are doing master deployments to devnet, we'll want to check if BRANCH is master.
+# Returns true if we are expected to proceed with a deploy job.
+# Specifically if we have a commit tag, are master, or are being forced to deploy.
+# This script should be used at the start of all deployment steps to early out PR runs.
+# Later deployment steps may early out regardless, e.g. npm deploys only run for tagged commits.
+# Dockerhub publishing will publish for master, or PR's run with force-deploy, but only tag latest on tagged commits.
 set -eu
 
-[ -n "$COMMIT_TAG" ]
+[[ -n "$COMMIT_TAG" || "$BRANCH" == "master" || "$COMMIT_MESSAGE" == *"[ci force-deploy]"* ]]
