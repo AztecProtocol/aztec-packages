@@ -65,19 +65,14 @@ export interface CallContext {
   is_contract_deployment: boolean;
 }
 
-export interface Block {
+export interface BlockHeader {
   note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
   l1_to_l2_messages_tree_root: Field;
+  blocks_tree_root: Field;
   public_data_tree_root: Field;
   global_variables_hash: Field;
-}
-
-export interface BlockHeader {
-  blocks_tree_root: Field;
-  block: Block;
-  private_kernel_vk_tree_root: Field;
 }
 
 export interface PrivateCircuitPublicInputs {
