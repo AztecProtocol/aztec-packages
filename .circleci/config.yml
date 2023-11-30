@@ -897,7 +897,7 @@ jobs:
               echo "Skipping doc deploy (not on master)."
             fi
 
-  check-yellow-paper:
+  yellow-paper:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -1068,7 +1068,7 @@ workflows:
 
       - mainnet-fork: *defaults
 
-      - check-yellow-paper: *defaults
+      - yellow-paper: *defaults
 
       # Yarn Project
       - yarn-project-base:
@@ -1188,7 +1188,7 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
-            - check-yellow-paper
+            - yellow-paper
           <<: *defaults
 
       # Benchmark jobs.
