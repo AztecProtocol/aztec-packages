@@ -190,36 +190,35 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         RecursiveVerifier verifier(&outer_circuit, verification_key);
         auto pairing_points = verifier.verify_proof(inner_proof);
 
-        // Check the recursive verifier circuit
+        // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
-        EXPECT_TRUE(outer_circuit.check_circuit());
 
-        // { // Construct and verify a proof of the recursive verifier circuit
-        //     auto composer = get_composer<OuterBuilder>();
-        //     auto instance = composer.create_instance(outer_circuit);
-        //     auto prover = composer.create_prover(instance);
-        //     auto verifier = composer.create_verifier(instance);
-        //     auto proof = prover.construct_proof();
-        //     bool verified = verifier.verify_proof(proof);
-        //     ASSERT(verified);
-        // }
-
-        // Additional check 1: Perform native verification then perform the pairing on
-        // the outputs of the recursive verifier and check that the result agrees.
+        // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
+        // verifier and check that the result agrees.
         auto native_verifier = inner_composer.create_verifier(instance);
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                     pairing_points[1].get_value());
         EXPECT_EQ(recursive_result, native_result);
 
-        // Additional check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
+        // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
         auto recursive_manifest = verifier.transcript.get_manifest();
         auto native_manifest = native_verifier.transcript.get_manifest();
-        // recursive_manifest.print();
-        // native_manifest.print();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
+        }
+
+        // Check 3: Construct and verify a proof of the recursive verifier circuit
+        {
+            auto composer = get_composer<OuterBuilder>();
+            auto instance = composer.create_instance(outer_circuit);
+            auto prover = composer.create_prover(instance);
+            auto verifier = composer.create_verifier(instance);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
+
+            ASSERT(verified);
         }
     }
 
