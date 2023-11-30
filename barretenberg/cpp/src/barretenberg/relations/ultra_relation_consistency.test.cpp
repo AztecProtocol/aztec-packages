@@ -604,20 +604,16 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         t2 += t1;          // 2B + C + D
         auto t3 = u4 + u4; // 2D
         t3 += t0;          // 2D + A + B
-        auto t4 = t1 + t1;
-        t4 += t4;
-        t4 += t3; // A + B + 4C + 6D
-        auto t5 = t0 + t0;
-        t5 += t5;
-        t5 += t2;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + C + 3D
-        auto t7 = t2 + t4; // A + 3B + 5C + 7D
+        auto v4 = t1 + t1;
+        v4 += v4;
+        v4 += t3; // A + B + 4C + 6D
+        auto v2 = t0 + t0;
+        v2 += v2;
+        v2 += t2;          // 4A + 6B + C + D
+        auto v1 = t3 + v2; // 5A + 7B + C + 3D
+        auto v3 = t2 + v4; // A + 3B + 5C + 7D
 
-        // output is { t6, t5, t7, t4 }
-        auto v1 = t6;
-        auto v2 = t5;
-        auto v3 = t7;
-        auto v4 = t4;
+        // output is { v1, v2, v3, v4 }
 
         expected_values[0] = q_poseidon2_external * (v1 - w_1_shift);
         expected_values[1] = q_poseidon2_external * (v2 - w_2_shift);

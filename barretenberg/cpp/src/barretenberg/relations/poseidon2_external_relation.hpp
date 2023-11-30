@@ -17,20 +17,20 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as:
-     * q_poseidon2_external * ( (t6 - w_1_shift) + \alpha * (t5 - w_2_shift) +
-     * \alpha^2 * (t7 - w_3_shift) + \alpha^3 * (t4 - w_4_shift) ) = 0 where:
+     * q_poseidon2_external * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
+     * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
      *      u1 := (w_1 + q_1)^5
      *      u2 := (w_2 + q_2)^5
      *      u3 := (w_3 + q_3)^5
      *      u4 := (w_4 + q_4)^5
      *      t0 := u1 + u2                                           (1, 1, 0, 0)
      *      t1 := u3 + u4                                           (0, 0, 1, 1)
-     *      t2 := u2 + u2 + t1 = 2 * u2 + u3 + u4                   (0, 2, 1, 1)
-     *      t3 := u4 + u4 + t0 = u1 + u2 + 2 * u4                   (1, 1, 0, 2)
-     *      t4 := 4 * t1 + t3 = u1 + u2 + 4 * u3 + 6 * u4           (1, 1, 4, 6)
-     *      t5 := 4 * t0 + t2 = 4 * u1 + 6 * u2 + u3 + u4           (4, 6, 1, 1)
-     *      t6 := t3 + t5 = 5 * u1 + 7 * u2 + 1 * u3 + 3 * u4       (5, 7, 1, 3)
-     *      t7 := t2 + t4                                           (1, 3, 5, 7)
+     *      t2 := 2 * u2 + t1 = 2 * u2 + u3 + u4                    (0, 2, 1, 1)
+     *      t3 := 2 * u4 + t0 = u1 + u2 + 2 * u4                    (1, 1, 0, 2)
+     *      v4 := 4 * t1 + t3 = u1 + u2 + 4 * u3 + 6 * u4           (1, 1, 4, 6)
+     *      v2 := 4 * t0 + t2 = 4 * u1 + 6 * u2 + u3 + u4           (4, 6, 1, 1)
+     *      v1 := t3 + v2 = 5 * u1 + 7 * u2 + 1 * u3 + 3 * u4       (5, 7, 1, 3)
+     *      v3 := t2 + v4                                           (1, 3, 5, 7)
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -86,19 +86,15 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         t2 += t1;          // 2B + C + D
         auto t3 = u4 + u4; // 2D
         t3 += t0;          // 2D + A + B
-        auto t4 = t1 + t1;
-        t4 += t4;
-        t4 += t3; // A + B + 4C + 6D
-        auto t5 = t0 + t0;
-        t5 += t5;
-        t5 += t2;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + C + 3D
-        auto t7 = t2 + t4; // A + 3B + 5C + 7D
+        auto v4 = t1 + t1;
+        v4 += v4;
+        v4 += t3; // A + B + 4C + 6D
+        auto v2 = t0 + t0;
+        v2 += v2;
+        v2 += t2;          // 4A + 6B + C + D
+        auto v1 = t3 + v2; // 5A + 7B + C + 3D
+        auto v3 = t2 + v4; // A + 3B + 5C + 7D
 
-        auto v1 = t6;
-        auto v2 = t5;
-        auto v3 = t7;
-        auto v4 = t4;
         {
             auto tmp = q_poseidon2_external * (v1 - w_l_shift);
             tmp *= scaling_factor;
