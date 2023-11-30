@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
-import { IndexedTreeSnapshot, LowLeafWitnessData, TreeSnapshot } from '@aztec/merkle-tree';
+import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import { LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
@@ -107,7 +107,13 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  batchInsert(): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]> {
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(): Promise<
+    BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>
+  > {
+    return Promise.reject(new Error('Tree snapshot operations are read-only'));
+  }
+
+  updateBlocksTree(): Promise<void> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
