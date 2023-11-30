@@ -55,6 +55,8 @@ template <typename Params> class Poseidon2Permutation {
          * | 1 3 5 7 |
          * | 1 1 4 6 |
          * \         /
+         *
+         * Algorithm is taken directly from the Poseidon2 paper.
          */
         auto t0 = input[0] + input[1]; // A + B
         auto t1 = input[2] + input[3]; // C + D
@@ -68,8 +70,8 @@ template <typename Params> class Poseidon2Permutation {
         auto t5 = t0 + t0;
         t5 += t5;
         t5 += t2;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + 3C + D
-        auto t7 = t2 + t4; // A + 3B + 5D + 7C
+        auto t6 = t3 + t5; // 5A + 7B + C + 3D
+        auto t7 = t2 + t4; // A + 3B + 5C + 7D
         input[0] = t6;
         input[1] = t5;
         input[2] = t7;
@@ -121,7 +123,7 @@ template <typename Params> class Poseidon2Permutation {
         }
     }
 
-    static constexpr State permutation(State& input)
+    static constexpr State permutation(const State& input)
     {
         // deep copy
         State current_state(input);

@@ -16,20 +16,18 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     };
 
     /**
-     * @brief Expression for the poseidon2 internal gate.
+     * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
+     * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as:
-     * q_pos2 * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
+     * q_poseidon2_internal * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
      * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
-     *      v1 := (w_1 + q_1)^5
-     *      v2 := w_2
-     *      v3 := w_3
-     *      v4 := w_4
-     *      sum := v1 + v2 + v3 + v4
-     *      v1 := v1 * D1 + sum
-     *      v2 := v2 * D2 + sum
-     *      v3 := v3 * D3 + sum
-     *      v4 := v4 * D4 + sum
-     *      Di is the ith internal diagonal value - 1 of the internal matrix
+     *      u1 := (w_1 + q_1)^5
+     *      sum := u1 + w_2 + w_3 + w_4
+     *      v1 := u1 * D1 + sum
+     *      v2 := w_2 * D2 + sum
+     *      v3 := w_3 * D3 + sum
+     *      v4 := w_4 * D4 + sum
+     *      Di is the ith internal diagonal value - 1 of the internal matrix M_I
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
@@ -56,40 +54,43 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto q_poseidon2_internal = View(in.q_poseidon2_internal);
 
         // add round constants
-        auto v1 = w_l + q_l;
+        auto s1 = w_l + q_l;
 
         // apply s-box round
-        auto u1 = v1 * v1;
+        auto u1 = s1 * s1;
         u1 *= u1;
-        u1 *= v1;
+        u1 *= s1;
+        auto u2 = w_r;
+        auto u3 = w_o;
+        auto u4 = w_4;
 
-        // matrix mul with 4 muls and 7 additions
-        auto sum = u1 + w_r + w_o + w_4;
+        // matrix mul with v = M_I * u 4 muls and 7 additions
+        auto sum = u1 + u2 + u3 + u4;
         {
-            auto t0 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-            t0 += sum;
-            auto tmp = q_poseidon2_internal * (t0 - w_l_shift);
+            auto v1 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+            v1 += sum;
+            auto tmp = q_poseidon2_internal * (v1 - w_l_shift);
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
-            auto t1 = w_r * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-            t1 += sum;
-            auto tmp = q_poseidon2_internal * (t1 - w_r_shift);
+            auto v2 = u2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+            v2 += sum;
+            auto tmp = q_poseidon2_internal * (v2 - w_r_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         }
         {
-            auto t2 = w_o * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-            t2 += sum;
-            auto tmp = q_poseidon2_internal * (t2 - w_o_shift);
+            auto v3 = u3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+            v3 += sum;
+            auto tmp = q_poseidon2_internal * (v3 - w_o_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += tmp;
         }
         {
-            auto t3 = w_4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-            t3 += sum;
-            auto tmp = q_poseidon2_internal * (t3 - w_4_shift);
+            auto v4 = u4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+            v4 += sum;
+            auto tmp = q_poseidon2_internal * (v4 - w_4_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }

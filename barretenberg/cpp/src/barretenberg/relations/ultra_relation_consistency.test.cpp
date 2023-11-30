@@ -578,24 +578,24 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants
-        auto v1 = w_1 + q_1;
-        auto v2 = w_2 + q_2;
-        auto v3 = w_3 + q_3;
-        auto v4 = w_4 + q_4;
+        auto s1 = w_1 + q_1;
+        auto s2 = w_2 + q_2;
+        auto s3 = w_3 + q_3;
+        auto s4 = w_4 + q_4;
 
-        // apply s-box
-        auto u1 = v1 * v1;
+        // apply s-box round
+        auto u1 = s1 * s1;
         u1 *= u1;
-        u1 *= v1;
-        auto u2 = v2 * v2;
+        u1 *= s1;
+        auto u2 = s2 * s2;
         u2 *= u2;
-        u2 *= v2;
-        auto u3 = v3 * v3;
+        u2 *= s2;
+        auto u3 = s3 * s3;
         u3 *= u3;
-        u3 *= v3;
-        auto u4 = v4 * v4;
+        u3 *= s3;
+        auto u4 = s4 * s4;
         u4 *= u4;
-        u4 *= v4;
+        u4 *= s4;
 
         // multiply with external matrix
         auto t0 = u1 + u2; // A + B
@@ -604,20 +604,21 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         t2 += t1;          // 2B + C + D
         auto t3 = u4 + u4; // 2D
         t3 += t0;          // 2D + A + B
-        auto t4 = t1 + t1;
-        t4 += t4;
-        t4 += t3; // A + B + 4C + 6D
-        auto t5 = t0 + t0;
-        t5 += t5;
-        t5 += t2;          // 4A + 6B + C + D
-        auto t6 = t3 + t5; // 5A + 7B + 3C + D
-        auto t7 = t2 + t4; // A + 3B + 5D + 7C
-        // output is { t6, t5, t7, t4 }
+        auto v4 = t1 + t1;
+        v4 += v4;
+        v4 += t3; // A + B + 4C + 6D
+        auto v2 = t0 + t0;
+        v2 += v2;
+        v2 += t2;          // 4A + 6B + C + D
+        auto v1 = t3 + v2; // 5A + 7B + C + 3D
+        auto v3 = t2 + v4; // A + 3B + 5C + 7D
 
-        expected_values[0] = q_poseidon2_external * (t6 - w_1_shift);
-        expected_values[1] = q_poseidon2_external * (t5 - w_2_shift);
-        expected_values[2] = q_poseidon2_external * (t7 - w_3_shift);
-        expected_values[3] = q_poseidon2_external * (t4 - w_4_shift);
+        // output is { v1, v2, v3, v4 }
+
+        expected_values[0] = q_poseidon2_external * (v1 - w_1_shift);
+        expected_values[1] = q_poseidon2_external * (v2 - w_2_shift);
+        expected_values[2] = q_poseidon2_external * (v3 - w_3_shift);
+        expected_values[3] = q_poseidon2_external * (v4 - w_4_shift);
 
         const auto parameters = RelationParameters<FF>::get_random();
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
