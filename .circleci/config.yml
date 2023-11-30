@@ -938,7 +938,9 @@ jobs:
       - run:
           name: "Deploy L1 contracts to mainnet fork"
           working_directory: l1-contracts
-          command: ./scripts/ci_deploy_contracts.sh
+          command:
+              should_deploy || exit 0
+              ./scripts/ci_deploy_contracts.sh
 
   deploy-npm:
     machine:
