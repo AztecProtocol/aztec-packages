@@ -15,7 +15,7 @@ mkdir -p serve
 docker run \
   -v $(pwd)/serve:/usr/src/contracts/serve \
   -e ETHEREUM_HOST=$ETHEREUM_HOST -e PRIVATE_KEY=$CONTRACT_PUBLISHER_PRIVATE_KEY \
-  278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts:$COMMIT_HASH \
+  aztecprotocol/l1-contracts:$COMMIT_HASH \
   ./scripts/deploy_contracts.sh
 
 # Write the contract addresses as terraform variables
