@@ -9,11 +9,9 @@ RUN yarn workspaces focus @aztec/cli @aztec/aztec-sandbox @aztec/aztec-faucet --
     yarn cache clean && \
     rm -rf ./**/src
 
+# We no longer need nargo.
+RUN rm -rf /usr/src/noir/target
+
 # Create fresh minimal size image.
 FROM node:18-alpine
-COPY --from=yarn-project /usr/src/yarn-project /usr/src/yarn-project
-COPY --from=yarn-project /usr/src/barretenberg/ts/package /usr/src/barretenberg/ts/package
-COPY --from=yarn-project /usr/src/noir/packages /usr/src/noir/packages
-# Just until weird source-resolver bug fixed.
-COPY --from=yarn-project /usr/src/noir/compiler /usr/src/noir/compiler
-RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
+COPY --from=yarn-project /usr/src /usr/src

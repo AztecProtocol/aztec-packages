@@ -68,8 +68,7 @@ RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /u
 # correctly for portalled packages, is to use --preserve-symlinks when running node.
 # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
 # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
-# by initialising the module more than once.
-# It's worth noting this is only needed in these alpine containers.
+# by initialising the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 WORKDIR /usr/src/yarn-project
