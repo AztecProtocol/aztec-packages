@@ -21,10 +21,10 @@ unconstrained pub fn get_block_header_internal(block_number: Field) -> BlockHead
 }
 
 pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHeader {
-    // 1) Get historic block data from oracle at the given block
+    // 1) Get block header of a given block from oracle
     let block_header = get_block_header_internal(block_number);
 
-    // 2) Compute the block hash from the block data
+    // 2) Compute the block hash from the block header
     let block_hash = block_header.block_hash();
 
     // 3) Get the membership wintess of the block in the blocks tree
@@ -34,6 +34,6 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     // 4) Check that the block is in the blocks tree (i.e. the witness is valid)
     assert(context.block_header.blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in blocks tree failed");
 
-    // 5) Return the block data
+    // 5) Return the block header
     block_header
 }

@@ -22,8 +22,6 @@ contract InclusionProofs {
         },
         constants_gen::{
             NOTE_HASH_TREE_HEIGHT,
-            NULLIFIER_TREE_HEIGHT,
-            HISTORICAL_BLOCKS_TREE_HEIGHT,
             PUBLIC_DATA_TREE_HEIGHT,
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         },
@@ -111,6 +109,15 @@ contract InclusionProofs {
         //    root.
         let block_header = context.get_block_header(block_number);
 
+        // 2) Get the note from PXE.
+        let private_values = storage.private_values.at(owner.address);
+        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let notes = private_values.get_notes(options);
+        let maybe_note = notes[0];
+
+        // 3) Compute the commitment from the note
+        let note_commitment = if maybe_note.is_some() {
+            note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, maybe_note.unwrap_unchecked())
         } else {
             // Note was not found so we will use the spare commitment
             spare_commitment

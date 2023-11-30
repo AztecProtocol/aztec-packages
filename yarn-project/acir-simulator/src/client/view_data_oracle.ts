@@ -92,9 +92,9 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Fetches historic block data for a given block.
-   * @param blockNumber - The block number at which to get the historic block data.
-   * @returns Historic block data extracted from a block with block number `blockNumber`.
+   * Fetches a block header of a given block.
+   * @param blockNumber - The number of a block of which to get the block header.
+   * @returns Block extracted from a block with block number `blockNumber`.
    */
   public async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     const block = await this.db.getBlock(blockNumber);
@@ -106,7 +106,7 @@ export class ViewDataOracle extends TypedOracle {
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,
       block.endL1ToL2MessagesTreeSnapshot.root,
-      block.endHistoricBlocksTreeSnapshot.root,
+      block.endHistoricalBlocksTreeSnapshot.root,
       new Fr(0), // TODO(#3441) privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
       block.endPublicDataTreeRoot,
       computeGlobalsHash(block.globalVariables),

@@ -103,7 +103,7 @@ library Decoder {
   uint256 private constant END_TREES_BLOCK_HEADER_OFFSET =
     START_TREES_BLOCK_HEADER_OFFSET + TREES_BLOCK_HEADER_SIZE;
 
-  // Where the metadata ends and the block data begins.
+  // Where the metadata ends and the block header begins.
   uint256 private constant BLOCK_HEADER_OFFSET =
     START_TREES_BLOCK_HEADER_OFFSET + 2 * TREES_BLOCK_HEADER_SIZE;
 
