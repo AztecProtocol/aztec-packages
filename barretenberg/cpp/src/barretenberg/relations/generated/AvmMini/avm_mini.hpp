@@ -7,16 +7,16 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_rwa{};
-    FF avmMini_rwb{};
-    FF avmMini_ib{};
-    FF avmMini_subop{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_ia{};
-    FF avmMini_mem_op_a{};
-    FF avmMini_mem_op_c{};
     FF avmMini_rwc{};
+    FF avmMini_rwa{};
+    FF avmMini_mem_op_b{};
+    FF avmMini_ib{};
+    FF avmMini_rwb{};
+    FF avmMini_subop{};
+    FF avmMini_mem_op_c{};
+    FF avmMini_ia{};
     FF avmMini_ic{};
+    FF avmMini_mem_op_a{};
 };
 
 template <typename FF_> class avm_miniImpl {
@@ -24,7 +24,7 @@ template <typename FF_> class avm_miniImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS{
-        8, 8, 8, 8, 8, 8, 8, 8,
+        3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>

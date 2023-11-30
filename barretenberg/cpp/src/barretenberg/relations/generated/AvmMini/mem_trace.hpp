@@ -7,15 +7,15 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Mem_traceRow {
-    FF memTrace_m_val{};
-    FF memTrace_m_rw{};
-    FF memTrace_m_addr_shift{};
-    FF memTrace_m_lastAccess{};
-    FF memTrace_m_rw_shift{};
-    FF memTrace_m_addr{};
-    FF memTrace_m_val_shift{};
-    FF avmMini_first{};
     FF avmMini_last{};
+    FF memTrace_m_addr{};
+    FF memTrace_m_val{};
+    FF avmMini_first{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_rw{};
+    FF memTrace_m_rw_shift{};
+    FF memTrace_m_val_shift{};
+    FF memTrace_m_lastAccess{};
 };
 
 template <typename FF_> class mem_traceImpl {
@@ -23,10 +23,10 @@ template <typename FF_> class mem_traceImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        8,
-        8,
-        8,
-        8,
+        3,
+        3,
+        4,
+        6,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
