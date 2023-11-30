@@ -197,6 +197,11 @@ class BaseTranscript {
         return result;
     };
 
+    void load_proof(const std::vector<uint8_t>& proof)
+    {
+        std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
+    }
+
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then create
      * the number of requested challenges.
