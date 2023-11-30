@@ -131,7 +131,7 @@ inline uint64_t get_wnaf_bits(const Uint64Pair& scalar, const uint64_t bits, con
     // this. See the following for an argument of why this is not (100%) portable:
     // https://stackoverflow.com/questions/18918256/is-right-shift-undefined-behavior-if-the-count-is-larger-than-the-width-of-the-t
     const uint64_t hi_shift = 64UL - (bit_position & 63UL);
-    const uint64_t hi = bit_position ? bit_position((scalar[hi_limb_idx] << (hi_shift))) : 0;
+    const uint64_t hi = hi_shift < 64 ? scalar[hi_limb_idx] << hi_shift : 0;
     const uint64_t hi_mask = bit_mask & (0ULL - (lo_limb_idx != hi_limb_idx));
 
     return (lo & bit_mask) | (hi & hi_mask);

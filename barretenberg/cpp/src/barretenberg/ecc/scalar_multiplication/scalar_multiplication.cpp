@@ -328,14 +328,6 @@ void add_affine_points(typename Curve::AffineElement* points,
     }
 
     for (size_t i = (num_points)-2; i < num_points; i -= 2) {
-        // Memory bandwidth is a bit of a bottleneck here.
-        // There's probably a more elegant way of structuring our data so we don't need to do all of this
-        // prefetching
-        __builtin_prefetch(points + i - 2);
-        __builtin_prefetch(points + i - 1);
-        __builtin_prefetch(points + ((i + num_points - 2) >> 1));
-        __builtin_prefetch(scratch_space + ((i - 2) >> 1));
-
         points[i + 1].y *= batch_inversion_accumulator; // update accumulator
         batch_inversion_accumulator *= points[i + 1].x;
         points[i + 1].x = points[i + 1].y.sqr();

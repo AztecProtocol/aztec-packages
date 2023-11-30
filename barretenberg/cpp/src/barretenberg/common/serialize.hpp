@@ -28,6 +28,7 @@
  *  - to_buffer
  */
 #pragma once
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
@@ -85,37 +86,37 @@ inline void write(uint8_t*& it, bool value)
     it += 1;
 }
 
-inline void read(uint8_t const*& it, uint16_t& value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void read(uint8_t const*& it, uint16_t& value)
 {
     value = ntohs(*reinterpret_cast<uint16_t const*>(it)); // NOLINT
     it += 2;
 }
 
-inline void write(uint8_t*& it, uint16_t value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void write(uint8_t*& it, uint16_t value)
 {
     *reinterpret_cast<uint16_t*>(it) = htons(value); // NOLINT
     it += 2;
 }
 
-inline void read(uint8_t const*& it, uint32_t& value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void read(uint8_t const*& it, uint32_t& value)
 {
     value = ntohl(*reinterpret_cast<uint32_t const*>(it)); // NOLINT
     it += 4;
 }
 
-inline void write(uint8_t*& it, uint32_t value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void write(uint8_t*& it, uint32_t value)
 {
     *reinterpret_cast<uint32_t*>(it) = htonl(value);
     it += 4;
 }
 
-inline void read(uint8_t const*& it, uint64_t& value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void read(uint8_t const*& it, uint64_t& value)
 {
     value = ntohll(*reinterpret_cast<uint64_t const*>(it));
     it += 8;
 }
 
-inline void write(uint8_t*& it, uint64_t value)
+inline BBERG_IGNORE_UNDEFINED_MISALIGN void write(uint8_t*& it, uint64_t value)
 {
     *reinterpret_cast<uint64_t*>(it) = htonll(value);
     it += 8;

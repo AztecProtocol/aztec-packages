@@ -290,7 +290,7 @@ template <typename Curve> class IO {
             read_manifest(path, manifest);
 
             auto offset = sizeof(Manifest);
-            const size_t num_to_read = std::min((size_t)manifest.num_g1_points, degree - num_read);
+            const size_t num_to_read = std::min(static_cast<size_t>(manifest.num_g1_points), degree - num_read);
             const size_t g1_buffer_size = sizeof(Fq) * 2 * num_to_read;
 
             char* buffer = (char*)&monomials[num_read];

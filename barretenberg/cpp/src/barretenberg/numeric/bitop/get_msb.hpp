@@ -40,7 +40,7 @@ constexpr inline uint64_t get_msb64(const uint64_t in)
 
 template <typename T> constexpr inline T get_msb(const T in)
 {
-    return (sizeof(T) <= 4) ? get_msb32(in) : get_msb64(in);
+    return (sizeof(T) <= 4) ? get_msb32(in) : static_cast<T>(get_msb64(in));
 }
 
 } // namespace numeric

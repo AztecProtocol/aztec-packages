@@ -174,6 +174,10 @@ std::shared_ptr<void> SlabAllocator::get(size_t req_size)
     if (req_size > static_cast<size_t>(1024 * 1024)) {
         dbg_info("WARNING: Allocating unmanaged memory slab of size: ", req_size);
     }
+    // simple way to get aligned affine_element's, alternative would be passing alignment requirement
+    if (req_size % 64 == 0) {
+        return { aligned_alloc(64, req_size), aligned_free };
+    }
     if (req_size % 32 == 0) {
         return { aligned_alloc(32, req_size), aligned_free };
     }
