@@ -18,7 +18,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
-     * @details This relation is defined as:
+     * @details This relation is defined as C(in(X)...) :=
      * q_poseidon2_internal * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
      * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
      *      u1 := (w_1 + q_1)^5
@@ -66,34 +66,30 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
 
         // matrix mul with v = M_I * u 4 muls and 7 additions
         auto sum = u1 + u2 + u3 + u4;
-        {
-            auto v1 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-            v1 += sum;
-            auto tmp = q_poseidon2_internal * (v1 - w_l_shift);
-            tmp *= scaling_factor;
-            std::get<0>(evals) += tmp;
-        }
-        {
-            auto v2 = u2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-            v2 += sum;
-            auto tmp = q_poseidon2_internal * (v2 - w_r_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += tmp;
-        }
-        {
-            auto v3 = u3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-            v3 += sum;
-            auto tmp = q_poseidon2_internal * (v3 - w_o_shift);
-            tmp *= scaling_factor;
-            std::get<2>(evals) += tmp;
-        }
-        {
-            auto v4 = u4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-            v4 += sum;
-            auto tmp = q_poseidon2_internal * (v4 - w_4_shift);
-            tmp *= scaling_factor;
-            std::get<3>(evals) += tmp;
-        }
+
+        auto v1 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
+        v1 += sum;
+        auto tmp = q_poseidon2_internal * (v1 - w_l_shift);
+        tmp *= scaling_factor;
+        std::get<0>(evals) += tmp;
+
+        auto v2 = u2 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
+        v2 += sum;
+        tmp = q_poseidon2_internal * (v2 - w_r_shift);
+        tmp *= scaling_factor;
+        std::get<1>(evals) += tmp;
+
+        auto v3 = u3 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
+        v3 += sum;
+        tmp = q_poseidon2_internal * (v3 - w_o_shift);
+        tmp *= scaling_factor;
+        std::get<2>(evals) += tmp;
+
+        auto v4 = u4 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
+        v4 += sum;
+        tmp = q_poseidon2_internal * (v4 - w_4_shift);
+        tmp *= scaling_factor;
+        std::get<3>(evals) += tmp;
     };
 }; // namespace proof_system
 
