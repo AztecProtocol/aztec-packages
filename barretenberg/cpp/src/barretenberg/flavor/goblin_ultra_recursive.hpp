@@ -153,7 +153,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltra::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = GoblinUltra::Transcript_<Commitment>;
+    using Transcript = proof_system::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
 } // namespace proof_system::honk::flavor
