@@ -126,6 +126,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
+    // Compute next folding parameters and verify against the ones received from the prover
     auto expected_next_target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript.template receive_from_prover<FF>("next_target_sum");
@@ -138,79 +139,82 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (expected_betas_star[idx] == beta_star);
     }
 
+    // Compute ϕ and verify against the data received from the prover
+
     WitnessCommitments acc_witness_commitments;
-    auto acc_comm_view = acc_witness_commitments.pointer_view();
-    for (auto c : acc_comm_view) {
-        (*c) = Commitment::infinity();
-    }
-    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
-        auto inst_comm_view = instances[inst_idx]->witness_commitments.pointer_view();
-        for (size_t comm_idx = 0; comm_idx < inst_comm_view.size(); comm_idx++) {
-            (*acc_comm_view[comm_idx]) = (*acc_comm_view[comm_idx]) + (*inst_comm_view[comm_idx]) * lagranges[inst_idx];
+    auto witness_labels = commitment_labels.get_witness();
+    size_t comm_idx = 0;
+    for (auto expected_comm : acc_witness_commitments.pointer_view()) {
+        (*expected_comm) = Commitment::infinity();
+        size_t inst = 0;
+        for (auto& instance : instances) {
+            (*expected_comm) =
+                (*expected_comm) + (*instance->witness_commitments.pointer_view()[comm_idx]) * lagranges[inst];
+            inst++;
         }
+        auto comm = transcript.template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
+        verified = verified & (comm == (*expected_comm));
+        comm_idx++;
     }
 
-    auto witness_labels = typename Flavor::CommitmentLabels().get_witness();
-    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
-        auto c = transcript.template receive_from_prover<Commitment>("next_" + witness_labels[idx]);
-        verified = verified & (c == (*acc_comm_view[idx]));
+    std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size(), 0);
+    size_t el_idx = 0;
+    for (auto expected_el : folded_public_inputs) {
+        size_t inst = 0;
+        for (auto& instance : instances) {
+            expected_el += instance->public_inputs[el_idx] * lagranges[inst];
+            inst++;
+        }
+        auto el = transcript.template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
+        verified = verified & (el == expected_el);
+        el_idx++;
     }
 
-    std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size());
-    auto folded_alpha = FF(0);
-    auto folded_parameters = proof_system::RelationParameters<FF>{};
+    auto expected_alpha = FF(0);
+    auto expected_parameters = proof_system::RelationParameters<FF>{};
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
-        auto inst_public_inputs = instance->public_inputs;
-        for (size_t el_idx = 0; el_idx < inst_public_inputs.size(); el_idx++) {
-            folded_public_inputs[el_idx] += inst_public_inputs[el_idx] * lagranges[inst_idx];
-        }
-        folded_alpha += instance->alpha * lagranges[inst_idx];
-        folded_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
-        folded_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
-        folded_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
-        folded_parameters.public_input_delta += instance->relation_parameters.public_input_delta * lagranges[inst_idx];
-        folded_parameters.lookup_grand_product_delta +=
+        expected_alpha += instance->alpha * lagranges[inst_idx];
+        expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
+        expected_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
+        expected_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
+        expected_parameters.public_input_delta +=
+            instance->relation_parameters.public_input_delta * lagranges[inst_idx];
+        expected_parameters.lookup_grand_product_delta +=
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
 
-    for (size_t idx = 0; idx < folded_public_inputs.size(); idx++) {
-        auto public_input = transcript.template receive_from_prover<FF>("next_public_input" + std::to_string(idx));
-        verified = verified & (public_input == folded_public_inputs[idx]);
-    }
-
     auto next_alpha = transcript.template receive_from_prover<FF>("next_alpha");
-    verified = verified & (next_alpha == folded_alpha);
+    verified = verified & (next_alpha == expected_alpha);
 
     auto next_eta = transcript.template receive_from_prover<FF>("next_eta");
-    verified = verified & (next_eta == folded_parameters.eta);
+    verified = verified & (next_eta == expected_parameters.eta);
 
     auto next_beta = transcript.template receive_from_prover<FF>("next_beta");
-    verified = verified & (next_beta == folded_parameters.beta);
+    verified = verified & (next_beta == expected_parameters.beta);
 
     auto next_gamma = transcript.template receive_from_prover<FF>("next_gamma");
-    verified = verified & (next_gamma == folded_parameters.gamma);
+    verified = verified & (next_gamma == expected_parameters.gamma);
 
     auto next_public_input_delta = transcript.template receive_from_prover<FF>("next_public_input_delta");
-    verified = verified & (next_public_input_delta == folded_parameters.public_input_delta);
+    verified = verified & (next_public_input_delta == expected_parameters.public_input_delta);
 
     auto next_lookup_grand_product_delta =
         transcript.template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    verified = verified & (next_lookup_grand_product_delta == folded_parameters.lookup_grand_product_delta);
+    verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
-    auto acc_vk_view = acc_vk->pointer_view();
-    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
-        auto inst_vk_view = instances[inst_idx]->verification_key->pointer_view();
-        for (size_t idx = 0; idx < inst_vk_view.size(); idx++) {
-            (*acc_vk_view[idx]) = (*acc_vk_view[idx]) + (*inst_vk_view[idx]) * lagranges[inst_idx];
+    auto vk_labels = commitment_labels.get_precomputed();
+    size_t vk_idx = 0;
+    for (auto expected_vk : acc_vk->pointer_view()) {
+        size_t inst = 0;
+        for (auto& instance : instances) {
+            (*expected_vk) = (*expected_vk) + (*instance->verification_key->pointer_view()[vk_idx]) * lagranges[inst];
+            inst++;
         }
-    }
-
-    auto labels = typename Flavor::CommitmentLabels().get_precomputed();
-    for (size_t idx = 0; idx < labels.size(); idx++) {
-        auto vk = transcript.template receive_from_prover<Commitment>("next" + labels[idx]);
-        verified = verified & (vk == (*acc_vk_view[idx]));
+        auto vk = transcript.template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
+        verified = verified & (vk == (*expected_vk));
+        vk_idx++;
     }
 
     return verified;

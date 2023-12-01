@@ -15,15 +15,18 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using Instance = typename VerifierInstances::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
 
     VerifierInstances instances;
     BaseTranscript<FF> transcript;
+
+    CommitmentLabels commitment_labels;
 
     ProtoGalaxyVerifier_(VerifierInstances insts)
         : instances(insts){};
     ~ProtoGalaxyVerifier_() = default;
     /**
-     * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
+     * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
      * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
      */
     static std::vector<FF> compute_round_challenge_pows(size_t log_instance_size, FF round_challenge)
