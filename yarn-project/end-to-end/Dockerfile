@@ -12,6 +12,7 @@ RUN yarn workspaces focus --production && yarn cache clean
 # TODO: Not very minimal as chromium adds about 500MB of bloat :/ Separate or install at test runtime?
 FROM node:18-alpine
 RUN apk update && apk add --no-cache \
+  jq \
   bash \
   chromium \
   chromium-chromedriver \
