@@ -14,7 +14,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
+import { Pedersen, SparseTree, newTree, treeBuilder } from '@aztec/merkle-tree';
 import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -107,7 +107,13 @@ describe('e2e_blacklist_token_contract', () => {
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
     const depth = 254;
-    slowUpdateTreeSimulator = await newTree(SparseTree, levelup(createMemDown()), new Pedersen(), 'test', depth);
+    slowUpdateTreeSimulator = await newTree(
+      treeBuilder(SparseTree),
+      levelup(createMemDown()),
+      new Pedersen(),
+      'test',
+      depth,
+    );
 
     const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
     const receipt = await deployTx.wait();

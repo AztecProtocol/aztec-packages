@@ -1,5 +1,6 @@
+import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Hasher, NullifierLeaf, NullifierLeafPreimage, SiblingPath } from '@aztec/types';
+import { Hasher, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
@@ -41,8 +42,8 @@ const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: st
   );
 };
 
-const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: number) => {
-  return new NullifierLeafPreimage(BigInt(value), BigInt(nextValue), BigInt(nextIndex)).toHashInputs();
+const createIndexedTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
+  return new NullifierLeafPreimage(new Fr(value), new Fr(nextValue), BigInt(nextIndex)).toHashInputs();
 };
 
 const verifyCommittedState = async <N extends number>(
@@ -82,7 +83,7 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   0       0       0       0        0       0       0       0.
      */
 
-    const initialLeafHash = pedersen.hashInputs(createIndexedTreeLeaf(0, 0, 0));
+    const initialLeafHash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 0, 0));
     const level1ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
     const level2ZeroHash = pedersen.hash(level1ZeroHash, level1ZeroHash);
 
@@ -116,8 +117,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createIndexedTreeLeaf(0, 1, 30));
-    let index1Hash = pedersen.hashInputs(createIndexedTreeLeaf(30, 0, 0));
+    index0Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 1, 30));
+    let index1Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(30, 0, 0));
     e10 = pedersen.hash(index0Hash, index1Hash);
     e20 = pedersen.hash(e10, level1ZeroHash);
     root = pedersen.hash(e20, level2ZeroHash);
@@ -143,8 +144,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createIndexedTreeLeaf(0, 2, 10));
-    let index2Hash = pedersen.hashInputs(createIndexedTreeLeaf(10, 1, 30));
+    index0Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 2, 10));
+    let index2Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(10, 1, 30));
     e10 = pedersen.hash(index0Hash, index1Hash);
     let e11 = pedersen.hash(index2Hash, INITIAL_LEAF);
     e20 = pedersen.hash(e10, e11);
@@ -176,8 +177,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   10      0       20      30       0       0       0       0.
      */
     e10 = pedersen.hash(index0Hash, index1Hash);
-    index2Hash = pedersen.hashInputs(createIndexedTreeLeaf(10, 3, 20));
-    const index3Hash = pedersen.hashInputs(createIndexedTreeLeaf(20, 1, 30));
+    index2Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(10, 3, 20));
+    const index3Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(20, 1, 30));
     e11 = pedersen.hash(index2Hash, index3Hash);
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
@@ -207,8 +208,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       4       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = pedersen.hashInputs(createIndexedTreeLeaf(30, 4, 50));
-    const index4Hash = pedersen.hashInputs(createIndexedTreeLeaf(50, 0, 0));
+    index1Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(30, 4, 50));
+    const index4Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(50, 0, 0));
     e10 = pedersen.hash(index0Hash, index1Hash);
     e20 = pedersen.hash(e10, e11);
     const e12 = pedersen.hash(index4Hash, INITIAL_LEAF);
@@ -280,7 +281,7 @@ describe('StandardIndexedTreeSpecific', () => {
      */
 
     const INITIAL_LEAF = toBufferBE(0n, 32);
-    const initialLeafHash = pedersen.hashInputs(createIndexedTreeLeaf(0, 0, 0));
+    const initialLeafHash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 0, 0));
     const level1ZeroHash = pedersen.hash(INITIAL_LEAF, INITIAL_LEAF);
     const level2ZeroHash = pedersen.hash(level1ZeroHash, level1ZeroHash);
     let index0Hash = initialLeafHash;
@@ -314,8 +315,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   1       0       0       0        0       0       0       0
      *  nextVal   30      0       0       0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createIndexedTreeLeaf(0, 1, 30));
-    let index1Hash = pedersen.hashInputs(createIndexedTreeLeaf(30, 0, 0));
+    index0Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 1, 30));
+    let index1Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(30, 0, 0));
     e10 = pedersen.hash(index0Hash, index1Hash);
     e20 = pedersen.hash(e10, level1ZeroHash);
     root = pedersen.hash(e20, level2ZeroHash);
@@ -340,8 +341,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       0       1       0        0       0       0       0
      *  nextVal   10      0       30      0        0       0       0       0.
      */
-    index0Hash = pedersen.hashInputs(createIndexedTreeLeaf(0, 2, 10));
-    let index2Hash = pedersen.hashInputs(createIndexedTreeLeaf(10, 1, 30));
+    index0Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(0, 2, 10));
+    let index2Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(10, 1, 30));
     e10 = pedersen.hash(index0Hash, index1Hash);
     let e11 = pedersen.hash(index2Hash, INITIAL_LEAF);
     e20 = pedersen.hash(e10, e11);
@@ -373,8 +374,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextVal   10      0       20      30       0       0       0       0.
      */
     e10 = pedersen.hash(index0Hash, index1Hash);
-    index2Hash = pedersen.hashInputs(createIndexedTreeLeaf(10, 3, 20));
-    const index3Hash = pedersen.hashInputs(createIndexedTreeLeaf(20, 1, 30));
+    index2Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(10, 3, 20));
+    const index3Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(20, 1, 30));
     e11 = pedersen.hash(index2Hash, index3Hash);
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
@@ -412,8 +413,8 @@ describe('StandardIndexedTreeSpecific', () => {
      *  nextIdx   2       6       3       1        0       0       0       0
      *  nextVal   10      50      20      30       0       0       0       0.
      */
-    index1Hash = pedersen.hashInputs(createIndexedTreeLeaf(30, 6, 50));
-    const index6Hash = pedersen.hashInputs(createIndexedTreeLeaf(50, 0, 0));
+    index1Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(30, 6, 50));
+    const index6Hash = pedersen.hashInputs(createIndexedTreeLeafHashInputs(50, 0, 0));
     e10 = pedersen.hash(index0Hash, index1Hash);
     e20 = pedersen.hash(e10, e11);
     const e13 = pedersen.hash(index6Hash, INITIAL_LEAF);

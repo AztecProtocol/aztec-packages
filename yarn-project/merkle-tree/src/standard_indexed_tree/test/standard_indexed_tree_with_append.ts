@@ -1,4 +1,4 @@
-import { IndexedTreeLeaf } from '@aztec/types';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { StandardIndexedTree } from '../../index.js';
 
@@ -7,7 +7,10 @@ import { StandardIndexedTree } from '../../index.js';
  * that was replaced by the more efficient batchInsert method. We keep the original implementation around as it useful
  * for testing that the more complex batchInsert method works correctly.
  */
-export class StandardIndexedTreeWithAppend<Leaf extends IndexedTreeLeaf> extends StandardIndexedTree<Leaf> {
+export class StandardIndexedTreeWithAppend<
+  Leaf extends IndexedTreeLeaf,
+  Preimage extends IndexedTreeLeafPreimage<Leaf>,
+> extends StandardIndexedTree<Leaf, Preimage> {
   /**
    * Appends the given leaves to the tree.
    * @param leaves - The leaves to append.
@@ -39,15 +42,15 @@ export class StandardIndexedTreeWithAppend<Leaf extends IndexedTreeLeaf> extends
     }
 
     const indexOfPrevious = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
-    const previousLeafCopy = this.getLatestLeafPreimageCopy(indexOfPrevious.index, true);
+    const lowLeafPreimage = this.getLatestLeafPreimageCopy(indexOfPrevious.index, true);
 
-    if (previousLeafCopy === undefined) {
+    if (lowLeafPreimage === undefined) {
       throw new Error(`Previous leaf not found!`);
     }
     const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
       newLeaf,
-      previousLeafCopy.nextKey,
-      previousLeafCopy.nextIndex,
+      lowLeafPreimage.getNextKey(),
+      lowLeafPreimage.getNextIndex(),
     );
 
     if (indexOfPrevious.alreadyPresent) {
@@ -55,11 +58,14 @@ export class StandardIndexedTreeWithAppend<Leaf extends IndexedTreeLeaf> extends
     }
     // insert a new leaf at the highest index and update the values of our previous leaf copy
     const currentSize = this.getNumLeaves(true);
-    previousLeafCopy.nextIndex = BigInt(currentSize);
-    previousLeafCopy.nextKey = newLeaf.getKey();
+    const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+      lowLeafPreimage.asLeaf(),
+      newLeaf.getKey(),
+      BigInt(currentSize),
+    );
     this.cachedLeafPreimages[Number(currentSize)] = newLeafPreimage;
-    this.cachedLeafPreimages[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
+    this.cachedLeafPreimages[Number(indexOfPrevious.index)] = newLowLeafPreimage;
+    await this.updateLeaf(newLowLeafPreimage, BigInt(indexOfPrevious.index));
     await this.updateLeaf(newLeafPreimage, this.getNumLeaves(true));
   }
 }

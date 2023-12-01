@@ -22,6 +22,7 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NullifierLeaf,
   NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
@@ -61,8 +62,6 @@ import { BlockBuilder } from './index.js';
 import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
-const bigintToFr = (num: bigint) => new Fr(num);
-const bigintToNum = (num: bigint) => Number(num);
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -577,19 +576,15 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const tree = MerkleTreeId.NULLIFIER_TREE;
     const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier));
-    const prevValueInfo = await this.db.getLeafData(tree, prevValueIndex.index);
-    if (!prevValueInfo) {
+    const prevValuePreimage = await this.db.getLeafPreimage(tree, prevValueIndex.index);
+    if (!prevValuePreimage) {
       throw new Error(`Nullifier tree should have one initial leaf`);
     }
     const prevValueSiblingPath = await this.db.getSiblingPath(tree, BigInt(prevValueIndex.index));
 
     return {
       index: prevValueIndex,
-      leafPreimage: new NullifierLeafPreimage(
-        bigintToFr(prevValueInfo.value),
-        bigintToFr(prevValueInfo.nextValue),
-        bigintToNum(prevValueInfo.nextIndex),
-      ),
+      leafPreimage: prevValuePreimage,
       witness: new MembershipWitness(
         NULLIFIER_TREE_HEIGHT,
         BigInt(prevValueIndex.index),
@@ -713,7 +708,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       newSubtreeSiblingPath: newNullifiersSubtreeSiblingPath,
       sortedNewLeaves: sortedNewNullifiers,
       sortedNewLeavesIndexes: sortednewNullifiersIndexes,
-    } = await this.db.batchInsert(
+    } = await this.db.batchInsert<
+      typeof NULLIFIER_TREE_HEIGHT,
+      typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+      NullifierLeaf,
+      NullifierLeafPreimage
+    >(
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers.map(fr => fr.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
@@ -747,13 +747,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       newPublicDataUpdateRequestsSiblingPaths,
       newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
-        i < nullifierWitnessLeaves.length
-          ? new NullifierLeafPreimage(
-              new Fr(nullifierWitnessLeaves[i].leafData.value),
-              new Fr(nullifierWitnessLeaves[i].leafData.nextValue),
-              Number(nullifierWitnessLeaves[i].leafData.nextIndex),
-            )
-          : new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0),
+        i < nullifierWitnessLeaves.length ? nullifierWitnessLeaves[i].leafData : NullifierLeafPreimage.empty(),
       ),
       lowNullifierMembershipWitness: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
         i < lowNullifierMembershipWitnesses.length

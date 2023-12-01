@@ -1,4 +1,5 @@
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage, SiblingPath } from '@aztec/types';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { SiblingPath } from '@aztec/types';
 
 import { AppendOnlyTree } from './append_only_tree.js';
 
@@ -7,11 +8,15 @@ import { AppendOnlyTree } from './append_only_tree.js';
 /**
  * All of the data to be return during batch insertion.
  */
-export interface LowLeafWitnessData<N extends number, Leaf extends IndexedTreeLeaf> {
+export interface LowLeafWitnessData<
+  N extends number,
+  Leaf extends IndexedTreeLeaf,
+  Preimage extends IndexedTreeLeafPreimage<Leaf>,
+> {
   /**
    * Preimage of the low nullifier that proves non membership.
    */
-  leafData: IndexedTreeLeafPreimage<Leaf>;
+  leafData: Preimage;
   /**
    * Sibling path to prove membership of low nullifier.
    */
@@ -29,11 +34,12 @@ export interface BatchInsertionResult<
   TreeHeight extends number,
   SubtreeSiblingPathHeight extends number,
   Leaf extends IndexedTreeLeaf,
+  Preimage extends IndexedTreeLeafPreimage<Leaf>,
 > {
   /**
    * Data for the leaves to be updated when inserting the new ones.
    */
-  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight, Leaf>[];
+  lowLeavesWitnessData?: LowLeafWitnessData<TreeHeight, Leaf, Preimage>[];
   /**
    * Sibling path "pointing to" where the new subtree should be inserted into the tree.
    */
@@ -51,7 +57,8 @@ export interface BatchInsertionResult<
 /**
  * Indexed merkle tree.
  */
-export interface IndexedTree<Leaf extends IndexedTreeLeaf> extends AppendOnlyTree {
+export interface IndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>
+  extends AppendOnlyTree {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
@@ -90,5 +97,5 @@ export interface IndexedTree<Leaf extends IndexedTreeLeaf> extends AppendOnlyTre
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
     includeUncommitted: boolean,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>>;
 }

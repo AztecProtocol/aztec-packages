@@ -1,8 +1,9 @@
 import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -146,10 +147,10 @@ export interface MerkleTreeOperations {
    * @param treeId - The tree for which leaf data should be returned.
    * @param index - The index of the leaf required.
    */
-  getLeafPreimage<Leaf extends IndexedTreeLeaf>(
+  getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: IndexedTreeId,
     index: number,
-  ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined>;
+  ): Promise<Preimage | undefined>;
 
   /**
    * Update the leaf data at the given index.
@@ -198,11 +199,16 @@ export interface MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
-  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, Leaf extends IndexedTreeLeaf>(
+  batchInsert<
+    TreeHeight extends number,
+    SubtreeSiblingPathHeight extends number,
+    Leaf extends IndexedTreeLeaf,
+    Preimage extends IndexedTreeLeafPreimage<Leaf>,
+  >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>>;
 
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).

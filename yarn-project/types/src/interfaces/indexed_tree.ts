@@ -15,22 +15,3 @@ export interface LeafData {
    */
   nextValue: bigint;
 }
-
-/* eslint-disable */
-
-export interface IndexedTreeLeaf {
-  getKey(): bigint;
-  toBuffer(): Buffer;
-  isEmpty(): boolean;
-}
-
-export interface IndexedTreeLeafPreimage<Leaf extends IndexedTreeLeaf> {
-  key: bigint;
-  nextKey: bigint;
-  nextIndex: bigint;
-
-  asLeaf(): Leaf;
-  toBuffer(): Buffer;
-  toHashInputs(): Buffer[];
-  clone(): IndexedTreeLeafPreimage<Leaf>;
-}

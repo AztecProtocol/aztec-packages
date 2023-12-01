@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
@@ -89,12 +90,12 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index of the leaf to get.
    * @returns Leaf data.
    */
-  async getLeafPreimage<Leaf extends IndexedTreeLeaf>(
+  async getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: MerkleTreeId.NULLIFIER_TREE,
     index: number,
-  ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined> {
+  ): Promise<Preimage | undefined> {
     const preimage = await this.trees.getLeafPreimage(treeId, index, this.includeUncommitted);
-    return preimage as IndexedTreeLeafPreimage<Leaf> | undefined;
+    return preimage as Preimage | undefined;
   }
 
   /**
@@ -175,11 +176,16 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, Leaf extends IndexedTreeLeaf>(
+  public batchInsert<
+    TreeHeight extends number,
+    SubtreeSiblingPathHeight extends number,
+    Leaf extends IndexedTreeLeaf,
+    Preimage extends IndexedTreeLeafPreimage<Leaf>,
+  >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>> {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }

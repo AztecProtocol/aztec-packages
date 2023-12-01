@@ -7,12 +7,15 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NullifierLeaf,
+  NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { Committable } from '@aztec/foundation/committable';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import {
   AppendOnlyTree,
   BatchInsertionResult,
@@ -24,8 +27,9 @@ import {
   UpdateOnlyTree,
   loadTree,
   newTree,
+  treeBuilder,
 } from '@aztec/merkle-tree';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { Hasher, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
@@ -75,14 +79,16 @@ export class MerkleTrees implements MerkleTreeDb {
 
     const hasher = new Pedersen();
     const contractTree: AppendOnlyTree = await initializeTree(
-      StandardTree,
+      treeBuilder(StandardTree),
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
     const nullifierTree = await initializeTree(
-      StandardIndexedTree,
+      (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
+        return new StandardIndexedTree(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
+      },
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
@@ -90,28 +96,28 @@ export class MerkleTrees implements MerkleTreeDb {
       INITIAL_NULLIFIER_TREE_SIZE,
     );
     const noteHashTree: AppendOnlyTree = await initializeTree(
-      StandardTree,
+      treeBuilder(StandardTree),
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );
     const publicDataTree: UpdateOnlyTree = await initializeTree(
-      SparseTree,
+      treeBuilder(SparseTree),
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
     );
     const l1Tol2MessagesTree: AppendOnlyTree = await initializeTree(
-      StandardTree,
+      treeBuilder(StandardTree),
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
     const historicBlocksTree: AppendOnlyTree = await initializeTree(
-      StandardTree,
+      treeBuilder(StandardTree),
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,
@@ -332,13 +338,15 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns Leaf data.
    */
-  public async getLeafPreimage<Leaf extends IndexedTreeLeaf>(
+  public async getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: IndexedTreeId,
     index: number,
     includeUncommitted: boolean,
   ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined> {
     return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree<Leaf>(treeId).getLatestLeafPreimageCopy(index, includeUncommitted)),
+      Promise.resolve(
+        this._getIndexedTree<Leaf, Preimage>(treeId).getLatestLeafPreimageCopy(index, includeUncommitted),
+      ),
     );
   }
 
@@ -398,12 +406,13 @@ export class MerkleTrees implements MerkleTreeDb {
     SubtreeHeight extends number,
     SubtreeSiblingPathHeight extends number,
     Leaf extends IndexedTreeLeaf,
+    Preimage extends IndexedTreeLeafPreimage<Leaf>,
   >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>> {
-    const tree = this.trees[treeId] as StandardIndexedTree<Leaf>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>> {
+    const tree = this.trees[treeId] as StandardIndexedTree<Leaf, Preimage>;
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
@@ -454,8 +463,10 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get an instance of.
    * @returns The indexed tree for the specified tree id.
    */
-  private _getIndexedTree<Leaf extends IndexedTreeLeaf>(treeId: IndexedTreeId): IndexedTree<Leaf> {
-    return this.trees[treeId] as IndexedTree<Leaf>;
+  private _getIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
+    treeId: IndexedTreeId,
+  ): IndexedTree<Leaf, Preimage> {
+    return this.trees[treeId] as IndexedTree<Leaf, Preimage>;
   }
 
   /**
@@ -560,7 +571,9 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync the indexed trees
-      await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
+      await (
+        this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree<NullifierLeaf, NullifierLeafPreimage>
+      ).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );

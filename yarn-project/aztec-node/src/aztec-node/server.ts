@@ -8,6 +8,8 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NullifierLeaf,
+  NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeGlobalsHash, computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
@@ -401,7 +403,10 @@ export class AztecNodeService implements AztecNode {
       return undefined;
     }
 
-    const leafDataPromise = committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, Number(index));
+    const leafDataPromise = committedDb.getLeafPreimage<NullifierLeaf, NullifierLeafPreimage>(
+      MerkleTreeId.NULLIFIER_TREE,
+      Number(index),
+    );
     const siblingPathPromise = committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
@@ -442,7 +447,10 @@ export class AztecNodeService implements AztecNode {
     if (alreadyPresent) {
       this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
     }
-    const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, index);
+    const leafData = await committedDb.getLeafPreimage<NullifierLeaf, NullifierLeafPreimage>(
+      MerkleTreeId.NULLIFIER_TREE,
+      index,
+    );
     if (!leafData) {
       return undefined;
     }
