@@ -20,7 +20,7 @@ variable "CHAIN_ID" {
   type = string
 }
 
-variable "PRIVATE_KEY" {
+variable "FAUCET_PRIVATE_KEY" {
   type = string
 }
 

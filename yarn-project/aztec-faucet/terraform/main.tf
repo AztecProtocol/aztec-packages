@@ -79,8 +79,7 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
   memory                   = "4096"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
-
-  container_definitions = <<DEFINITIONS
+  container_definitions    = <<DEFINITIONS
 [
   {
     "name": "${var.DEPLOY_TAG}-faucet",
@@ -123,8 +122,8 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       },
       {
         "name": "PRIVATE_KEY",
-        "value": "${var.PRIVATE_KEY}"
-      }
+        "value": "${var.FAUCET_PRIVATE_KEY}"
+      },
       {
         "name": "INTERVAL",
         "value": "86400"
