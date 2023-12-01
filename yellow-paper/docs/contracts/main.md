@@ -315,3 +315,5 @@ As should be clear from above, the L1 inbox don't need to exist for itself, it k
 - Governance/upgrade contract(s)
     - Relies on the governance/upgrade scheme being more explicitly defined
 - Explorer getting rid of the specific 1:M relationship between L1 and L2
+- Forced transaction inclusion
+    - While we don't have an exact scheme, an outline was made in [hackmd](https://hackmd.io/@aztec-network/S1lRcMkvn?type=view) and [forum](https://forum.aztec.network/t/forcing-transactions/606)
