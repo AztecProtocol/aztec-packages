@@ -7,8 +7,8 @@ const TOPICS_IN_SECTIONS = [
     "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "Tag checks", "Tag updates", "Bit-size",
 ];
 
-const IN_TAG_DESCRIPTION = "The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.";
-const DST_TAG_DESCRIPTION = "The [tag/size](./Types) to tag the output with when different from `in-tag`.";
+const IN_TAG_DESCRIPTION = "The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.";
+const DST_TAG_DESCRIPTION = "The [tag/size](./tagged-memory#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
 
 const INSTRUCTION_SET_RAW = [
     {

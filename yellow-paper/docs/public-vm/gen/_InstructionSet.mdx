@@ -455,7 +455,7 @@ Addition (a + b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -474,7 +474,7 @@ Subtraction (a - b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -493,7 +493,7 @@ Unsigned division (a / b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -512,7 +512,7 @@ Equality check (a == b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -531,7 +531,7 @@ Less-than check (a < b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -550,7 +550,7 @@ Less-than-or-equals check (a <= b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -569,7 +569,7 @@ Bitwise AND (a & b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -588,7 +588,7 @@ Bitwise OR (a | b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -607,7 +607,7 @@ Bitwise XOR (a ^ b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -626,7 +626,7 @@ Bitwise NOT (inversion)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's input
 	- **dstOffset**: memory offset specifying where to store operation's result
@@ -644,7 +644,7 @@ Bitwise leftward shift (a << b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -663,7 +663,7 @@ Bitwise rightward shift (a >> b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -733,7 +733,7 @@ Type cast
 
 - **Category**: types
 - **Flags**: 
-	- **dst-tag**: The [tag/size](./Types) to tag the output with when different from `in-tag`.
+	- **dst-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to tag the destination with but not to check inputs against.
 - **Args**: 
 	- **aOffset**: memory offset of word to cast
 	- **dstOffset**: memory offset specifying where to store operation's result

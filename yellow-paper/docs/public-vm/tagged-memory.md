@@ -1,18 +1,18 @@
 # Types and Tagged Memory
 
 ## Terminology/legend
-- `M[X]`: the word at memory offset `X`
-- `tag`: a key describing the type (the maximum potential value) of a memory cell
-- `T[X]`: the `tag` associated with the word at memory offset `X`
-- `in-tag`: an instruction's `tag` to check input operands against. Present for many instructions.
-- `dst-tag`: the target type of a `CAST` instruction and the `tag` to assign the destination memory cell
+- `M[X]`: main memory cell at offset `X`
+- `tag`: a value referring to a memory cell's type (its maximum potential value)
+- `T[X]`: the tag associated with memory cell at offset `X`
+- `in-tag`: an instruction's tag to check input operands against. Present for many but not all instructions.
+- `dst-tag`: the target type of a `CAST` instruction, also used to tag the destination memory cell
 - `ADD<X>`: shorthand for an `ADD` instruction with `in-tag = X`
-- `ADD<X> aOffset bOffset dstOffset`: an full `ADD` instruction with `in-tag = X` to perform the following expression: `M[dstOffest] = M[aOffset] + M[bOffset]`. See [here](./InstructionSet#isa-section-add) for more details.
+- `ADD<X> aOffset bOffset dstOffset`: an full `ADD` instruction with `in-tag = X`. See [here](./InstructionSet#isa-section-add) for more details.
 - `CAST<X>`: a `CAST` instruction with `dst-tag`: `X`. `CAST` is the only instruction with a `dst-tag`. See [here](./InstructionSet#isa-section-cast) for more details.
 
 ## Tags and tagged memory
 
-A `tag` refers to the potential maximum value of a cell of main memory. The following tags are supported:
+A `tag` refers to the maximum potential value of a cell of main memory. The following tags are supported:
 
 | tag value | maximum memory cell value | shorthand     |
 | --------- | ------------------------- | ------------- |
@@ -25,7 +25,8 @@ A `tag` refers to the potential maximum value of a cell of main memory. The foll
 | 6         | $2^{128} - 1$             | `u128`        |
 | 7         | $p - 1$                   | `field`       |
 
-Note: $p$ describes the modulus of the finite field that the AVM circuit is defined over (i.e. number of points on the BN254 curve).
+> Note: $p$ describes the modulus of the finite field that the AVM circuit is defined over (i.e. number of points on the BN254 curve).
+> Note: `u24` is used for offsets into the VM's 24-bit addressable main memory
 
 The purpose of a tag is to inform the VM of the maximum possible length of an operand value that has been loaded from memory.
 
@@ -40,7 +41,7 @@ If case 2 is triggered, an error flag is raised and the current call's execution
 
 ### Writing into memory
 
-It is required that all VM instructions that write into main memory explicitly define the tag of the output value and ensure the value is appropriately constrained to be consistent with the assigned tag. You can see an instruction's "**Tag updates**" in its section of the instruction set document (see [here for `ADD`](./InstructionSet#isa-section-add) and [here for `CAST`](./InstructionSet#isa-section-cast)).
+It is required that all VM instructions that write into main memory explicitly define the tag of the destination value and ensure the value is appropriately constrained to be consistent with the assigned tag. You can see an instruction's "**Tag updates**" in its section of the instruction set document (see [here for `ADD`](./InstructionSet#isa-section-add) and [here for `CAST`](./InstructionSet#isa-section-cast)).
 
 ### Standard tagging example: `ADD`
 
@@ -81,7 +82,7 @@ M[dstOffset] = cast<to: u64>(M[srcOffset]) // perform cast
 
 ### Indirect `MOV` and extra tag checks
 
-A `MOV` instruction may flag its source and/or destination operands as indirect offsets. An indirect access looks like `M[M[offset]]` instead of the standard `M[offset]`. Memory offsets must be `u24`s, and so indirect memory accesses include additional checks.
+A `MOV` instruction may flag its source and/or destination offsets as "indirect". An indirect memory access performs `M[M[offset]]` instead of the standard `M[offset]`. Memory offsets must be `u24`s since main memory is a 24-bit addressable space, and so indirect memory accesses include additional checks.
 
 Additional checks for a `MOV` with an indirect source offset:
 ```
@@ -109,7 +110,7 @@ M[M[dstOffset]] = M[M[srcOffset]]          // perform move to indirect destinati
 
 ### Calldata/returndata and tag conversions
 
-All elements in calldata/returndata are implicitly tagged as field elements (i.e. maximum value is $p - 1$). To perform a tag conversion, calldata/returndata must be copied into main memory (via [`CALLDATACOPY`](./InstructionSet#isa-section-calldatacopy) or [`RETURN`'s `retOffset` and `retSize`](./InstructionSet#isa-section-return)), followed by an appropriate `CAST` instruction.
+All elements in calldata/returndata are implicitly tagged as field elements (i.e. maximum value is $p - 1$). To perform a tag conversion, calldata/returndata must be copied into main memory (via [`CALLDATACOPY`](./InstructionSet#isa-section-calldatacopy) or [`RETURN`'s `offset` and `size`](./InstructionSet#isa-section-return)), followed by an appropriate `CAST` instruction.
 ```
 # Copy calldata to memory and cast a word to u64
 CALLDATACOPY cdOffset size offsetA // copy calldata to memory at offsetA
