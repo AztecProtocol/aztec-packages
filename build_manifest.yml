@@ -122,7 +122,7 @@ yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
-    - ^yarn-project/Dockerfile
+    - ^yarn-project/Dockerfile$
   dependencies:
     - yarn-project-base
 
