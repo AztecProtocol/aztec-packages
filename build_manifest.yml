@@ -15,6 +15,7 @@ noir:
     - ^noir/tooling/nargo_toml
     - ^noir/tooling/nargo_fmt
     - ^noir/tooling/noirc_abi
+  multiarch: host
 
 noir-packages:
   buildDir: noir
@@ -133,14 +134,14 @@ yarn-project-prod:
     - ^yarn-project/Dockerfile.prod
   dependencies:
     - yarn-project
-  multiarch: true
+  multiarch: buildx
 
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
     - yarn-project-prod
-  multiarch: true
+  multiarch: buildx
 
 aztec-faucet:
   buildDir: yarn-project
@@ -153,7 +154,7 @@ cli:
   projectDir: yarn-project/cli
   dependencies:
     - yarn-project-prod
-  multiarch: true
+  multiarch: buildx
 
 boxes-blank-react:
   buildDir: yarn-project
