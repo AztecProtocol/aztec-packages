@@ -139,7 +139,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    info("ultra verified: ", verified);
     return sumcheck_verified.value() && verified;
 }
 

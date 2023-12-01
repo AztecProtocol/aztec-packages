@@ -77,7 +77,6 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk
 
     auto verified = PCS::verify(pcs_verification_key, batched_claim, transcript);
 
-    info("merge verified: ", verified);
     return identity_checked && verified;
 }
 
