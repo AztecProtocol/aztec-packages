@@ -157,7 +157,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     const preimage = !includeUncommitted
       ? this.leafPreimages[index]
       : this.cachedLeafPreimages[index] ?? this.leafPreimages[index];
-    return this.leafPreimageFactory.clone(preimage);
+    return preimage && this.leafPreimageFactory.clone(preimage);
   }
 
   /**
