@@ -312,7 +312,7 @@ export class AztecNodeService implements AztecNode {
     treeId: MerkleTreeId,
     leafValue: Fr,
   ): Promise<bigint | undefined> {
-    const committedDb = await this.#getWorldState();
+    const committedDb = await this.#getWorldState(blockNumber);
     return committedDb.findLeafIndex(treeId, leafValue.toBuffer());
   }
 
@@ -492,7 +492,7 @@ export class AztecNodeService implements AztecNode {
    * @returns Storage value at the given contract slot (or undefined if not found).
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined> {
-    const committedDb = await this.#getWorldState();
+    const committedDb = await this.#getWorldState('latest');
     const leafIndex = computePublicDataTreeIndex(contract, slot);
     const value = await committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
     return value ? Fr.fromBuffer(value) : undefined;
@@ -503,7 +503,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed roots for the data trees.
    */
   public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const committedDb = await this.#getWorldState();
+    const committedDb = await this.#getWorldState('latest');
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
     const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
@@ -531,7 +531,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed block header.
    */
   public async getBlockHeader(): Promise<BlockHeader> {
-    const committedDb = await this.#getWorldState();
+    const committedDb = await this.#getWorldState('latest');
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
     return new BlockHeader(
@@ -588,7 +588,7 @@ export class AztecNodeService implements AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
-  async #getWorldState(blockNumber: number | 'latest' = 'latest') {
+  async #getWorldState(blockNumber: number | 'latest') {
     if (typeof blockNumber === 'number' && blockNumber < INITIAL_L2_BLOCK_NUM) {
       throw new Error('Invalid block number to get world state for: ' + blockNumber);
     }
@@ -603,8 +603,10 @@ export class AztecNodeService implements AztecNode {
 
     // using a snapshot could be less efficient than using the committed db
     if (blockNumber === 'latest' || blockNumber === blockSyncedTo) {
+      this.log(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
     } else if (blockNumber < blockSyncedTo) {
+      this.log(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     } else {
       throw new Error(`Block ${blockNumber} not yet synced`);
