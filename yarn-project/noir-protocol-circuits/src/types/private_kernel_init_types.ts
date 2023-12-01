@@ -66,11 +66,11 @@ export interface CallContext {
 }
 
 export interface BlockHeader {
+  parent_block_blocks_tree_root: Field;
   note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
   l1_to_l2_messages_tree_root: Field;
-  blocks_tree_root: Field;
   private_kernel_vk_tree_root: Field;
   public_data_tree_root: Field;
   global_variables_hash: Field;

@@ -42,11 +42,14 @@ impl RootRollupInputs {
         // Build the block header in order to compute the block hash for this iteration
         // Then insert the block hash into the blocks tree
         let block_header = BlockHeader {
+            // Tree root of the parent block's blocks tree - we don't have this block's blocks tree root here because
+            // to update the tree we first need to form this object and compute its hash
+            parent_block_blocks_tree_root: self.start_blocks_tree_snapshot.root,
+            // The rest of the values are reflecting this block's changes
             note_hash_tree_root: right.end_note_hash_tree_snapshot.root,
             nullifier_tree_root: right.end_nullifier_tree_snapshot.root,
             contract_tree_root: right.end_contract_tree_snapshot.root,
             l1_to_l2_messages_tree_root: new_l1_to_l2_messages_tree_snapshot.root,
-            blocks_tree_root: self.start_blocks_tree_snapshot.root,
             private_kernel_vk_tree_root: 0, // TODO(#3441)
             public_data_tree_root: right.end_public_data_tree_root,
             global_variables_hash: left.constants.global_variables.hash(),

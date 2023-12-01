@@ -294,6 +294,12 @@
                 "path": "aztec::abi::BlockHeader",
                 "fields": [
                   {
+                    "name": "parent_block_blocks_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
                     "name": "note_hash_tree_root",
                     "type": {
                       "kind": "field"
@@ -313,12 +319,6 @@
                   },
                   {
                     "name": "l1_to_l2_messages_tree_root",
-                    "type": {
-                      "kind": "field"
-                    }
-                  },
-                  {
-                    "name": "blocks_tree_root",
                     "type": {
                       "kind": "field"
                     }
@@ -567,6 +567,12 @@
                 "path": "aztec::abi::BlockHeader",
                 "fields": [
                   {
+                    "name": "parent_block_blocks_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
                     "name": "note_hash_tree_root",
                     "type": {
                       "kind": "field"
@@ -586,12 +592,6 @@
                   },
                   {
                     "name": "l1_to_l2_messages_tree_root",
-                    "type": {
-                      "kind": "field"
-                    }
-                  },
-                  {
-                    "name": "blocks_tree_root",
                     "type": {
                       "kind": "field"
                     }

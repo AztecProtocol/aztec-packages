@@ -106,15 +106,7 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
  * @returns The ACVM fields.
  */
 export function toACVMBlockHeader(blockHeader: BlockHeader): ACVMField[] {
-  return [
-    toACVMField(blockHeader.noteHashTreeRoot),
-    toACVMField(blockHeader.nullifierTreeRoot),
-    toACVMField(blockHeader.contractTreeRoot),
-    toACVMField(blockHeader.l1ToL2MessagesTreeRoot),
-    toACVMField(blockHeader.blocksTreeRoot),
-    toACVMField(blockHeader.publicDataTreeRoot),
-    toACVMField(blockHeader.globalVariablesHash),
-  ];
+  return blockHeader.toArray().map(toACVMField);
 }
 
 /**

@@ -291,11 +291,11 @@ impl PrivateContext {
                 unencrypted_log_preimages_length: fields[144],
                 block_header: BlockHeader {
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[145],
-                    nullifier_tree_root : fields[146],
-                    contract_tree_root : fields[147],
-                    l1_to_l2_messages_tree_root : fields[148],
-                    blocks_tree_root : fields[149],
+                    parent_block_blocks_tree_root : fields[145],
+                    note_hash_tree_root : fields[146],
+                    nullifier_tree_root : fields[147],
+                    contract_tree_root : fields[148],
+                    l1_to_l2_messages_tree_root : fields[149],
                     private_kernel_vk_tree_root: 0, // TODO(#3441)
                     public_data_tree_root: fields[150],
                     global_variables_hash: fields[151],

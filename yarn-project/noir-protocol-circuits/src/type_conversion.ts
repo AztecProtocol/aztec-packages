@@ -442,14 +442,14 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
  */
 export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
   return {
-    blocks_tree_root: mapFieldToNoir(blockHeader.blocksTreeRoot),
+    parent_block_blocks_tree_root: mapFieldToNoir(blockHeader.parentBlockBlocksTreeRoot),
     note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
     nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),
     contract_tree_root: mapFieldToNoir(blockHeader.contractTreeRoot),
     l1_to_l2_messages_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessagesTreeRoot),
+    private_kernel_vk_tree_root: mapFieldToNoir(blockHeader.privateKernelVkTreeRoot),
     public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
     global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
-    private_kernel_vk_tree_root: mapFieldToNoir(blockHeader.privateKernelVkTreeRoot),
   };
 }
 
@@ -460,11 +460,11 @@ export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir 
  */
 export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeader {
   return new BlockHeader(
+    mapFieldFromNoir(blockHeader.parent_block_blocks_tree_root),
     mapFieldFromNoir(blockHeader.note_hash_tree_root),
     mapFieldFromNoir(blockHeader.nullifier_tree_root),
     mapFieldFromNoir(blockHeader.contract_tree_root),
     mapFieldFromNoir(blockHeader.l1_to_l2_messages_tree_root),
-    mapFieldFromNoir(blockHeader.blocks_tree_root),
     mapFieldFromNoir(blockHeader.private_kernel_vk_tree_root),
     mapFieldFromNoir(blockHeader.public_data_tree_root),
     mapFieldFromNoir(blockHeader.global_variables_hash),

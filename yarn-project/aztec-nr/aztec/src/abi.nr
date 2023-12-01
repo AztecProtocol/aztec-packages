@@ -143,11 +143,14 @@ impl CallContext {
 
 // docs:start:block-header
 struct BlockHeader {
+    // Tree root of the parent block's blocks tree - we don't have this block's blocks tree root here because
+    // to update the tree we first need to form this object and compute its hash
+    parent_block_blocks_tree_root: Field,
+    // The rest of the values are from the current block
     note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
-    blocks_tree_root: Field,
     private_kernel_vk_tree_root : Field,
     public_data_tree_root: Field,
     global_variables_hash: Field,
@@ -158,11 +161,11 @@ impl BlockHeader {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
     pub fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
         [
+            self.parent_block_blocks_tree_root,
             self.note_hash_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
-            self.blocks_tree_root,
             self.private_kernel_vk_tree_root,
             self.public_data_tree_root,
             self.global_variables_hash,
@@ -171,11 +174,11 @@ impl BlockHeader {
 
     pub fn deserialize(deserialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
         BlockHeader {
-            note_hash_tree_root: deserialized[0],
-            nullifier_tree_root: deserialized[1],
-            contract_tree_root: deserialized[2],
-            l1_to_l2_messages_tree_root: deserialized[3],
-            blocks_tree_root: deserialized[4],
+            parent_block_blocks_tree_root: deserialized[0],
+            note_hash_tree_root: deserialized[1],
+            nullifier_tree_root: deserialized[2],
+            contract_tree_root: deserialized[3],
+            l1_to_l2_messages_tree_root: deserialized[4],
             private_kernel_vk_tree_root: deserialized[5],
             public_data_tree_root: deserialized[6],
             global_variables_hash: deserialized[7],
@@ -184,11 +187,11 @@ impl BlockHeader {
 
     pub fn empty() -> Self {
         Self {
+            parent_block_blocks_tree_root: 0,
             note_hash_tree_root: 0,
             nullifier_tree_root: 0,
             contract_tree_root: 0,
             l1_to_l2_messages_tree_root: 0,
-            blocks_tree_root: 0,
             private_kernel_vk_tree_root: 0,
             public_data_tree_root: 0,
             global_variables_hash: 0

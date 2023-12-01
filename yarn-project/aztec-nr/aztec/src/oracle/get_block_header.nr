@@ -32,7 +32,7 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     let witness: MembershipWitness<BLOCKS_TREE_HEIGHT, BLOCKS_TREE_HEIGHT + 1> = get_membership_witness(block_number, blocks_tree_id, block_hash);
 
     // 4) Check that the block is in the blocks tree (i.e. the witness is valid)
-    assert(context.block_header.blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in blocks tree failed");
+    assert(context.block_header.parent_block_blocks_tree_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in blocks tree failed");
 
     // 5) Return the block header
     block_header

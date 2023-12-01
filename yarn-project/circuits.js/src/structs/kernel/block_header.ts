@@ -17,6 +17,12 @@ const STRING_ENCODING: BufferEncoding = 'hex';
 export class BlockHeader {
   constructor(
     /**
+     * Root of the blocks tree at the time of when this information was assembled.
+     * @remarks Tree root of the parent block's blocks tree - we don't have this block's blocks tree root here because
+     * to update the tree we first need to form this object and compute its hash.
+     */
+    public parentBlockBlocksTreeRoot: Fr,
+    /**
      * Root of the note hash tree at the time of when this information was assembled.
      */
     public noteHashTreeRoot: Fr,
@@ -32,10 +38,6 @@ export class BlockHeader {
      * Root of the l1 to l2 messages tree at the time of when this information was assembled.
      */
     public l1ToL2MessagesTreeRoot: Fr,
-    /**
-     * Root of the blocks tree at the time of when this information was assembled.
-     */
-    public blocksTreeRoot: Fr,
     /**
      * Root of the private kernel vk tree at the time of when this information was assembled.
      */
@@ -69,11 +71,11 @@ export class BlockHeader {
 
   static getFields(fields: FieldsOf<BlockHeader>) {
     return [
+      fields.parentBlockBlocksTreeRoot,
       fields.noteHashTreeRoot,
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
-      fields.blocksTreeRoot,
       fields.privateKernelVkTreeRoot,
       fields.publicDataTreeRoot,
       fields.globalVariablesHash,
@@ -95,11 +97,11 @@ export class BlockHeader {
    */
   toArray(): Fr[] {
     return [
+      this.parentBlockBlocksTreeRoot,
       this.noteHashTreeRoot,
       this.nullifierTreeRoot,
       this.contractTreeRoot,
       this.l1ToL2MessagesTreeRoot,
-      this.blocksTreeRoot,
       this.privateKernelVkTreeRoot,
       this.publicDataTreeRoot,
       this.globalVariablesHash,
@@ -131,16 +133,7 @@ export class BlockHeader {
   }
 
   isEmpty() {
-    return (
-      this.noteHashTreeRoot.isZero() &&
-      this.nullifierTreeRoot.isZero() &&
-      this.contractTreeRoot.isZero() &&
-      this.l1ToL2MessagesTreeRoot.isZero() &&
-      this.blocksTreeRoot.isZero() &&
-      this.privateKernelVkTreeRoot.isZero() &&
-      this.publicDataTreeRoot.isZero() &&
-      this.globalVariablesHash.isZero()
-    );
+    return this.toArray().every(fr => fr.isZero());
   }
 
   static empty() {
