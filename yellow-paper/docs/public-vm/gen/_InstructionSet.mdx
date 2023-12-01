@@ -136,7 +136,7 @@ import CodeBlock from '@theme/CodeBlock'
 	<td><Markdown>Type cast</Markdown></td>
 	<td><Markdown>72</Markdown></td>
 	<td><CodeBlock language="jsx">{
-		`M[dstOffset] = cast<dest-type>(M[aOffset])`
+		`M[dstOffset] = cast<dst-tag>(M[aOffset])`
 	}</CodeBlock></td>
 </tr>
 <tr>
@@ -455,14 +455,14 @@ Addition (a + b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] + M[bOffset] mod 2^k`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/ADD.png)
@@ -474,14 +474,14 @@ Subtraction (a - b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/SUB.png)
@@ -493,14 +493,14 @@ Unsigned division (a / b)
 
 - **Category**: arithmetic
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] / M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/DIV.png)
@@ -512,14 +512,14 @@ Equality check (a == b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] == M[bOffset] ? 1 : 0`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/EQ.png)
@@ -531,14 +531,14 @@ Less-than check (a < b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] < M[bOffset] ? 1 : 0`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/LT.png)
@@ -550,14 +550,14 @@ Less-than-or-equals check (a <= b)
 
 - **Category**: conditional
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] <= M[bOffset] ? 1 : 0`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/LTE.png)
@@ -569,14 +569,14 @@ Bitwise AND (a & b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] AND M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/AND.png)
@@ -588,14 +588,14 @@ Bitwise OR (a | b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] OR M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/OR.png)
@@ -607,14 +607,14 @@ Bitwise XOR (a ^ b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] XOR M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/XOR.png)
@@ -626,13 +626,13 @@ Bitwise NOT (inversion)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = NOT M[aOffset]`
-- **Tag checks**: `T[aOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 72
 
 ![](./images/bit-formats/NOT.png)
@@ -644,14 +644,14 @@ Bitwise leftward shift (a << b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] << M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/SHL.png)
@@ -663,14 +663,14 @@ Bitwise rightward shift (a >> b)
 
 - **Category**: bitwise
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with.
+	- **in-tag**: The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the output with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
 	- **dstOffset**: memory offset specifying where to store operation's result
 - **Expression**: `M[dstOffset] = M[aOffset] >> M[bOffset]`
-- **Tag checks**: `T[aOffset] == T[bOffset] == op-type`
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag checks**: `T[aOffset] == T[bOffset] == in-tag`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
 ![](./images/bit-formats/SHR.png)
@@ -682,13 +682,13 @@ Set a memory word from a constant in the bytecode.
 
 - **Category**: memory
 - **Flags**: 
-	- **op-type**: The [type/size](./Types) to check inputs against and tag the output with. `field` type is NOT supported for SET.
+	- **in-tag**: The [type/size](./Types) to check inputs against and tag the output with. `field` type is NOT supported for SET.
 - **Args**: 
 	- **const**: a constant value from the bytecode to store in memory (any type except `field`)
 	- **dstOffset**: memory offset specifying where to store the constant
 - **Expression**: `M[dstOffset] = const`
 - **Details**: Set memory word at `dstOffset` to `const`'s immediate value. `const` _cannot be `field` type_!
-- **Tag updates**: `T[dstOffset] = op-type`
+- **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 48+N
 
 ![](./images/bit-formats/SET.png)
@@ -733,13 +733,13 @@ Type cast
 
 - **Category**: types
 - **Flags**: 
-	- **dest-type**: The [type/size](./Types) to tag the output with when different from `op-type`.
+	- **dst-tag**: The [tag/size](./Types) to tag the output with when different from `in-tag`.
 - **Args**: 
 	- **aOffset**: memory offset of word to cast
 	- **dstOffset**: memory offset specifying where to store operation's result
-- **Expression**: `M[dstOffset] = cast<dest-type>(M[aOffset])`
-- **Details**: Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.
-- **Tag updates**: `T[dstOffset] = dest-type`
+- **Expression**: `M[dstOffset] = cast<dst-tag>(M[aOffset])`
+- **Details**: Cast a word in memory based on the `dst-tag` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.
+- **Tag updates**: `T[dstOffset] = dst-tag`
 - **Bit-size**: 72
 
 ![](./images/bit-formats/CAST.png)

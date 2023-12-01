@@ -1,60 +1,126 @@
-# Tagged Memory - An instruction-set centric explanation
+# Types and Tagged Memory
 
-## Explanation of Tagged Memory
-Every word in memory will have an associated `type-tag` (unset, u8, u16, u32, u64, u128, field). For memory address `a`, we refer to the corresponding memory word's `type-tag` as `T[a]`.
+## Terminology/legend
+- `M[X]`: the word at memory offset `X`
+- `tag`: a key describing the type (the maximum potential value) of a memory cell
+- `T[X]`: the `tag` associated with the word at memory offset `X`
+- `in-tag`: an instruction's `tag` to check input operands against. Present for many instructions.
+- `dst-tag`: the target type of a `CAST` instruction and the `tag` to assign the destination memory cell
+- `ADD<X>`: shorthand for an `ADD` instruction with `in-tag = X`
+- `ADD<X> aOffset bOffset dstOffset`: an full `ADD` instruction with `in-tag = X` to perform the following expression: `M[dstOffest] = M[aOffset] + M[bOffset]`. See [here](./InstructionSet#isa-section-add) for more details.
+- `CAST<X>`: a `CAST` instruction with `dst-tag`: `X`. `CAST` is the only instruction with a `dst-tag`. See [here](./InstructionSet#isa-section-cast) for more details.
 
-Every instruction will be flagged with an `op-type` in bytecode (u8, u16, u32, u64, u128, field).
+## Tags and tagged memory
 
-If an instruction uses a "source operand" as a memory location (e.g. `z = M[s0] + y`), the VM first retrieves the `type-tag` referenced by the operand (`T[s0]`) and enforces that it matches `op-type`. The VM enforces this for all source operands used for direct memory reads.
+A `tag` refers to the potential maximum value of a cell of main memory. The following tags are supported:
 
-If an instruction uses a "dest operand" as a memory location (e.g. `M[d0] = x + y`), when the VM assigns a word to that memory location, it also assigns the corresponding `type-tag` (`T[d0] = op-type`). The VM performs this tag assignment for all dest operands used for direct memory writes.
+| tag value | maximum memory cell value | shorthand     |
+| --------- | ------------------------- | ------------- |
+| 0         | 0                         | uninitialized |
+| 1         | $2^8 - 1$                 | `u8`          |
+| 2         | $2^{16} - 1$              | `u16`         |
+| 3         | $2^{24} - 1$              | `u24`         |
+| 4         | $2^{32} - 1$              | `u32`         |
+| 5         | $2^{64} - 1$              | `u64`         |
+| 6         | $2^{128} - 1$             | `u128`        |
+| 7         | $p - 1$                   | `field`       |
 
-**If an instruction fails any of its operand type-tag-checks, the current call's execution reverts!**
+Note: $p$ describes the modulus of the finite field that the AVM circuit is defined over (i.e. number of points on the BN254 curve).
 
-### `ADD<32>` example
-`ADD<32>` is an `ADD` instruction with `op-type` u32. As elaborated on later, an `ADD` performs `M[d0] = M[s0] + M[s1]`. In this case, both `s0` and `s1` are "source operands" used for direct memory reads to retrieve inputs to an addition. So, the VM enforces the `op-type(u32) == T[s0] == T[s1]`. `d0` here is a "dest operand" used for a direct memory write to store the output of the addition. So, the VM tags memory location `d0` with `type-tag` of u32: `T[d0] = op-type(u32)`.
+The purpose of a tag is to inform the VM of the maximum possible length of an operand value that has been loaded from memory.
 
-Here is a summary of what is happening for `ADD<32>`:
+### Checking input operand tags
+
+Many AVM instructions explicitly operate over range-constrained input parameters (e.g. `ADD<in-tag>`). The maximum allowable value for an instruction's input parameters is defined via an `in-tag` (instruction/input tag). Two potential scenarios result:
+
+1. A VM instruction's tag value matches the input parameter tag values
+2. A VM instruction's tag value does _not_ match the input parameter tag values
+
+If case 2 is triggered, an error flag is raised and the current call's execution reverts.
+
+### Writing into memory
+
+It is required that all VM instructions that write into main memory explicitly define the tag of the output value and ensure the value is appropriately constrained to be consistent with the assigned tag. You can see an instruction's "**Tag updates**" in its section of the instruction set document (see [here for `ADD`](./InstructionSet#isa-section-add) and [here for `CAST`](./InstructionSet#isa-section-cast)).
+
+### Standard tagging example: `ADD`
+
 ```
-assert T[s0] == u32  // enforce that source memory locations' type-tags == op-type
-assert T[s1] == u32
-T[d0] = u32  // tag destination memory location as op-type
-M[d0] = M[s0] + M[s1]
-```
-
-
-### Type tags and `CASTs`
-
-`CAST` is different from other instructions in that it will be flagged with an additional `dest-type`. So, a `CAST` will assign `dest-type` (instead of `op-type`) to the memory location specified by its "dest operand" `d0`. `CAST<32, 64>` enforces that `T[s0]` matches u32 (the `op-type`) and assigns `T[d0] = u64` (the `dest-type`).
-
-Here is a summary of what is happening for a `CAST<32, 64>`:
-```
-assert T[s0] == u32  // enforce that source memory location's type-tags == op-type
-T[d0] = u64  // tag destination memory location as dest-type
-M[d0] = M[s0]
-```
-
-### Type tags and indirect `MOVs`
-A basic `MOV` instruction performs direct memory accesses and operates in the same as a simple `ADD` instruction as outlined above. A simple `MOV<64>` would do:
-```
-assert T[s0] == u64  // enforce that source memory location's type-tag == op-type
-T[d0] = u64  // tag destination memory location with op-type
-M[d0] = M[s0]
-```
-
-Consider a `MOV<64, s0-indirect>`, which treats s0 as an indirect memory pointer to perform `M[d0] = M[M[s0]]`. Here, the VM first needs to enforce that `M[s0]` is a valid memory address (has type u32), and it then needs to perform the standard check that resulting word has type matching `op-type`:
-```
-assert T[s0] == u32  // enforce that the direct source memory location contains a valid address (type-tag == u32)
-assert T[M[s0]] == u64  // enforce that the indirect source memory location's type-tag == op-type
-T[d0] = u64  // tag destination memory location with op-type
-M[d0] = M[M[s0]]
-```
-
-Similarly, a `MOV<64, d0-indirect>` treats d0 as an indirect memory pointer to perform `M[M[d0]] = M[s0]`, and here the VM first needs to enforce that `M[d0]` is a valid memory address (has type u32) before assigning the destination location its type tag:
-```
-assert T[s0] == u64  // enforce that source memory location's type-tag == op-type
-assert T[d0] == u32  // enforce that the direct destination memory location contains a valid address (type-tag == u32)
-T[M[d0]] = u64  // tag indirect destination memory location with op-type
-M[M[d0]] = M[s0]
+# ADD<u32> aOffset bOffset dstOffset
+assert T[aOffset] == T[bOffset] == u32 // check inputs against in-tag, revert on mismatch
+T[dstOffset] = u32                     // tag destination with in-tag
+M[dstOffset] = M[aOffset] + M[bOffset] // perform the addition
 ```
 
+### `MOV` and tag preservation
+
+The `MOV` instruction copies data from one memory cell to another, preserving tags. In other words, the destination cell's tag will adopt the value of the source:
+```
+# MOV srcOffset dstOffset
+T[dstOffset] = T[srcOffset] // preserve tag
+M[dstOffset] = M[srcOffset] // perform the move
+```
+
+Note that `MOV` does not have an `in-tag` and therefore does not need to make any assertions regarding the source memory cell's type.
+
+### `CAST` and tag conversions
+
+The only VM instruction that can be used to cast between tags is `CAST`. Two potential scenarios result:
+
+1. The destination tag describes a maximum value that is _less than_ the source tag
+2. The destination tag describes a maximum value that is _greater than or equal to_ the source tag
+
+For Case 1, range constraints must be applied to ensure the destination value is consistent with the source value after tag truncations have been applied.
+
+Case 2 is trivial as no additional consistency checks must be performed between source and destination values.
+
+```
+# CAST<u64> srcOffset dstOffset
+T[dstOffset] = u64                         // tag destination with dst-tag
+M[dstOffset] = cast<to: u64>(M[srcOffset]) // perform cast
+```
+
+### Indirect `MOV` and extra tag checks
+
+A `MOV` instruction may flag its source and/or destination operands as indirect offsets. An indirect access looks like `M[M[offset]]` instead of the standard `M[offset]`. Memory offsets must be `u24`s, and so indirect memory accesses include additional checks.
+
+Additional checks for a `MOV` with an indirect source offset:
+```
+# MOV srcOffset dstOffset      // with indirect source
+assert T[srcOffset] == u24     // enforce that `M[srcOffset]` is itself a valid memory offset
+T[dstOffset] = T[T[srcOffset]] // tag destination to match indirect source tag
+M[dstOffset] = M[M[srcOffset]] // perform move from indirect source
+```
+
+Additional checks for a `MOV` with an indirect destination offset:
+```
+# MOV srcOffset dstOffset      // with indirect destination
+assert T[dstOffset] == u24     // enforce that `M[dstOffset]` is itself a valid memory offset
+T[T[dstOffset]] = T[srcOffset] // tag indirect destination to match source tag
+M[M[dstOffset]] = M[srcOffset] // perform move to indirect destination
+```
+
+Additional checks for a `MOV` with both indirect source and destination offsets:
+```
+# MOV srcOffset dstOffset                  // with indirect source and destination
+assert T[srcOffset] == T[dstOffset] == u24 // enforce that `M[*Offset]` are valid memory offsets
+T[T[dstOffset]] = T[T[srcOffset]]          // tag indirect destination to match indirect source tag
+M[M[dstOffset]] = M[M[srcOffset]]          // perform move to indirect destination
+```
+
+### Calldata/returndata and tag conversions
+
+All elements in calldata/returndata are implicitly tagged as field elements (i.e. maximum value is $p - 1$). To perform a tag conversion, calldata/returndata must be copied into main memory (via [`CALLDATACOPY`](./InstructionSet#isa-section-calldatacopy) or [`RETURN`'s `retOffset` and `retSize`](./InstructionSet#isa-section-return)), followed by an appropriate `CAST` instruction.
+```
+# Copy calldata to memory and cast a word to u64
+CALLDATACOPY cdOffset size offsetA // copy calldata to memory at offsetA
+CAST<u64> offsetA dstOffset        // cast first copied word to a u64
+```
+This would perform the following:
+```
+# CALLDATACOPY cdOffset size offsetA
+T[offsetA:offsetA+size] = field                            // CALLDATACOPY assigns the field tag
+M[offsetA:offsetA+size] = calldata[cdOffset:cdOffset+size] // copy calldata to memory
+# CAST<u64> offsetA dstOffset
+T[offsetA] = u64                                           // CAST assigns a new tag
+M[dstOffset] = cast<u64>(offsetA)                          // perform the cast operation
+```
