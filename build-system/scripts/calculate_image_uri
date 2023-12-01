@@ -2,5 +2,7 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+REPOSITORY=$1
+
 TAG=$(calculate_image_tag $@)
 echo "$ECR_URL/$REPOSITORY:$TAG"
