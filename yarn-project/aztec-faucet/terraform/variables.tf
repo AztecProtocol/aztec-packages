@@ -11,7 +11,8 @@ variable "API_KEY" {
 }
 
 variable "API_PREFIX" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "CHAIN_ID" {

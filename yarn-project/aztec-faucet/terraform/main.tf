@@ -115,7 +115,7 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       },
       {
         "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-faucet/${API_PREFIX}"
+        "value": "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_PREFIX}"
       },
       {
         "name": "CHAIN_ID",
