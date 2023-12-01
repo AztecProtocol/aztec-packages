@@ -2,6 +2,9 @@
 # we then generate downstream multiarch containers to execute the specific projects.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS yarn-project
 
+# Need new arch specific image.
+FROM node:18-alpine
+COPY --from=yarn-project-prod /usr/src /usr/src
 ARG COMMIT_TAG=""
 RUN ./scripts/version_packages.sh
 # Productionify. See comment in yarn-project-base/Dockerfile.

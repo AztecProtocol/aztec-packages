@@ -133,6 +133,7 @@ yarn-project-prod:
     - ^yarn-project/Dockerfile.prod
   dependencies:
     - yarn-project
+  multiarch: true
 
 aztec-sandbox:
   buildDir: yarn-project
