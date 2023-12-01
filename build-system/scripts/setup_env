@@ -21,6 +21,8 @@ PROJECT=$(cat PROJECT)
 COMMIT_MESSAGE=$(git log -n 1 --pretty=format:"%s" $COMMIT_HASH)
 PATH=$PATH:$BUILD_SYSTEM_PATH/scripts
 
+export BRANCH
+
 echo "COMMIT_HASH=$COMMIT_HASH"
 echo "COMMIT_TAG=$COMMIT_TAG"
 echo "JOB_NAME=$JOB_NAME"
@@ -82,8 +84,8 @@ echo export COMMIT_TAG=$COMMIT_TAG >> $BASH_ENV
 echo "export COMMIT_MESSAGE='${COMMIT_MESSAGE//\'/\'\\\'\'}'" >> $BASH_ENV
 echo export JOB_NAME=$JOB_NAME >> $BASH_ENV
 echo export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL >> $BASH_ENV
-echo export DEPLOY_ENV=$DEPLOY_ENV >> $BASH_ENV
-echo export DEPLOY_TAG=${DEPLOY_TAG:-} >> $BASH_ENV
+echo export DEPLOY_ENV=${DEPLOY_ENV:-} >> $BASH_ENV
+echo export DEPLOY_TAG=$DEPLOY_TAG >> $BASH_ENV
 echo export BRANCH=$BRANCH >> $BASH_ENV
 echo export PULL_REQUEST=$PULL_REQUEST >> $BASH_ENV
 echo export DRY_DEPLOY=${DRY_DEPLOY:-0} >> $BASH_ENV
