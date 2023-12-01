@@ -60,7 +60,8 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     void prepare_for_folding(std::vector<uint8_t> fold_data);
 
     /**
-     * @brief Run the folding protocol on the verifier side.
+     * @brief Run the folding protocol on the verifier side to verify the public data ϕ of the new accumulator, received
+     * from the prover, is correct.
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/690): finalise the implementation of this function
      */
@@ -68,5 +69,5 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
 };
 
 extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
-// extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
+extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

@@ -85,12 +85,12 @@ class GoblinUltra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
+        DataType q_m;             // column 0
         DataType q_c;             // column 1
         DataType q_l;             // column 2
         DataType q_r;             // column 3
         DataType q_o;             // column 4
         DataType q_4;             // column 5
-        DataType q_m;             // column 0
         DataType q_arith;         // column 6
         DataType q_sort;          // column 7
         DataType q_elliptic;      // column 8
@@ -374,6 +374,24 @@ class GoblinUltra {
                      calldata_read_counts,
                      lookup_inverses };
         };
+
+        std::vector<HandleType> get_witness()
+        {
+            return { w_l,
+                     w_r,
+                     w_o,
+                     w_4,
+                     sorted_accum,
+                     z_perm,
+                     z_lookup,
+                     ecc_op_wire_1,
+                     ecc_op_wire_2,
+                     ecc_op_wire_3,
+                     ecc_op_wire_4,
+                     calldata,
+                     calldata_read_counts,
+                     lookup_inverses };
+        };
         std::vector<HandleType> get_to_be_shifted() override
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
@@ -383,6 +401,37 @@ class GoblinUltra {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
+        std::vector<HandleType> get_precomputed()
+        {
+            return { q_m,
+                     q_c,
+                     q_l,
+                     q_r,
+                     q_o,
+                     q_4,
+                     q_arith,
+                     q_sort,
+                     q_elliptic,
+                     q_aux,
+                     q_lookup,
+                     q_busread,
+                     sigma_1,
+                     sigma_2,
+                     sigma_3,
+                     sigma_4,
+                     id_1,
+                     id_2,
+                     id_3,
+                     id_4,
+                     table_1,
+                     table_2,
+                     table_3,
+                     table_4,
+                     lagrange_first,
+                     lagrange_last,
+                     lagrange_ecc_op,
+                     databus_id };
+        }
     };
 
   public:
@@ -572,7 +621,7 @@ class GoblinUltra {
 
     class FoldingParameters {
       public:
-        std::vector<FF> gate_separation_challenges;
+        std::vector<FF> gate_challenges;
         FF target_sum;
     };
 

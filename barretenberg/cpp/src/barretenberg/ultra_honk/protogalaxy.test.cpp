@@ -247,7 +247,7 @@ TEST_F(ProtoGalaxyTests, FoldChallenges)
     instance2->relation_parameters.eta = 3;
 
     Instances instances{ { instance1, instance2 } };
-    ProtoGalaxyProver::fold_relation_parameters(instances);
+    ProtoGalaxyProver::combine_relation_parameters(instances);
 
     Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
@@ -268,7 +268,7 @@ TEST_F(ProtoGalaxyTests, FoldAlpha)
     instance2->alpha = 4;
 
     Instances instances{ { instance1, instance2 } };
-    ProtoGalaxyProver::fold_alpha(instances);
+    ProtoGalaxyProver::combine_alpha(instances);
 
     Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
     EXPECT_EQ(instances.alpha, expected_alpha);

@@ -138,7 +138,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (expected_betas_star[idx] == beta_star);
     }
 
-    info("verified: ", verified);
     WitnessCommitments acc_witness_commitments;
     auto acc_comm_view = acc_witness_commitments.pointer_view();
     for (auto c : acc_comm_view) {
@@ -154,9 +153,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     auto witness_labels = typename Flavor::CommitmentLabels().get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
         auto c = transcript.template receive_from_prover<Commitment>("next_" + witness_labels[idx]);
-        info(c);
-        info((*acc_comm_view[idx]));
-        assert(c == (*acc_comm_view[idx]));
         verified = verified & (c == (*acc_comm_view[idx]));
     }
 
@@ -221,5 +217,5 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 }
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
-// template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk

@@ -60,15 +60,7 @@ template <class Flavor> class ProverInstance_ {
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
-        instance_size = proving_key->circuit_size;
-        log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
     }
-
-    // ProverInstance_(FoldingResult<Flavor> result)
-    //     : verification_key(std::move(result.verification_key))
-    //     , prover_polynomials(result.folded_prover_polynomials)
-    //     , public_inputs(result.folded_public_inputs)
-    //     , folding_parameters(result.folding_parameters){};
 
     ProverInstance_() = default;
     ~ProverInstance_() = default;

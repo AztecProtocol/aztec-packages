@@ -16,9 +16,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 
         const auto instance_size = static_cast<uint32_t>(instance->instance_size);
         const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
-
         transcript.send_to_verifier(domain_separator + "_instance_size", instance_size);
         transcript.send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
+
         for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
             auto public_input_i = instance->public_inputs[i];
             transcript.send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
@@ -30,14 +30,13 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 
             auto& witness_commitments = instance->witness_commitments;
 
-            // Commit to the first three wire polynomials
+            // Commit to the first three wire polynomials of the instance
             // We only commit to the fourth wire polynomial after adding memory recordss
             witness_commitments.w_l = commitment_key->commit(instance->proving_key->w_l);
             witness_commitments.w_r = commitment_key->commit(instance->proving_key->w_r);
             witness_commitments.w_o = commitment_key->commit(instance->proving_key->w_o);
 
             auto wire_comms = witness_commitments.get_wires();
-
             auto commitment_labels = instance->commitment_labels;
             auto wire_labels = commitment_labels.get_wires();
             for (size_t idx = 0; idx < 3; ++idx) {
@@ -46,6 +45,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 
             auto eta = transcript.get_challenge(domain_separator + "_eta");
             instance->compute_sorted_accumulator_polynomials(eta);
+
+            // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire
+            // polynomial
             witness_commitments.sorted_accum = commitment_key->commit(instance->prover_polynomials.sorted_accum);
             witness_commitments.w_4 = commitment_key->commit(instance->prover_polynomials.w_4);
 
@@ -97,12 +99,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
             transcript.send_to_verifier(domain_separator + "_" + labels[idx], (*vk_view[idx]));
         }
     }
-
-    for (auto w : instances[0]->witness_commitments.pointer_view()) {
-        info((*w));
-    }
-    fold_relation_parameters(instances);
-    fold_alpha(instances);
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
@@ -123,9 +119,13 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     }
     assert(perturbator[0] == accumulator->folding_parameters.target_sum);
     auto perturbator_challenge = transcript.get_challenge("perturbator_challenge");
-    instances.betas_star =
+    instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->folding_parameters.gate_challenges, deltas);
-    const auto pow_betas_star = compute_pow_polynomial_at_values(instances.betas_star, accumulator->instance_size);
+    const auto pow_betas_star =
+        compute_pow_polynomial_at_values(instances.next_gate_challenges, accumulator->instance_size);
+
+    combine_relation_parameters(instances);
+    combine_alpha(instances);
     auto combiner = compute_combiner(instances, pow_betas_star);
 
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
@@ -135,16 +135,14 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
         transcript.send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
     auto combiner_challenge = transcript.get_challenge("combiner_quotient_challenge");
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize these formulas as well as computation
-    // of Lagrange basis
-
-    auto thingy = compute_new_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
 
     ProverFoldingResult<Flavor> res;
-    res.accumulator = thingy;
+    res.accumulator =
+        compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript.proof_data;
+
     return res;
 }
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-// template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
+template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
 } // namespace proof_system::honk
