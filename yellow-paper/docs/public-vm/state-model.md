@@ -45,8 +45,6 @@ Indirect memory addressing is required in order to support read/writes into dyna
 
 Memory addresses must be tagged to be a `u32` type.
 
-See [here](./tagged-memory) for more information on types and the VM's tagged memory model.
-
 ## Types and Tagged Memory
 
 ### Terminology/legend
