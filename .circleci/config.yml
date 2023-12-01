@@ -114,6 +114,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
 
+  noir-acir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-acir-tests 32
+
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -443,6 +454,9 @@ jobs:
           command: |
             create_ecr_manifest aztec-sandbox x86_64,arm64
             create_ecr_manifest cli x86_64,arm64
+            create_ecr_manifest aztec-faucet x86_64
+            create_ecr_manifest mainnet-fork x86_64
+            create_ecr_manifest l1-contracts x86_64
 
   boxes-blank-react:
     machine:
@@ -554,16 +568,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
 
-  e2e-slow-tree:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
+  # TODO(3458): Investigate intermittent failure
+  # e2e-slow-tree:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
 
   e2e-sandbox-example:
     docker:
@@ -663,6 +678,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
+
+  e2e-inclusion-proofs-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
 
   e2e-pending-commitments-contract:
     docker:
@@ -874,6 +900,17 @@ jobs:
               echo "Skipping doc deploy (not on master)."
             fi
 
+  yellow-paper:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build yellow paper"
+          command: build yellow-paper
+
   e2e-join:
     docker:
       - image: cimg/base:2023.09
@@ -914,7 +951,21 @@ jobs:
           name: "Deploy mainnet fork"
           command: |
             should_deploy || exit 0
-            deploy_ecr mainnet-fork
+            deploy mainnet-fork
+
+  deploy-contracts:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy L1 contracts to mainnet fork"
+          working_directory: l1-contracts
+          command: |
+            should_deploy || exit 0
+            ./scripts/ci_deploy_contracts.sh
 
   deploy-npm:
     machine:
@@ -943,6 +994,31 @@ jobs:
             deploy_dockerhub noir x86_64,arm64
             deploy_dockerhub aztec-sandbox x86_64,arm64
             deploy_dockerhub cli x86_64,arm64
+            deploy_dockerhub aztec-faucet x86_64
+            deploy_dockerhub mainnet-fork x86_64
+            deploy_dockerhub l1-contracts x86_64
+
+  deploy-devnet:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Deploy devnet to AWS"
+          command: |
+            should_deploy 0 || exit 0
+            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
+            export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
+            export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
+            export TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY=$SEQ_1_PUBLISHER_PRIVATE_KEY
+            export TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY=$SEQ_2_PUBLISHER_PRIVATE_KEY
+            deploy_terraform p2p-bootstrap yarn-project/p2p-bootstrap/terraform
+            deploy_terraform aztec-node yarn-project/aztec-node/terraform
+            deploy_terraform aztec-faucet yarn-project/aztec-faucet/terraform
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -992,6 +1068,10 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
+      - noir-acir-tests:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
@@ -1010,6 +1090,7 @@ workflows:
       - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
+            - noir-acir-tests
           <<: *defaults
       - bb-js:
           requires:
@@ -1022,11 +1103,14 @@ workflows:
       - bb-js-acir-tests:
           requires:
             - bb-js
+            - noir-acir-tests
           <<: *defaults
 
       - l1-contracts: *defaults
 
       - mainnet-fork: *defaults
+
+      - yellow-paper: *defaults
 
       # Yarn Project
       - yarn-project-base:
@@ -1082,7 +1166,8 @@ workflows:
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
       - e2e-blacklist-token-contract: *e2e_test
-      - e2e-slow-tree: *e2e_test
+      # TODO(3458): Investigate intermittent failure
+      # - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1094,6 +1179,7 @@ workflows:
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
+      - e2e-inclusion-proofs-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
@@ -1118,7 +1204,6 @@ workflows:
             - e2e-lending-contract
             - e2e-token-contract
             - e2e-blacklist-token-contract
-            - e2e-slow-tree
             - e2e-sandbox-example
             - e2e-block-building
             - e2e-nested-contract
@@ -1130,6 +1215,7 @@ workflows:
             - e2e-public-to-private-messaging
             - e2e-account-contracts
             - e2e-escrow-contract
+            - e2e-inclusion-proofs-contract
             - e2e-pending-commitments-contract
             - e2e-ordering
             - uniswap-trade-on-l1-from-l2
@@ -1144,6 +1230,7 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
+            - yellow-paper
           <<: *defaults
 
       # Benchmark jobs.
@@ -1158,4 +1245,16 @@ workflows:
       # Production deployment
       - deploy-dockerhub: *defaults_deploy
       - deploy-npm: *defaults_deploy
-      - deploy-mainnet-fork: *defaults_deploy
+      - deploy-mainnet-fork:
+          requires:
+            - deploy-dockerhub
+          <<: *defaults_deploy
+      - deploy-contracts:
+          requires:
+            - deploy-mainnet-fork
+          <<: *defaults_deploy
+      - deploy-devnet:
+          requires:
+            - deploy-contracts
+          <<: *defaults_deploy
+

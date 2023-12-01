@@ -11,7 +11,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     GENERATOR_INDEX__FUNCTION_ARGS,
-    HISTORIC_BLOCK_DATA_LENGTH,
+    BLOCK_HEADER_LENGTH,
     CONTRACT_DEPLOYMENT_DATA_LENGTH,
     CALL_CONTEXT_LENGTH,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -20,6 +20,7 @@ use crate::constants_gen::{
     CONTRACT_STORAGE_READ_LENGTH,
     PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+    GENERATOR_INDEX__BLOCK_HASH,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
     GENERATOR_INDEX__FUNCTION_DATA,
     GENERATOR_INDEX__PUBLIC_DATA_READ,
@@ -93,7 +94,7 @@ impl ContractDeploymentData {
 // docs:start:private-context-inputs
 struct PrivateContextInputs {
     call_context : CallContext,
-    block_data: HistoricBlockData,
+    block_header: BlockHeader,
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
 }
@@ -103,7 +104,7 @@ struct PrivateContextInputs {
 // docs:start:public-context-inputs
 struct PublicContextInputs {
     call_context: CallContext,
-    block_data: HistoricBlockData,
+    block_header: BlockHeader,
 
     public_global_variables: PublicGlobalVariables,
 }
@@ -140,8 +141,8 @@ impl CallContext {
     }
 }
 
-// docs:start:historic-block-data
-struct HistoricBlockData {
+// docs:start:block-header
+struct BlockHeader {
     note_hash_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
@@ -150,11 +151,11 @@ struct HistoricBlockData {
     public_data_tree_root: Field,
     global_variables_hash: Field,
 }
-// docs:end:historic-block-data
+// docs:end:block-header
 
-impl HistoricBlockData {
+impl BlockHeader {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    pub fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
+    pub fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
         [
             self.note_hash_tree_root,
             self.nullifier_tree_root,
@@ -166,8 +167,34 @@ impl HistoricBlockData {
         ]
     }
 
+    pub fn deserialize(deserialized: [Field; BLOCK_HEADER_LENGTH]) -> Self {
+        BlockHeader {
+            note_hash_tree_root: deserialized[0],
+            nullifier_tree_root: deserialized[1],
+            contract_tree_root: deserialized[2],
+            l1_to_l2_messages_tree_root: deserialized[3],
+            blocks_tree_root: deserialized[4],
+            public_data_tree_root: deserialized[5],
+            global_variables_hash: deserialized[6],
+        }
+    }
+
     pub fn empty() -> Self {
         Self { note_hash_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
+    }
+
+    pub fn block_hash(self) -> Field {
+        // TODO(#3442): Unify the ordering in `BlockHeader::serialize` function and the ordering
+        // in the block hash preimage --> This requires changes in the circuits.
+        let inputs = [
+            self.global_variables_hash,
+            self.note_hash_tree_root,
+            self.nullifier_tree_root,
+            self.contract_tree_root,
+            self.l1_to_l2_messages_tree_root,
+            self.public_data_tree_root
+        ];
+        pedersen_hash(inputs, GENERATOR_INDEX__BLOCK_HASH)
     }
 }
 
@@ -207,7 +234,7 @@ struct PrivateCircuitPublicInputs {
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-    block_data: HistoricBlockData,
+    block_header: BlockHeader,
     contract_deployment_data: ContractDeploymentData,
     chain_id: Field,
     version: Field,
@@ -231,7 +258,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_data.serialize());
+        fields.push_array(self.block_header.serialize());
         fields.push(self.contract_deployment_data.hash());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -255,7 +282,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_data.serialize());
+        fields.push_array(self.block_header.serialize());
         fields.push_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -314,7 +341,7 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_data: HistoricBlockData,
+    block_header: BlockHeader,
     prover_address: Field,
 }
 
@@ -338,7 +365,7 @@ impl PublicCircuitPublicInputs {
 
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push_array(self.block_data.serialize());
+        inputs.push_array(self.block_header.serialize());
         inputs.push(self.prover_address);
 
         pedersen_hash(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
@@ -361,7 +388,7 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_data.serialize());
+        fields.push_array(self.block_header.serialize());
         fields.push(self.prover_address);
         fields.storage
     }

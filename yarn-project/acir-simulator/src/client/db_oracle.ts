@@ -1,8 +1,9 @@
-import { CompleteAddress, GrumpkinPrivateKey, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, GrumpkinPrivateKey, PublicKey } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { L2Block, MerkleTreeId, NullifierMembershipWitness } from '@aztec/types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/index.js';
@@ -108,10 +109,54 @@ export interface DBOracle extends CommitmentsDB {
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
-   * Retrieve the databases view of the Historic Block Data object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   * Retrieve the databases view of the Block Header object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricBlockData object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHistoricBlockData(): Promise<HistoricBlockData>;
+  getBlockHeader(): Promise<BlockHeader>;
+
+  /**
+   * Fetch the index of the leaf in the respective tree
+   * @param blockNumber - The block number at which to get the leaf index.
+   * @param treeId - The id of the tree to search.
+   * @param leafValue - The leaf value buffer.
+   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   */
+  findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Fetch the sibling path of the leaf in the respective tree
+   * @param blockNumber - The block number at which to get the sibling path.
+   * @param treeId - The id of the tree to search.
+   * @param leafIndex - The index of the leaf.
+   * @returns - The sibling path of the leaf.
+   */
+  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+
+  /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+
+  /**
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
+   */
+  getLowNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+
+  /**
+   * Fetch a block corresponding to the given block number.
+   * @param blockNumber - The block number of a block to fetch.
+   * @returns - The block corresponding to the given block number. Undefined if it does not exist.
+   */
+  getBlock(blockNumber: number): Promise<L2Block | undefined>;
 }

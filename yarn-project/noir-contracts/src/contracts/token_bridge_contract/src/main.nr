@@ -11,9 +11,7 @@ contract TokenBridge {
         context::{Context},
         hash::{compute_secret_hash},
         state_vars::{public_state::PublicState},
-        types::type_serialization::field_serialization::{
-            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
-        },
+        types::type_serialization::field_serialization::FieldSerializationMethods,
         types::address::{AztecAddress, EthereumAddress},
         selector::compute_selector,
     };
@@ -175,5 +173,5 @@ contract TokenBridge {
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
         [0, 0, 0, 0]
     }
-// docs:end:compute_note_hash_and_nullifier_placeholder
+    // docs:end:compute_note_hash_and_nullifier_placeholder
 }
