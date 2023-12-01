@@ -126,13 +126,14 @@ MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 if [ "$MULTIARCH" == "buildx" ]; then
   # We've requested to use buildx. This will build both arch containers on the host machine using virtualization.
   # The result is a single image tag that supports multiarch.
+  # This is the simplest approach for build jobs that are not too intensive.
   docker buildx create --name builder --use
   docker buildx inspect --bootstrap
   docker buildx build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --platform linux/amd64,linux/arm64 . --push
 else
-  # If multiarch is set to "host", the assumption is that we doing multiple builds on different architcture machines
+  # If multiarch is set to "host", the assumption is that we're doing multiple builds on different machine architectures
   # in parallel, and that there is a another job that runs afterwards to combine them into a manifest.
-  # In this case we need to augment the image tag with this host architecture to ensure it's uniqueness.
+  # In this case we need to augment the image tag with the hosts architecture to ensure its uniqueness.
   if [ "$MULTIARCH" == "host" ]; then
     IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY host)
   fi

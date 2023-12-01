@@ -390,21 +390,6 @@ jobs:
           name: "Build and test"
           command: build aztec-sandbox
 
-  # aztec-sandbox-arm64:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: arm.large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Build and test"
-  #         # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-  #         # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-  #         command: |
-  #           echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-  #           build aztec-sandbox
-
   cli:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -415,21 +400,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build cli
-
-  # cli-arm64:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: arm.large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Build and test"
-  #         # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-  #         # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-  #         command: |
-  #           echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-  #           build cli
 
   mainnet-fork:
     machine:
@@ -452,19 +422,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
-
-  # ecr-manifest:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Create ECR manifest"
-  #         command: |
-  #           create_ecr_manifest aztec-sandbox x86_64,arm64
-  #           create_ecr_manifest cli x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -1095,18 +1052,6 @@ workflows:
       - aztec-sandbox: *defaults_yarn_project_prod
       - cli: *defaults_yarn_project_prod
       - aztec-faucet: *defaults_yarn_project_prod
-      # - aztec-sandbox-x86_64: *defaults_yarn_project_prod
-      # - aztec-sandbox-arm64: *defaults_yarn_project_prod
-      # - cli-x86_64: *defaults_yarn_project_prod
-      # - cli-arm64: *defaults_yarn_project_prod
-      # - aztec-faucet: *defaults_yarn_project_prod
-      # - ecr-manifest:
-      #     requires:
-      #       - aztec-sandbox-x86_64
-      #       - aztec-sandbox-arm64
-      #       - cli-x86_64
-      #       - cli-arm64
-      #     <<: *defaults
 
       # Boxes.
       - boxes-blank-react:
