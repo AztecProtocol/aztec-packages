@@ -3,7 +3,7 @@ title: Cross-chain communication
 description: How the L1 contracts facilitate cross-chain communication
 ---
 
-This section are to describe what our L1 contracts do, what each of them are responsible for and how they interact with the circuits. 
+This section describes what our L1 contracts do, what each of them are responsible for and how they interact with the circuits. 
 
 Note that the only reason that we even have any contracts is to facilitate cross-chain communication. The contracts are not required for the rollup to function, but required to bridge assets and to reduce the cost of light nodes.
 
@@ -11,7 +11,7 @@ Note that the only reason that we even have any contracts is to facilitate cross
 - Blocks and their content have been defined in earlier so we will not go into detail on that here.
 :::
 
-We have multiple contracts, some that exist already, and some that are to be build. The collection of these contracts is called the L1 contracts and it was makes up the rollup precense on L1.  
+We have multiple contracts, some that are already defined and some yet to be specced. The collection of these contracts is called the L1 contracts and it was makes up the rollup presence on L1.
 
 **Existing contracts**:
 - Registry
@@ -29,14 +29,12 @@ The purpose of the L1 contracts are simple:
 - Act as a validating light node for L2 that every L1 node implicitly run
 
 ## Registry
-The registry is a contract that holds the addresses of the other contracts. It is a simple contract that keeps track of where the other contracts are, it is to give the nodes a single source of truth for where the other contracts are. Depending on the scheme might be used to handle upgrades, seen as the point of entry to the protocol from a node perspective - it is the only contract that the nodes MUST know about. It can tell them about the rest, and where they need to look for blocks etc. 
-
-Must keep track of current and historical addresses of the contracts. 
+The registry is a contract that holds the current and historical addresses of the other contracts. The addresses of a rollup deployment is contained in a snapshot, and the registry is to map a version number to a snapshot. Depending on the upgrade scheme, it might be used to handle upgrades, or it could entirely be removed. It is generally the one address that a node MUST know about, as it can then tell the node where to find the remainder of the contracts, which is used for where to look for block publication etc.  
 
 ## State transitioner
-The state transitioner is the contract that handles the state and perform the state transition on L1. It makes sure that the proof is valid and that L1 is updated accordingly. It is the main component of our fully validating light node.
+The state transitioner acts as a validating light node for the L2. Practically this means that the contract keeps track of the current state of the L2, and is to progress this state as valid L2 blocks are received. Also, it is to communicate with the inbox and outbox L1 contracts to facility cross-chain communication.
 
-Whenever a block is received it is to:
+Whenever a block is received the state transitioner MUST:
 - Compute the "starting" state of the block (the state before the block is applied)
 - Check that the starting state is the same as the current state
 - Check the global variables provided (block number, timestamp, version, chainId)
@@ -65,7 +63,7 @@ Whenever a block is received it is to:
 
 When deploying a contract on L2, it is possible to specify its "portal" address. This is an immutable variable, that can be used to constrain who the L2 contract expect messages from, and who it sends to.
 
-In the current implementation, any messages that are sent from the L2 contract to L1 MUST be sent to the portal address. This was to get around the access control issue of private execution. This is enforced in the kernel.
+In the current paradigm, any messages that are sent from the L2 contract to L1 MUST be sent to the portal address. This was to get around the access control issue of private execution. This is enforced in the kernel.
 
 It practically gives us a 1:M relationship between L1 and L2, where one L1 contract can be specified as the portal for many L2, and communicate with all of them, but each L2 can only communicate with a single L1 contract.
 
@@ -127,7 +125,7 @@ Persistent storage is expensive so to reduce overhead we only commit to the mess
 Since any data that is moving from one chain to the other at some point will live on L1, it will be PUBLIC. While this is fine for L1 consumption (which is public in itself), we want to ensure that the L2 consumption can be private.
 To support this, we use a nullifier scheme similar to what we are doing for all the other notes (**REFERENCE**). As part of the nullifier computation we then use the `secret` which hashes to the `secretHash`, this ensures that only actors with knowledge of `secret` will be able to see when it is spent on L2.
 
-:::warning Moving messages
+:::info Moving messages
 Any message that is consumed on one side MUST be moved to the other side. This is to ensure that the messages are not consumed twice and that the message existed. The contracts can handle one side, but the circuits must handle the other.
 :::
 
@@ -139,7 +137,7 @@ We are using the `secretHash` to ensure that the user can spend the message priv
 ### Inbox
 When we say inbox, we are generally referring to the L1 contract that handles the L1 to L2 messages.
 
-The inbox is logically a multi-set that builds messages based on the caller and user-provided content (multi-set meaning that repetition are allowed). Anyone are able to insert messages into the inbox, but only the state transitioner are able to consume messages from it. When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" (message tree), it must be atomic.
+The inbox is logically a multi-set that builds messages based on the caller and user-provided content (multi-set meaning that repetition are allowed). While anyone can insert messages into the inbox, only the recipient state transitioner can consume messages from it (as specified by the version). When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" (message tree).
 
 When a message is inserted into the inbox, the inbox MUST fill in the following fields:
 - `L1Actor.actor`: The sender of the message (the caller), `msg.sender`
