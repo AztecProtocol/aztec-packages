@@ -3,7 +3,7 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS yarn-project
 
 # Need new arch specific image.
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 COPY --from=yarn-project-prod /usr/src /usr/src
 ARG COMMIT_TAG=""
 RUN ./scripts/version_packages.sh
@@ -17,4 +17,4 @@ RUN rm -rf /usr/src/noir/target
 
 # Create fresh minimal size image.
 FROM node:18-alpine
-COPY --from=yarn-project /usr/src /usr/src
+COPY --from=builder /usr/src /usr/src
