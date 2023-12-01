@@ -50,7 +50,7 @@ export interface WorldStateSynchronizer {
    * @param minBlockNumber - The minimum block number that we must sync to
    * @returns A promise that resolves once the sync has completed.
    */
-  syncImmediate(minBlockNumber?: number): Promise<void>;
+  syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
    * Returns an instance of MerkleTreeOperations that will include uncommitted data.
