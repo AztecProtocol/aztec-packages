@@ -29,7 +29,7 @@ import {
   newTree,
   treeBuilder,
 } from '@aztec/merkle-tree';
-import { Hasher, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { Hasher, L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
@@ -381,7 +381,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index to insert into.
    * @returns Empty promise.
    */
-  public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void> {
+  public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
     return await this.synchronize(() => this._updateLeaf(treeId, leaf, index));
   }
 
@@ -498,11 +498,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves);
   }
 
-  private async _updateLeaf(
-    treeId: IndexedTreeId | PublicTreeId,
-    leaf: LeafData | Buffer,
-    index: bigint,
-  ): Promise<void> {
+  private async _updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
     const tree = this.trees[treeId];
     if (!('updateLeaf' in tree)) {
       throw new Error('Tree does not support `updateLeaf` method');

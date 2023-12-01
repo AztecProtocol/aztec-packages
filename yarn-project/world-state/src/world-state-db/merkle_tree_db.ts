@@ -1,9 +1,9 @@
-import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { MAX_NEW_NULLIFIERS_PER_TX, NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -158,7 +158,7 @@ export interface MerkleTreeOperations {
    * @param leaf - The updated leaf value.
    * @param index - The index of the leaf to be updated.
    */
-  updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void>;
+  updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
 
   /**
    * Returns the index containing a leaf value.

@@ -1,5 +1,3 @@
-import { LeafData } from '@aztec/types';
-
 import { MerkleTree } from './merkle_tree.js';
 
 /**
@@ -11,6 +9,5 @@ export interface UpdateOnlyTree extends MerkleTree {
    * @param leaf - The leaf value to be updated.
    * @param index - The leaf to be updated.
    */
-  // TODO: Make this strictly a Buffer
-  updateLeaf(leaf: Buffer | LeafData, index: bigint): Promise<void>;
+  updateLeaf(leaf: Buffer, index: bigint): Promise<void>;
 }

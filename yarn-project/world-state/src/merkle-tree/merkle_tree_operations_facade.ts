@@ -1,7 +1,8 @@
+import { NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
@@ -80,7 +81,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index to insert into.
    * @returns Empty promise.
    */
-  updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: LeafData, index: bigint): Promise<void> {
+  updateLeaf(treeId: MerkleTreeId.NULLIFIER_TREE, leaf: NullifierLeafPreimage, index: bigint): Promise<void> {
     return this.trees.updateLeaf(treeId, leaf, index);
   }
 
