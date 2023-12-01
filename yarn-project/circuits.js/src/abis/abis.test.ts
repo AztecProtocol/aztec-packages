@@ -126,24 +126,26 @@ describe('abis', () => {
   });
 
   it('computes block hash with globals', () => {
+    const noteHashTreeRoot = new Fr(1n);
+    const nullifierTreeRoot = new Fr(2n);
+    const contractTreeRoot = new Fr(3n);
+    const l1ToL2MessagesTreeRoot = new Fr(4n);
+    const blocksTreeRoot = new Fr(5n);
+    const publicDataTreeRoot = new Fr(6n);
     const globals = GlobalVariables.from({
-      chainId: new Fr(1n),
-      version: new Fr(2n),
-      blockNumber: new Fr(3n),
-      timestamp: new Fr(4n),
+      chainId: new Fr(7n),
+      version: new Fr(8n),
+      blockNumber: new Fr(9n),
+      timestamp: new Fr(10n),
     });
-    const noteHashTreeRoot = new Fr(5n);
-    const nullifierTreeRoot = new Fr(6n);
-    const contractTreeRoot = new Fr(7n);
-    const l1ToL2DataTreeRoot = new Fr(8n);
-    const publicDataTreeRoot = new Fr(9n);
     const res = computeBlockHashWithGlobals(
-      globals,
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
-      l1ToL2DataTreeRoot,
+      l1ToL2MessagesTreeRoot,
+      blocksTreeRoot,
       publicDataTreeRoot,
+      globals,
     );
     expect(res).toMatchSnapshot();
   });

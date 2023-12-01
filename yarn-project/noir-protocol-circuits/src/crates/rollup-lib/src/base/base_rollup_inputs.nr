@@ -387,6 +387,7 @@ impl BaseRollupInputs {
 
             let previous_block_hash_witness = self.blocks_tree_root_membership_witnesses[i];
 
+            // TOHLE pravdepodobne failne
             // Now check that the previous block hash is in the blocks tree from the beginning of the rollup
             components::assert_check_membership(
                 previous_block_hash,

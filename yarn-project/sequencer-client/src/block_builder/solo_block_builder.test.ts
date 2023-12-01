@@ -145,12 +145,13 @@ describe('sequencer/solo_block_builder', () => {
 
   const updateBlocksTree = async () => {
     const blockHash = computeBlockHashWithGlobals(
-      globalVariables,
       rootRollupOutput.endNoteHashTreeSnapshot.root,
       rootRollupOutput.endNullifierTreeSnapshot.root,
       rootRollupOutput.endContractTreeSnapshot.root,
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
+      rootRollupOutput.endBlocksTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
+      globalVariables,
     );
     await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   };

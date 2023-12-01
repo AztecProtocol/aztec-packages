@@ -220,14 +220,14 @@ export class MerkleTrees implements MerkleTreeDb {
       nullifierTreeRoot: roots[1],
       contractDataTreeRoot: roots[2],
       l1Tol2MessagesTreeRoot: roots[3],
-      publicDataTreeRoot: roots[4],
-      blocksTreeRoot: roots[5],
+      blocksTreeRoot: roots[4],
+      publicDataTreeRoot: roots[5],
     };
   }
 
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
     const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
-    return computeBlockHash(globalsHash, roots[0], roots[1], roots[2], roots[3], roots[4]);
+    return computeBlockHash(roots[0], roots[1], roots[2], roots[3], roots[4], roots[5], globalsHash);
   }
 
   private _getAllTreeRoots(includeUncommitted: boolean): Promise<Buffer[]> {
@@ -236,8 +236,8 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.CONTRACT_TREE,
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      MerkleTreeId.PUBLIC_DATA_TREE,
       MerkleTreeId.BLOCKS_TREE,
+      MerkleTreeId.PUBLIC_DATA_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
 
     return Promise.resolve(roots);

@@ -327,25 +327,34 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async calculateBlockHash(globals: GlobalVariables) {
-    const [noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
+    const [
+      noteHashTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      l1ToL2MessageTreeRoot,
+      blocksTreeRoot,
+      publicDataTreeRoot,
+    ] = (
       await Promise.all(
         [
           MerkleTreeId.NOTE_HASH_TREE,
           MerkleTreeId.NULLIFIER_TREE,
           MerkleTreeId.CONTRACT_TREE,
-          MerkleTreeId.PUBLIC_DATA_TREE,
           MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+          MerkleTreeId.BLOCKS_TREE,
+          MerkleTreeId.PUBLIC_DATA_TREE,
         ].map(tree => this.getTreeSnapshot(tree)),
       )
     ).map(r => r.root);
 
     const blockHash = computeBlockHashWithGlobals(
-      globals,
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessageTreeRoot,
+      blocksTreeRoot,
       publicDataTreeRoot,
+      globals,
     );
     return blockHash;
   }
@@ -541,15 +550,22 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
     const blockHeader = tx.data.constants.blockHeader;
-    const { noteHashTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, publicDataTreeRoot } =
-      blockHeader;
-    const blockHash = computeBlockHash(
-      blockHeader.globalVariablesHash,
+    const {
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
+      blocksTreeRoot,
       publicDataTreeRoot,
+    } = blockHeader;
+    const blockHash = computeBlockHash(
+      noteHashTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      l1ToL2MessagesTreeRoot,
+      blocksTreeRoot,
+      publicDataTreeRoot,
+      blockHeader.globalVariablesHash,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, BLOCKS_TREE_HEIGHT);
   }

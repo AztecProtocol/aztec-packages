@@ -260,59 +260,66 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * @param globals - The global variables to put into the block hash.
  * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param l1ToL2MessagesTreeRoot - The root of the l1 to l2 data tree.
+ * @param blocksTreeRoot - The root of the blocks tree.
  * @param publicDataTreeRoot - The root of the public data tree.
+ * @param globals - The global variables to put into the block hash.
  * @returns The block hash.
  */
 export function computeBlockHashWithGlobals(
-  globals: GlobalVariables,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
   contractTreeRoot: Fr,
-  l1ToL2DataTreeRoot: Fr,
+  l1ToL2MessagesTreeRoot: Fr,
+  blocksTreeRoot: Fr,
   publicDataTreeRoot: Fr,
+  globals: GlobalVariables,
 ): Fr {
   return computeBlockHash(
-    computeGlobalsHash(globals),
     noteHashTreeRoot,
     nullifierTreeRoot,
     contractTreeRoot,
-    l1ToL2DataTreeRoot,
+    l1ToL2MessagesTreeRoot,
+    blocksTreeRoot,
     publicDataTreeRoot,
+    computeGlobalsHash(globals),
   );
 }
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * @param globalsHash - The global variables hash to put into the block hash.
  * @param noteHashTree - The root of the note hash tree.
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param l1ToL2MessagesTreeRoot - The root of the l1 to l2 data tree.
+ * @param blocksTreeRoot - The root of the blocks tree.
  * @param publicDataTreeRoot - The root of the public data tree.
+ * @param globalsHash - The global variables hash to put into the block hash.
  * @returns The block hash.
  */
 export function computeBlockHash(
-  globalsHash: Fr,
   noteHashTreeRoot: Fr,
   nullifierTreeRoot: Fr,
   contractTreeRoot: Fr,
-  l1ToL2DataTreeRoot: Fr,
+  l1ToL2MessagesTreeRoot: Fr,
+  blocksTreeRoot: Fr,
   publicDataTreeRoot: Fr,
+  globalsHash: Fr,
 ): Fr {
   return Fr.fromBuffer(
     pedersenHash(
       [
-        globalsHash.toBuffer(),
         noteHashTreeRoot.toBuffer(),
         nullifierTreeRoot.toBuffer(),
         contractTreeRoot.toBuffer(),
-        l1ToL2DataTreeRoot.toBuffer(),
+        l1ToL2MessagesTreeRoot.toBuffer(),
+        blocksTreeRoot.toBuffer(),
+        // privateKernelVkTreeRoot.toBuffer(), // TODO(#3441)
         publicDataTreeRoot.toBuffer(),
+        globalsHash.toBuffer(),
       ],
       GeneratorIndex.BLOCK_HASH,
     ),
