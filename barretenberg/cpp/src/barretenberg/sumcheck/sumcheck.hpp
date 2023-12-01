@@ -73,7 +73,7 @@ template <typename Flavor> class SumcheckProver {
                                  const proof_system::RelationParameters<FF>& relation_parameters,
                                  FF alpha) // pass by value, not by reference
     {
-        auto zeta = transcript.get_challenge("Sumcheck:zeta");
+        FF zeta = transcript.get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
 
@@ -145,7 +145,7 @@ template <typename Flavor> class SumcheckProver {
         auto pep_view = partially_evaluated_polynomials.pointer_view();
         auto poly_view = polynomials.pointer_view();
         // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(polynomials.size(), [&](size_t j) {
+        parallel_for(poly_view.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
                 (*pep_view[j])[i >> 1] =
                     (*poly_view[j])[i] + round_challenge * ((*poly_view[j])[i + 1] - (*poly_view[j])[i]);
@@ -203,7 +203,7 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bool verified(true);
 
-        auto zeta = transcript.get_challenge("Sumcheck:zeta");
+        FF zeta = transcript.get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
         // All but final round.
