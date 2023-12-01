@@ -141,9 +141,6 @@ export class SimulatorOracle implements DBOracle {
   }
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
-    this.log.warn(
-      'Block number ignored in SimulatorOracle.getSiblingPath because archival node is not yet implemented',
-    );
     // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
