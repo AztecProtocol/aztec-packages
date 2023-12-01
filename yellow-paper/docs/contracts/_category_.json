@@ -1,8 +1,0 @@
-{
-  "label": "L1 Contracts",
-  "position": 4,
-  "link": {
-    "type": "generated-index",
-    "description": "The L1 contracts mostly facilitate block progression from the PoV from the L1 validating bridge,"
-  }
-}
