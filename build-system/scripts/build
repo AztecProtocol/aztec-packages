@@ -86,22 +86,32 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
   popd
 fi
 
-# For each dependency, pull in the latest image and give it correct tag.
+# For each dependency, substitute references to the dependency in dockerfile, with the relevent built image uri.
+# We have to perform a bit of probing to determine which actual image we want to use.
+# When we used buildx to create a multiarch image, there will be no images with "-$ARCH" suffixes (normalise this?).
+# Also we sometimes build an arm image from an x86 parent, so there won't always be an arm parent, and we fallback.
 for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
-  PARENT_IMAGE_URI=$(calculate_image_uri $PARENT_REPO)
-  echo "Pulling dependency $PARENT_IMAGE_URI..."
-  if ! fetch_image $PARENT_IMAGE_URI; then
-    # This is a *bit* of a hack maybe. Some of our arm images can be built from x86 dependents.
-    # e.g. node projects are architecture independent.
-    # This may not hold true if we start introducing npm modules that are backed by native code.
-    # But for now, to avoid building some projects twice, we can fallback onto x86 variant.
-    PARENT_IMAGE_URI=$(calculate_image_uri $PARENT_REPO x86_64)
-    echo "Falling back onto x86 build. Pulling dependency $PARENT_IMAGE_URI..."
-    fetch_image $PARENT_IMAGE_URI
+  # We want the parent image tag without any arch suffix.
+  PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
+
+  # Attempt to locate multiarch image.
+  if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
+    # Attempt to locate our specific arch image.
+    PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO)
+    if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
+      # Finally attempt to locate x86_64 image tag, as sometimes we build arch specific images from x86_64 images.
+      PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO x86_64)
+      if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
+        echo "Failed to locate multiarch image, arch specific image, or x86_64 image. Aborting."
+        exit 1
+      fi
+    fi
   fi
-  # Tag it to look like an official release as that's what we use in Dockerfiles.
-  TAG=$ECR_DEPLOY_URL/$PARENT_REPO
-  docker tag $PARENT_IMAGE_URI $TAG
+
+  # Substitute references to parent repo, with the relevent built image uri.
+  DEPLOY_URI=$ECR_DEPLOY_URL/$PARENT_REPO
+  PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
+  sed -i "s|^FROM $DEPLOY_URI|FROM $PARENT_IMAGE_URI|" $DOCKERFILE
 done
 
 COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY false)

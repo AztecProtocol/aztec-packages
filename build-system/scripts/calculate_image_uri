@@ -2,17 +2,5 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-REPOSITORY=$1
-# Only probe if $2 is unset.
-ARCH=${2-$(uname -m)}
-
-# Normalise.
-[ "$ARCH" == "aarch64" ] && ARCH=arm64
-
-CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
-
-if [ -z "$ARCH" ]; then
-  echo "$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH"
-else
-  echo "$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$ARCH"
-fi
+TAG=$(calculate_image_tag $@)
+echo "$ECR_URL/$REPOSITORY:$TAG"
