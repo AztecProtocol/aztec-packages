@@ -5,7 +5,7 @@ import { LevelUp, LevelUpChain } from 'levelup';
 import { TreeBase } from '../tree_base.js';
 import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
-// ket for a node's children
+// key for a node's children
 const snapshotChildKey = (node: Buffer, child: 0 | 1) =>
   Buffer.concat([Buffer.from('snapshot:node:'), node, Buffer.from(':' + child)]);
 
