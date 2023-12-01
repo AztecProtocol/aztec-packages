@@ -13,6 +13,7 @@ class AvmMiniVerifier {
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Transcript = Flavor::Transcript;
+
   public:
     explicit AvmMiniVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
     AvmMiniVerifier(AvmMiniVerifier&& other) noexcept;

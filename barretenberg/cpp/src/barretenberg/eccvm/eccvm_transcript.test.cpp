@@ -343,5 +343,6 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript();
-    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript->transcript_Px_comm), one_group_val * rand_val);
+    EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript->transcript_Px_comm),
+              one_group_val * rand_val);
 }

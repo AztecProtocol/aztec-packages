@@ -63,7 +63,8 @@ template <ECCVMFlavor Flavor> class ECCVMComposer_ {
 
     ECCVMProver_<Flavor> create_prover(CircuitConstructor& circuit_constructor,
                                        std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
-    ECCVMVerifier_<Flavor> create_verifier(CircuitConstructor& circuit_constructor, std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
+    ECCVMVerifier_<Flavor> create_verifier(CircuitConstructor& circuit_constructor,
+                                           std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 

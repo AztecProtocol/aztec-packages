@@ -46,7 +46,8 @@ ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& c
  * @return The verifier.
  * */
 template <ECCVMFlavor Flavor>
-ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor, std::shared_ptr<Transcript> transcript)
+ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor,
+                                                               std::shared_ptr<Transcript> transcript)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 

@@ -230,7 +230,8 @@ GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& c
  * @return GoblinTranslatorVerifier
  */
 
-GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript)
+GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const CircuitBuilder& circuit_builder,
+                                                                   const std::shared_ptr<Transcript>& transcript)
 {
     auto verification_key = compute_verification_key(circuit_builder);
 

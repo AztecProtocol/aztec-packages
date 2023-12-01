@@ -53,8 +53,12 @@ class GoblinTranslatorComposer {
 
     void compute_witness(CircuitBuilder& circuit_builder);
 
-    GoblinTranslatorProver create_prover(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    GoblinTranslatorVerifier create_verifier(const CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    GoblinTranslatorProver create_prover(
+        CircuitBuilder& circuit_builder,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    GoblinTranslatorVerifier create_verifier(
+        const CircuitBuilder& circuit_builder,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
