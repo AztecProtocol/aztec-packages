@@ -1,7 +1,8 @@
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { FieldsOf } from '../index.js';
+import { FieldsOf, GeneratorIndex } from '../index.js';
 import { serializeToBuffer } from '../utils/index.js';
 
 /**
@@ -69,5 +70,11 @@ export class GlobalVariables {
       blockNumber: this.blockNumber.toString(),
       timestamp: this.timestamp.toString(),
     };
+  }
+
+  // TODO: cache this
+  hash(): Fr {
+    const inputs = GlobalVariables.getFields(this).map(fr => fr.toBuffer());
+    return Fr.fromBuffer(pedersenHash(inputs, GeneratorIndex.GLOBAL_VARIABLES));
   }
 }

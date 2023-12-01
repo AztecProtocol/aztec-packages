@@ -1,6 +1,8 @@
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+import { GeneratorIndex } from '../../index.js';
 import { FieldsOf } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 
@@ -102,6 +104,12 @@ export class BlockHeader {
       this.publicDataTreeRoot,
       this.globalVariablesHash,
     ];
+  }
+
+  // TODO: cache this
+  blockHash(): Fr {
+    const inputs = this.toArray().map(fr => fr.toBuffer());
+    return Fr.fromBuffer(pedersenHash(inputs, GeneratorIndex.BLOCK_HASH));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

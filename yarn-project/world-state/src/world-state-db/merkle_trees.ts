@@ -1,5 +1,6 @@
 import {
   BLOCKS_TREE_HEIGHT,
+  BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
   GlobalVariables,
@@ -9,7 +10,6 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { Committable } from '@aztec/foundation/committable';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -123,7 +123,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
     // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
     if (!fromDb) {
-      const initialGlobalVariablesHash = computeGlobalsHash(GlobalVariables.empty());
+      const initialGlobalVariablesHash = GlobalVariables.empty().hash();
       await this._updateLatestGlobalVariablesHash(initialGlobalVariablesHash);
       await this._updateBlocksTree(initialGlobalVariablesHash, true);
       await this._commit();
@@ -227,7 +227,8 @@ export class MerkleTrees implements MerkleTreeDb {
 
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
     const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
-    return computeBlockHash(roots[0], roots[1], roots[2], roots[3], roots[4], roots[5], globalsHash);
+    const blockHeader = new BlockHeader(roots[0], roots[1], roots[2], roots[3], roots[4], roots[5], globalsHash);
+    return blockHeader.blockHash();
   }
 
   private _getAllTreeRoots(includeUncommitted: boolean): Promise<Buffer[]> {
@@ -584,7 +585,7 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync and add the block to the blocks tree
-      const globalVariablesHash = computeGlobalsHash(l2Block.globalVariables);
+      const globalVariablesHash = l2Block.globalVariables.hash();
       await this._updateLatestGlobalVariablesHash(globalVariablesHash);
       this.log(`Synced global variables with hash ${globalVariablesHash}`);
 

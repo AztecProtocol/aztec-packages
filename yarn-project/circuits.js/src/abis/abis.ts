@@ -22,7 +22,6 @@ import {
   ContractStorageUpdateRequest,
   FunctionData,
   FunctionLeafPreimage,
-  GlobalVariables,
   NewContractData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -256,94 +255,6 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
   return Fr.fromBuffer(pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER));
-}
-
-/**
- * Computes the block hash given the blocks globals and roots.
- * @param noteHashTree - The root of the note hash tree.
- * @param nullifierTreeRoot - The root of the nullifier tree.
- * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2MessagesTreeRoot - The root of the l1 to l2 data tree.
- * @param blocksTreeRoot - The root of the blocks tree.
- * @param publicDataTreeRoot - The root of the public data tree.
- * @param globals - The global variables to put into the block hash.
- * @returns The block hash.
- */
-export function computeBlockHashWithGlobals(
-  noteHashTreeRoot: Fr,
-  nullifierTreeRoot: Fr,
-  contractTreeRoot: Fr,
-  l1ToL2MessagesTreeRoot: Fr,
-  blocksTreeRoot: Fr,
-  publicDataTreeRoot: Fr,
-  globals: GlobalVariables,
-): Fr {
-  return computeBlockHash(
-    noteHashTreeRoot,
-    nullifierTreeRoot,
-    contractTreeRoot,
-    l1ToL2MessagesTreeRoot,
-    blocksTreeRoot,
-    publicDataTreeRoot,
-    computeGlobalsHash(globals),
-  );
-}
-
-/**
- * Computes the block hash given the blocks globals and roots.
- * @param noteHashTree - The root of the note hash tree.
- * @param nullifierTreeRoot - The root of the nullifier tree.
- * @param contractTreeRoot - The root of the contract tree.
- * @param l1ToL2MessagesTreeRoot - The root of the l1 to l2 data tree.
- * @param blocksTreeRoot - The root of the blocks tree.
- * @param publicDataTreeRoot - The root of the public data tree.
- * @param globalsHash - The global variables hash to put into the block hash.
- * @returns The block hash.
- */
-export function computeBlockHash(
-  noteHashTreeRoot: Fr,
-  nullifierTreeRoot: Fr,
-  contractTreeRoot: Fr,
-  l1ToL2MessagesTreeRoot: Fr,
-  blocksTreeRoot: Fr,
-  publicDataTreeRoot: Fr,
-  globalsHash: Fr,
-): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        noteHashTreeRoot.toBuffer(),
-        nullifierTreeRoot.toBuffer(),
-        contractTreeRoot.toBuffer(),
-        l1ToL2MessagesTreeRoot.toBuffer(),
-        blocksTreeRoot.toBuffer(),
-        // privateKernelVkTreeRoot.toBuffer(), // TODO(#3441)
-        publicDataTreeRoot.toBuffer(),
-        globalsHash.toBuffer(),
-      ],
-      GeneratorIndex.BLOCK_HASH,
-    ),
-  );
-}
-
-/**
- * Computes the globals hash given the globals.
- * @param globals - The global variables to put into the block hash.
- * @returns The globals hash.
- * TODO: move this to GlobalVariables?
- */
-export function computeGlobalsHash(globals: GlobalVariables): Fr {
-  return Fr.fromBuffer(
-    pedersenHash(
-      [
-        globals.chainId.toBuffer(),
-        globals.version.toBuffer(),
-        globals.blockNumber.toBuffer(),
-        globals.timestamp.toBuffer(),
-      ],
-      GeneratorIndex.GLOBAL_VARIABLES,
-    ),
-  );
 }
 
 /**

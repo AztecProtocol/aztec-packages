@@ -2,6 +2,7 @@ import times from 'lodash.times';
 
 import {
   AztecAddress,
+  BlockHeader,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
@@ -19,7 +20,6 @@ import {
   makeVerificationKey,
 } from '../tests/factories.js';
 import {
-  computeBlockHashWithGlobals,
   computeCommitmentNonce,
   computeCompleteAddress,
   computeContractAddressFromPartial,
@@ -27,7 +27,6 @@ import {
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
-  computeGlobalsHash,
   computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
   computePublicDataTreeIndex,
@@ -138,16 +137,17 @@ describe('abis', () => {
       blockNumber: new Fr(9n),
       timestamp: new Fr(10n),
     });
-    const res = computeBlockHashWithGlobals(
+    const blockHeader = new BlockHeader(
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
       blocksTreeRoot,
       publicDataTreeRoot,
-      globals,
+      globals.hash(),
     );
-    expect(res).toMatchSnapshot();
+
+    expect(blockHeader.blockHash()).toMatchSnapshot();
   });
 
   it('compute globals hash', () => {
@@ -157,8 +157,8 @@ describe('abis', () => {
       blockNumber: new Fr(3n),
       timestamp: new Fr(4n),
     });
-    const res = computeGlobalsHash(globals);
-    expect(res).toMatchSnapshot();
+
+    expect(globals.hash()).toMatchSnapshot();
   });
 
   it('computes public data tree value', () => {

@@ -10,7 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeGlobalsHash, computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -560,7 +560,7 @@ export class AztecNodeService implements AztecNode {
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
     const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
-    const globalVariablesHash = computeGlobalsHash(prevGlobalVariables);
+    const globalVariablesHash = prevGlobalVariables.hash();
     await merkleTrees.init({
       globalVariablesHash,
     });

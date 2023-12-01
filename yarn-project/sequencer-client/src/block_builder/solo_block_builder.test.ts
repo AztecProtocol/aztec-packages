@@ -1,6 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BlockHeader,
   Fr,
   GlobalVariables,
   KernelCircuitPublicInputs,
@@ -17,7 +18,7 @@ import {
   makeTuple,
   range,
 } from '@aztec/circuits.js';
-import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
@@ -144,16 +145,16 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const updateBlocksTree = async () => {
-    const blockHash = computeBlockHashWithGlobals(
+    const blockHeader = new BlockHeader(
       rootRollupOutput.endNoteHashTreeSnapshot.root,
       rootRollupOutput.endNullifierTreeSnapshot.root,
       rootRollupOutput.endContractTreeSnapshot.root,
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endBlocksTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
-      globalVariables,
+      globalVariables.hash(),
     );
-    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHeader.blockHash().toBuffer()]);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {

@@ -1,5 +1,4 @@
-import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { AztecAddress, BlockHeader, PublicKey } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, L2BlockL2Logs, LogType } from '@aztec/types';
@@ -200,7 +199,6 @@ export class Synchronizer {
       return;
     }
 
-    const globalsHash = computeGlobalsHash(latestBlock.block.globalVariables);
     const blockHeader = new BlockHeader(
       block.endNoteHashTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
@@ -209,7 +207,7 @@ export class Synchronizer {
       block.endBlocksTreeSnapshot.root,
       // Fr.ZERO, // TODO(#3441)
       block.endPublicDataTreeRoot,
-      globalsHash,
+      latestBlock.block.globalVariables.hash(),
     );
 
     await this.db.setBlockHeader(blockHeader);

@@ -3,6 +3,7 @@ import {
   BLOCKS_TREE_HEIGHT,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockHeader,
   CONTRACT_SUBTREE_HEIGHT,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   ConstantRollupData,
@@ -35,12 +36,7 @@ import {
   VerificationKey,
   makeTuple,
 } from '@aztec/circuits.js';
-import {
-  computeBlockHash,
-  computeBlockHashWithGlobals,
-  computeContractLeaf,
-  computeGlobalsHash,
-} from '@aztec/circuits.js/abis';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -311,7 +307,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    const globalVariablesHash = computeGlobalsHash(left[0].constants.globalVariables);
+    const globalVariablesHash = left[0].constants.globalVariables.hash();
     await this.db.updateLatestGlobalVariablesHash(globalVariablesHash);
     await this.db.updateBlocksTree(globalVariablesHash);
 
@@ -347,16 +343,16 @@ export class SoloBlockBuilder implements BlockBuilder {
       )
     ).map(r => r.root);
 
-    const blockHash = computeBlockHashWithGlobals(
+    const blockHeader = new BlockHeader(
       noteHashTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessageTreeRoot,
       blocksTreeRoot,
       publicDataTreeRoot,
-      globals,
+      globals.hash(),
     );
-    return blockHash;
+    return blockHeader;
   }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
@@ -550,24 +546,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
     const blockHeader = tx.data.constants.blockHeader;
-    const {
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2MessagesTreeRoot,
-      blocksTreeRoot,
-      publicDataTreeRoot,
-    } = blockHeader;
-    const blockHash = computeBlockHash(
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2MessagesTreeRoot,
-      blocksTreeRoot,
-      publicDataTreeRoot,
-      blockHeader.globalVariablesHash,
-    );
-    return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, BLOCKS_TREE_HEIGHT);
+    return this.getMembershipWitnessFor(blockHeader.blockHash(), MerkleTreeId.BLOCKS_TREE, BLOCKS_TREE_HEIGHT);
   }
 
   protected async getConstantRollupData(globalVariables: GlobalVariables): Promise<ConstantRollupData> {

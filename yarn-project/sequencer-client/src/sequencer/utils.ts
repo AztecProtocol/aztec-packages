@@ -1,5 +1,4 @@
 import { BlockHeader, Fr, GlobalVariables } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
@@ -9,7 +8,6 @@ export async function getBlockHeader(
   db: MerkleTreeOperations,
   prevBlockGlobalVariables: GlobalVariables = GlobalVariables.empty(),
 ) {
-  const prevGlobalsHash = computeGlobalsHash(prevBlockGlobalVariables);
   const roots = await db.getTreeRoots();
 
   return new BlockHeader(
@@ -20,6 +18,6 @@ export async function getBlockHeader(
     Fr.fromBuffer(roots.blocksTreeRoot),
     // Fr.ZERO, // TODO(#3441)
     Fr.fromBuffer(roots.publicDataTreeRoot),
-    prevGlobalsHash,
+    prevBlockGlobalVariables.hash(),
   );
 }
