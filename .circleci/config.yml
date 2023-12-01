@@ -974,9 +974,9 @@ jobs:
           name: "Deploy to dockerhub"
           command: |
             should_deploy || exit 0
-            deploy_dockerhub noir x86_64,arm64
-            deploy_dockerhub aztec-sandbox x86_64,arm64
-            deploy_dockerhub cli x86_64,arm64
+            deploy_dockerhub noir
+            deploy_dockerhub aztec-sandbox
+            deploy_dockerhub cli
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults

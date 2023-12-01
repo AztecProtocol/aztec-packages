@@ -3,54 +3,37 @@
 set -eu
 
 REPOSITORY=$1
-# TODO: Why even provide this? We can just figure it out by probing.
-ARCH_LIST=$2
 
-function docker_or_dryrun {
+function cmd_or_dryrun {
   if [ "$DRY_DEPLOY" -eq 1 ]; then
-    echo DRY RUN: docker $@
+    echo DRY RUN: $@
   else
-    retry docker $@
+    retry $@
   fi
 }
 
 echo "Repo: $REPOSITORY"
 echo "Arch List: $ARCH_LIST"
 
+# Set tag to the commit tag (a version number) if we have one, otherwise branch name normalised to a tag format.
 if [ -n "$COMMIT_TAG" ]; then
   TAG=$(extract_tag_version $REPOSITORY true)
 else
   TAG=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9_.-]/_/g')
 fi
 
-MANIFEST_DEPLOY_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$TAG
+SRC_URI=$(calculate_image_uri $REPOSITORY)
+DST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$TAG
 
 # Login to dockerhub and ecr
 dockerhub_login
 ecr_login
 
-IFS=','
-for ARCH in $ARCH_LIST; do
-  IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY $ARCH)
-  retry docker pull $IMAGE_COMMIT_URI
-
-  # Retag and push image.
-  IMAGE_DEPLOY_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$TAG-$ARCH
-  docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_URI
-  docker_or_dryrun push $IMAGE_DEPLOY_URI
-
-  echo "Adding image $IMAGE_DEPLOY_URI to manifest $MANIFEST_DEPLOY_URI..."
-  docker_or_dryrun manifest create $MANIFEST_DEPLOY_URI --amend $IMAGE_DEPLOY_URI
-done
-
-echo "Pushing manifest $MANIFEST_DEPLOY_URI..."
-docker_or_dryrun manifest push --purge $MANIFEST_DEPLOY_URI
+retry wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64
+cmd_or_dryrun ./skopeo-linux-amd64 copy --all docker://$SRC_URI docker://$DST_URI
 
 if [ -n "$COMMIT_TAG" ]; then
   # Publish as latest.
   LATEST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:latest
-  echo "Tagging $MANIFEST_DEPLOY_URI as $LATEST_URI..."
-  docker_or_dryrun pull $MANIFEST_DEPLOY_URI
-  docker_or_dryrun tag $MANIFEST_DEPLOY_URI $LATEST_URI
-  docker_or_dryrun push $LATEST_URI
+  cmd_or_dryrun ./skopeo-linux-amd64 copy --all docker://$DST_URI docker://$LATEST_URI
 fi
