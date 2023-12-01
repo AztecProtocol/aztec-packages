@@ -2,6 +2,12 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+# Check we're on a release flow.
+if [ -z "$COMMIT_TAG" ] && [ ! "$DRY_DEPLOY" -eq 1 ]; then
+  echo "Not on a release flow, skipping deploy."
+  exit 0
+fi
+
 extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
@@ -11,12 +17,6 @@ cp .npmrc ../l1-contracts
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
 DIST_TAG=${1:-"latest"}
-
-# Check we're on a release flow.
-if [ -z "$COMMIT_TAG" ] && [ ! "$DRY_DEPLOY" -eq 1 ]; then
-  echo "Not on a release flow, skipping deploy."
-  exit 0
-fi
 
 function deploy_package() {
   REPOSITORY=$1
