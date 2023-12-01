@@ -13,7 +13,6 @@ function cmd_or_dryrun {
 }
 
 echo "Repo: $REPOSITORY"
-echo "Arch List: $ARCH_LIST"
 
 # Set tag to the commit tag (a version number) if we have one, otherwise branch name normalised to a tag format.
 if [ -n "$COMMIT_TAG" ]; then
