@@ -296,7 +296,7 @@ impl PrivateContext {
                     contract_tree_root : fields[147],
                     l1_to_l2_messages_tree_root : fields[148],
                     blocks_tree_root : fields[149],
-                    // private_kernel_vk_tree_root: 0, // TODO(#3441)
+                    private_kernel_vk_tree_root: 0, // TODO(#3441)
                     public_data_tree_root: fields[150],
                     global_variables_hash: fields[151],
                 },

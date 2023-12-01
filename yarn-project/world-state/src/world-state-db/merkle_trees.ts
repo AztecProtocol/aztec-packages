@@ -227,7 +227,17 @@ export class MerkleTrees implements MerkleTreeDb {
 
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
     const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
-    const blockHeader = new BlockHeader(roots[0], roots[1], roots[2], roots[3], roots[4], roots[5], globalsHash);
+    const privateKernelVkTreeRoot = Fr.ZERO; // TODO(#3441)
+    const blockHeader = new BlockHeader(
+      roots[0],
+      roots[1],
+      roots[2],
+      roots[3],
+      roots[4],
+      privateKernelVkTreeRoot,
+      roots[5],
+      globalsHash,
+    );
     return blockHeader.blockHash();
   }
 

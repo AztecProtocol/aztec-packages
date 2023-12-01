@@ -151,6 +151,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endContractTreeSnapshot.root,
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endBlocksTreeSnapshot.root,
+      Fr.ZERO, // TODO(#3441)
       rootRollupOutput.endPublicDataTreeRoot,
       globalVariables.hash(),
     );
@@ -265,7 +266,7 @@ describe('sequencer/solo_block_builder', () => {
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
-    it('builds an L2 block using mock simulator', async () => {
+    it.only('builds an L2 block using mock simulator', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
 

@@ -71,6 +71,7 @@ export interface BlockHeader {
   contract_tree_root: Field;
   l1_to_l2_messages_tree_root: Field;
   blocks_tree_root: Field;
+  private_kernel_vk_tree_root: Field;
   public_data_tree_root: Field;
   global_variables_hash: Field;
 }

@@ -98,22 +98,22 @@ global MAX_NOTES_PER_PAGE: Field = 10;
 // VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
 global VIEW_NOTE_ORACLE_RETURN_LENGTH: Field = 212;
 global CALL_CONTEXT_LENGTH: Field = 7;
-global BLOCK_HEADER_LENGTH: Field = 7;
+global BLOCK_HEADER_LENGTH: Field = 8;
 global FUNCTION_DATA_LENGTH: Field = 4;
 global CONTRACT_DEPLOYMENT_DATA_LENGTH: Field = 6;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we
 // should change this constant as well as the offsets in private_call_stack_item.nr
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 155;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 156;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: Field = 3;
 global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 142;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 143;
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
 global EMPTY_NULLIFIED_COMMITMENT: Field = 1000000;
-global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 161;
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 87;
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 144;
+global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 162;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 88;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 145;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 4096;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 4096;
 global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;

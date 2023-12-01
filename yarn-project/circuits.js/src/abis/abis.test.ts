@@ -130,12 +130,13 @@ describe('abis', () => {
     const contractTreeRoot = new Fr(3n);
     const l1ToL2MessagesTreeRoot = new Fr(4n);
     const blocksTreeRoot = new Fr(5n);
-    const publicDataTreeRoot = new Fr(6n);
+    const privateKernelVkTreeRoot = new Fr(6n);
+    const publicDataTreeRoot = new Fr(7n);
     const globals = GlobalVariables.from({
-      chainId: new Fr(7n),
-      version: new Fr(8n),
-      blockNumber: new Fr(9n),
-      timestamp: new Fr(10n),
+      chainId: new Fr(8n),
+      version: new Fr(9n),
+      blockNumber: new Fr(10n),
+      timestamp: new Fr(11n),
     });
     const blockHeader = new BlockHeader(
       noteHashTreeRoot,
@@ -143,6 +144,7 @@ describe('abis', () => {
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
       blocksTreeRoot,
+      privateKernelVkTreeRoot,
       publicDataTreeRoot,
       globals.hash(),
     );

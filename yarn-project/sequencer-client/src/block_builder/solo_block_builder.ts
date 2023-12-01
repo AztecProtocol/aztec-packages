@@ -349,6 +349,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       contractTreeRoot,
       l1ToL2MessageTreeRoot,
       blocksTreeRoot,
+      Fr.ZERO, // TODO(#3441)
       publicDataTreeRoot,
       globals.hash(),
     );

@@ -47,6 +47,7 @@ impl RootRollupInputs {
             contract_tree_root: right.end_contract_tree_snapshot.root,
             l1_to_l2_messages_tree_root: new_l1_to_l2_messages_tree_snapshot.root,
             blocks_tree_root: self.start_blocks_tree_snapshot.root,
+            private_kernel_vk_tree_root: 0, // TODO(#3441)
             public_data_tree_root: right.end_public_data_tree_root,
             global_variables_hash: left.constants.global_variables.hash(),
         };

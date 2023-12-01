@@ -148,7 +148,7 @@ struct BlockHeader {
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
     blocks_tree_root: Field,
-    // private_kernel_vk_tree_root : Field, // TODO(#3441)
+    private_kernel_vk_tree_root : Field,
     public_data_tree_root: Field,
     global_variables_hash: Field,
 }
@@ -163,7 +163,7 @@ impl BlockHeader {
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
             self.blocks_tree_root,
-            // self.private_kernel_vk_tree_root, // TODO(#3441)
+            self.private_kernel_vk_tree_root,
             self.public_data_tree_root,
             self.global_variables_hash,
         ]
@@ -176,9 +176,9 @@ impl BlockHeader {
             contract_tree_root: deserialized[2],
             l1_to_l2_messages_tree_root: deserialized[3],
             blocks_tree_root: deserialized[4],
-            // private_kernel_vk_tree_root: deserialized[5], // TODO(#3441)
-            public_data_tree_root: deserialized[5],
-            global_variables_hash: deserialized[6],
+            private_kernel_vk_tree_root: deserialized[5],
+            public_data_tree_root: deserialized[6],
+            global_variables_hash: deserialized[7],
         }
     }
 
@@ -189,7 +189,7 @@ impl BlockHeader {
             contract_tree_root: 0,
             l1_to_l2_messages_tree_root: 0,
             blocks_tree_root: 0,
-            // private_kernel_vk_tree_root: 0, // TODO(#3441)
+            private_kernel_vk_tree_root: 0,
             public_data_tree_root: 0,
             global_variables_hash: 0
         }
