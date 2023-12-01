@@ -48,7 +48,7 @@ export interface WorldStateSynchronizer {
   /**
    * Forces an immediate sync to an optionally provided minimum block number
    * @param minBlockNumber - The minimum block number that we must sync to
-   * @returns A promise that resolves once the sync has completed.
+   * @returns A promise that resolves with the block number the world state was synced to
    */
   syncImmediate(minBlockNumber?: number): Promise<number>;
 

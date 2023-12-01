@@ -135,7 +135,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   /**
    * Forces an immediate sync
    * @param minBlockNumber - The minimum block number that we must sync to
-   * @returns A promise that resolves to the blockNumber the world state has synced to
+   * @returns A promise that resolves with the block number the world state was synced to
    */
   public async syncImmediate(minBlockNumber?: number): Promise<number> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
