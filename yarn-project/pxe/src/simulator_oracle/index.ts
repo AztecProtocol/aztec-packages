@@ -1,15 +1,16 @@
 import { DBOracle, FunctionArtifactWithDebugMetadata, MessageLoadOracleInputs } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  BlockHeader,
   CompleteAddress,
   EthAddress,
   Fr,
   FunctionSelector,
   GrumpkinPrivateKey,
-  HistoricBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
-import { KeyStore, MerkleTreeId, StateInfoProvider } from '@aztec/types';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { KeyStore, L2Block, MerkleTreeId, NullifierMembershipWitness, StateInfoProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -23,6 +24,7 @@ export class SimulatorOracle implements DBOracle {
     private db: Database,
     private keyStore: KeyStore,
     private stateInfoProvider: StateInfoProvider,
+    private log = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
   getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
@@ -113,7 +115,7 @@ export class SimulatorOracle implements DBOracle {
     const messageAndIndex = await this.stateInfoProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath(index);
+    const siblingPath = await this.stateInfoProvider.getL1ToL2MessageSiblingPath('latest', index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
@@ -127,20 +129,58 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.stateInfoProvider.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.stateInfoProvider.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.stateInfoProvider.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+  }
+
+  public async findLeafIndex(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
+    return await this.stateInfoProvider.findLeafIndex(blockNumber, treeId, leafValue);
+  }
+
+  public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+    // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
+    switch (treeId) {
+      case MerkleTreeId.NULLIFIER_TREE:
+        return (await this.stateInfoProvider.getNullifierTreeSiblingPath(blockNumber, leafIndex)).toFieldArray();
+      case MerkleTreeId.NOTE_HASH_TREE:
+        return (await this.stateInfoProvider.getNoteHashSiblingPath(blockNumber, leafIndex)).toFieldArray();
+      case MerkleTreeId.BLOCKS_TREE:
+        return (await this.stateInfoProvider.getBlocksTreeSiblingPath(blockNumber, leafIndex)).toFieldArray();
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        return (await this.stateInfoProvider.getPublicDataTreeSiblingPath(blockNumber, leafIndex)).toFieldArray();
+      default:
+        throw new Error('Not implemented');
+    }
+  }
+
+  public getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return this.stateInfoProvider.getNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  public getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return this.stateInfoProvider.getLowNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    return await this.stateInfoProvider.getBlock(blockNumber);
   }
 
   /**
-   * Retrieve the databases view of the Historic Block Data object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   * Retrieve the databases view of the Block Header object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a HistoricBlockData object.
+   * @returns A Promise that resolves to a BlockHeader object.
    */
-  getHistoricBlockData(): Promise<HistoricBlockData> {
-    return Promise.resolve(this.db.getHistoricBlockData());
+  getBlockHeader(): Promise<BlockHeader> {
+    return Promise.resolve(this.db.getBlockHeader());
   }
 }

@@ -20,7 +20,7 @@ GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& ot
 
 GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVerifier&& other) noexcept
 {
-    key = other.key;
+    key = std::move(other.key);
     pcs_verification_key = (std::move(other.pcs_verification_key));
     commitments.clear();
     pcs_fr_elements.clear();
@@ -65,15 +65,10 @@ void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const
  */
 bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
+    transcript = BaseTranscript{ proof.proof_data };
 
-    transcript = BaseTranscript<FF>{ proof.proof_data };
-
-    auto commitments = VerifierCommitments(key, transcript);
-    auto commitment_labels = CommitmentLabels();
+    Flavor::VerifierCommitments commitments{ key, transcript };
+    Flavor::CommitmentLabels commitment_labels;
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
@@ -235,7 +230,7 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
     commitments.ordered_range_constraints_4 = receive_commitment(commitment_labels.ordered_range_constraints_4);
 
     // Get permutation challenges
-    auto [gamma] = transcript.get_challenges("gamma");
+    FF gamma = transcript.get_challenge("gamma");
 
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
@@ -248,7 +243,7 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
 
-    auto alpha = transcript.get_challenge("alpha");
+    FF alpha = transcript.get_challenge("alpha");
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, transcript);
 
@@ -260,14 +255,15 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
-                                            commitments.get_to_be_shifted(),
-                                            claimed_evaluations.get_unshifted(),
-                                            claimed_evaluations.get_shifted(),
-                                            multivariate_challenge,
-                                            transcript,
-                                            commitments.get_concatenation_groups(),
-                                            claimed_evaluations.get_concatenated_constraints());
+    auto pairing_points =
+        pcs::zeromorph::ZeroMorphVerifier_<Flavor::Curve>::verify(commitments.get_unshifted(),
+                                                                  commitments.get_to_be_shifted(),
+                                                                  claimed_evaluations.get_unshifted(),
+                                                                  claimed_evaluations.get_shifted(),
+                                                                  multivariate_challenge,
+                                                                  transcript,
+                                                                  commitments.get_concatenation_groups(),
+                                                                  claimed_evaluations.get_concatenated_constraints());
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 

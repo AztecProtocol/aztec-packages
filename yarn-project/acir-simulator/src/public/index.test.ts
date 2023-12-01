@@ -1,10 +1,4 @@
-import {
-  CallContext,
-  FunctionData,
-  GlobalVariables,
-  HistoricBlockData,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+import { BlockHeader, CallContext, FunctionData, GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -34,15 +28,15 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockData: HistoricBlockData;
+  let blockHeader: BlockHeader;
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockData = HistoricBlockData.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
+    blockHeader = BlockHeader.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHeader);
   }, 10000);
 
   describe('Token contract', () => {
@@ -386,7 +380,7 @@ describe('ACIR public execution simulator', () => {
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
-        portalContractAddress: EthAddress.random(),
+        portalContractAddress: preimage.sender.sender,
         functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
@@ -406,7 +400,14 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, GlobalVariables.empty());
+
+      const gv = new GlobalVariables(
+        new Fr(preimage.sender.chainId),
+        new Fr(preimage.recipient.version),
+        Fr.ZERO,
+        Fr.ZERO,
+      );
+      const result = await executor.simulate(execution, gv);
 
       expect(result.newNullifiers.length).toEqual(1);
     });

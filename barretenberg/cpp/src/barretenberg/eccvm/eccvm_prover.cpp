@@ -168,7 +168,8 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_wire_commitment
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_commitments_round()
 {
     // Compute and add beta to relation parameters
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto [beta, gamma] = challenges_to_field_elements<FF>(transcript.get_challenges("beta", "gamma"));
+
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
     auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
@@ -206,7 +207,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_relation_check_
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
-    auto alpha = transcript.get_challenge("alpha");
+    FF alpha = transcript.get_challenge("alpha");
     sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
 }
 
@@ -226,13 +227,17 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_univariatizatio
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
     Polynomial batched_poly_unshifted(key->circuit_size); // batched unshifted polynomials
     size_t poly_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
+    ASSERT(prover_polynomials.get_to_be_shifted().size() == prover_polynomials.get_shifted().size());
+
     for (auto& unshifted_poly : prover_polynomials.get_unshifted()) {
+        ASSERT(poly_idx < rhos.size());
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
         ++poly_idx;
     }
 
     Polynomial batched_poly_to_be_shifted(key->circuit_size); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : prover_polynomials.get_to_be_shifted()) {
+        ASSERT(poly_idx < rhos.size());
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;
     };
