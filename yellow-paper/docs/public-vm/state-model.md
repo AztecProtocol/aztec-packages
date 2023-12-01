@@ -6,7 +6,7 @@ The goal of this note is to describe the VM state model and to specify "internal
 
 The AVM possesses three distinct data regions, accessed via distinct VM instructions: memory, calldata and returndata
 
-![](./gen/images/state-model/memory.png)
+![](./images/memory.png)
 
 All data regions are linear blocks of memory where each memory cell stores a finite field element.
 
