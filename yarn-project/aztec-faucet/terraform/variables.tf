@@ -3,7 +3,8 @@ variable "DEPLOY_TAG" {
 }
 
 variable "RPC_URL" {
-  type = string
+  type    = string
+  default = "testnet"
 }
 
 variable "API_KEY" {
