@@ -1,5 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Hasher, SiblingPath } from '@aztec/types';
+import { Hasher, NullifierLeaf, NullifierLeafPreimage, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
@@ -9,15 +9,40 @@ import { createMemDown } from '../../test/utils/create_mem_down.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {
-  return await newTree(StandardIndexedTreeWithAppend, levelUp, hasher, name, depth, prefilledSize);
+  return await newTree(
+    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
+      return new StandardIndexedTreeWithAppend(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
+    },
+    levelUp,
+    hasher,
+    name,
+    depth,
+    prefilledSize,
+  );
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await loadTree(StandardIndexedTreeWithAppend, levelUp, hasher, name);
+  return await loadTree(
+    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root: Buffer) => {
+      return new StandardIndexedTreeWithAppend(
+        db,
+        hasher,
+        name,
+        depth,
+        size,
+        NullifierLeafPreimage,
+        NullifierLeaf,
+        root,
+      );
+    },
+    levelUp,
+    hasher,
+    name,
+  );
 };
 
 const createIndexedTreeLeaf = (value: number, nextIndex: number, nextValue: number) => {
-  return [toBufferBE(BigInt(value), 32), toBufferBE(BigInt(nextIndex), 32), toBufferBE(BigInt(nextValue), 32)];
+  return new NullifierLeafPreimage(BigInt(value), BigInt(nextValue), BigInt(nextIndex)).toHashInputs();
 };
 
 const verifyCommittedState = async <N extends number>(

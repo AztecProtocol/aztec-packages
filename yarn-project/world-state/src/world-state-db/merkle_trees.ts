@@ -25,7 +25,7 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
-import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
@@ -321,7 +321,7 @@ export class MerkleTrees implements MerkleTreeDb {
     alreadyPresent: boolean;
   }> {
     return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousValue(value, includeUncommitted)),
+      Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted)),
     );
   }
 
@@ -332,13 +332,13 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns Leaf data.
    */
-  public async getLeafData(
+  public async getLeafPreimage<Leaf extends IndexedTreeLeaf>(
     treeId: IndexedTreeId,
     index: number,
     includeUncommitted: boolean,
-  ): Promise<LeafData | undefined> {
+  ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined> {
     return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree(treeId).getLatestLeafDataCopy(index, includeUncommitted)),
+      Promise.resolve(this._getIndexedTree<Leaf>(treeId).getLatestLeafPreimageCopy(index, includeUncommitted)),
     );
   }
 
@@ -397,12 +397,13 @@ export class MerkleTrees implements MerkleTreeDb {
     TreeHeight extends number,
     SubtreeHeight extends number,
     SubtreeSiblingPathHeight extends number,
+    Leaf extends IndexedTreeLeaf,
   >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    const tree = this.trees[treeId] as StandardIndexedTree;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>> {
+    const tree = this.trees[treeId] as StandardIndexedTree<Leaf>;
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
@@ -453,8 +454,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - Id of the tree to get an instance of.
    * @returns The indexed tree for the specified tree id.
    */
-  private _getIndexedTree(treeId: IndexedTreeId): IndexedTree {
-    return this.trees[treeId] as IndexedTree;
+  private _getIndexedTree<Leaf extends IndexedTreeLeaf>(treeId: IndexedTreeId): IndexedTree<Leaf> {
+    return this.trees[treeId] as IndexedTree<Leaf>;
   }
 
   /**

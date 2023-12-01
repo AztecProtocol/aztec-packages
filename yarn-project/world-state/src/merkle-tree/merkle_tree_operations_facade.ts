@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage, L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
@@ -89,8 +89,12 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index of the leaf to get.
    * @returns Leaf data.
    */
-  getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): Promise<LeafData | undefined> {
-    return this.trees.getLeafData(treeId, index, this.includeUncommitted);
+  async getLeafPreimage<Leaf extends IndexedTreeLeaf>(
+    treeId: MerkleTreeId.NULLIFIER_TREE,
+    index: number,
+  ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined> {
+    const preimage = await this.trees.getLeafPreimage(treeId, index, this.includeUncommitted);
+    return preimage as IndexedTreeLeafPreimage<Leaf> | undefined;
   }
 
   /**
@@ -171,11 +175,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
+  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, Leaf extends IndexedTreeLeaf>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }
