@@ -4,6 +4,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS yarn-project
 
 # Need new arch specific image.
 FROM node:18-alpine AS builder
+RUN apk add bash jq --no-cache
 COPY --from=yarn-project /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
 ARG COMMIT_TAG=""
