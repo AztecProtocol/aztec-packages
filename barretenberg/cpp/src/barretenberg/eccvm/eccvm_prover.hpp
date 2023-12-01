@@ -27,10 +27,9 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:
-    explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key,
                           std::shared_ptr<PCSCommitmentKey> commitment_key,
-                          std::shared_ptr<Transcript>);
+                          std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
