@@ -2,7 +2,7 @@ const testData: { [key: string]: { toBuffer(): Buffer }[] } = {};
 
 /** Returns whether test data generation is enabled */
 export function isGenerateTestDataEnabled() {
-  return process.env.AZTEC_GENERATE_TEST_DATA === '1' || typeof expect !== 'undefined';
+  return process.env.AZTEC_GENERATE_TEST_DATA === '1' && typeof expect !== 'undefined';
 }
 
 /** Pushes test data with the given name, only if test data generation is enabled. */
