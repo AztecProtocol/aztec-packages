@@ -72,7 +72,7 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 
     transcript = std::make_shared<BaseTranscript>(proof.proof_data);
 
-    Flavor::VerifierCommitments commitments{ key, transcript };
+    Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
