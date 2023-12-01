@@ -724,7 +724,7 @@ Set a memory word from a constant in the bytecode.
 - **Category**: memory
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-	- **in-tag**: The [type/size](./Types) to check inputs against and tag the output with. `field` type is NOT supported for SET.
+	- **in-tag**: The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET.
 - **Args**: 
 	- **const**: an N-bit constant value from the bytecode to store in memory (any type except `field`)
 	- **dstOffset**: memory offset specifying where to store the constant
