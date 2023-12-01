@@ -41,8 +41,8 @@ export class StandardIndexedTreeWithAppend<
       return;
     }
 
-    const indexOfPrevious = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
-    const lowLeafPreimage = this.getLatestLeafPreimageCopy(indexOfPrevious.index, true);
+    const lowLeafIndex = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);
+    const lowLeafPreimage = await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true);
 
     if (lowLeafPreimage === undefined) {
       throw new Error(`Previous leaf not found!`);
@@ -53,7 +53,7 @@ export class StandardIndexedTreeWithAppend<
       lowLeafPreimage.getNextIndex(),
     );
 
-    if (indexOfPrevious.alreadyPresent) {
+    if (lowLeafIndex.alreadyPresent) {
       return;
     }
     // insert a new leaf at the highest index and update the values of our previous leaf copy
@@ -64,8 +64,8 @@ export class StandardIndexedTreeWithAppend<
       BigInt(currentSize),
     );
     this.cachedLeafPreimages[Number(currentSize)] = newLeafPreimage;
-    this.cachedLeafPreimages[Number(indexOfPrevious.index)] = newLowLeafPreimage;
-    await this.updateLeaf(newLowLeafPreimage, BigInt(indexOfPrevious.index));
+    this.cachedLeafPreimages[Number(lowLeafIndex.index)] = newLowLeafPreimage;
+    await this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
     await this.updateLeaf(newLeafPreimage, this.getNumLeaves(true));
   }
 }

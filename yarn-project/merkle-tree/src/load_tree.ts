@@ -22,6 +22,5 @@ export async function loadTree<T extends TreeBase>(
   const { root, depth, size } = decodeMeta(meta);
 
   const tree = c(db, hasher, name, depth, size, root);
-  await tree.initFromDb();
   return tree;
 }

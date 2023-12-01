@@ -135,7 +135,7 @@ export interface MerkleTreeOperations {
     /**
      * The index of the found leaf.
      */
-    index: number;
+    index: bigint;
     /**
      * A flag indicating if the corresponding leaf's value is equal to `newValue`.
      */
@@ -149,7 +149,7 @@ export interface MerkleTreeOperations {
    */
   getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: IndexedTreeId,
-    index: number,
+    index: bigint,
   ): Promise<Preimage | undefined>;
 
   /**

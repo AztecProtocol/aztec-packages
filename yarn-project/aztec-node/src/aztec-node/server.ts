@@ -405,7 +405,7 @@ export class AztecNodeService implements AztecNode {
 
     const leafDataPromise = committedDb.getLeafPreimage<NullifierLeaf, NullifierLeafPreimage>(
       MerkleTreeId.NULLIFIER_TREE,
-      Number(index),
+      index,
     );
     const siblingPathPromise = committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,

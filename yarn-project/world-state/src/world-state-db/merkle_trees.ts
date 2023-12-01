@@ -320,15 +320,13 @@ export class MerkleTrees implements MerkleTreeDb {
     /**
      * The index of the found leaf.
      */
-    index: number;
+    index: bigint;
     /**
      * A flag indicating if the corresponding leaf's value is equal to `newValue`.
      */
     alreadyPresent: boolean;
   }> {
-    return await this.synchronize(() =>
-      Promise.resolve(this._getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted)),
-    );
+    return await this.synchronize(() => this._getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted));
   }
 
   /**
@@ -340,7 +338,7 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public async getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: IndexedTreeId,
-    index: number,
+    index: bigint,
     includeUncommitted: boolean,
   ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined> {
     return await this.synchronize(() =>

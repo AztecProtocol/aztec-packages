@@ -160,6 +160,9 @@ export function mapNumberFromNoir(number: NoirField): number {
  *
  */
 export function mapNumberToNoir(number: number): NoirField {
+  if (number > 2 ** 32) {
+    throw new Error('Number out of range');
+  }
   return new Fr(BigInt(number)).toString();
 }
 
@@ -1362,7 +1365,7 @@ export function mapNullifierLeafPreimageToNoir(
   return {
     leaf_value: mapFieldToNoir(nullifierLeafPreimage.nullifier),
     next_value: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
-    next_index: mapFieldToNoir(new Fr(nullifierLeafPreimage.nextIndex)),
+    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
 

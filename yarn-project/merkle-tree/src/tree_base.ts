@@ -222,13 +222,6 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
-   * Initializes the tree from the database.
-   */
-  public async initFromDb(): Promise<void> {
-    // Implemented only by Indexed Tree to populate the leaf cache.
-  }
-
-  /**
    * Writes meta data to the provided batch.
    * @param batch - The batch to which to write the meta data.
    */

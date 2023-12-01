@@ -68,16 +68,16 @@ export interface IndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends Inde
   findIndexOfPreviousKey(
     newValue: bigint,
     includeUncommitted: boolean,
-  ): {
+  ): Promise<{
     /**
      * The index of the found leaf.
      */
-    index: number;
+    index: bigint;
     /**
      * A flag indicating if the corresponding leaf's value is equal to `newValue`.
      */
     alreadyPresent: boolean;
-  };
+  }>;
 
   /**
    * Gets the latest LeafPreimage copy.
@@ -85,7 +85,10 @@ export interface IndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends Inde
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  getLatestLeafPreimageCopy(index: number, includeUncommitted: boolean): IndexedTreeLeafPreimage<Leaf> | undefined;
+  getLatestLeafPreimageCopy(
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<IndexedTreeLeafPreimage<Leaf> | undefined>;
 
   /**
    * Batch insert multiple leaves into the tree.

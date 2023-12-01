@@ -81,10 +81,10 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage<NullifierL
   }
 
   static fromBuffer(buf: Buffer): NullifierLeafPreimage {
-    const key = Fr.fromBuffer(buf.subarray(0, 32));
-    const nextKey = Fr.fromBuffer(buf.subarray(32, 64));
-    const nextIndex = toBigIntBE(buf.subarray(64, 96));
-    return new NullifierLeafPreimage(key, nextKey, nextIndex);
+    const nullifier = Fr.fromBuffer(buf.subarray(0, 32));
+    const nextIndex = toBigIntBE(buf.subarray(32, 64));
+    const nextNullifier = Fr.fromBuffer(buf.subarray(64, 96));
+    return new NullifierLeafPreimage(nullifier, nextNullifier, nextIndex);
   }
 
   static fromLeaf(leaf: NullifierLeaf, nextKey: bigint, nextIndex: bigint): NullifierLeafPreimage {

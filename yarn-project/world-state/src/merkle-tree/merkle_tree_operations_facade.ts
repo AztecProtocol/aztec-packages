@@ -65,7 +65,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
     /**
      * The index of the found leaf.
      */
-    index: number;
+    index: bigint;
     /**
      * A flag indicating if the corresponding leaf's value is equal to `newValue`.
      */
@@ -93,7 +93,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    */
   async getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
     treeId: MerkleTreeId.NULLIFIER_TREE,
-    index: number,
+    index: bigint,
   ): Promise<Preimage | undefined> {
     const preimage = await this.trees.getLeafPreimage(treeId, index, this.includeUncommitted);
     return preimage as Preimage | undefined;
