@@ -155,6 +155,16 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     return lowLeafIndexes[0]?.index;
   }
 
+  private getCachedLeafIndex(key: bigint): bigint | undefined {
+    let index = Object.keys(this.cachedLeafPreimages).find(index => {
+      return this.cachedLeafPreimages[index].getKey() === key;
+    });
+    if (index) {
+      return BigInt(index);
+    }
+    return undefined;
+  }
+
   private async getDbLowLeafIndex(key: bigint): Promise<bigint | undefined> {
     return await new Promise<bigint | undefined>((resolve, reject) => {
       let lowLeafIndex: bigint | undefined;
@@ -201,6 +211,27 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
       ? await this.getDbPreimage(index)
       : this.getCachedPreimage(index) ?? (await this.getDbPreimage(index));
     return preimage && this.leafPreimageFactory.clone(preimage);
+  }
+
+  /**
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param treeId - The ID of the tree.
+   * @param value - The leaf value to look for.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The index of the first leaf found with a given value (undefined if not found).
+   */
+  public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
+    let leaf = this.leafFactory.fromBuffer(value);
+    let index = await this.db
+      .get(leafKeyToDbKey(this.getName(), leaf.getKey()))
+      .then(data => toBigIntBE(data))
+      .catch(() => undefined);
+
+    if (includeUncommitted && index === undefined) {
+      const cachedIndex = this.getCachedLeafIndex(leaf.getKey());
+      index = cachedIndex;
+    }
+    return index;
   }
 
   /**

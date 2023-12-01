@@ -280,4 +280,21 @@ export abstract class TreeBase implements MerkleTree {
     }
     this.cachedSize = numLeaves + BigInt(leaves.length);
   }
+
+  /**
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param treeId - The ID of the tree.
+   * @param value - The leaf value to look for.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The index of the first leaf found with a given value (undefined if not found).
+   */
+  public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
+    for (let i = 0n; i < this.getNumLeaves(includeUncommitted); i++) {
+      const currentValue = await this.getLeafValue(i, includeUncommitted);
+      if (currentValue && currentValue.equals(value)) {
+        return i;
+      }
+    }
+    return undefined;
+  }
 }
