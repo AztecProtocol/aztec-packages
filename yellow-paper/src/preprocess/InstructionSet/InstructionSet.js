@@ -7,8 +7,8 @@ const TOPICS_IN_SECTIONS = [
     "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "Tag checks", "Tag updates", "Bit-size",
 ];
 
-const IN_TAG_DESCRIPTION = "The [tag/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with.";
-const DST_TAG_DESCRIPTION = "The [tag/size](./tagged-memory#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
+const IN_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
+const DST_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
 
 const INSTRUCTION_SET_RAW = [
     {
@@ -255,7 +255,7 @@ const INSTRUCTION_SET_RAW = [
         "Name": "`SET`",
         "Category": "memory",
         "Flags": [
-            {"name": "in-tag", "description": "The [type/size](./tagged-memory#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
+            {"name": "in-tag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
         ],
         "#memreads": "0",
         "#memwrites": "1",
@@ -320,7 +320,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = cast<dst-tag>(M[aOffset])`",
         "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dst-tag` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./tagged-memory#cast-and-tag-conversions) for more details.",
+        "Details": "Cast a word in memory based on the `dst-tag` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./state-model#cast-and-tag-conversions) for more details.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = dst-tag`",
     },
