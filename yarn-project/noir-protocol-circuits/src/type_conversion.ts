@@ -16,6 +16,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
+  FUNCTION_TREE_HEIGHT,
   FinalAccumulatedData,
   Fr,
   FunctionData,
@@ -23,20 +24,28 @@ import {
   GlobalVariables,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PENDING_READ_REQUESTS_PER_CALL,
   MAX_PENDING_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
@@ -55,6 +64,7 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelInputs,
+  RETURN_VALUES_LENGTH,
   ReadRequestMembershipWitness,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -481,33 +491,48 @@ export function mapPrivateCircuitPublicInputsToNoir(
   return {
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
-    return_values: privateCircuitPublicInputs.returnValues.map(mapFieldToNoir) as FixedLengthArray<NoirField, 4>,
-    read_requests: privateCircuitPublicInputs.readRequests.map(mapFieldToNoir) as FixedLengthArray<NoirField, 32>,
+    return_values: privateCircuitPublicInputs.returnValues.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof RETURN_VALUES_LENGTH
+    >,
+    read_requests: privateCircuitPublicInputs.readRequests.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof MAX_READ_REQUESTS_PER_CALL
+    >,
     pending_read_requests: privateCircuitPublicInputs.pendingReadRequests.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      32
+      typeof MAX_PENDING_READ_REQUESTS_PER_CALL
     >,
-    new_commitments: privateCircuitPublicInputs.newCommitments.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
-    new_nullifiers: privateCircuitPublicInputs.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<NoirField, 16>,
+    new_commitments: privateCircuitPublicInputs.newCommitments.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof MAX_NEW_COMMITMENTS_PER_CALL
+    >,
+    new_nullifiers: privateCircuitPublicInputs.newNullifiers.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof MAX_NEW_NULLIFIERS_PER_CALL
+    >,
     nullified_commitments: privateCircuitPublicInputs.nullifiedCommitments.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      16
+      typeof MAX_NEW_NULLIFIERS_PER_CALL
     >,
     private_call_stack_hashes: privateCircuitPublicInputs.privateCallStackHashes.map(
       mapFieldToNoir,
-    ) as FixedLengthArray<NoirField, 4>,
+    ) as FixedLengthArray<NoirField, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack_hashes: privateCircuitPublicInputs.publicCallStackHashes.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      4
+      typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
     >,
-    new_l2_to_l1_msgs: privateCircuitPublicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<NoirField, 2>,
+    new_l2_to_l1_msgs: privateCircuitPublicInputs.newL2ToL1Msgs.map(mapFieldToNoir) as FixedLengthArray<
+      NoirField,
+      typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL
+    >,
     encrypted_logs_hash: privateCircuitPublicInputs.encryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      2
+      typeof NUM_FIELDS_PER_SHA256
     >,
     unencrypted_logs_hash: privateCircuitPublicInputs.unencryptedLogsHash.map(mapFieldToNoir) as FixedLengthArray<
       NoirField,
-      2
+      typeof NUM_FIELDS_PER_SHA256
     >,
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
@@ -538,7 +563,7 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
  * @returns The noir function leaf membership witness.
  */
 function mapFunctionLeafMembershipWitnessToNoir(
-  membershipWitness: MembershipWitness<4>,
+  membershipWitness: MembershipWitness<typeof FUNCTION_TREE_HEIGHT>,
 ): FunctionLeafMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
