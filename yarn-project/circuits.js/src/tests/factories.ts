@@ -126,7 +126,7 @@ export function makeBlockHeader(seed: number): BlockHeader {
     fr(seed + 2),
     fr(seed + 3),
     fr(seed + 4),
-    fr(seed + 5),
+    // fr(seed + 5), // TODO(#3441)
     fr(seed + 6),
     fr(seed + 7),
   );
