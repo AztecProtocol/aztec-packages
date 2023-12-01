@@ -465,7 +465,7 @@ Addition (a + b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/ADD.png)
+[![](./images/bit-formats/ADD.png)](./images/bit-formats/ADD.png)
 
 ### <a id='isa-section-sub'/>`SUB` (0x01)
 Subtraction (a - b)
@@ -484,7 +484,7 @@ Subtraction (a - b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/SUB.png)
+[![](./images/bit-formats/SUB.png)](./images/bit-formats/SUB.png)
 
 ### <a id='isa-section-div'/>`DIV` (0x02)
 Unsigned division (a / b)
@@ -503,7 +503,7 @@ Unsigned division (a / b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/DIV.png)
+[![](./images/bit-formats/DIV.png)](./images/bit-formats/DIV.png)
 
 ### <a id='isa-section-eq'/>`EQ` (0x03)
 Equality check (a == b)
@@ -522,7 +522,7 @@ Equality check (a == b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/EQ.png)
+[![](./images/bit-formats/EQ.png)](./images/bit-formats/EQ.png)
 
 ### <a id='isa-section-lt'/>`LT` (0x04)
 Less-than check (a < b)
@@ -541,7 +541,7 @@ Less-than check (a < b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/LT.png)
+[![](./images/bit-formats/LT.png)](./images/bit-formats/LT.png)
 
 ### <a id='isa-section-lte'/>`LTE` (0x05)
 Less-than-or-equals check (a <= b)
@@ -560,7 +560,7 @@ Less-than-or-equals check (a <= b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/LTE.png)
+[![](./images/bit-formats/LTE.png)](./images/bit-formats/LTE.png)
 
 ### <a id='isa-section-and'/>`AND` (0x06)
 Bitwise AND (a & b)
@@ -579,7 +579,7 @@ Bitwise AND (a & b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/AND.png)
+[![](./images/bit-formats/AND.png)](./images/bit-formats/AND.png)
 
 ### <a id='isa-section-or'/>`OR` (0x07)
 Bitwise OR (a | b)
@@ -598,7 +598,7 @@ Bitwise OR (a | b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/OR.png)
+[![](./images/bit-formats/OR.png)](./images/bit-formats/OR.png)
 
 ### <a id='isa-section-xor'/>`XOR` (0x08)
 Bitwise XOR (a ^ b)
@@ -617,7 +617,7 @@ Bitwise XOR (a ^ b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/XOR.png)
+[![](./images/bit-formats/XOR.png)](./images/bit-formats/XOR.png)
 
 ### <a id='isa-section-not'/>`NOT` (0x09)
 Bitwise NOT (inversion)
@@ -635,7 +635,7 @@ Bitwise NOT (inversion)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 72
 
-![](./images/bit-formats/NOT.png)
+[![](./images/bit-formats/NOT.png)](./images/bit-formats/NOT.png)
 
 ### <a id='isa-section-shl'/>`SHL` (0x0a)
 Bitwise leftward shift (a << b)
@@ -654,7 +654,7 @@ Bitwise leftward shift (a << b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/SHL.png)
+[![](./images/bit-formats/SHL.png)](./images/bit-formats/SHL.png)
 
 ### <a id='isa-section-shr'/>`SHR` (0x0b)
 Bitwise rightward shift (a >> b)
@@ -673,7 +673,7 @@ Bitwise rightward shift (a >> b)
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 96
 
-![](./images/bit-formats/SHR.png)
+[![](./images/bit-formats/SHR.png)](./images/bit-formats/SHR.png)
 
 ### <a id='isa-section-set'/>`SET` (0x0c)
 Set a memory word from a constant in the bytecode.
@@ -691,7 +691,7 @@ Set a memory word from a constant in the bytecode.
 - **Tag updates**: `T[dstOffset] = in-tag`
 - **Bit-size**: 48+N
 
-![](./images/bit-formats/SET.png)
+[![](./images/bit-formats/SET.png)](./images/bit-formats/SET.png)
 
 ### <a id='isa-section-mov'/>`MOV` (0x0d)
 Move a word from source memory location to destination`.
@@ -706,7 +706,7 @@ Move a word from source memory location to destination`.
 - **Tag updates**: `T[dstOffset] = T[srcOffset]`
 - **Bit-size**: 64
 
-![](./images/bit-formats/MOV.png)
+[![](./images/bit-formats/MOV.png)](./images/bit-formats/MOV.png)
 
 ### <a id='isa-section-cmov'/>`CMOV` (0x0e)
 Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`).
@@ -724,7 +724,7 @@ Move a word (conditionally chosen) from one memory location to another (`d = con
 - **Tag updates**: `T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`
 - **Bit-size**: 112
 
-![](./images/bit-formats/CMOV.png)
+[![](./images/bit-formats/CMOV.png)](./images/bit-formats/CMOV.png)
 
 ### <a id='isa-section-cast'/>`CAST` (0x0f)
 Type cast
@@ -742,7 +742,7 @@ Type cast
 - **Tag updates**: `T[dstOffset] = dst-tag`
 - **Bit-size**: 72
 
-![](./images/bit-formats/CAST.png)
+[![](./images/bit-formats/CAST.png)](./images/bit-formats/CAST.png)
 
 ### <a id='isa-section-calldatacopy'/>`CALLDATACOPY` (0x10)
 Copy calldata into memory.
@@ -759,7 +759,7 @@ Copy calldata into memory.
 - **Tag updates**: `T[dstOffset:dstOffset+size] = field`
 - **Bit-size**: 88
 
-![](./images/bit-formats/CALLDATACOPY.png)
+[![](./images/bit-formats/CALLDATACOPY.png)](./images/bit-formats/CALLDATACOPY.png)
 
 ### <a id='isa-section-sload'/>`SLOAD` (0x11)
 Load a word from storage.
@@ -775,7 +775,7 @@ Load a word from storage.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/SLOAD.png)
+[![](./images/bit-formats/SLOAD.png)](./images/bit-formats/SLOAD.png)
 
 ### <a id='isa-section-sstore'/>`SSTORE` (0x12)
 Write a word to storage.
@@ -790,7 +790,7 @@ Write a word to storage.
 - **Details**: Store a word from memory into this contract's persistent public storage.
 - **Bit-size**: 64
 
-![](./images/bit-formats/SSTORE.png)
+[![](./images/bit-formats/SSTORE.png)](./images/bit-formats/SSTORE.png)
 
 ### <a id='isa-section-l1l2msgload'/>`L1L2MSGLOAD` (0x13)
 Retrieve an L1-to-L2 message by key
@@ -816,7 +816,7 @@ Retrieve an L1-to-L2 message by key
 - **Tag updates**: `T[dst*Offset] = field`
 - **Bit-size**: 136
 
-![](./images/bit-formats/L1L2MSGLOAD.png)
+[![](./images/bit-formats/L1L2MSGLOAD.png)](./images/bit-formats/L1L2MSGLOAD.png)
 
 ### <a id='isa-section-sendl2tol1msg'/>`SENDL1TOL2MSG` (0x14)
 Retrieve an L1-to-L2 message by key
@@ -842,7 +842,7 @@ Retrieve an L1-to-L2 message by key
 - **Tag updates**: `T[dst*Offset] = field`
 - **Bit-size**: 136
 
-![](./images/bit-formats/SENDL1TOL2MSG.png)
+[![](./images/bit-formats/SENDL1TOL2MSG.png)](./images/bit-formats/SENDL1TOL2MSG.png)
 
 ### <a id='isa-section-jump'/>`JUMP` (0x15)
 Jump to a location in the bytecode.
@@ -856,7 +856,7 @@ Jump to a location in the bytecode.
 - **Details**: Target location is an immediate value (a constant in the bytecode).
 - **Bit-size**: 40
 
-![](./images/bit-formats/JUMP.png)
+[![](./images/bit-formats/JUMP.png)](./images/bit-formats/JUMP.png)
 
 ### <a id='isa-section-jumpi'/>`JUMPI` (0x16)
 Conditionally jump to a location in the bytecode.
@@ -871,7 +871,7 @@ Conditionally jump to a location in the bytecode.
 - **Details**: Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.
 - **Bit-size**: 64
 
-![](./images/bit-formats/JUMPI.png)
+[![](./images/bit-formats/JUMPI.png)](./images/bit-formats/JUMPI.png)
 
 ### <a id='isa-section-return'/>`RETURN` (0x17)
 Halt execution with `success`, optionally returning some data.
@@ -886,7 +886,7 @@ Halt execution with `success`, optionally returning some data.
 - **Details**: Return control flow to the calling context/contract.
 - **Bit-size**: 64
 
-![](./images/bit-formats/RETURN.png)
+[![](./images/bit-formats/RETURN.png)](./images/bit-formats/RETURN.png)
 
 ### <a id='isa-section-revert'/>`REVERT` (0x18)
 Halt execution with `failure`, optionally returning some data.
@@ -901,7 +901,7 @@ Halt execution with `failure`, optionally returning some data.
 - **Details**: Return control flow to the calling context/contract.
 - **Bit-size**: 64
 
-![](./images/bit-formats/REVERT.png)
+[![](./images/bit-formats/REVERT.png)](./images/bit-formats/REVERT.png)
 
 ### <a id='isa-section-call'/>`CALL` (0x19)
 Call into another contract.
@@ -936,7 +936,7 @@ T[retOffset:retOffset+retSize] = field`}
 </CodeBlock>
 - **Bit-size**: 208
 
-![](./images/bit-formats/CALL.png)
+[![](./images/bit-formats/CALL.png)](./images/bit-formats/CALL.png)
 
 ### <a id='isa-section-staticcall'/>`STATICCALL` (0x1a)
 Call into another contract, disallowing persistent state modifications.
@@ -969,7 +969,7 @@ T[retOffset:retOffset+retSize] = field`}
 </CodeBlock>
 - **Bit-size**: 208
 
-![](./images/bit-formats/STATICCALL.png)
+[![](./images/bit-formats/STATICCALL.png)](./images/bit-formats/STATICCALL.png)
 
 ### <a id='isa-section-ulog'/>`ULOG` (0x1b)
 Emit an unencrypted log with data from the `field` memory page
@@ -983,7 +983,7 @@ Emit an unencrypted log with data from the `field` memory page
 - **Expression**: `ulog(M[offset:offset+size])`
 - **Bit-size**: 64
 
-![](./images/bit-formats/ULOG.png)
+[![](./images/bit-formats/ULOG.png)](./images/bit-formats/ULOG.png)
 
 ### <a id='isa-section-chainid'/>`CHAINID` (0x1c)
 Get this rollup's L1 chain ID
@@ -997,7 +997,7 @@ Get this rollup's L1 chain ID
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/CHAINID.png)
+[![](./images/bit-formats/CHAINID.png)](./images/bit-formats/CHAINID.png)
 
 ### <a id='isa-section-version'/>`VERSION` (0x1d)
 Get this rollup's L2 version ID
@@ -1011,7 +1011,7 @@ Get this rollup's L2 version ID
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/VERSION.png)
+[![](./images/bit-formats/VERSION.png)](./images/bit-formats/VERSION.png)
 
 ### <a id='isa-section-blocknumber'/>`BLOCKNUMBER` (0x1e)
 Get this block's number
@@ -1025,7 +1025,7 @@ Get this block's number
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/BLOCKNUMBER.png)
+[![](./images/bit-formats/BLOCKNUMBER.png)](./images/bit-formats/BLOCKNUMBER.png)
 
 ### <a id='isa-section-timestamp'/>`TIMESTAMP` (0x1f)
 Get this L2 block's timestamp
@@ -1039,7 +1039,7 @@ Get this L2 block's timestamp
 - **Tag updates**: `T[dstOffset] = u64`
 - **Bit-size**: 40
 
-![](./images/bit-formats/TIMESTAMP.png)
+[![](./images/bit-formats/TIMESTAMP.png)](./images/bit-formats/TIMESTAMP.png)
 
 ### <a id='isa-section-coinbase'/>`COINBASE` (0x20)
 Get the block's beneficiary address
@@ -1053,7 +1053,7 @@ Get the block's beneficiary address
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/COINBASE.png)
+[![](./images/bit-formats/COINBASE.png)](./images/bit-formats/COINBASE.png)
 
 ### <a id='isa-section-blockl1gaslimit'/>`BLOCKL1GASLIMIT` (0x21)
 Total amount of "L1 gas" that a block can consume
@@ -1067,7 +1067,7 @@ Total amount of "L1 gas" that a block can consume
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/BLOCKL1GASLIMIT.png)
+[![](./images/bit-formats/BLOCKL1GASLIMIT.png)](./images/bit-formats/BLOCKL1GASLIMIT.png)
 
 ### <a id='isa-section-blockl2gaslimit'/>`BLOCKL2GASLIMIT` (0x22)
 Total amount of "L2 gas" that a block can consume
@@ -1081,7 +1081,7 @@ Total amount of "L2 gas" that a block can consume
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/BLOCKL2GASLIMIT.png)
+[![](./images/bit-formats/BLOCKL2GASLIMIT.png)](./images/bit-formats/BLOCKL2GASLIMIT.png)
 
 ### <a id='isa-section-notesroot'/>`NOTESROOT` (0x23)
 Get the historical note-hash tree root as of the specified block number.
@@ -1096,7 +1096,7 @@ Get the historical note-hash tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/NOTESROOT.png)
+[![](./images/bit-formats/NOTESROOT.png)](./images/bit-formats/NOTESROOT.png)
 
 ### <a id='isa-section-nullroot'/>`NULLIFIERSROOT` (0x24)
 Get the historical nullifier tree root as of the specified block number.
@@ -1111,7 +1111,7 @@ Get the historical nullifier tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/NULLIFIERSROOT.png)
+[![](./images/bit-formats/NULLIFIERSROOT.png)](./images/bit-formats/NULLIFIERSROOT.png)
 
 ### <a id='isa-section-contractsroot'/>`CONTRACTSROOT` (0x25)
 Get the historical contracts tree root as of the specified block number.
@@ -1126,7 +1126,7 @@ Get the historical contracts tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/CONTRACTSROOT.png)
+[![](./images/bit-formats/CONTRACTSROOT.png)](./images/bit-formats/CONTRACTSROOT.png)
 
 ### <a id='isa-section-msgsroot'/>`MSGSROOT` (0x26)
 Get the historical l1-to-l2 messages tree root as of the specified block number.
@@ -1141,7 +1141,7 @@ Get the historical l1-to-l2 messages tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/MSGSROOT.png)
+[![](./images/bit-formats/MSGSROOT.png)](./images/bit-formats/MSGSROOT.png)
 
 ### <a id='isa-section-blocksroot'/>`BLOCKSROOT` (0x27)
 Get the historical blocks tree root as of the specified block number.
@@ -1156,7 +1156,7 @@ Get the historical blocks tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/BLOCKSROOT.png)
+[![](./images/bit-formats/BLOCKSROOT.png)](./images/bit-formats/BLOCKSROOT.png)
 
 ### <a id='isa-section-publicdataroot'/>`PUBLICDATAROOT` (0x28)
 Get the historical public data tree root as of the specified block number.
@@ -1171,7 +1171,7 @@ Get the historical public data tree root as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/PUBLICDATAROOT.png)
+[![](./images/bit-formats/PUBLICDATAROOT.png)](./images/bit-formats/PUBLICDATAROOT.png)
 
 ### <a id='isa-section-globalshash'/>`GLOBALSHASH` (0x29)
 Get the historical global variables hash as of the specified block number.
@@ -1186,7 +1186,7 @@ Get the historical global variables hash as of the specified block number.
 - **Tag updates**: `T[dstOffset] = field`
 - **Bit-size**: 64
 
-![](./images/bit-formats/GLOBALSHASH.png)
+[![](./images/bit-formats/GLOBALSHASH.png)](./images/bit-formats/GLOBALSHASH.png)
 
 ### <a id='isa-section-origin'/>`ORIGIN` (0x2a)
 Get the transaction's origination address
@@ -1200,7 +1200,7 @@ Get the transaction's origination address
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/ORIGIN.png)
+[![](./images/bit-formats/ORIGIN.png)](./images/bit-formats/ORIGIN.png)
 
 ### <a id='isa-section-refundee'/>`REFUNDEE` (0x2b)
 The recipient of fee refunds for this transaction
@@ -1214,7 +1214,7 @@ The recipient of fee refunds for this transaction
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/REFUNDEE.png)
+[![](./images/bit-formats/REFUNDEE.png)](./images/bit-formats/REFUNDEE.png)
 
 ### <a id='isa-section-feeperl1gas'/>`FEEPERL1GAS` (0x2c)
 The fee to be paid per "L1 gas" - set by the transaction's original caller
@@ -1228,7 +1228,7 @@ The fee to be paid per "L1 gas" - set by the transaction's original caller
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/FEEPERL1GAS.png)
+[![](./images/bit-formats/FEEPERL1GAS.png)](./images/bit-formats/FEEPERL1GAS.png)
 
 ### <a id='isa-section-feeperl2gas'/>`FEEPERL2GAS` (0x2d)
 The fee to be paid per "L2 gas" - set by the transaction's original caller
@@ -1242,7 +1242,7 @@ The fee to be paid per "L2 gas" - set by the transaction's original caller
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/FEEPERL2GAS.png)
+[![](./images/bit-formats/FEEPERL2GAS.png)](./images/bit-formats/FEEPERL2GAS.png)
 
 ### <a id='isa-section-caller'/>`CALLER` (0x2e)
 Get the address of the sender (the caller's context)
@@ -1256,7 +1256,7 @@ Get the address of the sender (the caller's context)
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/CALLER.png)
+[![](./images/bit-formats/CALLER.png)](./images/bit-formats/CALLER.png)
 
 ### <a id='isa-section-address'/>`ADDRESS` (0x2f)
 Get the address of the currently executing l2 contract
@@ -1270,7 +1270,7 @@ Get the address of the currently executing l2 contract
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/ADDRESS.png)
+[![](./images/bit-formats/ADDRESS.png)](./images/bit-formats/ADDRESS.png)
 
 ### <a id='isa-section-portal'/>`PORTAL` (0x30)
 Get the address of the l1 portal contract
@@ -1284,7 +1284,7 @@ Get the address of the l1 portal contract
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/PORTAL.png)
+[![](./images/bit-formats/PORTAL.png)](./images/bit-formats/PORTAL.png)
 
 ### <a id='isa-section-calldepth'/>`CALLDEPTH` (0x31)
 Get how many calls deep the current call context is
@@ -1299,7 +1299,7 @@ Get how many calls deep the current call context is
 - **Tag updates**: `T[dstOffset] = u8`
 - **Bit-size**: 40
 
-![](./images/bit-formats/CALLDEPTH.png)
+[![](./images/bit-formats/CALLDEPTH.png)](./images/bit-formats/CALLDEPTH.png)
 
 ### <a id='isa-section-l1gas'/>`L1GAS` (0x32)
 Remaining "L1 gas" for this call (after this instruction).
@@ -1313,7 +1313,7 @@ Remaining "L1 gas" for this call (after this instruction).
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/L1GAS.png)
+[![](./images/bit-formats/L1GAS.png)](./images/bit-formats/L1GAS.png)
 
 ### <a id='isa-section-l2gas'/>`L2GAS` (0x33)
 Remaining "L2 gas" for this call (after this instruction).
@@ -1327,4 +1327,4 @@ Remaining "L2 gas" for this call (after this instruction).
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 40
 
-![](./images/bit-formats/L2GAS.png)
+[![](./images/bit-formats/L2GAS.png)](./images/bit-formats/L2GAS.png)

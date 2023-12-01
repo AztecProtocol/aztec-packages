@@ -105,7 +105,7 @@ function markdownInstructionSetSection(pathToGenDir) {
         }
         const bitFormatPath = `./images/bit-formats/${name.replace(/`/g, '')}.png`;
         if (fs.existsSync(`${pathToGenDir}/${bitFormatPath}`)) {
-            subsection += `\n![](${bitFormatPath})`;
+            subsection += `\n[![](${bitFormatPath})](${bitFormatPath})`;
         }
         markdown += `\n${subsection}\n`;
     }
