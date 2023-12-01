@@ -1,9 +1,10 @@
 #!/bin/bash
-# Returns true if we are expected to proceed with a deploy job.
-# Specifically if we have a commit tag, are master, or are being forced to deploy.
-# This script should be used at the start of all deployment steps to early out PR runs.
-# Later deployment steps may early out regardless, e.g. npm deploys only run for tagged commits.
-# Dockerhub publishing will publish for master, or PR's run with force-deploy, but only tag latest on tagged commits.
+# Returns success if we are expected to do a deployment.
+# Right now, that's only if we're master.
 set -eu
 
-[[ -n "$COMMIT_TAG" || "$BRANCH" == "master" || "$COMMIT_MESSAGE" == *"[ci force-deploy]"* ]]
+if [ "$BRANCH" == "master" ]; then
+  exit 0
+else
+  exit 1
+fi

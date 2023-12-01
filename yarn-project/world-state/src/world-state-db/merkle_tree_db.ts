@@ -1,7 +1,7 @@
 import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { LowLeafWitnessData } from '@aztec/merkle-tree';
+import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
@@ -91,7 +91,13 @@ export type MerkleTreeDb = {
   [Property in keyof MerkleTreeOperations as Exclude<Property, MerkleTreeSetters>]: WithIncludeUncommitted<
     MerkleTreeOperations[Property]
   >;
-} & Pick<MerkleTreeOperations, MerkleTreeSetters>;
+} & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
+    /**
+     * Returns a snapshot of the current state of the trees.
+     * @param block - The block number to take the snapshot at.
+     */
+    getSnapshot(block: number): Promise<ReadonlyArray<TreeSnapshot | IndexedTreeSnapshot>>;
+  };
 
 /**
  * Defines the interface for operations on a set of Merkle Trees.
@@ -175,7 +181,7 @@ export interface MerkleTreeOperations {
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param globalVariablesHash - The global variables hash to insert into the block hash.
    */
-  updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void>;
+  updateBlocksTree(globalVariablesHash: Fr): Promise<void>;
 
   /**
    * Updates the latest global variables hash
@@ -195,11 +201,11 @@ export interface MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
-  batchInsert(
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).

@@ -21,9 +21,6 @@ else
   TAG=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9_.-]/_/g')
 fi
 
-SRC_URI=$(calculate_image_uri $REPOSITORY)
-DST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$TAG
-
 # Login to dockerhub and ecr
 dockerhub_login
 ecr_login
@@ -33,10 +30,21 @@ sudo apt install -y skopeo
 retry wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64
 chmod +x ./skopeo-linux-amd64 && sudo mv ./skopeo-linux-amd64 /usr/bin/skopeo
 
+# Publish with version or branch tag.
+SRC_URI=$(calculate_image_uri $REPOSITORY)
+DST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$TAG
 cmd_or_dryrun skopeo copy --all docker://$SRC_URI docker://$DST_URI
 
+# If this was a versioned release, publish as latest.
 if [ -n "$COMMIT_TAG" ]; then
-  # Publish as latest.
-  LATEST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:latest
-  cmd_or_dryrun skopeo copy --all docker://$DST_URI docker://$LATEST_URI
+  SRC_URI=$DST_URI
+  DST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:latest
+  cmd_or_dryrun skopeo copy --all docker://$SRC_URI docker://$DST_URI
+fi
+
+# If this was a deployment, publish with the deploy tag.
+if [ -n "$DEPLOY_TAG" ]; then
+  SRC_URI=$DST_URI
+  DST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:$DEPLOY_TAG
+  cmd_or_dryrun skopeo copy --all docker://$SRC_URI docker://$DST_URI
 fi
