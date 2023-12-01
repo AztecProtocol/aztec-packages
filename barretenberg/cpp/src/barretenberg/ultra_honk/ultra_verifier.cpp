@@ -9,8 +9,8 @@ using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::honk {
 template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(std::shared_ptr<Transcript> transcript,
-                                       std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transcript,
+                                       const std::shared_ptr<dVerificationKey>& verifier_key)
     : key(verifier_key)
     , transcript(transcript)
 {}

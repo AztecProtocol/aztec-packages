@@ -24,8 +24,8 @@ class GoblinTranslatorVerifier {
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
 
-    GoblinTranslatorVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr,
-                             std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
+    GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
+                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept;
     GoblinTranslatorVerifier(const GoblinTranslatorVerifier& other) = delete;
     GoblinTranslatorVerifier& operator=(const GoblinTranslatorVerifier& other) = delete;

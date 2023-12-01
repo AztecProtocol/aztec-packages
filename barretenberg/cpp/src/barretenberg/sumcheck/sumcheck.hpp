@@ -58,7 +58,7 @@ template <typename Flavor> class SumcheckProver {
     PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
 
     // prover instantiates sumcheck with circuit size and a prover transcript
-    SumcheckProver(size_t multivariate_n, std::shared_ptr<Transcript> transcript)
+    SumcheckProver(size_t multivariate_n, const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript)
         , multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
@@ -200,7 +200,7 @@ template <typename Flavor> class SumcheckVerifier {
      */
     SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
                                   FF alpha,
-                                  std::shared_ptr<Transcript> transcript)
+                                  const std::shared_ptr<Transcript>& transcript)
     {
         bool verified(true);
 

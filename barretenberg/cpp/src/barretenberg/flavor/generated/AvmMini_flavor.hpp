@@ -327,7 +327,7 @@ class AvmMiniFlavor {
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            [[maybe_unused]] std::shared_ptr<BaseTranscript> transcript)
+                            [[maybe_unused]] const std::shared_ptr<BaseTranscript>& transcript)
         {
             avmMini_clk = verification_key->avmMini_clk;
             avmMini_first = verification_key->avmMini_first;

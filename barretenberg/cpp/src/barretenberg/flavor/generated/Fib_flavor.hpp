@@ -217,7 +217,7 @@ class FibFlavor {
 
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            [[maybe_unused]] std::shared_ptr<BaseTranscript> transcript)
+                            [[maybe_unused]] const std::shared_ptr<BaseTranscript>& transcript)
         {
             Fibonacci_LAST = verification_key->Fibonacci_LAST;
             Fibonacci_FIRST = verification_key->Fibonacci_FIRST;

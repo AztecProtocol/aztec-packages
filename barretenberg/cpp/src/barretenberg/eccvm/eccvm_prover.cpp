@@ -22,9 +22,9 @@ namespace proof_system::honk {
  * @tparam settings Settings class.
  * */
 template <ECCVMFlavor Flavor>
-ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> input_key,
-                                   std::shared_ptr<PCSCommitmentKey> commitment_key,
-                                   std::shared_ptr<Transcript> transcript)
+ECCVMProver_<Flavor>::ECCVMProver_(const std::shared_ptr<typename Flavor::ProvingKey>& input_key,
+                                   const std::shared_ptr<PCSCommitmentKey>& commitment_key,
+                                   const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , key(input_key)
     , commitment_key(commitment_key)

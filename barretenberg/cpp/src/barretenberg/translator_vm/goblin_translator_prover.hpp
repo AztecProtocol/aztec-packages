@@ -25,9 +25,9 @@ class GoblinTranslatorProver {
     static size_t constexpr FULL_CIRCUIT_SIZE = Flavor::FULL_CIRCUIT_SIZE;
 
   public:
-    explicit GoblinTranslatorProver(std::shared_ptr<ProvingKey> input_key,
-                                    std::shared_ptr<CommitmentKey> commitment_key,
-                                    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
+    explicit GoblinTranslatorProver(const std::shared_ptr<ProvingKey>& input_key,
+                                    const std::shared_ptr<CommitmentKey>& commitment_key,
+                                    const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     void execute_preamble_round();
     void execute_wire_and_sorted_constraints_commitments_round();

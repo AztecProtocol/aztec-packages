@@ -7,9 +7,9 @@ namespace proof_system::honk {
  *
  */
 template <typename Flavor>
-MergeProver_<Flavor>::MergeProver_(std::shared_ptr<CommitmentKey> commitment_key,
-                                   std::shared_ptr<ECCOpQueue> op_queue,
-                                   std::shared_ptr<Transcript> transcript)
+MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<CommitmentKey>& commitment_key,
+                                   const std::shared_ptr<ECCOpQueue>& op_queue,
+                                   const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , op_queue(op_queue)
     , pcs_commitment_key(commitment_key)

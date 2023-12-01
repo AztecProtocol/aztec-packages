@@ -12,9 +12,9 @@ namespace proof_system::honk {
  * @tparam a type of UltraFlavor
  * */
 template <UltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(std::shared_ptr<Instance> inst,
-                                   std::shared_ptr<CommitmentKey> commitment_key,
-                                   std::shared_ptr<Transcript> transcript)
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
+                                   const std::shared_ptr<CommitmentKey>& commitment_key,
+                                   const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(commitment_key)

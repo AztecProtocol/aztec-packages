@@ -28,7 +28,7 @@ template <ECCVMFlavor Flavor> void ECCVMComposer_<Flavor>::compute_witness(Circu
 
 template <ECCVMFlavor Flavor>
 ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& circuit_constructor,
-                                                           std::shared_ptr<Transcript> transcript)
+                                                           const std::shared_ptr<Transcript>& transcript)
 {
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
@@ -47,7 +47,7 @@ ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& c
  * */
 template <ECCVMFlavor Flavor>
 ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor,
-                                                               std::shared_ptr<Transcript> transcript)
+                                                               const std::shared_ptr<Transcript>& transcript)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 

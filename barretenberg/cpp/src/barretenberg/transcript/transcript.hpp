@@ -313,7 +313,7 @@ class BaseTranscript {
      * @param transcript
      * @return BaseTranscript
      */
-    static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript> transcript)
+    static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
         auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");

@@ -10,7 +10,7 @@ using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::honk {
 template <typename Flavor>
-ECCVMVerifier_<Flavor>::ECCVMVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
 {}
 

@@ -4,7 +4,7 @@ namespace proof_system::honk {
 
 template <typename Flavor>
 MergeVerifier_<Flavor>::MergeVerifier_(std::unique_ptr<VerifierCommitmentKey> verification_key,
-                                       std::shared_ptr<BaseTranscript> transcript)
+                                       const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , pcs_verification_key(std::move(verification_key)){};
 
@@ -21,7 +21,7 @@ MergeVerifier_<Flavor>::MergeVerifier_(std::unique_ptr<VerifierCommitmentKey> ve
  */
 template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
-    transcript = std::make_shared<BaseTranscript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof.proof_data);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
     std::array<Commitment, Flavor::NUM_WIRES> C_T_prev;

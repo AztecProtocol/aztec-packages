@@ -12,7 +12,7 @@ namespace proof_system::honk {
  * @return Pointer to the resulting verification key of the Instance.
  * */
 template <UltraFlavor Flavor>
-void UltraComposer_<Flavor>::compute_verification_key(std::shared_ptr<ProverInstance_<Flavor>> instance)
+void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<ProverInstance_<Flavor>>& instance)
 {
     if (instance->verification_key) {
         return;
@@ -75,8 +75,8 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance
 }
 
 template <UltraFlavor Flavor>
-UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Instance> instance,
-                                                           std::shared_ptr<Transcript> transcript)
+UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<Instance>& instance,
+                                                           const std::shared_ptr<Transcript>& transcript)
 {
     UltraProver_<Flavor> output_state(instance, commitment_key, transcript);
 
@@ -84,8 +84,8 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Insta
 }
 
 template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<Instance> instance,
-                                                               std::shared_ptr<Transcript> transcript)
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<Instance>& instance,
+                                                               const std::shared_ptr<Transcript>& transcript)
 {
     auto& verification_key = instance->verification_key;
     UltraVerifier_<Flavor> output_state(transcript, verification_key);

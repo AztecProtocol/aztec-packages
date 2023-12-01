@@ -9,8 +9,9 @@ using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::honk {
 
-GoblinTranslatorVerifier::GoblinTranslatorVerifier(std::shared_ptr<typename Flavor::VerificationKey> verifier_key,
-                                                   std::shared_ptr<Transcript> transcript)
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(
+    const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}

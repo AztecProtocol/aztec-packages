@@ -26,9 +26,9 @@ namespace proof_system::honk {
  * @tparam settings Settings class.
  * */
 
-GoblinTranslatorProver::GoblinTranslatorProver(std::shared_ptr<typename Flavor::ProvingKey> input_key,
-                                               std::shared_ptr<CommitmentKey> commitment_key,
-                                               std::shared_ptr<Transcript> transcript)
+GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Flavor::ProvingKey>& input_key,
+                                               const std::shared_ptr<CommitmentKey>& commitment_key,
+                                               const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , key(input_key)
     , commitment_key(commitment_key)

@@ -30,9 +30,9 @@ template <typename Flavor> class MergeProver_ {
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
-    explicit MergeProver_(std::shared_ptr<CommitmentKey>,
-                          std::shared_ptr<ECCOpQueue>,
-                          std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>());
+    explicit MergeProver_(const std::shared_ptr<CommitmentKey>&,
+                          const std::shared_ptr<ECCOpQueue>&,
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     plonk::proof& construct_proof();
 
   private:
