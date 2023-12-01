@@ -23,7 +23,6 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
-    // using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = barretenberg::TranslationEvaluations;
 
   public:

@@ -325,20 +325,6 @@ class BaseTranscript {
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print() { manifest.print(); }
-
-    /**
-     * @brief Deserializes the FULL transcript into the struct defined by each flavor derivedclass.
-     * @details Not supported for base transcript class because it does not have a defined structure. The current
-     * proof_data object must represent the whole proof and not a partial proof or it will throw an error.
-     */
-    void deserialize_full_transcript() { throw_or_abort("Cannot deserialize transcript"); }
-
-    /**
-     * @brief Serializes the FULL transcript from the defined derived class back into proof_data.
-     * @details Only works if the struct is populated (usually from a call to deserialize_full_transcript). Allows for
-     * modified transcript objects to be updated in the actual proof for testing purposes.
-     */
-    void serialize_full_transcript() { throw_or_abort("Cannot serialize transcript"); }
 };
 
 /**

@@ -15,7 +15,6 @@ template <typename Flavor> class SumcheckProver {
     using PartiallyEvaluatedMultivariates = typename Flavor::PartiallyEvaluatedMultivariates;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
-    // using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
 
     std::shared_ptr<Transcript> transcript;

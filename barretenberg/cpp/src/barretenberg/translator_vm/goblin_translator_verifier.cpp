@@ -74,8 +74,6 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
 
     Flavor::VerifierCommitments commitments{ key, transcript };
     Flavor::CommitmentLabels commitment_labels;
-    // auto commitments = VerifierCommitments(key, transcript);
-    // auto commitment_labels = CommitmentLabels();
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");

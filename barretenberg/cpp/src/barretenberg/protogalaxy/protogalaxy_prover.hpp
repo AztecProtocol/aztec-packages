@@ -17,7 +17,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using ProverInstances = ProverInstances_;
     using Flavor = typename ProverInstances::Flavor;
     using Transcript = typename Flavor::Transcript;
-    ;
     using FF = typename Flavor::FF;
     using Instance = typename ProverInstances::Instance;
     using Utils = barretenberg::RelationUtils<Flavor>;
