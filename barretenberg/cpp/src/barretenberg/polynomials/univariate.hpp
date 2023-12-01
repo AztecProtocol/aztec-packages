@@ -15,6 +15,15 @@ namespace barretenberg {
  */
 template <class Fr, size_t view_domain_end, size_t view_domain_start> class UnivariateView;
 
+namespace type_traits {
+template <typename T, template <class, size_t, size_t> class Z> struct is_specialization_of : std::false_type {};
+
+template <class A, size_t B, size_t C, template <class, size_t B_compare, size_t> class Z>
+struct is_specialization_of<Z<A, B, C>, Z> : std::true_type {};
+
+template <typename T, template <class, size_t, size_t> class Z>
+inline constexpr bool is_specialization_of_v = is_specialization_of<T, Z>::value;
+} // namespace type_traits
 /**
  * @brief A univariate polynomial represented by its values on {domain_start, domain_start + 1,..., domain_end - 1}. For
  * memory efficiency purposes, we store the evaluations in an array starting from 0 and make the mapping to the right
@@ -34,10 +43,61 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         : evaluations(evaluations)
     {}
     ~Univariate() = default;
-    Univariate(const Univariate& other) = default;
-    Univariate(Univariate&& other) noexcept = default;
-    Univariate& operator=(const Univariate& other) = default;
-    Univariate& operator=(Univariate&& other) noexcept = default;
+    // Univariate& operator=(const Univariate& other) = default;
+    // Univariate& operator=(Univariate&& other) noexcept = default;
+    // Univariate(const Univariate& other) : Univariate(other) {};
+    // Univariate(Univariate&& other) noexcept = default;
+
+    // Construct Univariate from another Univariate
+    template <typename OtherUnivariateType>
+    Univariate(const OtherUnivariateType& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
+    {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
+        for (size_t i = 0; i < LENGTH; ++i) {
+            evaluations[i] = other.evaluations[i];
+        }
+    }
+
+    // Construct Univariate from another Univariate
+    template <typename OtherUnivariateType>
+    Univariate(OtherUnivariateType&& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
+    {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
+        for (size_t i = 0; i < LENGTH; ++i) {
+            evaluations[i] = other.evaluations[i];
+        }
+    }
+
+    // Construct Univariate from another Univariate
+    template <typename OtherUnivariateType>
+    Univariate& operator=(const OtherUnivariateType& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
+    {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
+        for (size_t i = 0; i < LENGTH; ++i) {
+            evaluations[i] = other.evaluations[i];
+        }
+        return *this;
+    }
+    //
+
+    // Construct Univariate from another Univariate
+    template <typename OtherUnivariateType>
+    Univariate& operator=(OtherUnivariateType&& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
+    {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
+        for (size_t i = 0; i < OtherUnivariateType::LENGTH; ++i) {
+            evaluations[i] = other.evaluations[i];
+        }
+        for (size_t i = OtherUnivariateType::LENGTH; i < LENGTH; ++i) {
+            evaluations[i] = 0;
+        }
+        return *this;
+    }
+
     // Construct constant Univariate from scalar which represents the value that all the points in the domain evaluate
     // to
     explicit Univariate(Fr value)
@@ -96,40 +156,57 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
     // Operations between Univariate and other Univariate
     bool operator==(const Univariate& other) const = default;
 
-    Univariate& operator+=(const Univariate& other)
+    template <typename OtherUnivariateType>
+    Univariate& operator+=(const OtherUnivariateType& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] += other.evaluations[i];
         }
         return *this;
     }
-    Univariate& operator-=(const Univariate& other)
+    template <typename OtherUnivariateType>
+    Univariate& operator-=(const OtherUnivariateType& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] -= other.evaluations[i];
         }
         return *this;
     }
-    Univariate& operator*=(const Univariate& other)
+    template <typename OtherUnivariateType>
+    Univariate& operator*=(const OtherUnivariateType& other)
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         for (size_t i = 0; i < LENGTH; ++i) {
             evaluations[i] *= other.evaluations[i];
         }
         return *this;
     }
-    Univariate operator+(const Univariate& other) const
+
+    template <typename OtherUnivariateType>
+    Univariate operator+(const OtherUnivariateType& other) const
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         Univariate res(*this);
         res += other;
         return res;
     }
 
-    Univariate operator-(const Univariate& other) const
+    template <typename OtherUnivariateType>
+    Univariate operator-(const OtherUnivariateType& other) const
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         Univariate res(*this);
         res -= other;
         return res;
     }
+
     Univariate operator-() const
     {
         Univariate res(*this);
@@ -139,8 +216,11 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         return res;
     }
 
-    Univariate operator*(const Univariate& other) const
+    template <typename OtherUnivariateType>
+    Univariate operator*(const OtherUnivariateType& other) const
+        requires type_traits::is_specialization_of_v<OtherUnivariateType, Univariate>
     {
+        static_assert(LENGTH <= OtherUnivariateType::LENGTH);
         Univariate res(*this);
         res *= other;
         return res;

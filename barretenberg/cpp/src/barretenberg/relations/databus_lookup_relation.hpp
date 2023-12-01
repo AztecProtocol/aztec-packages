@@ -54,10 +54,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         // TODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0 otherwise.
         // This current structure will lead to failure if call_data_read_counts > 1.
-        const auto row_has_write = View(in.q_busread);
-        const auto row_has_read = View(in.calldata_read_counts);
+        const Accumulator row_has_write(in.q_busread);
+        // const auto row_has_read = View(in.calldata_read_counts);
 
-        return row_has_write + row_has_read - (row_has_write * row_has_read);
+        return Accumulator(row_has_write) - (row_has_write * in.calldata_read_counts) + in.calldata_read_counts;
 
         return Accumulator(View(in.q_busread) + View(in.calldata_read_counts));
     }
@@ -111,15 +111,19 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
         static_assert(write_index < WRITE_TERMS);
 
-        const auto& calldata = View(in.calldata);
-        const auto& id = View(in.databus_id);
+        // const auto& calldata = View(in.calldata);
+        // const auto& id = View(in.databus_id);
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
         // Construct b_i + idx_i*\beta + \gamma
         if constexpr (write_index == 0) {
-            return calldata + gamma + id * beta; // degree 1
+            Accumulator tmp(in.databus_id);
+            tmp *= beta;
+            tmp += gamma;
+            tmp += in.calldata;
+            return tmp; // degree 1
         }
 
         return Accumulator(1);
@@ -138,15 +142,19 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static_assert(read_index < READ_TERMS);
 
         // Bus value stored in w_1, index into bus column stored in w_2
-        const auto& w_1 = View(in.w_l);
-        const auto& w_2 = View(in.w_r);
+        // const auto& w_1 = View(in.w_l);
+        // const auto& w_2 = View(in.w_r);
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
         // Construct value + index*\beta + \gamma
         if constexpr (read_index == 0) {
-            return w_1 + gamma + w_2 * beta;
+            Accumulator tmp(in.w_r);
+            tmp *= beta;
+            tmp += in.w_l;
+            tmp += gamma;
+            return tmp;
         }
 
         return Accumulator(1);

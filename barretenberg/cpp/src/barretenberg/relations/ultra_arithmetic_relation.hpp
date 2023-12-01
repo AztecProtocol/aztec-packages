@@ -71,42 +71,60 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     {
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            auto w_l = View(in.w_l);
-            auto w_r = View(in.w_r);
-            auto w_o = View(in.w_o);
-            auto w_4 = View(in.w_4);
-            auto w_4_shift = View(in.w_4_shift);
-            auto q_m = View(in.q_m);
-            auto q_l = View(in.q_l);
-            auto q_r = View(in.q_r);
-            auto q_o = View(in.q_o);
-            auto q_4 = View(in.q_4);
-            auto q_c = View(in.q_c);
-            auto q_arith = View(in.q_arith);
+            // using View = typename Accumulator::View;
+            // auto w_l = View(in.w_l);
+            // auto w_r = View(in.w_r);
+            // auto w_o = View(in.w_o);
+            // auto w_4 = View(in.w_4);
+            // auto w_4_shift = View(in.w_4_shift);
+            // auto q_m = View(in.q_m);
+            // auto q_l = View(in.q_l);
+            // auto q_r = View(in.q_r);
+            // auto q_o = View(in.q_o);
+            // auto q_4 = View(in.q_4);
+            // auto q_c = View(in.q_c);
+            // auto q_arith = View(in.q_arith);
 
             static const FF neg_half = FF(-2).invert();
 
-            auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
-            tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
-            tmp += (q_arith - 1) * w_4_shift;
-            tmp *= q_arith;
+            Accumulator tmp(in.q_arith);
+            tmp -= 3;
+            tmp *= in.q_m;
+            tmp *= in.w_r;
+            tmp *= in.w_l;
+            tmp *= neg_half;
+            tmp += Accumulator(in.q_l) * in.w_l;
+            tmp += Accumulator(in.q_r) * in.w_r;
+            tmp += Accumulator(in.q_o) * in.w_o;
+            tmp += Accumulator(in.q_4) * in.w_4;
+            tmp += in.q_c;
+            tmp += Accumulator(in.w_4_shift) * (in.q_arith - 1);
+            tmp *= in.q_arith;
             tmp *= scaling_factor;
+            // auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
+            // tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
+            // tmp += (q_arith - 1) * w_4_shift;
+            // tmp *= q_arith;
+            // tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
         }
         {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            auto w_l = View(in.w_l);
-            auto w_4 = View(in.w_4);
-            auto w_l_shift = View(in.w_l_shift);
-            auto q_m = View(in.q_m);
-            auto q_arith = View(in.q_arith);
+            // using View = typename Accumulator::View;
+            // auto w_l = View(in.w_l);
+            // auto w_4 = View(in.w_4);
+            // auto w_l_shift = View(in.w_l_shift);
+            // auto q_m = View(in.q_m);
+            // auto q_arith = View(in.q_arith);
 
-            auto tmp = w_l + w_4 - w_l_shift + q_m;
-            tmp *= (q_arith - 2);
-            tmp *= (q_arith - 1);
-            tmp *= q_arith;
+            Accumulator tmp(in.w_l);
+            tmp += in.w_4;
+            tmp -= in.w_l_shift;
+            tmp += in.q_m;
+            // auto tmp = w_l + w_4 - w_l_shift + q_m;
+            tmp *= (in.q_arith - 2);
+            tmp *= (in.q_arith - 1);
+            tmp *= in.q_arith;
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
         };

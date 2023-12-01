@@ -44,62 +44,68 @@ template <typename FF_> class EccOpQueueRelationImpl {
                                   const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
+        // using View = typename Accumulator::View;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto op_wire_1 = View(in.ecc_op_wire_1);
-        auto op_wire_2 = View(in.ecc_op_wire_2);
-        auto op_wire_3 = View(in.ecc_op_wire_3);
-        auto op_wire_4 = View(in.ecc_op_wire_4);
-        auto lagrange_ecc_op = View(in.lagrange_ecc_op);
+        // auto w_1 = View(in.w_l);
+        // auto w_2 = View(in.w_r);
+        // auto w_3 = View(in.w_o);
+        // auto w_4 = View(in.w_4);
+        // auto op_wire_1 = View(in.ecc_op_wire_1);
+        // auto op_wire_2 = View(in.ecc_op_wire_2);
+        // auto op_wire_3 = View(in.ecc_op_wire_3);
+        // auto op_wire_4 = View(in.ecc_op_wire_4);
+        // auto lagrange_ecc_op = View(in.lagrange_ecc_op);
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, this is the indicator for the complement
-        auto complement_ecc_op = lagrange_ecc_op * FF(-1) + FF(1);
+        Accumulator complement_ecc_op(in.lagrange_ecc_op);
+        complement_ecc_op *= FF(-1);
+        complement_ecc_op += FF(1);
 
         // Contribution (1)
-        auto tmp = op_wire_1 - w_1;
-        tmp *= lagrange_ecc_op;
+        Accumulator tmp(in.ecc_op_wire_1);
+        tmp -= in.w_l;
+        tmp *= in.lagrange_ecc_op;
         tmp *= scaling_factor;
         std::get<0>(accumulators) += tmp;
 
         // Contribution (2)
-        tmp = op_wire_2 - w_2;
-        tmp *= lagrange_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_2);
+        tmp -= in.w_r;
+        tmp *= in.lagrange_ecc_op;
         tmp *= scaling_factor;
         std::get<1>(accumulators) += tmp;
 
         // Contribution (3)
-        tmp = op_wire_3 - w_3;
-        tmp *= lagrange_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_3);
+        tmp -= in.w_o;
+        tmp *= in.lagrange_ecc_op;
         tmp *= scaling_factor;
         std::get<2>(accumulators) += tmp;
 
         // Contribution (4)
-        tmp = op_wire_4 - w_4;
-        tmp *= lagrange_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_4);
+        tmp -= in.w_4;
+        tmp *= in.lagrange_ecc_op;
         tmp *= scaling_factor;
         std::get<3>(accumulators) += tmp;
 
         // Contribution (5)
-        tmp = op_wire_1 * complement_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_1) * complement_ecc_op;
         tmp *= scaling_factor;
         std::get<4>(accumulators) += tmp;
 
         // Contribution (6)
-        tmp = op_wire_2 * complement_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_2) * complement_ecc_op;
         tmp *= scaling_factor;
         std::get<5>(accumulators) += tmp;
 
         // Contribution (7)
-        tmp = op_wire_3 * complement_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_3) * complement_ecc_op;
         tmp *= scaling_factor;
         std::get<6>(accumulators) += tmp;
 
         // Contribution (8)
-        tmp = op_wire_4 * complement_ecc_op;
+        tmp = Accumulator(in.ecc_op_wire_4) * complement_ecc_op;
         tmp *= scaling_factor;
         std::get<7>(accumulators) += tmp;
     };
