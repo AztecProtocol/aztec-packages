@@ -42,7 +42,7 @@ class GoblinUltra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -139,28 +139,22 @@ class GoblinUltra {
                               w_r,                  // column 1
                               w_o,                  // column 2
                               w_4,                  // column 3
-                              sorted_1,             // column 4
-                              sorted_2,             // column 5
-                              sorted_3,             // column 6
-                              sorted_4,             // column 7
-                              sorted_accum,         // column 8
-                              z_perm,               // column 9
-                              z_lookup,             // column 10
-                              ecc_op_wire_1,        // column 11
-                              ecc_op_wire_2,        // column 12
-                              ecc_op_wire_3,        // column 13
-                              ecc_op_wire_4,        // column 14
-                              calldata,             // column 15
-                              calldata_read_counts, // column 16
-                              lookup_inverses       // column 17
+                              sorted_accum,         // column 4
+                              z_perm,               // column 5
+                              z_lookup,             // column 6
+                              ecc_op_wire_1,        // column 7
+                              ecc_op_wire_2,        // column 8
+                              ecc_op_wire_3,        // column 9
+                              ecc_op_wire_4,        // column 10
+                              calldata,             // column 11
+                              calldata_read_counts, // column 12
+                              lookup_inverses       // column 13
         )
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         RefVector<DataType> get_ecc_op_wires()
         {
             return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
         };
-        // The sorted concatenations of table and witness data needed for plookup.
-        RefVector<DataType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**
@@ -377,6 +371,11 @@ class GoblinUltra {
     };
 
     /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
+
+    /**
      * @brief A container for commitment labels.
      * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
      * has, however, been useful during debugging to have these labels available.
@@ -435,7 +434,7 @@ class GoblinUltra {
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
         VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
-                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
+                            [[maybe_unused]] const BaseTranscript& transcript)
         {
             static_cast<void>(transcript);
             q_m = verification_key->q_m;
@@ -479,7 +478,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public BaseTranscript<FF> {
+    class Transcript : public BaseTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -508,7 +507,7 @@ class GoblinUltra {
         Transcript() = default;
 
         Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
         void deserialize_full_transcript() override
