@@ -29,10 +29,11 @@ dockerhub_login
 ecr_login
 
 retry wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64
-cmd_or_dryrun ./skopeo-linux-amd64 copy --all docker://$SRC_URI docker://$DST_URI
+mv ./skopeo-linux-amd64 ./skopeo && chmod +x ./skopeo
+cmd_or_dryrun ./skopeo copy --all docker://$SRC_URI docker://$DST_URI
 
 if [ -n "$COMMIT_TAG" ]; then
   # Publish as latest.
   LATEST_URI=$DOCKERHUB_ACCOUNT/$REPOSITORY:latest
-  cmd_or_dryrun ./skopeo-linux-amd64 copy --all docker://$DST_URI docker://$LATEST_URI
+  cmd_or_dryrun ./skopeo copy --all docker://$DST_URI docker://$LATEST_URI
 fi
