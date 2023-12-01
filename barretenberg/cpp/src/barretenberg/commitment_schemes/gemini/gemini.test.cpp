@@ -80,7 +80,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         this->verify_batch_opening_pair(prover_output.opening_pairs, prover_output.witnesses);
 
         auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
-        
+
         // Compute:
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
