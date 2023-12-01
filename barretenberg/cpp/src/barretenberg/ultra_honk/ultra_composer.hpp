@@ -70,7 +70,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      * @return MergeProver_<Flavor>
      */
     MergeProver_<Flavor> create_merge_prover(
-        const std::shared_ptr<ECCOpQueue>& op_queue,
+        std::shared_ptr<ECCOpQueue> op_queue,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
     {
         // Store the previous aggregate op queue size and update the current one

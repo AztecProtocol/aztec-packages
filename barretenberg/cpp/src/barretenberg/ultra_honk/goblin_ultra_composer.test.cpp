@@ -74,7 +74,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
-    bool construct_and_verify_merge_proof(auto& composer, auto& op_queue)
+    bool construct_and_verify_merge_proof(auto& composer, const auto& op_queue)
     {
         auto merge_prover = composer.create_merge_prover(op_queue);
         auto merge_verifier = composer.create_merge_verifier(10);
