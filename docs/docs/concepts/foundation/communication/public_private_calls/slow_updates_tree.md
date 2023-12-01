@@ -2,7 +2,7 @@
 title: Privately access Historical Public Data
 ---
 
-In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state - only sequencers can do that.
+In Aztec, private and public execution environments are completely separate and operate with distinct state management. It is not possible for private functions to reliably access the most recent public data public state - only sequencers can do that. You'll want to [read the previous section](./main.md) to understand this before reading this page.
 
 But, what about historical public data (or public data that changes infrequently)? Through a **slow updates tree**, private functions can access historical public state. Please note that we are still experimenting with this feature.
 
@@ -28,44 +28,9 @@ This data structure is ideal for these use cases:
 
 ## How it works
 
-We developed the Slow Updates Tree to help balance public and private execution in a blockchain context. Earlier systems typically used either fully public or entirely private state trees.
+We developed the Slow Updates Tree to help balance public and private execution in a blockchain context. Earlier systems typically used either fully public or entirely private state trees. 
 
-**First iteration: Shared State Tree** 
-
-Using a shared state tree, it is possible to privately access historical public data by providing a membership proof to show that a value is indeed part of a commitment, and then check that the commitment matches the one stored in the state, as shown below.
-
-```mermaid
-graph TD;
-    Cm[Commmitment1] --> Vm1[Value1]
-    Cm --> Vm2[Value2]
-    Cm --> Vmn[Value3]
-    Vm1 --> Mp1[Membership Proof for Value1]
-    Mp1 --> St[Commitment in State]
-    St --> Cm
-```
-
-Note: a *commitment* refers to a cryptographic assurance that a specific set of data is included in the tree. In the current design, we are using Merkle trees to commit to the values.
-
-However, these would be contract-specific trees, so we will be leaking the contract address of the contract doing a lookup. 
-
-**Second iteration: Multi-level Shared State Tree**
-
-This privacy issue can be solved by organizing data into layers, with each contract having its own commitment within a larger tree. Only the top-level commitment is revealed.
-
-```mermaid
-graph TD;
-    C[Top Commitment] -->|Contains| C1[Commitment1]
-    C -->|Contains| Cm[Commitment2]
-    Cm -->|Contains| Vm1[Value1]
-    Cm -->|Contains| Vm2[Value2]
-    Cm -->|Contains| Vmn[Valuen]
-```
-
-However, this means that any canges in any contract's data will change the top-level commitment and invalidate the proofs for all other contracts.
-
-**Third iteration: Slow Updates Tree**
-
-To solve this, the Slow Updates Tree is a dual-tree structure - a current tree and a pending tree. Any updates are added to the pending tree, which then becomes the current tree at the end of an epoch. The pending tree is replicated from the current tree, and the cycle begins again.
+The Slow Updates Tree is a dual-tree structure - a current tree and a pending tree. Any updates are added to the pending tree, which then becomes the current tree at the end of an epoch. The pending tree is replicated from the current tree, and the cycle begins again.
 
 ```mermaid
 graph TD;

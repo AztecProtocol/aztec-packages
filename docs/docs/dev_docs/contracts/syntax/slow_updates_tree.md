@@ -4,28 +4,28 @@ title: Slow Updates Tree
 
 Slow Updates Tree is a data structure that allows for historical public data to be accessed in both private and public domains. Read the high level overview in the [concepts section](../../../concepts/foundation/communication/public_private_calls/slow_updates_tree.md).
 
-The Slow Updates Tree works by having a current tree and a pending tree, and replacing the current tree with the pending tree after an epoch has passed. Public functions can read directly from the current tree, and private functions can perform a membership proof that values are part of a commitment to the current state of the tree.
+The slow updates tree works by having a current tree and a pending tree, and replacing the current tree with the pending tree after an epoch has passed. Public functions can read directly from the current tree, and private functions can perform a membership proof that values are part of a commitment to the current state of the tree.
 
 On this page you will learn:
 
-1. [The components involved in using the Slow Updates Tree](slow_updates_tree.md#components-involved-in-implementing-a-slow-updates-tree)
+1. [The components involved in using the slow updates tree](slow_updates_tree.md#components-involved-in-implementing-a-slow-updates-tree)
 2. [How you can integrate it into your own smart contract](slow_updates_tree.md#how-to-integrate-a-slow-updates-tree)
 3. [An example of a token blacklisting contract that uses the slow updates tree](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract)
 4. [Interface Reference](slow_updates_tree.md#reference)
 
-# Components involved in implementing a Slow Updates Tree
+# Components involved in implementing a slow updates tree
 
-There are generally 4 main components involved to make it easier to use a Slow Updates Tree, with 3 already implemented by Aztec. This makes it easier to interact with a slow updates tree through a simple interface. These four components are:
+There are generally 4 main components involved to make it easier to use a slow updates tree, with 3 already implemented by Aztec. This makes it easier to interact with a slow updates tree through a simple interface. These four components are:
 
-## Main Smart Contract
+## Main smart contract
 
-This is the primary smart contract that will use the Slow Updates Tree. In the example we use a [token with blacklisting features](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract).
+This is the primary smart contract that will use the slow updates tree. In the example we use a [token with blacklisting features](slow_updates_tree.md#exploring-an-example-integration-through-a-tokenblacklist-smart-contract).
 
 ## Interface 
 
-This interface can be used by your contract to interact with the Slow Updates Tree. It provides methods for reading and updating values in the tree in both public and private contexts. You can find it [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/interfaces.nr).
+This interface of the slow updates tree contract allows your contract to interact with the Slow Updates Tree contract. It provides methods for reading and updating values in the tree in both public and private contexts. You can find it [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/interfaces.nr).
 
-## SlowTree.nr Contract
+## SlowTree.nr contract
 
 This is a smart contract developed by Aztec that establishes and manages a slow updates tree structure. It allows developers to access and interact with the tree, such as reading and updating data.
 
@@ -93,7 +93,7 @@ graph TD
 
 #include_code interface yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
-5. Store a slow updates tree in both public and private storage
+5. Create a storage init function for the same value in both public and private storage
 
 #include_code slow_updates_storage yarn-project/noir-contracts/src/contracts/token_blacklist_contract/src/main.nr rust
 
@@ -129,7 +129,7 @@ The contract first imports the **`SlowMap`** interface:
 
 This interface allows the contract to interact with its attached SlowTree. It abstracts these functions so they do not have to be implemented in the TokenBlacklist contract.
 
-### Constructor and Initialization
+### Constructor and initialization
 
 The contract's constructor takes the address of the slow updates contract:
 
@@ -137,7 +137,7 @@ The contract's constructor takes the address of the slow updates contract:
 
 This initialization sets up the connection between the **`TokenBlacklist`** contract and a previously deployed SlowTree, allowing it to use the interface to directly interact with the SlowTree. 
 
-### Private Transfer Function Utilizing the Slow Updates Tree
+### Private transfer function utilizing the slow updates tree
 
 In the private transfer function, the contract uses the interface to check if a user is blacklisted:
 
