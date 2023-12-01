@@ -289,7 +289,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "memory",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": "The [type/size](./Types) to check inputs against and tag the output with. `field` type is NOT supported for SET."},
+            {"name": "in-tag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
         ],
         "#memreads": "0",
         "#memwrites": "1",
