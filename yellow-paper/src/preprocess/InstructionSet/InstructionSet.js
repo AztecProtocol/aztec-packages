@@ -264,6 +264,26 @@ const INSTRUCTION_SET_RAW = [
         "Tag updates": "`T[dstOffset] = op-type`",
     },
     {
+        "id": "cast",
+        "Name": "`CAST`",
+        "Category": "types",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+            {"name": "dest-type", "description": DEST_TYPE_DESCRIPTION},
+        ],
+        "#memreads": "1",
+        "#memwrites": "1",
+        "Args": [
+            {"name": "aOffset", "description": "memory offset of word to cast"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
+        ],
+        "Expression": "`M[dstOffset] = cast<dest-type>(M[aOffset])`",
+        "Summary": "Type cast",
+        "Details": "Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.",
+        "Tag checks": "",
+        "Tag updates": "`T[dstOffset] = dest-type`",
+    },
+    {
         "id": "set",
         "Name": "`SET`",
         "Category": "memory",
@@ -322,26 +342,6 @@ const INSTRUCTION_SET_RAW = [
         "Details": "One of two source memory locations is chosen based on the condition. `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
-    },
-    {
-        "id": "cast",
-        "Name": "`CAST`",
-        "Category": "types",
-        "Flags": [
-            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "dest-type", "description": DEST_TYPE_DESCRIPTION},
-        ],
-        "#memreads": "1",
-        "#memwrites": "1",
-        "Args": [
-            {"name": "aOffset", "description": "memory offset of word to cast"},
-            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
-        ],
-        "Expression": "`M[dstOffset] = cast<dest-type>(M[aOffset])`",
-        "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.",
-        "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = dest-type`",
     },
     {
         "id": "calldatacopy",

@@ -9,6 +9,8 @@ import CodeBlock from '@theme/CodeBlock'
 
 ## Instructions Table
 
+Click on an instruction name to jump to its section.
+
 <table>
 <th>Opcode</th><th>Name</th><th>Summary</th><th>Bit-size</th><th>Expression</th>
 <tr>
@@ -108,7 +110,15 @@ import CodeBlock from '@theme/CodeBlock'
 	}</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x0c</td>	<td style={{'text-align': 'center'}}><a id='isa-table-set'/><Markdown>[`SET`](#isa-section-set)</Markdown></td>
+	<td style={{'text-align': 'center'}}>0x0c</td>	<td style={{'text-align': 'center'}}><a id='isa-table-cast'/><Markdown>[`CAST`](#isa-section-cast)</Markdown></td>
+	<td><Markdown>Type cast</Markdown></td>
+	<td><Markdown>72</Markdown></td>
+	<td><CodeBlock language="jsx">{
+		`M[dstOffset] = cast<dest-type>(M[aOffset])`
+	}</CodeBlock></td>
+</tr>
+<tr>
+	<td style={{'text-align': 'center'}}>0x0d</td>	<td style={{'text-align': 'center'}}><a id='isa-table-set'/><Markdown>[`SET`](#isa-section-set)</Markdown></td>
 	<td><Markdown>Set a memory word from a constant in the bytecode.</Markdown></td>
 	<td><Markdown>48+N</Markdown></td>
 	<td><CodeBlock language="jsx">{
@@ -116,7 +126,7 @@ import CodeBlock from '@theme/CodeBlock'
 	}</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x0d</td>	<td style={{'text-align': 'center'}}><a id='isa-table-mov'/><Markdown>[`MOV`](#isa-section-mov)</Markdown></td>
+	<td style={{'text-align': 'center'}}>0x0e</td>	<td style={{'text-align': 'center'}}><a id='isa-table-mov'/><Markdown>[`MOV`](#isa-section-mov)</Markdown></td>
 	<td><Markdown>Move a word from source memory location to destination`.</Markdown></td>
 	<td><Markdown>64</Markdown></td>
 	<td><CodeBlock language="jsx">{
@@ -124,19 +134,11 @@ import CodeBlock from '@theme/CodeBlock'
 	}</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x0e</td>	<td style={{'text-align': 'center'}}><a id='isa-table-cmov'/><Markdown>[`CMOV`](#isa-section-cmov)</Markdown></td>
+	<td style={{'text-align': 'center'}}>0x0f</td>	<td style={{'text-align': 'center'}}><a id='isa-table-cmov'/><Markdown>[`CMOV`](#isa-section-cmov)</Markdown></td>
 	<td><Markdown>Move a word (conditionally chosen) from one memory location to another (`d = cond &gt; 0 ? a : b`).</Markdown></td>
 	<td><Markdown>112</Markdown></td>
 	<td><CodeBlock language="jsx">{
 		`M[dstOffset] = M[condOffset] > 0 ? M[aOffset] : M[bOffset]`
-	}</CodeBlock></td>
-</tr>
-<tr>
-	<td style={{'text-align': 'center'}}>0x0f</td>	<td style={{'text-align': 'center'}}><a id='isa-table-cast'/><Markdown>[`CAST`](#isa-section-cast)</Markdown></td>
-	<td><Markdown>Type cast</Markdown></td>
-	<td><Markdown>72</Markdown></td>
-	<td><CodeBlock language="jsx">{
-		`M[dstOffset] = cast<dest-type>(M[aOffset])`
 	}</CodeBlock></td>
 </tr>
 <tr>
@@ -695,7 +697,26 @@ Bitwise rightward shift (a >> b)
 
 ![](./images/bit-formats/SHR.png)
 
-### <a id='isa-section-set'/>`SET` (0x0c)
+### <a id='isa-section-cast'/>`CAST` (0x0c)
+Type cast
+
+[See in table.](#isa-table-cast)
+
+- **Category**: types
+- **Flags**: 
+	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
+	- **dest-type**: The [type/size](./Types) to tag the output with when different from `op-type`.
+- **Args**: 
+	- **aOffset**: memory offset of word to cast
+	- **dstOffset**: memory offset specifying where to store operation's result
+- **Expression**: `M[dstOffset] = cast<dest-type>(M[aOffset])`
+- **Details**: Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.
+- **Tag updates**: `T[dstOffset] = dest-type`
+- **Bit-size**: 72
+
+![](./images/bit-formats/CAST.png)
+
+### <a id='isa-section-set'/>`SET` (0x0d)
 Set a memory word from a constant in the bytecode.
 
 [See in table.](#isa-table-set)
@@ -714,7 +735,7 @@ Set a memory word from a constant in the bytecode.
 
 ![](./images/bit-formats/SET.png)
 
-### <a id='isa-section-mov'/>`MOV` (0x0d)
+### <a id='isa-section-mov'/>`MOV` (0x0e)
 Move a word from source memory location to destination`.
 
 [See in table.](#isa-table-mov)
@@ -731,7 +752,7 @@ Move a word from source memory location to destination`.
 
 ![](./images/bit-formats/MOV.png)
 
-### <a id='isa-section-cmov'/>`CMOV` (0x0e)
+### <a id='isa-section-cmov'/>`CMOV` (0x0f)
 Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`).
 
 [See in table.](#isa-table-cmov)
@@ -750,25 +771,6 @@ Move a word (conditionally chosen) from one memory location to another (`d = con
 - **Bit-size**: 112
 
 ![](./images/bit-formats/CMOV.png)
-
-### <a id='isa-section-cast'/>`CAST` (0x0f)
-Type cast
-
-[See in table.](#isa-table-cast)
-
-- **Category**: types
-- **Flags**: 
-	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-	- **dest-type**: The [type/size](./Types) to tag the output with when different from `op-type`.
-- **Args**: 
-	- **aOffset**: memory offset of word to cast
-	- **dstOffset**: memory offset specifying where to store operation's result
-- **Expression**: `M[dstOffset] = cast<dest-type>(M[aOffset])`
-- **Details**: Cast a word in memory based on the `dest-type` specified in the bytecode. Truncates when casting to a smaller type, left-zero-pads when casting to a larger type.
-- **Tag updates**: `T[dstOffset] = dest-type`
-- **Bit-size**: 72
-
-![](./images/bit-formats/CAST.png)
 
 ### <a id='isa-section-calldatacopy'/>`CALLDATACOPY` (0x10)
 Copy calldata into memory.
