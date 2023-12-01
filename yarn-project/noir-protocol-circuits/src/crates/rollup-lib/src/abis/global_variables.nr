@@ -1,4 +1,7 @@
-use dep::aztec::constants_gen;
+use dep::aztec::{
+    constants_gen::GENERATOR_INDEX__GLOBAL_VARIABLES,
+    hash::pedersen_hash,
+};
 
 struct GlobalVariables {
     chain_id : Field,
@@ -9,15 +12,17 @@ struct GlobalVariables {
 
 impl GlobalVariables {
 
-    pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator([
+    pub fn serialize(self) -> [Field; 4] {
+        [
             self.chain_id, 
             self.version, 
             self.block_number, 
             self.timestamp
-            ],
-            constants_gen::GENERATOR_INDEX__GLOBAL_VARIABLES,
-            )
+        ]
+    }
+
+    pub fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__GLOBAL_VARIABLES)
     }
 
     pub fn eq(self, other : GlobalVariables) -> bool {

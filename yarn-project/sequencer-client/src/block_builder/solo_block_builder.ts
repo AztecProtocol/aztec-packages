@@ -544,7 +544,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
-  protected getHistoricalTreesMembershipWitnessFor(tx: ProcessedTx) {
+  protected getBlocksTreesMembershipWitnessFor(tx: ProcessedTx) {
     const blockHeader = tx.data.constants.blockHeader;
     return this.getMembershipWitnessFor(blockHeader.blockHash(), MerkleTreeId.BLOCKS_TREE, BLOCKS_TREE_HEIGHT);
   }
@@ -757,8 +757,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       ),
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
       blocksTreeRootMembershipWitnesses: [
-        await this.getHistoricalTreesMembershipWitnessFor(left),
-        await this.getHistoricalTreesMembershipWitnessFor(right),
+        await this.getBlocksTreesMembershipWitnessFor(left),
+        await this.getBlocksTreesMembershipWitnessFor(right),
       ],
     });
   }

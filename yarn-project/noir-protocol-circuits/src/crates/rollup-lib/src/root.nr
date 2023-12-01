@@ -4,8 +4,11 @@ mod root_rollup_public_inputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::utils::uint256::U256;
-use dep::aztec::constants_gen::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
-use crate::{components, hash::compute_block_hash_with_globals};
+use dep::aztec::{
+    abi::BlockHeader,
+    constants_gen::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT},
+};
+use crate::components;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 
 impl RootRollupInputs {
@@ -36,21 +39,24 @@ impl RootRollupInputs {
             L1_TO_L2_MSG_SUBTREE_HEIGHT as u8 
         );
 
-        // Build the block hash for this iteration from the tree roots and global variables
-        // Then insert the block into the blocks tree
-        let block_hash = compute_block_hash_with_globals(left.constants.global_variables,
-                                                      right.end_note_hash_tree_snapshot.root,
-                                                      right.end_nullifier_tree_snapshot.root,
-                                                      right.end_contract_tree_snapshot.root,
-                                                      new_l1_to_l2_messages_tree_snapshot.root,
-                                                      right.end_public_data_tree_root);
+        // Build the block header in order to compute the block hash for this iteration
+        // Then insert the block hash into the blocks tree
+        let block_header = BlockHeader {
+            note_hash_tree_root: right.end_note_hash_tree_snapshot.root,
+            nullifier_tree_root: right.end_nullifier_tree_snapshot.root,
+            contract_tree_root: right.end_contract_tree_snapshot.root,
+            l1_to_l2_messages_tree_root: new_l1_to_l2_messages_tree_snapshot.root,
+            blocks_tree_root: self.start_blocks_tree_snapshot.root,
+            public_data_tree_root: right.end_public_data_tree_root,
+            global_variables_hash: left.constants.global_variables.hash(),
+        };
 
         // Update the blocks tree
         let end_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
             self.start_blocks_tree_snapshot,
             self.new_blocks_tree_sibling_path,
             0,
-            block_hash,
+            block_header.block_hash(),
             0
         );
 
