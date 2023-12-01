@@ -45,31 +45,13 @@ class GoblinRecursionTests : public ::testing::Test {
     using RecursiveFlavor = ::proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = ::proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
 
-    struct VerifierInput {
-        Proof proof;
-        std::shared_ptr<NativeVerificationKey> verification_key;
-    };
+    using KernelInput = Goblin::AccumulationOutput;
 
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = proof_system::honk::flavor::GoblinUltra::NUM_WIRES;
 
-    /**
-     * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
-     *
-     * @param builder
-     */
-    static void generate_test_circuit(GoblinUltraBuilder& builder, [[maybe_unused]] const Proof& previous_proof = {})
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder)
     {
-        // Add some arbitrary ecc op gates
-        for (size_t i = 0; i < 3; ++i) {
-            auto point = Point::random_element();
-            auto scalar = FF::random_element();
-            builder.queue_ecc_add_accum(point);
-            builder.queue_ecc_mul_accum(point, scalar);
-        }
-        // queues the result of the preceding ECC
-        builder.queue_ecc_eq(); // should be eq and reset
-
-        // Add some conventional gates that utilize public inputs
+        // Add some arithmetic gates that utilize public inputs
         for (size_t i = 0; i < 10; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
@@ -85,14 +67,39 @@ class GoblinRecursionTests : public ::testing::Test {
     }
 
     /**
-     * @brief Mock the interactions of a simple curcuit with the op_queue
-     * @details The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
-     * transcript" (see issue #723). This function mocks the interactions with the op queue of a fictional "first"
-     * circuit. This way, when we go to generate a proof over our first "real" circuit, the transcript aggregation
-     * protocol can proceed nominally. The mock data is valid in the sense that it can be processed by all stages of
-     * Goblin as if it came from a genuine circuit.
+     * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
-     * @todo WOKTODO: this is a zero commitments issue
+     * @param builder
+     */
+    static void construct_simple_initial_circuit(GoblinUltraBuilder& builder)
+    {
+        // WORKTODO: In theory we could use the ops from the first circuit instead of these fake ops but then we'd still
+        // have to manually compute and call set_commitments (normally performed in the merge prover) since we can call
+        // merge prove with an previous empty aggregate transcript.
+        perform_op_queue_interactions_for_mock_first_circuit(builder.op_queue);
+
+        // Add some arbitrary ecc op gates
+        for (size_t i = 0; i < 3; ++i) {
+            auto point = Point::random_element();
+            auto scalar = FF::random_element();
+            builder.queue_ecc_add_accum(point);
+            builder.queue_ecc_mul_accum(point, scalar);
+        }
+        // queues the result of the preceding ECC
+        builder.queue_ecc_eq(); // should be eq and reset
+
+        construct_arithmetic_circuit(builder);
+    }
+
+    /**
+     * @brief Mock the interactions of a simple curcuit with the op_queue
+     * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
+     * transcript" (see issue #723) because the corresponding commitments are zero / the point at infinity. This
+     * function mocks the interactions with the op queue of a fictional "first" circuit. This way, when we go to
+     * generate a proof over our first "real" circuit, the transcript aggregation protocol can proceed nominally. The
+     * mock data is valid in the sense that it can be processed by all stages of Goblin as if it came from a genuine
+     * circuit.
+     *
      *
      * @param op_queue
      */
@@ -109,7 +116,7 @@ class GoblinRecursionTests : public ::testing::Test {
 
         op_queue->set_size_data();
 
-        // Manually compute the op queue transcript commitments (which would normally be done by the prover)
+        // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
         auto crs_factory_ = barretenberg::srs::get_crs_factory();
         auto commitment_key = CommitmentKey(op_queue->get_current_size(), crs_factory_);
         std::array<Point, NUM_OP_QUEUE_COLUMNS> op_queue_commitments;
@@ -119,6 +126,27 @@ class GoblinRecursionTests : public ::testing::Test {
         }
         // Store the commitment data for use by the prover of the next circuit
         op_queue->set_commitment_data(op_queue_commitments);
+    }
+
+    /**
+     * @brief Construct a mock kernel circuit
+     * @details This circuit contains (1) some basic/arbitrary arithmetic gates, (2) a genuine recursive verification of
+     * the proof provided as input. It does not contain any other real kernel logic.
+     *
+     * @param builder
+     * @param kernel_input A proof to be recursively verified and the corresponding native verification key
+     */
+    static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
+    {
+        // Generic operations e.g. state updates (just arith gates for now)
+        info("Kernel: Adding general logic.");
+        construct_arithmetic_circuit(builder);
+
+        // Execute recursive aggregation of previous kernel proof
+        info("Kernel: Adding recursive aggregation logic.");
+        RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
+        auto pairing_points = verifier.verify_proof(kernel_input.proof);
+        (void)pairing_points; // WORKTODO: aggregate
     }
 };
 
@@ -130,95 +158,31 @@ TEST_F(GoblinRecursionTests, Pseudo)
 {
     barretenberg::Goblin goblin;
 
-    // WORKTODO: In theory we could use the ops from the first circuit instead of these fake ops but then we'd still
-    // have to manually compute and call set_commitments (normally performed in the merge prover) since we can call
-    // merge prove with an previous empty aggregate transcript.
-    perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
-    info("Generating initial circuit.");
-
-    // Construct an initial goblin ultra circuit
-    GoblinUltraBuilder initial_circuit_builder{ goblin.op_queue };
-    generate_test_circuit(initial_circuit_builder);
-
-    info("Proving initial circuit.");
-
-    // Construct a proof of the initial circuit to be recursively verified
-    auto composer = GoblinUltraComposer();
-    auto instance = composer.create_instance(initial_circuit_builder);
-    auto prover = composer.create_prover(instance);
-    auto proof = prover.construct_proof();
-    auto verification_key = instance->compute_verification_key();
-
-    VerifierInput verifier_input = { proof, verification_key };
-
-    { // Natively verify proof for testing purposes only
-        info("Verifying initial circuit.");
-        auto verifier = composer.create_verifier(instance);
-        bool honk_verified = verifier.verify_proof(proof);
-        EXPECT_TRUE(honk_verified);
-    }
-
-    info("Constructing merge proof.");
-
-    // Construct a merge proof to be recursively verified
-    auto merge_prover = composer.create_merge_prover(goblin.op_queue);
-    auto merge_proof = merge_prover.construct_proof();
-
-    { // Natively verify merge for testing purposes only
-        info("Verifying merge proof.");
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10); // WORKTODO set this
-        bool merge_verified = merge_verifier.verify_proof(merge_proof);
-        EXPECT_TRUE(merge_verified);
-    }
-
-    // const auto folding_verifier = [](GoblinUltraBuilder& builder) { generate_test_circuit(builder); };
+    // Construct an initial circuit; its proof will be recursively verified by the first kernel
+    info("Initial circuit.");
+    GoblinUltraBuilder initial_circuit{ goblin.op_queue };
+    construct_simple_initial_circuit(initial_circuit);
+    KernelInput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-        GoblinUltraBuilder circuit_builder{ goblin.op_queue };
-
-        info();
 
         // Construct a circuit with logic resembling that of the "kernel circuit"
-        {
-            info("Kernel circuit ", circuit_idx);
-            info("Adding general logic.");
-            // generic operations e.g. state updates (just arith gates for now)
-            generate_test_circuit(circuit_builder);
+        info("\nKernel circuit ", circuit_idx);
+        GoblinUltraBuilder circuit_builder{ goblin.op_queue };
+        construct_mock_kernel_circuit(circuit_builder, kernel_input);
 
-            info("Adding recursive aggregation logic.");
-            // execute recursive aggregation of previous kernel
-            RecursiveVerifier verifier{ &circuit_builder, verifier_input.verification_key };
-            auto pairing_points = verifier.verify_proof(verifier_input.proof);
-            (void)pairing_points; // WORKTODO: aggregate
-        }
-
-        info("Constructing proof of Kernel circuit ", circuit_idx);
-
-        // Construct proof of the "kernel" circuit
-        // WORKTODO: Eventually the below block should be the contents of a method like
-        // "goblin.accumulate(circuit_builder)". Should the return be a VerifierInput?
-        {
-            GoblinUltraComposer composer;
-            auto instance = composer.create_instance(circuit_builder);
-            auto prover = composer.create_prover(instance);
-            auto honk_proof = prover.construct_proof();
-            // WORKTODO: for now, do a native verification here for good measure.
-            info("Verifying proof of Kernel circuit ", circuit_idx);
-            auto verifier = composer.create_verifier(instance);
-            bool honk_verified = verifier.verify_proof(honk_proof);
-            ASSERT(honk_verified);
-
-            verifier_input.proof = honk_proof;
-            verifier_input.verification_key = instance->compute_verification_key();
-        }
+        // Construct proof of the current kernel circuit to be recursively verified by the next one
+        kernel_input = goblin.accumulate(circuit_builder);
     }
 
-    // auto vms_verified = goblin.prove();
+    // WORKTODO: verify the final kernel proof as part of verifying Goblin at large
+
+    auto vms_verified = goblin.prove();
     // bool verified = goblin.verified && vms_verified;
     // // bool verified = goblin.verify(proof)
+    EXPECT_TRUE(vms_verified);
     // EXPECT_TRUE(verified);
 }
 

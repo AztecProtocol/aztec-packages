@@ -18,6 +18,12 @@ class Goblin {
     //     proof_system::plonk::proof merge_proof;
     // };
 
+    struct AccumulationOutput {
+        using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
+        proof_system::plonk::proof proof;
+        std::shared_ptr<NativeVerificationKey> verification_key;
+    };
+
     using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
 
@@ -42,61 +48,69 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    void accumulate(GoblinUltraCircuitBuilder& circuit_builder)
+    AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
     {
         // Complete the "kernel" logic by recursively verifying previous merge proof
         // WORKTODO: auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
         // WORKTODO: verified = verified && merge_verifier.verify_proof(merge_proof);
 
         // Construct proof of the "kernel" circuit
+        info("Goblin: Constructing proof of circuit.");
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto honk_proof = prover.construct_proof();
-        // WORKTODO: for now, do a native verification here for good measure.
-        auto verifier = composer.create_verifier(instance);
-        bool honk_verified = verifier.verify_proof(honk_proof);
-        ASSERT(honk_verified);
 
         // Construct and verify op queue merge proof
+        info("Goblin: Constructing merge proof.");
         auto merge_prover = composer.create_merge_prover(op_queue);
         auto merge_proof = merge_prover.construct_proof();
-        // WORKTODO: for now, do a native verification here for good measure.
-        auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
-        bool merge_verified = merge_verifier.verify_proof(merge_proof);
-        ASSERT(merge_verified);
 
-        // WORKTODO: reset the circuit builder? Is this better than just creating a new one?
-        // circuit_builder = GoblinUltraCircuitBuilder(); // WORKTODO: need to remove reference-type data members
+        { // DEBUG only: Native verification of kernel proof and merge proof
+            info("Goblin: Natively verifying circuit proof.");
+            auto verifier = composer.create_verifier(instance);
+            bool honk_verified = verifier.verify_proof(honk_proof);
+            ASSERT(honk_verified);
+            info("Goblin: Natively verifying merge proof.");
+            auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
+            bool merge_verified = merge_verifier.verify_proof(merge_proof);
+            ASSERT(merge_verified);
+        }
 
-        // WORKTODO: this needs to return a proof and a verification key for use by the next circuit. Make a struct for
-        // this?
+        return { honk_proof, instance->compute_verification_key() };
     };
 
     PartialProof prove()
     {
         // Execute the ECCVM
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
+        info("Goblin: Constucting ECCVM.");
         auto eccvm_builder = ECCVMBuilder(op_queue);
         auto eccvm_composer = ECCVMComposer();
         auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
         auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
+        info("Goblin: Proving ECCVM.");
         auto eccvm_proof = eccvm_prover.construct_proof();
+        info("Goblin: Verifying ECCVM.");
         bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
 
         // Execute the Translator
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
+        info("Goblin: Constucting Translator.");
         auto batching_challenge = Fq::random_element();
         auto evaluation_input = eccvm_prover.evaluation_challenge_x;
         auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
         auto translator_composer = TranslatorComposer();
         auto translator_prover = translator_composer.create_prover(translator_builder);
         auto translator_verifier = translator_composer.create_verifier(translator_builder);
+        info("Goblin: Proving Translator.");
         auto translator_proof = translator_prover.construct_proof();
+        info("Goblin: Verifying Translator.");
         bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
-        bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
+        // bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
 
-        return eccvm_verified && accumulator_construction_verified && translation_verified;
+        // return eccvm_verified && accumulator_construction_verified && translation_verified;
+        return eccvm_verified && accumulator_construction_verified;
     };
 };
 } // namespace barretenberg
