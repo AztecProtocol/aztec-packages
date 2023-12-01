@@ -59,7 +59,16 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = flavor::GoblinUltra::NUM_WIRES;
+    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
+    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
+    // Note: this number does not include the individual sorted list polynomials.
     static constexpr size_t NUM_ALL_ENTITIES = flavor::GoblinUltra::NUM_ALL_ENTITIES;
+    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
+    // assignment of witnesses. We again choose a neutral name.
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = flavor::GoblinUltra::NUM_PRECOMPUTED_ENTITIES;
+    // The total number of witness entities not including shifts.
+    static constexpr size_t NUM_WITNESS_ENTITIES = flavor::GoblinUltra::NUM_WITNESS_ENTITIES;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from GoblinUltra
     using Relations = GoblinUltra::Relations_<FF>;
@@ -76,12 +85,17 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  private:
-    template <typename DataType> using PrecomputedEntities = GoblinUltra::PrecomputedEntities<DataType>;
-    template <typename DataType> using WitnessEntities = GoblinUltra::WitnessEntities<DataType>;
-    template <typename DataType> using AllEntities = GoblinUltra::AllEntities<DataType>;
-
   public:
+    /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public GoblinUltra::AllEntities<FF> {
+      public:
+        using Base = GoblinUltra::AllEntities<FF>;
+        using Base::Base;
+        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
+    };
     /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -91,7 +105,7 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
      * circuits.
      * This differs from GoblinUltra in how we construct the commitments.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public VerificationKey_<GoblinUltra::PrecomputedEntities<Commitment>> {
       public:
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -101,7 +115,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const auto& native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment>>(native_key->circuit_size, native_key->num_public_inputs)
+            : VerificationKey_<GoblinUltra::PrecomputedEntities<Commitment>>(native_key->circuit_size,
+                                                                             native_key->num_public_inputs)
         {
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
@@ -136,9 +151,9 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
 
     using CommitmentLabels = GoblinUltra::CommitmentLabels;
     // Reuse the VerifierCommitments from GoblinUltra
-    using VerifierCommitments = GoblinUltra::VerifierCommitments_<FF>;
+    using VerifierCommitments = GoblinUltra::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from GoblinUltra
-    using Transcript = GoblinUltra::Transcript_<FF>;
+    using Transcript = GoblinUltra::Transcript_<Commitment>;
 };
 
 } // namespace proof_system::honk::flavor

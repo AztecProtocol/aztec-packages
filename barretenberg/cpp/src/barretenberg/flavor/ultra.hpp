@@ -41,7 +41,7 @@ class Ultra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -133,17 +133,11 @@ class Ultra {
                               w_r,          // column 1
                               w_o,          // column 2
                               w_4,          // column 3
-                              sorted_1,     // column 4
-                              sorted_2,     // column 5
-                              sorted_3,     // column 6
-                              sorted_4,     // column 7
-                              sorted_accum, // column 8
-                              z_perm,       // column 9
-                              z_lookup)     // column 10
+                              sorted_accum, // column 4
+                              z_perm,       // column 5
+                              z_lookup)     // column 6
 
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
-        // The sorted concatenations of table and witness data needed for plookup.
-        RefVector<DataType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**
@@ -307,6 +301,11 @@ class Ultra {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
+
+    /**
      * @brief A container for commitment labels.
      * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
      * has, however, been useful during debugging to have these labels available.
@@ -355,10 +354,8 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
-                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
             q_m = verification_key->q_m;
             q_l = verification_key->q_l;
             q_r = verification_key->q_r;
@@ -397,7 +394,7 @@ class Ultra {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public BaseTranscript<FF> {
+    class Transcript : public BaseTranscript {
       public:
         // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
@@ -421,7 +418,7 @@ class Ultra {
 
         // Used by verifier to initialize the transcript
         Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
         static Transcript prover_init_empty()

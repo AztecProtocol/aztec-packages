@@ -42,7 +42,7 @@ class GoblinUltra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -82,7 +82,6 @@ class GoblinUltra {
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
 
-  private:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -131,6 +130,9 @@ class GoblinUltra {
         RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
     };
 
+    // GoblinUltra needs to expose more public classes than most flavors due to GoblinUltraRecursive reuse, but these
+    // are internal:
+  private:
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
@@ -145,20 +147,16 @@ class GoblinUltra {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              sorted_1,             // column 4
-                              sorted_2,             // column 5
-                              sorted_3,             // column 6
-                              sorted_4,             // column 7
-                              sorted_accum,         // column 8
-                              z_perm,               // column 9
-                              z_lookup,             // column 10
-                              ecc_op_wire_1,        // column 11
-                              ecc_op_wire_2,        // column 12
-                              ecc_op_wire_3,        // column 13
-                              ecc_op_wire_4,        // column 14
-                              calldata,             // column 15
-                              calldata_read_counts, // column 16
-                              lookup_inverses);     // column 17
+                              sorted_accum,         // column 4
+                              z_perm,               // column 5
+                              z_lookup,             // column 6
+                              ecc_op_wire_1,        // column 7
+                              ecc_op_wire_2,        // column 8
+                              ecc_op_wire_3,        // column 9
+                              ecc_op_wire_4,        // column 10
+                              calldata,             // column 11
+                              calldata_read_counts, // column 12
+                              lookup_inverses);     // column 13
     };
 
     /**
@@ -200,6 +198,7 @@ class GoblinUltra {
         )
     };
 
+  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -277,7 +276,6 @@ class GoblinUltra {
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
@@ -362,6 +360,11 @@ class GoblinUltra {
     };
 
     /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
+
+    /**
      * @brief A container for commitment labels.
      * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
      * has, however, been useful during debugging to have these labels available.
@@ -420,12 +423,11 @@ class GoblinUltra {
     /**
      * Note: Made generic for use in GoblinUltraRecursive.
      **/
-    template <typename Commitment> class VerifierCommitments_ : public AllEntities<Commitment> {
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
-                             [[maybe_unused]] const BaseTranscript<FF>& transcript)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
             this->q_r = verification_key->q_r;
@@ -457,7 +459,7 @@ class GoblinUltra {
         }
     };
     // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
-    using VerifierCommitments = VerifierCommitments_<FF>;
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
     class FoldingParameters {
       public:
         std::vector<FF> gate_separation_challenges;
@@ -468,7 +470,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    template <typename FF> class Transcript_ : public BaseTranscript<FF> {
+    template <typename Commitment> class Transcript_ : public BaseTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -497,89 +499,89 @@ class GoblinUltra {
         Transcript_() = default;
 
         Transcript_(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
         void deserialize_full_transcript() override
         {
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(this->proof_data, num_bytes_read);
+            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            public_input_size = deserialize_from_buffer<uint32_t>(this->proof_data, num_bytes_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(this->proof_data, num_bytes_read);
+            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
             for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(this->proof_data, num_bytes_read));
+                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_bytes_read));
             }
-            w_l_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            calldata_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
+            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        this->proof_data, num_bytes_read));
+                        proof_data, num_bytes_read));
             }
             sumcheck_evaluations =
-                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(this->proof_data, num_bytes_read);
+                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read));
+                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
             }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(this->proof_data, num_bytes_read);
+            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
 
         void serialize_full_transcript() override
         {
-            size_t old_proof_length = this->proof_data.size();
-            this->proof_data.clear();
+            size_t old_proof_length = proof_data.size();
+            proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
-            serialize_to_buffer(circuit_size, this->proof_data);
-            serialize_to_buffer(public_input_size, this->proof_data);
-            serialize_to_buffer(pub_inputs_offset, this->proof_data);
+            serialize_to_buffer(circuit_size, proof_data);
+            serialize_to_buffer(public_input_size, proof_data);
+            serialize_to_buffer(pub_inputs_offset, proof_data);
             for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], this->proof_data);
+                serialize_to_buffer(public_inputs[i], proof_data);
             }
-            serialize_to_buffer(w_l_comm, this->proof_data);
-            serialize_to_buffer(w_r_comm, this->proof_data);
-            serialize_to_buffer(w_o_comm, this->proof_data);
-            serialize_to_buffer(ecc_op_wire_1_comm, this->proof_data);
-            serialize_to_buffer(ecc_op_wire_2_comm, this->proof_data);
-            serialize_to_buffer(ecc_op_wire_3_comm, this->proof_data);
-            serialize_to_buffer(ecc_op_wire_4_comm, this->proof_data);
-            serialize_to_buffer(calldata_comm, this->proof_data);
-            serialize_to_buffer(calldata_read_counts_comm, this->proof_data);
-            serialize_to_buffer(lookup_inverses_comm, this->proof_data);
-            serialize_to_buffer(sorted_accum_comm, this->proof_data);
-            serialize_to_buffer(w_4_comm, this->proof_data);
-            serialize_to_buffer(z_perm_comm, this->proof_data);
-            serialize_to_buffer(z_lookup_comm, this->proof_data);
+            serialize_to_buffer(w_l_comm, proof_data);
+            serialize_to_buffer(w_r_comm, proof_data);
+            serialize_to_buffer(w_o_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
+            serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
+            serialize_to_buffer(calldata_comm, proof_data);
+            serialize_to_buffer(calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(lookup_inverses_comm, proof_data);
+            serialize_to_buffer(sorted_accum_comm, proof_data);
+            serialize_to_buffer(w_4_comm, proof_data);
+            serialize_to_buffer(z_perm_comm, proof_data);
+            serialize_to_buffer(z_lookup_comm, proof_data);
             for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], this->proof_data);
+                serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
-            serialize_to_buffer(sumcheck_evaluations, this->proof_data);
+            serialize_to_buffer(sumcheck_evaluations, proof_data);
             for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], this->proof_data);
+                serialize_to_buffer(zm_cq_comms[i], proof_data);
             }
-            serialize_to_buffer(zm_cq_comm, this->proof_data);
-            serialize_to_buffer(zm_pi_comm, this->proof_data);
+            serialize_to_buffer(zm_cq_comm, proof_data);
+            serialize_to_buffer(zm_pi_comm, proof_data);
 
-            ASSERT(this->proof_data.size() == old_proof_length);
+            ASSERT(proof_data.size() == old_proof_length);
         }
     };
     // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
-    using Transcript = Transcript_<FF>;
+    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace proof_system::honk::flavor
