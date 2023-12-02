@@ -114,6 +114,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
 export async function prove(
   bytecodePath: string,
+  pkPath: string,
   witnessPath: string,
   crsPath: string,
   isRecursive: boolean,
@@ -124,6 +125,13 @@ export async function prove(
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
+    
+    if (!(pkPath == "")) {
+      debug(`loading proving key from ${pkPath}...`);
+      const pk = new RawBuffer(readFileSync(pkPath));
+      await api.acirLoadProvingKey(acirComposer, new RawBuffer(readFileSync(pkPath)));
+    }
+
     const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
     debug(`done.`);
 
@@ -316,12 +324,13 @@ program
   .command('prove')
   .description('Generate a proof and write it to a file.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-i, --proving-key-path <path>', 'Read proving key from file', "")
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-r, --recursive', 'prove using recursive prover', false)
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, recursive, outputPath, crsPath }) => {
+  .action(async ({ bytecodePath, provingKeyPath, witnessPath, recursive, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await prove(bytecodePath, witnessPath, crsPath, recursive, outputPath);
+    await prove(bytecodePath, provingKeyPath,  witnessPath, crsPath, recursive, outputPath);
   });
 
 program

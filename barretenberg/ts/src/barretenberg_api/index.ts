@@ -328,6 +328,18 @@ export class BarretenbergApi {
     return;
   }
 
+  async acirLoadProvingKey(acirComposerPtr: Ptr, pkBuf: Uint8Array): Promise<void> {
+    const inArgs = [acirComposerPtr, pkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = await this.wasm.callWasmExport(
+      'acir_load_proving_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
   async acirCreateProof(
     acirComposerPtr: Ptr,
     constraintSystemBuf: Uint8Array,
@@ -754,6 +766,18 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [];
     const result = this.wasm.callWasmExport(
       'acir_init_proving_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return;
+  }
+
+  acirLoadProvingKey(acirComposerPtr: Ptr, pkBuf: Uint8Array): void {
+    const inArgs = [acirComposerPtr, pkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [];
+    const result = this.wasm.callWasmExport(
+      'acir_load_proving_key',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

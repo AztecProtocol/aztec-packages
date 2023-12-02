@@ -125,12 +125,8 @@ void prove(const std::string& bytecodePath,
         info("loading proving key from: ", pk_path);
         auto pk_data = from_buffer<plonk::proving_key_data>(read_file(pk_path));
         acir_composer.load_proving_key(std::move(pk_data));
-    } else {
-        info("initing pk");
-        acir_composer.init_proving_key(constraint_system);
     }
 
-    // acir_composer.init_proving_key(constraint_system);
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
 
     if (outputPath == "-") {
