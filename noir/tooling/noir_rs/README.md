@@ -2,7 +2,7 @@
 
 Welcome to `noir_rs`, a Rust-centric package designed for users seeking a straightforward, lightweight interface to generate and verify zkSNARK proofs without any WebAssembly (WASM) dependency.
 
-![Version](https://img.shields.io/badge/version-0.16.1-blue)
+![Version](https://img.shields.io/badge/version-0.19.3-blue)
 
 ## Key Highlights:
 
