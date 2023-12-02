@@ -39,6 +39,14 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
     acir_composer->init_proving_key(constraint_system);
 }
 
+WASM_EXPORT void acir_load_proving_key(in_ptr acir_composer_ptr, uint8_t const* pk_buf)
+{
+    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto pk_data = from_buffer<plonk::proving_key_data>(pk_buf);
+
+    acir_composer->load_proving_key(std::move(pk_data));
+}
+
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* acir_vec,
                                    uint8_t const* witness_vec,

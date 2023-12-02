@@ -106,11 +106,13 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  * - Filesystem: The proof is written to the path specified by outputPath
  *
  * @param bytecodePath Path to the file containing the serialized circuit
+//  * @param pkPath Path to the file containing the serialized proving key
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
  */
 void prove(const std::string& bytecodePath,
+           const std::string& pk_path,
            const std::string& witnessPath,
            bool recursive,
            const std::string& outputPath)
@@ -118,6 +120,17 @@ void prove(const std::string& bytecodePath,
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
     auto acir_composer = init(constraint_system);
+
+    if (!pk_path.empty()) {
+        info("loading proving key from: ", pk_path);
+        auto pk_data = from_buffer<plonk::proving_key_data>(read_file(pk_path));
+        acir_composer.load_proving_key(std::move(pk_data));
+    } else {
+        info("initing pk");
+        acir_composer.init_proving_key(constraint_system);
+    }
+
+    // acir_composer.init_proving_key(constraint_system);
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
 
     if (outputPath == "-") {
@@ -380,7 +393,7 @@ int main(int argc, char* argv[])
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
         std::string vk_path = get_option(args, "-k", "./target/vk");
-        std::string pk_path = get_option(args, "-r", "./target/pk");
+        std::string pk_path = get_option(args, "-i", "./target/pk");
         CRS_PATH = get_option(args, "-c", "./crs");
         bool recursive = flag_present(args, "-r") || flag_present(args, "--recursive");
 
@@ -400,7 +413,10 @@ int main(int argc, char* argv[])
         }
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, recursive, output_path);
+
+            // Overwriting pk, as we want to use a default value of an empty string when we are not *reading* a pk
+            std::string pk_path = get_option(args, "-i", "");
+            prove(bytecode_path, pk_path, witness_path, recursive, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {

@@ -41,6 +41,12 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
     return proving_key_;
 }
 
+void AcirComposer::load_proving_key(proof_system::plonk::proving_key_data&& data)
+{
+    proving_key_ = std::make_shared<proof_system::plonk::proving_key>(
+        std::move(data), srs::get_crs_factory()->get_prover_crs(data.circuit_size));
+}
+
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)
