@@ -23,7 +23,6 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { compileNoir, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
 import { CompleteAddress, ContractData, ExtendedNote, LogFilter } from '@aztec/types';
 
-import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { Command, Option } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -151,6 +150,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .summary('Generates a LibP2P peer private key.')
     .description('Generates a private key that can be used for running a node on a LibP2P network.')
     .action(async () => {
+      const { createSecp256k1PeerId } = await import('@libp2p/peer-id-factory');
       const peerId = await createSecp256k1PeerId();
       const exportedPeerId = Buffer.from(peerId.privateKey!).toString('hex');
       log(`Private key: ${exportedPeerId}`);
@@ -350,6 +350,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       await client.addContracts([{ artifact, completeAddress, portalContract }]);
       log(`\nContract added to PXE at ${contractAddress.toString()}\n`);
     });
+
   program
     .command('get-tx-receipt')
     .description('Gets the receipt for the specified transaction hash.')

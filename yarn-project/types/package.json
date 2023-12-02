@@ -5,7 +5,8 @@
   "exports": {
     ".": "./dest/index.js",
     "./stats": "./dest/stats/index.js",
-    "./jest": "./dest/jest/index.js"
+    "./jest": "./dest/jest/index.js",
+    "./tx": "./dest/tx/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

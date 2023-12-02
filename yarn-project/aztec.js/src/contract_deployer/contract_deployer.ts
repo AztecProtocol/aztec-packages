@@ -1,8 +1,11 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import { PXE, PublicKey } from '@aztec/types';
 
-import { DeployMethod } from './deploy_method.js';
+import { DeployMethod } from '../contract/deploy_method.js';
+import { Contract } from '../contract/index.js';
+import { Wallet } from '../wallet/wallet.js';
 
 /**
  * A class for deploying contract.
@@ -21,6 +24,12 @@ export class ContractDeployer {
    * @returns A DeployMethod instance configured with the ABI, PXE, and constructor arguments.
    */
   public deploy(...args: any[]) {
-    return new DeployMethod(this.publicKey ?? Point.ZERO, this.pxe, this.artifact, args);
+    const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
+    if (!isWallet(this.pxe)) {
+      throw new Error(`A wallet is required for creating a contract instance`);
+    }
+    const wallet = this.pxe;
+    const postDeployCtor = (address: AztecAddress) => Contract.at(address, this.artifact, wallet);
+    return new DeployMethod(this.publicKey ?? Point.ZERO, this.pxe, this.artifact, postDeployCtor, args);
   }
 }

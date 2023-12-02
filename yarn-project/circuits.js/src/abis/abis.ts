@@ -128,7 +128,7 @@ const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT
  */
 export function computeFunctionTree(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return functionTreeRootCalculator.computeTree(leaves).map(b => Fr.fromBuffer(b));
+  return functionTreeRootCalculator.computeTree(leaves).map((b: any) => Fr.fromBuffer(b));
 }
 
 /**

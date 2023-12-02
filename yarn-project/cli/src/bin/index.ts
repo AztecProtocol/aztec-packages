@@ -1,6 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createDebugLogger } from '@aztec/aztec.js';
-import { createConsoleLogger } from '@aztec/foundation/log';
+import { createConsoleLogger, createDebugLogger } from '@aztec/aztec.js';
 
 import { getProgram } from '../index.js';
 

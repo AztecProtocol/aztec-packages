@@ -9,21 +9,21 @@
     {
       "path": "../aztec.js"
     },
-    {
-      "path": "../ethereum"
-    },
-    {
-      "path": "../foundation"
-    },
-    {
-      "path": "../l1-artifacts"
-    },
-    {
-      "path": "../noir-compiler"
-    },
-    {
-      "path": "../noir-contracts"
-    },
+    // {
+    //   "path": "../ethereum"
+    // },
+    // {
+    //   "path": "../foundation"
+    // },
+    // {
+    //   "path": "../l1-artifacts"
+    // },
+    // {
+    //   "path": "../noir-compiler"
+    // },
+    // {
+    //   "path": "../noir-contracts"
+    // },
     {
       "path": "../types"
     }
