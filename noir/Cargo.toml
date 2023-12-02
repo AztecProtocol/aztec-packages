@@ -22,6 +22,12 @@ members = [
     "tooling/nargo_toml",
     "tooling/noirc_abi",
     "tooling/noirc_abi_wasm",
+    "tooling/noir_rs/barretenberg",
+    "tooling/noir_rs/acir_composer",
+    "tooling/noir_rs/blackbox_solver",
+    "tooling/noir_rs/acvm_runtime",
+    "tooling/noir_rs/examples/poly_check_circuit",
+    "tooling/noir_rs",
     # ACVM
     "acvm-repo/acir_field",
     "acvm-repo/acir",
@@ -33,6 +39,7 @@ members = [
     "acvm-repo/blackbox_solver",
     "acvm-repo/barretenberg_blackbox_solver",
 ]
+
 default-members = ["tooling/nargo_cli"]
 resolver = "2"
 
@@ -78,6 +85,11 @@ noir_lsp = { path = "tooling/lsp" }
 noir_debugger = { path = "tooling/debugger" }
 noirc_abi = { path = "tooling/noirc_abi" }
 bb_abstraction_leaks = { path = "tooling/bb_abstraction_leaks" }
+noir_rs_barretenberg = { path = "tooling/noir_rs/barretenberg" }
+noir_rs_acir_composer = { path = "tooling/noir_rs/acir_composer" }
+noir_rs_acvm_runtime = { path = "tooling/noir_rs/acvm_runtime" }
+noir_rs_blackbox_solver = { path = "tooling/noir_rs/blackbox_solver" }
+noir_rs = { path = "tooling/noir_rs" }
 
 # LSP
 async-lsp = { version = "0.1.0", default-features = false }

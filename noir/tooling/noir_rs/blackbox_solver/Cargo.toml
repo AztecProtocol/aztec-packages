@@ -1,0 +1,34 @@
+[package]
+name = "noir_rs_blackbox_solver"
+version = "0.1.0"
+authors = ["Bartosz Nowak https://github.com/Okm165"]
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+acir.workspace = true
+acvm.workspace = true
+noir_rs_barretenberg.workspace = true
+
+blake2 = "0.10.6"
+hex = "0.4.3"
+k256 = { version = "0.13.1", features = [
+    "ecdsa",
+    "ecdsa-core",
+    "sha256",
+    "digest",
+    "arithmetic",
+] }
+num-bigint = "0.4.4"
+p256 = { version = "0.13.2", features = [
+    "ecdsa",
+    "ecdsa-core",
+    "sha256",
+    "digest",
+    "arithmetic",
+] }
+sha2 = "0.10.6"
+sha3 = "0.10.6"
+thiserror = "1.0.49"

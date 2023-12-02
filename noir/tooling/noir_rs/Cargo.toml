@@ -1,0 +1,23 @@
+[package]
+name = "noir_rs"
+version = "0.1.0"
+authors = ["Bartosz Nowak https://github.com/Okm165"]
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+acir.workspace = true
+acvm.workspace = true
+noir_rs_acir_composer.workspace = true
+noir_rs_acvm_runtime.workspace = true
+noir_rs_barretenberg.workspace = true
+noir_rs_blackbox_solver.workspace = true
+base64 = "0.21.4"
+bincode = "1.3.3"
+flate2 = "1.0.27"
+hex = "0.4.3"
+serde = "1.0.189"
+serde_json = "1.0.107"
+thiserror = "1.0.49"

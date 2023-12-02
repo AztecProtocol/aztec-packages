@@ -1,0 +1,7 @@
+[package]
+name = "poly_check_circuit"
+type = "bin"
+authors = [""]
+compiler_version = "0.19.3"
+
+[dependencies]
