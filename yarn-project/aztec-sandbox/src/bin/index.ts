@@ -2,9 +2,10 @@
 import { createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { AccountManager, createAztecNodeClient, deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
+import { init } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
+import { NoirCommit } from '@aztec/noir-compiler/versions';
 import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 import { GrumpkinScalar, PXEService, createPXERpcServer } from '@aztec/pxe';
 
@@ -92,6 +93,9 @@ async function main() {
 
   installSignalHandlers();
 
+  // Init crypto (bb.js).
+  await init();
+
   const logStrings = [];
 
   const logPath = setupFileDebugLog();
@@ -103,7 +107,7 @@ async function main() {
 
   // Code path for starting Sandbox
   if (mode === SandboxMode.Sandbox) {
-    logger.info(`Setting up Aztec Sandbox v${version} (noir v${NoirWasmVersion}), please stand by...`);
+    logger.info(`Setting up Aztec Sandbox v${version} (noir ${NoirCommit}), please stand by...`);
 
     const { pxe, node, stop, accounts } = await createAndInitialiseSandbox(deployTestAccounts);
 
@@ -121,7 +125,7 @@ async function main() {
       const accountLogStrings = await createAccountLogs(accounts, pxe);
       logStrings.push(...accountLogStrings);
     }
-    logStrings.push(`Aztec Sandbox v${version} (noir v${NoirWasmVersion}) is now ready for use!`);
+    logStrings.push(`Aztec Sandbox v${version} (noir ${NoirCommit}) is now ready for use!`);
   } else if (mode === SandboxMode.Node) {
     // Code path for starting Node only
     const nodeConfig = getNodeConfigEnvVars();
@@ -141,9 +145,7 @@ async function main() {
 
     // Start Node JSON-RPC server
     startHttpRpcServer(node, createAztecNodeRpcServer, 8080); // Use standard 8080 when no PXE is running
-    logStrings.push(
-      `Aztec Node v${version} (noir v${NoirWasmVersion}) is now ready for use in port ${AZTEC_NODE_PORT}!`,
-    );
+    logStrings.push(`Aztec Node v${version} (noir ${NoirCommit}) is now ready for use in port ${AZTEC_NODE_PORT}!`);
   } else if (mode === SandboxMode.PXE) {
     // Code path for starting PXE only
 
@@ -163,7 +165,7 @@ async function main() {
       logStrings.push(...accountLogStrings);
     }
 
-    logStrings.push(`PXE v${version} (noir v${NoirWasmVersion}) is now ready for use in port ${PXE_PORT}!`);
+    logStrings.push(`PXE v${version} (noir ${NoirCommit}) is now ready for use in port ${PXE_PORT}!`);
   } else if (mode === SandboxMode.P2PBootstrap) {
     // Code path for starting a P2P bootstrap node
     const config = getP2PConfigEnvVars();

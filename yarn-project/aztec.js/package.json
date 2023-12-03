@@ -15,6 +15,7 @@
     "./eth_address": "./dest/api/eth_address.js",
     "./ethereum": "./dest/api/ethereum.js",
     "./fields": "./dest/api/fields.js",
+    "./init": "./dest/api/init.js",
     "./log_id": "./dest/api/log_id.js",
     "./tx_hash": "./dest/api/tx_hash.js"
   },

@@ -1,20 +1,6 @@
 import { BarretenbergSync, Fr } from '@aztec/bb.js';
 
 /**
- * Init the bb singleton. This constructs (if not already) the barretenberg sync api within bb.js itself.
- * It takes about 100-200ms to initialise. It may not seem like much, but when in conjunction with many other things
- * initialising, developers may want to pick precisely when to incur this cost.
- * If in a test environment, we'll just do it on module load.
- */
-export async function pedersenInit() {
-  await BarretenbergSync.initSingleton();
-}
-
-if (process.env.NODE_ENV === 'test') {
-  await pedersenInit();
-}
-
-/**
  * Create a pedersen commitment (point) from an array of input fields.
  * Left pads any inputs less than 32 bytes.
  */

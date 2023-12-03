@@ -1,3 +1,4 @@
+import { initAztecJs } from '@aztec/aztec.js/init';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { addNoirCompilerCommanderActions } from '@aztec/noir-compiler/cli';
@@ -49,6 +50,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       .env('PRIVATE_KEY')
       .argParser(parsePrivateKey)
       .makeOptionMandatory(mandatory);
+
+  program.hook('preAction', initAztecJs);
 
   program
     .command('deploy-l1-contracts')
