@@ -126,11 +126,11 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
                                                                          current_input_aggregation_object,
                                                                          constraint.nested_aggregation_object,
                                                                          has_valid_witness_assignments);
+        current_input_aggregation_object = current_output_aggregation_object;
     }
 
     // Now that the circuit has been completely built, we add the output aggregation as public
-    // inputs and we ensure that they are first in the public inputs vector, so that we can truncate
-    // them off of the proof by trimming the first 16 * 32 bytes of the proof.
+    // inputs.
     if (!constraint_system.recursion_constraints.empty()) {
 
         // First add the output aggregation object as public inputs
