@@ -53,7 +53,7 @@ RUN apk update && apk add --no-cache bash jq curl
 # Copy L1 contracts.
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Copy in bb.js
-COPY --from=bb.js /usr/src/barretenberg/ts/package /usr/src/barretenberg/ts/package
+COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 # Copy in nargo
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
 # Copy in noir packages

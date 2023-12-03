@@ -76,15 +76,21 @@ async function main() {
 
   const mode = MODE as SandboxMode;
 
-  const createShutdown = (cb?: () => Promise<void>) => async () => {
-    logger.info('Shutting down...');
-    if (cb) {
-      await cb();
-    }
-    process.exit(0);
+  const installSignalHandlers = (cb?: () => Promise<void>) => {
+    const shutdown = async () => {
+      logger.info('Shutting down...');
+      if (cb) {
+        await cb();
+      }
+      process.exit(0);
+    };
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   };
 
-  let shutdown: () => Promise<void>;
+  installSignalHandlers();
 
   const logStrings = [];
 
@@ -102,7 +108,7 @@ async function main() {
     const { pxe, node, stop, accounts } = await createAndInitialiseSandbox(deployTestAccounts);
 
     // Create shutdown cleanup function
-    shutdown = createShutdown(stop);
+    installSignalHandlers(stop);
 
     // Start Node and PXE JSON-RPC servers
     startHttpRpcServer(node, createAztecNodeRpcServer, AZTEC_NODE_PORT);
@@ -131,7 +137,7 @@ async function main() {
     }
 
     const node = await createAztecNode(nodeConfig);
-    shutdown = createShutdown(node.stop);
+    installSignalHandlers(node.stop);
 
     // Start Node JSON-RPC server
     startHttpRpcServer(node, createAztecNodeRpcServer, 8080); // Use standard 8080 when no PXE is running
@@ -145,7 +151,7 @@ async function main() {
     const node = createAztecNodeClient(AZTEC_NODE_URL);
 
     const pxe = await createAztecPXE(node);
-    shutdown = createShutdown(pxe.stop);
+    installSignalHandlers(pxe.stop);
 
     // Start PXE JSON-RPC server
     startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
@@ -163,18 +169,14 @@ async function main() {
     const config = getP2PConfigEnvVars();
     const bootstrapNode = new BootstrapNode(logger);
     await bootstrapNode.start(config);
-    shutdown = createShutdown(bootstrapNode.stop);
+    installSignalHandlers(bootstrapNode.stop);
     logStrings.push(
       `Bootstrap P2P node is now ready for use. Listening on: ${config.tcpListenIp}:${config.tcpListenPort}.`,
     );
-  } else {
-    shutdown = createShutdown();
   }
 
   // Log startup details
   logger.info(`${splash}\n${github}\n\n`.concat(...logStrings));
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
 }
 
 /**
