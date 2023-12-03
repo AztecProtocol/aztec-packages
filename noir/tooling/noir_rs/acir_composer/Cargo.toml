@@ -1,6 +1,6 @@
 [package]
 name = "noir_rs_acir_composer"
-version = "0.1.0"
+version.workspace = true
 authors = ["Bartosz Nowak https://github.com/Okm165"]
 edition.workspace = true
 license.workspace = true
@@ -9,8 +9,4 @@ repository.workspace = true
 
 [dependencies]
 noir_rs_barretenberg.workspace = true
-
-base64 = "0.21.4"
-flate2 = "1.0.27"
-hex = "0.4.3"
-thiserror = "1.0.49"
+thiserror.workspace = true

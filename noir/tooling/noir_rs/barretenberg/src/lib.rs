@@ -4,7 +4,7 @@
 #![allow(non_snake_case)]
 
 use core::slice;
-use std::ffi::{CStr, c_char};
+use std::ffi::CStr;
 
 pub mod acir;
 pub mod circuit;
@@ -18,13 +18,10 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 // TODO create proper logging manager
 #[no_mangle]
-pub extern "C" fn logstr(ptr: *const ::std::os::raw::c_char) {
-    let str = unsafe {parse_c_str(ptr)};
-    match str {
-        // Some(str) => println!("{}", str),
-        // None => println!("Could not parse logstr")
-        Some(_) => (),
-        None => (),
+pub unsafe extern "C" fn logstr(ptr: *const ::std::os::raw::c_char) {
+    let str = unsafe { parse_c_str(ptr) };
+    if let Some(_str) = str {
+        // println!("{}", str);
     }
 }
 
