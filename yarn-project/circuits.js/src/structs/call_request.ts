@@ -83,6 +83,14 @@ export class CallRequest {
      * The call context of the contract calling the function.
      */
     public callerContext: CallerContext,
+    /**
+     * The call context of the contract calling the function.
+     */
+    public startSideEffectCounter: Fr,
+    /**
+     * The call context of the contract calling the function.
+     */
+    public endSideEffectCounter: Fr,
   ) {}
 
   toBuffer() {
@@ -96,7 +104,13 @@ export class CallRequest {
    */
   public static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new CallRequest(Fr.fromBuffer(reader), reader.readObject(AztecAddress), reader.readObject(CallerContext));
+    return new CallRequest(
+      Fr.fromBuffer(reader),
+      reader.readObject(AztecAddress),
+      reader.readObject(CallerContext),
+      new Fr(0),
+      new Fr(0),
+    );
   }
 
   isEmpty() {
@@ -108,14 +122,16 @@ export class CallRequest {
    * @returns A new instance of CallRequest with zero hash, caller contract address and caller context.
    */
   public static empty() {
-    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty());
+    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), new Fr(0), new Fr(0));
   }
 
   equals(callRequest: CallRequest) {
     return (
       callRequest.hash.equals(this.hash) &&
       callRequest.callerContractAddress.equals(this.callerContractAddress) &&
-      callRequest.callerContext.equals(this.callerContext)
+      callRequest.callerContext.equals(this.callerContext) && 
+      callRequest.startSideEffectCounter.equals(this.startSideEffectCounter) &&
+      callRequest.endSideEffectCounter.equals(this.endSideEffectCounter) &&
     );
   }
 }

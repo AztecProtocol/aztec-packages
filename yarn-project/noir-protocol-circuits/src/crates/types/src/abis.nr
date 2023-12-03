@@ -29,3 +29,4 @@ mod public_call_data;
 
 mod public_circuit_public_inputs;
 mod private_circuit_public_inputs;
+mod side_effect;

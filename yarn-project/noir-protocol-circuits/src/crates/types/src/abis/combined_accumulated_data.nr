@@ -5,10 +5,11 @@ use crate::{
         optionally_revealed_data::OptionallyRevealedData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
+        side_effect::SideEffect,
     },
     hash::NUM_FIELDS_PER_SHA256,
     mocked::AggregationObject,
-    utils::bounded_vec::BoundedVec,
+    utils::bounded_vec::BoundedVec
 };
 use dep::aztec::constants_gen::{
     MAX_READ_REQUESTS_PER_TX,
@@ -27,13 +28,13 @@ use dep::aztec::constants_gen::{
 struct CombinedAccumulatedData {
     aggregation_object: AggregationObject,
 
-    read_requests: [Field; MAX_READ_REQUESTS_PER_TX],
-    pending_read_requests: [Field; MAX_PENDING_READ_REQUESTS_PER_TX],
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
+    pending_read_requests: [SideEffect; MAX_PENDING_READ_REQUESTS_PER_TX],
 
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffect; MAX_NEW_NULLIFIERS_PER_TX],
 
-    // TODO: delete nullified_commitments when we do incremental squashes
+    // TODO: delete nullified_commitments when (if?) we do incremental squashes
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
@@ -60,8 +61,8 @@ struct CombinedAccumulatedData {
 struct FinalAccumulatedData {
     aggregation_object: AggregationObject,
 
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
+    new_nullifiers: [SideEffect; MAX_NEW_NULLIFIERS_PER_TX],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
     // For pending nullifiers, we have:
@@ -86,11 +87,11 @@ struct FinalAccumulatedData {
 struct CombinedAccumulatedDataBuilder {
     aggregation_object: AggregationObject,
 
-    read_requests: BoundedVec<Field,MAX_READ_REQUESTS_PER_TX>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_TX>,
+    read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
+    pending_read_requests: BoundedVec<SideEffect, MAX_PENDING_READ_REQUESTS_PER_TX>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_TX>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
+    new_nullifiers: BoundedVec<SideEffect, MAX_NEW_NULLIFIERS_PER_TX>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,

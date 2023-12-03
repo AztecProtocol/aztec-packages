@@ -13,7 +13,7 @@ struct CallContext{
     is_static_call : bool,
     is_contract_deployment : bool,
 
-    start_side_effect_counter : Field,  // maybe an int?  but seems unlikely to overflow
+    start_side_effect_counter : Field,  // maybe an int?
 }
 
 impl CallContext {

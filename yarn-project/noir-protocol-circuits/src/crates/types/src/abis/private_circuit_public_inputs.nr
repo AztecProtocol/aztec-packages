@@ -2,6 +2,7 @@ use crate::{
     abis::{
         call_context::CallContext,
         historical_block_data::HistoricalBlockData,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::NUM_FIELDS_PER_SHA256,
@@ -27,11 +28,11 @@ struct PrivateCircuitPublicInputs {
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
-    read_requests: [Field; MAX_READ_REQUESTS_PER_CALL],
-    pending_read_requests: [Field; MAX_PENDING_READ_REQUESTS_PER_CALL],
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
+    pending_read_requests: [SideEffect; MAX_PENDING_READ_REQUESTS_PER_CALL],
 
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
 
     private_call_stack_hashes: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
