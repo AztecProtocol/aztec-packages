@@ -74,6 +74,8 @@ RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .
+# List all included files for debugging.
+RUN find . -type f
 
 # Install packages and rebuild the global cache with hard links.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
