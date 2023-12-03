@@ -146,7 +146,11 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                                   transcript::HashType::PedersenBlake3s,
                                                   16);
 
-        const std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
+        std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
+        // Truncate the public inputs because the ACIR API expects proofs without public inputs
+        proof_witnesses.erase(proof_witnesses.begin(),
+                              proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+
         const std::vector<barretenberg::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
 
         const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
