@@ -10,28 +10,47 @@ import { TreeBase } from '../tree_base.js';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');
 
-/* eslint-disable */
-
-// TODO
-
-interface Empty<T> {
-  empty(): T;
-}
-
-interface DummyBuilder<T> {
-  buildDummy(key: bigint): T;
-}
-
-interface FromBuffer<T> {
-  fromBuffer(buffer: Buffer): T;
-}
-
-interface Clone<T> {
-  clone(t: T): T;
-}
-
-interface PreimageFactory<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>> {
+/**
+ * Factory for creating leaf preimages.
+ */
+export interface PreimageFactory<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>> {
+  /**
+   * Creates a new preimage from a leaf.
+   * @param leaf - Leaf to create a preimage from.
+   * @param nextKey - Next key of the leaf.
+   * @param nextIndex - Next index of the leaf.
+   */
   fromLeaf(leaf: Leaf, nextKey: bigint, nextIndex: bigint): Preimage;
+  /**
+   * Creates a new preimage from a buffer.
+   * @param buffer - Buffer to create a preimage from.
+   */
+  fromBuffer(buffer: Buffer): Preimage;
+  /**
+   * Creates an empty preimage.
+   */
+  empty(): Preimage;
+  /**
+   * Creates a copy of a preimage.
+   * @param preimage - Preimage to be cloned.
+   */
+  clone(preimage: Preimage): Preimage;
+}
+
+/**
+ * Factory for creating leaves.
+ */
+export interface LeafFactory<Leaf> {
+  /**
+   * Creates a new leaf from a buffer.
+   * @param key - Key of the leaf.
+   */
+  buildDummy(key: bigint): Leaf;
+  /**
+   * Creates a new leaf from a buffer.
+   * @param buffer - Buffer to create a leaf from.
+   */
+  fromBuffer(buffer: Buffer): Leaf;
 }
 
 const leafIndexToDbKey = (name: string, index: bigint) => {
@@ -42,6 +61,9 @@ const leafKeyToDbKey = (name: string, key: bigint) => {
   return `${name}:leaf_index_by_leaf_key:${toBufferBE(key, 32).toString('hex')}`;
 };
 
+/**
+ * Standard implementation of an indexed tree.
+ */
 export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>
   extends TreeBase
   implements IndexedTree<Leaf, Preimage>
@@ -54,11 +76,8 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     name: string,
     depth: number,
     size: bigint = 0n,
-    protected leafPreimageFactory: FromBuffer<Preimage> &
-      Empty<Preimage> &
-      PreimageFactory<Leaf, Preimage> &
-      Clone<Preimage>,
-    protected leafFactory: FromBuffer<Leaf> & DummyBuilder<Leaf>,
+    protected leafPreimageFactory: PreimageFactory<Leaf, Preimage>,
+    protected leafFactory: LeafFactory<Leaf>,
     root?: Buffer,
   ) {
     super(db, hasher, name, depth, size, root);
@@ -66,9 +85,9 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
 
   /**
    * Appends a set of leaf values to the tree.
-   * @param leaves - The set of leaves to be appended.
+   * @param _leaves - The set of leaves to be appended.
    */
-  appendLeaves(leaves: Buffer[]): Promise<void> {
+  appendLeaves(_leaves: Buffer[]): Promise<void> {
     throw new Error('Not implemented');
   }
 
@@ -103,7 +122,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
 
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
-   * @param newValue - The new value to be inserted into the tree.
+   * @param newKey - The new key to be inserted into the tree.
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The found leaf index and a flag indicating if the corresponding leaf's value is equal to `newValue`.
    */
@@ -156,7 +175,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
   }
 
   private getCachedLeafIndex(key: bigint): bigint | undefined {
-    let index = Object.keys(this.cachedLeafPreimages).find(index => {
+    const index = Object.keys(this.cachedLeafPreimages).find(index => {
       return this.cachedLeafPreimages[index].getKey() === key;
     });
     if (index) {
@@ -221,7 +240,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
   public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
-    let leaf = this.leafFactory.fromBuffer(value);
+    const leaf = this.leafFactory.fromBuffer(value);
     let index = await this.db
       .get(leafKeyToDbKey(this.getName(), leaf.getKey()))
       .then(data => toBigIntBE(data))
@@ -314,12 +333,9 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @param treeHeight - Height of tree for sibling path.
    * @returns An empty witness.
    */
-  getEmptyLowLeafWitness<N extends number>(
-    treeHeight: N,
-    preimageFactory: Empty<Preimage>,
-  ): LowLeafWitnessData<N, Leaf, Preimage> {
+  getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N, Leaf, Preimage> {
     return {
-      leafData: preimageFactory.empty(),
+      leafData: this.leafPreimageFactory.empty(),
       index: 0n,
       siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
     };
@@ -441,7 +457,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>> {
-    const emptyLowLeafWitness = this.getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
+    const emptyLowLeafWitness = this.getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight, Leaf, Preimage>[] = leaves.map(() => emptyLowLeafWitness);
     const pendingInsertionSubtree: Preimage[] = leaves.map(() => this.leafPreimageFactory.empty());

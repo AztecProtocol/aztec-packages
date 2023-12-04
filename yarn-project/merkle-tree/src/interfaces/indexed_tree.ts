@@ -3,8 +3,6 @@ import { SiblingPath } from '@aztec/types';
 
 import { AppendOnlyTree } from './append_only_tree.js';
 
-/* eslint-disable */
-
 /**
  * All of the data to be return during batch insertion.
  */
