@@ -29,12 +29,13 @@ struct PrivateCircuitPublicInputs {
     return_values: [Field; RETURN_VALUES_LENGTH],
 
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
-    pending_read_requests: [SideEffect; MAX_PENDING_READ_REQUESTS_PER_CALL],
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
+    // todo: add the notehash to these, for squashing
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
 
+    // todo: include counters as part of the hash?
     private_call_stack_hashes: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
@@ -62,10 +63,17 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.call_context.hash());
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        fields.push_array(self.read_requests);
-        fields.push_array(self.pending_read_requests);
-        fields.push_array(self.new_commitments);
-        fields.push_array(self.new_nullifiers);
+
+        // don't think there's map/flatmap in noir?
+        for i in 0..MAX_READ_REQUESTS_PER_CALL{
+            fields.push_array(self.read_requests[i].to_field_array());
+        }
+        for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
+            fields.push_array(self.new_commitments[i].to_field_array());
+        }
+        for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
+            fields.push_array(self.new_nullifiers[i].to_field_array());
+        }
         fields.push_array(self.nullified_commitments);
         fields.push_array(self.private_call_stack_hashes);
         fields.push_array(self.public_call_stack_hashes);

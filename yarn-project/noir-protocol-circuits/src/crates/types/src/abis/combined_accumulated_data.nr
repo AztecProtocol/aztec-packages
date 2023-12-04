@@ -5,7 +5,7 @@ use crate::{
         optionally_revealed_data::OptionallyRevealedData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
-        side_effect::SideEffect,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     hash::NUM_FIELDS_PER_SHA256,
     mocked::AggregationObject,
@@ -32,9 +32,9 @@ struct CombinedAccumulatedData {
     pending_read_requests: [SideEffect; MAX_PENDING_READ_REQUESTS_PER_TX],
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [SideEffect; MAX_NEW_NULLIFIERS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
-    // TODO: delete nullified_commitments when (if?) we do incremental squashes
+    // TODO: delete nullified_commitments
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
@@ -62,7 +62,8 @@ struct FinalAccumulatedData {
     aggregation_object: AggregationObject,
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
-    new_nullifiers: [SideEffect; MAX_NEW_NULLIFIERS_PER_TX],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    // TODO: delete nullified_commitments
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
 
     // For pending nullifiers, we have:
@@ -91,7 +92,7 @@ struct CombinedAccumulatedDataBuilder {
     pending_read_requests: BoundedVec<SideEffect, MAX_PENDING_READ_REQUESTS_PER_TX>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
-    new_nullifiers: BoundedVec<SideEffect, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
