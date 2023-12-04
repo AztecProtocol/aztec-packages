@@ -1,8 +1,7 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { IndexedTreeLeaf } from '@aztec/foundation/trees';
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import {
   BLOCKS_TREE_HEIGHT,
