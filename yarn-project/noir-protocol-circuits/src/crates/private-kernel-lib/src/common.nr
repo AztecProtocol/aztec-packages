@@ -18,6 +18,7 @@ use dep::types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         previous_kernel_data::PreviousKernelData,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{Address, EthAddress},
     contrakt::deployment_data::ContractDeploymentData,
@@ -72,13 +73,13 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 pub fn validate_read_requests(
     historic_note_hash_tree_root: Field,
-    read_requests: [Field; MAX_READ_REQUESTS_PER_CALL],
+    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL],
 ) {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
-        let read_request = read_requests[rr_idx];
+        let read_request = read_requests[rr_idx].value;
         let witness = read_request_membership_witnesses[rr_idx];
         
         // A pending commitment is the one that is not yet added to private data tree
@@ -107,9 +108,10 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
-    public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
-    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
+    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_zero(), SideEffect::zero());
+
+    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_zero(), SideEffect::zero());
+    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_zero(), SideEffectLinkedToNoteHash::zero());
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
     public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
@@ -179,12 +181,15 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
-    let mut siloed_read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(SideEffect::new());
     for i in 0..MAX_READ_REQUESTS_PER_CALL {
-        let read_request = read_requests[i];
+        let read_request = read_requests[i].value;
         let witness = read_request_membership_witnesses[i];
         if witness.is_transient & (read_request != 0) {  // only forward transient to public inputs
-            siloed_read_requests.push(silo_commitment(storage_contract_address, read_request))
+            siloed_read_requests.push(SideEffect{
+                counter: read_requests[i].counter,
+                value: silo_commitment(storage_contract_address, read_request)
+        })
         }
     }
     public_inputs.end.read_requests.push_vec(siloed_read_requests);
@@ -192,11 +197,15 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
     // nullifiers
-    let mut siloed_new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::new());
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
-        let new_nullifier = new_nullifiers[i];
+        let new_nullifier = new_nullifiers[i].value;
         if new_nullifier != 0 {
-            siloed_new_nullifiers.push(silo_nullifier(storage_contract_address, new_nullifier));
+            siloed_new_nullifiers.push(SideEffectLinkedToNoteHash{
+                value: silo_nullifier(storage_contract_address, new_nullifier))
+                counter: new_nullifiers[i].counter,
+                note_hash: new_nullifiers[i].note_hash,
+        };
         }
     }
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
