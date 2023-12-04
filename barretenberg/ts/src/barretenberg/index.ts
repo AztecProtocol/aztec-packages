@@ -74,3 +74,8 @@ export class BarretenbergSync extends BarretenbergApiSync {
     return this.wasm;
   }
 }
+
+// If we're loading this module in a test environment, just init the singleton immediately for convienience.
+if (process.env.NODE_ENV === 'test') {
+  await BarretenbergSync.initSingleton();
+}

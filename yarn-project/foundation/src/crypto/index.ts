@@ -14,7 +14,3 @@ export * from './pedersen/index.js';
 export async function init() {
   await BarretenbergSync.initSingleton();
 }
-
-if (process.env.NODE_ENV === 'test') {
-  await init();
-}
