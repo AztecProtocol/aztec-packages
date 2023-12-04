@@ -45,7 +45,7 @@ Aztec Node instances will offer a JSON RPC interface for consumption by a user's
 
 ![P2P Network](../decentralisation/images/network.png)
 
-### Network Capacity
+### Network Bandwidth
 
 Transactions are composed of several data elements and can vary in size. The transaction size is determined largely by the private kernel proof and whether the transaction deloys any public bytecode. A typical transaction that emits a private note and an unencrypted log, makes a public call and contains a valid proof would consume approximately 40Kb of data. A transaction that additionally deploys a contract would need to transmit the public bytecode on top of this.
 
