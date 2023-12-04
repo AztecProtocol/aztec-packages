@@ -154,7 +154,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "ETHEREUM_HOST",
-        "value": "testnet"
+        "value": "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
       },
       {
         "name": "ARCHIVER_POLLING_INTERVAL",
