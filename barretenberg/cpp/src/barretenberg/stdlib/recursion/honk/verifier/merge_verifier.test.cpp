@@ -16,7 +16,7 @@ namespace proof_system::plonk::stdlib::recursion::honk {
  *
  * @tparam Builder
  */
-template <typename BuilderType> class RecursiveVerifierTest : public testing::Test {
+template <typename BuilderType> class RecursiveMergeVerifierTest : public testing::Test {
 
     // Define types relevant for testing
     using UltraFlavor = ::proof_system::honk::flavor::Ultra;
@@ -51,8 +51,11 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
      *
      * @param builder
      */
-    static void generate_test_circuit(proof_system::GoblinUltraCircuitBuilder& builder)
+    static proof_system::GoblinUltraCircuitBuilder generate_sample_circuit(const std::shared_ptr<ECCOpQueue>& op_queue)
     {
+        // Create an arbitrary inner circuit
+        InnerBuilder builder{ op_queue };
+
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
             auto point = Commitment::random_element();
@@ -76,10 +79,33 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
+
+        return builder;
     }
 
   public:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+
+    static void test_sample_circuit_merge()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+
+        // Populate op queue with mock initial data since we don't handle the empty previous aggregate transcript case
+        op_queue->populate_with_mock_initital_data();
+
+        // Create an arbitrary inner circuit with goblin ECC op gates
+        InnerBuilder sample_circuit = generate_sample_circuit(op_queue);
+
+        // Generate a merge proof for the inner circuit
+        InnerComposer composer;
+
+        // Construct and natively verify the merge proof
+        auto merge_prover = composer.create_merge_prover(op_queue);
+        auto merge_verifier = composer.create_merge_verifier(0);
+        auto merge_proof = merge_prover.construct_proof();
+        bool verified = merge_verifier.verify_proof(merge_proof);
+        EXPECT_TRUE(verified);
+    }
 
     /**
      * @brief
@@ -91,8 +117,7 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         op_queue->populate_with_mock_initital_data();
 
         // Create an arbitrary inner circuit
-        InnerBuilder inner_circuit{ op_queue };
-        generate_test_circuit(inner_circuit);
+        InnerBuilder inner_circuit = generate_sample_circuit(op_queue);
 
         // // Generate a proof over the inner circuit
         // InnerComposer inner_composer;
@@ -141,9 +166,14 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
 using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, BuilderTypes);
+TYPED_TEST_SUITE(RecursiveMergeVerifierTest, BuilderTypes);
 
-HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerification)
+HEAVY_TYPED_TEST(RecursiveMergeVerifierTest, NativeSampleCircuitMerge)
+{
+    TestFixture::test_sample_circuit_merge();
+};
+
+HEAVY_TYPED_TEST(RecursiveMergeVerifierTest, SingleRecursiveVerification)
 {
     TestFixture::test_recursive_merge_verification();
 };
