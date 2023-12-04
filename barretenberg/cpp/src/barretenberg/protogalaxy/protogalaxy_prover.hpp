@@ -435,6 +435,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @param combiner_quotient polynomial K in the paper
      * @param challenge
      * @param compressed_perturbator
+     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new accumulator
      */
     std::shared_ptr<Instance> compute_next_accumulator(ProverInstances& instances,
                                                        auto& combiner_quotient,

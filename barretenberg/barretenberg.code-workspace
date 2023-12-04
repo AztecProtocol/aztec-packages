@@ -5,7 +5,7 @@
         {
             "name": "barretenberg",
             "path": "./"
-        }
+        },
     ],
     // List recommended extensions for the whole workspace.
     "extensions": {
