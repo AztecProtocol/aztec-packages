@@ -3,93 +3,123 @@
 namespace proof_system::honk {
 
 template <class VerifierInstances>
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_ptr<Instance> inst,
+                                                                  std::string domain_separator)
+{
+    inst->instance_size = transcript.template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
+    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    inst->public_input_size =
+        transcript.template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
+
+    for (size_t i = 0; i < inst->public_input_size; ++i) {
+        auto public_input_i =
+            transcript.template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
+        inst->public_inputs.emplace_back(public_input_i);
+    }
+
+    auto eta = transcript.template receive_from_prover<FF>(domain_separator + "_eta");
+    auto beta = transcript.template receive_from_prover<FF>(domain_separator + "_beta");
+    auto gamma = transcript.template receive_from_prover<FF>(domain_separator + "_gamma");
+    auto public_input_delta = transcript.template receive_from_prover<FF>(domain_separator + "_public_input_delta");
+    auto lookup_grand_product_delta =
+        transcript.template receive_from_prover<FF>(domain_separator + "_lookup_grand_product_delta");
+    inst->relation_parameters =
+        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    inst->alpha = transcript.template receive_from_prover<FF>(domain_separator + "_alpha");
+
+    inst->folding_parameters.target_sum = transcript.template receive_from_prover<FF>(domain_separator + "_target_sum");
+
+    inst->folding_parameters.gate_challenges = std::vector<FF>(inst->log_instance_size);
+    for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
+        inst->folding_parameters.gate_challenges[idx] =
+            transcript.template receive_from_prover<FF>(domain_separator + "_gate_challenge_" + std::to_string(idx));
+    }
+    auto comm_view = inst->witness_commitments.pointer_view();
+    auto witness_labels = inst->commitment_labels.get_witness();
+    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
+        (*comm_view[idx]) =
+            transcript.template receive_from_prover<Commitment>(domain_separator + "_" + witness_labels[idx]);
+    }
+
+    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
+    auto vk_view = inst->verification_key->pointer_view();
+    auto vk_labels = inst->commitment_labels.get_precomputed();
+    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
+        (*vk_view[idx]) = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
+    }
+}
+
+template <class VerifierInstances>
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std::shared_ptr<Instance> inst,
+                                                                            std::string domain_separator)
+{
+    inst->instance_size = transcript.template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
+    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    inst->public_input_size =
+        transcript.template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
+
+    for (size_t i = 0; i < inst->public_input_size; ++i) {
+        auto public_input_i =
+            transcript.template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
+        inst->public_inputs.emplace_back(public_input_i);
+    }
+
+    inst->pub_inputs_offset =
+        transcript.template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
+
+    auto labels = inst->commitment_labels;
+    auto& witness_commitments = inst->witness_commitments;
+    witness_commitments.w_l = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
+    witness_commitments.w_r = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
+    witness_commitments.w_o = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
+
+    auto eta = transcript.get_challenge(domain_separator + "_eta");
+    witness_commitments.sorted_accum =
+        transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
+    witness_commitments.w_4 = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
+
+    auto [beta, gamma] = transcript.get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+    witness_commitments.z_perm =
+        transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
+    witness_commitments.z_lookup =
+        transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
+
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
+        inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
+    inst->relation_parameters =
+        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+
+    inst->alpha = transcript.get_challenge(domain_separator + "_alpha");
+
+    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
+    auto vk_view = inst->verification_key->pointer_view();
+    auto vk_labels = labels.get_precomputed();
+    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
+        (*vk_view[idx]) = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
+    }
+}
+
+// TODO(#795)
+template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<uint8_t> fold_data)
 {
     transcript = BaseTranscript<FF>{ fold_data };
     auto index = 0;
-    for (auto it = instances.begin(); it != instances.end(); it++, index++) {
+    auto inst = instances[0];
+    auto domain_separator = std::to_string(index);
+    inst->is_accumulator = transcript.template receive_from_prover<uint32_t>(domain_separator + "is_accumulator");
+    if (inst->is_accumulator) {
+        receive_accumulator(inst, domain_separator);
+    } else {
+        receive_and_finalise_instance(inst, domain_separator);
+    }
+    index++;
+
+    for (auto it = instances.begin() + 1; it != instances.end(); it++, index++) {
         auto inst = *it;
         auto domain_separator = std::to_string(index);
-        inst->is_accumulator = transcript.template receive_from_prover<uint32_t>(domain_separator + "is_accumulator");
-
-        inst->instance_size = transcript.template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-        inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-        inst->public_input_size =
-            transcript.template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-
-        for (size_t i = 0; i < inst->public_input_size; ++i) {
-            auto public_input_i =
-                transcript.template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-            inst->public_inputs.emplace_back(public_input_i);
-        }
-
-        if (static_cast<bool>(inst->is_accumulator)) {
-            auto eta = transcript.template receive_from_prover<FF>(domain_separator + "_eta");
-            auto beta = transcript.template receive_from_prover<FF>(domain_separator + "_beta");
-            auto gamma = transcript.template receive_from_prover<FF>(domain_separator + "_gamma");
-            auto public_input_delta =
-                transcript.template receive_from_prover<FF>(domain_separator + "_public_input_delta");
-            auto lookup_grand_product_delta =
-                transcript.template receive_from_prover<FF>(domain_separator + "_lookup_grand_product_delta");
-            inst->relation_parameters =
-                RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-            inst->alpha = transcript.template receive_from_prover<FF>(domain_separator + "_alpha");
-
-            inst->folding_parameters.target_sum =
-                transcript.template receive_from_prover<FF>(domain_separator + "_target_sum");
-
-            inst->folding_parameters.gate_challenges = std::vector<FF>(inst->log_instance_size);
-            for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
-                inst->folding_parameters.gate_challenges[idx] = transcript.template receive_from_prover<FF>(
-                    domain_separator + "_gate_challenge_" + std::to_string(idx));
-            }
-            auto comm_view = inst->witness_commitments.pointer_view();
-            auto labels = inst->commitment_labels.get_witness();
-            for (size_t idx = 0; idx < labels.size(); idx++) {
-                (*comm_view[idx]) =
-                    transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels[idx]);
-            }
-        } else {
-            inst->pub_inputs_offset =
-                transcript.template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-
-            auto labels = inst->commitment_labels;
-            auto& witness_commitments = inst->witness_commitments;
-            witness_commitments.w_l =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
-            witness_commitments.w_r =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
-            witness_commitments.w_o =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
-
-            auto eta = transcript.get_challenge(domain_separator + "_eta");
-            witness_commitments.sorted_accum =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
-            witness_commitments.w_4 =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
-
-            auto [beta, gamma] = transcript.get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
-            witness_commitments.z_perm =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-            witness_commitments.z_lookup =
-                transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
-
-            const FF public_input_delta = compute_public_input_delta<Flavor>(
-                inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
-            const FF lookup_grand_product_delta =
-                compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
-            inst->relation_parameters =
-                RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-
-            inst->alpha = transcript.get_challenge(domain_separator + "_alpha");
-        }
-
-        inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-        auto vk_view = inst->verification_key->pointer_view();
-        auto labels = typename Flavor::CommitmentLabels().get_precomputed();
-        for (size_t idx = 0; idx < labels.size(); idx++) {
-            (*vk_view[idx]) = transcript.template receive_from_prover<Commitment>(domain_separator + "_" + labels[idx]);
-        }
+        receive_and_finalise_instance(inst, domain_separator);
     }
 }
 

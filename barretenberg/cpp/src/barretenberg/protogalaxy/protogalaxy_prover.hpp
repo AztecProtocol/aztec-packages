@@ -63,6 +63,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     void prepare_for_folding();
 
+    void send_accumulator(std::shared_ptr<Instance>, std::string);
+
+    void finalise_and_send_instance(std::shared_ptr<Instance>, std::string);
+
     /**
      * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
      */

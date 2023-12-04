@@ -60,7 +60,11 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding(std::vector<uint8_t> fold_data);
+    void prepare_for_folding(std::vector<uint8_t>);
+
+    void receive_accumulator(std::shared_ptr<Instance>, std::string);
+
+    void receive_and_finalise_instance(std::shared_ptr<Instance>, std::string);
 
     /**
      * @brief Run the folding protocol on the verifier side to verify the public data ϕ of the new accumulator, received
@@ -68,7 +72,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/690): finalise the implementation of this function
      */
-    bool verify_folding_proof(std::vector<uint8_t> fold_data);
+    bool verify_folding_proof(std::vector<uint8_t>);
 };
 
 extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
