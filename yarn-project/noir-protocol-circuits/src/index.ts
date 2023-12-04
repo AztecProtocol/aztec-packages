@@ -416,7 +416,6 @@ async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<
  * Executes the base rollup with the given inputs using the acvm.
  */
 async function executeBaseRollupWithACVM(input: BaseRollupInputType): Promise<BaseRollupReturnType> {
-  // console.log(JSON.stringify(input, null, 4));
   const initialWitnessMap = abiEncode(BaseRollupJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values

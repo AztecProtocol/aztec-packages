@@ -337,7 +337,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param treeId - The ID of the tree get the leaf from.
    * @param index - The index of the leaf to get.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
-   * @returns Leaf data.
+   * @returns Leaf preimage.
    */
   public async getLeafPreimage(
     treeId: IndexedTreeId,

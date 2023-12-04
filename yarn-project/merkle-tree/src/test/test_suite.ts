@@ -157,5 +157,19 @@ export const treeTestSuite = (
       expect(deserialized2.elem).toEqual(siblingPath);
       expect(deserialized2.adv).toBe(4 + 10 * 32);
     });
+
+    it('should be able to find indexes of leaves', async () => {
+      const db = levelup(createMemDown());
+      const tree = await createDb(db, pedersen, 'test', 10);
+      await appendLeaves(tree, values.slice(0, 1));
+
+      expect(await tree.findLeafIndex(values[0], true)).toBeDefined();
+      expect(await tree.findLeafIndex(values[0], false)).toBe(undefined);
+      expect(await tree.findLeafIndex(values[1], true)).toBe(undefined);
+
+      await tree.commit();
+
+      expect(await tree.findLeafIndex(values[0], false)).toBeDefined();
+    });
   });
 };

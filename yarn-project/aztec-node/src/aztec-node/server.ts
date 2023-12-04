@@ -430,19 +430,19 @@ export class AztecNodeService implements AztecNode {
       return undefined;
     }
 
-    const leafDataPromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
+    const leafPreimagePromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
     const siblingPathPromise = db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
 
-    const [leafData, siblingPath] = await Promise.all([leafDataPromise, siblingPathPromise]);
+    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
 
-    if (!leafData) {
+    if (!leafPreimage) {
       return undefined;
     }
 
-    return new NullifierMembershipWitness(BigInt(index), leafData as NullifierLeafPreimage, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
   }
 
   /**

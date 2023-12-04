@@ -88,8 +88,10 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   }
 
   /**
-   * Appends a set of leaf values to the tree.
-   * @param _leaves - The set of leaves to be appended.
+   * Appends the given leaves to the tree.
+   * @param _leaves - The leaves to append.
+   * @returns Empty promise.
+   * @remarks Use batchInsert method instead.
    */
   appendLeaves(_leaves: Buffer[]): Promise<void> {
     throw new Error('Not implemented');
@@ -245,7 +247,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
   /**
    * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
-   * @param treeId - The ID of the tree.
    * @param value - The leaf value to look for.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
@@ -346,7 +347,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    */
   getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N> {
     return {
-      leafData: this.leafPreimageFactory.empty(),
+      leafPreimage: this.leafPreimageFactory.empty(),
       index: 0n,
       siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
     };
@@ -506,7 +507,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
       const witness: LowLeafWitnessData<TreeHeight> = {
-        leafData: lowLeafPreimage,
+        leafPreimage: lowLeafPreimage,
         index: BigInt(indexOfPrevious.index),
         siblingPath,
       };

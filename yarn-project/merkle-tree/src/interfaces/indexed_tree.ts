@@ -10,7 +10,7 @@ export interface LowLeafWitnessData<N extends number> {
   /**
    * Preimage of the low nullifier that proves non membership.
    */
-  leafData: IndexedTreeLeafPreimage;
+  leafPreimage: IndexedTreeLeafPreimage;
   /**
    * Sibling path to prove membership of low nullifier.
    */

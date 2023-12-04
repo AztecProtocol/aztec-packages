@@ -163,9 +163,6 @@ export function mapNumberFromNoir(number: NoirField): number {
  *
  */
 export function mapNumberToNoir(number: number): NoirField {
-  if (number > 2 ** 32) {
-    throw new Error('Number out of range');
-  }
   return new Fr(BigInt(number)).toString();
 }
 

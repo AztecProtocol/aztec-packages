@@ -708,7 +708,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       newSubtreeSiblingPath: newNullifiersSubtreeSiblingPath,
       sortedNewLeaves: sortedNewNullifiers,
       sortedNewLeavesIndexes: sortednewNullifiersIndexes,
-    } = await this.db.batchInsert<typeof NULLIFIER_TREE_HEIGHT, typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>(
+    } = await this.db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers.map(fr => fr.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
@@ -743,7 +743,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       newPublicDataReadsSiblingPaths,
       lowNullifierLeafPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
         i < nullifierWitnessLeaves.length
-          ? (nullifierWitnessLeaves[i].leafData as NullifierLeafPreimage)
+          ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
           : NullifierLeafPreimage.empty(),
       ),
       lowNullifierMembershipWitness: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>

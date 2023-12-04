@@ -25,9 +25,9 @@ export class IndexedTreeSnapshotBuilder
   }
 
   protected async handleLeaf(index: bigint, node: Buffer, batch: LevelUpChain) {
-    const leafData = await this.tree.getLatestLeafPreimageCopy(index, false);
-    if (leafData) {
-      batch.put(snapshotLeafValue(node, index), leafData.toBuffer());
+    const leafPreimage = await this.tree.getLatestLeafPreimageCopy(index, false);
+    if (leafPreimage) {
+      batch.put(snapshotLeafValue(node, index), leafPreimage.toBuffer());
     }
   }
 }
@@ -45,8 +45,8 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot implements IndexedTre
   }
 
   async getLeafValue(index: bigint): Promise<Buffer | undefined> {
-    const leafData = await this.getLatestLeafPreimageCopy(index);
-    return leafData?.toBuffer();
+    const leafPreimage = await this.getLatestLeafPreimageCopy(index);
+    return leafPreimage?.toBuffer();
   }
 
   async getLatestLeafPreimageCopy(index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {

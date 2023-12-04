@@ -92,7 +92,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * Gets the leaf data at a given index and tree.
    * @param treeId - The ID of the tree get the leaf from.
    * @param index - The index of the leaf to get.
-   * @returns Leaf data.
+   * @returns Leaf preimage.
    */
   async getLeafPreimage(
     treeId: MerkleTreeId.NULLIFIER_TREE,
