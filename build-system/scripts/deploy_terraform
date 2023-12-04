@@ -43,4 +43,4 @@ for RESOURCE in $TO_TAINT; do
   terraform taint $RESOURCE || true
 done
 
-terraform plan -input=false -auto-approve
+terraform apply -input=false -auto-approve
