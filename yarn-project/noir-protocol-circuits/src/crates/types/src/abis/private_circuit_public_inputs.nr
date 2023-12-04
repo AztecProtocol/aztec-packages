@@ -15,7 +15,6 @@ use dep::aztec::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         RETURN_VALUES_LENGTH,
@@ -66,6 +65,7 @@ impl PrivateCircuitPublicInputs {
 
         // don't think there's map/flatmap in noir?
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
+            // could also just push the hash, but probably not worth extra constraints?
             fields.push_array(self.read_requests[i].to_field_array());
         }
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{

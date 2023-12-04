@@ -32,6 +32,7 @@ struct PublicCircuitPublicInputs{
     contract_storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
     contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
+    // todo: add sideeffect ranges for the input to these hashes
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],

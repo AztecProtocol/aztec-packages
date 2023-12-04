@@ -18,24 +18,24 @@ impl SideEffect {
         assert(self.is_zero());
     }
 
-    fn is_zero(self) -> bool {
+    pub fn is_zero(self) -> bool {
         (self.value == 0)
         & (self.counter == 0)
     }
 
-    fn eq(self, side_effect: SideEffect) -> bool {
+    pub fn eq(self, side_effect: SideEffect) -> bool {
         (self.value == side_effect.value)
         & (self.counter == side_effect.counter)
     }
 
-    fn zero() -> SideEffect {
+    pub fn zero() -> SideEffect {
         SideEffect {
             value: 0,
             counter: 0,
         }
     }
 
-    fn to_field_array(self) -> [Field; 2] {
+    pub fn to_field_array(self) -> [Field; 2] {
         [self.value, self.counter]
     }
 }
@@ -65,13 +65,13 @@ impl SideEffectLinkedToNoteHash{
         & (self.counter == 0)
     }
 
-    fn eq(self, side_effect: SideEffectLinkedToNoteHash) -> bool {
+    pub fn eq(self, side_effect: SideEffectLinkedToNoteHash) -> bool {
         (self.value == side_effect.value)
             & (self.note_hash == side_effect.note_hash) 
             & (self.counter == side_effect.counter)
     }
 
-    fn zero() -> SideEffectLinkedToNoteHash {
+    pub fn zero() -> SideEffectLinkedToNoteHash {
         SideEffectLinkedToNoteHash {
             value: 0,
             note_hash: 0,
@@ -79,7 +79,7 @@ impl SideEffectLinkedToNoteHash{
         }
     }
 
-    fn to_field_array(self) -> [Field; 3] {
+    pub fn to_field_array(self) -> [Field; 3] {
         [self.value, self.note_hash, self.counter]
     }
 }

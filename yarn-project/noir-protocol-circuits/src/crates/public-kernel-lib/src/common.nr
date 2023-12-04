@@ -11,7 +11,7 @@ use dep::types::{
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
-        side_effect::SideEffect,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::Address,
     contrakt::{
@@ -35,7 +35,6 @@ use dep::aztec::constants_gen::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL,
 };
 
 // Validates inputs to the kernel circuit that are common to all invocation scenarios.
@@ -65,7 +64,7 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
     let start = previous_kernel.public_inputs.end;
 
     circuit_outputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_zero(), SideEffect::zero());
-    circuit_outputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffect| c.is_zero(), SideEffect::zero());
+    circuit_outputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_zero(), SideEffectLinkedToNoteHash::zero());
 
     circuit_outputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
     circuit_outputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
@@ -90,7 +89,7 @@ fn perform_static_call_checks(public_call: PublicCallData){
         let new_commitments_length = struct_array_length(public_inputs.new_commitments, |r: SideEffect| r.is_zero());
         assert(new_commitments_length == 0, "new_commitments must be empty for static calls");
 
-        let new_nullifiers_length = struct_array_length(public_inputs.new_nullifiers, |r: SideEffect| r.is_zero());
+        let new_nullifiers_length = struct_array_length(public_inputs.new_nullifiers, |r: SideEffectLinkedToNoteHash| r.is_zero());
         assert(new_nullifiers_length == 0, "new_nullifiers must be empty for static calls");
 
         let update_requests_length = struct_array_length(public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());
@@ -189,11 +188,16 @@ fn propagate_new_commitments(public_call: PublicCallData, circuit_outputs : &mut
     let new_commitments = public_call.call_stack_item.public_inputs.new_commitments;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let mut siloed_new_commitments : BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_new_commitments : BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::zero());
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
-        let new_commitment = new_commitments[i];
+        let new_commitment = new_commitments[i].value;
         if new_commitment != 0 {
-            siloed_new_commitments.push(silo_commitment(storage_contract_address, new_commitment));
+            let siloed_new_commitment = silo_commitment(storage_contract_address, new_commitment);
+            siloed_new_commitments.push(SideEffect{
+                value: siloed_new_commitment,
+                counter: new_commitments[i].counter,
+                
+            });
         }
     }
     circuit_outputs.end.new_commitments.push_vec(siloed_new_commitments);
@@ -204,11 +208,18 @@ fn propagate_new_nullifiers(public_call: PublicCallData, circuit_outputs : &mut 
     let storage_contract_address = public_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
-    let mut siloed_new_nullifiers : BoundedVec<Field,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_new_nullifiers : BoundedVec<SideEffectLinkedToNoteHash,MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i].value;
         if new_nullifier != 0 {
-            siloed_new_nullifiers.push(silo_nullifier(storage_contract_address, new_nullifier));
+            let siloed_new_nullifier = silo_nullifier(storage_contract_address, new_nullifier);
+            siloed_new_nullifiers.push(
+                SideEffectLinkedToNoteHash{
+                    value: siloed_new_nullifier,
+                    counter: new_nullifiers[i].counter,
+                    note_hash: new_nullifiers[i].note_hash,
+                });
+
         }
     }
 
