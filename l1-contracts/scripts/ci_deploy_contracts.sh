@@ -28,11 +28,11 @@ docker run \
 # Write the contract addresses as terraform variables
 for KEY in ROLLUP_CONTRACT_ADDRESS REGISTRY_CONTRACT_ADDRESS INBOX_CONTRACT_ADDRESS OUTBOX_CONTRACT_ADDRESS; do
   VALUE=$(jq -r .$KEY ./serve/contract_addresses.json)
-  echo "TF_VAR_$KEY=$VALUE"
+  export TF_VAR_$KEY=$VALUE
 done
 
-# # Write TF state variables
+# Write TF state variables
 deploy_terraform l1-contracts ./terraform
 
-# # Tag the image as deployed.
+# Tag the image as deployed.
 retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
