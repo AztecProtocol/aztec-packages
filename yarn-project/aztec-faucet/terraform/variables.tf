@@ -3,7 +3,8 @@ variable "DEPLOY_TAG" {
 }
 
 variable "RPC_URL" {
-  type = string
+  type    = string
+  default = "testnet"
 }
 
 variable "API_KEY" {
@@ -11,17 +12,18 @@ variable "API_KEY" {
 }
 
 variable "API_PREFIX" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "CHAIN_ID" {
   type = string
 }
 
-variable "PRIVATE_KEY" {
+variable "FAUCET_PRIVATE_KEY" {
   type = string
 }
 
-variable "ECR_URL" {
+variable "DOCKERHUB_ACCOUNT" {
   type = string
 }
