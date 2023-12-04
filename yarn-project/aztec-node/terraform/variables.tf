@@ -2,11 +2,6 @@ variable "DEPLOY_TAG" {
   type = string
 }
 
-variable "ETHEREUM_HOST" {
-  type    = string
-  default = "testnet"
-}
-
 variable "API_KEY" {
   type = string
 }
