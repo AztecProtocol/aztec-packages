@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+# P2P Network
+
 ## Requirements for a P2P Network
 
 :::info Disclaimer
@@ -14,20 +16,20 @@ Other data that may be transmitted over the network are the final rollup proofs 
 
 ### Network Participants
 
-For the purpose of this discussion, we define the 'Aztec Network' as the set of components required to distribute user transactions and produce rollups. The participants in such a network are:
+For the purpose of this discussion, we define the 'Aztec Network' as the set of components required to ensure the continual distribution of user transactions and production of rollups. The participants in such a network are:
 
 * Sequencers - responsible for selecting transactions from the global pool and including them in rollups
 * Provers - responsible for generating zk-proofs for the transaction and rollup circuits
 * Transaction Pool Nodes - responsible for maintaining a local representation of the pending transaction pool
 * Bootnodes - responsible for providing an entrypoint into the network for new participants
 
-Sequencers and Provers will likely run their own transaction pools but it is important that the ability to do so is not limited to these participants. Anyone should be able to operate a transaction pool in a permissionless manor preventing censorship.
+Sequencers and Provers will likely run their own transaction pools but it is important that the ability to do so is not limited to these participants. Anyone can operate a transaction pool, providing increased privacy and censorship resistance. 
 
-Client PXE components will not interact directly with the network but instead via instances of the Aztec Node and it's JSON RPC interface. This Aztec Node in turn will publish user transactions to the network.
+Client PXEs will not interact directly with the network but instead via instances of the Aztec Node and it's JSON RPC interface. The Aztec Node in turn will publish user transactions to the network.
 
 ### Network Topology and Transaction Submission
 
-The network will utilize a P2P structure likely based on the LibP2P specification.
+The network will likely be based on the LibP2P specification.
 
 #### Discovery
 
@@ -45,7 +47,7 @@ Aztec Node instances will offer a JSON RPC interface for consumption by a user's
 
 ### Network Capacity
 
-Transactions are composed of a number of data elements and can vary in size. The transaction size is predominantly based on their deployment of any public bytecode and the private kernel proof. A typical transaction that emits a private note and an unencrypted log, makes a public call and contains a valid proof would consume approximately 40Kb of data. A transaction that additionally deploys a contract would need to transmit the public bytecode on top of this.
+Transactions are composed of several data elements and can vary in size. The transaction size is determined largely by the private kernel proof and whether the transaction deloys any public bytecode. A typical transaction that emits a private note and an unencrypted log, makes a public call and contains a valid proof would consume approximately 40Kb of data. A transaction that additionally deploys a contract would need to transmit the public bytecode on top of this.
 
 | Element | Size |
 | ------- | ---------------- |
@@ -58,7 +60,7 @@ If we take 2 values of transaction throughput of 10 and 100 transactions per sec
 
 Proving is an out-of-protocol activity. The nature of the communication between sequencers and provers will depend entirely on the prover/s selected by the sequencer. Provers may choose to run their own Transaction Pool Node infrastructure so that they are prepared for generating proofs and don't need to receive this data out-of-band.
 
-Although proving is an out-of-protocol activity, it may be necessary for the final rollup proof to be gossiped over the P2P network such that anyone can submit it to the network.
+Although proving is an out-of-protocol activity, it may be necessary for the final rollup proof to be gossiped over the P2P network such that anyone can submit it to the rollup contract.
 
 
 
