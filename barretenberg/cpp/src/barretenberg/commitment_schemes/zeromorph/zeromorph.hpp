@@ -321,11 +321,11 @@ template <typename Curve> class ZeroMorphProver_ {
                       auto&& g_shift_evaluations,
                       auto& multilinear_challenge,
                       auto& commitment_key,
-                      auto transcript,
-                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
+                      const auto& transcript,
+                      const std::vector<Polynomial>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
                       // TODO(https://github.com/AztecProtocol/barretenberg/issues/743) remove span
-                      const std::vector<RefVector<std::span<FF>>>& concatenation_groups = {})
+                      const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         const FF rho = transcript->get_challenge("rho");
@@ -341,16 +341,16 @@ template <typename Curve> class ZeroMorphProver_ {
         // v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u).
         // Note: g_batched is formed from the to-be-shifted polynomials, but the batched evaluation incorporates the
         // evaluations produced by sumcheck of h_i = g_i_shifted.
-        auto batched_evaluation = FF(0);
+        FF batched_evaluation{ 0 };
         Polynomial f_batched(N); // batched unshifted polynomials
-        FF batching_scalar = FF(1);
+        FF batching_scalar{ 1 };
         for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
             f_batched.add_scaled(f_poly, batching_scalar);
             batched_evaluation += batching_scalar * f_eval;
             batching_scalar *= rho;
         }
 
-        Polynomial g_batched(N); // batched to-be-shifted polynomials
+        Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
@@ -381,7 +381,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
         // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
-        auto f_polynomial = f_batched;
+        Polynomial f_polynomial = f_batched;
         f_polynomial += g_batched.shifted();
         f_polynomial += concatenated_batched;
 

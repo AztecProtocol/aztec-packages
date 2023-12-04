@@ -22,7 +22,7 @@ class FibCircuitBuilder {
 
     // TODO: template
     using Polynomial = Flavor::Polynomial;
-    using AllPolynomials = Flavor::AllPolynomials;
+    using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 6;
     static constexpr size_t num_polys = 4;
@@ -30,10 +30,10 @@ class FibCircuitBuilder {
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
 
-    AllPolynomials compute_polynomials()
+    ProverPolynomials compute_polynomials()
     {
         const auto num_rows = get_circuit_subgroup_size();
-        AllPolynomials polys;
+        ProverPolynomials polys;
 
         // Allocate mem for each column
         for (auto& poly : polys.get_all()) {

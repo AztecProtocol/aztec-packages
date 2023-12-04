@@ -155,12 +155,13 @@ void compute_grand_products(std::shared_ptr<typename Flavor::ProvingKey>& key,
         // Assign the grand product polynomial to the relevant std::span member of `full_polynomials` (and its shift)
         // For example, for UltraPermutationRelation, this will be `full_polynomials.z_perm`
         // For example, for LookupRelation, this will be `full_polynomials.z_lookup`
-        std::span<FF>& full_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
+        barretenberg::Polynomial<FF>& full_polynomial =
+            GrandProdRelation::get_grand_product_polynomial(full_polynomials);
         auto& key_polynomial = GrandProdRelation::get_grand_product_polynomial(*key);
         full_polynomial = key_polynomial;
 
         compute_grand_product<Flavor, GrandProdRelation>(key->circuit_size, full_polynomials, relation_parameters);
-        std::span<FF>& full_polynomial_shift =
+        barretenberg::Polynomial<FF>& full_polynomial_shift =
             GrandProdRelation::get_shifted_grand_product_polynomial(full_polynomials);
         full_polynomial_shift = key_polynomial.shifted();
     });

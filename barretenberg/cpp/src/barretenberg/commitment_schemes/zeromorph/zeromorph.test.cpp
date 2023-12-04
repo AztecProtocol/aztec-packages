@@ -225,17 +225,6 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
         // Initialize an empty BaseTranscript
         auto prover_transcript = BaseTranscript::prover_init_empty();
 
-        std::vector<std::span<Fr>> concatenated_polynomials_views;
-        for (auto& poly : concatenated_polynomials) {
-            concatenated_polynomials_views.emplace_back(poly);
-        }
-
-        std::vector<std::vector<std::span<Fr>>> concatenation_groups_views(concatenation_groups.size());
-        for (auto [group_of_polys, group_of_views] : zip_view(concatenation_groups, concatenation_groups_views)) {
-            for (auto& poly : group_of_polys) {
-                group_of_views.emplace_back(poly);
-            }
-        }
         // Execute Prover protocol
         ZeroMorphProver::prove(f_polynomials, // unshifted
                                g_polynomials, // to-be-shifted
@@ -244,9 +233,9 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                u_challenge,
                                this->commitment_key,
                                prover_transcript,
-                               concatenated_polynomials_views,
+                               concatenated_polynomials,
                                c_evaluations,
-                               to_vector_of_ref_vectors(concatenation_groups_views));
+                               to_vector_of_ref_vectors(concatenation_groups));
 
         auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 

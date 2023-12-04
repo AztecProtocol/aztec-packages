@@ -240,8 +240,6 @@ class AvmMiniFlavor {
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
-    using ProverPolynomials = AllEntities<PolynomialHandle>;
-
     using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
     class AllValues : public AllEntities<FF> {
@@ -250,19 +248,25 @@ class AvmMiniFlavor {
         using Base::Base;
     };
 
-    class AllPolynomials : public AllEntities<Polynomial> {
+    /**
+     * @brief A container for the prover polynomials handles.
+     */
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->memTrace_m_clk.size(); }
-        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        [[nodiscard]] size_t get_polynomial_size() const { return avmMini_clk.size(); }
+        /**
+         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
+         * represents one row in the execution trace.
+         */
+        [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
             }
             return result;
         }
     };
-
     using RowPolynomials = AllEntities<FF>;
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

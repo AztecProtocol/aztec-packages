@@ -148,8 +148,6 @@ class FibFlavor {
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
-    using ProverPolynomials = AllEntities<PolynomialHandle>;
-
     using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
     class AllValues : public AllEntities<FF> {
@@ -158,7 +156,7 @@ class FibFlavor {
         using Base::Base;
     };
 
-    class AllPolynomials : public AllEntities<Polynomial> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return this->Fibonacci_LAST.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const

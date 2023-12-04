@@ -366,9 +366,9 @@ class GoblinUltra {
     };
 
     /**
-     * @brief A container for the prover polynomials handles; only stores spans.
+     * @brief A container for the prover polynomials handles.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
