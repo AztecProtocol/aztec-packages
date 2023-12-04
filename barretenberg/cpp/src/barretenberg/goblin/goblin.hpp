@@ -32,6 +32,7 @@ class Goblin {
         Proof merge_proof;
         Proof eccvm_proof;
         Proof translator_proof;
+        TranslationEvaluations translation_evaluations;
     };
 
     using Fr = barretenberg::fr;
@@ -53,6 +54,11 @@ class Goblin {
 
   private:
     GoblinProof proof;
+    // WORKTODOD: ew
+    std::unique_ptr<ECCVMBuilder> eccvm_builder;
+    std::unique_ptr<TranslatorBuilder> translator_builder;
+    std::unique_ptr<ECCVMComposer> eccvm_composer;
+    std::unique_ptr<TranslatorComposer> translator_composer;
 
   public:
     /**
@@ -92,55 +98,44 @@ class Goblin {
         return { proof.ultra_proof, instance->verification_key };
     };
 
-    GoblinProof prove()
+    void prove()
     {
         // Execute the ECCVM
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
-        info("Goblin: Constucting ECCVM.");
-        auto eccvm_builder = ECCVMBuilder(op_queue);
-        auto eccvm_composer = ECCVMComposer();
-        auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
+        info("Goblin: Constructing ECCVM.");
+        eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        eccvm_composer = std::make_unique<ECCVMComposer>();
+        auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
 
         info("Goblin: Proving ECCVM.");
         proof.eccvm_proof = eccvm_prover.construct_proof();
+        proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
         // Execute the Translator
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
-        info("Goblin: Constucting Translator.");
-        auto translator_builder = TranslatorBuilder(
+        info("Goblin: Constructing Translator.");
+        translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
-        auto translator_composer = TranslatorComposer();
-        auto translator_prover = translator_composer.create_prover(translator_builder, eccvm_prover.transcript);
+        translator_composer = std::make_unique<TranslatorComposer>();
+        auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
 
         info("Goblin: Proving Translator.");
         proof.translator_proof = translator_prover.construct_proof();
-
-        { // DEBUG only native verification
-            auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
-            info("Goblin: Verifying ECCVM.");
-            bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-            ASSERT(eccvm_verified);
-
-            auto translator_verifier =
-                translator_composer.create_verifier(translator_builder, eccvm_verifier.transcript);
-            info("Goblin: Verifying Translator.");
-            bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-            ASSERT(accumulator_construction_verified);
-            // WORKTODO: This needs to be part of the verifier. evals extracted from eccvm proof?
-            bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
-            ASSERT(translation_verified);
-        }
-
-        return proof;
     };
 
     bool verify()
     {
-        // Construct ultra verifier and verify ultra proof
-        // Construct merge verifier and verify merge proof
-        // Construct eccvm verifier and verify eccvm proof
-        // Construct translator verifier and verify translator proof
-        return true;
+        // WORKTODO: do we verify Ultra & Merge here?
+        auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        info("Goblin: Verifying ECCVM.");
+        bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+
+        auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
+        info("Goblin: Verifying Translator.");
+        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        // WORKTODO: Make an issue about validing the translation evaluations as inputs here.
+        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+        return eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
 } // namespace barretenberg

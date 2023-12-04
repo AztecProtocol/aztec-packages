@@ -352,7 +352,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
                                      key->transcript_z1, key->transcript_z2, hack };
     std::array<FF, univariate_polynomials.size()> univariate_evaluations;
 
-    // Constuct the batched polynomial and batched evaluation
+    // Construct the batched polynomial and batched evaluation
     Polynomial batched_univariate{ key->circuit_size };
     FF batched_evaluation{ 0 };
     auto batching_scalar = FF(1);

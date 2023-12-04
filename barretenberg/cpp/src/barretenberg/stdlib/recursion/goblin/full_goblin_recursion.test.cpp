@@ -179,6 +179,8 @@ TEST_F(GoblinRecursionTests, Pseudo)
     }
 
     goblin.prove();
+    bool verified = goblin.verify();
+    EXPECT_TRUE(verified);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
