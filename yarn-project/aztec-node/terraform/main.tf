@@ -141,6 +141,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "value": "${var.DEPLOY_TAG}"
       },
       {
+        "name": "DEPLOY_AZTEC_CONTRACTS",
+        "value": "false"
+      },
+      {
         "name": "AZTEC_NODE_PORT",
         "value": "80"
       },
