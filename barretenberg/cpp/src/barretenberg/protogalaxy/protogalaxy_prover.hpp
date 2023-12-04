@@ -16,6 +16,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
     using Flavor = typename ProverInstances::Flavor;
+    using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Instance = typename ProverInstances::Instance;
     using Utils = barretenberg::RelationUtils<Flavor>;
@@ -41,7 +42,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     ProverInstances instances;
-    BaseTranscript<FF> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(ProverInstances insts)
@@ -213,9 +214,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                             const size_t row_idx)
     {
         auto base_univariates = instances.row_to_univariates(row_idx);
-        for (auto [extended_univariate, base_univariate] :
-             zip_view(extended_univariates.pointer_view(), base_univariates)) {
-            *extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
+            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
     }
 

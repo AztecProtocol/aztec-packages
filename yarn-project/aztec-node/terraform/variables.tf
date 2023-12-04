@@ -6,22 +6,6 @@ variable "API_KEY" {
   type = string
 }
 
-variable "CONTRACT_DEPLOYMENT_EMITTER_ADDRESS" {
-  type = string
-}
-
-variable "ROLLUP_CONTRACT_ADDRESS" {
-  type = string
-}
-
-variable "INBOX_CONTRACT_ADDRESS" {
-  type = string
-}
-
-variable "REGISTRY_CONTRACT_ADDRESS" {
-  type = string
-}
-
 variable "SEQ_1_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
@@ -54,11 +38,13 @@ variable "NODE_TCP_PORT" {
 }
 
 variable "NODE_1_PRIVATE_KEY" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "NODE_2_PRIVATE_KEY" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "DOCKERHUB_ACCOUNT" {
@@ -72,7 +58,7 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 32
+  default = 1
 }
 
 variable "P2P_MIN_PEERS" {

@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -40,20 +42,23 @@ class GoblinUltra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-                                 proof_system::UltraPermutationRelation<FF>,
-                                 proof_system::LookupRelation<FF>,
-                                 proof_system::GenPermSortRelation<FF>,
-                                 proof_system::EllipticRelation<FF>,
-                                 proof_system::AuxiliaryRelation<FF>,
-                                 proof_system::EccOpQueueRelation<FF>,
-                                 proof_system::DatabusLookupRelation<FF>>;
+    // Note: made generic for use in GoblinUltraRecursive.
+    template <typename FF>
+    using Relations_ = std::tuple<proof_system::UltraArithmeticRelation<FF>,
+                                  proof_system::UltraPermutationRelation<FF>,
+                                  proof_system::LookupRelation<FF>,
+                                  proof_system::GenPermSortRelation<FF>,
+                                  proof_system::EllipticRelation<FF>,
+                                  proof_system::AuxiliaryRelation<FF>,
+                                  proof_system::EccOpQueueRelation<FF>,
+                                  proof_system::DatabusLookupRelation<FF>>;
+    using Relations = Relations_<FF>;
 
     using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
 
@@ -77,140 +82,123 @@ class GoblinUltra {
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
 
-  private:
-    template <typename DataType, typename HandleType>
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        DataType q_m;             // column 0
-        DataType q_c;             // column 1
-        DataType q_l;             // column 2
-        DataType q_r;             // column 3
-        DataType q_o;             // column 4
-        DataType q_4;             // column 5
-        DataType q_arith;         // column 6
-        DataType q_sort;          // column 7
-        DataType q_elliptic;      // column 8
-        DataType q_aux;           // column 9
-        DataType q_lookup;        // column 10
-        DataType q_busread;       // column 11
-        DataType sigma_1;         // column 12
-        DataType sigma_2;         // column 13
-        DataType sigma_3;         // column 14
-        DataType sigma_4;         // column 15
-        DataType id_1;            // column 16
-        DataType id_2;            // column 17
-        DataType id_3;            // column 18
-        DataType id_4;            // column 19
-        DataType table_1;         // column 20
-        DataType table_2;         // column 21
-        DataType table_3;         // column 22
-        DataType table_4;         // column 23
-        DataType lagrange_first;  // column 24
-        DataType lagrange_last;   // column 25
-        DataType lagrange_ecc_op; // column 26 // indicator poly for ecc op gates
-        DataType databus_id;      // column 27 // id polynomial, i.e. id_i = i
-
-        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES,
-                            &q_m,
-                            &q_c,
-                            &q_l,
-                            &q_r,
-                            &q_o,
-                            &q_4,
-                            &q_arith,
-                            &q_sort,
-                            &q_elliptic,
-                            &q_aux,
-                            &q_lookup,
-                            &q_busread,
-                            &sigma_1,
-                            &sigma_2,
-                            &sigma_3,
-                            &sigma_4,
-                            &id_1,
-                            &id_2,
-                            &id_3,
-                            &id_4,
-                            &table_1,
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &lagrange_first,
-                            &lagrange_last,
-                            &lagrange_ecc_op,
-                            &databus_id)
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_m,             // column 0
+                              q_c,             // column 1
+                              q_l,             // column 2
+                              q_r,             // column 3
+                              q_o,             // column 4
+                              q_4,             // column 5
+                              q_arith,         // column 6
+                              q_sort,          // column 7
+                              q_elliptic,      // column 8
+                              q_aux,           // column 9
+                              q_lookup,        // column 10
+                              q_busread,       // column 11
+                              sigma_1,         // column 12
+                              sigma_2,         // column 13
+                              sigma_3,         // column 14
+                              sigma_4,         // column 15
+                              id_1,            // column 16
+                              id_2,            // column 17
+                              id_3,            // column 18
+                              id_4,            // column 19
+                              table_1,         // column 20
+                              table_2,         // column 21
+                              table_3,         // column 22
+                              table_4,         // column 23
+                              lagrange_first,  // column 24
+                              lagrange_last,   // column 25
+                              lagrange_ecc_op, // column 26 // indicator poly for ecc op gates
+                              databus_id)      // column 27 // id polynomial, i.e. id_i = i
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
-        std::vector<HandleType> get_selectors() override
+        RefVector<DataType> get_selectors()
         {
             return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup, q_busread };
         };
-        std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+    };
 
-        std::vector<HandleType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+    // GoblinUltra needs to expose more public classes than most flavors due to GoblinUltraRecursive reuse, but these
+    // are internal:
+  private:
+    // WireEntities for basic witness entities
+    template <typename DataType> class WireEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l,  // column 0
+                              w_r,  // column 1
+                              w_o,  // column 2
+                              w_4); // column 3
+    };
+
+    // DerivedEntities for derived witness entities
+    template <typename DataType> class DerivedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              sorted_accum,         // column 4
+                              z_perm,               // column 5
+                              z_lookup,             // column 6
+                              ecc_op_wire_1,        // column 7
+                              ecc_op_wire_2,        // column 8
+                              ecc_op_wire_3,        // column 9
+                              ecc_op_wire_4,        // column 10
+                              calldata,             // column 11
+                              calldata_read_counts, // column 12
+                              lookup_inverses);     // column 13
     };
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
+     * Combines WireEntities + DerivedEntities.
      */
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType>
+    class WitnessEntities : public WireEntities<DataType>, public DerivedEntities<DataType> {
       public:
-        DataType w_l;                  // column 0
-        DataType w_r;                  // column 1
-        DataType w_o;                  // column 2
-        DataType w_4;                  // column 3
-        DataType sorted_1;             // column 4
-        DataType sorted_2;             // column 5
-        DataType sorted_3;             // column 6
-        DataType sorted_4;             // column 7
-        DataType sorted_accum;         // column 8
-        DataType z_perm;               // column 9
-        DataType z_lookup;             // column 10
-        DataType ecc_op_wire_1;        // column 11
-        DataType ecc_op_wire_2;        // column 12
-        DataType ecc_op_wire_3;        // column 13
-        DataType ecc_op_wire_4;        // column 14
-        DataType calldata;             // column 15
-        DataType calldata_read_counts; // column 16
-        DataType lookup_inverses;      // column 17
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_all())
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_1,
-                            &sorted_2,
-                            &sorted_3,
-                            &sorted_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup,
-                            &ecc_op_wire_1,
-                            &ecc_op_wire_2,
-                            &ecc_op_wire_3,
-                            &ecc_op_wire_4,
-                            &calldata,
-                            &calldata_read_counts,
-                            &lookup_inverses)
-
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        std::vector<HandleType> get_ecc_op_wires()
+        RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
+        RefVector<DataType> get_ecc_op_wires()
         {
-            return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
-        };
+            return { this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
+        }
         // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
+        RefVector<DataType> get_sorted_polynomials()
+        {
+            return { this->sorted_1, this->sorted_2, this->sorted_3, this->sorted_4 };
+        };
     };
 
+    template <typename DataType> class ShiftedEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              table_1_shift,      // column 0
+                              table_2_shift,      // column 1
+                              table_3_shift,      // column 2
+                              table_4_shift,      // column 3
+                              w_l_shift,          // column 4
+                              w_r_shift,          // column 5
+                              w_o_shift,          // column 6
+                              w_4_shift,          // column 7
+                              sorted_accum_shift, // column 8
+                              z_perm_shift,       // column 9
+                              z_lookup_shift      // column 10
+        )
+    };
+
+  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -220,193 +208,83 @@ class GoblinUltra {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+    template <typename DataType>
+    class AllEntities : public PrecomputedEntities<DataType>,
+                        public WitnessEntities<DataType>,
+                        public ShiftedEntities<DataType> {
       public:
-        DataType q_c;                  // column 0
-        DataType q_l;                  // column 1
-        DataType q_r;                  // column 2
-        DataType q_o;                  // column 3
-        DataType q_4;                  // column 4
-        DataType q_m;                  // column 5
-        DataType q_arith;              // column 6
-        DataType q_sort;               // column 7
-        DataType q_elliptic;           // column 8
-        DataType q_aux;                // column 9
-        DataType q_lookup;             // column 10
-        DataType q_busread;            // column 11
-        DataType sigma_1;              // column 12
-        DataType sigma_2;              // column 13
-        DataType sigma_3;              // column 14
-        DataType sigma_4;              // column 15
-        DataType id_1;                 // column 16
-        DataType id_2;                 // column 17
-        DataType id_3;                 // column 18
-        DataType id_4;                 // column 19
-        DataType table_1;              // column 20
-        DataType table_2;              // column 21
-        DataType table_3;              // column 22
-        DataType table_4;              // column 23
-        DataType lagrange_first;       // column 24
-        DataType lagrange_last;        // column 25
-        DataType lagrange_ecc_op;      // column 26
-        DataType databus_id;           // column 27
-        DataType w_l;                  // column 28
-        DataType w_r;                  // column 29
-        DataType w_o;                  // column 30
-        DataType w_4;                  // column 31
-        DataType sorted_accum;         // column 32
-        DataType z_perm;               // column 33
-        DataType z_lookup;             // column 34
-        DataType ecc_op_wire_1;        // column 35
-        DataType ecc_op_wire_2;        // column 36
-        DataType ecc_op_wire_3;        // column 37
-        DataType ecc_op_wire_4;        // column 38
-        DataType calldata;             // column 39
-        DataType calldata_read_counts; // column 40
-        DataType lookup_inverses;      // column 41
-        DataType table_1_shift;        // column 42
-        DataType table_2_shift;        // column 43
-        DataType table_3_shift;        // column 44
-        DataType table_4_shift;        // column 45
-        DataType w_l_shift;            // column 46
-        DataType w_r_shift;            // column 47
-        DataType w_o_shift;            // column 48
-        DataType w_4_shift;            // column 49
-        DataType sorted_accum_shift;   // column 50
-        DataType z_perm_shift;         // column 51
-        DataType z_lookup_shift;       // column 52
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
+                                WitnessEntities<DataType>::get_all(),
+                                ShiftedEntities<DataType>::get_all())
 
-        // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &q_c,
-                            &q_l,
-                            &q_r,
-                            &q_o,
-                            &q_4,
-                            &q_m,
-                            &q_arith,
-                            &q_sort,
-                            &q_elliptic,
-                            &q_aux,
-                            &q_lookup,
-                            &q_busread,
-                            &sigma_1,
-                            &sigma_2,
-                            &sigma_3,
-                            &sigma_4,
-                            &id_1,
-                            &id_2,
-                            &id_3,
-                            &id_4,
-                            &table_1,
-                            &table_2,
-                            &table_3,
-                            &table_4,
-                            &lagrange_first,
-                            &lagrange_last,
-                            &lagrange_ecc_op,
-                            &databus_id,
-                            &w_l,
-                            &w_r,
-                            &w_o,
-                            &w_4,
-                            &sorted_accum,
-                            &z_perm,
-                            &z_lookup,
-                            &ecc_op_wire_1,
-                            &ecc_op_wire_2,
-                            &ecc_op_wire_3,
-                            &ecc_op_wire_4,
-                            &calldata,
-                            &calldata_read_counts,
-                            &lookup_inverses,
-                            &table_1_shift,
-                            &table_2_shift,
-                            &table_3_shift,
-                            &table_4_shift,
-                            &w_l_shift,
-                            &w_r_shift,
-                            &w_o_shift,
-                            &w_4_shift,
-                            &sorted_accum_shift,
-                            &z_perm_shift,
-                            &z_lookup_shift);
-
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        std::vector<HandleType> get_ecc_op_wires()
+        RefVector<DataType> get_wires() { return { this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        RefVector<DataType> get_ecc_op_wires()
         {
-            return { ecc_op_wire_1, ecc_op_wire_2, ecc_op_wire_3, ecc_op_wire_4 };
+            return { this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         };
         // Gemini-specific getters.
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
-            return { q_c,
-                     q_l,
-                     q_r,
-                     q_o,
-                     q_4,
-                     q_m,
-                     q_arith,
-                     q_sort,
-                     q_elliptic,
-                     q_aux,
-                     q_lookup,
-                     q_busread,
-                     sigma_1,
-                     sigma_2,
-                     sigma_3,
-                     sigma_4,
-                     id_1,
-                     id_2,
-                     id_3,
-                     id_4,
-                     table_1,
-                     table_2,
-                     table_3,
-                     table_4,
-                     lagrange_first,
-                     lagrange_last,
-                     lagrange_ecc_op,
-                     databus_id,
-                     w_l,
-                     w_r,
-                     w_o,
-                     w_4,
-                     sorted_accum,
-                     z_perm,
-                     z_lookup,
-                     ecc_op_wire_1,
-                     ecc_op_wire_2,
-                     ecc_op_wire_3,
-                     ecc_op_wire_4,
-                     calldata,
-                     calldata_read_counts,
-                     lookup_inverses };
+            return { this->q_c,
+                     this->q_l,
+                     this->q_r,
+                     this->q_o,
+                     this->q_4,
+                     this->q_m,
+                     this->q_arith,
+                     this->q_sort,
+                     this->q_elliptic,
+                     this->q_aux,
+                     this->q_lookup,
+                     this->q_busread,
+                     this->sigma_1,
+                     this->sigma_2,
+                     this->sigma_3,
+                     this->sigma_4,
+                     this->id_1,
+                     this->id_2,
+                     this->id_3,
+                     this->id_4,
+                     this->table_1,
+                     this->table_2,
+                     this->table_3,
+                     this->table_4,
+                     this->lagrange_first,
+                     this->lagrange_last,
+                     this->lagrange_ecc_op,
+                     this->databus_id,
+                     this->w_l,
+                     this->w_r,
+                     this->w_o,
+                     this->w_4,
+                     this->sorted_accum,
+                     this->z_perm,
+                     this->z_lookup,
+                     this->ecc_op_wire_1,
+                     this->ecc_op_wire_2,
+                     this->ecc_op_wire_3,
+                     this->ecc_op_wire_4,
+                     this->calldata,
+                     this->calldata_read_counts,
+                     this->lookup_inverses };
         };
-        std::vector<HandleType> get_to_be_shifted() override
+        RefVector<DataType> get_to_be_shifted()
         {
-            return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
+            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
         };
-        std::vector<HandleType> get_shifted() override
-        {
-            return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
-                     w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
-        };
+        RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                          WitnessEntities<Polynomial, PolynomialHandle>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                 WitnessEntities<Polynomial, PolynomialHandle>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
         std::vector<uint32_t> memory_read_records;
@@ -426,20 +304,20 @@ class GoblinUltra {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
 
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : this->pointer_view()) {
-                *poly = Polynomial(circuit_size / 2);
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };
@@ -448,8 +326,7 @@ class GoblinUltra {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -460,27 +337,32 @@ class GoblinUltra {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
     };
 
     /**
      * @brief A container for the prover polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<PolynomialHandle> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                result_field = polynomial[row_idx];
             }
             return result;
         }
     };
+
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     /**
      * @brief A container for commitment labels.
@@ -488,7 +370,7 @@ class GoblinUltra {
      * has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
@@ -538,43 +420,46 @@ class GoblinUltra {
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    /**
+     * Note: Made generic for use in GoblinUltraRecursive.
+     **/
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
-                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
-            q_m = verification_key->q_m;
-            q_l = verification_key->q_l;
-            q_r = verification_key->q_r;
-            q_o = verification_key->q_o;
-            q_4 = verification_key->q_4;
-            q_c = verification_key->q_c;
-            q_arith = verification_key->q_arith;
-            q_sort = verification_key->q_sort;
-            q_elliptic = verification_key->q_elliptic;
-            q_aux = verification_key->q_aux;
-            q_lookup = verification_key->q_lookup;
-            q_busread = verification_key->q_busread;
-            sigma_1 = verification_key->sigma_1;
-            sigma_2 = verification_key->sigma_2;
-            sigma_3 = verification_key->sigma_3;
-            sigma_4 = verification_key->sigma_4;
-            id_1 = verification_key->id_1;
-            id_2 = verification_key->id_2;
-            id_3 = verification_key->id_3;
-            id_4 = verification_key->id_4;
-            table_1 = verification_key->table_1;
-            table_2 = verification_key->table_2;
-            table_3 = verification_key->table_3;
-            table_4 = verification_key->table_4;
-            lagrange_first = verification_key->lagrange_first;
-            lagrange_last = verification_key->lagrange_last;
-            lagrange_ecc_op = verification_key->lagrange_ecc_op;
-            databus_id = verification_key->databus_id;
+            this->q_m = verification_key->q_m;
+            this->q_l = verification_key->q_l;
+            this->q_r = verification_key->q_r;
+            this->q_o = verification_key->q_o;
+            this->q_4 = verification_key->q_4;
+            this->q_c = verification_key->q_c;
+            this->q_arith = verification_key->q_arith;
+            this->q_sort = verification_key->q_sort;
+            this->q_elliptic = verification_key->q_elliptic;
+            this->q_aux = verification_key->q_aux;
+            this->q_lookup = verification_key->q_lookup;
+            this->q_busread = verification_key->q_busread;
+            this->sigma_1 = verification_key->sigma_1;
+            this->sigma_2 = verification_key->sigma_2;
+            this->sigma_3 = verification_key->sigma_3;
+            this->sigma_4 = verification_key->sigma_4;
+            this->id_1 = verification_key->id_1;
+            this->id_2 = verification_key->id_2;
+            this->id_3 = verification_key->id_3;
+            this->id_4 = verification_key->id_4;
+            this->table_1 = verification_key->table_1;
+            this->table_2 = verification_key->table_2;
+            this->table_3 = verification_key->table_3;
+            this->table_4 = verification_key->table_4;
+            this->lagrange_first = verification_key->lagrange_first;
+            this->lagrange_last = verification_key->lagrange_last;
+            this->lagrange_ecc_op = verification_key->lagrange_ecc_op;
+            this->databus_id = verification_key->databus_id;
         }
     };
-
+    // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
     class FoldingParameters {
       public:
         std::vector<FF> gate_separation_challenges;
@@ -583,9 +468,9 @@ class GoblinUltra {
 
     /**
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
-     *
+     * Note: Made generic for use in GoblinUltraRecursive.
      */
-    class Transcript : public BaseTranscript<FF> {
+    template <typename Commitment> class Transcript_ : public BaseTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -611,13 +496,13 @@ class GoblinUltra {
         Commitment zm_cq_comm;
         Commitment zm_pi_comm;
 
-        Transcript() = default;
+        Transcript_() = default;
 
-        Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+        Transcript_(const std::vector<uint8_t>& proof)
+            : BaseTranscript(proof)
         {}
 
-        void deserialize_full_transcript() override
+        void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
@@ -657,7 +542,7 @@ class GoblinUltra {
             zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
 
-        void serialize_full_transcript() override
+        void serialize_full_transcript()
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
@@ -695,6 +580,8 @@ class GoblinUltra {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+    // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
+    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace proof_system::honk::flavor
