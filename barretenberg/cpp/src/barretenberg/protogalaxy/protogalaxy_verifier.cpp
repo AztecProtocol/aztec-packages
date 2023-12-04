@@ -167,7 +167,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
         verified = verified & (expected_betas_star[idx] == beta_star);
     }
-    info(verified);
 
     // Compute ϕ and verify against the data received from the prover
     WitnessCommitments acc_witness_commitments;
@@ -184,7 +183,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (comm == expected_comm);
         comm_idx++;
     }
-    info(verified);
 
     std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size(), 0);
     size_t el_idx = 0;
@@ -198,7 +196,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (el == expected_el);
         el_idx++;
     }
-    info(verified);
 
     auto expected_alpha = FF(0);
     auto expected_parameters = proof_system::RelationParameters<FF>{};
@@ -216,28 +213,22 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha");
     verified = verified & (next_alpha == expected_alpha);
-    info(verified);
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
     verified = verified & (next_eta == expected_parameters.eta);
-    info(verified);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
     verified = verified & (next_beta == expected_parameters.beta);
-    info(verified);
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
     verified = verified & (next_gamma == expected_parameters.gamma);
-    info(verified);
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
     verified = verified & (next_public_input_delta == expected_parameters.public_input_delta);
-    info(verified);
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
     verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
-    info(verified);
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
@@ -253,7 +244,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (vk == expected_vk);
         vk_idx++;
     }
-    info(verified);
 
     return verified;
 }
