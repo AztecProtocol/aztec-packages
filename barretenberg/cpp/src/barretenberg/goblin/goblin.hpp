@@ -27,7 +27,7 @@ class Goblin {
     using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
 
-    using Transcript = proof_system::honk::BaseTranscript<Fr>;
+    using Transcript = proof_system::honk::BaseTranscript;
     using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
@@ -77,7 +77,7 @@ class Goblin {
             ASSERT(merge_verified);
         }
 
-        return { honk_proof, instance->compute_verification_key() };
+        return { honk_proof, instance->verification_key };
     };
 
     PartialProof prove()
