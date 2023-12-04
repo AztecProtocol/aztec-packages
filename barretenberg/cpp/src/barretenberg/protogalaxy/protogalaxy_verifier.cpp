@@ -242,8 +242,9 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
     size_t vk_idx = 0;
-    for (auto expected_vk : acc_vk->get_all()) {
+    for (auto& expected_vk : acc_vk->get_all()) {
         size_t inst = 0;
+        expected_vk = Commitment::infinity();
         for (auto& instance : instances) {
             expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
             inst++;

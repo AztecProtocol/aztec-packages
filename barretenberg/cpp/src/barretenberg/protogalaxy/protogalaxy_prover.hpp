@@ -543,16 +543,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Fold the verification key and send it to the verifier
         auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
                                                         instances[0]->public_inputs.size());
-        auto acc_vk_view = acc_vk->get_all();
         auto labels = next_accumulator->commitment_labels.get_precomputed();
-        for (size_t vk_idx = 0; vk_idx < acc_vk_view.size(); vk_idx++) {
+        size_t vk_idx = 0;
+        for (auto& vk : acc_vk->get_all()) {
             size_t inst = 0;
+            vk = Commitment::infinity();
             for (auto& instance : instances) {
-                acc_vk_view[vk_idx] =
-                    acc_vk_view[vk_idx] + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
+                vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
                 inst++;
             }
-            transcript->send_to_verifier("next_" + labels[vk_idx], (acc_vk_view[vk_idx]));
+            transcript->send_to_verifier("next_" + labels[vk_idx], vk);
+            vk_idx++;
         }
         next_accumulator->verification_key = acc_vk;
 
