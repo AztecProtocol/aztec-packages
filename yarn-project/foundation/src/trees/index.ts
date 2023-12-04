@@ -19,7 +19,7 @@ export interface IndexedTreeLeaf {
 /**
  * Preimage of an indexed merkle tree leaf.
  */
-export interface IndexedTreeLeafPreimage<Leaf extends IndexedTreeLeaf> {
+export interface IndexedTreeLeafPreimage {
   /**
    * Returns key of the leaf corresponding to this preimage.
    */
@@ -36,7 +36,7 @@ export interface IndexedTreeLeafPreimage<Leaf extends IndexedTreeLeaf> {
   /**
    * Returns the preimage as a leaf.
    */
-  asLeaf(): Leaf;
+  asLeaf(): IndexedTreeLeaf;
   /**
    * Serializes the preimage into a buffer.
    */

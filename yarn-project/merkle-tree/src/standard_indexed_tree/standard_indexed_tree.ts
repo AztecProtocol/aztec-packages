@@ -5,7 +5,13 @@ import { Hasher, SiblingPath } from '@aztec/types';
 
 import { LevelUp } from 'levelup';
 
-import { BatchInsertionResult, IndexedTree, LowLeafWitnessData } from '../index.js';
+import {
+  BatchInsertionResult,
+  IndexedTree,
+  IndexedTreeSnapshot,
+  IndexedTreeSnapshotBuilder,
+  LowLeafWitnessData,
+} from '../index.js';
 import { TreeBase } from '../tree_base.js';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');
@@ -13,62 +19,60 @@ const log = createDebugLogger('aztec:standard-indexed-tree');
 /**
  * Factory for creating leaf preimages.
  */
-export interface PreimageFactory<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>> {
+export interface PreimageFactory {
   /**
    * Creates a new preimage from a leaf.
    * @param leaf - Leaf to create a preimage from.
    * @param nextKey - Next key of the leaf.
    * @param nextIndex - Next index of the leaf.
    */
-  fromLeaf(leaf: Leaf, nextKey: bigint, nextIndex: bigint): Preimage;
+  fromLeaf(leaf: IndexedTreeLeaf, nextKey: bigint, nextIndex: bigint): IndexedTreeLeafPreimage;
   /**
    * Creates a new preimage from a buffer.
    * @param buffer - Buffer to create a preimage from.
    */
-  fromBuffer(buffer: Buffer): Preimage;
+  fromBuffer(buffer: Buffer): IndexedTreeLeafPreimage;
   /**
    * Creates an empty preimage.
    */
-  empty(): Preimage;
+  empty(): IndexedTreeLeafPreimage;
   /**
    * Creates a copy of a preimage.
    * @param preimage - Preimage to be cloned.
    */
-  clone(preimage: Preimage): Preimage;
+  clone(preimage: IndexedTreeLeafPreimage): IndexedTreeLeafPreimage;
 }
 
 /**
  * Factory for creating leaves.
  */
-export interface LeafFactory<Leaf> {
+export interface LeafFactory {
   /**
    * Creates a new leaf from a buffer.
    * @param key - Key of the leaf.
    */
-  buildDummy(key: bigint): Leaf;
+  buildDummy(key: bigint): IndexedTreeLeaf;
   /**
    * Creates a new leaf from a buffer.
    * @param buffer - Buffer to create a leaf from.
    */
-  fromBuffer(buffer: Buffer): Leaf;
+  fromBuffer(buffer: Buffer): IndexedTreeLeaf;
 }
 
-const leafIndexToDbKey = (name: string, index: bigint) => {
+export const buildDbKeyForPreimage = (name: string, index: bigint) => {
   return `${name}:leaf_by_index:${toBufferBE(index, 32).toString('hex')}`;
 };
 
-const leafKeyToDbKey = (name: string, key: bigint) => {
+export const buildDbKeyForLeafIndex = (name: string, key: bigint) => {
   return `${name}:leaf_index_by_leaf_key:${toBufferBE(key, 32).toString('hex')}`;
 };
 
 /**
  * Standard implementation of an indexed tree.
  */
-export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>
-  extends TreeBase
-  implements IndexedTree<Leaf, Preimage>
-{
-  protected cachedLeafPreimages: { [key: string]: Preimage } = {};
+export class StandardIndexedTree extends TreeBase implements IndexedTree {
+  #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.db, this, this.leafPreimageFactory);
+  protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
 
   public constructor(
     db: LevelUp,
@@ -76,8 +80,8 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     name: string,
     depth: number,
     size: bigint = 0n,
-    protected leafPreimageFactory: PreimageFactory<Leaf, Preimage>,
-    protected leafFactory: LeafFactory<Leaf>,
+    protected leafPreimageFactory: PreimageFactory,
+    protected leafFactory: LeafFactory,
     root?: Buffer,
   ) {
     super(db, hasher, name, depth, size, root);
@@ -116,8 +120,8 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @returns The value of the leaf at the given index or undefined if the leaf is empty.
    */
   public async getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
-    const leaf = await this.getLatestLeafPreimageCopy(index, includeUncommitted);
-    return leaf && leaf.toBuffer();
+    const preimage = await this.getLatestLeafPreimageCopy(index, includeUncommitted);
+    return preimage && preimage.toBuffer();
   }
 
   /**
@@ -192,7 +196,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
       let lowLeafIndex: bigint | undefined;
       this.db
         .createReadStream({
-          lte: leafKeyToDbKey(this.getName(), key),
+          lte: buildDbKeyForLeafIndex(this.getName(), key),
           limit: 1,
           reverse: true,
         })
@@ -210,15 +214,15 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     });
   }
 
-  private async getDbPreimage(index: bigint): Promise<Preimage | undefined> {
+  private async getDbPreimage(index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
     const dbPreimage = await this.db
-      .get(leafIndexToDbKey(this.getName(), index))
+      .get(buildDbKeyForPreimage(this.getName(), index))
       .then(data => this.leafPreimageFactory.fromBuffer(data))
       .catch(() => undefined);
     return dbPreimage;
   }
 
-  private getCachedPreimage(index: bigint): Preimage | undefined {
+  private getCachedPreimage(index: bigint): IndexedTreeLeafPreimage | undefined {
     return this.cachedLeafPreimages[index.toString()];
   }
 
@@ -228,7 +232,10 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  public async getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): Promise<Preimage | undefined> {
+  public async getLatestLeafPreimageCopy(
+    index: bigint,
+    includeUncommitted: boolean,
+  ): Promise<IndexedTreeLeafPreimage | undefined> {
     const preimage = !includeUncommitted
       ? await this.getDbPreimage(index)
       : this.getCachedPreimage(index) ?? (await this.getDbPreimage(index));
@@ -245,7 +252,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
   public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
     const leaf = this.leafFactory.fromBuffer(value);
     let index = await this.db
-      .get(leafKeyToDbKey(this.getName(), leaf.getKey()))
+      .get(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()))
       .then(data => toBigIntBE(data))
       .catch(() => undefined);
 
@@ -275,7 +282,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
       throw new Error(`Prefilled size must be at least 1!`);
     }
 
-    const leaves: Preimage[] = [];
+    const leaves: IndexedTreeLeafPreimage[] = [];
     for (let i = 0n; i < prefilledSize; i++) {
       const newLeaf = this.leafFactory.buildDummy(i);
       const newLeafPreimage = this.leafPreimageFactory.fromLeaf(newLeaf, i + 1n, i + 1n);
@@ -298,8 +305,8 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     for (const key of keys) {
       const leaf = this.cachedLeafPreimages[key];
       const index = BigInt(key);
-      batch.put(leafIndexToDbKey(this.getName(), index), leaf.toBuffer());
-      batch.put(leafKeyToDbKey(this.getName(), leaf.getKey()), toBufferBE(index, 32));
+      batch.put(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
+      batch.put(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()), toBufferBE(index, 32));
     }
     await batch.write();
     this.clearCachedLeaves();
@@ -317,7 +324,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @param preimage - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  protected async updateLeaf(preimage: Preimage, index: bigint) {
+  protected async updateLeaf(preimage: IndexedTreeLeafPreimage, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
@@ -336,7 +343,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    * @param treeHeight - Height of tree for sibling path.
    * @returns An empty witness.
    */
-  getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N, Leaf, Preimage> {
+  getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N> {
     return {
       leafData: this.leafPreimageFactory.empty(),
       index: 0n,
@@ -459,11 +466,11 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
   >(
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>> {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     const emptyLowLeafWitness = this.getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
     // Accumulators
-    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight, Leaf, Preimage>[] = leaves.map(() => emptyLowLeafWitness);
-    const pendingInsertionSubtree: Preimage[] = leaves.map(() => this.leafPreimageFactory.empty());
+    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
+    const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.empty());
 
     // Start info
     const startInsertionIndex = this.getNumLeaves(true);
@@ -497,7 +504,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
       const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true))!;
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
-      const witness: LowLeafWitnessData<TreeHeight, Leaf, Preimage> = {
+      const witness: LowLeafWitnessData<TreeHeight> = {
         leafData: lowLeafPreimage,
         index: BigInt(indexOfPrevious.index),
         siblingPath,
@@ -554,13 +561,21 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
+  snapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.snapshot(blockNumber);
+  }
+
+  getSnapshot(block: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.getSnapshot(block);
+  }
+
   /**
    * Encodes leaves and appends them to a tree.
    * @param preimages - Leaves to encode.
    * @param hash0Leaf - Indicates whether 0 value leaf should be hashed. See {@link encodeLeaf}.
    * @returns Empty promise
    */
-  private async encodeAndAppendLeaves(preimages: Preimage[], hash0Leaf: boolean): Promise<void> {
+  private async encodeAndAppendLeaves(preimages: IndexedTreeLeafPreimage[], hash0Leaf: boolean): Promise<void> {
     const startInsertionIndex = this.getNumLeaves(true);
 
     const hashedLeaves = preimages.map((preimage, i) => {
@@ -579,7 +594,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
    *                    nullifier it is improbable that a valid nullifier would be 0.
    * @returns Leaf encoded in a buffer.
    */
-  private encodeLeaf(leaf: Preimage, hash0Leaf: boolean): Buffer {
+  private encodeLeaf(leaf: IndexedTreeLeafPreimage, hash0Leaf: boolean): Buffer {
     let encodedLeaf;
     if (!hash0Leaf && leaf.getKey() == 0n) {
       encodedLeaf = toBufferBE(0n, 32);

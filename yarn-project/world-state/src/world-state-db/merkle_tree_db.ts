@@ -1,8 +1,8 @@
 import { MAX_NEW_NULLIFIERS_PER_TX, NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { BatchInsertionResult } from '@aztec/merkle-tree';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
@@ -92,7 +92,13 @@ export type MerkleTreeDb = {
   [Property in keyof MerkleTreeOperations as Exclude<Property, MerkleTreeSetters>]: WithIncludeUncommitted<
     MerkleTreeOperations[Property]
   >;
-} & Pick<MerkleTreeOperations, MerkleTreeSetters>;
+} & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
+    /**
+     * Returns a snapshot of the current state of the trees.
+     * @param block - The block number to take the snapshot at.
+     */
+    getSnapshot(block: number): Promise<ReadonlyArray<TreeSnapshot | IndexedTreeSnapshot>>;
+  };
 
 /**
  * Defines the interface for operations on a set of Merkle Trees.
@@ -150,10 +156,7 @@ export interface MerkleTreeOperations {
    * @param treeId - The tree for which leaf data should be returned.
    * @param index - The index of the leaf required.
    */
-  getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
-    treeId: IndexedTreeId,
-    index: bigint,
-  ): Promise<Preimage | undefined>;
+  getLeafPreimage(treeId: IndexedTreeId, index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
 
   /**
    * Update the leaf data at the given index.
@@ -182,7 +185,7 @@ export interface MerkleTreeOperations {
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param globalVariablesHash - The global variables hash to insert into the block hash.
    */
-  updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void>;
+  updateBlocksTree(globalVariablesHash: Fr): Promise<void>;
 
   /**
    * Updates the latest global variables hash
@@ -202,16 +205,11 @@ export interface MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
-  batchInsert<
-    TreeHeight extends number,
-    SubtreeSiblingPathHeight extends number,
-    Leaf extends IndexedTreeLeaf,
-    Preimage extends IndexedTreeLeafPreimage<Leaf>,
-  >(
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>>;
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
 
   /**
    * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).

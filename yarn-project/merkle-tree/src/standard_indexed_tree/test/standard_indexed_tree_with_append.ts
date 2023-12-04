@@ -1,5 +1,3 @@
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-
 import { StandardIndexedTree } from '../../index.js';
 
 /**
@@ -7,10 +5,7 @@ import { StandardIndexedTree } from '../../index.js';
  * that was replaced by the more efficient batchInsert method. We keep the original implementation around as it useful
  * for testing that the more complex batchInsert method works correctly.
  */
-export class StandardIndexedTreeWithAppend<
-  Leaf extends IndexedTreeLeaf,
-  Preimage extends IndexedTreeLeafPreimage<Leaf>,
-> extends StandardIndexedTree<Leaf, Preimage> {
+export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
   /**
    * Appends the given leaves to the tree.
    * @param leaves - The leaves to append.

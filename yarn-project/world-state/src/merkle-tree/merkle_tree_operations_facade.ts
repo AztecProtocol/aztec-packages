@@ -1,6 +1,6 @@
 import { NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import {  IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
@@ -94,12 +94,12 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param index - The index of the leaf to get.
    * @returns Leaf data.
    */
-  async getLeafPreimage<Leaf extends IndexedTreeLeaf, Preimage extends IndexedTreeLeafPreimage<Leaf>>(
+  async getLeafPreimage(
     treeId: MerkleTreeId.NULLIFIER_TREE,
     index: bigint,
-  ): Promise<Preimage | undefined> {
+  ): Promise<IndexedTreeLeafPreimage | undefined> {
     const preimage = await this.trees.getLeafPreimage(treeId, index, this.includeUncommitted);
-    return preimage as Preimage | undefined;
+    return preimage as IndexedTreeLeafPreimage | undefined;
   }
 
   /**
@@ -129,8 +129,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param globalVariablesHash - The hash of the current global variables to include in the block hash.
    * @returns Empty promise.
    */
-  public updateHistoricBlocksTree(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateHistoricBlocksTree(globalVariablesHash, this.includeUncommitted);
+  public updateBlocksTree(globalVariablesHash: Fr): Promise<void> {
+    return this.trees.updateBlocksTree(globalVariablesHash, this.includeUncommitted);
   }
 
   /**
@@ -180,16 +180,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public batchInsert<
-    TreeHeight extends number,
-    SubtreeSiblingPathHeight extends number,
-    Leaf extends IndexedTreeLeaf,
-    Preimage extends IndexedTreeLeafPreimage<Leaf>,
-  >(
+  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
     treeId: MerkleTreeId,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight, Leaf, Preimage>> {
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }
