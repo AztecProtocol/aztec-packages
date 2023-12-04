@@ -36,16 +36,12 @@ Create `contracts/token/types.nr` and copy-paste the following:
 
 ## Compile your contract
 
-We'll now use the [Aztec CLI](../../cli/main.md) to [compile](../../contracts/compiling.md) our project. If you haven't installed the CLI already, you can install it locally to your project running:
-
-```sh
-yarn add -D @aztec/cli
-```
+We'll now use the [Aztec CLI](../../cli/main.md) to [compile](../../contracts/compiling.md) our project. If you haven't installed the CLI already, it comes with the sandbox, so you can install it via the [Sandbox install command](../../cli/sandbox-reference.md#installation).
 
 Now run the following from your project root:
 
 ```sh
-yarn aztec-cli compile contracts/token
+aztec-cli compile contracts/token
 ```
 
 :::info
