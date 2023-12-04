@@ -42,11 +42,11 @@ export class StandardIndexedTreeWithAppend<
     }
 
     const lowLeafIndex = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);
-    const lowLeafPreimage = await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true);
-
-    if (lowLeafPreimage === undefined) {
+    if (lowLeafIndex === undefined) {
       throw new Error(`Previous leaf not found!`);
     }
+    const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true))!;
+
     const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
       newLeaf,
       lowLeafPreimage.getNextKey(),

@@ -61,16 +61,19 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   getPreviousValueIndex(
     treeId: MerkleTreeId.NULLIFIER_TREE,
     value: bigint,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }> {
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
     return this.trees.getPreviousValueIndex(treeId, value, this.includeUncommitted);
   }
 

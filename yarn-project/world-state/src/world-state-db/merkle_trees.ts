@@ -316,16 +316,19 @@ export class MerkleTrees implements MerkleTreeDb {
     treeId: IndexedTreeId,
     value: bigint,
     includeUncommitted: boolean,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }> {
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
     return await this.synchronize(() => this._getIndexedTree(treeId).findIndexOfPreviousKey(value, includeUncommitted));
   }
 

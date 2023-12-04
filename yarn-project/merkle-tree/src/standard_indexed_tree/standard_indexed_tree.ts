@@ -129,16 +129,19 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
   async findIndexOfPreviousKey(
     newKey: bigint,
     includeUncommitted: boolean,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }> {
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
     let lowLeafIndex = await this.getDbLowLeafIndex(newKey);
     let lowLeafPreimage = lowLeafIndex !== undefined ? await this.getDbPreimage(lowLeafIndex) : undefined;
 
@@ -153,7 +156,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
     }
 
     if (lowLeafIndex === undefined || !lowLeafPreimage) {
-      throw new Error('Low leaf not found');
+      return undefined;
     }
 
     return {
@@ -481,10 +484,7 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
       }
 
       const indexOfPrevious = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);
-
-      // get the low leaf
-      const lowLeafPreimage = await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true);
-      if (lowLeafPreimage === undefined) {
+      if (indexOfPrevious === undefined) {
         return {
           lowLeavesWitnessData: undefined,
           sortedNewLeaves: sortedDescendingLeafTuples.map(leafTuple => leafTuple.leaf.toBuffer()),
@@ -492,6 +492,9 @@ export class StandardIndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends 
           newSubtreeSiblingPath: await this.getSubtreeSiblingPath(subtreeHeight, true),
         };
       }
+
+      // get the low leaf (existence checked in getting index)
+      const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true))!;
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
       const witness: LowLeafWitnessData<TreeHeight, Leaf, Preimage> = {

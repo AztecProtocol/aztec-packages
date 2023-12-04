@@ -131,16 +131,19 @@ export interface MerkleTreeOperations {
   getPreviousValueIndex(
     treeId: IndexedTreeId,
     value: bigint,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }>;
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  >;
 
   /**
    * Returns the data at a specific leaf.

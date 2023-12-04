@@ -576,10 +576,11 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const tree = MerkleTreeId.NULLIFIER_TREE;
     const prevValueIndex = await this.db.getPreviousValueIndex(tree, frToBigInt(nullifier));
-    const prevValuePreimage = await this.db.getLeafPreimage(tree, prevValueIndex.index);
-    if (!prevValuePreimage) {
+    if (!prevValueIndex) {
       throw new Error(`Nullifier tree should have one initial leaf`);
     }
+    const prevValuePreimage = (await this.db.getLeafPreimage(tree, prevValueIndex.index))!;
+
     const prevValueSiblingPath = await this.db.getSiblingPath(tree, BigInt(prevValueIndex.index));
 
     return {

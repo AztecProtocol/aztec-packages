@@ -440,25 +440,24 @@ export class AztecNodeService implements AztecNode {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState();
-    const { index, alreadyPresent } = await committedDb.getPreviousValueIndex(
-      MerkleTreeId.NULLIFIER_TREE,
-      nullifier.toBigInt(),
-    );
+    const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!findResult) {
+      return undefined;
+    }
+    const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
       this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
     }
-    const leafData = await committedDb.getLeafPreimage<NullifierLeaf, NullifierLeafPreimage>(
+    const preimageData = (await committedDb.getLeafPreimage<NullifierLeaf, NullifierLeafPreimage>(
       MerkleTreeId.NULLIFIER_TREE,
       index,
-    );
-    if (!leafData) {
-      return undefined;
-    }
+    ))!;
+
     const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
-    return new NullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), preimageData, siblingPath);
   }
 
   /**

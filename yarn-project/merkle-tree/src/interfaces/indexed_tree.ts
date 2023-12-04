@@ -66,16 +66,19 @@ export interface IndexedTree<Leaf extends IndexedTreeLeaf, Preimage extends Inde
   findIndexOfPreviousKey(
     newValue: bigint,
     includeUncommitted: boolean,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: bigint;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }>;
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  >;
 
   /**
    * Gets the latest LeafPreimage copy.
