@@ -178,13 +178,7 @@ TEST_F(GoblinRecursionTests, Pseudo)
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
-    // WORKTODO: verify the final kernel proof as part of verifying Goblin at large
-
-    GoblinProof goblin_proof = goblin.prove();
-    // bool verified = goblin.verified && vms_verified;
-    // // bool verified = goblin.verify(proof)
-    // EXPECT_TRUE(vms_verified);
-    // EXPECT_TRUE(verified);
+    goblin.prove();
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.

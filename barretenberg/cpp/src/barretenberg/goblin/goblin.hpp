@@ -12,7 +12,6 @@ namespace barretenberg {
 class Goblin {
   public:
     using Proof = proof_system::plonk::proof;
-    using PartialProof = bool;
 
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
@@ -108,11 +107,10 @@ class Goblin {
         // Execute the Translator
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
         info("Goblin: Constucting Translator.");
-        auto batching_challenge = Fq::random_element();
-        auto evaluation_input = eccvm_prover.evaluation_challenge_x;
-        auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
+        auto translator_builder = TranslatorBuilder(
+            eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
         auto translator_composer = TranslatorComposer();
-        auto translator_prover = translator_composer.create_prover(translator_builder);
+        auto translator_prover = translator_composer.create_prover(translator_builder, eccvm_prover.transcript);
 
         info("Goblin: Proving Translator.");
         proof.translator_proof = translator_prover.construct_proof();
@@ -123,7 +121,8 @@ class Goblin {
             bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
             ASSERT(eccvm_verified);
 
-            auto translator_verifier = translator_composer.create_verifier(translator_builder);
+            auto translator_verifier =
+                translator_composer.create_verifier(translator_builder, eccvm_verifier.transcript);
             info("Goblin: Verifying Translator.");
             bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
             ASSERT(accumulator_construction_verified);
