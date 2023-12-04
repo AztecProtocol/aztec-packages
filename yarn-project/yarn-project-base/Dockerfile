@@ -74,18 +74,19 @@ RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .
-# List all included files for debugging.
-RUN find . -type f
 
 # Install packages and rebuild the global cache with hard links.
+# List all included files for debugging.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
 #       Switch to using puppeteer-core then it won't download chrome. For now just erase.
-RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
-  rm -rf /root/.yarn/berry/cache/* && \
-  cd .yarn/cache && \
-  for F in *; do \
-    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-  done'
+RUN echo "Context files: " && find . -type f | sort && \
+    echo -n "Context hash: " && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum && \
+    yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
+      rm -rf /root/.yarn/berry/cache/* && \
+      cd .yarn/cache && \
+      for F in *; do \
+        [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+      done'
 
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
