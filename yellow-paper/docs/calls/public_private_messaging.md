@@ -10,12 +10,12 @@ sidebar_position: 5
 This is a draft. These requirements need to be considered by the wider team, and might change significantly before a mainnet release.
 :::
 
-Public state and private state exist in different trees. In a private function you cannot reference or modify public state and vice versa. 
+Public state and private state exist in different trees. In a private function you cannot reference or modify public state. 
 Yet, it should be possible for:
 1. private functions to call private or public functions
 2. public functions to call private or public functions
 
-Private functions are executed locally by the user and work by providing evidence of correct execution generated locally through kernel proofs. This way, the builder doesn't need to have knowledge of everything happening in the transaction, only the results. Public functions, on the other hand, are able to utilize the latest state to manage updates and perform alterations, as they are executed by the sequencer. 
+Private functions are executed locally by the user and work by providing evidence of correct execution generated locally through kernel proofs. This way, the sequencer doesn't need to have knowledge of everything happening in the transaction, only the results. Public functions, on the other hand, are able to utilize the latest state to manage updates and perform alterations, as they are executed by the sequencer. 
 
 Therefore, private functions are always executed first, as they are executed on a state $S_i$, where $i \le n$, with $S_n$ representing the current state where the public functions always operate on the current state $S_n$. 
 
@@ -40,7 +40,7 @@ graph TD
 
 ## Private to Public Messaging
 When a private function calls a public function:
-1. Public function args get hashed together in a chunk
+1. Public function args get hashed together
 1. A public call stack item is created with the public function selector, it's contract address and args hash
 1. The hash of the item gets enqueued into a separate public call stack and passed as inputs to the private kernel
 1. The private kernel pushes these hashes into the public input, which the sequencer can see. 
@@ -52,7 +52,11 @@ When a private function calls a public function:
 ### Handling Privacy Leakage and `msg.sender`
 In the above design, the sequencer only sees the public part of the call stack along with any new commitments, nullifiers etc that were created in the private transaction i.e. should learns nothing more of the private transaction (such as its origin, execution logic etc).
 
-Within the context of these enqueued public functions, any usage of `msg_sender` should return `0`. If the `msg_sender` is the actual user, then it leaks privacy. If `msg_sender` us the contract address, this leaks which contract is calling the public method and therefore leaks which contract the user was interacting with in private land.
+:::warning
+TODO: Haven't finalized what msg.sender will be
+:::
+
+Within the context of these enqueued public functions, any usage of `msg_sender` should return **TODO**. If the `msg_sender` is the actual user, then it leaks privacy. If `msg_sender` is the contract address, this leaks which contract is calling the public method and therefore leaks which contract the user was interacting with in private land.
 
 Therefore, when the call stack is passed to the kernel circuit, the kernel should assert the `msg_sender` is 0 and hash appropriately. 
 
