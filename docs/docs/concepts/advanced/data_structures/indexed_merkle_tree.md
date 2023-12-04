@@ -155,8 +155,8 @@ Suppose we want to show that the value `20` doesn't exist in the tree. We just r
     - Special case, the low leaf is at the very end, so the new_value must be higher than all values in the tree:
     - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
   - Else:
-    - $assert(low\_nullifier_{\textsf{value}} < low\_nullifier_{\textsf{value}})$
-    - $assert(low\_nullifier_{\textsf{next\_value}} > low\_nullifier_{\textsf{value}})$
+    - $assert(low\_nullifier_{\textsf{value}} < new\_value_{\textsf{value}})$
+    - $assert(low\_nullifier_{\textsf{next\_value}} > new\_value_{\textsf{value}})$
 
 This is already a massive performance improvement, however we can go further, as this tree is not sparse. We can perform batch insertions.
 
