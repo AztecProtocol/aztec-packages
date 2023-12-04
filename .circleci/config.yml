@@ -236,7 +236,7 @@ jobs:
           name: "Test"
           command: |
             export TAG_POSTFIX=ultra-honk-bench
-            cond_spot_run_script barretenberg-x86_64-linux-clang-assert 32 sh -c "cd build && ./bin/ultra_honk_bench"
+            cond_spot_run_script barretenberg-x86_64-linux-clang-assert 32 /bin/bash -c "cd build && ./bin/ultra_honk_bench"
 
   barretenberg-honk-tests:
     docker:
