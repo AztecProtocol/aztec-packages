@@ -57,16 +57,16 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      */
     std::vector<Univariate<FF, NUM>> row_to_univariates(size_t row_idx) const
     {
-        auto insts_prover_polynomials_views = get_polynomials_pointer_views();
+        auto insts_prover_polynomials_views = get_polynomials_views();
         std::vector<Univariate<FF, NUM>> results;
         // Set the size corresponding to the number of rows in the execution trace
         results.resize(insts_prover_polynomials_views[0].size());
         size_t instance_idx = 0;
         // Iterate over the prover polynomials' views corresponding to each instance
-        for (auto& view : insts_prover_polynomials_views) {
+        for (auto& get_all : insts_prover_polynomials_views) {
             // Iterate over all columns in the trace execution of an instance and extract their value at row_idx.
-            for (auto [result, poly_ptr] : zip_view(results, view)) {
-                result.evaluations[instance_idx] = (*poly_ptr)[row_idx];
+            for (auto [result, poly_ptr] : zip_view(results, get_all)) {
+                result.evaluations[instance_idx] = (poly_ptr)[row_idx];
             }
             instance_idx++;
         }
@@ -75,15 +75,15 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
 
   private:
     // Returns a vector containing pointer views to the prover polynomials corresponding to each instance.
-    auto get_polynomials_pointer_views() const
+    auto get_polynomials_views() const
     {
-        // As a practical measure, get the first instance's pointer view to deduce the vector type
-        std::vector pointer_views{ _data[0]->prover_polynomials.pointer_view() };
+        // As a practical measure, get the first instance's view to deduce the vector type
+        std::vector get_alls{ _data[0]->prover_polynomials.get_all() };
         // complete the views, starting from the second item
         for (size_t i = 1; i < NUM; i++) {
-            pointer_views.push_back(_data[i]->prover_polynomials.pointer_view());
+            get_alls.push_back(_data[i]->prover_polynomials.get_all());
         }
-        return pointer_views;
+        return get_alls;
     }
 };
 

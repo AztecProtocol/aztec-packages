@@ -1,6 +1,6 @@
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -16,7 +16,7 @@ import {
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { BlockHeader } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -90,9 +90,9 @@ export class PrivateCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Historic roots of the data trees, used to calculate the block hash the user is proving against.
+     * Historical roots of the data trees, used to calculate the block hash the user is proving against.
      */
-    public historicBlockData: HistoricBlockData,
+    public blockHeader: BlockHeader,
     /**
      * Deployment data of contracts being deployed in this kernel iteration.
      */
@@ -106,6 +106,7 @@ export class PrivateCircuitPublicInputs {
      */
     public version: Fr,
   ) {}
+
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
    * @param fields - The dictionary.
@@ -113,6 +114,36 @@ export class PrivateCircuitPublicInputs {
    */
   static from(fields: FieldsOf<PrivateCircuitPublicInputs>): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(...PrivateCircuitPublicInputs.getFields(fields));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateCircuitPublicInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateCircuitPublicInputs(
+      reader.readObject(CallContext),
+      reader.readObject(Fr),
+      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readArray(MAX_READ_REQUESTS_PER_CALL, Fr),
+      reader.readArray(MAX_PENDING_READ_REQUESTS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(BlockHeader),
+      reader.readObject(ContractDeploymentData),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+    );
   }
 
   /**
@@ -136,7 +167,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Fr.ZERO,
-      HistoricBlockData.empty(),
+      BlockHeader.empty(),
       ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
@@ -161,7 +192,7 @@ export class PrivateCircuitPublicInputs {
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicBlockData.isEmpty() &&
+      this.blockHeader.isEmpty() &&
       this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
       this.version.isZero()
@@ -190,7 +221,7 @@ export class PrivateCircuitPublicInputs {
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
-      fields.historicBlockData,
+      fields.blockHeader,
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,

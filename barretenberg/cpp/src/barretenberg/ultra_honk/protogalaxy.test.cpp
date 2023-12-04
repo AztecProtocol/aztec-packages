@@ -88,9 +88,9 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
 std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instance_size, size_t num_public_inputs)
 {
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, num_public_inputs);
-    auto vk_view = verification_key->pointer_view();
+    auto vk_view = verification_key->get_all();
     for (auto& view : vk_view) {
-        (*view) = Affine(Projective::random_element());
+        view = Affine(Projective::random_element());
     }
     return verification_key;
 }
@@ -98,9 +98,9 @@ std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instanc
 WitnessCommitments construct_witness_commitments()
 {
     WitnessCommitments wc;
-    auto w_view = wc.pointer_view();
+    auto w_view = wc.get_all();
     for (auto& view : w_view) {
-        (*view) = Affine(Projective::random_element());
+        view = Affine(Projective::random_element());
     }
     return wc;
 }

@@ -10,6 +10,7 @@ namespace proof_system::honk {
 template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
+    using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Instance = typename VerifierInstances::Instance;
@@ -18,7 +19,8 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
     VerifierInstances instances;
-    BaseTranscript<FF> transcript;
+
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     CommitmentLabels commitment_labels;
 
