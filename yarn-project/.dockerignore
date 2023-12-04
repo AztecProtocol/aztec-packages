@@ -8,8 +8,8 @@
 */data*
 **/dest
 **/node_modules
-Dockerfile*
-*.tsbuildinfo
+**/Dockerfile*
+**/*.tsbuildinfo
 
 noir-contracts/src/types
 noir-contracts/src/artifacts
