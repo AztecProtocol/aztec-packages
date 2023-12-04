@@ -346,6 +346,17 @@ jobs:
           name: Build
           command: build yarn-project | add_timestamps
 
+  yarn-project-prod:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: Build
+          command: build yarn-project-prod | add_timestamps
+
   yarn-project-formatting:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -368,7 +379,7 @@ jobs:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
-  aztec-sandbox-x86_64:
+  aztec-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -379,22 +390,7 @@ jobs:
           name: "Build and test"
           command: build aztec-sandbox
 
-  aztec-sandbox-arm64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: arm.large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-          command: |
-            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build aztec-sandbox
-
-  cli-x86_64:
+  cli:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -404,21 +400,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build cli
-
-  cli-arm64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: arm.large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-          command: |
-            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build cli
 
   mainnet-fork:
     machine:
@@ -441,19 +422,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
-
-  ecr-manifest:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Create ECR manifest"
-          command: |
-            create_ecr_manifest aztec-sandbox x86_64,arm64
-            create_ecr_manifest cli x86_64,arm64
 
   boxes-blank-react:
     machine:
@@ -936,6 +904,37 @@ jobs:
           name: "Assemble benchmark summary from uploaded logs"
           command: ./scripts/ci/assemble_e2e_benchmark.sh
 
+  # Release jobs.
+  release-npm:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "yarn-project"
+          command: |
+            should_release || exit 0
+            yarn-project/deploy_npm.sh latest
+
+  release-dockerhub:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Release to dockerhub"
+          command: |
+            should_release || exit 0
+            deploy_dockerhub noir
+            deploy_dockerhub aztec-sandbox
+            deploy_dockerhub cli
+            deploy_dockerhub aztec-faucet
+            deploy_dockerhub mainnet-fork
+
   # Deploy jobs.
   deploy-mainnet-fork:
     machine:
@@ -948,9 +947,9 @@ jobs:
           name: "Deploy mainnet fork"
           command: |
             should_deploy || exit 0
-            deploy_ecr mainnet-fork
+            deploy mainnet-fork
 
-  deploy-npm:
+  deploy-contracts:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
@@ -958,12 +957,13 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "yarn-project"
+          name: "Deploy L1 contracts to mainnet fork"
+          working_directory: l1-contracts
           command: |
             should_deploy || exit 0
-            yarn-project/deploy_npm.sh latest
+            ./scripts/ci_deploy_contracts.sh
 
-  deploy-dockerhub:
+  deploy-devnet:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
@@ -971,12 +971,19 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Deploy to dockerhub"
+          name: "Deploy devnet to AWS"
           command: |
-            should_deploy || exit 0
-            deploy_dockerhub noir x86_64,arm64
-            deploy_dockerhub aztec-sandbox x86_64,arm64
-            deploy_dockerhub cli x86_64,arm64
+            should_deploy 0 || exit 0
+            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
+            export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
+            export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
+            export TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY=$SEQ_1_PUBLISHER_PRIVATE_KEY
+            export TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY=$SEQ_2_PUBLISHER_PRIVATE_KEY
+            deploy_terraform p2p-bootstrap yarn-project/p2p-bootstrap/terraform
+            deploy_terraform aztec-node yarn-project/aztec-node/terraform
+            deploy_terraform aztec-faucet yarn-project/aztec-faucet/terraform
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -994,6 +1001,11 @@ defaults: &defaults
 defaults_yarn_project: &defaults_yarn_project
   requires:
     - yarn-project
+  <<: *defaults
+
+defaults_yarn_project_prod: &defaults_yarn_project_prod
+  requires:
+    - yarn-project-prod
   <<: *defaults
 
 defaults_deploy: &defaults_deploy
@@ -1082,42 +1094,37 @@ workflows:
           requires:
             - yarn-project-base
           <<: *defaults
+      - yarn-project-prod: *defaults_yarn_project
       - yarn-project-formatting: *defaults_yarn_project
       - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
       - build-docs: *defaults_yarn_project
-      - aztec-sandbox-x86_64: *defaults_yarn_project
-      - aztec-sandbox-arm64: *defaults_yarn_project
-      - cli-x86_64: *defaults_yarn_project
-      - cli-arm64: *defaults_yarn_project
-      - aztec-faucet: *defaults_yarn_project
-      - ecr-manifest:
-          requires:
-            - aztec-sandbox-x86_64
-            - aztec-sandbox-arm64
-            - cli-x86_64
-            - cli-arm64
-          <<: *defaults
+
+      # Artifacts
+      - aztec-sandbox: *defaults_yarn_project_prod
+      - cli: *defaults_yarn_project_prod
+      - aztec-faucet: *defaults_yarn_project_prod
 
       # Boxes.
       - boxes-blank-react:
           requires:
-            - aztec-sandbox-x86_64
+            - aztec-sandbox
           <<: *defaults
       - boxes-blank:
           requires:
-            - aztec-sandbox-x86_64
+            - aztec-sandbox
           <<: *defaults
       - boxes-token:
           requires:
-            - aztec-sandbox-x86_64
+            - aztec-sandbox
           <<: *defaults
 
       # End to end tests.
       - e2e-join:
           requires:
             - end-to-end
-            - ecr-manifest
+            - aztec-sandbox
+            - cli
           <<: *defaults
       - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
@@ -1200,7 +1207,20 @@ workflows:
             - bench-process-history
           <<: *defaults
 
-      # Production deployment
-      - deploy-dockerhub: *defaults_deploy
-      - deploy-npm: *defaults_deploy
-      - deploy-mainnet-fork: *defaults_deploy
+      # Production releases.
+      - release-dockerhub: *defaults_deploy
+      - release-npm: *defaults_deploy
+
+      # Production deployment.
+      - deploy-mainnet-fork:
+          requires:
+            - release-dockerhub
+          <<: *defaults_deploy
+      - deploy-contracts:
+          requires:
+            - deploy-mainnet-fork
+          <<: *defaults_deploy
+      - deploy-devnet:
+          requires:
+            - deploy-contracts
+          <<: *defaults_deploy

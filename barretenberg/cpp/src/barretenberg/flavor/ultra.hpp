@@ -41,7 +41,7 @@ class Ultra {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     using GrandProductRelations =
         std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
@@ -133,17 +133,11 @@ class Ultra {
                               w_r,          // column 1
                               w_o,          // column 2
                               w_4,          // column 3
-                              sorted_1,     // column 4
-                              sorted_2,     // column 5
-                              sorted_3,     // column 6
-                              sorted_4,     // column 7
-                              sorted_accum, // column 8
-                              z_perm,       // column 9
-                              z_lookup)     // column 10
+                              sorted_accum, // column 4
+                              z_perm,       // column 5
+                              z_lookup)     // column 6
 
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
-        // The sorted concatenations of table and witness data needed for plookup.
-        RefVector<DataType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
     };
 
     /**
@@ -272,8 +266,8 @@ class Ultra {
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
             }
             return result;
         }
@@ -289,8 +283,8 @@ class Ultra {
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : this->pointer_view()) {
-                *poly = Polynomial(circuit_size / 2);
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };
@@ -305,6 +299,11 @@ class Ultra {
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     /**
      * @brief A container for commitment labels.
@@ -355,10 +354,8 @@ class Ultra {
 
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key,
-                            [[maybe_unused]] const BaseTranscript& transcript)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
             q_m = verification_key->q_m;
             q_l = verification_key->q_l;
             q_r = verification_key->q_r;
@@ -424,18 +421,18 @@ class Ultra {
             : BaseTranscript(proof)
         {}
 
-        static Transcript prover_init_empty()
+        static std::shared_ptr<Transcript> prover_init_empty()
         {
-            Transcript transcript;
+            auto transcript = std::make_shared<Transcript>();
             constexpr uint32_t init{ 42 }; // arbitrary
-            transcript.send_to_verifier("Init", init);
+            transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static Transcript verifier_init_empty(const Transcript& transcript)
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            Transcript verifier_transcript{ transcript.proof_data };
-            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
 

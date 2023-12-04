@@ -153,20 +153,19 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         InnerComposer inner_composer;
         auto instance = inner_composer.create_instance(inner_circuit);
         auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
-        const auto native_verification_key = instance->compute_verification_key();
 
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, native_verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, native_verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, native_verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, native_verification_key->num_public_inputs);
-        EXPECT_EQ(verifier.key->q_m.get_value(), native_verification_key->q_m);
-        EXPECT_EQ(verifier.key->q_r.get_value(), native_verification_key->q_r);
-        EXPECT_EQ(verifier.key->sigma_1.get_value(), native_verification_key->sigma_1);
-        EXPECT_EQ(verifier.key->id_3.get_value(), native_verification_key->id_3);
-        EXPECT_EQ(verifier.key->lagrange_ecc_op.get_value(), native_verification_key->lagrange_ecc_op);
+        EXPECT_EQ(verifier.key->circuit_size, instance->verification_key->circuit_size);
+        EXPECT_EQ(verifier.key->log_circuit_size, instance->verification_key->log_circuit_size);
+        EXPECT_EQ(verifier.key->num_public_inputs, instance->verification_key->num_public_inputs);
+        EXPECT_EQ(verifier.key->q_m.get_value(), instance->verification_key->q_m);
+        EXPECT_EQ(verifier.key->q_r.get_value(), instance->verification_key->q_r);
+        EXPECT_EQ(verifier.key->sigma_1.get_value(), instance->verification_key->sigma_1);
+        EXPECT_EQ(verifier.key->id_3.get_value(), instance->verification_key->id_3);
+        EXPECT_EQ(verifier.key->lagrange_ecc_op.get_value(), instance->verification_key->lagrange_ecc_op);
     }
 
     /**
@@ -183,11 +182,10 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto instance = inner_composer.create_instance(inner_circuit);
         auto inner_prover = inner_composer.create_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
-        const auto native_verification_key = instance->compute_verification_key();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, native_verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
         auto pairing_points = verifier.verify_proof(inner_proof);
 
         // Check for a failure flag in the recursive verifier circuit
@@ -204,7 +202,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
         auto recursive_manifest = verifier.transcript.get_manifest();
-        auto native_manifest = native_verifier.transcript.get_manifest();
+        auto native_manifest = native_verifier.transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }
@@ -238,17 +236,16 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto instance = inner_composer.create_instance(inner_circuit);
         auto inner_prover = inner_composer.create_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
-        const auto native_verification_key = instance->compute_verification_key();
 
         // Arbitrarily tamper with the proof to be verified
-        inner_prover.transcript.deserialize_full_transcript();
-        inner_prover.transcript.sorted_accum_comm = InnerCommitment::one() * InnerFF::random_element();
-        inner_prover.transcript.serialize_full_transcript();
+        inner_prover.transcript->deserialize_full_transcript();
+        inner_prover.transcript->sorted_accum_comm = InnerCommitment::one() * InnerFF::random_element();
+        inner_prover.transcript->serialize_full_transcript();
         inner_proof = inner_prover.export_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, native_verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
         verifier.verify_proof(inner_proof);
 
         // We expect the circuit check to fail due to the bad proof
