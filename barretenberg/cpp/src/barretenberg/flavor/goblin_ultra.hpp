@@ -62,7 +62,6 @@ class GoblinUltra {
                                   proof_system::DatabusLookupRelation<FF>,
                                   proof_system::Poseidon2ExternalRelation<FF>,
                                   proof_system::Poseidon2InternalRelation<FF>>;
-    > ;
     using Relations = Relations_<FF>;
 
     using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
