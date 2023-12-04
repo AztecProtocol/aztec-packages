@@ -131,7 +131,7 @@ The outboxes are the location where a user can consume messages from. An outbox 
 Our L1 outbox is pretty simple, Like the L1 inbox, it is a multi-set. It should allow the state transitioner to insert messages and the recipient of the message can consume it (removing it from the outbox).
 
 :::info Checking sender
-When consuming a message on L1, the portal contract must check that it was sent from the expected contract given that it is possible for multiple contracts on L2 to send to it. If the check is not done this could go horrible wrong.
+When consuming a message on L1, the portal contract must check that it was sent from the expected contract given that it is possible for multiple contracts on L2 to send to it. If the check is not done this could go horribly wrong.
 :::
 
 #### L2 Outbox
@@ -146,12 +146,12 @@ This means that all validation is done by the application circuit. The applicati
     - The index is included to ensure that the nullifier is unique for each message
 
 ## Registry
-The registry is a contract that holds the current and historical addresses of the core rollup contracts. The addresses of a rollup deployment is contained in a snapshot, and the registry tracking version-snapshot pairs. Depending on the upgrade scheme, it might be used to handle upgrades, or it could entirely be removed. It is generally the one address that a node MUST know about, as it can then tell the node where to find the remainder of the contracts. This is for example used when looking for the address new L2 blocks should be published to.
+The registry is a contract that holds the current and historical addresses of the core rollup contracts. The addresses of a rollup deployment are contained in a snapshot, and the registry is tracking version-snapshot pairs. Depending on the upgrade scheme, it might be used to handle upgrades, or it could entirely be removed. It is generally the one address that a node MUST know about, as it can then tell the node where to find the remainder of the contracts. This is for example used when looking for the address new L2 blocks should be published to.
 
 ## State transitioner
 The state transitioner is the heart of the validating light node for the L2. Practically this means that the contract keeps track of the current state of the L2 and progresses this state when a valid L2 block is received. It also facilitates cross-chain communication (communication between the L1 inbox and outbox contracts).
 
-When new blocks are to be processed, the state transitioner receives the `header` of the block, and retrieve commitments to its content (following the same scheme as the rollup circuits) from the Decoder. The header definition can be found in **REFERENCE**, but is commitments to the state before and after the block.
+When new blocks are to be processed, the state transitioner receives the `header` of the block, and commitments to its content (following the same scheme as the rollup circuits) from the Decoder. The header definition can be found in **REFERENCE**, but is commitments to the state before and after the block.
 
 
 ### Decoder
