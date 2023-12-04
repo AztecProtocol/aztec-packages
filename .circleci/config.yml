@@ -234,7 +234,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert ./bin/ultra_honk_bench 32 
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./bin/ultra_honk_bench
 
   barretenberg-honk-tests:
     docker:
