@@ -196,6 +196,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       let lowLeafIndex: bigint | undefined;
       this.db
         .createReadStream({
+          gte: buildDbKeyForLeafIndex(this.getName(), 0n),
           lte: buildDbKeyForLeafIndex(this.getName(), key),
           limit: 1,
           reverse: true,
