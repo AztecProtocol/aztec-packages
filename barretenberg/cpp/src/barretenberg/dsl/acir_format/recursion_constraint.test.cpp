@@ -220,10 +220,8 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         circuit_idx++;
     }
 
-    std::vector<uint32_t> public_inputs(output_aggregation_object.begin(), output_aggregation_object.end());
-
     acir_format constraint_system{ .varnum = static_cast<uint32_t>(witness.size() + 1),
-                                   .public_inputs = public_inputs,
+                                   .public_inputs = {},
                                    .logic_constraints = {},
                                    .range_constraints = {},
                                    .sha256_constraints = {},
