@@ -24,12 +24,13 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
 
+    // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
     using InnerComposer = GoblinUltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
-    using Commitment = InnerFlavor::Commitment;
-    using FF = InnerFlavor::FF;
+    using InnerCommitment = InnerFlavor::Commitment;
+    using InnerFF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
     using RecursiveFlavor = ::proof_system::honk::flavor::GoblinUltraRecursive_<BuilderType>;
@@ -241,7 +242,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Arbitrarily tamper with the proof to be verified
         inner_prover.transcript.deserialize_full_transcript();
-        inner_prover.transcript.sorted_accum_comm = Commitment::one() * FF::random_element();
+        inner_prover.transcript.sorted_accum_comm = InnerCommitment::one() * InnerFF::random_element();
         inner_prover.transcript.serialize_full_transcript();
         inner_proof = inner_prover.export_proof();
 

@@ -691,7 +691,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         // do nothing
 #else
         size_t nominal_size = selectors.get()[0].size();
-        for (size_t idx = 0; idx < selectors.get().size(); ++idx) {
+        for (size_t idx = 1; idx < selectors.get().size(); ++idx) {
             ASSERT(selectors.get()[idx].size() == nominal_size);
         }
 #endif // NDEBUG
