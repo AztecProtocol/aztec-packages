@@ -81,6 +81,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     void finalise_and_send_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
 
     /**
+     * @brief Run the folding prover protocol to produce a new accumulator and a folding proof to be verified by the
+     * folding verifier.
+     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
+     */
+    FoldingResult<Flavor> fold_instances();
+    /**
      * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
      */
     static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF>& betas, const size_t instance_size)
@@ -156,7 +163,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             auto running_challenge = FF(1);
             auto output = FF(0);
-            // WORKTODO we now batch with different challenge per relation
             Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
             full_honk_evaluations[row] = output;
         }
@@ -234,8 +240,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
     }
-
-    ProverFoldingResult<Flavor> fold_instances();
 
     TupleOfTuplesOfUnivariates univariate_accumulators;
 
@@ -423,8 +427,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief Compute the next accumulator (ϕ, ω), send the public data (ϕ) to the verifier and return the accumulator
-     * as part of the result of the folding prover
+     * @brief Compute the next accumulator (ϕ, ω), send the public data (ϕ) to the verifier and return the complete
+     * accumulator
      *
      * @details At this stage, we assume that the instances have the same size and the same number of public parameter.s
      * @param instances

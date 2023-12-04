@@ -72,7 +72,6 @@ TEST(Protogalaxy, CombinerOn2Instances)
                                                                      static_cast<uint64_t>(11718012058) });
             EXPECT_EQ(result, expected_result);
         } else {
-
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
             std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
             ProtoGalaxyProver prover;

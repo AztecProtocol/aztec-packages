@@ -132,7 +132,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
 template <class ProverInstances>
-ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
+FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
     prepare_for_folding();
 
@@ -165,7 +165,7 @@ ProverFoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverI
     }
     auto combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
 
-    ProverFoldingResult<Flavor> res;
+    FoldingResult<Flavor> res;
     res.accumulator =
         compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript->proof_data;

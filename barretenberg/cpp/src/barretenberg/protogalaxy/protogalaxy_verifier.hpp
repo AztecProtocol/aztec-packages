@@ -77,10 +77,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     void receive_and_finalise_instance(std::shared_ptr<Instance>, const std::string&);
 
     /**
-     * @brief Run the folding protocol on the verifier side to verify the public data ϕ of the new accumulator, received
-     * from the prover, is correct.
+     * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
+     * accumulator, received from the prover is the same as that produced by the verifier.
      *
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/690): finalise the implementation of this function
      */
     bool verify_folding_proof(std::vector<uint8_t>);
 };

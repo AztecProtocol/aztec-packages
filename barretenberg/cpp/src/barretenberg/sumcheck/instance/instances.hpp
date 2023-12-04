@@ -8,14 +8,13 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
     static_assert(NUM_ > 0, "Must have at least one prover instance");
     using Flavor = Flavor_;
-    using FoldingParameters = Flavor::FoldingParameters;
+    using FoldingParameters = typename Flavor::FoldingParameters;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     using Instance = ProverInstance_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // The extended length here is the length of a composition of polynomials.
-    // I changed this to NUM, it was NUM - 1
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;

@@ -324,9 +324,9 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
     auto folding_verifier = composer.create_folding_verifier();
 
-    auto result = folding_prover.fold_instances();
-    auto a = folding_verifier.verify_folding_proof(result.folding_data);
-    EXPECT_EQ(a, true);
+    auto proof = folding_prover.fold_instances();
+    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
+    EXPECT_EQ(res, true);
 }
 
 } // namespace protogalaxy_tests

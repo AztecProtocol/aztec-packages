@@ -86,8 +86,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -157,7 +156,6 @@ template <typename Flavor> class RelationUtils {
         apply_to_tuple_of_arrays(set_to_zero, tuple);
     };
 
-    // this is for computing evaluations not univariates
     /**
      * @brief Scale elements by consecutive powers of the challenge then sum
      * @param result Batched result
