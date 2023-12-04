@@ -124,7 +124,7 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
 export { retry, retryUntil } from '@aztec/foundation/retry';
-export { sha256 } from '@aztec/foundation/crypto';
+export { sha256, init } from '@aztec/foundation/crypto';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
