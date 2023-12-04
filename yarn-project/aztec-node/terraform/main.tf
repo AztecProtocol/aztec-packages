@@ -377,6 +377,6 @@ resource "aws_lb_listener" "aztec-node-tcp-listener" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.aztec-bootstrap-target-group[count.index].arn
+    target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
   }
 }
