@@ -201,7 +201,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
-        auto recursive_manifest = verifier.transcript.get_manifest();
+        auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
