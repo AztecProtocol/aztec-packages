@@ -11,17 +11,28 @@ namespace barretenberg {
 
 class Goblin {
   public:
+    using Proof = proof_system::plonk::proof;
     using PartialProof = bool;
-    // // WORKTODO
-    // struct PartialProof {
-    //     proof_system::plonk::proof ultra_proof;
-    //     proof_system::plonk::proof merge_proof;
-    // };
 
+    /**
+     * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
+     *
+     */
     struct AccumulationOutput {
         using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
-        proof_system::plonk::proof proof;
+        Proof proof;
         std::shared_ptr<NativeVerificationKey> verification_key;
+    };
+
+    /**
+     * @brief A full goblin proof
+     *
+     */
+    struct GoblinProof {
+        Proof ultra_proof;
+        Proof merge_proof;
+        Proof eccvm_proof;
+        Proof translator_proof;
     };
 
     using Fr = barretenberg::fr;
@@ -41,8 +52,10 @@ class Goblin {
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     bool verified{ true };
 
-    // GoblinUltraCircuitBuilder circuit_builder{op_queue};  // WORKTODO: need to remove reference-type data members
+  private:
+    GoblinProof proof;
 
+  public:
     /**
      * @brief
      *
@@ -59,28 +72,28 @@ class Goblin {
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
-        auto honk_proof = prover.construct_proof();
+        proof.ultra_proof = prover.construct_proof();
 
         // Construct and verify op queue merge proof
         info("Goblin: Constructing merge proof.");
         auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_proof = merge_prover.construct_proof();
+        proof.merge_proof = merge_prover.construct_proof();
 
         { // DEBUG only: Native verification of kernel proof and merge proof
             info("Goblin: Natively verifying circuit proof.");
             auto verifier = composer.create_verifier(instance);
-            bool honk_verified = verifier.verify_proof(honk_proof);
+            bool honk_verified = verifier.verify_proof(proof.ultra_proof);
             ASSERT(honk_verified);
             info("Goblin: Natively verifying merge proof.");
             auto merge_verifier = composer.create_merge_verifier(/*srs_size=*/10);
-            bool merge_verified = merge_verifier.verify_proof(merge_proof);
+            bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
             ASSERT(merge_verified);
         }
 
-        return { honk_proof, instance->verification_key };
+        return { proof.ultra_proof, instance->verification_key };
     };
 
-    PartialProof prove()
+    GoblinProof prove()
     {
         // Execute the ECCVM
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/785) Properly initialize transcript
@@ -88,11 +101,9 @@ class Goblin {
         auto eccvm_builder = ECCVMBuilder(op_queue);
         auto eccvm_composer = ECCVMComposer();
         auto eccvm_prover = eccvm_composer.create_prover(eccvm_builder);
-        auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
+
         info("Goblin: Proving ECCVM.");
-        auto eccvm_proof = eccvm_prover.construct_proof();
-        info("Goblin: Verifying ECCVM.");
-        bool eccvm_verified = eccvm_verifier.verify_proof(eccvm_proof);
+        proof.eccvm_proof = eccvm_prover.construct_proof();
 
         // Execute the Translator
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/786) Properly derive batching_challenge
@@ -102,15 +113,35 @@ class Goblin {
         auto translator_builder = TranslatorBuilder(batching_challenge, evaluation_input, op_queue);
         auto translator_composer = TranslatorComposer();
         auto translator_prover = translator_composer.create_prover(translator_builder);
-        auto translator_verifier = translator_composer.create_verifier(translator_builder);
-        info("Goblin: Proving Translator.");
-        auto translator_proof = translator_prover.construct_proof();
-        info("Goblin: Verifying Translator.");
-        bool accumulator_construction_verified = translator_verifier.verify_proof(translator_proof);
-        // bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
 
-        // return eccvm_verified && accumulator_construction_verified && translation_verified;
-        return eccvm_verified && accumulator_construction_verified;
+        info("Goblin: Proving Translator.");
+        proof.translator_proof = translator_prover.construct_proof();
+
+        { // DEBUG only native verification
+            auto eccvm_verifier = eccvm_composer.create_verifier(eccvm_builder);
+            info("Goblin: Verifying ECCVM.");
+            bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+            ASSERT(eccvm_verified);
+
+            auto translator_verifier = translator_composer.create_verifier(translator_builder);
+            info("Goblin: Verifying Translator.");
+            bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+            ASSERT(accumulator_construction_verified);
+            // WORKTODO: This needs to be part of the verifier. evals extracted from eccvm proof?
+            bool translation_verified = translator_verifier.verify_translation(eccvm_prover.translation_evaluations);
+            ASSERT(translation_verified);
+        }
+
+        return proof;
+    };
+
+    bool verify()
+    {
+        // Construct ultra verifier and verify ultra proof
+        // Construct merge verifier and verify merge proof
+        // Construct eccvm verifier and verify eccvm proof
+        // Construct translator verifier and verify translator proof
+        return true;
     };
 };
 } // namespace barretenberg
