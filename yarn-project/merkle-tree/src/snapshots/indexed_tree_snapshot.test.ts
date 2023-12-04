@@ -101,7 +101,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
       await tree.appendLeaves([Buffer.from('c'), Buffer.from('b'), Buffer.from('e')]);
       await tree.commit();
 
-      await expect(snapshot.findIndexOfPreviousValue(2n)).resolves.toEqual(historicalPrevValue);
+      await expect(snapshot.findIndexOfPreviousKey(2n)).resolves.toEqual(historicalPrevValue);
     });
   });
 });

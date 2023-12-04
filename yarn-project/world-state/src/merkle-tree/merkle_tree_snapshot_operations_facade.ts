@@ -29,14 +29,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
 
   async findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
     const tree = await this.#getTreeSnapshot(treeId);
-    const numLeaves = tree.getNumLeaves();
-    for (let i = 0n; i < numLeaves; i++) {
-      const currentValue = await tree.getLeafValue(i);
-      if (currentValue && currentValue.equals(value)) {
-        return i;
-      }
-    }
-    return undefined;
+    return tree.findLeafIndex(value);
   }
 
   getLatestGlobalVariablesHash(): Promise<Fr> {

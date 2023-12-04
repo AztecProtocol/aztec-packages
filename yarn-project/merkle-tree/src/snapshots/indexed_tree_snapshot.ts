@@ -59,7 +59,7 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot implements IndexedTre
     }
   }
 
-  async findIndexOfPreviousValue(newValue: bigint): Promise<{
+  async findIndexOfPreviousKey(newValue: bigint): Promise<{
     /**
      * The index of the found leaf.
      */
@@ -97,5 +97,12 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot implements IndexedTre
     }
 
     return { index: BigInt(minIndex), alreadyPresent: false };
+  }
+
+  async findLeafIndex(value: Buffer): Promise<bigint | undefined> {
+    const index = await this.tree.findLeafIndex(value, false);
+    if (index && index < this.getNumLeaves()) {
+      return index;
+    }
   }
 }
