@@ -7,6 +7,7 @@
 README.md
 bootstrap.sh
 Dockerfile*
+*.tsbuildinfo
 
 # This is a sticking point, due to the project being under it's own dir.
 # Need to unexclude the dir and then exclude it's files.
