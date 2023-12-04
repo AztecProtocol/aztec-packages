@@ -8,12 +8,7 @@ import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 /**
  * Type alias for the nullifier tree ID.
  */
-export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE;
-
-/**
- * Type alias for the public data tree ID.
- */
-export type PublicTreeId = MerkleTreeId.PUBLIC_DATA_TREE;
+export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE;
 
 /**
  *
@@ -164,7 +159,7 @@ export interface MerkleTreeOperations {
    * @param leaf - The updated leaf value.
    * @param index - The index of the leaf to be updated.
    */
-  updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
+  updateLeaf(treeId: IndexedTreeId, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
 
   /**
    * Returns the index containing a leaf value.

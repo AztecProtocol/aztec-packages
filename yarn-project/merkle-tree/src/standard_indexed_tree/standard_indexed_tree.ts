@@ -502,6 +502,8 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
         };
       }
 
+      const isUpdate = indexOfPrevious.alreadyPresent;
+
       // get the low leaf (existence checked in getting index)
       const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(indexOfPrevious.index, true))!;
       const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
@@ -515,23 +517,36 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       // Update the running paths
       lowLeavesWitnesses[i] = witness;
 
-      const currentPendingPreimageLeaf = this.leafPreimageFactory.fromLeaf(
-        newLeaf,
-        lowLeafPreimage.getNextKey(),
-        lowLeafPreimage.getNextIndex(),
-      );
+      if (isUpdate) {
+        const lowLeaf = lowLeafPreimage.asLeaf();
+        newLeaf.updateTo(newLeaf);
 
-      pendingInsertionSubtree[originalIndex] = currentPendingPreimageLeaf;
+        const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+          lowLeaf,
+          lowLeafPreimage.getKey(),
+          lowLeafPreimage.getNextIndex(),
+        );
 
-      const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
-        lowLeafPreimage.asLeaf(),
-        newLeaf.getKey(),
-        startInsertionIndex + BigInt(originalIndex),
-      );
+        await this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
 
-      const lowLeafIndex = indexOfPrevious.index;
-      this.cachedLeafPreimages[lowLeafIndex.toString()] = newLowLeafPreimage;
-      await this.updateLeaf(newLowLeafPreimage, lowLeafIndex);
+        pendingInsertionSubtree[originalIndex] = this.leafPreimageFactory.empty();
+      } else {
+        const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+          lowLeafPreimage.asLeaf(),
+          newLeaf.getKey(),
+          startInsertionIndex + BigInt(originalIndex),
+        );
+
+        await this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
+
+        const currentPendingPreimageLeaf = this.leafPreimageFactory.fromLeaf(
+          newLeaf,
+          lowLeafPreimage.getNextKey(),
+          lowLeafPreimage.getNextIndex(),
+        );
+
+        pendingInsertionSubtree[originalIndex] = currentPendingPreimageLeaf;
+      }
     }
 
     const newSubtreeSiblingPath = await this.getSubtreeSiblingPath<SubtreeHeight, SubtreeSiblingPathHeight>(

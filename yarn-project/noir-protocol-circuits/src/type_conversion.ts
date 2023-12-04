@@ -43,6 +43,7 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
+  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -57,6 +58,8 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicKernelInputs,
   ReadRequestMembershipWitness,
@@ -118,6 +121,9 @@ import {
   BlocksTreeRootMembershipWitness as BlocksTreeRootMembershipWitnessNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   NullifierMembershipWitness as NullifierMembershipWitnessNoir,
+  PublicDataMembershipWitness as PublicDataMembershipWitnessNoir,
+  PublicDataTreeLeaf as PublicDataTreeLeafNoir,
+  PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
 } from './types/rollup_base_types.js';
 import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
 import {
@@ -162,7 +168,7 @@ export function mapNumberFromNoir(number: NoirField): number {
 /**
  *
  */
-export function mapNumberToNoir(number: number): NoirField {
+export function mapNumberToNoir(number: bigint): NoirField {
   return new Fr(BigInt(number)).toString();
 }
 
@@ -683,7 +689,7 @@ export function mapPublicDataUpdateRequestFromNoir(
   publicDataUpdateRequest: PublicDataUpdateRequestNoir,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
-    mapFieldFromNoir(publicDataUpdateRequest.leaf_index),
+    mapFieldFromNoir(publicDataUpdateRequest.leaf_slot),
     mapFieldFromNoir(publicDataUpdateRequest.old_value),
     mapFieldFromNoir(publicDataUpdateRequest.new_value),
   );
@@ -698,7 +704,7 @@ export function mapPublicDataUpdateRequestToNoir(
   publicDataUpdateRequest: PublicDataUpdateRequest,
 ): PublicDataUpdateRequestNoir {
   return {
-    leaf_index: mapFieldToNoir(publicDataUpdateRequest.leafIndex),
+    leaf_slot: mapFieldToNoir(publicDataUpdateRequest.leafSlot),
     old_value: mapFieldToNoir(publicDataUpdateRequest.oldValue),
     new_value: mapFieldToNoir(publicDataUpdateRequest.newValue),
   };
@@ -710,7 +716,7 @@ export function mapPublicDataUpdateRequestToNoir(
  * @returns The parsed public data read.
  */
 export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
-  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_index), mapFieldFromNoir(publicDataRead.value));
+  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_slot), mapFieldFromNoir(publicDataRead.value));
 }
 
 /**
@@ -720,7 +726,7 @@ export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): P
  */
 export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicDataReadNoir {
   return {
-    leaf_index: mapFieldToNoir(publicDataRead.leafIndex),
+    leaf_slot: mapFieldToNoir(publicDataRead.leafSlot),
     value: mapFieldToNoir(publicDataRead.value),
   };
 }
@@ -1305,7 +1311,7 @@ export function mapNullifierLeafPreimageToNoir(
   return {
     leaf_value: mapFieldToNoir(nullifierLeafPreimage.nullifier),
     next_value: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
-    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
+    next_index: mapNumberToNoir(nullifierLeafPreimage.nextIndex),
   };
 }
 
@@ -1317,6 +1323,18 @@ export function mapNullifierLeafPreimageToNoir(
 export function mapNullifierMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
 ): NullifierMembershipWitnessNoir {
+  return {
+    leaf_index: membershipWitness.leafIndex.toString(),
+    sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
+  };
+}
+
+/**
+ *
+ */
+export function mapPublicDataMembershipWitnessToNoir(
+  membershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+): PublicDataMembershipWitnessNoir {
   return {
     leaf_index: membershipWitness.leafIndex.toString(),
     sibling_path: mapTuple(membershipWitness.siblingPath, mapFieldToNoir),
@@ -1338,6 +1356,28 @@ export function mapBlocksTreeRootMembershipWitnessToNoir(
 }
 
 /**
+ *
+ */
+export function mapPublicDataTreeLeafToNoir(leaf: PublicDataTreeLeaf): PublicDataTreeLeafNoir {
+  return {
+    slot: mapFieldToNoir(leaf.slot),
+    value: mapFieldToNoir(leaf.value),
+  };
+}
+
+/**
+ *
+ */
+export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimageNoir {
+  return {
+    slot: mapFieldToNoir(preimage.slot),
+    value: mapFieldToNoir(preimage.value),
+    next_slot: mapFieldToNoir(preimage.nextSlot),
+    next_index: mapNumberToNoir(preimage.nextIndex),
+  };
+}
+
+/**
  * Maps the inputs to the base rollup to noir.
  * @param input - The circuits.js base rollup inputs.
  * @returns The noir base rollup inputs.
@@ -1351,7 +1391,9 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     start_public_data_tree_root: mapFieldToNoir(inputs.startPublicDataTreeRoot),
     start_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startBlocksTreeSnapshot),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapFieldToNoir),
-    sorted_new_nullifiers_indexes: mapTuple(inputs.sortednewNullifiersIndexes, mapNumberToNoir),
+    sorted_new_nullifiers_indexes: mapTuple(inputs.sortednewNullifiersIndexes, (index: number) =>
+      mapNumberToNoir(BigInt(index)),
+    ),
     low_nullifier_leaf_preimages: mapTuple(inputs.lowNullifierLeafPreimages, mapNullifierLeafPreimageToNoir),
     low_nullifier_membership_witness: mapTuple(
       inputs.lowNullifierMembershipWitness,
@@ -1359,15 +1401,63 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     ),
     new_commitments_subtree_sibling_path: mapTuple(inputs.newCommitmentsSubtreeSiblingPath, mapFieldToNoir),
     new_nullifiers_subtree_sibling_path: mapTuple(inputs.newNullifiersSubtreeSiblingPath, mapFieldToNoir),
+    public_data_writes_subtree_sibling_paths: mapTuple(
+      inputs.publicDataWritesSubtreeSiblingPaths,
+      (txPath: Tuple<Fr, typeof PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH>) => {
+        return mapTuple(txPath, mapFieldToNoir);
+      },
+    ),
     new_contracts_subtree_sibling_path: mapTuple(inputs.newContractsSubtreeSiblingPath, mapFieldToNoir),
-    new_public_data_update_requests_sibling_paths: mapTuple(
-      inputs.newPublicDataUpdateRequestsSiblingPaths,
-      (siblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>) => mapTuple(siblingPath, mapFieldToNoir),
+
+    sorted_public_data_writes: mapTuple(
+      inputs.sortedPublicDataWrites,
+      (kernelWrites: Tuple<PublicDataTreeLeaf, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>) => {
+        return mapTuple(kernelWrites, mapPublicDataTreeLeafToNoir);
+      },
     ),
-    new_public_data_reads_sibling_paths: mapTuple(
-      inputs.newPublicDataReadsSiblingPaths,
-      (siblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>) => mapTuple(siblingPath, mapFieldToNoir),
+
+    sorted_public_data_writes_indexes: mapTuple(
+      inputs.sortedPublicDataWritesIndexes,
+      (txIndexes: Tuple<number, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>) => {
+        return mapTuple(txIndexes, (index: number) => mapNumberToNoir(BigInt(index)));
+      },
     ),
+
+    low_public_data_writes_preimages: mapTuple(
+      inputs.lowPublicDataWritesPreimages,
+      (txPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>) => {
+        return mapTuple(txPreimages, mapPublicDataTreePreimageToNoir);
+      },
+    ),
+
+    low_public_data_writes_witnesses: mapTuple(
+      inputs.lowPublicDataWritesMembershipWitnesses,
+      (
+        txWitnesses: Tuple<
+          MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+          typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        >,
+      ) => {
+        return mapTuple(txWitnesses, mapPublicDataMembershipWitnessToNoir);
+      },
+    ),
+
+    public_data_reads_preimages: mapTuple(
+      inputs.publicDataReadsPreimages,
+      (txReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX>) => {
+        return mapTuple(txReadsPreimages, mapPublicDataTreePreimageToNoir);
+      },
+    ),
+
+    public_data_reads_witnesses: mapTuple(
+      inputs.publicDataReadsMembershipWitnesses,
+      (
+        txReadsWitnesses: Tuple<MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
+      ) => {
+        return mapTuple(txReadsWitnesses, mapPublicDataMembershipWitnessToNoir);
+      },
+    ),
+
     blocks_tree_root_membership_witnesses: mapTuple(
       inputs.blocksTreeRootMembershipWitnesses,
       mapBlocksTreeRootMembershipWitnessToNoir,

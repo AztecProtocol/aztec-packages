@@ -890,77 +890,77 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
   return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
 }
 
-/**
- * Makes arbitrary base rollup inputs.
- * @param seed - The seed to use for generating the base rollup inputs.
- * @returns A base rollup inputs.
- */
-export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
-  const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
+// /**
+//  * Makes arbitrary base rollup inputs.
+//  * @param seed - The seed to use for generating the base rollup inputs.
+//  * @returns A base rollup inputs.
+//  */
+// export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
+//   const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
 
-  const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
-  const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
-  const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
-  const startPublicDataTreeRoot = fr(seed + 0x400);
-  const startBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+//   const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
+//   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
+//   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
+//   const startPublicDataTreeRoot = fr(seed + 0x400);
+//   const startBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
-  const lowNullifierLeafPreimages = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
-    seed + 0x1000,
-  );
+//   const lowNullifierLeafPreimages = makeTuple(
+//     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+//     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+//     seed + 0x1000,
+//   );
 
-  const lowNullifierMembershipWitness = makeTuple(
-    MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
-    seed + 0x2000,
-  );
+//   const lowNullifierMembershipWitness = makeTuple(
+//     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+//     x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
+//     seed + 0x2000,
+//   );
 
-  const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
-  const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
-  const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
+//   const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
+//   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
+//   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
-  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
-  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
+//   const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
+//   const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
 
-  const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
-    x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x8000,
-  );
+//   const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
+//     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
+//     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
+//     seed + 0x8000,
+//   );
 
-  const newPublicDataReadsSiblingPaths = makeTuple(
-    MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
-    x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x8000,
-  );
+//   const newPublicDataReadsSiblingPaths = makeTuple(
+//     MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
+//     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
+//     seed + 0x8000,
+//   );
 
-  const blocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-    makeMembershipWitness(BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x9000),
-  );
+//   const blocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
+//     makeMembershipWitness(BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x9000),
+//   );
 
-  const constants = makeConstantBaseRollupData(0x100);
+//   const constants = makeConstantBaseRollupData(0x100);
 
-  return BaseRollupInputs.from({
-    kernelData,
-    lowNullifierMembershipWitness,
-    startNoteHashTreeSnapshot,
-    startNullifierTreeSnapshot,
-    startContractTreeSnapshot,
-    startPublicDataTreeRoot,
-    startBlocksTreeSnapshot,
-    sortedNewNullifiers,
-    sortednewNullifiersIndexes,
-    lowNullifierLeafPreimages,
-    newCommitmentsSubtreeSiblingPath,
-    newNullifiersSubtreeSiblingPath,
-    newContractsSubtreeSiblingPath,
-    newPublicDataUpdateRequestsSiblingPaths,
-    newPublicDataReadsSiblingPaths,
-    blocksTreeRootMembershipWitnesses,
-    constants,
-  });
-}
+//   return BaseRollupInputs.from({
+//     kernelData,
+//     lowNullifierMembershipWitness,
+//     startNoteHashTreeSnapshot,
+//     startNullifierTreeSnapshot,
+//     startContractTreeSnapshot,
+//     startPublicDataTreeRoot,
+//     startBlocksTreeSnapshot,
+//     sortedNewNullifiers,
+//     sortednewNullifiersIndexes,
+//     lowNullifierLeafPreimages,
+//     newCommitmentsSubtreeSiblingPath,
+//     newNullifiersSubtreeSiblingPath,
+//     newContractsSubtreeSiblingPath,
+//     newPublicDataUpdateRequestsSiblingPaths,
+//     publicDataReadsSiblingPaths: newPublicDataReadsSiblingPaths,
+//     blocksTreeRootMembershipWitnesses,
+//     constants,
+//   });
+// }
 
 /**
  * TODO: Since the max value check is currently disabled this function is pointless. Should it be removed?

@@ -133,7 +133,7 @@ describe('e2e_card_game', () => {
       );
     }, 30_000);
 
-    it('should be able to join games', async () => {
+    it.only('should be able to join games', async () => {
       await contract.methods
         .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
         .send()

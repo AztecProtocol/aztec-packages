@@ -10,9 +10,7 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-  MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
@@ -23,10 +21,14 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
+  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PreviousKernelData,
   PreviousRollupData,
   Proof,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootRollupInputs,
@@ -136,7 +138,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
+      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
@@ -602,40 +604,88 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
-    const newPublicDataUpdateRequestsSiblingPaths: Tuple<
-      Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => makeTuple(PUBLIC_DATA_TREE_HEIGHT, Fr.zero));
-    for (const i in tx.data.end.publicDataUpdateRequests) {
-      const index = tx.data.end.publicDataUpdateRequests[i].leafIndex.value;
-      await this.db.updateLeaf(
+    const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
+      await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        tx.data.end.publicDataUpdateRequests[i].newValue.toBuffer(),
-        index,
+        // TODO remove oldValue from update requests, it's not needed
+        tx.data.end.publicDataUpdateRequests.map(updateRequest => {
+          return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
+        }),
+        PUBLIC_DATA_SUBTREE_HEIGHT,
       );
-      const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
-      const array = path.toFieldArray();
-      newPublicDataUpdateRequestsSiblingPaths[i] = makeTuple(PUBLIC_DATA_TREE_HEIGHT, j =>
-        j < array.length ? array[j] : Fr.ZERO,
-      );
+
+    if (lowLeavesWitnessData === undefined) {
+      throw new Error(`Could not craft public data batch insertion proofs`);
     }
-    return newPublicDataUpdateRequestsSiblingPaths;
+
+    const sortedPublicDataWrites = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+      return PublicDataTreeLeaf.fromBuffer(sortedNewLeaves[i]);
+    });
+
+    const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+      return sortedNewLeavesIndexes[i];
+    });
+
+    const subtreeSiblingPathAsFields = newSubtreeSiblingPath.toFieldArray();
+    const newPublicDataSubtreeSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, i => {
+      return subtreeSiblingPathAsFields[i];
+    });
+
+    const lowPublicDataWritesMembershipWitnesses: Tuple<
+      MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+      const witness = lowLeavesWitnessData[i];
+      return MembershipWitness.fromBufferArray(
+        witness.index,
+        assertLength(witness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+      );
+    });
+
+    const lowPublicDataWritesPreimages: Tuple<
+      PublicDataTreeLeafPreimage,
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+      return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
+    });
+
+    return {
+      lowPublicDataWritesPreimages,
+      lowPublicDataWritesMembershipWitnesses,
+      newPublicDataSubtreeSiblingPath,
+      sortedPublicDataWrites,
+      sortedPublicDataWritesIndexes,
+    };
   }
 
-  protected async getPublicDataReadsSiblingPaths(tx: ProcessedTx) {
-    const newPublicDataReadsSiblingPaths: Tuple<
-      Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
+  protected async getPublicDataReadsInfo(tx: ProcessedTx) {
+    const newPublicDataReadsWitnesses: Tuple<
+      MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
       typeof MAX_PUBLIC_DATA_READS_PER_TX
-    > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => makeTuple(PUBLIC_DATA_TREE_HEIGHT, Fr.zero));
+    > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n));
+
+    const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
     for (const i in tx.data.end.publicDataReads) {
-      const index = tx.data.end.publicDataReads[i].leafIndex.value;
-      const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
+      const leafSlot = tx.data.end.publicDataReads[i].leafSlot.value;
+      const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      if (!lowLeafResult) {
+        throw new Error(`Public data tree should have one initial leaf`);
+      }
+      const preimage = await this.db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+      const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       const array = path.toFieldArray();
-      newPublicDataReadsSiblingPaths[i] = makeTuple(PUBLIC_DATA_TREE_HEIGHT, j =>
-        j < array.length ? array[j] : Fr.ZERO,
+      newPublicDataReadsWitnesses[i] = new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        BigInt(lowLeafResult.index),
+        makeTuple(PUBLIC_DATA_TREE_HEIGHT, i => array[i]),
       );
+      newPublicDataReadsPreimages[i] = preimage! as PublicDataTreeLeafPreimage;
     }
-    return newPublicDataReadsSiblingPaths;
+    return {
+      newPublicDataReadsWitnesses,
+      newPublicDataReadsPreimages,
+    };
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
@@ -678,27 +728,11 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newCommitments);
 
-    // Update the public data tree and get membership witnesses.
-    // All public data reads are checked against the unmodified data root when the corresponding tx started,
-    // so it's the unmodified tree for tx1, and the one after applying tx1 update request for tx2.
-    // Update requests are checked against the tree as it is iteratively updated.
-    // See https://github.com/AztecProtocol/aztec3-packages/issues/270#issuecomment-1522258200
-    const leftPublicDataReadSiblingPaths = await this.getPublicDataReadsSiblingPaths(left);
-    const leftPublicDataUpdateRequestsSiblingPaths = await this.processPublicDataUpdateRequests(left);
-    const rightPublicDataReadSiblingPaths = await this.getPublicDataReadsSiblingPaths(right);
-    const rightPublicDataUpdateRequestsSiblingPaths = await this.processPublicDataUpdateRequests(right);
-
-    const newPublicDataReadsSiblingPaths = makeTuple(MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP, i =>
-      i < MAX_PUBLIC_DATA_READS_PER_TX
-        ? leftPublicDataReadSiblingPaths[i]
-        : rightPublicDataReadSiblingPaths[i - MAX_PUBLIC_DATA_READS_PER_TX],
-    );
-
-    const newPublicDataUpdateRequestsSiblingPaths = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP, i =>
-      i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-        ? leftPublicDataUpdateRequestsSiblingPaths[i]
-        : rightPublicDataUpdateRequestsSiblingPaths[i - MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    );
+    // TODO explain this
+    const leftPublicDataReadsInfo = await this.getPublicDataReadsInfo(left);
+    const leftPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(left);
+    const rightPublicDataReadsInfo = await this.getPublicDataReadsInfo(right);
+    const rightPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(right);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = [...left.data.end.newNullifiers, ...right.data.end.newNullifiers];
@@ -732,15 +766,46 @@ export class SoloBlockBuilder implements BlockBuilder {
       startNoteHashTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       startBlocksTreeSnapshot,
+      sortedPublicDataWrites: [
+        leftPublicDataUpdateRequestInfo.sortedPublicDataWrites,
+        rightPublicDataUpdateRequestInfo.sortedPublicDataWrites,
+      ],
+      sortedPublicDataWritesIndexes: [
+        leftPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
+        rightPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
+      ],
+      lowPublicDataWritesPreimages: [
+        leftPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
+        rightPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
+      ],
+      lowPublicDataWritesMembershipWitnesses: [
+        leftPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
+        rightPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
+      ],
+      publicDataWritesSubtreeSiblingPaths: [
+        leftPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
+        rightPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
+      ],
+
       sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => Fr.fromBuffer(sortedNewNullifiers[i])),
       sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => sortednewNullifiersIndexes[i]),
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
+
       newNullifiersSubtreeSiblingPath: makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
         i < newNullifiersSubtreeSiblingPathArray.length ? newNullifiersSubtreeSiblingPathArray[i] : Fr.ZERO,
       ),
-      newPublicDataUpdateRequestsSiblingPaths,
-      newPublicDataReadsSiblingPaths,
+
+      publicDataReadsPreimages: [
+        leftPublicDataReadsInfo.newPublicDataReadsPreimages,
+        rightPublicDataReadsInfo.newPublicDataReadsPreimages,
+      ],
+
+      publicDataReadsMembershipWitnesses: [
+        leftPublicDataReadsInfo.newPublicDataReadsWitnesses,
+        rightPublicDataReadsInfo.newPublicDataReadsWitnesses,
+      ],
+
       lowNullifierLeafPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i =>
         i < nullifierWitnessLeaves.length
           ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)

@@ -493,8 +493,12 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined> {
     const committedDb = await this.#getWorldState('latest');
-    const leafIndex = computePublicDataTreeIndex(contract, slot);
-    const value = await committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex.value);
+    const leafSlot = computePublicDataTreeIndex(contract, slot);
+    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult?.alreadyPresent) {
+      return undefined;
+    }
+    const value = await committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
     return value ? Fr.fromBuffer(value) : undefined;
   }
 

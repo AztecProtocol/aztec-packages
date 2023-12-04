@@ -134,7 +134,7 @@ describe('sequencer/solo_block_builder', () => {
       NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
-      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
+      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafSlot.value);
     }
   };
 
@@ -216,7 +216,7 @@ describe('sequencer/solo_block_builder', () => {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
+      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));

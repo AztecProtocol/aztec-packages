@@ -364,7 +364,7 @@ export class PublicProcessor {
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
       (accum, read) =>
-        accum && !!publicDataReads.find(item => item.leafIndex.equals(read.leafIndex) && item.value.equals(read.value)),
+        accum && !!publicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
       true,
     );
     const updatesAreEqual = simPublicDataUpdateRequests.reduce(
@@ -372,7 +372,7 @@ export class PublicProcessor {
         accum &&
         !!publicDataUpdateRequests.find(
           item =>
-            item.leafIndex.equals(update.leafIndex) &&
+            item.leafSlot.equals(update.leafSlot) &&
             item.oldValue.equals(update.oldValue) &&
             item.newValue.equals(update.newValue),
         ),
@@ -399,11 +399,11 @@ export class PublicProcessor {
     // most recently processed top/enqueued call.
     const numTotalReadsInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataReads,
-      f => f.leafIndex.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
     );
     const numTotalUpdatesInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataUpdateRequests,
-      f => f.leafIndex.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
     );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
     const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;

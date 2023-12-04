@@ -10,6 +10,8 @@ import {
   NullifierLeaf,
   NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { Committable } from '@aztec/foundation/committable';
@@ -21,7 +23,6 @@ import {
   BatchInsertionResult,
   IndexedTree,
   Pedersen,
-  SparseTree,
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
@@ -41,7 +42,6 @@ import {
   IndexedTreeId,
   MerkleTreeDb,
   MerkleTreeOperations,
-  PublicTreeId,
   TreeInfo,
 } from './merkle_tree_db.js';
 
@@ -102,8 +102,10 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );
-    const publicDataTree: UpdateOnlyTree = await initializeTree(
-      treeBuilder(SparseTree),
+    const publicDataTree = await initializeTree(
+      (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
+        return new StandardIndexedTree(db, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf);
+      },
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
@@ -374,7 +376,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index to insert into.
    * @returns Empty promise.
    */
-  public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
+  public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
     return await this.synchronize(() => this._updateLeaf(treeId, leaf, index));
   }
 
@@ -487,7 +489,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves);
   }
 
-  private async _updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
+  private async _updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
     const tree = this.trees[treeId];
     if (!('updateLeaf' in tree)) {
       throw new Error('Tree does not support `updateLeaf` method');
