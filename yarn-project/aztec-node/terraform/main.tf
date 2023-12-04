@@ -1,9 +1,3 @@
-# Terraform to setup a prototype network of Aztec Nodes in AWS
-# It sets up 2 full nodes with different ports/keys etc.
-# Some duplication across the 2 defined services, could possibly
-# be refactored to use modules as and when we build out infrastructure for real
-
-
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
