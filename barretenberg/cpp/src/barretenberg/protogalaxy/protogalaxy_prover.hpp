@@ -57,16 +57,28 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ~ProtoGalaxyProver_() = default;
 
     /**
-     * @brief Prior to folding we need to add all the public inputs to the transcript, labelled by their corresponding
-     * instance index, compute all the instance's polynomials and record the relation parameters involved in computing
-     * these polynomials in the transcript.
-     *
+     * @brief Prior to folding, we need to finalise the given instances and add all their public data ϕ to the
+     * transcript, labelled by their corresponding instance index for domain separation.
      */
     void prepare_for_folding();
 
-    void send_accumulator(std::shared_ptr<Instance>, const std::string&);
+    /**
+     * @brief Send the public data of an accumulator, i.e. a relaxed instance, to the verifier (ϕ in the paper).
+     *
+     *  @param domain_separator separates the same type of data coming from difference instances by instance
+     * index
+     */
+    void send_accumulator(std::shared_ptr<Instance>, const std::string& domain_separator);
 
-    void finalise_and_send_instance(std::shared_ptr<Instance>, const std::string&);
+    /**
+     * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
+     * prover polynomials, commit to witnesses and generate the relation parameters as well as send the public data ϕ of
+     * an instance to the verifier.
+     *
+     * @param domain_separator  separates the same type of data coming from difference instances by instance
+     * index
+     */
+    void finalise_and_send_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
 
     /**
      * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
@@ -472,23 +484,18 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
         next_accumulator->prover_polynomials = acc_prover_polynomials;
 
-        // Allocate space, initialised to 0, for the folded witness commitments
-        WitnessCommitments acc_witness_commitments;
-        auto acc_comm_view = acc_witness_commitments.get_all();
-        for (auto c : acc_comm_view) {
-            (c) = Commitment::infinity();
-        }
-
-        // Fold the witness commtimenets and send them to the verifier
+        // Fold the witness commtiments and send them to the verifier
         auto witness_labels = next_accumulator->commitment_labels.get_witness();
-        for (size_t comm_idx = 0; comm_idx < acc_comm_view.size(); comm_idx++) {
+        size_t comm_idx = 0;
+        for (auto& acc_comm : next_accumulator->witness_commitments.get_all()) {
+            acc_comm = Commitment::infinity();
             size_t inst_idx = 0;
             for (auto& instance : instances) {
-                (acc_comm_view[comm_idx]) = (acc_comm_view[comm_idx]) +
-                                            (instance->witness_commitments.get_all()[comm_idx]) * lagranges[inst_idx];
+                acc_comm = acc_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst_idx];
                 inst_idx++;
             }
-            transcript->send_to_verifier("next_" + witness_labels[comm_idx], (acc_comm_view[comm_idx]));
+            transcript->send_to_verifier("next_" + witness_labels[comm_idx], acc_comm);
+            comm_idx++;
         }
 
         // Fold the public inputs and send to the verifier
@@ -535,8 +542,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         for (size_t vk_idx = 0; vk_idx < acc_vk_view.size(); vk_idx++) {
             size_t inst = 0;
             for (auto& instance : instances) {
-                (acc_vk_view[vk_idx]) =
-                    (acc_vk_view[vk_idx]) + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
+                acc_vk_view[vk_idx] =
+                    acc_vk_view[vk_idx] + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
                 inst++;
             }
             transcript->send_to_verifier("next_" + labels[vk_idx], (acc_vk_view[vk_idx]));

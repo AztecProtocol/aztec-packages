@@ -4,7 +4,7 @@ namespace proof_system::honk {
 
 template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_ptr<Instance> inst,
-                                                                  std::string domain_separator)
+                                                                  const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
@@ -52,7 +52,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_pt
 
 template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std::shared_ptr<Instance> inst,
-                                                                            std::string domain_separator)
+                                                                            const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
@@ -172,7 +172,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     WitnessCommitments acc_witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;
-    for (auto expected_comm : acc_witness_commitments.get_all()) {
+    for (auto& expected_comm : acc_witness_commitments.get_all()) {
         expected_comm = Commitment::infinity();
         size_t inst = 0;
         for (auto& instance : instances) {
@@ -186,7 +186,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size(), 0);
     size_t el_idx = 0;
-    for (auto expected_el : folded_public_inputs) {
+    for (auto& expected_el : folded_public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             expected_el += instance->public_inputs[el_idx] * lagranges[inst];
@@ -213,28 +213,22 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha");
     verified = verified & (next_alpha == expected_alpha);
-    info(verified);
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
     verified = verified & (next_eta == expected_parameters.eta);
-    info(verified);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
     verified = verified & (next_beta == expected_parameters.beta);
-    info(verified);
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
     verified = verified & (next_gamma == expected_parameters.gamma);
-    info(verified);
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
     verified = verified & (next_public_input_delta == expected_parameters.public_input_delta);
-    info(verified);
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
     verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
-    info(verified);
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
@@ -249,7 +243,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         verified = verified & (vk == expected_vk);
         vk_idx++;
     }
-    info(verified);
 
     return verified;
 }
