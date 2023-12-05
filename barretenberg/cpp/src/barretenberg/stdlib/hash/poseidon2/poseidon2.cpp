@@ -51,6 +51,6 @@ template <typename C> field_t<C> poseidon2_hash<C>::hash_buffer(const stdlib::by
     }
     return hashed;
 }
-INSTANTIATE_STDLIB_TYPE(poseidon2_hash);
+template class poseidon2_hash<proof_system::GoblinUltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib
