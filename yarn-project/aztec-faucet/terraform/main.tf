@@ -34,6 +34,10 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
+locals {
+  api_prefix = var.API_PREFIX == "" ? "/${var.DEPLOY_TAG}/aztec-faucet" : "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_PREFIX}"
+}
+
 
 resource "aws_cloudwatch_log_group" "aztec-faucet" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-faucet"
@@ -114,7 +118,7 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       },
       {
         "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_PREFIX}"
+        "value": "${local.api_prefix}"
       },
       {
         "name": "CHAIN_ID",
@@ -188,7 +192,7 @@ resource "aws_alb_target_group" "aztec-faucet" {
   deregistration_delay = 5
 
   health_check {
-    path                = "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_PREFIX}/status"
+    path                = "${local.api_prefix}/status"
     matcher             = "200"
     interval            = 10
     healthy_threshold   = 2
@@ -203,7 +207,7 @@ resource "aws_alb_target_group" "aztec-faucet" {
 
 resource "aws_lb_listener_rule" "api-1" {
   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 500
+  priority     = 600
 
   action {
     type             = "forward"
