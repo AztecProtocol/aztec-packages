@@ -103,7 +103,6 @@ resource "aws_service_discovery_service" "aztec-node" {
 
 # Define task definitions for each node.
 resource "aws_ecs_task_definition" "aztec-node" {
-  # for_each                 = var.node_keys
   count                    = local.node_count
   family                   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
   requires_compatibilities = ["FARGATE"]
@@ -187,6 +186,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "INBOX_CONTRACT_ADDRESS",
         "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
+      },
+      {
+        "name": "OUTBOX_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",

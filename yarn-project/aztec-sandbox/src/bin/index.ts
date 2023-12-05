@@ -133,8 +133,10 @@ async function main() {
     const node = await createAztecNode(nodeConfig);
     shutdown = createShutdown(node.stop);
 
+    const port = process.env.AZTEC_NODE_PORT || 8080; // Use standard 8080 when no PXE is running
+
     // Start Node JSON-RPC server
-    startHttpRpcServer(node, createAztecNodeRpcServer, 8080); // Use standard 8080 when no PXE is running
+    startHttpRpcServer(node, createAztecNodeRpcServer, port);
     logStrings.push(
       `Aztec Node v${version} (noir v${NoirWasmVersion}) is now ready for use in port ${AZTEC_NODE_PORT}!`,
     );

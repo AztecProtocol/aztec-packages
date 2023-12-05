@@ -21,6 +21,7 @@ export class JsonRpcServer {
     stringClassMap: StringClassConverterInput,
     objectClassMap: JsonClassConverterInput,
     private createApi: boolean,
+    private createStatusEndpoint: boolean,
     private disallowedMethods: string[] = [],
     private log = createDebugLogger('aztec:foundation:json-rpc:server'),
   ) {
@@ -172,6 +173,12 @@ export class JsonRpcServer {
             };
           }
         }
+      });
+    }
+
+    if (this.createStatusEndpoint) {
+      router.get('/status', (ctx: Koa.Context) => {
+        ctx.status = 200;
       });
     }
 
