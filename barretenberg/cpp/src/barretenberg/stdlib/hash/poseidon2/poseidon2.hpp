@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/sponge/sponge.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -18,6 +20,8 @@ template <typename Builder> class poseidon2_hash {
   private:
     using field_t = stdlib::field_t<Builder>;
     using bool_t = stdlib::bool_t<Builder>;
+    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    using Sponge = FieldSponge<field_t, Params::t - 1, 1, Params::t, Builder>;
 
   public:
     static field_t hash(const std::vector<field_t>& in);

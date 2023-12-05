@@ -1,4 +1,4 @@
-#include "poseidon2.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 namespace proof_system::plonk::stdlib {
 
@@ -9,9 +9,11 @@ template <typename C> field_t<C> poseidon2_hash<C>::hash(const std::vector<field
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
-     * this should just call a
+     * This should just call the sponge variable length hash function
      *
      */
+    auto input{ inputs };
+    return Sponge::hash_fixed_length(input);
 }
 
 /**

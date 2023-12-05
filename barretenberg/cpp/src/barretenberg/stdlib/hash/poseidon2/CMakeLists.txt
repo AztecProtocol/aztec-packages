@@ -1,0 +1,1 @@
+barretenberg_module(stdlib_poseidon2_hash stdlib_primitives)
