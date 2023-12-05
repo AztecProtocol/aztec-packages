@@ -72,14 +72,12 @@ class Goblin {
         // verifying previous merge proof
 
         // Construct proof of the "kernel" circuit
-        info("Goblin: Constructing proof of circuit.");
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         proof.ultra_proof = prover.construct_proof();
 
         // Construct and verify op queue merge proof
-        info("Goblin: Constructing merge proof.");
         auto merge_prover = composer.create_merge_prover(op_queue);
         proof.merge_proof = merge_prover.construct_proof();
 
@@ -88,36 +86,25 @@ class Goblin {
 
     void prove()
     {
-        // Execute the ECCVM
-        info("Goblin: Constructing ECCVM.");
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
         eccvm_composer = std::make_unique<ECCVMComposer>();
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
-
-        info("Goblin: Proving ECCVM.");
         proof.eccvm_proof = eccvm_prover.construct_proof();
         proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
-        // Execute the Translator
-        info("Goblin: Constructing Translator.");
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
         translator_composer = std::make_unique<TranslatorComposer>();
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
-
-        info("Goblin: Proving Translator.");
         proof.translator_proof = translator_prover.construct_proof();
     };
 
     bool verify()
     {
-        // WORKTODO: do we verify Ultra & Merge here?
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
-        info("Goblin: Verifying ECCVM.");
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
-        info("Goblin: Verifying Translator.");
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
         // WORKTODO: Make an issue about validing the translation evaluations as inputs here.
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);

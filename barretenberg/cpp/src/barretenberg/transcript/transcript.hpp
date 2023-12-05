@@ -268,6 +268,11 @@ class BaseTranscript {
         auto element_bytes = to_buffer(element);
         proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
 
+        if constexpr (std::same_as<T, barretenberg::fr> || std::same_as<T, barretenberg::g1::affine_element> ||
+                      std::same_as<T, uint32_t>) {
+            info("sent:   ", label, ": ", element);
+        }
+
         BaseTranscript::consume_prover_element_bytes(label, element_bytes);
     }
 
@@ -289,6 +294,10 @@ class BaseTranscript {
 
         T element = from_buffer<T>(element_bytes);
 
+        if constexpr (std::same_as<T, barretenberg::fr> || std::same_as<T, barretenberg::g1::affine_element> ||
+                      std::same_as<T, uint32_t>) {
+            info("received: ", label, ": ", element);
+        }
         return element;
     }
 
@@ -320,7 +329,12 @@ class BaseTranscript {
         return verifier_transcript;
     };
 
-    uint256_t get_challenge(const std::string& label) { return get_challenges(label)[0]; }
+    uint256_t get_challenge(const std::string& label)
+    {
+        uint256_t result = get_challenges(label)[0];
+        info(label, ": ", result);
+        return result;
+    }
 
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
