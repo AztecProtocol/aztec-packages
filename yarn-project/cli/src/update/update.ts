@@ -10,7 +10,13 @@ import { DependencyChanges } from './common.js';
 import { updateAztecNr } from './noir.js';
 import { getNewestVersion as getLatestVersion, readPackageJson, updateAztecDeps, updateLockfile } from './npm.js';
 
-const SANDBOX_PACKAGE = '@aztec/aztec-sandbox';
+const PXE_PACKAGE = '@aztec/pxe';
+
+// Since we don't have an npm package for sandbox or cli anymore,
+// 1. Remind people to update docker image
+// 2. Update local npm dependencies
+// 3. Error if @aztec/aztec-sandbox or @aztec/cli is in package.json
+// 4. Update nargo.toml to new aztec-nr version.
 
 export async function update(
   projectPath: string,
@@ -21,12 +27,13 @@ export async function update(
   debugLog: DebugLogger,
 ): Promise<void> {
   const targetSandboxVersion =
-    sandboxVersion === 'latest' ? await getLatestVersion(SANDBOX_PACKAGE, 'latest') : parse(sandboxVersion);
+    sandboxVersion === 'latest' ? await getLatestVersion(PXE_PACKAGE, 'latest') : parse(sandboxVersion);
 
   if (!targetSandboxVersion) {
     throw new Error(`Invalid aztec version ${sandboxVersion}`);
   }
 
+  // TODO: Change.
   let currentSandboxVersion = await getNpmSandboxVersion(projectPath, log);
 
   if (!currentSandboxVersion) {
@@ -98,10 +105,10 @@ async function getNpmSandboxVersion(projectPath: string, log: LogFn): Promise<Se
   try {
     const pkg = await readPackageJson(projectPath);
     // use coerce instead of parse because it eliminates semver operators like ~ and ^
-    if (pkg.dependencies?.[SANDBOX_PACKAGE]) {
-      return coerce(pkg.dependencies[SANDBOX_PACKAGE]);
-    } else if (pkg.devDependencies?.[SANDBOX_PACKAGE]) {
-      return coerce(pkg.devDependencies[SANDBOX_PACKAGE]);
+    if (pkg.dependencies?.[PXE_PACKAGE]) {
+      return coerce(pkg.dependencies[PXE_PACKAGE]);
+    } else if (pkg.devDependencies?.[PXE_PACKAGE]) {
+      return coerce(pkg.devDependencies[PXE_PACKAGE]);
     } else {
       return null;
     }

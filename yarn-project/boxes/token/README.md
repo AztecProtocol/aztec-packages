@@ -2,7 +2,7 @@
 
 This is a minimal [Aztec](https://aztec.network/) Noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox PrivateToken` command so that the repository is copied with needed modifications from the monorepo subpackage.
 
-Some contract specific settings for `PrivateToken` are in a [config](src/config.ts) will require manual updates depending on your changes to the source code. `aztec-cli` can be installed with `npm i -g @aztec/cli`, if you don't have it already.
+Some contract specific settings for `PrivateToken` are in a [config](src/config.ts) will require manual updates depending on your changes to the source code. 
 
 ## Setup
 
@@ -19,6 +19,8 @@ In addition to the usual javascript dependencies, this project requires `nargo` 
 The former are installed within `yarn install:noir` which executes
 
 This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run `yarn install:sandbox`.
+
+This also downloads `aztec-cli`
 
 ## Getting started
 

@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/cli": "workspace:^",
     "@aztec/end-to-end": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",

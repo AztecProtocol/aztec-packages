@@ -23,9 +23,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../cli"
-    },
-    {
       "path": "../end-to-end"
     },
     {
