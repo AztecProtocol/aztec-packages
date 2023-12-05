@@ -186,9 +186,11 @@ impl BaseRollupInputs {
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         let mut new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
 
-        for i in 0..2 {
+        for i in 0..KERNELS_PER_BASE_ROLLUP {
+            let new_nullifiers_per_tx = self.kernel_data[i].public_inputs.end.new_nullifiers;
+            assert(new_nullifiers_per_tx.len() == MAX_NEW_NULLIFIERS_PER_TX, "New nullifiers in kernel data must be MAX_NEW_NULLIFIERS_PER_TX (see constants.hpp)");
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j];
+                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers_per_tx[j];
             }
         };
 
@@ -234,10 +236,6 @@ impl BaseRollupInputs {
             [0; NULLIFIER_SUBTREE_HEIGHT],
             [0; NULLIFIER_TREE_HEIGHT],
         )
-    }
-
-    fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
     fn validate_and_process_public_state(self) -> Field {

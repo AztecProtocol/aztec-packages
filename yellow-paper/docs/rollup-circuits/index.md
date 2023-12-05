@@ -66,31 +66,65 @@ Fill in the computation of this. The short explanation is that it is SHA256 hash
 ### Validity Conditions
 
 - **Individual Transaction Validity**: For each of the 2 transaction in the base:
-  - Kernel Proof MUST be valid
-  - Pending private call stack MUST be empty
-  - The `maxBlockNum` MUST be smaller or equal to the `globalVariables.block_number`
-  - `chainid` of kernel MUST match `globalVariables.chainid`
-  - `version` of kernel MUST match `globalVariables.version`
-  - The `Base.constants` MUST be equal to the `KernelData.constants`
+  - Kernel Proof MUST be valid (there is 1 aggregated kernel proof per transaction)
+  - `chainid` used in kernel proof MUST match `constants.globalVariables.chainid`
+  - `version` used in kernel proof MUST match `constants.globalVariables.version`
+  - Pending private call stack MUST be empty and pending public call stack MUST be empty
+  - Check the block header used by each kernel is a member of the blocks tree.
+  - The `maxBlockNum` MUST be smaller or equal to the `constants.globalVariables.block_number`
+  - The `constants` in `BaseRollupInputs` MUST be equal to the `KernelData.constants`
   - **Public State**:
     - Reads and writes MUST be ordered by causality, e.g., reading after a write MUST return the value written
   - The provided `header` MUST be in the `blocksTree`. THIS NAMING GOTTA BE FIXED.
 - **Aggregate proof**: Must aggregate the two proofs into a single proof
 - **State Manipulation**: All state changes are grouped into a single ref
-  - All new note hashes MUST be inserted into the note hash tree
-    - The starting snapshot MUST be `StartNoteHashTreeSnapshot`
-    - The result MUST be `EndNoteHashTreeSnapshot`
-  - All new nullifiers MUST be inserted into the nullifier hash tree
-    - There MUST be no duplicate nullifiers due to these insertions
-    - The starting snapshot MUST be `StartNullifierTreeSnapshot`
-    - The result MUST be `EndNullifierTreeSnapshot`
-  - All new contract notes MUST be inserted into the contract tree
-    - The starting snapshot MUST be `StartContractTreeSnapshot`
-    - The result MUST be `EndContractTreeSnapshot`
-  - All public state changes MUST be applied to the public data tree
-    - The starting root MUST be `StartPublicDataTreeRoot`
-    - The result MUST be `EndPublicDataTreeRoot`
+  - New contract deployments:
+    - For each new contract, the preimage is hashed to compute the leaf that will be inserted into the contracts tree (`hash(kernel_data.public_inputs.end.new_contracts[i])`)
+    - if no new contracts, a zero leaf (not hash of zero) is inserted
+    - a merkle tree is created with all the leaves
+    - this subtree gets added to the `StartContractTreeSnapshot` to generate `EndContractTreeSnapshot`
+      - to add, use `NewContractSubtreeSiblingPath` provided in BaseRollupInputs
+      - `NewContractSubtreeSiblingPath` MUST be of same length as the height of the subtree 
+      - `StartContractTreeSnapshot` at the index of insertion of subtree MUST be empty (since we insert a subtree, check that the value at the subtree index is equivalent of an empty subtree)
+      - compute new root against the sibling path
+      - Compute `NewNextAvailableLeafIndex` to be 2 ^ subtree depth + `StartContractTreeSnapshot.NextAvailableLeafIndex`
+      - Create `EndContractTreeSnapshot` = {new root, NewNextAvailableLeafIndex}
+  - New note hashes:
+    - Number of new notes in each kernel MUST be equal to `MAX_NEW_COMMITMENTS_PER_TX`
+    - A Merkle tree is created with all the notes as leaves
+    - This subtree gets added to the `StartNoteTreeSnapshot` to generate `EndNoteTreeSnapshot`
+      - To add, use `NewNoteSubtreeSiblingPath` provided in BaseRollupInputs
+      - `NewNoteSubtreeSiblingPath` MUST be of the same length as the height of the subtree
+      - `StartNoteTreeSnapshot` at the index of insertion of subtree MUST be empty (since we insert a subtree, check that the value at the subtree index is equivalent of an empty subtree)
+      - Compute new root against the sibling path
+      - Compute `NewNextAvailableLeafIndex` to be 2 ^ subtree depth + `StartNoteTreeSnapshot.NextAvailableLeafIndex`
+    - Create `EndNoteTreeSnapshot` = {new root, NewNextAvailableLeafIndex}
+  - New nullifiers:
+    - Number of new notes in each kernel MUST be equal to `MAX_NEW_NULLIFIERS_PER_TX`
+    - Batch insert the new nullifiers and check for non inclusion for each:
+      - Sorted nullifiers MUST be a permutation of the new nullifiers
+      - For each of the sorted nullifier:
+        - Skip if nullifier is 0
+        - Otherwise, check for non inclusion. Assert that 
+          - `lowNullifier` is not 0 and 
+          - `lowNullifier.leafValue < nullifier` and 
+          - `nullifer > lowNullifier.nextValue` or (`lowNullifier.nextIndex` is 0 and  `lowNullifier.nextValue` is 0)
+        - check that `lowLeaf` exist in the `StartNullifierTreeSnapshot``
+        - Update `lowLeaf` to point to the sorted nullifier (`lowLeaf.nextValue = sortedNullifier` and `lowLeaf.nextIndex` = sortedNullifierIndex)
+      - Create a subtree with all the new nullifier leaves
+      - Insert subtree into the nullifier tree
+      - Compute `NewNextAvailableLeafIndex` as `StartNullifierTreeSnapshot.NextAvailableLeafIndex + sorted_nullifiers.length`  
+      - Create `EndNullifierTreeSnapshot` as {new root, `NewNextAvailableLeafIndex`}
+  - Public data reads and updates:
+    - Validate all public data reads (i.e. the value passed by the sequencer is same as stored in the merkle tree) - 
+      - It isn't enough to check that the read exists not just in `StartPublicDataTreeRoot`, because data can be created in a transaction and read in that transaction. Hence, the reads should be validated against the current state of the transaction and not at the start state.
+:::warning
+It is unclear how we do this at the current moment.
+:::
+    - For each public data update request, if request is non-zero, add to tree against the sibling path provided in `NewPublicDataUpdateRequestsSiblingPaths`
+    - Create `EndPublicDataTreeRoot` as the final root after adding all the public data update requests.
 - **ContentHash**: The content hash MUST be equal to the hash of the state diff caused by the transactions.
+  - TODO: Wait on Lasse...
 
 ## Merge Rollup
 
