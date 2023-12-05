@@ -242,7 +242,7 @@ jobs:
               ./download_ignition.sh 1; \
               cd /usr/src/barretenberg/cpp/build; \
               ./bin/grumpkin_srs_gen 1048576; \
-              ./bin/ultra_honk_bench
+              ./bin/ultra_honk_bench"
 
   barretenberg-honk-tests:
     docker:
