@@ -13,7 +13,7 @@ import { TreeBase, decodeMeta } from './tree_base.js';
  * @returns The newly created tree.
  */
 export async function loadTree<T extends TreeBase>(
-  c: (db: LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root: Buffer) => T,
+  c: new (db: LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root: Buffer) => T,
   db: LevelUp,
   hasher: Hasher,
   name: string,
@@ -21,6 +21,6 @@ export async function loadTree<T extends TreeBase>(
   const meta: Buffer = await db.get(name);
   const { root, depth, size } = decodeMeta(meta);
 
-  const tree = c(db, hasher, name, depth, size, root);
+  const tree = new c(db, hasher, name, depth, size, root);
   return tree;
 }

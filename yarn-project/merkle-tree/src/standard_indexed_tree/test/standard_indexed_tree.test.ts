@@ -9,37 +9,18 @@ import { treeTestSuite } from '../../test/test_suite.js';
 import { createMemDown } from '../../test/utils/create_mem_down.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
+class NullifierTree extends StandardIndexedTreeWithAppend {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {
-  return await newTree(
-    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
-      return new StandardIndexedTreeWithAppend(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
-    },
-    levelUp,
-    hasher,
-    name,
-    depth,
-    prefilledSize,
-  );
+  return await newTree(NullifierTree, levelUp, hasher, name, depth, prefilledSize);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await loadTree(
-    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root: Buffer) => {
-      return new StandardIndexedTreeWithAppend(
-        db,
-        hasher,
-        name,
-        depth,
-        size,
-        NullifierLeafPreimage,
-        NullifierLeaf,
-        root,
-      );
-    },
-    levelUp,
-    hasher,
-    name,
-  );
+  return await loadTree(NullifierTree, levelUp, hasher, name);
 };
 
 const createIndexedTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
@@ -494,5 +475,21 @@ describe('StandardIndexedTreeSpecific', () => {
     const expectedRoot = appendTree.getRoot(true);
     const actualRoot = insertTree.getRoot(true);
     expect(actualRoot).toEqual(expectedRoot);
+  });
+
+  it('should be able to find indexes of leaves', async () => {
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', 3);
+    const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+
+    await tree.appendLeaves([values[0]]);
+
+    expect(await tree.findLeafIndex(values[0], true)).toBeDefined();
+    expect(await tree.findLeafIndex(values[0], false)).toBe(undefined);
+    expect(await tree.findLeafIndex(values[1], true)).toBe(undefined);
+
+    await tree.commit();
+
+    expect(await tree.findLeafIndex(values[0], false)).toBeDefined();
   });
 });

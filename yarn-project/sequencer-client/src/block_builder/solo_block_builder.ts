@@ -369,17 +369,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     ]);
   }
 
-  // Helper for validating a roots tree against a circuit simulation output
-  protected async validateRootTree(
-    rootOutput: RootRollupPublicInputs,
-    treeId: MerkleTreeId,
-    name: 'Contract' | 'NoteHash' | 'L1ToL2Messages',
-  ) {
-    const localTree = await this.getTreeSnapshot(treeId);
-    const simulatedTree = rootOutput[`endTreeOfHistorical${name}TreeRootsSnapshot`];
-    this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
-  }
-
   // Helper for validating a non-roots tree against a circuit simulation output
   protected async validateTree<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs>(
     output: T,

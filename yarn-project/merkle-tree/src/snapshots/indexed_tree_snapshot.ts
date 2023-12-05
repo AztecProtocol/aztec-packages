@@ -101,7 +101,7 @@ class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot implements IndexedTre
 
   async findLeafIndex(value: Buffer): Promise<bigint | undefined> {
     const index = await this.tree.findLeafIndex(value, false);
-    if (index && index < this.getNumLeaves()) {
+    if (index !== undefined && index < this.getNumLeaves()) {
       return index;
     }
   }

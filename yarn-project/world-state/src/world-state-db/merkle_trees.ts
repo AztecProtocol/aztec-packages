@@ -28,7 +28,6 @@ import {
   UpdateOnlyTree,
   loadTree,
   newTree,
-  treeBuilder,
 } from '@aztec/merkle-tree';
 import { Hasher, L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
@@ -59,6 +58,24 @@ interface FromDbOptions {
 const LAST_GLOBAL_VARS_HASH = 'lastGlobalVarsHash';
 
 /**
+ * The nullifier tree is an indexed tree.
+ */
+class NullifierTree extends StandardIndexedTree {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
+/**
+ * The public data tree is an indexed tree.
+ */
+class PublicDataTree extends StandardIndexedTree {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf, root);
+  }
+}
+
+/**
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
@@ -80,16 +97,14 @@ export class MerkleTrees implements MerkleTreeDb {
 
     const hasher = new Pedersen();
     const contractTree: AppendOnlyTree = await initializeTree(
-      treeBuilder(StandardTree),
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
     const nullifierTree = await initializeTree(
-      (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
-        return new StandardIndexedTree(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
-      },
+      NullifierTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
@@ -97,16 +112,14 @@ export class MerkleTrees implements MerkleTreeDb {
       INITIAL_NULLIFIER_TREE_SIZE,
     );
     const noteHashTree: AppendOnlyTree = await initializeTree(
-      treeBuilder(StandardTree),
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );
-    const publicDataTree = await initializeTree(
-      (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
-        return new StandardIndexedTree(db, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf);
-      },
+    const publicDataTree: UpdateOnlyTree = await initializeTree(
+      PublicDataTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
@@ -114,14 +127,14 @@ export class MerkleTrees implements MerkleTreeDb {
       INITIAL_PUBLIC_DATA_TREE_SIZE,
     );
     const l1Tol2MessagesTree: AppendOnlyTree = await initializeTree(
-      treeBuilder(StandardTree),
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
     const blocksTree: AppendOnlyTree = await initializeTree(
-      treeBuilder(StandardTree),
+      StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,

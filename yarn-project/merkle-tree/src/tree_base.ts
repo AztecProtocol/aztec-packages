@@ -307,13 +307,5 @@ export abstract class TreeBase implements MerkleTree {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  public async findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
-    for (let i = 0n; i < this.getNumLeaves(includeUncommitted); i++) {
-      const currentValue = await this.getLeafValue(i, includeUncommitted);
-      if (currentValue && currentValue.equals(value)) {
-        return i;
-      }
-    }
-    return undefined;
-  }
+  abstract findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined>;
 }
