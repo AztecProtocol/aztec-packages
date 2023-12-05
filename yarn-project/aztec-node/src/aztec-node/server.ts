@@ -10,6 +10,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeGlobalsHash, computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -495,11 +496,14 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState('latest');
     const leafSlot = computePublicDataTreeIndex(contract, slot);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult?.alreadyPresent) {
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
       return undefined;
     }
-    const value = await committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-    return value ? Fr.fromBuffer(value) : undefined;
+    const preimage = (await committedDb.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+    return preimage.value;
   }
 
   /**

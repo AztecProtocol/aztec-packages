@@ -356,7 +356,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'Contract'),
       this.validateTree(rollupOutput, MerkleTreeId.NOTE_HASH_TREE, 'NoteHash'),
       this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'Nullifier'),
-      this.validatePublicDataTreeRoot(rollupOutput),
+      this.validateTree(rollupOutput, MerkleTreeId.PUBLIC_DATA_TREE, 'PublicData'),
     ]);
   }
 
@@ -380,21 +380,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
   }
 
-  /**
-   * Validates that the root of the public data tree matches the output of the circuit simulation.
-   * @param output - The output of the circuit simulation.
-   * Note: Public data tree is sparse, so the "next available leaf index" doesn't make sense there.
-   *       For this reason we only validate root.
-   */
-  protected async validatePublicDataTreeRoot(output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
-    const localTree = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-    const simulatedTreeRoot = output[`endPublicDataTreeSnapshot`];
-
-    if (!simulatedTreeRoot.toBuffer().equals(localTree.root.toBuffer())) {
-      throw new Error(`PublicData tree root mismatch (local ${localTree.root}, simulated ${simulatedTreeRoot})`);
-    }
-  }
-
   // Helper for validating a non-roots tree against a circuit simulation output
   protected async validateTree<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs>(
     output: T,
@@ -414,7 +399,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'NoteHash' | 'Contract' | 'Nullifier' | 'L1ToL2Messages' | 'Blocks',
+    name: 'NoteHash' | 'Contract' | 'Nullifier' | 'L1ToL2Messages' | 'Blocks' | 'PublicData',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {
@@ -731,6 +716,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // TODO explain this
     const leftPublicDataReadsInfo = await this.getPublicDataReadsInfo(left);
     const leftPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(left);
+
     const rightPublicDataReadsInfo = await this.getPublicDataReadsInfo(right);
     const rightPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(right);
 

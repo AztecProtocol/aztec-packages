@@ -39,6 +39,7 @@ import {
   CurrentTreeRoots,
   HandleL2BlockResult,
   INITIAL_NULLIFIER_TREE_SIZE,
+  INITIAL_PUBLIC_DATA_TREE_SIZE,
   IndexedTreeId,
   MerkleTreeDb,
   MerkleTreeOperations,
@@ -110,6 +111,7 @@ export class MerkleTrees implements MerkleTreeDb {
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
+      INITIAL_PUBLIC_DATA_TREE_SIZE,
     );
     const l1Tol2MessagesTree: AppendOnlyTree = await initializeTree(
       treeBuilder(StandardTree),

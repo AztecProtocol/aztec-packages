@@ -229,7 +229,6 @@ export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Pro
  *
  */
 async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
-  console.log(JSON.stringify(input, null, 4));
   const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
