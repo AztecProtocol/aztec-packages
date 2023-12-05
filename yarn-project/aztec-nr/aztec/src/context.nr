@@ -60,7 +60,6 @@ struct PrivateContext {
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
     read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -145,7 +144,6 @@ impl PrivateContext {
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
             read_requests: self.read_requests.storage,
-            pending_read_requests: self.pending_read_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             nullified_commitments: self.nullified_commitments.storage,
@@ -166,10 +164,6 @@ impl PrivateContext {
 
     pub fn push_read_request(&mut self, read_request: Field) {
         self.read_requests.push(read_request);
-    }
-
-    pub fn push_pending_read_request(&mut self, pending_read_request: Field) {
-        self.pending_read_requests.push(pending_read_request);
     }
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
