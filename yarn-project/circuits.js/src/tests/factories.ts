@@ -7,8 +7,10 @@ import {
   ARGS_LENGTH,
   AggregationObject,
   AppendOnlyTreeSnapshot,
+  BLOCKS_TREE_HEIGHT,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockHeader,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CONTRACT_TREE_HEIGHT,
   CallContext,
@@ -28,8 +30,6 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
-  HISTORIC_BLOCKS_TREE_HEIGHT,
-  HistoricBlockData,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -114,13 +114,13 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary combined historic tree roots object from the given seed.
+ * Creates an arbitrary combined historical tree roots object from the given seed.
  * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
- * @param seed - The seed to use for generating the combined historic tree roots.
- * @returns A combined historic tree roots object.
+ * @param seed - The seed to use for generating the combined historical tree roots.
+ * @returns A combined historical tree roots object.
  */
-export function makeHistoricBlockData(seed: number): HistoricBlockData {
-  return new HistoricBlockData(
+export function makeBlockHeader(seed: number): BlockHeader {
+  return new BlockHeader(
     fr(seed),
     fr(seed + 1),
     fr(seed + 2),
@@ -138,7 +138,7 @@ export function makeHistoricBlockData(seed: number): HistoricBlockData {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHistoricBlockData(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeBlockHeader(seed), makeTxContext(seed + 4));
 }
 
 /**
@@ -340,7 +340,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    makeHistoricBlockData(seed + 0xa00),
+    makeBlockHeader(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -679,7 +679,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    historicBlockData: makeHistoricBlockData(seed + 0xd00),
+    blockHeader: makeBlockHeader(seed + 0xd00),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
@@ -726,7 +726,7 @@ export function makeConstantBaseRollupData(
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
   return ConstantRollupData.from({
-    startHistoricBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    startBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
@@ -840,7 +840,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2400),
+    makeTuple(BLOCKS_TREE_HEIGHT, fr, 0x2400),
   );
 }
 
@@ -866,16 +866,10 @@ export function makeRootRollupPublicInputs(
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startPublicDataTreeRoot: fr((seed += 0x100)),
     endPublicDataTreeRoot: fr((seed += 0x100)),
-    startTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
@@ -902,11 +896,11 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
-  const startHistoricBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+  const startBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
     seed + 0x1000,
   );
 
@@ -920,20 +914,23 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
+  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
+  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
+
   const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
   const newPublicDataReadsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
-  const historicBlocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x7000),
+  const blocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
+    makeMembershipWitness(BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x9000),
   );
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -945,14 +942,16 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,
-    startHistoricBlocksTreeSnapshot,
+    startBlocksTreeSnapshot,
+    sortedNewNullifiers,
+    sortednewNullifiersIndexes,
     lowNullifierLeafPreimages,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
     newPublicDataUpdateRequestsSiblingPaths,
     newPublicDataReadsSiblingPaths,
-    historicBlocksTreeRootMembershipWitnesses,
+    blocksTreeRootMembershipWitnesses,
     constants,
   });
 }

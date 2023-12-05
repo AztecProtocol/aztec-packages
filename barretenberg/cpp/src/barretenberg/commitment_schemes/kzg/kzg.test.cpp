@@ -39,11 +39,11 @@ TYPED_TEST(KZGTest, single)
     auto opening_pair = OpeningPair<TypeParam>{ challenge, evaluation };
     auto opening_claim = OpeningClaim<TypeParam>{ opening_pair, commitment };
 
-    auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+    auto prover_transcript = BaseTranscript::prover_init_empty();
 
     KZG::compute_opening_proof(this->ck(), opening_pair, witness, prover_transcript);
 
-    auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
     bool verified = KZG::verify(this->vk(), opening_claim, verifier_transcript);
 
     EXPECT_EQ(verified, true);
@@ -109,7 +109,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     batched_commitment_unshifted = commitment1 * rhos[0] + commitment2 * rhos[1];
     batched_commitment_to_be_shifted = commitment2 * rhos[2];
 
-    auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+    auto prover_transcript = BaseTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
 
@@ -122,10 +122,10 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     for (size_t l = 0; l < log_n - 1; ++l) {
         std::string label = "FOLD_" + std::to_string(l + 1);
         auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
-        prover_transcript.send_to_verifier(label, commitment);
+        prover_transcript->send_to_verifier(label, commitment);
     }
 
-    const Fr r_challenge = prover_transcript.get_challenge("Gemini:r");
+    const Fr r_challenge = prover_transcript->get_challenge("Gemini:r");
 
     const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
         mle_opening_point, std::move(gemini_polynomials), r_challenge);
@@ -133,18 +133,18 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     for (size_t l = 0; l < log_n; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
-        prover_transcript.send_to_verifier(label, evaluation);
+        prover_transcript->send_to_verifier(label, evaluation);
     }
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    const Fr nu_challenge = prover_transcript.get_challenge("Shplonk:nu");
+    const Fr nu_challenge = prover_transcript->get_challenge("Shplonk:nu");
     auto batched_quotient_Q =
         ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
-    prover_transcript.send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
+    prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
-    const Fr z_challenge = prover_transcript.get_challenge("Shplonk:z");
+    const Fr z_challenge = prover_transcript->get_challenge("Shplonk:z");
     const auto [shplonk_opening_pair, shplonk_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
         gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
@@ -154,7 +154,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
-    auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1

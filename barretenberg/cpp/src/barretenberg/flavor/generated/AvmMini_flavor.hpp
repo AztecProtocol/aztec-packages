@@ -8,9 +8,11 @@
 #include "barretenberg/polynomials/univariate.hpp"
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/generated/AvmMini.hpp"
+#include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
+#include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::honk {
@@ -31,14 +33,14 @@ class AvmMiniFlavor {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 20;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 26;
+    static constexpr size_t NUM_ALL_ENTITIES = 25;
 
-    using Relations = std::tuple<AvmMini_vm::AvmMini<FF>>;
+    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -57,243 +59,220 @@ class AvmMiniFlavor {
     static constexpr bool has_zero_row = true;
 
   private:
-    template <typename DataType, typename HandleType>
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        DataType avmMini_clk;
-        DataType avmMini_positive;
-        DataType avmMini_first;
+        using DataType = DataType_;
 
-        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &avmMini_clk, &avmMini_positive, &avmMini_first)
+        DEFINE_FLAVOR_MEMBERS(DataType, avmMini_clk, avmMini_first)
 
-        std::vector<HandleType> get_selectors() override
+        RefVector<DataType> get_selectors()
         {
             return {
                 avmMini_clk,
-                avmMini_positive,
                 avmMini_first,
             };
         };
 
-        std::vector<HandleType> get_sigma_polynomials() override { return {}; };
-        std::vector<HandleType> get_id_polynomials() override { return {}; };
-        std::vector<HandleType> get_table_polynomials() { return {}; };
+        RefVector<DataType> get_sigma_polynomials() { return {}; };
+        RefVector<DataType> get_id_polynomials() { return {}; };
+        RefVector<DataType> get_table_polynomials() { return {}; };
     };
 
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType> class WitnessEntities {
       public:
-        DataType avmMini_subop;
-        DataType avmMini_ia;
-        DataType avmMini_ib;
-        DataType avmMini_ic;
-        DataType avmMini_mem_op_a;
-        DataType avmMini_mem_op_b;
-        DataType avmMini_mem_op_c;
-        DataType avmMini_rwa;
-        DataType avmMini_rwb;
-        DataType avmMini_rwc;
-        DataType avmMini_mem_idx_a;
-        DataType avmMini_mem_idx_b;
-        DataType avmMini_mem_idx_c;
-        DataType avmMini_last;
-        DataType avmMini_m_clk;
-        DataType avmMini_m_sub_clk;
-        DataType avmMini_m_addr;
-        DataType avmMini_m_val;
-        DataType avmMini_m_lastAccess;
-        DataType avmMini_m_rw;
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              memTrace_m_clk,
+                              memTrace_m_sub_clk,
+                              memTrace_m_addr,
+                              memTrace_m_val,
+                              memTrace_m_lastAccess,
+                              memTrace_m_rw,
+                              avmMini_subop,
+                              avmMini_ia,
+                              avmMini_ib,
+                              avmMini_ic,
+                              avmMini_mem_op_a,
+                              avmMini_mem_op_b,
+                              avmMini_mem_op_c,
+                              avmMini_rwa,
+                              avmMini_rwb,
+                              avmMini_rwc,
+                              avmMini_mem_idx_a,
+                              avmMini_mem_idx_b,
+                              avmMini_mem_idx_c,
+                              avmMini_last)
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
-                            &avmMini_subop,
-                            &avmMini_ia,
-                            &avmMini_ib,
-                            &avmMini_ic,
-                            &avmMini_mem_op_a,
-                            &avmMini_mem_op_b,
-                            &avmMini_mem_op_c,
-                            &avmMini_rwa,
-                            &avmMini_rwb,
-                            &avmMini_rwc,
-                            &avmMini_mem_idx_a,
-                            &avmMini_mem_idx_b,
-                            &avmMini_mem_idx_c,
-                            &avmMini_last,
-                            &avmMini_m_clk,
-                            &avmMini_m_sub_clk,
-                            &avmMini_m_addr,
-                            &avmMini_m_val,
-                            &avmMini_m_lastAccess,
-                            &avmMini_m_rw)
-
-        std::vector<HandleType> get_wires() override
+        RefVector<DataType> get_wires()
         {
             return {
-                avmMini_subop,     avmMini_ia,        avmMini_ib,        avmMini_ic,           avmMini_mem_op_a,
-                avmMini_mem_op_b,  avmMini_mem_op_c,  avmMini_rwa,       avmMini_rwb,          avmMini_rwc,
-                avmMini_mem_idx_a, avmMini_mem_idx_b, avmMini_mem_idx_c, avmMini_last,         avmMini_m_clk,
-                avmMini_m_sub_clk, avmMini_m_addr,    avmMini_m_val,     avmMini_m_lastAccess, avmMini_m_rw,
+                memTrace_m_clk,   memTrace_m_sub_clk, memTrace_m_addr,   memTrace_m_val,    memTrace_m_lastAccess,
+                memTrace_m_rw,    avmMini_subop,      avmMini_ia,        avmMini_ib,        avmMini_ic,
+                avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,  avmMini_rwa,       avmMini_rwb,
+                avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b, avmMini_mem_idx_c, avmMini_last,
 
             };
         };
 
-        std::vector<HandleType> get_sorted_polynomials() { return {}; };
+        RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
 
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities {
       public:
-        DataType avmMini_clk;
-        DataType avmMini_positive;
-        DataType avmMini_first;
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              avmMini_clk,
+                              avmMini_first,
+                              memTrace_m_clk,
+                              memTrace_m_sub_clk,
+                              memTrace_m_addr,
+                              memTrace_m_val,
+                              memTrace_m_lastAccess,
+                              memTrace_m_rw,
+                              avmMini_subop,
+                              avmMini_ia,
+                              avmMini_ib,
+                              avmMini_ic,
+                              avmMini_mem_op_a,
+                              avmMini_mem_op_b,
+                              avmMini_mem_op_c,
+                              avmMini_rwa,
+                              avmMini_rwb,
+                              avmMini_rwc,
+                              avmMini_mem_idx_a,
+                              avmMini_mem_idx_b,
+                              avmMini_mem_idx_c,
+                              avmMini_last,
+                              memTrace_m_rw_shift,
+                              memTrace_m_addr_shift,
+                              memTrace_m_val_shift)
 
-        DataType avmMini_subop;
-        DataType avmMini_ia;
-        DataType avmMini_ib;
-        DataType avmMini_ic;
-        DataType avmMini_mem_op_a;
-        DataType avmMini_mem_op_b;
-        DataType avmMini_mem_op_c;
-        DataType avmMini_rwa;
-        DataType avmMini_rwb;
-        DataType avmMini_rwc;
-        DataType avmMini_mem_idx_a;
-        DataType avmMini_mem_idx_b;
-        DataType avmMini_mem_idx_c;
-        DataType avmMini_last;
-        DataType avmMini_m_clk;
-        DataType avmMini_m_sub_clk;
-        DataType avmMini_m_addr;
-        DataType avmMini_m_val;
-        DataType avmMini_m_lastAccess;
-        DataType avmMini_m_rw;
-
-        DataType avmMini_m_val_shift;
-        DataType avmMini_m_addr_shift;
-        DataType avmMini_m_rw_shift;
-
-        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &avmMini_clk,
-                            &avmMini_positive,
-                            &avmMini_first,
-                            &avmMini_subop,
-                            &avmMini_ia,
-                            &avmMini_ib,
-                            &avmMini_ic,
-                            &avmMini_mem_op_a,
-                            &avmMini_mem_op_b,
-                            &avmMini_mem_op_c,
-                            &avmMini_rwa,
-                            &avmMini_rwb,
-                            &avmMini_rwc,
-                            &avmMini_mem_idx_a,
-                            &avmMini_mem_idx_b,
-                            &avmMini_mem_idx_c,
-                            &avmMini_last,
-                            &avmMini_m_clk,
-                            &avmMini_m_sub_clk,
-                            &avmMini_m_addr,
-                            &avmMini_m_val,
-                            &avmMini_m_lastAccess,
-                            &avmMini_m_rw,
-                            &avmMini_m_val_shift,
-                            &avmMini_m_addr_shift,
-                            &avmMini_m_rw_shift)
-
-        std::vector<HandleType> get_wires() override
+        RefVector<DataType> get_wires()
         {
             return {
-                avmMini_clk,        avmMini_positive,     avmMini_first,    avmMini_subop,       avmMini_ia,
-                avmMini_ib,         avmMini_ic,           avmMini_mem_op_a, avmMini_mem_op_b,    avmMini_mem_op_c,
-                avmMini_rwa,        avmMini_rwb,          avmMini_rwc,      avmMini_mem_idx_a,   avmMini_mem_idx_b,
-                avmMini_mem_idx_c,  avmMini_last,         avmMini_m_clk,    avmMini_m_sub_clk,   avmMini_m_addr,
-                avmMini_m_val,      avmMini_m_lastAccess, avmMini_m_rw,     avmMini_m_val_shift, avmMini_m_addr_shift,
-                avmMini_m_rw_shift,
+                avmMini_clk,
+                avmMini_first,
+                memTrace_m_clk,
+                memTrace_m_sub_clk,
+                memTrace_m_addr,
+                memTrace_m_val,
+                memTrace_m_lastAccess,
+                memTrace_m_rw,
+                avmMini_subop,
+                avmMini_ia,
+                avmMini_ib,
+                avmMini_ic,
+                avmMini_mem_op_a,
+                avmMini_mem_op_b,
+                avmMini_mem_op_c,
+                avmMini_rwa,
+                avmMini_rwb,
+                avmMini_rwc,
+                avmMini_mem_idx_a,
+                avmMini_mem_idx_b,
+                avmMini_mem_idx_c,
+                avmMini_last,
+                memTrace_m_rw_shift,
+                memTrace_m_addr_shift,
+                memTrace_m_val_shift,
 
             };
         };
 
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
             return {
-                avmMini_clk,       avmMini_positive,     avmMini_first,    avmMini_subop,     avmMini_ia,
-                avmMini_ib,        avmMini_ic,           avmMini_mem_op_a, avmMini_mem_op_b,  avmMini_mem_op_c,
-                avmMini_rwa,       avmMini_rwb,          avmMini_rwc,      avmMini_mem_idx_a, avmMini_mem_idx_b,
-                avmMini_mem_idx_c, avmMini_last,         avmMini_m_clk,    avmMini_m_sub_clk, avmMini_m_addr,
-                avmMini_m_val,     avmMini_m_lastAccess, avmMini_m_rw,
+                avmMini_clk,
+                avmMini_first,
+                memTrace_m_clk,
+                memTrace_m_sub_clk,
+                memTrace_m_addr,
+                memTrace_m_val,
+                memTrace_m_lastAccess,
+                memTrace_m_rw,
+                avmMini_subop,
+                avmMini_ia,
+                avmMini_ib,
+                avmMini_ic,
+                avmMini_mem_op_a,
+                avmMini_mem_op_b,
+                avmMini_mem_op_c,
+                avmMini_rwa,
+                avmMini_rwb,
+                avmMini_rwc,
+                avmMini_mem_idx_a,
+                avmMini_mem_idx_b,
+                avmMini_mem_idx_c,
+                avmMini_last,
 
             };
         };
 
-        std::vector<HandleType> get_to_be_shifted() override
+        RefVector<DataType> get_to_be_shifted()
         {
             return {
-                avmMini_m_val,
-                avmMini_m_addr,
-                avmMini_m_rw,
+                memTrace_m_rw,
+                memTrace_m_addr,
+                memTrace_m_val,
 
             };
         };
 
-        std::vector<HandleType> get_shifted() override
+        RefVector<DataType> get_shifted()
         {
             return {
-                avmMini_m_val_shift,
-                avmMini_m_addr_shift,
-                avmMini_m_rw_shift,
+                memTrace_m_rw_shift,
+                memTrace_m_addr_shift,
+                memTrace_m_val_shift,
 
             };
         };
     };
 
   public:
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                          WitnessEntities<Polynomial, PolynomialHandle>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                 WitnessEntities<Polynomial, PolynomialHandle>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };
 
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
+    using ProverPolynomials = AllEntities<PolynomialHandle>;
 
-    using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
+    using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
     };
 
-    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+    class AllPolynomials : public AllEntities<Polynomial> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->avmMini_clk.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return this->memTrace_m_clk.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
             }
             return result;
         }
     };
 
-    using RowPolynomials = AllEntities<FF, FF>;
+    using RowPolynomials = AllEntities<FF>;
 
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : pointer_view()) {
-                *poly = Polynomial(circuit_size / 2);
+            for (auto& poly : get_all()) {
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };
@@ -302,25 +281,29 @@ class AvmMiniFlavor {
      * @brief A container for univariates used during Protogalaxy folding and sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       private:
-        using Base = AllEntities<std::string, std::string>;
+        using Base = AllEntities<std::string>;
 
       public:
         CommitmentLabels()
-            : AllEntities<std::string, std::string>()
+            : AllEntities<std::string>()
         {
             Base::avmMini_clk = "avmMini_clk";
-            Base::avmMini_positive = "avmMini_positive";
             Base::avmMini_first = "avmMini_first";
+            Base::memTrace_m_clk = "memTrace_m_clk";
+            Base::memTrace_m_sub_clk = "memTrace_m_sub_clk";
+            Base::memTrace_m_addr = "memTrace_m_addr";
+            Base::memTrace_m_val = "memTrace_m_val";
+            Base::memTrace_m_lastAccess = "memTrace_m_lastAccess";
+            Base::memTrace_m_rw = "memTrace_m_rw";
             Base::avmMini_subop = "avmMini_subop";
             Base::avmMini_ia = "avmMini_ia";
             Base::avmMini_ib = "avmMini_ib";
@@ -335,34 +318,31 @@ class AvmMiniFlavor {
             Base::avmMini_mem_idx_b = "avmMini_mem_idx_b";
             Base::avmMini_mem_idx_c = "avmMini_mem_idx_c";
             Base::avmMini_last = "avmMini_last";
-            Base::avmMini_m_clk = "avmMini_m_clk";
-            Base::avmMini_m_sub_clk = "avmMini_m_sub_clk";
-            Base::avmMini_m_addr = "avmMini_m_addr";
-            Base::avmMini_m_val = "avmMini_m_val";
-            Base::avmMini_m_lastAccess = "avmMini_m_lastAccess";
-            Base::avmMini_m_rw = "avmMini_m_rw";
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    class VerifierCommitments : public AllEntities<Commitment> {
       private:
-        using Base = AllEntities<Commitment, CommitmentHandle>;
+        using Base = AllEntities<Commitment>;
 
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const BaseTranscript<FF>& transcript)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
             avmMini_clk = verification_key->avmMini_clk;
-            avmMini_positive = verification_key->avmMini_positive;
             avmMini_first = verification_key->avmMini_first;
         }
     };
 
-    class Transcript : public BaseTranscript<FF> {
+    class Transcript : public BaseTranscript {
       public:
         uint32_t circuit_size;
 
+        Commitment memTrace_m_clk;
+        Commitment memTrace_m_sub_clk;
+        Commitment memTrace_m_addr;
+        Commitment memTrace_m_val;
+        Commitment memTrace_m_lastAccess;
+        Commitment memTrace_m_rw;
         Commitment avmMini_subop;
         Commitment avmMini_ia;
         Commitment avmMini_ib;
@@ -377,12 +357,6 @@ class AvmMiniFlavor {
         Commitment avmMini_mem_idx_b;
         Commitment avmMini_mem_idx_c;
         Commitment avmMini_last;
-        Commitment avmMini_m_clk;
-        Commitment avmMini_m_sub_clk;
-        Commitment avmMini_m_addr;
-        Commitment avmMini_m_val;
-        Commitment avmMini_m_lastAccess;
-        Commitment avmMini_m_rw;
 
         std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -393,43 +367,43 @@ class AvmMiniFlavor {
         Transcript() = default;
 
         Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
-        void deserialize_full_transcript() override
+        void deserialize_full_transcript()
         {
             size_t num_bytes_read = 0;
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            avmMini_subop = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ia = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ib = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ic = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_a = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_b = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_c = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwa = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwb = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwc = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_a = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_b = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_c = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_last = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_clk = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_sub_clk = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_addr = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_val = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_lastAccess = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_m_rw = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            memTrace_m_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_sub_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_lastAccess = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_subop = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwa = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
                     deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        BaseTranscript<FF>::proof_data, num_bytes_read));
+                        Transcript::proof_data, num_bytes_read));
             }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
+            sumcheck_evaluations =
+                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(Transcript::proof_data, num_bytes_read);
             for (size_t i = 0; i < log_n; ++i) {
                 zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
             }
@@ -437,39 +411,39 @@ class AvmMiniFlavor {
             zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
 
-        void serialize_full_transcript() override
+        void serialize_full_transcript()
         {
             size_t old_proof_length = proof_data.size();
-            BaseTranscript<FF>::proof_data.clear();
+            Transcript::proof_data.clear();
             size_t log_n = numeric::get_msb(circuit_size);
 
-            serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-            serialize_to_buffer<Commitment>(avmMini_subop, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ia, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ib, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ic, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_a, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_b, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_c, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwa, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwb, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwc, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_a, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_b, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_c, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_last, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_clk, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_sub_clk, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_addr, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_val, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_lastAccess, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_m_rw, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_sub_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_addr, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_val, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_lastAccess, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_rw, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_subop, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ia, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ib, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ic, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwa, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwb, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwc, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_last, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
+                serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
             }
-            serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer(sumcheck_evaluations, Transcript::proof_data);
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(zm_cq_comms[i], proof_data);
             }

@@ -150,6 +150,26 @@ export abstract class TreeBase implements MerkleTree {
     return this.getLatestValueAtIndex(this.depth, index, includeUncommitted);
   }
 
+  public getNode(level: number, index: bigint): Promise<Buffer | undefined> {
+    if (level < 0 || level > this.depth) {
+      throw Error('Invalid level: ' + level);
+    }
+
+    if (index < 0 || index >= 2n ** BigInt(level)) {
+      throw Error('Invalid index: ' + index);
+    }
+
+    return this.dbGet(indexToKeyHash(this.name, level, index));
+  }
+
+  public getZeroHash(level: number): Buffer {
+    if (level <= 0 || level > this.depth) {
+      throw new Error('Invalid level');
+    }
+
+    return this.zeroHashes[level - 1];
+  }
+
   /**
    * Clears the cache.
    */
@@ -222,13 +242,6 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
-   * Initializes the tree from the database.
-   */
-  public async initFromDb(): Promise<void> {
-    // Implemented only by Indexed Tree to populate the leaf cache.
-  }
-
-  /**
    * Writes meta data to the provided batch.
    * @param batch - The batch to which to write the meta data.
    */
@@ -287,4 +300,12 @@ export abstract class TreeBase implements MerkleTree {
     }
     this.cachedSize = numLeaves + BigInt(leaves.length);
   }
+
+  /**
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param value - The leaf value to look for.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The index of the first leaf found with a given value (undefined if not found).
+   */
+  abstract findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined>;
 }

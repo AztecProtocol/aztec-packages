@@ -33,7 +33,7 @@ You can download and run the Sandbox package directly if you have nodejs 18 or h
 You will also need an Ethereum node like Anvil or Hardhat running locally on port 8545.
 
 ```bash
-npx @aztec/aztec-sandbox @aztec/aztec-cli
+npx @aztec/aztec-sandbox @aztec/cli
 ```
 
 You can read [this tutorial on how to use the npm package](../tutorials/testing.md#running-sandbox-in-the-nodejs-process)
@@ -147,12 +147,6 @@ PEER_ID_PRIVATE_KEY='' # The private key to be used by the peer for secure commu
 P2P_ANNOUNCE_HOSTNAME='' # The IPAddress/Hostname that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_IP if e.g. the node is behind a NAT.
 P2P_ANNOUNCE_PORT='' # The port that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_PORT if e.g. the node is behind a NAT.
 ```
-
-## Otterscan
-
-If you have set up the Sandbox with Docker, you will also have Otterscan.
-
-You can see Ethereum Layer 1 activity through the local Otterscan on `http://localhost:5100`. This is especially useful for dapps that use L1-L2 messaging through [portal contracts](../contracts/portals/main.md).
 
 ## Cheat Codes
 

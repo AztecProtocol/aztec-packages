@@ -678,6 +678,25 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     };
     ~UltraCircuitBuilder_() override = default;
 
+    /**
+     * @brief Debug helper method for ensuring all selectors have the same size
+     * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
+     * selectors will lead to an unsatisfiable circuit. This method provides a mechanism for ensuring that each selector
+     * has been updated as expected. Its logic is only active in debug mode.
+     *
+     */
+    void check_selector_length_consistency()
+    {
+#if NDEBUG
+        // do nothing
+#else
+        size_t nominal_size = selectors.get()[0].size();
+        for (size_t idx = 1; idx < selectors.get().size(); ++idx) {
+            ASSERT(selectors.get()[idx].size() == nominal_size);
+        }
+#endif // NDEBUG
+    }
+
     void finalize_circuit();
 
     void add_gates_to_ensure_all_polys_are_non_zero();
@@ -708,7 +727,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
              *      circuit!
              *      this range constraint will increase the size of the 'sorted set' of range-constrained integers by 1.
              *      The 'non-sorted set' of range-constrained integers is a subset of the wire indices of all arithmetic
-             *      gates. No arithemtic gate => size imbalance between sorted and non-sorted sets. Checking for this
+             *      gates. No arithmetic gate => size imbalance between sorted and non-sorted sets. Checking for this
              *      and throwing an error would require a refactor of the Composer to catelog all 'orphan' variables not
              *      assigned to gates.
              *

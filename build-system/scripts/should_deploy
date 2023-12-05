@@ -1,7 +1,10 @@
 #!/bin/bash
-# Retuns success if we are expected to do a deploy.
-# At present this is only if we have a commit tag.
-# Once we are doing master deployments to devnet, we'll want to check if BRANCH is master.
+# Returns success if we are expected to do a deployment.
+# Right now, that's only if we're master.
 set -eu
 
-[ -n "$COMMIT_TAG" ]
+if [ "$BRANCH" == "master" ]; then
+  exit 0
+else
+  exit 1
+fi
