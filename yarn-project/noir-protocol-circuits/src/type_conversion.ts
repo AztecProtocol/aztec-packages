@@ -442,7 +442,7 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
  */
 export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir {
   return {
-    blocks_tree_root: mapFieldToNoir(blockHeader.blocksTreeRoot),
+    blocks_tree_root: mapFieldToNoir(blockHeader.archiveRoot),
     block: {
       note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
       nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),

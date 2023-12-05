@@ -122,14 +122,14 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
-    const blocksTree: AppendOnlyTree = await initializeTree(
+    const archive: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,
+      `${MerkleTreeId[MerkleTreeId.ARCHIVE]}`,
       BLOCKS_TREE_HEIGHT,
     );
-    this.trees = [contractTree, nullifierTree, noteHashTree, publicDataTree, l1Tol2MessagesTree, blocksTree];
+    this.trees = [contractTree, nullifierTree, noteHashTree, publicDataTree, l1Tol2MessagesTree, archive];
 
     this.jobQueue.start();
 
@@ -249,7 +249,7 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.CONTRACT_TREE,
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       MerkleTreeId.PUBLIC_DATA_TREE,
-      MerkleTreeId.BLOCKS_TREE,
+      MerkleTreeId.ARCHIVE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
 
     return Promise.resolve(roots);
@@ -436,7 +436,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   private async _updateBlocksTree(globalsHash: Fr, includeUncommitted: boolean) {
     const blockHash = await this._getCurrentBlockHash(globalsHash, includeUncommitted);
-    await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   }
 
   /**
@@ -545,7 +545,7 @@ export class MerkleTrees implements MerkleTreeDb {
       [l2Block.endNoteHashTreeSnapshot.root, MerkleTreeId.NOTE_HASH_TREE],
       [l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE],
       [l2Block.endL1ToL2MessagesTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      [l2Block.endBlocksTreeSnapshot.root, MerkleTreeId.BLOCKS_TREE],
+      [l2Block.endBlocksTreeSnapshot.root, MerkleTreeId.ARCHIVE],
     ] as const;
     const compareRoot = (root: Fr, treeId: MerkleTreeId) => {
       const treeRoot = this.trees[treeId].getRoot(true);
@@ -592,7 +592,7 @@ export class MerkleTrees implements MerkleTreeDb {
       this.log(`Synced global variables with hash ${globalVariablesHash}`);
 
       const blockHash = await this._getCurrentBlockHash(globalVariablesHash, true);
-      await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+      await this._appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
 
       await this._commit();
     }

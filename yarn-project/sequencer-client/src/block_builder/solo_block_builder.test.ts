@@ -152,7 +152,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
     );
-    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -205,7 +205,7 @@ describe('sequencer/solo_block_builder', () => {
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
     await updateBlocksTree();
-    rootRollupOutput.endBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
+    rootRollupOutput.endBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     const txs = [...txsLeft, ...txsRight];
 

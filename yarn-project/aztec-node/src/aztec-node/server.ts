@@ -397,7 +397,7 @@ export class AztecNodeService implements AztecNode {
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof BLOCKS_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.getSiblingPath(MerkleTreeId.BLOCKS_TREE, leafIndex);
+    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
   }
 
   /**
@@ -506,13 +506,13 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState('latest');
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
-    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
+    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, archive, publicDataTree] =
       await Promise.all([
         getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
         getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
         getTreeRoot(MerkleTreeId.CONTRACT_TREE),
         getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-        getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+        getTreeRoot(MerkleTreeId.ARCHIVE),
         getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
       ]);
 
@@ -522,7 +522,7 @@ export class AztecNodeService implements AztecNode {
       [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
       [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,
-      [MerkleTreeId.BLOCKS_TREE]: blocksTree,
+      [MerkleTreeId.ARCHIVE]: archive,
     };
   }
 
@@ -539,7 +539,7 @@ export class AztecNodeService implements AztecNode {
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      roots[MerkleTreeId.BLOCKS_TREE],
+      roots[MerkleTreeId.ARCHIVE],
       Fr.ZERO,
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,
