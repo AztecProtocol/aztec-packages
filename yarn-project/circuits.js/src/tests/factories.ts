@@ -866,14 +866,8 @@ export function makeRootRollupPublicInputs(
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startPublicDataTreeRoot: fr((seed += 0x100)),
     endPublicDataTreeRoot: fr((seed += 0x100)),
-    startTreeOfHistoricalNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricalNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricalContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricalContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
@@ -906,7 +900,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
     seed + 0x1000,
   );
 
