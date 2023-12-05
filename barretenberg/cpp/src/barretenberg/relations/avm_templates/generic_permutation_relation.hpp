@@ -1,8 +1,8 @@
 /**
  * @file generic_permutation_relation.hpp
  * @author Rumata888
- * @brief This file contains an example relation that is used as a basis for generic permutation relations generated
- * with PIL
+ * @brief This file contains the template for the generic permutation that can be specialized to enforce various
+ * permutations (for explanation on how to define them, see "relation_definer.hpp")
  *
  */
 #pragma once
@@ -15,8 +15,23 @@
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace proof_system::honk::sumcheck {
+/**
+ * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
+ *
+ */
+enum GenericPermutationSettingIndices {
+    INVERSE_POLYNOMIAL_INDEX,                          /* The index of the inverse polynomial*/
+    ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX, /* The index of the polynomial enabling first subrelation*/
+    FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX,  /* The index of the polynomial that adds an element from the first
+                                                       set to the sum*/
+    SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX, /* The index of the polynomial that adds an element from the second
+                                                       set to the sum*/
 
-template <typename FF_> class GenericPermutationRelationImpl {
+    PERMUTATION_SETS_START_POLYNOMIAL_INDEX, /* The starting index of the polynomials that are used in the permutation
+                                                sets*/
+};
+
+template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
   public:
     using FF = FF_;
     // Read and write terms counts should stay set to 1 unless we want to permute several columns at once as accumulated
@@ -42,27 +57,25 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
     /**
      * @brief Check if we need to compute the inverse polynomial element value for this row
+     * @details This proxies to a method in the Settings class
      *
      * @param row All values at row
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
     {
-        // WIRE/SELECTOR enabling the permutation
-        // N.B. PIL TEMPLATED VALUE
-        return (row.enable_set_permutation == 1);
+        return Settings::inverse_polynomial_is_computed_at_row(row);
     }
 
     /**
-     * @brief Get the inverse permutation polynomial
+     * @brief Get the inverse permutation polynomial (needed to compute its value)
      *
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
         // WIRE containing the inverse of the product of terms at this row. Used to reconstruct individual inversed
         // terms
-        // N.B. PIL TEMPLATED VALUE
-        return in.permutation_inverses;
+        return std::get<INVERSE_POLYNOMIAL_INDEX>(Settings::get_nonconst_entities(in));
     }
 
     /**
@@ -75,8 +88,8 @@ template <typename FF_> class GenericPermutationRelationImpl {
         using View = typename Accumulator::View;
 
         // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first subrelation
-        // N.B. PIL TEMPLATED VALUE
-        return Accumulator(View(in.enable_set_permutation));
+        return Accumulator(
+            View(std::get<ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
     }
 
     /**
@@ -93,8 +106,8 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         // The selector/wire value that determines that an element from the first set needs to be included. Can be
         // different from the wire used in the write part.
-        // N.B. PIL TEMPLATED VALUE
-        return Accumulator(View(in.enable_set_permutation));
+        return Accumulator(
+            View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
     }
 
     /**
@@ -110,14 +123,14 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         // The selector/wire value that determines that an element from the second set needs to be included. Can be
         // different from the wire used in the read part.
-        // N.B. PIL TEMPLATED VALUE
-        return Accumulator(View(in.enable_set_permutation));
+        return Accumulator(
+            View(std::get<SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
     }
 
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columnes is
+     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
      * in the first set
      *
      * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
@@ -131,17 +144,16 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         static_assert(read_index < READ_TERMS);
 
-        // The tuple of columns a single row of which represents a single element of the first set (we are doing a
-        // permutation of tuples). The length is 1+
-        // N.B. PIL TEMPLATED VALUE
-        const auto read_term_entitites =
-            std::forward_as_tuple(View(in.permutation_set_column_3), View(in.permutation_set_column_4));
+        // Retrieve all polynomials used
+        const auto all_polynomials = Settings::get_const_entities(in);
 
         auto result = Accumulator(0);
-        constexpr size_t tuple_size = std::tuple_size_v<decltype(read_term_entitites)>;
+
         // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<0, tuple_size, 1>(
-            [&]<size_t i>() { result = result * params.beta + std::get<i>(read_term_entitites); });
+        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX,
+                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
+                                    1>(
+            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
 
         const auto& gamma = params.gamma;
         return result + gamma;
@@ -150,7 +162,7 @@ template <typename FF_> class GenericPermutationRelationImpl {
     /**
      * @brief Compute the value of a single item in the set
      *
-     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columnes is
+     * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
      * in the second set
      *
      * @tparam write_index Kept for compatibility with lookups, behavior doesn't change
@@ -164,17 +176,16 @@ template <typename FF_> class GenericPermutationRelationImpl {
 
         static_assert(write_index < WRITE_TERMS);
 
-        // The tuple of columns a single row of which represents a single element of the second set (we are doing a
-        // permutation of tuples). The length is 1+
-        // N.B. PIL TEMPLATED VALUE
-        const auto write_term_entities =
-            std::forward_as_tuple(View(in.permutation_set_column_1), View(in.permutation_set_column_2));
-        auto result = Accumulator(0);
-        constexpr size_t tuple_size = std::tuple_size_v<decltype(write_term_entities)>;
+        // Get all used entities
+        const auto& used_entities = Settings::get_const_entities(in);
 
+        auto result = Accumulator(0);
         // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<0, tuple_size, 1>(
-            [&]<size_t i>() { result = result * params.beta + std::get<i>(write_term_entities); });
+        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
+                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + 2 * Settings::COLUMNS_PER_SET,
+                                    1>(
+            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(used_entities)); });
+
         const auto& gamma = params.gamma;
         return result + gamma;
     }
@@ -193,6 +204,7 @@ template <typename FF_> class GenericPermutationRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF> using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<FF>>;
+template <typename Settings, typename FF>
+using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<Settings, FF>>;
 
 } // namespace proof_system::honk::sumcheck

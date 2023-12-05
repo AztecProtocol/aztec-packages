@@ -13,7 +13,7 @@
 
 namespace proof_system {
 
-template <typename Flavor> class AVMTemplateCircuitBuilder {
+template <typename Flavor> class ToyAVMCircuitBuilder {
   public:
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
@@ -24,7 +24,7 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
     using AllPolynomials = typename Flavor::AllPolynomials;
     size_t num_gates = 0;
     std::array<std::vector<FF>, NUM_WIRES> wires;
-    AVMTemplateCircuitBuilder() = default;
+    ToyAVMCircuitBuilder() = default;
 
     void add_row(const std::array<FF, NUM_WIRES> row)
     {
@@ -57,8 +57,12 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
             polys.permutation_set_column_2[i] = wires[1][i];
             polys.permutation_set_column_3[i] = wires[2][i];
             polys.permutation_set_column_4[i] = wires[3][i];
+            polys.self_permutation_column[i] = wires[4][i];
             // By default the permutation is over all rows where we place data
-            polys.enable_set_permutation[i] = 1;
+            polys.enable_tuple_set_permutation[i] = 1;
+            polys.enable_single_column_permutation[i] = 1;
+            polys.enable_first_set_permutation[i] = i & 1;
+            polys.enable_second_set_permutation[i] = 1 - (i & 1);
         }
         return polys;
     }
@@ -69,6 +73,7 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
      */
     bool check_circuit()
     {
+        //        using FirstPermutationRelation = typename std::tuple_element_t<0, Flavor::Relations>;
         // For now only gamma and beta are used
         const FF gamma = FF::random_element();
         const FF beta = FF::random_element();
@@ -85,12 +90,16 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
 
         auto polynomials = compute_polynomials();
         const size_t num_rows = polynomials.get_polynomial_size();
-        proof_system::honk::logderivative_library::
-            compute_logderivative_inverse<Flavor, honk::sumcheck::GenericPermutationRelation<FF>>(
-                polynomials, params, num_rows);
+        // Check the tuple permutation relation
+        proof_system::honk::logderivative_library::compute_logderivative_inverse<
+            Flavor,
+            honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleTuplePermutationSettings, FF>>(
+            polynomials, params, num_rows);
 
-        using PermutationRelation = honk::sumcheck::GenericPermutationRelation<FF>;
-        typename honk::sumcheck::GenericPermutationRelation<typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
+        using PermutationRelation =
+            honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleTuplePermutationSettings, FF>;
+        typename honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleTuplePermutationSettings,
+                                                            typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
             permutation_result;
         for (auto& r : permutation_result) {
             r = 0;
@@ -100,7 +109,29 @@ template <typename Flavor> class AVMTemplateCircuitBuilder {
         }
         for (auto r : permutation_result) {
             if (r != 0) {
-                info("Relation GenericPermutationRelation failed.");
+                info("Tuple GenericPermutationRelation failed.");
+                return false;
+            }
+        }
+        proof_system::honk::logderivative_library::compute_logderivative_inverse<
+            Flavor,
+            honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleSameWirePermutationSettings, FF>>(
+            polynomials, params, num_rows);
+
+        using SameWirePermutationRelation =
+            honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleSameWirePermutationSettings, FF>;
+        typename honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleSameWirePermutationSettings,
+                                                            typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
+            second_permutation_result;
+        for (auto& r : second_permutation_result) {
+            r = 0;
+        }
+        for (size_t i = 0; i < num_rows; ++i) {
+            SameWirePermutationRelation::accumulate(second_permutation_result, polynomials.get_row(i), params, 1);
+        }
+        for (auto r : second_permutation_result) {
+            if (r != 0) {
+                info("Same wire  GenericPermutationRelation failed.");
                 return false;
             }
         }

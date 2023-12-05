@@ -5,6 +5,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/avm_templates/generic_permutation_relation.hpp"
+#include "barretenberg/relations/avm_templates/relation_definer.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "relation_definitions_fwd.hpp"
@@ -20,6 +21,11 @@
 namespace proof_system::honk {
 namespace flavor {
 
+/**
+ * @brief This class provides an example flavor for using GenericPermutationRelations with various settings to make
+ * integrating those mechanisms into AVM easier
+ *
+ */
 class AVMTemplate {
   public:
     using Curve = curve::BN254;
@@ -33,20 +39,23 @@ class AVMTemplate {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = 4;
+    // The number of wires is 5. The set of tuples (permutation_set_column_1,permutation_set_column_2) should be
+    // equivalent to (permutation_set_column_3, permutation_set_column_4) and the self_permutation_column contains 2
+    // subsets which are permutations of each other
+    static constexpr size_t NUM_WIRES = 5;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 7;
+    static constexpr size_t NUM_ALL_ENTITIES = 12;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 5;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 5;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<sumcheck::GenericPermutationRelation<FF>>;
+    using Relations = std::tuple<sumcheck::GenericPermutationRelation<sumcheck::ExampleTuplePermutationSettings, FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -70,8 +79,8 @@ class AVMTemplate {
     template <typename DataType, typename HandleType>
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType lagrange_first;         // column 0
-        DataType enable_set_permutation; // column 1
+        DataType lagrange_first;               // column 0
+        DataType enable_tuple_set_permutation; // column 1
 
         DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &lagrange_first)
 
@@ -88,23 +97,29 @@ class AVMTemplate {
     template <typename DataType, typename HandleType>
     class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
       public:
-        DataType permutation_set_column_1; // column 0
-        DataType permutation_set_column_2; // column 1
-        DataType permutation_set_column_3; // column 2
-        DataType permutation_set_column_4; // column 3
-        DataType permutation_inverses;     // column 4
+        DataType permutation_set_column_1;    // column 0
+        DataType permutation_set_column_2;    // column 1
+        DataType permutation_set_column_3;    // column 2
+        DataType permutation_set_column_4;    // column 3
+        DataType self_permutation_column;     // column 4
+        DataType tuple_permutation_inverses;  // column 5
+        DataType single_permutation_inverses; // column 6
 
         DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
                             &permutation_set_column_1,
                             &permutation_set_column_2,
                             &permutation_set_column_3,
                             &permutation_set_column_4,
-                            &permutation_inverses)
+                            &self_permutation_column,
+                            &tuple_permutation_inverses,
+                            &single_permutation_inverses)
         std::vector<HandleType> get_wires() override
         {
-            return {
-                permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4
-            };
+            return { permutation_set_column_1,
+                     permutation_set_column_2,
+                     permutation_set_column_3,
+                     permutation_set_column_4,
+                     self_permutation_column };
         };
         // The sorted concatenations of table and witness data needed for plookup.
         std::vector<HandleType> get_sorted_polynomials() { return {}; };
@@ -122,23 +137,33 @@ class AVMTemplate {
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
-        DataType lagrange_first;           // column 0
-        DataType enable_set_permutation;   // column 1
-        DataType permutation_set_column_1; // column 2
-        DataType permutation_set_column_2; // column 3
-        DataType permutation_set_column_3; // column 4
-        DataType permutation_set_column_4; // column 5
-        DataType permutation_inverses;     // column 6
+        DataType lagrange_first;                   // column 0
+        DataType enable_tuple_set_permutation;     // column 1
+        DataType enable_single_column_permutation; // column 1
+        DataType enable_first_set_permutation;     // column 1
+        DataType enable_second_set_permutation;    // column 1
+        DataType permutation_set_column_1;         // column 0
+        DataType permutation_set_column_2;         // column 1
+        DataType permutation_set_column_3;         // column 2
+        DataType permutation_set_column_4;         // column 3
+        DataType self_permutation_column;          // column 4
+        DataType tuple_permutation_inverses;       // column 5
+        DataType single_permutation_inverses;      // column 6
 
         // defines a method pointer_view that returns the following, with const and non-const variants
         DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
                             &lagrange_first,
-                            &enable_set_permutation,
+                            &enable_tuple_set_permutation,
+                            &enable_single_column_permutation,
+                            &enable_first_set_permutation,
+                            &enable_second_set_permutation,
                             &permutation_set_column_1,
                             &permutation_set_column_2,
                             &permutation_set_column_3,
                             &permutation_set_column_4,
-                            &permutation_inverses)
+                            &self_permutation_column,
+                            &tuple_permutation_inverses,
+                            &single_permutation_inverses)
         std::vector<HandleType> get_wires() override
         {
             return {
@@ -148,10 +173,18 @@ class AVMTemplate {
         // Gemini-specific getters.
         std::vector<HandleType> get_unshifted() override
         {
-            return {
-                lagrange_first,           enable_set_permutation,   permutation_set_column_1, permutation_set_column_2,
-                permutation_set_column_3, permutation_set_column_4, permutation_inverses,
-            };
+            return { lagrange_first,
+                     enable_tuple_set_permutation,
+                     enable_single_column_permutation,
+                     enable_first_set_permutation,
+                     enable_second_set_permutation,
+                     permutation_set_column_1,
+                     permutation_set_column_2,
+                     permutation_set_column_3,
+                     permutation_set_column_4,
+                     self_permutation_column,
+                     tuple_permutation_inverses,
+                     single_permutation_inverses };
         };
 
         std::vector<HandleType> get_to_be_shifted() override { return {}; };
@@ -295,10 +328,10 @@ class AVMTemplate {
             Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
             Base::permutation_set_column_3 = "PERMUTATION_SET_COLUMN_3";
             Base::permutation_set_column_4 = "PERMUTATION_SET_COLUMN_4";
-            Base::permutation_inverses = "PERMUTATION_INVERSES";
+            Base::tuple_permutation_inverses = "TUPLE_PERMUTATION_INVERSES";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
-            Base::enable_set_permutation = "__ENABLE_SET_PERMUTATION";
+            Base::enable_tuple_set_permutation = "__ENABLE_SET_PERMUTATION";
         };
     };
 
@@ -340,7 +373,7 @@ class AVMTemplate {
 
         void deserialize_full_transcript() override
         {
-            // TODO. Codepath is dead for now, becaused there is no composer
+            // TODO. Codepath is dead for now, because there is no composer
             abort();
             // take current proof and put them into the struct
             size_t num_bytes_read = 0;
@@ -370,7 +403,7 @@ class AVMTemplate {
 
         void serialize_full_transcript() override
         {
-            // TODO. Codepath is dead for now, becaused there is no composer
+            // TODO. Codepath is dead for now, because there is no composer
             abort();
             size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
             BaseTranscript<FF>::proof_data.clear();
@@ -401,9 +434,7 @@ class AVMTemplate {
 } // namespace flavor
 namespace sumcheck {
 
-extern template class GenericPermutationRelationImpl<barretenberg::fr>;
-
-DECLARE_SUMCHECK_RELATION_CLASS(GenericPermutationRelationImpl, flavor::AVMTemplate);
+DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::AVMTemplate)
 
 } // namespace sumcheck
 } // namespace proof_system::honk
