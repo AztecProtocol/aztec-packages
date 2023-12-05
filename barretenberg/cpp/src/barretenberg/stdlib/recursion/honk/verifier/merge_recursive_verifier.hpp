@@ -1,35 +1,31 @@
 #pragma once
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/goblin_ultra_recursive.hpp"
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/flavor/ultra_recursive.hpp"
+#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::honk {
-template <typename Flavor> class MergeRecursiveVerifier_ {
+namespace proof_system::plonk::stdlib::recursion::goblin {
+template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
   public:
-    using FF = typename Flavor::FF;
-    using Commitment = typename Flavor::Commitment;
-    using GroupElement = typename Flavor::GroupElement;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Builder = typename Flavor::CircuitBuilder;
+    using Curve = bn254<CircuitBuilder>;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::Element;
+    using GroupElement = typename Curve::Element;
+    using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve>;
+    using OpeningClaim = ::proof_system::honk::pcs::OpeningClaim<Curve>;
     using PairingPoints = std::array<GroupElement, 2>;
+    using Transcript = honk::Transcript<CircuitBuilder>;
 
-    Builder* builder;
+    CircuitBuilder* builder;
+    std::shared_ptr<Transcript> transcript;
 
-    explicit MergeRecursiveVerifier_(Builder* builder);
+    static constexpr size_t NUM_WIRES = arithmetization::UltraHonk<FF>::NUM_WIRES;
+
+    explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
+
+    PairingPoints verify_proof(const plonk::proof& proof);
 };
 
-// Instance declarations for Ultra and Goblin-Ultra verifier circuits with both conventional Ultra and Goblin-Ultra
-// arithmetization.
-extern template class MergeRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
-extern template class MergeRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-extern template class MergeRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
-extern template class MergeRecursiveVerifier_<
-    proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+extern template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace proof_system::plonk::stdlib::recursion::goblin
