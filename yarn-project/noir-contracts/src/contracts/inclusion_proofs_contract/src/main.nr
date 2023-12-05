@@ -26,7 +26,6 @@ contract InclusionProofs {
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         },
         oracle::{
-            get_block_header::get_block_header,
             get_membership_witness::{
                 get_membership_witness,
                 MembershipWitness,
