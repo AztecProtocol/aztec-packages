@@ -50,6 +50,9 @@ class AvmMiniTraceBuilder {
     // Multiplication over finite field with direct memory access.
     void mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
 
+    // Division over finite field with direct memory access.
+    void div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
+
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M[dstOffset:dstOffset+len] = calldata[cdOffset:cdOffset+len]
     void callDataCopy(uint32_t cdOffset, uint32_t len, uint32_t dstOffset, std::vector<FF> const& callDataMem);

@@ -41,6 +41,7 @@ TEST_F(AvmMiniTests, basic)
     trace_builder.add(5, 6, 7);
     trace_builder.sub(7, 6, 8);
     trace_builder.mul(8, 8, 8);
+    trace_builder.div(3, 5, 1);
 
     trace_builder.returnOP(1, 8);
 
