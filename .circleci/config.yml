@@ -235,7 +235,7 @@ jobs:
       - run:
           name: "Test"
           command: |
-            export TAG_POSTFIX=ultra-honk-bench
+            export TAG_POSTFIX=ultra-honk-bench-2
             cond_spot_run_container barretenberg-x86_64-linux-clang-assert 32 /bin/bash -c "\
               set -xe; \
               cd /usr/src/barretenberg/cpp/srs_db; \
