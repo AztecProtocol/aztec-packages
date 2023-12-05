@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# The script starts a Docker container passing any commands and arguments to the command running inside the container.
+
+set -euo pipefail
+
+IMAGE=${1:-}
+shift
+
+if [ -z "$IMAGE" ]; then
+  echo "Provide a container image in IMAGE."
+fi
+
+VERSION=${VERSION:-"latest"}
+
+# Any host bindings we might send to the container.
+DOCKER_HOST=""
+
+# Volumes to pass to the container.
+DOCKER_VOLUME=""
+
+if ! command -v docker &> /dev/null; then
+  echo "No docker found."
+  exit 1
+fi
+
+# Set up host.docker.internal alias on Linux, just like it is on mac.
+UNAME=$(uname -s)
+if [ "$UNAME" == "Linux" ]; then
+  DOCKER_HOST="$DOCKER_HOST --add-host host.docker.internal:host-gateway"
+fi
+
+# Build a list of mount points
+function add_mount() {
+  DIR="${1:-}"
+
+  # Grab its dirname if its a file.
+  if [ -f "$DIR" ]; then
+    DIR=$(dirname "$DIR")
+  fi
+
+  if [ ! -d "$DIR" ]; then
+    return
+  fi
+
+  # Check if it's already been added.
+  REALDIR=$(realpath $DIR)
+  if [[ "$DOCKER_VOLUME" =~ "$REALDIR:" ]]; then
+    return
+  fi
+
+  DOCKER_VOLUME="$DOCKER_VOLUME -v $REALDIR:$REALDIR"
+}
+
+# Always mount the CWD into the container.
+add_mount "$PWD"
+
+# Check if it's either a filename or a directory that exists outside the CWD.
+# If it is then mount inside the container.
+# NOTE: This won't work with assignement-style flags, e.g. --outdir=/foo
+for (( i=1; i <= "$#"; i++ )); do
+    arg_value=${!i}
+    if [[ -f "$arg_value" || -d "$arg_value" && $(realpath $arg_value) != ${PWD}* ]]; then
+      add_mount "$arg_value"
+    fi
+done
+
+DOCKER_ENV=""
+for env in ${ENV_VARS_TO_INJECT:-}; do
+  DOCKER_ENV+="-e $env:${!env} "
+done
+
+DOCKER_VOLUME="$DOCKER_VOLUME -v cache:/cache"
+
+docker run \
+  --rm \
+  --user $(id -u):$(id -g) \
+  --workdir "$PWD" \
+  $DOCKER_HOST \
+  $DOCKER_ENV \
+  $DOCKER_VOLUME \
+  $IMAGE:$VERSION $@

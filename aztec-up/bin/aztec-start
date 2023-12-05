@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+
+CMD="docker compose"
+
+# Fallback on docker-compose.
+[ $CMD &>/dev/null ] || CMD="docker-compose"
+
+$CMD -f ~/.aztec/bin/docker-compose.yml up
