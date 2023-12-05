@@ -6,13 +6,7 @@ import { createJsonRpcClient } from './json_rpc_client.js';
 
 it('test an RPC function over client', async () => {
   const mockFetch = async (host: string, method: string, body: any) => {
-    const server = new JsonRpcServer(
-      new TestState([new TestNote('a'), new TestNote('b')]),
-      { TestNote },
-      {},
-      true,
-      false,
-    );
+    const server = new JsonRpcServer(new TestState([new TestNote('a'), new TestNote('b')]), { TestNote }, {}, true);
     const result = await request(server.getApp().callback()).post(`/${method}`).send(body);
     return JSON.parse(result.text);
   };

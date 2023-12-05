@@ -44,7 +44,6 @@ export function createAztecNodeRpcServer(node: AztecNode) {
     },
     { Tx, L2BlockL2Logs },
     false,
-    true,
     // disable methods not part of the AztecNode interface
     ['start', 'stop'],
   );
