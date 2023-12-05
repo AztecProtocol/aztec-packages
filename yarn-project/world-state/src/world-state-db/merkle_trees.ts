@@ -539,7 +539,7 @@ export class MerkleTrees implements MerkleTreeDb {
       [l2Block.endContractTreeSnapshot.root, MerkleTreeId.CONTRACT_TREE],
       [l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE],
       [l2Block.endNoteHashTreeSnapshot.root, MerkleTreeId.NOTE_HASH_TREE],
-      [l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE],
+      [l2Block.endPublicDataTreeSnapshot.root, MerkleTreeId.PUBLIC_DATA_TREE],
       [l2Block.endL1ToL2MessagesTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
       [l2Block.endBlocksTreeSnapshot.root, MerkleTreeId.BLOCKS_TREE],
     ] as const;

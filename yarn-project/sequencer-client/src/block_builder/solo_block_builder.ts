@@ -125,7 +125,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endNoteHashTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
-      endPublicDataTreeRoot,
+      endPublicDataTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot,
       endBlocksTreeSnapshot,
     } = circuitsOutput;
@@ -163,8 +163,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       endNullifierTreeSnapshot,
       startContractTreeSnapshot,
       endContractTreeSnapshot,
-      startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
-      endPublicDataTreeRoot,
+      startPublicDataTreeSnapshot,
+      endPublicDataTreeSnapshot,
       startL1ToL2MessagesTreeSnapshot: startL1ToL2MessageTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot,
       startBlocksTreeSnapshot,
@@ -388,7 +388,7 @@ export class SoloBlockBuilder implements BlockBuilder {
    */
   protected async validatePublicDataTreeRoot(output: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
     const localTree = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-    const simulatedTreeRoot = output[`endPublicDataTreeRoot`];
+    const simulatedTreeRoot = output[`endPublicDataTreeSnapshot`];
 
     if (!simulatedTreeRoot.toBuffer().equals(localTree.root.toBuffer())) {
       throw new Error(`PublicData tree root mismatch (local ${localTree.root}, simulated ${simulatedTreeRoot})`);
@@ -764,7 +764,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startNoteHashTreeSnapshot,
-      startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
+      startPublicDataTreeSnapshot,
       startBlocksTreeSnapshot,
       sortedPublicDataWrites: [
         leftPublicDataUpdateRequestInfo.sortedPublicDataWrites,

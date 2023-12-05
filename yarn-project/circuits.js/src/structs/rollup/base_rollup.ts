@@ -112,9 +112,9 @@ export class BaseRollupInputs {
      */
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Root of the public data tree at the start of the base rollup circuit.
+     * Snapshot of the public data tree at the start of the base rollup circuit.
      */
-    public startPublicDataTreeRoot: Fr,
+    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the blocks tree at the start of the base rollup circuit.
      */
@@ -232,7 +232,7 @@ export class BaseRollupInputs {
       fields.startNoteHashTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
-      fields.startPublicDataTreeRoot,
+      fields.startPublicDataTreeSnapshot,
       fields.startBlocksTreeSnapshot,
       fields.sortedNewNullifiers,
       fields.sortednewNullifiersIndexes,

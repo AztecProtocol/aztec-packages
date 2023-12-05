@@ -56,8 +56,14 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
         next_available_leaf_index: 2
     };
 
-    previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_public_data_tree_root = 3;
-    previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_public_data_tree_root = 3;
+    previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_public_data_tree_snapshot = AppendOnlyTreeSnapshot {
+        root: 3,
+        next_available_leaf_index: 4
+    };
+    previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_public_data_tree_snapshot =AppendOnlyTreeSnapshot {
+        root: 4,
+        next_available_leaf_index: 5
+    };
 
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = BASE_ROLLUP_TYPE;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = BASE_ROLLUP_TYPE;

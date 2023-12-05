@@ -23,8 +23,8 @@ struct RootRollupPublicInputs {
     start_contract_tree_snapshot : AppendOnlyTreeSnapshot,
     end_contract_tree_snapshot : AppendOnlyTreeSnapshot,
 
-    start_public_data_tree_root : Field,
-    end_public_data_tree_root : Field,
+    start_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
+    end_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
 
     start_tree_of_historical_note_hash_tree_roots_snapshot : AppendOnlyTreeSnapshot,
     end_tree_of_historical_note_hash_tree_roots_snapshot : AppendOnlyTreeSnapshot,

@@ -46,4 +46,7 @@ impl PublicDataTreeLeaf {
         (self.slot == 0) & (self.value == 0)
     }
 
+    pub fn eq(self, other: Self) -> bool {
+        (self.slot == other.slot) & (self.value == other.value)
+    }
 }

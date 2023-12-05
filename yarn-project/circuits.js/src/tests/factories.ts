@@ -802,8 +802,8 @@ export function makeBaseOrMergeRollupPublicInputs(
     makeAppendOnlyTreeSnapshot(seed + 0x600),
     makeAppendOnlyTreeSnapshot(seed + 0x700),
     makeAppendOnlyTreeSnapshot(seed + 0x800),
-    fr(seed + 0x900),
-    fr(seed + 0x1000),
+    makeAppendOnlyTreeSnapshot(seed + 0x900),
+    makeAppendOnlyTreeSnapshot(seed + 0x1000),
     [fr(seed + 0x901), fr(seed + 0x902)],
   );
 }
@@ -864,8 +864,8 @@ export function makeRootRollupPublicInputs(
     endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startPublicDataTreeRoot: fr((seed += 0x100)),
-    endPublicDataTreeRoot: fr((seed += 0x100)),
+    startPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricalNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endTreeOfHistoricalNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startTreeOfHistoricalContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),

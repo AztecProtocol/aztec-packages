@@ -32,6 +32,7 @@ use dep::aztec::constants_gen::{
     NULLIFIER_SUBTREE_HEIGHT,
     NULLIFIER_TREE_HEIGHT,
     PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+    PUBLIC_DATA_SUBTREE_HEIGHT,
 };
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
@@ -42,7 +43,7 @@ struct BaseRollupInputs {
     start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot,
     start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot,
     start_contract_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_public_data_tree_root: Field,
+    start_public_data_tree_snapshot: AppendOnlyTreeSnapshot,
     start_blocks_tree_snapshot: AppendOnlyTreeSnapshot,
 
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
@@ -116,7 +117,7 @@ impl BaseRollupInputs {
         let end_nullifier_tree_snapshot = self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
         // Validate public public data reads and public data update requests, and update public data tree
-        let end_public_data_tree_root = self.validate_and_process_public_state();
+        let end_public_data_tree_snapshot = self.validate_and_process_public_state();
 
         // Calculate the overall calldata hash
         let calldata_hash = BaseRollupInputs::components_compute_kernel_calldata_hash(self.kernel_data);
@@ -137,8 +138,8 @@ impl BaseRollupInputs {
             end_nullifier_tree_snapshot : end_nullifier_tree_snapshot,
             start_contract_tree_snapshot : self.start_contract_tree_snapshot,
             end_contract_tree_snapshot : end_contract_tree_snapshot,
-            start_public_data_tree_root : self.start_public_data_tree_root,
-            end_public_data_tree_root : end_public_data_tree_root,
+            start_public_data_tree_snapshot : self.start_public_data_tree_snapshot,
+            end_public_data_tree_snapshot: end_public_data_tree_snapshot,
             calldata_hash : calldata_hash,
         }
     }
@@ -249,48 +250,64 @@ impl BaseRollupInputs {
         calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
-    fn validate_and_process_public_state(self) -> Field {
-        // // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
-        // // Blocks all interesting usecases that read and write to the same public state in the same tx.
-        // // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
+    fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
+        // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
+        // Blocks all interesting usecases that read and write to the same public state in the same tx.
+        // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
 
 
-        // // Process public data reads and public data update requests for left input
-        // // validate_public_data_reads(
-        // //                            self.start_public_data_tree_root,
-        // //                            self.kernel_data[0].public_inputs.end.public_data_reads,
-        // //                            0,
-        // //                            self.new_public_data_reads_sibling_paths);
+        // Process public data reads and public data update requests for left input
+        // validate_public_data_reads(
+        //                            self.start_public_data_tree_root,
+        //                            self.kernel_data[0].public_inputs.end.public_data_reads,
+        //                            0,
+        //                            self.new_public_data_reads_sibling_paths);
 
-        // let mid_public_data_tree_root = insert_public_data_update_requests(
-        //     self.start_public_data_tree_root,
-        //     self.kernel_data[0].public_inputs.end.public_data_update_requests,
-        //     0,
-        //     self.new_public_data_update_requests_sibling_paths
-        // );
+        let mid_public_data_tree_snapshot = insert_public_data_update_requests(
+            self.start_public_data_tree_snapshot,
+            self.kernel_data[0].public_inputs.end.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
+                PublicDataTreeLeaf {
+                    slot: request.leaf_slot,
+                    value: request.new_value,
+                }
+            }),
+            self.sorted_public_data_writes[0],
+            self.sorted_public_data_writes_indexes[0],
+            self.low_public_data_writes_preimages[0],
+            self.low_public_data_writes_witnesses[0],
+            self.public_data_writes_subtree_sibling_paths[0],
+        );
 
 
-        // // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
-        // // Blocks all interesting usecases that read and write to the same public state in the same tx.
-        // // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
+        // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
+        // Blocks all interesting usecases that read and write to the same public state in the same tx.
+        // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
 
 
-        // // Process public data reads and public data update requests for right input using the resulting tree root from the
-        // // left one
-        // // validate_public_data_reads(
-        // //                            mid_public_data_tree_root,
-        // //                            baseRollupInputs.kernel_data[1].public_inputs.end.public_data_reads,
-        // //                            MAX_PUBLIC_DATA_READS_PER_TX,
-        // //                            baseRollupInputs.new_public_data_reads_sibling_paths);
+        // Process public data reads and public data update requests for right input using the resulting tree root from the
+        // left one
+        // validate_public_data_reads(
+        //                            mid_public_data_tree_root,
+        //                            baseRollupInputs.kernel_data[1].public_inputs.end.public_data_reads,
+        //                            MAX_PUBLIC_DATA_READS_PER_TX,
+        //                            baseRollupInputs.new_public_data_reads_sibling_paths);
 
-        // let end_public_data_tree_root = insert_public_data_update_requests(
-        //     mid_public_data_tree_root,
-        //     self.kernel_data[1].public_inputs.end.public_data_update_requests,
-        //     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        //     self.new_public_data_update_requests_sibling_paths
-        // );
+        let end_public_data_tree_snapshot = insert_public_data_update_requests(
+            mid_public_data_tree_snapshot,
+            self.kernel_data[1].public_inputs.end.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
+                PublicDataTreeLeaf {
+                    slot: request.leaf_slot,
+                    value: request.new_value,
+                }
+            }),
+            self.sorted_public_data_writes[1],
+            self.sorted_public_data_writes_indexes[1],
+            self.low_public_data_writes_preimages[1],
+            self.low_public_data_writes_witnesses[1],
+            self.public_data_writes_subtree_sibling_paths[1],
+        );
 
-        self.start_public_data_tree_root
+        end_public_data_tree_snapshot
     }
 
     // Computes the calldata hash for a base rollup
@@ -421,26 +438,78 @@ fn verify_kernel_proof(proof: Proof) -> bool {
     true
 }
 
-// fn insert_public_data_update_requests(
-//     tree_root: Field,
-//     public_data_update_requests: [PublicDataUpdateRequest;MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-//     witnesses_offset: Field,
-//     witnesses: [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
-// ) -> Field {
-//     let mut root = tree_root;
+fn insert_public_data_update_requests(
+    prev_snapshot: AppendOnlyTreeSnapshot,
+    public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
+) -> AppendOnlyTreeSnapshot {
+    crate::indexed_tree::batch_insert(
+        prev_snapshot,
+        public_data_writes,
+        sorted_public_data_writes,
+        sorted_public_data_writes_indexes,
+        public_data_writes_subtree_sibling_path,
+        low_public_data_writes_preimages,
+        low_public_data_writes_witnesses.map(|witness: PublicDataMembershipWitness| {
+            MembershipWitness {
+                leaf_index: witness.leaf_index,
+                sibling_path: witness.sibling_path,
+            }
+        }),
+        |a: PublicDataTreeLeaf, b: PublicDataTreeLeaf| a.eq(b), // PublicDataTreeLeaf equals
+        |write: PublicDataTreeLeaf| write.is_empty(), // PublicDataTreeLeaf is_empty
+        |preimage: PublicDataTreeLeafPreimage| preimage.hash(), // Hash preimage
+        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| { // Is valid low preimage
+            let is_update = low_preimage.slot == write.slot;
+            let is_low_empty = low_preimage.is_empty();
 
-//     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-//         let state_write = public_data_update_requests[i];
-//         let witness = witnesses[i + witnesses_offset];
+            let is_less_than_nullifier = full_field_less_than(low_preimage.slot, write.slot);
+            let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
+            let is_in_range = is_less_than_nullifier & (
+                is_next_greater_than | 
+                ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
-//         if (!state_write.is_empty()) {
-//             components::assert_check_membership(state_write.old_value, state_write.leaf_index, witness, root);
-//             root = components::root_from_sibling_path(state_write.new_value, state_write.leaf_index, witness);
-//         }
-//     }
-
-//     root
-// }
+            (!is_low_empty) & (is_update | is_in_range)
+        },
+        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf, write_index: u32| { // Update low leaf
+            let is_update = low_preimage.slot == write.slot;
+            if is_update {
+                PublicDataTreeLeafPreimage{
+                    slot : low_preimage.slot,
+                    value: write.value,
+                    next_slot : low_preimage.next_slot,
+                    next_index : low_preimage.next_index, 
+                }
+            } else {
+                PublicDataTreeLeafPreimage{
+                    slot : low_preimage.slot,
+                    value: low_preimage.value,
+                    next_slot : write.slot,
+                    next_index : write_index, 
+                }
+            }
+        },
+        |write: PublicDataTreeLeaf, low_preimage: PublicDataTreeLeafPreimage| { // Build insertion leaf
+            let is_update = low_preimage.slot == write.slot;
+            if is_update {
+                PublicDataTreeLeafPreimage::default()
+            }else {
+                PublicDataTreeLeafPreimage {
+                    slot: write.slot,
+                    value: write.value,
+                    next_slot : low_preimage.next_slot,
+                    next_index : low_preimage.next_index,
+                }
+            }
+        },
+        [0; PUBLIC_DATA_SUBTREE_HEIGHT],
+        [0; PUBLIC_DATA_TREE_HEIGHT],
+    )
+}
 
 // fn validate_public_data_reads(
 //     tree_root: Field,

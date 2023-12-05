@@ -1116,8 +1116,12 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
       baseOrMergeRollupPublicInputs.startContractTreeSnapshot,
     ),
     end_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(baseOrMergeRollupPublicInputs.endContractTreeSnapshot),
-    start_public_data_tree_root: mapFieldToNoir(baseOrMergeRollupPublicInputs.startPublicDataTreeRoot),
-    end_public_data_tree_root: mapFieldToNoir(baseOrMergeRollupPublicInputs.endPublicDataTreeRoot),
+    start_public_data_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.startPublicDataTreeSnapshot,
+    ),
+    end_public_data_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+      baseOrMergeRollupPublicInputs.endPublicDataTreeSnapshot,
+    ),
     calldata_hash: mapTuple(baseOrMergeRollupPublicInputs.calldataHash, mapFieldToNoir),
   };
 }
@@ -1169,8 +1173,8 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_nullifier_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_contract_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_contract_tree_snapshot),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.start_public_data_tree_root),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.end_public_data_tree_root),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_public_data_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_public_data_tree_snapshot),
     mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
   );
 }
@@ -1268,8 +1272,8 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_nullifier_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_contract_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_contract_tree_snapshot),
-    mapFieldFromNoir(rootRollupPublicInputs.start_public_data_tree_root),
-    mapFieldFromNoir(rootRollupPublicInputs.end_public_data_tree_root),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_public_data_tree_snapshot),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_public_data_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historical_note_hash_tree_roots_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_tree_of_historical_note_hash_tree_roots_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_tree_of_historical_contract_tree_roots_snapshot),
@@ -1388,7 +1392,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     start_note_hash_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startNoteHashTreeSnapshot),
     start_nullifier_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startNullifierTreeSnapshot),
     start_contract_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startContractTreeSnapshot),
-    start_public_data_tree_root: mapFieldToNoir(inputs.startPublicDataTreeRoot),
+    start_public_data_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startPublicDataTreeSnapshot),
     start_blocks_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(inputs.startBlocksTreeSnapshot),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapFieldToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortednewNullifiersIndexes, (index: number) =>

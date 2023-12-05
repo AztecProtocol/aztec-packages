@@ -111,13 +111,13 @@ export class RootRollupPublicInputs {
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * Root of the public data tree at the start of the rollup.
+     * Snapshot of the public data tree at the start of the rollup.
      */
-    public startPublicDataTreeRoot: Fr,
+    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Root of the public data tree at the end of the rollup.
+     * Snapshot of the public data tree at the end of the rollup.
      */
-    public endPublicDataTreeRoot: Fr,
+    public endPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Snapshot of the historical note hash tree roots tree at the start of the rollup.
@@ -184,8 +184,8 @@ export class RootRollupPublicInputs {
       fields.endNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.endContractTreeSnapshot,
-      fields.startPublicDataTreeRoot,
-      fields.endPublicDataTreeRoot,
+      fields.startPublicDataTreeSnapshot,
+      fields.endPublicDataTreeSnapshot,
       fields.startTreeOfHistoricalNoteHashTreeRootsSnapshot,
       fields.endTreeOfHistoricalNoteHashTreeRootsSnapshot,
       fields.startTreeOfHistoricalContractTreeRootsSnapshot,
@@ -242,8 +242,8 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
