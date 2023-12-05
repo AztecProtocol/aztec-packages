@@ -6,6 +6,7 @@
 #include <span>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace proof_system::plonk::stdlib {
@@ -18,13 +19,13 @@ namespace proof_system::plonk::stdlib {
  *
  *        Note: If we ever use this sponge class for more than 1 hash functions, we should move this out of `poseidon2`
  *              and into its own directory
- * @tparam FF
+ * @tparam field_t<Builder>
  * @tparam rate
  * @tparam capacity
  * @tparam t
  * @tparam Permutation
  */
-template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder> class FieldSponge {
+template <size_t rate, size_t capacity, size_t t, typename Permutation, typename Builder> class FieldSponge {
   public:
     /**
      * @brief Defines what phase of the sponge algorithm we are in.
@@ -39,14 +40,14 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
     };
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
-    std::array<FF, t> state;
+    std::array<field_t<Builder>, t> state;
 
     // cached elements that have been absorbed.
-    std::array<FF, rate> cache;
+    std::array<field_t<Builder>, rate> cache;
     size_t cache_size = 0;
     Mode mode = Mode::ABSORB;
 
-    FieldSponge(FF domain_iv = 0)
+    FieldSponge(field_t<Builder> domain_iv = 0)
     {
         for (size_t i = 0; i < rate; ++i) {
             state[i] = 0;
@@ -54,7 +55,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
         state[rate] = domain_iv;
     }
 
-    std::array<FF, rate> perform_duplex()
+    std::array<field_t<Builder>, rate> perform_duplex()
     {
         // zero-pad the cache
         for (size_t i = cache_size; i < rate; ++i) {
@@ -64,16 +65,16 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
         for (size_t i = 0; i < rate; ++i) {
             state[i] += cache[i];
         }
-        // state = permutation(state);
+        state = Permutation::permutation(state);
         // return `rate` number of field elements from the sponge state.
-        std::array<FF, rate> output;
+        std::array<field_t<Builder>, rate> output;
         for (size_t i = 0; i < rate; ++i) {
             output[i] = state[i];
         }
         return output;
     }
 
-    void absorb(const FF& input)
+    void absorb(const field_t<Builder>& input)
     {
         if (mode == Mode::ABSORB && cache_size == rate) {
             // If we're absorbing, and the cache is full, apply the sponge permutation to compress the cache
@@ -93,7 +94,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
         }
     }
 
-    FF squeeze()
+    field_t<Builder> squeeze()
     {
         if (mode == Mode::SQUEEZE && cache_size == 0) {
             // If we're in squeze mode and the cache is empty, there is nothing left to squeeze out of the sponge!
@@ -113,7 +114,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
             cache_size = rate;
         }
         // By this point, we should have a non-empty cache. Pop one item off the top of the cache and return it.
-        FF result = cache[0];
+        field_t<Builder> result = cache[0];
         for (size_t i = 1; i < cache_size; ++i) {
             cache[i - 1] = cache[i];
         }
@@ -128,9 +129,10 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
      * @tparam out_len
      * @tparam is_variable_length. Distinguishes between hashes where the preimage length is constant/not constant
      * @param input
-     * @return std::array<FF, out_len>
+     * @return std::array<field_t<Builder>, out_len>
      */
-    template <size_t out_len, bool is_variable_length> static std::array<FF, out_len> hash_internal(std::span<FF> input)
+    template <size_t out_len, bool is_variable_length>
+    static std::array<field_t<Builder>, out_len> hash_internal(std::span<field_t<Builder>> input)
     {
         size_t in_len = input.size();
         const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
@@ -147,23 +149,31 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Builder>
             sponge.absorb(1);
         }
 
-        std::array<FF, out_len> output;
+        std::array<field_t<Builder>, out_len> output;
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
         }
         return output;
     }
 
-    template <size_t out_len> static std::array<FF, out_len> hash_fixed_length(std::span<FF> input)
+    template <size_t out_len>
+    static std::array<field_t<Builder>, out_len> hash_fixed_length(std::span<field_t<Builder>> input)
     {
         return hash_internal<out_len, false>(input);
     }
-    static FF hash_fixed_length(std::span<FF> input) { return hash_fixed_length<1>(input)[0]; }
+    static field_t<Builder> hash_fixed_length(std::span<field_t<Builder>> input)
+    {
+        return hash_fixed_length<1>(input)[0];
+    }
 
-    template <size_t out_len> static std::array<FF, out_len> hash_variable_length(std::span<FF> input)
+    template <size_t out_len>
+    static std::array<field_t<Builder>, out_len> hash_variable_length(std::span<field_t<Builder>> input)
     {
         return hash_internal<out_len, true>(input);
     }
-    static FF hash_variable_length(std::span<FF> input) { return hash_variable_length<1>(input)[0]; }
+    static field_t<Builder> hash_variable_length(std::span<field_t<Builder>> input)
+    {
+        return hash_variable_length<1>(input)[0];
+    }
 };
 } // namespace proof_system::plonk::stdlib

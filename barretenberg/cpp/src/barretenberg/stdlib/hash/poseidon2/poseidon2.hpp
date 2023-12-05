@@ -21,7 +21,8 @@ template <typename Builder> class poseidon2_hash {
     using field_t = stdlib::field_t<Builder>;
     using bool_t = stdlib::bool_t<Builder>;
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
-    using Sponge = FieldSponge<field_t, Params::t - 1, 1, Params::t, Builder>;
+    using Permutation = Poseidon2Permutation<Params, Builder>;
+    using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
 
   public:
     static field_t hash(const std::vector<field_t>& in);
