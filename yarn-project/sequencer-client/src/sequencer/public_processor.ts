@@ -217,6 +217,9 @@ export class PublicProcessor {
       this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
+    // TODO: This should be done in a public kernel reset circuit
+    this.removeRedundantPublicDataWrites(kernelOutput);
+
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
@@ -426,6 +429,24 @@ export class PublicProcessor {
         ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
         ...simPublicDataUpdateRequests,
       ],
+      PublicDataUpdateRequest.empty(),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+  }
+
+  private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
+    const lastWritesMap = new Map();
+    for (const write of publicInputs.end.publicDataUpdateRequests) {
+      const key = write.leafSlot.toString();
+      lastWritesMap.set(key, write);
+    }
+
+    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(
+      write => lastWritesMap.get(write.leafSlot.toString()) === write,
+    );
+
+    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+      lastWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
