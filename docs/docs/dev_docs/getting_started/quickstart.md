@@ -21,6 +21,14 @@ See this page of the Docker docs for instructions on how to install Docker Deskt
 
 Once you have Docker installed, make sure it is running by opening the Docker Desktop application.
 
+### Note on Linux
+
+If you are running Linux, you will need to set the context (because Docker Desktop runs in a VM by default). See [this page](https://docs.docker.com/desktop/faqs/linuxfaqs/#what-is-the-difference-between-docker-desktop-for-linux-and-docker-engine) for more information. You can do this by running:
+
+```bash
+docker context use default
+```
+
 ## Install the Sandbox
 
 You can run the Sandbox using Docker.

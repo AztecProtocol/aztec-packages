@@ -6,7 +6,7 @@ Here you will find a reference to everything available within the Sandbox.
 
 ## Installation
 
-You can run the Sandbox using Docker.
+You can run the Sandbox using Docker. See the [Quickstart](../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
 
 ### With Docker
 
