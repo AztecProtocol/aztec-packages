@@ -490,15 +490,15 @@ export class AztecNodeService implements AztecNode {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot (or undefined if not found).
+   * @returns Storage value at the given contract slot.
    */
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined> {
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     const committedDb = await this.#getWorldState('latest');
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
     // TODO change this to findLeafIndex, should be faster
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return undefined;
+      return Fr.ZERO;
     }
     const preimage = (await committedDb.getLeafPreimage(
       MerkleTreeId.PUBLIC_DATA_TREE,

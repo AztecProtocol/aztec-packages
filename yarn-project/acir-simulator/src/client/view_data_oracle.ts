@@ -226,9 +226,6 @@ export class ViewDataOracle extends TypedOracle {
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
       const value = await this.aztecNode.getPublicStorageAt(this.contractAddress, storageSlot);
-      if (value === undefined) {
-        throw new Error(`Oracle storage read undefined: slot=${storageSlot.toString()}`);
-      }
 
       this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);
