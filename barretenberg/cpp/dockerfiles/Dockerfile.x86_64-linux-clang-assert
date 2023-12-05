@@ -19,6 +19,5 @@ RUN ./format.sh check && cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
 
 FROM alpine:3.17
 RUN apk update && apk add curl libstdc++
-COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin

@@ -16,7 +16,4 @@ RUN cmake --preset default && cmake --build --preset default --target bb --targe
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
-RUN apk update && apk add curl libstdc++
-COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
-COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+COPY . .
