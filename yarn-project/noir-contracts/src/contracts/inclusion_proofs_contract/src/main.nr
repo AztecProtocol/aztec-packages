@@ -187,7 +187,7 @@ contract InclusionProofs {
         // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
         // included in the nullifier tree
         assert(
-            full_field_greater_than(witness.leaf_data.next_value, nullifier),
+            full_field_greater_than(witness.leaf_data.next_value, nullifier) | (witness.leaf_data.next_value == 0),
             "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed"
         );
 
