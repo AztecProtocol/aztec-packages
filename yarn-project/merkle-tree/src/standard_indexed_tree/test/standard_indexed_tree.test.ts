@@ -495,4 +495,20 @@ describe('StandardIndexedTreeSpecific', () => {
     const actualRoot = insertTree.getRoot(true);
     expect(actualRoot).toEqual(expectedRoot);
   });
+
+  it('should be able to find indexes of leaves', async () => {
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', 3);
+    const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+
+    await tree.appendLeaves([values[0]]);
+
+    expect(await tree.findLeafIndex(values[0], true)).toBeDefined();
+    expect(await tree.findLeafIndex(values[0], false)).toBe(undefined);
+    expect(await tree.findLeafIndex(values[1], true)).toBe(undefined);
+
+    await tree.commit();
+
+    expect(await tree.findLeafIndex(values[0], false)).toBeDefined();
+  });
 });
