@@ -916,8 +916,8 @@ jobs:
           name: "yarn-project"
           command: |
             should_release || exit 0
-            yarn-project/deploy_npm.sh latest
             deploy_npm l1-contracts
+            yarn-project/deploy_npm.sh latest
 
   release-dockerhub:
     machine:
