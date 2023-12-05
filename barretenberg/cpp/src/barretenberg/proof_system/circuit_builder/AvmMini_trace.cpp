@@ -185,7 +185,7 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
-        .avmMini_subop = FF(1),
+        .avmMini_sel_op_add = FF(1),
         .avmMini_ia = a,
         .avmMini_ib = b,
         .avmMini_ic = c,
