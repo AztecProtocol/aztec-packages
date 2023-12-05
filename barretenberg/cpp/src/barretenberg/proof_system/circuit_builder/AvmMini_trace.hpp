@@ -24,14 +24,14 @@ class AvmMiniTraceBuilder {
   public:
     // Number of rows
     static const size_t N = 256;
-    static const size_t MemSize = 1024;
+    static const size_t MEM_SIZE = 1024;
 
-    static const uint32_t SubClkLoadA = 0;
-    static const uint32_t SubClkLoadB = 1;
-    static const uint32_t SubClkLoadC = 2;
-    static const uint32_t SubClkStoreA = 3;
-    static const uint32_t SubClkStoreB = 4;
-    static const uint32_t SubClkStoreC = 5;
+    static const uint32_t SUB_CLK_LOAD_A = 0;
+    static const uint32_t SUB_CLK_LOAD_B = 1;
+    static const uint32_t SUB_CLK_LOAD_C = 2;
+    static const uint32_t SUB_CLK_STORE_A = 3;
+    static const uint32_t SUB_CLK_STORE_B = 4;
+    static const uint32_t SUB_CLK_STORE_C = 5;
 
     AvmMiniTraceBuilder();
 
@@ -63,7 +63,7 @@ class AvmMiniTraceBuilder {
 
     std::vector<Row> mainTrace;
     std::vector<MemoryTraceEntry> memTrace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
-    std::array<FF, MemSize> ffMemory{};     // Memory table for finite field elements
+    std::array<FF, MEM_SIZE> ffMemory{};    // Memory table for finite field elements
     // Used for simulation of memory table
 
     static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);

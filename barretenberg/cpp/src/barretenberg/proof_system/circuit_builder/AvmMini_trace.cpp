@@ -94,7 +94,7 @@ void AvmMiniTraceBuilder::insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, u
  */
 void AvmMiniTraceBuilder::loadAInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadA, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_A, addr, val, false);
 }
 
 /**
@@ -106,7 +106,7 @@ void AvmMiniTraceBuilder::loadAInMemTrace(uint32_t addr, FF val)
  */
 void AvmMiniTraceBuilder::loadBInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadB, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_B, addr, val, false);
 }
 
 /**
@@ -118,7 +118,7 @@ void AvmMiniTraceBuilder::loadBInMemTrace(uint32_t addr, FF val)
  */
 void AvmMiniTraceBuilder::loadCInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkLoadC, addr, val, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_C, addr, val, false);
 }
 
 /**
@@ -130,7 +130,7 @@ void AvmMiniTraceBuilder::loadCInMemTrace(uint32_t addr, FF val)
  */
 void AvmMiniTraceBuilder::storeAInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreA, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_A, addr, val, true);
 }
 
 /**
@@ -142,7 +142,7 @@ void AvmMiniTraceBuilder::storeAInMemTrace(uint32_t addr, FF val)
  */
 void AvmMiniTraceBuilder::storeBInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreB, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_B, addr, val, true);
 }
 
 /**
@@ -154,7 +154,7 @@ void AvmMiniTraceBuilder::storeBInMemTrace(uint32_t addr, FF val)
  */
 void AvmMiniTraceBuilder::storeCInMemTrace(uint32_t addr, FF val)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SubClkStoreC, addr, val, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_C, addr, val, true);
 }
 
 /**
