@@ -84,7 +84,7 @@ The following must align with the outcome after ordering (details [above](#verif
 
 - Public call requests.
 
-The following must match the result after siloing:
+The following must correspond to the result after siloing:
 
 - New note hashes.
 - New nullifiers.
@@ -102,6 +102,12 @@ The following must match the respective values in the previous kernel's public i
 - New contracts.
 - Log hashes.
 - Log lengths.
+
+Any hints aiding verifications in the private kernels should be cleared:
+
+- Counter.
+- Contract address.
+- Nullified note hash.
 
 #### Verifying the constant data.
 
