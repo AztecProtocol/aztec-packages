@@ -92,4 +92,4 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 RUN yarn prepare:check
 
 # Generate L1 contract TypeScript artifacts.
-RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts
+RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
