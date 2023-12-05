@@ -2,6 +2,11 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+if [ -z "$COMMIT_TAG" ]; then
+  echo "No commit tag, not deploying to npm."
+  exit 0
+fi
+
 extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
@@ -94,4 +99,3 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
-deploy_package ../l1-contracts

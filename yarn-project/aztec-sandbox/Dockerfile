@@ -1,30 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project AS yarn-project
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-prod AS yarn-project-prod
 
-# Start a new image as we need arch specific.
-FROM node:18-alpine as builder
-ARG COMMIT_TAG=""
-RUN apk add jq
-COPY --from=yarn-project /usr/src/ /usr/src/
-
-# Update pxe version if COMMIT_TAG has been used.
-WORKDIR /usr/src/yarn-project/pxe
-RUN if [[ -n "${COMMIT_TAG}" ]]; then \
-  jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
-  fi
-
-# Update sandbox version if COMMIT_TAG has been used.
-WORKDIR /usr/src/yarn-project/aztec-sandbox
-RUN if [[ -n "${COMMIT_TAG}" ]]; then \
-  jq --arg v ${COMMIT_TAG} '.version = $v' package.json > _temp && mv _temp package.json; \
-  fi
-
-# Productionify. See comment in yarn-project-base/Dockerfile.
-RUN yarn cache clean && yarn workspaces focus --production
-
-# Create final, minimal size image.
-FROM node:18-alpine
-COPY --from=builder /usr/src/ /usr/src/
-WORKDIR /usr/src/yarn-project/aztec-sandbox
-ENTRYPOINT ["yarn"]
-CMD [ "start" ]
+ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec-sandbox/dest/bin/index.js"]
 EXPOSE 8079 8080

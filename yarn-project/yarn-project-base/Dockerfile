@@ -33,19 +33,21 @@
 #
 # When we build a downstream docker image, we:
 #  - FROM yarn-project as builder, to get the entire built project.
-#  - Do any project specific work.
-#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache.
-#  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
+#  - WORKDIR into the relevant project.
+#  - Do any project specific build work.
+#  - Do a `yarn workspaces focus --production` to install production dependencies from the global.
+#  - Erase the local cache with a `yarn cache clean`.
+#  - Destroy the yarn-project /src folders to save additional space.
 #  - The above can be done with:
-#      RUN yarn cache clean && yarn workspaces focus --production
-#  - Create final slim image by copying /usr/src into a fresh image.
+#      RUN yarn workspaces focus --production && yarn cache clean && rm -rf ../**/src
+#  - Create final slim image by copying needed dirs into a fresh image.
 #
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 
-FROM node:18-alpine
+FROM node:18.19.0-alpine
 RUN apk update && apk add --no-cache bash jq curl
 
 # Copy L1 contracts.
@@ -59,25 +61,33 @@ COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
 # TODO: FIX: For some reason the source-resolver package needs to be in compiler dir or we get errors like:
 #              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'
-# This affects both ubuntu and alpine builds.
 RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /usr/src/noir/compiler
-# For some reason this is only needed in alpine builds, otherwise we get errors like:
-#   Error: Cannot find module '@noir-lang/source-resolver'
-COPY --from=noir-packages /usr/src/noir/node_modules/@noir-lang /usr/src/noir/node_modules/@noir-lang
+
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+# by initialising the module more than once. So at present I don't see a viable alternative.
+RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .
 
+# List all included files and hash for debugging.
+RUN echo "Context files: " && find . -type f | sort && \
+    echo -n "Context hash: " && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
+
 # Install packages and rebuild the global cache with hard links.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
 #       Switch to using puppeteer-core then it won't download chrome. For now just erase.
 RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
-  rm -rf /root/.yarn/berry/cache/* && \
-  cd .yarn/cache && \
-  for F in *; do \
-    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-  done'
+      rm -rf /root/.yarn/berry/cache/* && \
+      cd .yarn/cache && \
+      for F in *; do \
+        [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+      done'
 
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
@@ -86,4 +96,4 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 RUN yarn prepare:check
 
 # Generate L1 contract TypeScript artifacts.
-RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
+RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts
