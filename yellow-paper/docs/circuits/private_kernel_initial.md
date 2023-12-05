@@ -93,8 +93,8 @@ It verifies that each relevant value is associated with a legitimate counter.
 
 For the current call:
 
-- The _counter_end_ of the current call must be greater than its _counter_start_.
-- Both counters must match the ones defined in the top item in the previous iteration's call requests.
+- The _counter_start_ must be 0.
+- The _counter_end_ must be greater than the _counter_start_.
 
 For both private and public call requests:
 
@@ -191,7 +191,7 @@ The call data holds details about the current function call and includes hints t
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other private kernel circuits.
+The structure of public inputs aligns with that of other kernel circuits.
 
 ### Accumulated Data
 

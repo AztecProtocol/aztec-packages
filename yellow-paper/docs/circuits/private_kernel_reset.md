@@ -128,7 +128,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other private kernel circuits.
+The structure of public inputs aligns with that of other kernel circuits.
 
 ### Accumulated Data
 

@@ -215,7 +215,7 @@ The call data holds details about the current function call and includes hints t
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other private kernel circuits.
+The structure of public inputs aligns with that of other kernel circuits.
 
 ### Accumulated Data
 
