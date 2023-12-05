@@ -111,10 +111,7 @@ Any hints aiding verifications in the private kernels should be cleared:
 
 #### Verifying the constant data.
 
-It verifies that:
-
-- The historical data matches the data in the app circuit's public inputs.
-- The transaction context matches the one in the previous iteration's public inputs.
+It verifies that the constant data matches the one in the previous iteration's public inputs.
 
 ## Private Inputs
 

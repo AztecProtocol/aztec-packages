@@ -67,7 +67,7 @@ To ensure the function's existence, the circuit executes the following steps:
 3. Derives the function tree root with the leaf and the specified sibling path.
 4. Computes the contract class ID using the function tree root and additional information.
 5. Generates the contract address using the contract class ID and other relevant details.
-6. Validates that the contract address matches the address specified in the call data.
+6. Validates that the contract address matches the address specified in the private call data.
 
 #### Verifying the app private function proof.
 
@@ -84,6 +84,7 @@ It ensures the app circuit's intention by checking the following:
   - L2-to-L1 messages.
 - The portal contract address for each non-empty L2-to-L1 message must equal the current portal contract address.
 - If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
+- The historical data must match the one in the constant data.
 
 > Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
 
@@ -149,8 +150,9 @@ It ensures that the following arrays are empty:
 
 It verifies that:
 
-- The historical data matches the data in the app circuit's public inputs.
 - The transaction context matches the one in the transaction request.
+
+> The historical data must align with the data used in the app circuit, as verified [earlier](#verifying-the-app-circuit-public-inputs).
 
 ## Private Inputs
 
@@ -173,9 +175,9 @@ A transaction request represents the caller's intent. It contains:
   - Chain ID.
   - Version of the transaction.
 
-### Call Data
+### Private Call Data
 
-The call data holds details about the current function call and includes hints that aid in the verifications carried out in this circuit:
+The private call data holds details about the current private function call and includes hints that aid in the verifications carried out in this circuit:
 
 - Contract address.
 - Function data.
