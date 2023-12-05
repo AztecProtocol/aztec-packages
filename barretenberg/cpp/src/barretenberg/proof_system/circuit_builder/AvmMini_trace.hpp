@@ -42,15 +42,15 @@ class AvmMiniTraceBuilder {
     void reset();
 
     // Addition over finite field with direct memory access.
-    void add(uint32_t s0, uint32_t s1, uint32_t d0);
+    void add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
 
     // CALLDATACOPY opcode with direct memory access, i.e.,
-    // M_F[d0:d0+s1] = M_calldata[s0:s0+s1]
-    void callDataCopy(uint32_t s0, uint32_t s1, uint32_t d0, std::vector<FF> const& callDataMem);
+    // M[dstOffset:dstOffset+len] = calldata[cdOffset:cdOffset+len]
+    void callDataCopy(uint32_t cdOffset, uint32_t len, uint32_t dstOffset, std::vector<FF> const& callDataMem);
 
     // RETURN opcode with direct memory access, i.e.,
-    // return M_F[s0:s0+s1]
-    std::vector<FF> returnOP(uint32_t s0, uint32_t s1);
+    // return(M[offset:offset+len])
+    std::vector<FF> returnOP(uint32_t offset, uint32_t len);
 
   private:
     struct MemoryTraceEntry {
