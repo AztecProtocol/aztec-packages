@@ -235,14 +235,7 @@ jobs:
       - run:
           name: "Test"
           command: |
-            export TAG_POSTFIX=ultra-honk-bench-2
-            cond_spot_run_container barretenberg-x86_64-linux-clang-assert 32 /bin/bash -c "\
-              set -xe; \
-              cd /usr/src/barretenberg/cpp/srs_db; \
-              ./download_ignition.sh 1; \
-              cd /usr/src/barretenberg/cpp/build; \
-              ./bin/grumpkin_srs_gen 1048576; \
-              ./bin/ultra_honk_bench"
+            cond_spot_run_container barretenberg-x86_64-linux-clang-assert 32 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh
 
   barretenberg-honk-tests:
     docker:
