@@ -173,7 +173,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec-sandbox@workspace:^, @aztec/aztec-sandbox@workspace:aztec-sandbox":
+"@aztec/aztec-sandbox@workspace:aztec-sandbox":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec-sandbox@workspace:aztec-sandbox"
   dependencies:
@@ -295,7 +295,6 @@ __metadata:
   resolution: "@aztec/canary@workspace:canary"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/cli": "workspace:^"
     "@aztec/end-to-end": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -388,7 +387,6 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
-    "@aztec/aztec-sandbox": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"

@@ -1,6 +1,5 @@
-import { startHttpRpcServer } from '@aztec/aztec-sandbox';
 import { PXE, createDebugLogger } from '@aztec/aztec.js';
-import { createPXERpcServer } from '@aztec/pxe';
+import { startPXEHttpServer } from '@aztec/pxe';
 
 import { setup as e2eSetup } from './fixtures/utils.js';
 import { cliTestSuite } from './shared/cli.js';
@@ -9,7 +8,7 @@ const HTTP_PORT = 9009;
 let RPC_URL = `http://localhost:${HTTP_PORT}`;
 const debug = createDebugLogger('aztec:e2e_cli');
 
-let http: ReturnType<typeof startHttpRpcServer>;
+let http: ReturnType<typeof startPXEHttpServer>;
 let pxe: PXE;
 let teardown: () => Promise<void>;
 
@@ -24,7 +23,7 @@ const testSetup = async () => {
   debug(`Environment set up`);
   ({ pxe, teardown } = context);
   if (!PXE_URL) {
-    http = startHttpRpcServer(pxe, createPXERpcServer, HTTP_PORT);
+    http = startPXEHttpServer(pxe, HTTP_PORT);
     debug(`HTTP RPC server started in port ${HTTP_PORT}`);
   }
   return pxe;

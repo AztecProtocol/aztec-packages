@@ -1,4 +1,3 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
 import {
   AccountWallet,
   CheatCodes,
@@ -221,47 +220,6 @@ describe('guides/dapp/testing', () => {
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
         // docs:end:pub-dropped
-      }, 30_000);
-    });
-  });
-
-  describe('on in-proc sandbox', () => {
-    describe('token contract', () => {
-      let pxe: PXE;
-      let stop: () => Promise<void>;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
-      let token: TokenContract;
-
-      beforeAll(async () => {
-        // docs:start:in-proc-sandbox
-        ({ pxe, stop } = await createSandbox());
-        // docs:end:in-proc-sandbox
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
-      }, 60_000);
-
-      // docs:start:stop-in-proc-sandbox
-      afterAll(() => stop());
-      // docs:end:stop-in-proc-sandbox
-
-      it('increases recipient funds on mint', async () => {
-        const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
-
-        const mintAmount = 20n;
-        const secret = Fr.random();
-        const secretHash = computeMessageSecretHash(secret);
-        const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
-
-        const storageSlot = new Fr(5);
-        const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
-        await pxe.addNote(extendedNote);
-
-        await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
       }, 30_000);
     });
   });
