@@ -919,8 +919,6 @@ jobs:
             yarn-project/deploy_npm.sh latest
             deploy_npm l1-contracts
 
-        
-
   release-dockerhub:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1212,7 +1210,8 @@ workflows:
 
       # Production releases.
       - release-dockerhub: *defaults_deploy
-      - release-npm: *defaults_yarn_project
+      - release-npm: *defaults_deploy
+
       # Production deployment.
       - deploy-mainnet-fork:
           requires:
