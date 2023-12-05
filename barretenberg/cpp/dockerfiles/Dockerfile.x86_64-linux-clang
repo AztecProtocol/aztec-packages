@@ -13,12 +13,14 @@ WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build bb binary and targets needed for benchmarking. 
 # Everything else is built as part linux-clang-assert.
-# Benchmark targets want to run without asserts, so get bundled with bb.
-RUN cmake --preset default && cmake --build --preset default --target bb --target ultra_honk_bench --target grumpkin_srs_gen
+# Benchmark targets want to run without asserts, so get built alongside bb.
+RUN cmake --preset default && cmake --build --preset default --target bb --target ultra_honk_simple_bench --target grumpkin_srs_gen
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
 RUN apk update && apk add curl bash libstdc++
 COPY . .
+
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+RUN HARDWARE_CONCURRENCY=128 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh

@@ -23,3 +23,6 @@ foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
   target_link_libraries(${BENCHMARK_NAME}_bench ${LINKED_LIBRARIES})
   add_custom_target(run_${BENCHMARK_NAME} COMMAND ${BENCHMARK_NAME} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endforeach()
+
+add_executable(ultra_honk_simple_bench ultra_honk.simple.cpp benchmark_utilities.hpp)
+target_link_libraries(ultra_honk_simple_bench ${LINKED_LIBRARIES})
