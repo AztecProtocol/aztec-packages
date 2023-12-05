@@ -294,6 +294,29 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseid
     ++this->num_gates;
 }
 
+template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
+{
+    this->w_l.emplace_back(in.a);
+    this->w_r.emplace_back(in.b);
+    this->w_o.emplace_back(in.c);
+    this->w_4.emplace_back(in.d);
+    this->q_m.emplace_back(0);
+    this->q_1.emplace_back(0);
+    this->q_2.emplace_back(0);
+    this->q_3.emplace_back(0);
+    this->q_c.emplace_back(0);
+    this->q_arith.emplace_back(0);
+    this->q_4.emplace_back(0);
+    this->q_sort.emplace_back(0);
+    this->q_lookup_type.emplace_back(0);
+    this->q_elliptic.emplace_back(0);
+    this->q_aux.emplace_back(0);
+    this->q_busread.emplace_back(0);
+    this->q_poseidon2_external.emplace_back(0);
+    this->q_poseidon2_internal.emplace_back(0);
+    ++this->num_gates;
+}
+
 template <typename FF>
 inline FF GoblinUltraCircuitBuilder_<FF>::compute_poseidon2_external_identity(FF q_poseidon2_external_value,
                                                                               FF q_1_value,

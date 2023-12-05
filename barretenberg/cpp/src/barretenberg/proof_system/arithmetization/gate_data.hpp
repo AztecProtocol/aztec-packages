@@ -138,7 +138,7 @@ template <typename FF> struct poseidon2_external_gate_ {
     uint32_t b;
     uint32_t c;
     uint32_t d;
-    uint32_t round_idx;
+    size_t round_idx;
 };
 
 template <typename FF> struct poseidon2_internal_gate_ {
@@ -146,6 +146,13 @@ template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t b;
     uint32_t c;
     uint32_t d;
-    uint32_t round_idx;
+    size_t round_idx;
+};
+
+template <typename FF> struct poseidon2_end_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
 };
 } // namespace proof_system
