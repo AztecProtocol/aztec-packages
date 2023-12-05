@@ -7,7 +7,7 @@ import { default as levelup } from 'levelup';
 import { INITIAL_LEAF, newTree } from '../index.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
-import { builder } from '../new_tree.js';
+import { treeBuilder } from '../new_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
@@ -22,11 +22,11 @@ const createDb = async (
   name: string,
   depth: number,
 ): Promise<UpdateOnlyTree> => {
-  return await newTree(builder(SparseTree), levelUp, hasher, name, depth);
+  return await newTree(treeBuilder(SparseTree), levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
-  return await loadTree(builder(SparseTree), levelUp, hasher, name);
+  return await loadTree(treeBuilder(SparseTree), levelUp, hasher, name);
 };
 
 const TEST_TREE_DEPTH = 3;

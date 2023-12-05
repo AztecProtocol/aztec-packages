@@ -4,7 +4,7 @@ import { Hasher } from '@aztec/types';
 import { default as levelup } from 'levelup';
 
 import { loadTree } from '../load_tree.js';
-import { builder, newTree } from '../new_tree.js';
+import { newTree, treeBuilder } from '../new_tree.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
 import { createMemDown } from '../test/utils/create_mem_down.js';
@@ -13,11 +13,11 @@ import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
-  return await newTree(builder(StandardTree), levelUp, hasher, name, depth);
+  return await newTree(treeBuilder(StandardTree), levelUp, hasher, name, depth);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await loadTree(builder(StandardTree), levelUp, hasher, name);
+  return await loadTree(treeBuilder(StandardTree), levelUp, hasher, name);
 };
 
 treeTestSuite('StandardTree', createDb, createFromName);

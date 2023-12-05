@@ -68,6 +68,22 @@ export const buildDbKeyForLeafIndex = (name: string, key: bigint) => {
 };
 
 /**
+ * Pre-compute empty witness.
+ * @param treeHeight - Height of tree for sibling path.
+ * @returns An empty witness.
+ */
+function getEmptyLowLeafWitness<N extends number>(
+  treeHeight: N,
+  leafPreimageFactory: PreimageFactory,
+): LowLeafWitnessData<N> {
+  return {
+    leafPreimage: leafPreimageFactory.empty(),
+    index: 0n,
+    siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
+  };
+}
+
+/**
  * Standard implementation of an indexed tree.
  */
 export class StandardIndexedTree extends TreeBase implements IndexedTree {
@@ -153,11 +169,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
     if (includeUncommitted) {
       const cachedLowLeafIndex = this.getCachedLowLeafIndex(newKey);
-      const cachedLowLeafPreimage =
-        cachedLowLeafIndex !== undefined ? this.getCachedPreimage(cachedLowLeafIndex) : undefined;
-      if (cachedLowLeafIndex && (!lowLeafIndex || cachedLowLeafPreimage!.getKey() > lowLeafPreimage!.getKey())) {
-        lowLeafIndex = cachedLowLeafIndex;
-        lowLeafPreimage = cachedLowLeafPreimage;
+      if (cachedLowLeafIndex !== undefined) {
+        const cachedLowLeafPreimage = this.getCachedPreimage(cachedLowLeafIndex)!;
+        if (!lowLeafPreimage || cachedLowLeafPreimage.getKey() > lowLeafPreimage.getKey()) {
+          lowLeafIndex = cachedLowLeafIndex;
+          lowLeafPreimage = cachedLowLeafPreimage;
+        }
       }
     }
 
@@ -340,19 +357,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     }
   }
 
-  /**
-   * Pre-compute empty witness.
-   * @param treeHeight - Height of tree for sibling path.
-   * @returns An empty witness.
-   */
-  getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N> {
-    return {
-      leafPreimage: this.leafPreimageFactory.empty(),
-      index: 0n,
-      siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
-    };
-  }
-
   /* eslint-disable jsdoc/require-description-complete-sentence */
   /* The following doc block messes up with complete-sentence, so we just disable it */
 
@@ -469,7 +473,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    const emptyLowLeafWitness = this.getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
+    const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
     const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.empty());

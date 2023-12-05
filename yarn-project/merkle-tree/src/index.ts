@@ -7,7 +7,7 @@ export * from './sparse_tree/sparse_tree.js';
 export { StandardIndexedTree } from './standard_indexed_tree/standard_indexed_tree.js';
 export * from './standard_tree/standard_tree.js';
 export { INITIAL_LEAF } from './tree_base.js';
-export { newTree, builder as treeBuilder } from './new_tree.js';
+export { newTree, treeBuilder } from './new_tree.js';
 export { loadTree } from './load_tree.js';
 export * from './snapshots/snapshot_builder.js';
 export * from './snapshots/full_snapshot.js';

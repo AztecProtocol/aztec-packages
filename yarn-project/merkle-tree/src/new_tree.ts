@@ -9,7 +9,7 @@ import { TreeBase } from './tree_base.js';
  * @param clazz - The class to be instantiated.
  * @returns A builder function.
  */
-export function builder<T>(
+export function treeBuilder<T>(
   clazz: new (db: LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root?: Buffer) => T,
 ) {
   return (db: LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root?: Buffer) => {
