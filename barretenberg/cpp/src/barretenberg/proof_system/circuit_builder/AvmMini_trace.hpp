@@ -44,6 +44,9 @@ class AvmMiniTraceBuilder {
     // Addition over finite field with direct memory access.
     void add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
 
+    // Subtraction over finite field with direct memory access.
+    void sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
+
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M[dstOffset:dstOffset+len] = calldata[cdOffset:cdOffset+len]
     void callDataCopy(uint32_t cdOffset, uint32_t len, uint32_t dstOffset, std::vector<FF> const& callDataMem);

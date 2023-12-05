@@ -200,6 +200,48 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
 };
 
 /**
+ * @brief Subtraction over finite field with direct memory access.
+ *
+ * @param aOffset An index in ffMemory pointing to the first operand of the subtraction.
+ * @param bOffset An index in ffMemory pointing to the second operand of the subtraction.
+ * @param dstOffset An index in ffMemory pointing to the output of the subtraction.
+ */
+void AvmMiniTraceBuilder::sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset)
+{
+    // a - b = c
+    FF a = ffMemory.at(aOffset);
+    FF b = ffMemory.at(bOffset);
+    FF c = a - b;
+    ffMemory.at(dstOffset) = c;
+
+    auto clk = mainTrace.size();
+
+    // Loading into Ia
+    loadAInMemTrace(aOffset, a);
+
+    // Loading into Ib
+    loadBInMemTrace(bOffset, b);
+
+    // Storing from Ic
+    storeCInMemTrace(dstOffset, c);
+
+    mainTrace.push_back(Row{
+        .avmMini_clk = clk,
+        .avmMini_sel_op_sub = FF(1),
+        .avmMini_ia = a,
+        .avmMini_ib = b,
+        .avmMini_ic = c,
+        .avmMini_mem_op_a = FF(1),
+        .avmMini_mem_op_b = FF(1),
+        .avmMini_mem_op_c = FF(1),
+        .avmMini_rwc = FF(1),
+        .avmMini_mem_idx_a = FF(aOffset),
+        .avmMini_mem_idx_b = FF(bOffset),
+        .avmMini_mem_idx_c = FF(dstOffset),
+    });
+};
+
+/**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
  *        M[dstOffset:dstOffset+len] = calldata[cdOffset:cdOffset+len]
  *        Simplified version with exclusively memory store operations and
