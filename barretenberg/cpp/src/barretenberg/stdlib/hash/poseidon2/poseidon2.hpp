@@ -29,6 +29,6 @@ template <typename Builder> class poseidon2_hash {
     static field_t hash_buffer(const stdlib::byte_array<Builder>& input);
 };
 
-EXTERN_STDLIB_TYPE(poseidon2_hash);
+EXTERN_STDLIB_GOBLIN_ULTRA_TYPE(poseidon2_hash);
 
 } // namespace proof_system::plonk::stdlib

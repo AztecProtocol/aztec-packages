@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/proof_system/arithmetization/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace proof_system::plonk::stdlib {
@@ -37,6 +38,8 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
     static constexpr RoundConstantsContainer round_constants = Params::round_constants;
     static State permutation(const State& input)
     {
+        Builder* ctx = input[0].get_context();
+        assert(ctx != nullptr);
         // deep copy
         State current_state(input);
         NativeState current_native_state;
@@ -49,24 +52,60 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
 
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
+            poseidon2_external_gate_<FF> in{ current_state[0].witness_index,
+                                             current_state[1].witness_index,
+                                             current_state[2].witness_index,
+                                             current_state[3].witness_index,
+                                             i };
+            ctx->create_poseidon2_external_gate(in);
             // calculate the new witnesses
             NativePermutation::add_round_constants(current_native_state, round_constants[i]);
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
+            for (size_t j = 0; j < t; ++j) {
+                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+            }
         }
 
         const size_t p_end = rounds_f_beginning + rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
+            poseidon2_internal_gate_<FF> in{ current_state[0].witness_index,
+                                             current_state[1].witness_index,
+                                             current_state[2].witness_index,
+                                             current_state[3].witness_index,
+                                             i };
+            ctx->create_poseidon2_internal_gate(in);
             current_native_state[0] += round_constants[i][0];
             NativePermutation::apply_single_sbox(current_native_state[0]);
             NativePermutation::matrix_multiplication_internal(current_native_state);
+            for (size_t j = 0; j < t; ++j) {
+                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+            }
         }
 
         for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
+            poseidon2_external_gate_<FF> in{ current_state[0].witness_index,
+                                             current_state[1].witness_index,
+                                             current_state[2].witness_index,
+                                             current_state[3].witness_index,
+                                             i };
+            ctx->create_poseidon2_external_gate(in);
+            // calculate the new witnesses
             NativePermutation::add_round_constants(current_native_state, round_constants[i]);
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
+            for (size_t j = 0; j < t; ++j) {
+                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+            }
         }
+        // need to add an extra row here to ensure that things check out
+        poseidon2_end_gate_<FF> in{
+            current_state[0].witness_index,
+            current_state[1].witness_index,
+            current_state[2].witness_index,
+            current_state[3].witness_index,
+        };
+        ctx->create_poseidon2_end_gate(in);
         return current_state;
     }
 };

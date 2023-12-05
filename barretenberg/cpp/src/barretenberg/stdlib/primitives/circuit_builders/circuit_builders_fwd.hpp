@@ -59,6 +59,9 @@ using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::field
     extern template class stdlib_type<proof_system::UltraCircuitBuilder>;                                              \
     extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
 
+#define EXTERN_STDLIB_GOBLIN_ULTRA_TYPE(stdlib_type)                                                                   \
+    extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder>;
+
 #define EXTERN_STDLIB_ULTRA_TYPE_VA(stdlib_type, ...)                                                                  \
     extern template class stdlib_type<proof_system::UltraCircuitBuilder, __VA_ARGS__>;                                 \
     extern template class stdlib_type<proof_system::GoblinUltraCircuitBuilder, __VA_ARGS__>;
