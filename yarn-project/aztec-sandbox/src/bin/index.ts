@@ -146,8 +146,6 @@ async function main() {
     installSignalHandlers(node.stop);
 
     const port = process.env.AZTEC_NODE_PORT || 8080; // Use standard 8080 when no PXE is running
-    // Start Node JSON-RPC server
-    // startHttpRpcServer(node, createAztecNodeRpcServer, port);
     const nodeRpcServer = createAztecNodeRpcServer(node);
     const app = nodeRpcServer.getApp();
 
@@ -156,6 +154,7 @@ async function main() {
     app.use(statusRouter.routes());
     app.use(statusRouter.allowedMethods());
 
+    // Start Node JSON-RPC server
     const httpServer = http.createServer(app.callback());
     httpServer.listen(port);
 
