@@ -33,40 +33,41 @@ function parseStruct(content) {
         });
 
         let descriptionLines = [];
-        let commentIndex = match.index;
-        while (commentIndex >= 0) {
-            const precedingText = content.substring(0, commentIndex);
-            const commentMatch = precedingText.match(/\/\/\s*(.*)\n\s*$/);
+        let lineIndex = content.lastIndexOf('\n', match.index - 1);
+        while (lineIndex >= 0) {
+            let endOfPreviousLine = content.lastIndexOf('\n', lineIndex - 1);
+            let line = content.substring(endOfPreviousLine + 1, lineIndex).trim();
 
-            if (commentMatch && !commentMatch[1].includes('docs:start:') && !commentMatch[1].includes('docs:end:')) {
-                descriptionLines.unshift(commentMatch[1]);
-                commentIndex = commentMatch.index - 1;
-            } else {
+            if (line.startsWith('//') && !line.includes('docs:start:') && !line.includes('docs:end:')) {
+                descriptionLines.unshift(line.replace('//', '').trim());
+            } else if (!line.startsWith('//')) {
                 break;
             }
+
+            lineIndex = endOfPreviousLine;
         }
 
         let description = descriptionLines.join(' ');
-
         structs.push({ structName, fields, description });
     }
 
     return structs;
 }
 
+
+
 const structs = parseStruct(content);
 
 function parseFunctions(content) {
     const functions = [];
-    const implRegex = /impl\s+(\w+)\s*{/g; // Capture the name of the struct associated with the impl block
+    const implRegex = /impl\s+(\w+)\s*{/g;
     let implMatch;
 
     while ((implMatch = implRegex.exec(content)) !== null) {
-        const structName = implMatch[1]; // Capture the struct name
+        const structName = implMatch[1];
         let braceDepth = 1;
         let currentPos = implMatch.index + implMatch[0].length;
 
-        // Find the end of the impl block by matching braces
         while (braceDepth > 0 && currentPos < content.length) {
             if (content[currentPos] === '{') {
                 braceDepth++;
@@ -76,18 +77,15 @@ function parseFunctions(content) {
             currentPos++;
         }
 
-        // Extract the content of the impl block
         const implBlockContent = content.substring(implMatch.index, currentPos);
         const methodRegex = /(?:pub )?fn (\w+)\((.*?)\)(?: -> (.*?))? {/g;
         let methodMatch;
 
-        // Process each method in the impl block
         while ((methodMatch = methodRegex.exec(implBlockContent)) !== null) {
             const name = methodMatch[1];
             const params = parseParameters(methodMatch[2]);
             const returnType = (methodMatch[3] || '').replace(/[\[:;,.]$/g, '').replace(/^[\[:;,.]/g, '');
 
-            // Extracting the comment as description
             let description = '';
             let commentIndex = methodMatch.index;
             while (commentIndex >= 0) {
@@ -98,25 +96,21 @@ function parseFunctions(content) {
                 } else {
                     break;
                 }
-        }
+            }
 
             functions.push({ structName, name, params, returnType, description, isMethod: true });
-
         }
     }
 
-    // Process standalone functions
     const standaloneFunctionRegex = /(?:pub\s+)?fn\s+(\w+)(?:<.*?>)?\s*\((.*?)\)\s*(?:->\s*(.*?))?\s*{/g;
     let standaloneFunctionMatch;
     while ((standaloneFunctionMatch = standaloneFunctionRegex.exec(content)) !== null) {
         const name = standaloneFunctionMatch[1];
 
-        // Check if this function has already been processed as a method
-        if (!functions.some(f => f.name === name)) {
+        if (!functions.some(f => f.name === name && f.isMethod)) {
             const params = parseParameters(standaloneFunctionMatch[2]);
             const returnType = (standaloneFunctionMatch[3] || '').replace(/[\[:;,.]$/g, '').replace(/^[\[:;,.]/g, '');
 
-            // Extract the comment as description TODO multiline comments
             let description = '';
             const descriptionMatch = content.substring(0, standaloneFunctionMatch.index).match(/\/\/\s*(.*)\n\s*$/);
             if (descriptionMatch) {
