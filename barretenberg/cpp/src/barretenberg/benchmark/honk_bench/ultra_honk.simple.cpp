@@ -64,6 +64,5 @@ int main()
     mutex.lock();
     std::cout << "Total time: " << duration.count() << " ms" << std::endl;
     mutex.unlock();
-
     return 0;
 }
