@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.16.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.3...barretenberg.js-v0.16.4) (2023-12-05)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.2...barretenberg.js-v0.16.3) (2023-12-05)
+
+
+### Miscellaneous
+
+* CLI's startup time was pushing almost 2s. This gets the basic 'help' down to 0.16. ([#3529](https://github.com/AztecProtocol/aztec-packages/issues/3529)) ([396df13](https://github.com/AztecProtocol/aztec-packages/commit/396df13389cdcb8b8b0d5a92a4b3d1c2bffcb7a7))
+
+## [0.16.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.1...barretenberg.js-v0.16.2) (2023-12-05)
+
+
+### Miscellaneous
+
+* Optimise bb.js package size and sandox/cli dockerfiles to unbloat final containers. ([#3462](https://github.com/AztecProtocol/aztec-packages/issues/3462)) ([cb3db5d](https://github.com/AztecProtocol/aztec-packages/commit/cb3db5d0f1f8912f1a97258e5043eb0f69eff551))
+* Pin node version in docker base images and bump nvmrc ([#3537](https://github.com/AztecProtocol/aztec-packages/issues/3537)) ([5d3895a](https://github.com/AztecProtocol/aztec-packages/commit/5d3895aefb7812eb6bd8017baf43533959ad69b4))
+
 ## [0.16.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.0...barretenberg.js-v0.16.1) (2023-11-28)
 
 
