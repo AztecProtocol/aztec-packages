@@ -1212,8 +1212,7 @@ workflows:
 
       # Production releases.
       - release-dockerhub: *defaults_deploy
-      - release-npm: *defaults_deploy
-
+      - release-npm: *defaults_yarn_project
       # Production deployment.
       - deploy-mainnet-fork:
           requires:
