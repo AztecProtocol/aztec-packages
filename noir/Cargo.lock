@@ -6,10 +6,10 @@ version = 3
 name = "acir"
 version = "0.34.0"
 dependencies = [
- "acir_field",
+ "acir_field 0.34.0",
  "base64",
  "bincode",
- "brillig",
+ "brillig 0.34.0",
  "flate2",
  "fxhash",
  "serde",
@@ -18,6 +18,20 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "thiserror",
+]
+
+[[package]]
+name = "acir"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir_field 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "base64",
+ "bincode",
+ "brillig 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "flate2",
+ "serde",
  "thiserror",
 ]
 
@@ -36,13 +50,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "acir_field"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "ark-bn254",
+ "ark-ff",
+ "cfg-if",
+ "hex",
+ "num-bigint",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "acvm"
 version = "0.34.0"
 dependencies = [
- "acir",
- "acvm_blackbox_solver",
- "acvm_stdlib",
- "brillig_vm",
+ "acir 0.34.0",
+ "acvm_blackbox_solver 0.34.0",
+ "acvm_stdlib 0.34.0",
+ "brillig_vm 0.34.0",
  "indexmap 1.9.3",
  "num-bigint",
  "num-traits",
@@ -53,10 +81,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "acvm"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "acvm_blackbox_solver 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "acvm_stdlib 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "brillig_vm 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "indexmap 1.9.3",
+ "num-bigint",
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "acvm_blackbox_solver"
 version = "0.34.0"
 dependencies = [
- "acir",
+ "acir 0.34.0",
+ "blake2",
+ "k256",
+ "p256",
+ "sha2",
+ "sha3",
+ "thiserror",
+]
+
+[[package]]
+name = "acvm_blackbox_solver"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "blake2",
  "k256",
  "p256",
@@ -69,7 +126,7 @@ dependencies = [
 name = "acvm_js"
 version = "0.34.0"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "barretenberg_blackbox_solver",
  "build-data",
  "cfg-if",
@@ -90,7 +147,15 @@ dependencies = [
 name = "acvm_stdlib"
 version = "0.34.0"
 dependencies = [
- "acir",
+ "acir 0.34.0",
+]
+
+[[package]]
+name = "acvm_stdlib"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
 ]
 
 [[package]]
@@ -418,7 +483,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 name = "backend-interface"
 version = "0.11.0"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "bb_abstraction_leaks",
  "build-target",
  "const_format",
@@ -452,8 +517,8 @@ dependencies = [
 name = "barretenberg_blackbox_solver"
 version = "0.34.0"
 dependencies = [
- "acir",
- "acvm_blackbox_solver",
+ "acir 0.34.0",
+ "acvm_blackbox_solver 0.34.0",
  "ark-ec",
  "ark-ff",
  "flate2",
@@ -492,7 +557,7 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 name = "bb_abstraction_leaks"
 version = "0.11.0"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "build-target",
  "const_format",
 ]
@@ -599,7 +664,16 @@ dependencies = [
 name = "brillig"
 version = "0.34.0"
 dependencies = [
- "acir_field",
+ "acir_field 0.34.0",
+ "serde",
+]
+
+[[package]]
+name = "brillig"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir_field 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "serde",
 ]
 
@@ -607,8 +681,19 @@ dependencies = [
 name = "brillig_vm"
 version = "0.34.0"
 dependencies = [
- "acir",
- "acvm_blackbox_solver",
+ "acir 0.34.0",
+ "acvm_blackbox_solver 0.34.0",
+ "num-bigint",
+ "num-traits",
+]
+
+[[package]]
+name = "brillig_vm"
+version = "0.34.0"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "acvm_blackbox_solver 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "num-bigint",
  "num-traits",
 ]
@@ -2525,7 +2610,7 @@ checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 name = "nargo"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "codespan-reporting",
  "fm",
  "iter-extended",
@@ -2545,7 +2630,7 @@ dependencies = [
 name = "nargo_cli"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "assert_cmd",
  "assert_fs",
  "async-lsp",
@@ -2672,7 +2757,7 @@ dependencies = [
 name = "noir_debugger"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "codespan-reporting",
  "easy-repl",
  "nargo",
@@ -2686,7 +2771,7 @@ dependencies = [
 name = "noir_lsp"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "async-lsp",
  "cfg-if",
  "codespan-lsp",
@@ -2711,16 +2796,35 @@ dependencies = [
 name = "noir_rs"
 version = "0.19.3"
 dependencies = [
- "acir",
- "acvm",
+ "acir 0.34.0",
+ "acvm 0.34.0",
  "base64",
  "bincode",
  "flate2",
  "hex",
- "noir_rs_acir_composer",
- "noir_rs_acvm_runtime",
- "noir_rs_barretenberg",
- "noir_rs_blackbox_solver",
+ "noir_rs_acir_composer 0.19.3",
+ "noir_rs_acvm_runtime 0.19.3",
+ "noir_rs_barretenberg 0.19.3",
+ "noir_rs_blackbox_solver 0.19.3",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "noir_rs"
+version = "0.19.3"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "acvm 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "base64",
+ "bincode",
+ "flate2",
+ "hex",
+ "noir_rs_acir_composer 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_acvm_runtime 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_barretenberg 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_blackbox_solver 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "serde",
  "thiserror",
 ]
@@ -2729,7 +2833,16 @@ dependencies = [
 name = "noir_rs_acir_composer"
 version = "0.19.3"
 dependencies = [
- "noir_rs_barretenberg",
+ "noir_rs_barretenberg 0.19.3",
+ "thiserror",
+]
+
+[[package]]
+name = "noir_rs_acir_composer"
+version = "0.19.3"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "noir_rs_barretenberg 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "thiserror",
 ]
 
@@ -2737,10 +2850,22 @@ dependencies = [
 name = "noir_rs_acvm_runtime"
 version = "0.19.3"
 dependencies = [
- "acvm",
- "noir_rs_acir_composer",
- "noir_rs_barretenberg",
- "noir_rs_blackbox_solver",
+ "acvm 0.34.0",
+ "noir_rs_acir_composer 0.19.3",
+ "noir_rs_barretenberg 0.19.3",
+ "noir_rs_blackbox_solver 0.19.3",
+ "thiserror",
+]
+
+[[package]]
+name = "noir_rs_acvm_runtime"
+version = "0.19.3"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acvm 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_acir_composer 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_barretenberg 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "noir_rs_blackbox_solver 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "thiserror",
 ]
 
@@ -2758,13 +2883,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "noir_rs_barretenberg"
+version = "0.19.3"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "base64",
+ "bindgen",
+ "cc",
+ "cmake",
+ "flate2",
+ "reqwest",
+ "thiserror",
+]
+
+[[package]]
 name = "noir_rs_blackbox_solver"
 version = "0.19.3"
 dependencies = [
- "acir",
- "acvm",
+ "acir 0.34.0",
+ "acvm 0.34.0",
  "hex",
- "noir_rs_barretenberg",
+ "noir_rs_barretenberg 0.19.3",
+ "num-bigint",
+ "thiserror",
+]
+
+[[package]]
+name = "noir_rs_blackbox_solver"
+version = "0.19.3"
+source = "git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1#886038bf89ee50784854ab6274faca67fe9758fd"
+dependencies = [
+ "acir 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "acvm 0.34.0 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
+ "hex",
+ "noir_rs_barretenberg 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "num-bigint",
  "thiserror",
 ]
@@ -2773,7 +2925,7 @@ dependencies = [
 name = "noir_wasm"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "build-data",
  "cfg-if",
  "console_error_panic_hook",
@@ -2795,7 +2947,7 @@ dependencies = [
 name = "noirc_abi"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "iter-extended",
  "noirc_frontend",
  "num-bigint",
@@ -2812,7 +2964,7 @@ dependencies = [
 name = "noirc_abi_wasm"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "build-data",
  "console_error_panic_hook",
  "getrandom",
@@ -2829,7 +2981,7 @@ dependencies = [
 name = "noirc_driver"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "build-data",
  "clap",
  "fm",
@@ -2846,7 +2998,7 @@ dependencies = [
 name = "noirc_errors"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "chumsky",
  "codespan",
  "codespan-reporting",
@@ -2859,7 +3011,7 @@ dependencies = [
 name = "noirc_evaluator"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "fxhash",
  "im",
  "iter-extended",
@@ -2874,7 +3026,7 @@ dependencies = [
 name = "noirc_frontend"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "arena",
  "chumsky",
  "fm",
@@ -2896,7 +3048,7 @@ dependencies = [
 name = "noirc_printable_type"
 version = "0.19.3"
 dependencies = [
- "acvm",
+ "acvm 0.34.0",
  "iter-extended",
  "regex",
  "serde",
@@ -3198,7 +3350,7 @@ dependencies = [
 name = "poly_check_circuit"
 version = "0.19.3"
 dependencies = [
- "noir_rs",
+ "noir_rs 0.19.3 (git+https://github.com/visoftsolutions/aztec-packages.git?branch=0.16.1)",
  "serde",
  "serde_json",
 ]
