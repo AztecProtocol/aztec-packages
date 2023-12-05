@@ -14,7 +14,7 @@ COPY . .
 # Build bb binary and targets needed for benchmarking. 
 # Everything else is built as part linux-clang-assert.
 # Benchmark targets want to run without asserts, so get built alongside bb.
-RUN cmake --preset default && cmake --build --preset default --target bb --target ultra_honk_simple_bench --target grumpkin_srs_gen
+RUN cmake --preset default && cmake --build --preset default --target ultra_plonk_rounds_bench --target ultra_honk_rounds_bench --target bb --target ultra_honk_bench --target ultra_plonk_bench --target grumpkin_srs_gen --target widget_bench --target relations_bench
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp

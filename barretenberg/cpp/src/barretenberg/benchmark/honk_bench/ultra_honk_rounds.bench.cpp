@@ -62,9 +62,9 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 
 // Fast rounds take a long time to benchmark because of how we compute statistical significance.
 // Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
-ROUND_BENCHMARK(PREAMBLE)->Iterations(1);
-ROUND_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
-ROUND_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
+// ROUND_BENCHMARK(PREAMBLE)->Iterations(1);
+// ROUND_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
+// ROUND_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
-ROUND_BENCHMARK(RELATION_CHECK);
-ROUND_BENCHMARK(ZEROMORPH);
+// ROUND_BENCHMARK(RELATION_CHECK);
+// ROUND_BENCHMARK(ZEROMORPH);

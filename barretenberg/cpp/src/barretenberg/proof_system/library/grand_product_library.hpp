@@ -57,12 +57,13 @@ void compute_grand_product(const size_t circuit_size,
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    Polynomial numerator = Polynomial{ circuit_size };
-    Polynomial denominator = Polynomial{ circuit_size };
+    Polynomial numerator{ circuit_size };
+    Polynomial denominator{ circuit_size };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
+    std::cout << "THREADS " << num_threads << std::endl;
     const size_t block_size = circuit_size / num_threads;
     auto full_polynomial_pointers = full_polynomials.get_all();
     parallel_for(num_threads, [&](size_t thread_idx) {

@@ -8,4 +8,4 @@ cd ../../srs_db
 ./download_ignition.sh 1
 cd ../build
 ./bin/grumpkin_srs_gen 1048576
-time ./bin/ultra_honk_simple_bench
+time ./bin/ultra_honk_rounds_bench

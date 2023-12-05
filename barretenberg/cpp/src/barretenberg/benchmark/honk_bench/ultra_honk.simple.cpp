@@ -1,3 +1,4 @@
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <iostream>
 #include <mutex>
@@ -21,7 +22,7 @@ static numeric::uint256_t heavyMathOperation(size_t n)
 static std::mutex mutex;
 
 // Thread function
-static void threadFunction(int threadId, size_t n)
+static void threadFunction(size_t threadId, size_t n)
 {
     // Start timing
     auto start = std::chrono::high_resolution_clock::now();
@@ -45,17 +46,18 @@ int main()
     auto start = std::chrono::high_resolution_clock::now();
     const int numThreads = 128;
 
-    // Creating threads
-    std::vector<std::thread> threads;
-    threads.reserve(numThreads);
-    for (int i = 0; i < numThreads; ++i) {
-        threads.emplace_back(threadFunction, i, 100000 + i);
-    }
+    // // Creating threads
+    // std::vector<std::thread> threads;
+    // threads.reserve(numThreads);
+    // for (int i = 0; i < numThreads; ++i) {
+    //     threads.emplace_back(threadFunction, i, 100000 + i);
+    // }
+    parallel_for(numThreads, [&](size_t i) { threadFunction(i, 100000 + i); });
 
-    // Joining threads
-    for (auto& th : threads) {
-        th.join();
-    }
+    // // Joining threads
+    // for (auto& th : threads) {
+    //     th.join();
+    // }
     // End timing
     auto end = std::chrono::high_resolution_clock::now();
     // Calculate elapsed time
