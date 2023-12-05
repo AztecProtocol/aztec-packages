@@ -8,7 +8,6 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_READ_REQUESTS_PER_CALL,
-    MAX_PENDING_READ_REQUESTS_PER_CALL,
     NUM_FIELDS_PER_SHA256,
     RETURN_VALUES_LENGTH,
 };
@@ -86,7 +85,6 @@ impl PrivateContext {
             return_values: BoundedVec::new(0),
 
             read_requests: BoundedVec::new(0),
-            pending_read_requests: BoundedVec::new(0),
 
             new_commitments: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
@@ -272,7 +270,6 @@ impl PrivateContext {
                 args_hash: fields[12],
                 return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 13),
                 read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 17),
-                pending_read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 49),
                 new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 81),
                 new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 97),
                 nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 113),

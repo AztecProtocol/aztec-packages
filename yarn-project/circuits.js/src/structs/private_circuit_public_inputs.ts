@@ -6,7 +6,6 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_PENDING_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -16,7 +15,7 @@ import {
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { HistoricBlockData, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -40,19 +39,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_CALL>,
-    /**
-     * Pending read requests created by the corresponding function call.
-     */
-    public pendingReadRequests: Tuple<Fr, typeof MAX_PENDING_READ_REQUESTS_PER_CALL>,
+    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
      * New commitments created by the corresponding function call.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * The commitments those were nullified by the above newNullifiers.
      */
@@ -124,10 +119,9 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
@@ -145,14 +139,16 @@ export class PrivateCircuitPublicInputs {
 
   isEmpty() {
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
+    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
+      isArrayEmpty(arr, item => item.isEmpty());
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
-      isFrArrayEmpty(this.readRequests) &&
-      isFrArrayEmpty(this.pendingReadRequests) &&
-      isFrArrayEmpty(this.newCommitments) &&
-      isFrArrayEmpty(this.newNullifiers) &&
+      isSideEffectArrayEmpty(this.readRequests) &&
+      isSideEffectArrayEmpty(this.newCommitments) &&
+      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.nullifiedCommitments) &&
       isFrArrayEmpty(this.privateCallStackHashes) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
@@ -179,7 +175,6 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnValues,
       fields.readRequests,
-      fields.pendingReadRequests,
       fields.newCommitments,
       fields.newNullifiers,
       fields.nullifiedCommitments,

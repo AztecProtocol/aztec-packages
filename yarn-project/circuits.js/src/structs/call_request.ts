@@ -114,7 +114,13 @@ export class CallRequest {
   }
 
   isEmpty() {
-    return this.hash.isZero() && this.callerContractAddress.isZero() && this.callerContext.isEmpty();
+    return (
+      this.hash.isZero() &&
+      this.callerContractAddress.isZero() &&
+      this.callerContext.isEmpty() &&
+      this.startSideEffectCounter.isZero() &&
+      this.endSideEffectCounter.isZero()
+    );
   }
 
   /**
@@ -129,9 +135,9 @@ export class CallRequest {
     return (
       callRequest.hash.equals(this.hash) &&
       callRequest.callerContractAddress.equals(this.callerContractAddress) &&
-      callRequest.callerContext.equals(this.callerContext) && 
+      callRequest.callerContext.equals(this.callerContext) &&
       callRequest.startSideEffectCounter.equals(this.startSideEffectCounter) &&
-      callRequest.endSideEffectCounter.equals(this.endSideEffectCounter) &&
+      callRequest.endSideEffectCounter.equals(this.endSideEffectCounter)
     );
   }
 }

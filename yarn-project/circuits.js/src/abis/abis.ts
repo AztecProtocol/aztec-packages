@@ -520,7 +520,6 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     input.argsHash.toBuffer(),
     ...input.returnValues.map(fr => fr.toBuffer()),
     ...input.readRequests.map(fr => fr.toBuffer()),
-    ...input.pendingReadRequests.map(fr => fr.toBuffer()),
     ...input.newCommitments.map(fr => fr.toBuffer()),
     ...input.newNullifiers.map(fr => fr.toBuffer()),
     ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
@@ -543,7 +542,9 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     input.version.toBuffer(),
   ];
   if (toHash.length != PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
-    throw new Error('Incorrect number of input fields when hashing PrivateCircuitPublicInputs');
+    throw new Error(
+      `Incorrect number of input fields when hashing PrivateCircuitPublicInputs ${toHash.length}, ${PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH}`,
+    );
   }
   return pedersenHash(toHash, GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS);
 }
