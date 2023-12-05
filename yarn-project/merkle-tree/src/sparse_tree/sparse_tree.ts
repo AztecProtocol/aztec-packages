@@ -42,7 +42,7 @@ export class SparseTree extends TreeBase implements UpdateOnlyTree {
     return this.#snapshotBuilder.getSnapshot(block);
   }
 
-  public findLeafIndex(value: Buffer, includeUncommitted: boolean): Promise<bigint | undefined> {
+  public findLeafIndex(_value: Buffer, _includeUncommitted: boolean): Promise<bigint | undefined> {
     throw new Error('Finding leaf index is not supported for sparse trees');
   }
 }

@@ -56,6 +56,9 @@ interface FromDbOptions {
 
 const LAST_GLOBAL_VARS_HASH = 'lastGlobalVarsHash';
 
+/**
+ * The nullifier tree is an indexed tree.
+ */
 class NullifierTree extends StandardIndexedTree {
   constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
     super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
