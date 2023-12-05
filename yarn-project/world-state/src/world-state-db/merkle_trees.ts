@@ -9,6 +9,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NullifierLeaf,
   NullifierLeafPreimage,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
@@ -583,19 +584,17 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync the indexed trees
+      // TODO: I think this is incorrect, when syncing all the nullifiers in a block we are inserting txCount subtrees, not just one
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
 
-      // Sync the public data tree
-      for (const dataWrite of l2Block.newPublicDataWrites) {
-        if (dataWrite.isEmpty()) {
-          continue;
-        }
-        const { newValue, leafIndex } = dataWrite;
-        await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
-      }
+      // TODO: Same as above
+      await (this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree).batchInsert(
+        l2Block.newPublicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+        PUBLIC_DATA_SUBTREE_HEIGHT,
+      );
 
       // Sync and add the block to the blocks tree
       const globalVariablesHash = computeGlobalsHash(l2Block.globalVariables);
