@@ -9,6 +9,12 @@ import { createMemDown } from '../test/utils/create_mem_down.js';
 import { IndexedTreeSnapshotBuilder } from './indexed_tree_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
+class NullifierTree extends StandardIndexedTreeWithAppend {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
 describe('IndexedTreeSnapshotBuilder', () => {
   let db: LevelUp;
   let tree: StandardIndexedTreeWithAppend;
@@ -16,15 +22,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   beforeEach(async () => {
     db = levelup(createMemDown());
-    tree = await newTree(
-      (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
-        return new StandardIndexedTreeWithAppend(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
-      },
-      db,
-      new Pedersen(),
-      'test',
-      4,
-    );
+    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', 4);
     snapshotBuilder = new IndexedTreeSnapshotBuilder(db, tree, NullifierLeafPreimage);
   });
 

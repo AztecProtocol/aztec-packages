@@ -27,7 +27,7 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { AppendOnlyTree, Pedersen, StandardTree, newTree, treeBuilder } from '@aztec/merkle-tree';
+import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -126,7 +126,7 @@ describe('Private Execution test suite', () => {
     if (!trees[name]) {
       const db = levelup(createMemDown());
       const pedersen = new Pedersen();
-      trees[name] = await newTree(treeBuilder(StandardTree), db, pedersen, name, treeHeights[name]);
+      trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
     await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
 

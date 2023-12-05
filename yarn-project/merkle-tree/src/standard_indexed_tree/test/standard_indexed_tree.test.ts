@@ -9,37 +9,18 @@ import { treeTestSuite } from '../../test/test_suite.js';
 import { createMemDown } from '../../test/utils/create_mem_down.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
+class NullifierTree extends StandardIndexedTreeWithAppend {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {
-  return await newTree(
-    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint) => {
-      return new StandardIndexedTreeWithAppend(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf);
-    },
-    levelUp,
-    hasher,
-    name,
-    depth,
-    prefilledSize,
-  );
+  return await newTree(NullifierTree, levelUp, hasher, name, depth, prefilledSize);
 };
 
 const createFromName = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string) => {
-  return await loadTree(
-    (db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint, root: Buffer) => {
-      return new StandardIndexedTreeWithAppend(
-        db,
-        hasher,
-        name,
-        depth,
-        size,
-        NullifierLeafPreimage,
-        NullifierLeaf,
-        root,
-      );
-    },
-    levelUp,
-    hasher,
-    name,
-  );
+  return await loadTree(NullifierTree, levelUp, hasher, name);
 };
 
 const createIndexedTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
