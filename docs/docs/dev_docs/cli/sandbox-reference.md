@@ -16,7 +16,7 @@ You can run the Sandbox using Docker.
 
 This will attempt to run the Sandbox on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
 
-If you don't have the CLI installed via a node package manager, this command will also install or update the CLI. If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
+This command also installs or updates the CLI. If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
 
 To install a specific version of the sandbox, you can set the environment variable `SANDBOX_VERSION`
 
