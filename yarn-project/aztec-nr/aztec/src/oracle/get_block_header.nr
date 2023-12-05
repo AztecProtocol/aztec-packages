@@ -3,7 +3,7 @@ use crate::{
     abi::BlockHeader,
     constants_gen::{
         BLOCK_HEADER_LENGTH,
-        BLOCKS_TREE_HEIGHT,
+        ARCHIVE_HEIGHT,
     },
     context::PrivateContext,
     oracle::get_membership_witness::{
@@ -35,7 +35,7 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     // This is not currently available in private context. See issue #3564
     let path_block_number = block_number;
     
-    let witness: MembershipWitness<BLOCKS_TREE_HEIGHT, BLOCKS_TREE_HEIGHT + 1> = get_membership_witness(path_block_number, archive_id, block_hash);
+    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(path_block_number, archive_id, block_hash);
 
     // 4) Check that the block is in the archive (i.e. the witness is valid)
     assert(context.block_header.archive_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed");

@@ -1,6 +1,6 @@
 import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
@@ -392,10 +392,10 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public async getBlocksTreeSiblingPath(
+  public async getArchiveSiblingPath(
     blockNumber: number | 'latest',
     leafIndex: bigint,
-  ): Promise<SiblingPath<typeof BLOCKS_TREE_HEIGHT>> {
+  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
     const committedDb = await this.#getWorldState(blockNumber);
     return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
   }
@@ -506,15 +506,14 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState('latest');
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
-    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, archive, publicDataTree] =
-      await Promise.all([
-        getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
-        getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-        getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-        getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-        getTreeRoot(MerkleTreeId.ARCHIVE),
-        getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      ]);
+    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, archive, publicDataTree] = await Promise.all([
+      getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
+      getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+      getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+      getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      getTreeRoot(MerkleTreeId.ARCHIVE),
+      getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+    ]);
 
     return {
       [MerkleTreeId.CONTRACT_TREE]: contractTree,
