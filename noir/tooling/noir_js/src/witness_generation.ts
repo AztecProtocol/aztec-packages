@@ -14,7 +14,6 @@ export async function generateWitness(
   foreignCallHandler: ForeignCallHandler = defaultForeignCallHandler,
 ): Promise<WitnessMap> {
   // Throws on ABI encoding error
-  console.log(inputs);
   const witnessMap = abiEncode(compiledProgram.abi, inputs);
 
   // Execute the circuit to generate the rest of the witnesses and serialize

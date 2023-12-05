@@ -86,7 +86,7 @@ export class L2Block {
      */
     public startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The tree snapshot of the blocks tree at the start of the rollup.
+     * The tree snapshot of the archive at the start of the rollup.
      */
     public startArchiveSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
     /**
@@ -110,7 +110,7 @@ export class L2Block {
      */
     public endL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The tree snapshot of the blocks tree at the end of the rollup.
+     * The tree snapshot of the archive at the end of the rollup.
      */
     public endArchiveSnapshot: AppendOnlyTreeSnapshot,
     /**
@@ -277,7 +277,7 @@ export class L2Block {
        */
       startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
-       * The tree snapshot of the blocks tree at the start of the rollup.
+       * The tree snapshot of the archive at the start of the rollup.
        */
       startArchiveSnapshot: AppendOnlyTreeSnapshot;
       /**
@@ -301,7 +301,7 @@ export class L2Block {
        */
       endL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
-       * The tree snapshot of the blocks tree at the end of the rollup.
+       * The tree snapshot of the archive at the end of the rollup.
        */
       endArchiveSnapshot: AppendOnlyTreeSnapshot;
       /**
