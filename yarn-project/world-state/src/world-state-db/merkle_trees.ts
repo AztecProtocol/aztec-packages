@@ -118,7 +118,7 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );
-    const publicDataTree: UpdateOnlyTree = await initializeTree(
+    const publicDataTree = await initializeTree(
       PublicDataTree,
       this.db,
       hasher,

@@ -445,7 +445,7 @@ fn insert_public_data_update_requests(
     sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
+    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]
 ) -> AppendOnlyTreeSnapshot {
     crate::indexed_tree::batch_insert(
         prev_snapshot,
@@ -454,12 +454,14 @@ fn insert_public_data_update_requests(
         sorted_public_data_writes_indexes,
         public_data_writes_subtree_sibling_path,
         low_public_data_writes_preimages,
-        low_public_data_writes_witnesses.map(|witness: PublicDataMembershipWitness| {
+        low_public_data_writes_witnesses.map(
+            |witness: PublicDataMembershipWitness| {
             MembershipWitness {
                 leaf_index: witness.leaf_index,
                 sibling_path: witness.sibling_path,
             }
-        }),
+        }
+        ),
         |a: PublicDataTreeLeaf, b: PublicDataTreeLeaf| a.eq(b), // PublicDataTreeLeaf equals
         |write: PublicDataTreeLeaf| write.is_empty(), // PublicDataTreeLeaf is_empty
         |preimage: PublicDataTreeLeafPreimage| preimage.hash(), // Hash preimage
@@ -507,7 +509,7 @@ fn insert_public_data_update_requests(
             }
         },
         [0; PUBLIC_DATA_SUBTREE_HEIGHT],
-        [0; PUBLIC_DATA_TREE_HEIGHT],
+        [0; PUBLIC_DATA_TREE_HEIGHT]
     )
 }
 
@@ -535,13 +537,17 @@ fn insert_public_data_update_requests(
 global NUM_CONTRACT_LEAVES = 2;
 #[test]
 fn consistent_num_contract_leaves() {
-    assert(NUM_CONTRACT_LEAVES == MAX_NEW_CONTRACTS_PER_TX * 2, "num contract leaves incorrect, see calculate_contract_leaves to see how it is computed");
+    assert(
+        NUM_CONTRACT_LEAVES == MAX_NEW_CONTRACTS_PER_TX * 2, "num contract leaves incorrect, see calculate_contract_leaves to see how it is computed"
+    );
 }
 
 global NOTE_HASH_SUBTREE_WIDTH = 128;
 #[test]
 fn consistent_not_hash_subtree_width() {
-    assert_eq(NOTE_HASH_SUBTREE_WIDTH, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT) as u32, "note hash subtree width is incorrect");
+    assert_eq(
+        NOTE_HASH_SUBTREE_WIDTH, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT) as u32, "note hash subtree width is incorrect"
+    );
 }
 
 global CALLDATA_HASH_INPUT_SIZE = 338;
@@ -561,14 +567,18 @@ fn consistent_calldata_hash_input_size() {
 global CALL_DATA_HASH_LOG_FIELDS = 8;
 #[test]
 fn consistent_call_data_hash_log_fields() {
-    assert_eq(CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2, "calldata hash log fields is incorrect");
+    assert_eq(
+        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2, "calldata hash log fields is incorrect"
+    );
 }
 
 global CALL_DATA_HASH_FULL_FIELDS = 330;
 #[test]
 fn consistent_call_data_hash_full_fields() {
-    assert_eq(CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect");
+    assert_eq(
+        CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect"
+    );
 }
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
@@ -652,7 +662,6 @@ fn test_u256_greater_than() {
 //         value: Field,
 //     }
 
-
 //     struct SortedNullifierTuple {
 //         value: Field,
 //         original_index: u32,
@@ -722,7 +731,6 @@ fn test_u256_greater_than() {
 //                 value: 0,
 //                 original_index: 0,
 //             }; MAX_NEW_NULLIFIERS_PER_TEST];
-
 
 //             for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
 //                 sorted_new_nullifier_tuples[i] = SortedNullifierTuple {
@@ -855,7 +863,7 @@ fn test_u256_greater_than() {
 //                 sorted_new_nullifiers,
 //                 sorted_new_nullifiers_indexes
 //             ) = self.update_nullifier_tree_with_new_leaves(&mut start_nullifier_tree, &mut kernel_data, start_nullifier_tree_snapshot);
-            
+
 //             let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
 
 //             BaseRollupInputs {

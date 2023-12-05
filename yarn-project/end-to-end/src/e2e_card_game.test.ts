@@ -177,7 +177,7 @@ describe('e2e_card_game', () => {
       });
     }, 30_000);
 
-    it.only('should start games', async () => {
+    it('should start games', async () => {
       const secondPlayerCollection = unwrapOptions(
         (await contract.methods
           .view_collection_cards(secondPlayer, 0)

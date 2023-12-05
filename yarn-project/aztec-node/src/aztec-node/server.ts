@@ -12,7 +12,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computeGlobalsHash, computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { computeGlobalsHash, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -494,7 +494,8 @@ export class AztecNodeService implements AztecNode {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined> {
     const committedDb = await this.#getWorldState('latest');
-    const leafSlot = computePublicDataTreeIndex(contract, slot);
+    const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
+    // TODO change this to findLeafIndex, should be faster
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
       return undefined;

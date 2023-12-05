@@ -30,7 +30,7 @@ import {
   computeGlobalsHash,
   computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
-  computePublicDataTreeIndex,
+  computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretMessageHash,
   computeTxHash,
@@ -168,7 +168,7 @@ describe('abis', () => {
   it('computes public data tree index', () => {
     const contractAddress = makeAztecAddress();
     const value = new Fr(3n);
-    const res = computePublicDataTreeIndex(contractAddress, value);
+    const res = computePublicDataTreeLeafSlot(contractAddress, value);
     expect(res).toMatchSnapshot();
   });
 

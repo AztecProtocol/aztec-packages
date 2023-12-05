@@ -1,5 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
 import { MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -24,7 +24,7 @@ describe('world_state_public_db', () => {
       Array(DB_VALUES_SIZE)
         .fill(0)
         .map((_, idx: number) => {
-          const index = computePublicDataTreeIndex(addresses[idx], slots[idx]);
+          const index = computePublicDataTreeLeafSlot(addresses[idx], slots[idx]);
           return [index.toBigInt(), dbValues[idx].toBuffer()];
         }),
     );

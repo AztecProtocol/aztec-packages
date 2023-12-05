@@ -523,11 +523,11 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
       if (isUpdate) {
         const lowLeaf = lowLeafPreimage.asLeaf();
-        newLeaf.updateTo(newLeaf);
+        lowLeaf.updateTo(newLeaf);
 
         const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
           lowLeaf,
-          lowLeafPreimage.getKey(),
+          lowLeafPreimage.getNextKey(),
           lowLeafPreimage.getNextIndex(),
         );
 

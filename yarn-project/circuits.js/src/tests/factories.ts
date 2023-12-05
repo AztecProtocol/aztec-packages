@@ -3,6 +3,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
+// TODO
+
+/* eslint-disable */
 import {
   ARGS_LENGTH,
   AggregationObject,
