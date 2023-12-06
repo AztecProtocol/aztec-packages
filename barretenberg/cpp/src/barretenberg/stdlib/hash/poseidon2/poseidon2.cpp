@@ -5,7 +5,7 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 using namespace proof_system;
 
-template <typename C> field_t<C> poseidon2_hash<C>::hash(const std::vector<field_t>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_t>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
@@ -20,7 +20,7 @@ template <typename C> field_t<C> poseidon2_hash<C>::hash(const std::vector<field
  * Hash a byte_array.
  *
  */
-template <typename C> field_t<C> poseidon2_hash<C>::hash_buffer(const stdlib::byte_array<C>& input)
+template <typename C> field_t<C> poseidon2<C>::hash_buffer(const stdlib::byte_array<C>& input)
 {
     const size_t num_bytes = input.size();
     const size_t bytes_per_element = 31;
@@ -51,6 +51,6 @@ template <typename C> field_t<C> poseidon2_hash<C>::hash_buffer(const stdlib::by
     }
     return hashed;
 }
-template class poseidon2_hash<proof_system::GoblinUltraCircuitBuilder>;
+template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib

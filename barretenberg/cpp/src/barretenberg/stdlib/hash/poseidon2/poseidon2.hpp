@@ -11,11 +11,11 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 /**
  * @brief stdlib class that evaluates in-circuit poseidon2 hashes, consistent with behavior in
- * crypto::poseidon2_hash
+ * crypto::poseidon2
  *
  * @tparam Builder
  */
-template <typename Builder> class poseidon2_hash {
+template <typename Builder> class poseidon2 {
 
   private:
     using field_t = stdlib::field_t<Builder>;
@@ -29,6 +29,6 @@ template <typename Builder> class poseidon2_hash {
     static field_t hash_buffer(const stdlib::byte_array<Builder>& input);
 };
 
-extern template class poseidon2_hash<proof_system::GoblinUltraCircuitBuilder>;
+extern template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib
