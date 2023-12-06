@@ -66,8 +66,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
-    goblin.prove();
-    bool verified = goblin.verify();
+    Goblin::Proof proof = goblin.prove();
+    bool verified = goblin.verify(proof);
     EXPECT_TRUE(verified);
 }
 

@@ -10,16 +10,16 @@
 namespace barretenberg {
 
 class Goblin {
-  public:
-    using Proof = proof_system::plonk::proof;
+    using HonkProof = proof_system::plonk::proof;
 
+  public:
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
      */
     struct AccumulationOutput {
         using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
-        Proof proof;
+        HonkProof proof;
         std::shared_ptr<NativeVerificationKey> verification_key;
     };
 
@@ -27,11 +27,9 @@ class Goblin {
      * @brief A full goblin proof
      *
      */
-    struct GoblinProof {
-        Proof ultra_proof;
-        Proof merge_proof;
-        Proof eccvm_proof;
-        Proof translator_proof;
+    struct Proof {
+        HonkProof eccvm_proof;
+        HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
     };
 
@@ -53,7 +51,6 @@ class Goblin {
     bool verified{ true };
 
   private:
-    GoblinProof proof;
     // WORKTODOD: ew
     std::unique_ptr<ECCVMBuilder> eccvm_builder;
     std::unique_ptr<TranslatorBuilder> translator_builder;
@@ -75,17 +72,18 @@ class Goblin {
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
-        proof.ultra_proof = prover.construct_proof();
+        auto ultra_proof = prover.construct_proof();
 
         // Construct and verify op queue merge proof
         auto merge_prover = composer.create_merge_prover(op_queue);
-        proof.merge_proof = merge_prover.construct_proof();
+        [[maybe_unused]] auto merge_proof = merge_prover.construct_proof();
 
-        return { proof.ultra_proof, instance->verification_key };
+        return { ultra_proof, instance->verification_key };
     };
 
-    void prove()
+    Proof prove()
     {
+        Proof proof;
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
         eccvm_composer = std::make_unique<ECCVMComposer>();
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
@@ -97,9 +95,10 @@ class Goblin {
         translator_composer = std::make_unique<TranslatorComposer>();
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         proof.translator_proof = translator_prover.construct_proof();
+        return proof;
     };
 
-    bool verify()
+    bool verify(const Proof& proof)
     {
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);

@@ -42,7 +42,6 @@ class GoblinRecursionTests : public ::testing::Test {
     using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
-    using GoblinProof = barretenberg::Goblin::GoblinProof;
 
     /**
      * @brief Construct a mock kernel circuit
@@ -83,7 +82,6 @@ TEST_F(GoblinRecursionTests, Pseudo)
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-
         // Construct a circuit with logic resembling that of the "kernel circuit"
         info("\nKernel circuit ", circuit_idx);
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
@@ -93,8 +91,8 @@ TEST_F(GoblinRecursionTests, Pseudo)
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
-    goblin.prove();
-    bool verified = goblin.verify();
+    Goblin::Proof proof = goblin.prove();
+    bool verified = goblin.verify(proof);
     EXPECT_TRUE(verified);
 }
 
