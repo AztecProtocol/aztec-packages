@@ -16,6 +16,13 @@ TEMP_CONTAINER=$(docker create $IMAGE_COMMIT_URI)
 echo "Extracting $EXTRACT_FROM from $REPOSITORY to $EXTRACT_TO..."
 mkdir -p $EXTRACT_TO
 ls -al $EXTRACT_TO
+
+# Check if existing files may clash with the result of docker cp
+if [ -d "$EXTRACT_TO" ] && [ -f "$EXTRACT_TO/$REPOSITORY" ]; then
+  echo "Conflict detected: File '$REPOSITORY' exists where a directory is expected. Handling conflict..."
+  rm "$EXTRACT_TO/$REPOSITORY"
+fi
+
 docker cp $TEMP_CONTAINER:$EXTRACT_FROM $EXTRACT_TO
 docker rm -v $TEMP_CONTAINER >/dev/null
 
