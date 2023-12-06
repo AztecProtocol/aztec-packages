@@ -117,56 +117,56 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
 
         // create the 6 gates for the initial matrix multiplication
         // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
-        field_t<Builder> tmp1{ ctx, state[0].get_value() + state[1].get_value() + 2 * state[3].get_value() };
+        field_t<Builder> tmp1{ ctx, state[0].get_value() + state[1].get_value() + FF(2) * state[3].get_value() };
         add_quad_<FF> in{
             .a = state[0].witness_index,
             .b = state[1].witness_index,
             .c = state[3].witness_index,
-            .d = tmp1,
+            .d = tmp1.witness_index,
             .a_scaling = 1,
             .b_scaling = 1,
             .c_scaling = 2,
             .d_scaling = -1,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         // gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
-        field_t<Builder> tmp2{ ctx, 2 * state[1].get_value() + state[2].get_value() + state[3].get_value() };
+        field_t<Builder> tmp2{ ctx, FF(2) * state[1].get_value() + state[2].get_value() + state[3].get_value() };
         in = {
             .a = state[1].witness_index,
             .b = state[2].witness_index,
             .c = state[3].witness_index,
-            .d = tmp2,
+            .d = tmp2.witness_index,
             .a_scaling = 2,
             .b_scaling = 1,
             .c_scaling = 1,
             .d_scaling = -1,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         // gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
-        field_t<Builder> v2{ ctx, 4 * state[0].get_value() + 4 * state[1].get_value() + tmp2.get_value() };
+        field_t<Builder> v2{ ctx, FF(4) * state[0].get_value() + FF(4) * state[1].get_value() + tmp2.get_value() };
         in = {
             .a = state[0].witness_index,
             .b = state[1].witness_index,
-            .c = tmp2,
-            .d = v2,
+            .c = tmp2.witness_index,
+            .d = v2.witness_index,
             .a_scaling = 4,
             .b_scaling = 4,
             .c_scaling = 1,
             .d_scaling = -1,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         // gate 4: Compute v1 = v2 + tmp1
         field_t<Builder> v1{ ctx, v2.get_value() + tmp1.get_value() };
         in = {
-            .a = v2,
-            .b = tmp1,
-            .c = v1,
+            .a = v2.witness_index,
+            .b = tmp1.witness_index,
+            .c = v1.witness_index,
             .d = ctx->zero_idx,
             .a_scaling = 1,
             .b_scaling = 1,
@@ -174,29 +174,29 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             .d_scaling = 0,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         // gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
-        field_t<Builder> v4{ ctx, tmp1.get_value() + 4 * state[2].get_value() + 4 * state[3].get_value() };
+        field_t<Builder> v4{ ctx, tmp1.get_value() + FF(4) * state[2].get_value() + FF(4) * state[3].get_value() };
         in = {
-            .a = tmp1,
+            .a = tmp1.witness_index,
             .b = state[2].witness_index,
             .c = state[3].witness_index,
-            .d = v4,
+            .d = v4.witness_index,
             .a_scaling = 1,
             .b_scaling = 4,
             .c_scaling = 4,
             .d_scaling = -1,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         // gate 6: Compute v3 = v4 + tmp2
         field_t<Builder> v3{ ctx, v4.get_value() + tmp2.get_value() };
         in = {
-            .a = v4,
-            .b = tmp2,
-            .c = v3,
+            .a = v4.witness_index,
+            .b = tmp2.witness_index,
+            .c = v3.witness_index,
             .d = ctx->zero_idx,
             .a_scaling = 1,
             .b_scaling = 1,
@@ -204,7 +204,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             .d_scaling = 0,
             .const_scaling = 0,
         };
-        ctx->create_add_quad_gate(in);
+        ctx->create_big_add_gate(in);
 
         state[0] = v1;
         state[1] = v2;
