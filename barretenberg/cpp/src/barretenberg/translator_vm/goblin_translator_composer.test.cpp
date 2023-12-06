@@ -48,13 +48,13 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinTranslatorComposerTests, Basic)
 {
-    using point = barretenberg::g1::affine_element;
-    using scalar = barretenberg::fr;
+    using G1 = barretenberg::g1::affine_element;
+    using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
 
-    auto P1 = point::random_element();
-    auto P2 = point::random_element();
-    auto z = scalar::random_element();
+    auto P1 = G1::random_element();
+    auto P2 = G1::random_element();
+    auto z = Fr::random_element();
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
@@ -64,25 +64,21 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     }
 
     auto prover_transcript = std::make_shared<Transcript>();
-    prover_transcript->send_to_verifier("init", Fq(1377));
+    prover_transcript->send_to_verifier("init", Fq::random_element());
+    prover_transcript->export_proof();
     Fq translation_batching_challenge = prover_transcript->get_challenge("Translation:batching_challenge");
     Fq translation_evaluation_challenge = Fq::random_element();
     auto circuit_builder = CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
-    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     auto composer = GoblinTranslatorComposer();
     auto prover = composer.create_prover(circuit_builder, prover_transcript);
-    info("PROVER TRANSCRIPT: ");
     auto proof = prover.construct_proof();
-    // prover_transcript->print();
 
-    auto verifier_transcript = std::make_shared<Transcript>();
-    verifier_transcript->send_to_verifier("init", Fq(1377));
+    auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    verifier_transcript->template receive_from_prover<Fq>("init");
     auto verifier = composer.create_verifier(circuit_builder, verifier_transcript);
-    info("VERIFIER TRANSCRIPT: ");
     bool verified = verifier.verify_proof(proof);
-    // verifier_transcript->print();
     EXPECT_TRUE(verified);
 }
 

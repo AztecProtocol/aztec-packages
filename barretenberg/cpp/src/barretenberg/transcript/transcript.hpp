@@ -4,7 +4,15 @@
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 
+// #define LOG_CHALLENGES
+// #define LOG_INTERACTIONS
+
 namespace proof_system::honk {
+
+template <typename T, typename... U>
+concept Loggable = (std::same_as<T, barretenberg::fr> || std::same_as<T, grumpkin::fr> ||
+                    std::same_as<T, barretenberg::g1::affine_element> ||
+                    std::same_as<T, grumpkin::g1::affine_element> || std::same_as<T, uint32_t>);
 
 // class TranscriptManifest;
 class TranscriptManifest {
@@ -268,11 +276,11 @@ class BaseTranscript {
         auto element_bytes = to_buffer(element);
         proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
 
-        if constexpr (std::same_as<T, barretenberg::fr> || std::same_as<T, barretenberg::g1::affine_element> ||
-                      std::same_as<T, uint32_t>) {
-            info("sent:   ", label, ": ", element);
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("sent:     ", label, ": ", element);
         }
-
+#endif
         BaseTranscript::consume_prover_element_bytes(label, element_bytes);
     }
 
@@ -294,10 +302,11 @@ class BaseTranscript {
 
         T element = from_buffer<T>(element_bytes);
 
-        if constexpr (std::same_as<T, barretenberg::fr> || std::same_as<T, barretenberg::g1::affine_element> ||
-                      std::same_as<T, uint32_t>) {
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
             info("received: ", label, ": ", element);
         }
+#endif
         return element;
     }
 
@@ -332,7 +341,9 @@ class BaseTranscript {
     uint256_t get_challenge(const std::string& label)
     {
         uint256_t result = get_challenges(label)[0];
-        info(label, ": ", result);
+#if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
+        info("challenge: ", label, ": ", result);
+#endif
         return result;
     }
 
