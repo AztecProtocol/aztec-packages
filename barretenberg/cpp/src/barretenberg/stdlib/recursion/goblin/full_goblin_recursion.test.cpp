@@ -1,12 +1,12 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
-#include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/recursion/goblin/goblin.hpp"
+#include "barretenberg/stdlib/recursion/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
+#include "barretenberg/translator_vm/translation_evaluations.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
@@ -40,7 +40,8 @@ class GoblinRecursionTests : public ::testing::Test {
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
     using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using KernelInput = Goblin::AccumulationOutput;
+    using Goblin = proof_system::plonk::stdlib::recursion::goblin::Goblin;
+    using KernelInput = proof_system::plonk::stdlib::recursion::goblin::Goblin::AccumulationOutput;
 
     /**
      * @brief Construct a mock kernel circuit
@@ -72,7 +73,7 @@ class GoblinRecursionTests : public ::testing::Test {
  */
 TEST_F(GoblinRecursionTests, Pseudo)
 {
-    barretenberg::Goblin goblin;
+    Goblin goblin;
 
     // Construct an initial circuit; its proof will be recursively verified by the first kernel
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };

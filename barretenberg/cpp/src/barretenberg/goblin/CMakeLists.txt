@@ -1,1 +1,0 @@
-barretenberg_module(goblin ultra_honk eccvm translator_vm transcript)

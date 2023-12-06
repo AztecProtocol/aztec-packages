@@ -8,7 +8,7 @@
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-namespace barretenberg {
+namespace proof_system::plonk::stdlib::recursion::goblin {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
@@ -68,7 +68,6 @@ class Goblin {
         // issue (https://github.com/AztecProtocol/barretenberg/issues/723)
         if (verify_merge) {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-            // Recursively verify the merge proof constructed on the previous call to accumulate
             [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
         }
 
@@ -115,4 +114,4 @@ class Goblin {
         return eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
-} // namespace barretenberg
+} // namespace proof_system::plonk::stdlib::recursion::goblin
