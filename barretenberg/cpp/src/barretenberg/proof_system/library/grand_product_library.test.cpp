@@ -218,7 +218,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         auto lookup_index_selector = get_random_polynomial(circuit_size);
         auto lookup_selector = get_random_polynomial(circuit_size);
 
-        proving_key->sorted_accum = std::move(sorted_batched);
+        proving_key->sorted_accum = sorted_batched.share();
         populate_span(proving_key->q_r, column_1_step_size);
         populate_span(proving_key->q_m, column_2_step_size);
         populate_span(proving_key->q_c, column_3_step_size);
