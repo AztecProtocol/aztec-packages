@@ -1,4 +1,4 @@
-use crate::constants_gen::{
+use dep::protocol_types::constants::{
     EMPTY_NULLIFIED_COMMITMENT,
     MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -295,7 +295,7 @@ impl PrivateContext {
                     nullifier_tree_root : fields[146],
                     contract_tree_root : fields[147],
                     l1_to_l2_messages_tree_root : fields[148],
-                    blocks_tree_root : fields[149],
+                    archive_root : fields[149],
                     public_data_tree_root: fields[150],
                     global_variables_hash: fields[151],
                 },
