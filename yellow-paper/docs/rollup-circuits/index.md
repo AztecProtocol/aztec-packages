@@ -1,13 +1,55 @@
 ---
 title: Rollup Circuits
+sidebar_position: 99
 ---
+
+import DocCardList from '@theme/DocCardList';
+
+<DocCardList />
+
 :::warning
 This part is not yet complete, only just started. I'm considering whether to create some of the types that @benesjan and I discussed to improve clarity on the snapshots etc a bit more. Should make it a bit easier to follow what is going on.
 :::
 
-# Rollup Circuits
-
 ## Overview
+
+To generate our rollups, we are using a tree structure for the proofs. Rolling the proofs up in this order allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
+
+The tree structure is outlined below, but the general idea is that we have a tree where all the leafs are transactions (kernel proofs) and through $\log n$ steps we can then "compress" it down to just a single proof. Note that we have three (3) different types of "merger" circuits, namely:
+- The base rollup
+  - Merges two kernel proofs
+- The merge rollup
+  - Merges two base rollup proofs OR two merge rollup proofs
+- The root rollup
+  - Merges two merge rollup proofs 
+
+In the diagram the size of the tree is limited for show, but a larger tree will have more layers of merge rollups proofs.
+
+```mermaid
+graph TD
+    R[Root] --> M0[Merge 0]
+    R --> M1[Merge 1]
+    
+    M0 --> B0[Base 0]
+    M0 --> B1[Base 1]
+    M1 --> B2[Base 2]
+    M1 --> B3[Base 3]
+
+    B0 --> K0[Kernel 0]
+    B0 --> K1[Kernel 1]
+    B1 --> K2[Kernel 2]
+    B1 --> K3[Kernel 3]
+    B2 --> K4[Kernel 4]
+    B2 --> K5[Kernel 5]
+    B3 --> K6[Kernel 6]
+    B3 --> K7[Kernel 7]
+```
+
+In the coming sections we will look at the flow, and then go into the checks that each of the rollups perform. 
+
+### Types
+
+
 
 ## Base Rollup
 
@@ -136,7 +178,7 @@ It is unclear how we do this at the current moment.
 ## Merge Rollup
 
 ## Root Rollup
-
+The root rollup output (public inputs) will be the values that make their way onto the validating light node, see **REFERENCE** for more. 
 
 ### Updating trees Algorithm gives 
 - Given a list of leaves to add, create a Merkle tree of them

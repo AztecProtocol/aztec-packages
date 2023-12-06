@@ -1,5 +1,6 @@
 ---
 title: Cross-chain communication
+sidebar_position: 100
 ---
 
 This section describes what our L1 contracts do, what they are responsible for and how they interact with the circuits. 
