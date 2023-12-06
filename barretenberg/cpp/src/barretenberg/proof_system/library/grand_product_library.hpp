@@ -70,10 +70,11 @@ void compute_grand_product(const size_t circuit_size,
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            typename Flavor::AllValues evaluations;
-            auto evaluations_pointer = evaluations.get_all();
-            for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
-                evaluations_pointer[k] = full_polynomial_pointers[k].size() > i ? full_polynomial_pointers[k][i] : 0;
+            typename Flavor::AllValues evaluations{};
+            size_t k = 0;
+            for (auto& eval : evaluations.get_all()) {
+                eval = full_polynomial_pointers[k].size() > i ? full_polynomial_pointers[k][i] : 0;
+                k++;
             }
             numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
