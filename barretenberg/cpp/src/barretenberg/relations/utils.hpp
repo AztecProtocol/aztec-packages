@@ -86,8 +86,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -127,18 +126,16 @@ template <typename Flavor> class RelationUtils {
     inline static void accumulate_relation_evaluations(PolynomialEvaluations evaluations,
                                                        RelationEvaluations& relation_evaluations,
                                                        const Parameters& relation_parameters,
-                                                       const FF& partial_evaluation_constant)
+                                                       const FF& partial_evaluation_result)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(std::get<relation_idx>(relation_evaluations),
-                             evaluations,
-                             relation_parameters,
-                             partial_evaluation_constant);
+        Relation::accumulate(
+            std::get<relation_idx>(relation_evaluations), evaluations, relation_parameters, partial_evaluation_result);
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_evaluations<Parameters, relation_idx + 1>(
-                evaluations, relation_evaluations, relation_parameters, partial_evaluation_constant);
+                evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
         }
     }
 

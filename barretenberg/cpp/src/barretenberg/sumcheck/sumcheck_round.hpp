@@ -103,16 +103,16 @@ template <typename Flavor> class SumcheckProverRound {
     barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> compute_univariate(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const proof_system::RelationParameters<FF>& relation_parameters,
-        const barretenberg::PowUnivariate<FF>& pow_univariate,
+        const barretenberg::PowPolynomial<FF>& pow_polynomial,
         const FF alpha)
     {
         // Precompute the vector of required powers of zeta
         // TODO(luke): Parallelize this
-        std::vector<FF> pow_challenges(round_size >> 1);
-        pow_challenges[0] = pow_univariate.partial_evaluation_constant;
-        for (size_t i = 1; i < (round_size >> 1); ++i) {
-            pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow_sqr;
-        }
+        // std::vector<FF> pow_challenges(round_size >> 1);
+        // pow_challenges[0] = Ahuit;
+        // for (size_t i = 1; i < (round_size >> 1); ++i) {
+        //     pow_challenges[i] = pow_challenges[i - 1] * pow_polyresult;
+        // }
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -144,7 +144,8 @@ template <typename Flavor> class SumcheckProverRound {
                 extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
 
                 // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                FF pow_challenge = pow_challenges[edge_idx >> 1];
+                // THIS IS PROBABLY WRONG
+                FF pow_challenge = pow_polynomial.scalars[edge_idx >> 1];
 
                 // Compute the i-th edge's univariate contribution,
                 // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
@@ -162,7 +163,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-            univariate_accumulators, alpha, pow_univariate);
+            univariate_accumulators, alpha, pow_polynomial);
     }
 
     /**
@@ -172,13 +173,13 @@ template <typename Flavor> class SumcheckProverRound {
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
                                                    const FF& challenge,
-                                                   const barretenberg::PowUnivariate<FF>& pow_univariate)
+                                                   const barretenberg::PowPolynomial<FF>& pow_polynomial)
     {
         auto running_challenge = FF(1);
         Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
-        extend_and_batch_univariates(univariate_accumulators, result, pow_univariate);
+        extend_and_batch_univariates(univariate_accumulators, result, pow_polynomial);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
         Utils::zero_univariates(univariate_accumulators);
@@ -191,16 +192,16 @@ template <typename Flavor> class SumcheckProverRound {
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
      * @param result A Univariate of length extended_size
-     * @param pow_univariate Power polynomial univariate
+     * @param pow_polynomial Power polynomial univariate
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
                                              ExtendedUnivariate& result,
-                                             const barretenberg::PowUnivariate<FF>& pow_univariate)
+                                             const barretenberg::PowPolynomial<FF>& pow_polynomial)
     {
         ExtendedUnivariate extended_random_polynomial;
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_polynomial = barretenberg::Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
+        auto random_polynomial = barretenberg::Univariate<FF, 2>({ 1, pow_polynomial.current_element });
         extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
@@ -323,13 +324,11 @@ template <typename Flavor> class SumcheckVerifierRound {
     // kill the pow_univariat
     FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
                                                   const proof_system::RelationParameters<FF>& relation_parameters,
-                                                  const barretenberg::PowUnivariate<FF>& pow_univariate,
+                                                  const barretenberg::PowPolynomial<FF>& pow_polynomial,
                                                   const FF alpha)
     {
-        Utils::template accumulate_relation_evaluations<>(purported_evaluations,
-                                                          relation_evaluations,
-                                                          relation_parameters,
-                                                          pow_univariate.partial_evaluation_constant);
+        Utils::template accumulate_relation_evaluations<>(
+            purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);
 
         auto running_challenge = FF(1);
         auto output = FF(0);

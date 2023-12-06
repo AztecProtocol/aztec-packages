@@ -74,9 +74,13 @@ template <typename Flavor> class SumcheckProver {
                                  const proof_system::RelationParameters<FF>& relation_parameters,
                                  FF alpha) // pass by value, not by reference
     {
-        FF zeta = transcript->get_challenge("Sumcheck:zeta");
+        auto betas = std::vector<FF>(multivariate_d, 0);
+        size_t beta_idx = 0;
+        for (auto& beta : betas) {
+            beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
+        }
 
-        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
+        barretenberg::PowPolynomial<FF> pow_univariate(betas);
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -110,7 +114,7 @@ template <typename Flavor> class SumcheckProver {
         ClaimedEvaluations multivariate_evaluations;
         for (auto [eval, poly] :
              zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
-            eval = (poly)[0];
+            eval = poly[0];
         }
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
 
@@ -203,9 +207,13 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bool verified(true);
 
-        FF zeta = transcript->get_challenge("Sumcheck:zeta");
+        auto betas = std::vector<FF>(multivariate_d, 0);
+        size_t beta_idx = 0;
+        for (auto& beta : betas) {
+            beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
+        }
 
-        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
+        barretenberg::PowPolynomial<FF> pow_univariate(betas);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 

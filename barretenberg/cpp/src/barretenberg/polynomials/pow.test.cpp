@@ -26,6 +26,6 @@ TEST(SumcheckPow, FullPowConsistency)
         zeta_power *= zeta_power;
     }
 
-    EXPECT_EQ(pow_univariate.partial_evaluation_constant, expected_eval);
+    EXPECT_EQ(pow_univariate.partial_evaluation_result, expected_eval);
 }
 } // namespace barretenberg::test_pow
