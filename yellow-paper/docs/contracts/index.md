@@ -87,7 +87,7 @@ We are using the `secretHash` to ensure that the user can spend the message priv
 ### Inbox
 When we say inbox, we are generally referring to the L1 contract that handles the L1 to L2 messages.
 
-The inbox is logically a [multi-set](https://en.wikipedia.org/wiki/Multiset) that builds messages based on the caller and user-provided content (multi-set meaning that repetitions are allowed). While anyone can insert messages into the inbox, only the recipient state transitioner can consume messages from it (as specified by the version). When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" (message tree).
+The inbox is logically a [multi-set](https://en.wikipedia.org/wiki/Multiset) that builds messages based on the caller and user-provided content (multi-set meaning that repetitions are allowed). While anyone can insert messages into the inbox, only the recipient state transitioner can consume messages from it (as specified by the version). When the state transitioner is consuming a message, it MUST insert it into the "L2 outbox" ([message tree](./../state/index.md)).
 
 When a message is inserted into the inbox, the inbox **MUST** fill in the following fields:
 - `L1Actor.actor`: The sender of the message (the caller), `msg.sender`

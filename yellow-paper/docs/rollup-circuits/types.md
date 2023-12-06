@@ -5,121 +5,6 @@ sidebar_position: 1
 
 # Types
 
-
-## State
-
-
-```mermaid
-classDiagram
-direction TB
-
-
-class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
-}
-
-class StateReference {
-    l1ToL2MessageTree: Snapshot
-}
-StateReference *-- PartialStateReference: partial
-
-class GlobalVariables {
-    block_number: Fr
-    timestamp: Fr
-    version: Fr
-    chain_id: Fr
-    coinbase: Address
-}
-
-class Header {
-    last_archive: Snapshot
-}
-Header *.. Header : parentHash
-Header *.. Body : contentHash
-Header *-- StateReference : state
-Header *-- GlobalVariables : globalVariables
-
-class Logs {
-    private: EncryptedLogs
-    public: UnencryptedLogs
-}
-
-
-class PublicDataWrite {
-    index: Fr
-    value: Fr
-}
-
-
-class ContractData {
-    leaf: Fr
-    address: Address
-    portal: EthAddress
-}
-
-class TxEffect {
-    noteHashes: List~Fr~
-    nullifiers: List~Fr~
-    l2ToL1Msgs: List~Fr~
-}
-TxEffect *-- "m" ContractData: contracts
-TxEffect *-- "m" PublicDataWrite: publicWrites
-TxEffect *-- Logs : logs
-
-class Body {
-    l1ToL2Messages: List~Fr~
-}
-Body *-- "m" TxEffect
-
-class Archive {
-  type: AppendOnlyMerkleTree
-}
-Archive *-- "m" Header : leaves
-
-
-class NoteHashTree {
-  type: AppendOnlyMerkleTree
-  leaves: List~Fr~
-}
-
-class ContractTree {
-  type: AppendOnlyMerkleTree
-}
-ContractTree *.. "m" ContractData : leaves 
-
-class PublicDataTree {
-  type: SparseMerkleTree
-}
-PublicDataTree *.. "m" PublicDataWrite : leaves 
-
-class L1ToL2MessageTree {
-  type: AppendOnlyMerkleTree
-  leaves: List~Fr~
-}
-
-class NullifierPreimage {
-  value: Fr
-  successor_index: Fr
-  successor_value: Fr
-}
-
-class NullifierTree {
-  type: SuccessorMerkleTree
-}
-NullifierTree *.. "m" NullifierPreimage : leaves
-
-class State { }
-State *-- NoteHashTree : noteHashTree
-State *-- NullifierTree : nullifierTree
-State *-- L1ToL2MessageTree : l1ToL2MessageTree
-State *-- PublicDataTree : publicDataTree
-State *-- ContractTree : contractTree
-State *-- Archive : archive
-```
-
 ## Overview
 Below is a partial diagram of all the types and how they are connected. This is particularly interested in the data that go into and comes out of the rollup circuits and don't care particularly about the data for kernels right now.
 
@@ -151,7 +36,6 @@ class GlobalVariables {
 class Header {
     last_archive: Snapshot
 }
-Header *.. Header : parentHash
 Header *.. Body : contentHash
 Header *-- StateReference : state
 Header *-- GlobalVariables : globalVariables
