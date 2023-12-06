@@ -2,10 +2,13 @@ mod utils;
 
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::protocol_types::constants::{
-        NOTE_HASH_TREE_HEIGHT,
-        PUBLIC_DATA_TREE_HEIGHT,
-        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    use dep::protocol_types::{
+        constants::{
+            NOTE_HASH_TREE_HEIGHT,
+            PUBLIC_DATA_TREE_HEIGHT,
+            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+        },
+        address::Address,
     };
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
@@ -287,7 +290,8 @@ contract InclusionProofs {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }

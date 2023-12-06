@@ -2,6 +2,8 @@ use dep::protocol_types::{
     abis::{
         block_header::BlockHeader,
         call_context::CallContext,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::hash_args,
