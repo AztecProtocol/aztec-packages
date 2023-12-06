@@ -7,7 +7,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "3.74.2"
+      version = "5.29.0"
     }
   }
 }
@@ -29,8 +29,13 @@ data "terraform_remote_state" "aztec2_iac" {
 # Create the website S3 bucket
 resource "aws_s3_bucket" "install_bucket" {
   bucket = "install.aztec.network"
-  website {
-    index_document = "aztec-up"
+}
+
+resource "aws_s3_bucket_website_configuration" "website_bucket" {
+  bucket = aws_s3_bucket.install_bucket.id
+
+  index_document {
+    suffix = "aztec-install"
   }
 }
 
@@ -76,8 +81,8 @@ resource "aws_route53_record" "subdomain_record" {
   type    = "A"
 
   alias {
-    name                   = "${aws_s3_bucket.install_bucket.website_endpoint}"
+    name                   = "${aws_s3_bucket_website_configuration.website_bucket.website_domain}"
     zone_id                = "${aws_s3_bucket.install_bucket.hosted_zone_id}"
-    evaluate_target_health = false
+    evaluate_target_health = true
   }
 }
