@@ -101,16 +101,23 @@ Fill in the computation of this. The short explanation is that it is SHA256 hash
     - Create `EndNoteTreeSnapshot` = {new root, NewNextAvailableLeafIndex}
   - New nullifiers:
     - Number of new notes in each kernel MUST be equal to `MAX_NEW_NULLIFIERS_PER_TX`
-    - Batch insert the new nullifiers and check for non inclusion for each:
-      - Sorted nullifiers MUST be a permutation of the new nullifiers
+    - Batch insert the new nullifiers and check for non inclusion for each. In general, to batch insert items:
+      - We first need to update their low nullifier to point to them,
+      - Then batch insert all of the values at once in the final step.
+      - Before updating a low nullifier, we must provide an insertion proof that the low nullifier currently exists in the tree.
+      - Updating this low nullifier will change the root of the tree. Therefore future low nullifier insertion proofs must be given against this new root.
+      - As a result, each low nullifier membership proof will be provided against an intermediate tree state, each with differing roots. 
+      - This become tricky when two items that are being batch inserted need to update the same low nullifier, or need to use a value that is part of the same batch insertion as their low nullifier.
+      - We can avoid this case by always updating the existing leaves in the tree with the nullifiers in high to low order i.e. circuit needs the sorted nullifiers. 
+      - Sorted nullifiers MUST be sorted and a permutation of the new nullifiers
       - For each of the sorted nullifier:
         - Skip if nullifier is 0
         - Otherwise, check for non inclusion. Assert that 
           - `lowNullifier` is not 0 and 
           - `lowNullifier.leafValue < nullifier` and 
           - `nullifer > lowNullifier.nextValue` or (`lowNullifier.nextIndex` is 0 and  `lowNullifier.nextValue` is 0)
-        - check that `lowLeaf` exist in the `StartNullifierTreeSnapshot``
-        - Update `lowLeaf` to point to the sorted nullifier (`lowLeaf.nextValue = sortedNullifier` and `lowLeaf.nextIndex` = sortedNullifierIndex)
+        - check that `lowNullifier` exist in the `StartNullifierTreeSnapshot` (i.e. do a inclusion proof for `lowNullifier`)
+        - Update `lowNullifier` to point to the sorted nullifier (`lowLeaf.nextValue = sortedNullifier` and `lowLeaf.nextIndex` = sortedNullifierIndex)
       - Create a subtree with all the new nullifier leaves
       - Insert subtree into the nullifier tree
       - Compute `NewNextAvailableLeafIndex` as `StartNullifierTreeSnapshot.NextAvailableLeafIndex + sorted_nullifiers.length`  
@@ -129,3 +136,14 @@ It is unclear how we do this at the current moment.
 ## Merge Rollup
 
 ## Root Rollup
+
+
+### Updating trees Algorithm gives 
+- Given a list of leaves to add, create a Merkle tree of them
+- This subtree must be  added to the `StartTreeSnapshot` to generate `EndTreeSnapshot`
+  - To add, use `NewSubtreeSiblingPath` provided in BaseRollupInputs for each of the trees (Contract Tree, Note Hash tree etc.)
+  - `NewSubtreeSiblingPath` MUST be of same length as the height of the subtree 
+  - `StartTreeSnapshot` at the index of insertion of subtree MUST be empty (since we insert a subtree, check that the value at the subtree index is equivalent of an empty subtree)
+  - compute new root against the sibling path
+  - Compute `NewNextAvailableLeafIndex` to be 2 ^ subtree depth + `StartContractTreeSnapshot.NextAvailableLeafIndex`
+  - Create `EndContractTreeSnapshot` = {new root, NewNextAvailableLeafIndex}
