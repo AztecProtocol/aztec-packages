@@ -1,6 +1,7 @@
 # Each source represents a separate benchmark suite 
 set(BENCHMARK_SOURCES
   standard_plonk.bench.cpp
+  goblin.bench.cpp
   ultra_honk.bench.cpp
   ultra_honk_rounds.bench.cpp
   ultra_plonk.bench.cpp
@@ -13,6 +14,7 @@ set(LINKED_LIBRARIES
   stdlib_sha256
   stdlib_keccak
   stdlib_merkle_tree
+  stdlib_recursion
   benchmark::benchmark
 )
 

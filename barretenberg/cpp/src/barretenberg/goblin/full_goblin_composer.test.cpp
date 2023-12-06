@@ -47,14 +47,14 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
 {
     barretenberg::Goblin goblin;
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };
-    GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
+    GoblinMockCircuits::construct_simple_initial_circuit(initial_circuit);
     KernelInput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
-        GoblinTestingUtils::construct_arithmetic_circuit(circuit_builder);
+        GoblinMockCircuits::construct_arithmetic_circuit(circuit_builder);
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
