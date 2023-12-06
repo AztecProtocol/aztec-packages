@@ -28,6 +28,8 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_sel_op_sub{};
     FF avmMini_sel_op_mul{};
     FF avmMini_sel_op_div{};
+    FF avmMini_op_err{};
+    FF avmMini_inv{};
     FF avmMini_ia{};
     FF avmMini_ib{};
     FF avmMini_ic{};
@@ -56,8 +58,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using AllPolynomials = Flavor::AllPolynomials;
 
-    static constexpr size_t num_fixed_columns = 28;
-    static constexpr size_t num_polys = 25;
+    static constexpr size_t num_fixed_columns = 30;
+    static constexpr size_t num_polys = 27;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -85,6 +87,8 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_sel_op_sub[i] = rows[i].avmMini_sel_op_sub;
             polys.avmMini_sel_op_mul[i] = rows[i].avmMini_sel_op_mul;
             polys.avmMini_sel_op_div[i] = rows[i].avmMini_sel_op_div;
+            polys.avmMini_op_err[i] = rows[i].avmMini_op_err;
+            polys.avmMini_inv[i] = rows[i].avmMini_inv;
             polys.avmMini_ia[i] = rows[i].avmMini_ia;
             polys.avmMini_ib[i] = rows[i].avmMini_ib;
             polys.avmMini_ic[i] = rows[i].avmMini_ic;
@@ -137,10 +141,10 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
-        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>("mem_trace")) {
+        if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini")) {
             return false;
         }
-        if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini")) {
+        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>("mem_trace")) {
             return false;
         }
 

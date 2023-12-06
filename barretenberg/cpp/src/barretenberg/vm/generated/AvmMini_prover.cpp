@@ -43,6 +43,8 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_sel_op_sub = key->avmMini_sel_op_sub;
     prover_polynomials.avmMini_sel_op_mul = key->avmMini_sel_op_mul;
     prover_polynomials.avmMini_sel_op_div = key->avmMini_sel_op_div;
+    prover_polynomials.avmMini_op_err = key->avmMini_op_err;
+    prover_polynomials.avmMini_inv = key->avmMini_inv;
     prover_polynomials.avmMini_ia = key->avmMini_ia;
     prover_polynomials.avmMini_ib = key->avmMini_ib;
     prover_polynomials.avmMini_ic = key->avmMini_ic;

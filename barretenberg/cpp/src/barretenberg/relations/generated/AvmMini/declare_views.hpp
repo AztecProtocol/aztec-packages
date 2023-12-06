@@ -14,6 +14,8 @@
     [[maybe_unused]] auto avmMini_sel_op_sub = View(new_term.avmMini_sel_op_sub);                                      \
     [[maybe_unused]] auto avmMini_sel_op_mul = View(new_term.avmMini_sel_op_mul);                                      \
     [[maybe_unused]] auto avmMini_sel_op_div = View(new_term.avmMini_sel_op_div);                                      \
+    [[maybe_unused]] auto avmMini_op_err = View(new_term.avmMini_op_err);                                              \
+    [[maybe_unused]] auto avmMini_inv = View(new_term.avmMini_inv);                                                    \
     [[maybe_unused]] auto avmMini_ia = View(new_term.avmMini_ia);                                                      \
     [[maybe_unused]] auto avmMini_ib = View(new_term.avmMini_ib);                                                      \
     [[maybe_unused]] auto avmMini_ic = View(new_term.avmMini_ic);                                                      \
