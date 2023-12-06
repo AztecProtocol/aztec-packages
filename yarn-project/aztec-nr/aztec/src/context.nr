@@ -5,7 +5,10 @@ use dep::protocol_types::{
         function_data::FunctionData,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
+        call_stack_item::PrivateCallStackItem,
+        call_stack_item::PublicCallStackItem,
     },
+    block::Block,
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_CALL,
@@ -20,7 +23,11 @@ use dep::protocol_types::{
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
-    contrakt::deployment_data::ContractDeploymentData,
+    contrakt::{
+        deployment_data::ContractDeploymentData,
+        storage_read::StorageRead,
+        storage_update_request::StorageUpdateRequest,
+    },
     hash::hash_args,
 };
 
@@ -34,8 +41,6 @@ use crate::abi::{
 
 // l1 to l2 messaging
 use crate::messaging::process_l1_to_l2_message;
-use crate::private_call_stack_item::PrivateCallStackItem;
-use crate::public_call_stack_item::PublicCallStackItem;
 
 use crate::types::{
     vec::BoundedVec,
@@ -70,8 +75,8 @@ struct PrivateContext {
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
@@ -99,8 +104,8 @@ impl PrivateContext {
 
             block_header: inputs.block_header,
 
-            private_call_stack: BoundedVec::new(0),
-            public_call_stack: BoundedVec::new(0),
+            private_call_stack_hashes: BoundedVec::new(0),
+            public_call_stack_hashes: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -153,8 +158,8 @@ impl PrivateContext {
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
             nullified_commitments: self.nullified_commitments.storage,
-            private_call_stack: self.private_call_stack.storage,
-            public_call_stack: self.public_call_stack.storage,
+            private_call_stack_hashes: self.private_call_stack_hashes.storage,
+            public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash: encrypted_logs_hash,
             unencrypted_logs_hash: unencrypted_logs_hash,
@@ -263,7 +268,7 @@ impl PrivateContext {
         let item = PrivateCallStackItem {
             contract_address: fields[0],
             function_data: FunctionData {
-                function_selector: fields[1],
+                selector: fields[1],
                 is_internal: fields[2] as bool,
                 is_private: fields[3] as bool,
                 is_constructor: fields[4] as bool,
@@ -286,8 +291,8 @@ impl PrivateContext {
                 new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 81),
                 new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 97),
                 nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 113),
-                private_call_stack: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 129),
-                public_call_stack: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 133),
+                private_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 129),
+                public_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 133),
                 new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 137),
                 encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 139),
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 141),
@@ -295,13 +300,16 @@ impl PrivateContext {
                 unencrypted_log_preimages_length: fields[144],
                 block_header: BlockHeader {
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[145],
-                    nullifier_tree_root : fields[146],
-                    contract_tree_root : fields[147],
-                    l1_to_l2_messages_tree_root : fields[148],
                     archive_root : fields[149],
-                    public_data_tree_root: fields[150],
-                    global_variables_hash: fields[151],
+                    block: Block {
+                        note_hash_tree_root : fields[145],
+                        nullifier_tree_root : fields[146],
+                        contract_tree_root : fields[147],
+                        l1_to_l2_messages_tree_root : fields[148],
+                        public_data_tree_root: fields[150],
+                        global_variables_hash: fields[151],
+                    },
+                    private_kernel_vk_tree_root: 0, // TODO(#3441)
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point::new(fields[152], fields[153]),
@@ -332,7 +340,7 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
         assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
-        self.private_call_stack.push(item.hash());
+        self.private_call_stack_hashes.push(item.hash());
 
         item.public_inputs.return_values
     }
@@ -370,7 +378,7 @@ impl PrivateContext {
         let item = PublicCallStackItem {
             contract_address: fields[0],
             function_data: FunctionData {
-                function_selector: fields[1],
+                selector: fields[1],
                 is_internal: fields[2] as bool,
                 is_private: fields[3] as bool,
                 is_constructor: fields[4] as bool,
@@ -387,9 +395,9 @@ impl PrivateContext {
                 },
                 args_hash: fields[12],
                 return_values: [0; RETURN_VALUES_LENGTH],
-                contract_storage_update_requests: [ContractStorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-                contract_storage_read: [ContractStorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-                public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
+                public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
                 new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
@@ -416,14 +424,9 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
         assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
-        self.public_call_stack.push(item.hash());
+        self.public_call_stack_hashes.push(item.hash());
     }
 }
-
-use crate::abi::{
-    ContractStorageRead,
-    ContractStorageUpdateRequest
-};
 
 struct PublicContext {
     inputs: PublicContextInputs,
@@ -431,9 +434,9 @@ struct PublicContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    contract_storage_update_requests: BoundedVec<ContractStorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
-    contract_storage_read: BoundedVec<ContractStorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
-    public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
+    contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
+    public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -449,8 +452,8 @@ struct PublicContext {
 
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
-        let empty_storage_read = ContractStorageRead::empty();
-        let empty_storage_update = ContractStorageUpdateRequest::empty();
+        let empty_storage_read = StorageRead::empty();
+        let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs: inputs,
 
@@ -458,8 +461,8 @@ impl PublicContext {
             return_values: BoundedVec::new(0),
 
             contract_storage_update_requests: BoundedVec::new(empty_storage_update),
-            contract_storage_read: BoundedVec::new(empty_storage_read),
-            public_call_stack: BoundedVec::new(0),
+            contract_storage_reads: BoundedVec::new(empty_storage_read),
+            public_call_stack_hashes: BoundedVec::new(0),
 
             new_commitments: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
@@ -522,11 +525,11 @@ impl PublicContext {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
-            contract_storage_read: self.contract_storage_read.storage,
+            contract_storage_reads: self.contract_storage_reads.storage,
             return_values: self.return_values.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            public_call_stack: self.public_call_stack.storage,
+            public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             unencrypted_logs_hash: unencrypted_logs_hash,
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,

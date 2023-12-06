@@ -4,6 +4,7 @@ use dep::protocol_types::{
         call_context::CallContext,
     },
     contrakt::deployment_data::ContractDeploymentData,
+    hash::hash_args,
 };
 
 // docs:start:private-global-variables

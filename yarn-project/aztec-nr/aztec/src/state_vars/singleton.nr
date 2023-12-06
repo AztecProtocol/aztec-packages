@@ -1,5 +1,13 @@
 use dep::std::option::Option;
-use dep::protocol_types::constants::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALIZATION_NULLIFIER};
+
+use dep::protocol_types::{
+    constants::{
+        EMPTY_NULLIFIED_COMMITMENT,
+        GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    },
+    hash::pedersen_hash,
+};
+
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, destroy_note},
@@ -11,7 +19,6 @@ use crate::oracle::{
     get_secret_key::get_secret_key,
     notes::check_nullifier_exists,
 };
-use crate::hash::pedersen_hash;
 
 pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
     if owner.is_some() {

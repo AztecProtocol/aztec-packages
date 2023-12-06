@@ -1,4 +1,7 @@
-use crate::constants::GENERATOR_INDEX__BLOCK_HASH;
+use crate::{
+    constants::GENERATOR_INDEX__BLOCK_HASH,
+    hash::pedersen_hash,
+};
 
 // This is not in the cpp code.
 struct Block {
@@ -24,7 +27,7 @@ impl Block {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator([
+        pedersen_hash([
             self.global_variables_hash,
             self.note_hash_tree_root,
             self.nullifier_tree_root,
