@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <typeinfo>
@@ -69,8 +70,8 @@ void compute_permutation_grand_product(const size_t circuit_size,
         for (size_t i = start; i < end; ++i) {
 
             typename Flavor::AllValues evaluations;
-            for (auto [eval, poly] : zip_view(evaluations.pointer_view(), full_polynomials.pointer_view())) {
-                *eval = poly->size() > i ? (*poly)[i] : 0;
+            for (auto [eval, poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
+                eval = poly.size() > i ? poly[i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_permutation_numerator<Accumulator>(evaluations,
                                                                                                   relation_parameters);
@@ -184,12 +185,14 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
-    using PolynomialHandle = typename Flavor::PolynomialHandle;
+    // TODO(AD): use RefVector<PolynomialHandle> here, see https://github.com/AztecProtocol/barretenberg/issues/743
+    // RefVector makes PolynomialHandle now redundant. Can scale back use of auto then too.
+    // using PolynomialHandle = typename Flavor::PolynomialHandle;
     // Concatenation groups are vectors of polynomials that are concatenated together
-    std::vector<std::vector<PolynomialHandle>> concatenation_groups = proving_key->get_concatenation_groups();
+    auto concatenation_groups = proving_key->get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    std::vector<PolynomialHandle> targets = proving_key->get_concatenated_constraints();
+    auto targets = proving_key->get_concatenated_constraints();
 
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated

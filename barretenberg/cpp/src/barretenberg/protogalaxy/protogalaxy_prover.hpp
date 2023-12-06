@@ -16,6 +16,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
     using Flavor = typename ProverInstances::Flavor;
+    using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Instance = typename ProverInstances::Instance;
     using Utils = barretenberg::RelationUtils<Flavor>;
@@ -41,7 +42,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     ProverInstances instances;
-    BaseTranscript<FF> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(ProverInstances insts)
@@ -213,9 +214,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                             const size_t row_idx)
     {
         auto base_univariates = instances.row_to_univariates(row_idx);
-        for (auto [extended_univariate, base_univariate] :
-             zip_view(extended_univariates.pointer_view(), base_univariates)) {
-            *extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
+            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
         }
     }
 
@@ -256,13 +256,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = common_circuit_size / num_threads;    // actual iterations per thread
 
-        // Constuct univariate accumulator containers; one per thread
+        // Construct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
 
-        // Constuct extended univariates containers; one per thread
+        // Construct extended univariates containers; one per thread
         std::vector<ExtendedUnivariates> extended_univariates;
         extended_univariates.resize(num_threads);
 

@@ -1,10 +1,10 @@
 import {
+  BlockHeader,
   CallContext,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionSelector,
-  HistoricBlockData,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -190,7 +190,7 @@ export function extractPrivateCircuitPublicInputs(
   const encryptedLogPreimagesLength = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const historicBlockData = new HistoricBlockData(
+  const blockHeader = new BlockHeader(
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
@@ -227,7 +227,7 @@ export function extractPrivateCircuitPublicInputs(
     unencryptedLogsHash,
     encryptedLogPreimagesLength,
     unencryptedLogPreimagesLength,
-    historicBlockData,
+    blockHeader,
     contractDeploymentData,
     chainId,
     version,
@@ -282,7 +282,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const historicBlockData = new HistoricBlockData(
+  const blockHeader = new BlockHeader(
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
@@ -309,7 +309,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     newL2ToL1Msgs,
     unencryptedLogsHash,
     unencryptedLogPreimagesLength,
-    historicBlockData,
+    blockHeader,
     proverAddress,
   );
 }

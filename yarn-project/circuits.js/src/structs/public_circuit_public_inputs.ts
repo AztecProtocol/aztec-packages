@@ -15,7 +15,7 @@ import {
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
+import { BlockHeader, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -200,7 +200,7 @@ export class PublicCircuitPublicInputs {
     /**
      * Root of the commitment trees when the call started.
      */
-    public historicBlockData: HistoricBlockData,
+    public blockHeader: BlockHeader,
     /**
      * Address of the prover.
      */
@@ -233,7 +233,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
-      HistoricBlockData.empty(),
+      BlockHeader.empty(),
       AztecAddress.ZERO,
     );
   }
@@ -255,7 +255,7 @@ export class PublicCircuitPublicInputs {
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicBlockData.isEmpty() &&
+      this.blockHeader.isEmpty() &&
       this.proverAddress.isZero()
     );
   }
@@ -278,7 +278,7 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,
       fields.unencryptedLogPreimagesLength,
-      fields.historicBlockData,
+      fields.blockHeader,
       fields.proverAddress,
     ] as const;
   }

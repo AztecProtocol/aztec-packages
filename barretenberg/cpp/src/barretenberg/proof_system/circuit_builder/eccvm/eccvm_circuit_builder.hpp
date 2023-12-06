@@ -340,8 +340,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
         AllPolynomials polys;
-        for (auto* poly : polys.pointer_view()) {
-            *poly = Polynomial(num_rows_pow2);
+        for (auto& poly : polys.get_all()) {
+            poly = Polynomial(num_rows_pow2);
         }
 
         polys.lagrange_first[0] = 1;
@@ -390,7 +390,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             }
         }
         for (size_t i = 0; i < precompute_table_state.size(); ++i) {
-            // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st
+            // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
             // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e.
             // precompute_select = 1)
             polys.precompute_select[i] = (i != 0) ? 1 : 0;

@@ -95,8 +95,8 @@ export interface Block {
   global_variables_hash: Field;
 }
 
-export interface HistoricalBlockData {
-  blocks_tree_root: Field;
+export interface BlockHeader {
+  archive_root: Field;
   block: Block;
   private_kernel_vk_tree_root: Field;
 }
@@ -124,7 +124,7 @@ export interface TxContext {
 }
 
 export interface CombinedConstantData {
-  block_data: HistoricalBlockData;
+  block_header: BlockHeader;
   tx_context: TxContext;
 }
 
@@ -171,7 +171,7 @@ export interface PrivateCircuitPublicInputs {
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
-  historical_block_data: HistoricalBlockData;
+  block_header: BlockHeader;
   contract_deployment_data: ContractDeploymentData;
   chain_id: Field;
   version: Field;
@@ -186,7 +186,7 @@ export interface PrivateCallStackItem {
 
 export interface FunctionLeafMembershipWitness {
   leaf_index: Field;
-  sibling_path: FixedLengthArray<Field, 4>;
+  sibling_path: FixedLengthArray<Field, 5>;
 }
 
 export interface ContractLeafMembershipWitness {

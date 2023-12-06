@@ -95,8 +95,8 @@ export interface Block {
   global_variables_hash: Field;
 }
 
-export interface HistoricalBlockData {
-  blocks_tree_root: Field;
+export interface BlockHeader {
+  archive_root: Field;
   block: Block;
   private_kernel_vk_tree_root: Field;
 }
@@ -124,7 +124,7 @@ export interface TxContext {
 }
 
 export interface CombinedConstantData {
-  block_data: HistoricalBlockData;
+  block_header: BlockHeader;
   tx_context: TxContext;
 }
 
@@ -162,7 +162,7 @@ export interface NullifierMembershipWitness {
   sibling_path: FixedLengthArray<Field, 20>;
 }
 
-export interface HistoricBlocksTreeRootMembershipWitness {
+export interface ArchiveRootMembershipWitness {
   leaf_index: Field;
   sibling_path: FixedLengthArray<Field, 16>;
 }
@@ -175,7 +175,7 @@ export interface GlobalVariables {
 }
 
 export interface ConstantRollupData {
-  start_historic_blocks_tree_roots_snapshot: AppendOnlyTreeSnapshot;
+  archive_snapshot: AppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Field;
   public_kernel_vk_tree_root: Field;
   base_rollup_vk_hash: Field;
@@ -189,7 +189,9 @@ export interface BaseRollupInputs {
   start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
   start_public_data_tree_root: Field;
-  start_historic_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  archive_snapshot: AppendOnlyTreeSnapshot;
+  sorted_new_nullifiers: FixedLengthArray<Field, 128>;
+  sorted_new_nullifiers_indexes: FixedLengthArray<u32, 128>;
   low_nullifier_leaf_preimages: FixedLengthArray<NullifierLeafPreimage, 128>;
   low_nullifier_membership_witness: FixedLengthArray<NullifierMembershipWitness, 128>;
   new_commitments_subtree_sibling_path: FixedLengthArray<Field, 25>;
@@ -197,7 +199,7 @@ export interface BaseRollupInputs {
   new_contracts_subtree_sibling_path: FixedLengthArray<Field, 15>;
   new_public_data_update_requests_sibling_paths: FixedLengthArray<FixedLengthArray<Field, 254>, 32>;
   new_public_data_reads_sibling_paths: FixedLengthArray<FixedLengthArray<Field, 254>, 32>;
-  historic_blocks_tree_root_membership_witnesses: FixedLengthArray<HistoricBlocksTreeRootMembershipWitness, 2>;
+  archive_root_membership_witnesses: FixedLengthArray<ArchiveRootMembershipWitness, 2>;
   constants: ConstantRollupData;
 }
 

@@ -4,7 +4,7 @@ use crate::{
         call_request::{CallerContext, CallRequest},
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
-        historical_block_data::HistoricalBlockData,
+        block_header::BlockHeader,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
@@ -19,22 +19,20 @@ use crate::{
     },
     transaction::context::TxContext,
 };
-use dep::aztec::{
-    constants_gen::{
+use crate::constants::{
         EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         VK_TREE_HEIGHT,
-    },
 };
 
 struct PreviousKernelDataBuilder {
     contract_address: Address,
     portal_contract_address: EthAddress,
     end: CombinedAccumulatedDataBuilder,
-    block_data: HistoricalBlockData,
+    block_header: BlockHeader,
     tx_context: TxContext,
     is_private: bool,
     proof: Proof,
@@ -55,7 +53,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
             end,
-            block_data: fixtures::HISTORICAL_BLOCK_DATA,
+            block_header: fixtures::BLOCK_HEADER,
             tx_context,
             is_private: true,
             proof: Proof {},
@@ -171,7 +169,7 @@ impl PreviousKernelDataBuilder {
         let public_inputs = KernelCircuitPublicInputs {
             end: self.end.finish(),
             constants: CombinedConstantData {
-                block_data: self.block_data,
+                block_header: self.block_header,
                 tx_context: self.tx_context,
             },
             is_private: self.is_private,

@@ -2,20 +2,18 @@ use crate::{
     abis::{
         call_context::CallContext,
         complete_address::CompleteAddress,
-        historical_block_data::HistoricalBlockData,
+        block_header::BlockHeader,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
     },
     contrakt::deployment_data::ContractDeploymentData,
-    hash::{compute_constructor_hash, NUM_FIELDS_PER_SHA256},
+    hash::{compute_constructor_hash, NUM_FIELDS_PER_SHA256, hash_args},
     tests::{
         fixtures,
         testing_harness::build_contract_deployment_data,
     },
     utils::bounded_vec::BoundedVec,
 };
-use dep::aztec::{
-    abi::hash_args,
-    constants_gen::{
+use crate::constants::{
         MAX_READ_REQUESTS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
@@ -23,7 +21,6 @@ use dep::aztec::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         RETURN_VALUES_LENGTH,
-    }
 };
 
 struct PrivateCircuitPublicInputsBuilder {
@@ -48,7 +45,7 @@ struct PrivateCircuitPublicInputsBuilder {
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
 
-    historical_block_data: HistoricalBlockData,
+    block_header: BlockHeader,
 
     contract_deployment_data: ContractDeploymentData,
 
@@ -99,7 +96,7 @@ impl PrivateCircuitPublicInputsBuilder {
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.contract_deployment_data = contract_deployment_data;
-        public_inputs.historical_block_data = fixtures::HISTORICAL_BLOCK_DATA;
+        public_inputs.block_header = fixtures::BLOCK_HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
 
@@ -128,7 +125,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
 
-            historical_block_data: self.historical_block_data,
+            block_header: self.block_header,
 
             contract_deployment_data: self.contract_deployment_data,
 

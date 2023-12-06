@@ -28,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
+import { pushTestData } from '@aztec/foundation/testing';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -135,7 +136,8 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
+        const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
@@ -145,9 +147,9 @@ export class KernelProver {
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        output = await this.proofCreator.createProofInner(
-          new PrivateKernelInputsInner(previousKernelData, privateCallData),
-        );
+        const proofInput = new PrivateKernelInputsInner(previousKernelData, privateCallData);
+        pushTestData('private-kernel-inputs-inner', proofInput);
+        output = await this.proofCreator.createProofInner(proofInput);
       }
       (await this.getNewNotes(currentExecution)).forEach(n => {
         newNotes[n.commitment.toString()] = n;

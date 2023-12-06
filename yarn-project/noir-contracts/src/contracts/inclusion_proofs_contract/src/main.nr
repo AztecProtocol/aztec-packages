@@ -2,6 +2,11 @@ mod utils;
 
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
+    use dep::protocol_types::constants::{
+        NOTE_HASH_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT,
+        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    };
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{
@@ -20,15 +25,8 @@ contract InclusionProofs {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        constants_gen::{
-            NOTE_HASH_TREE_HEIGHT,
-            NULLIFIER_TREE_HEIGHT,
-            HISTORIC_BLOCKS_TREE_HEIGHT,
-            PUBLIC_DATA_TREE_HEIGHT,
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-        },
+        
         oracle::{
-            get_block_data::get_block_data,
             get_membership_witness::{
                 get_membership_witness,
                 MembershipWitness,
@@ -103,13 +101,14 @@ contract InclusionProofs {
         block_number: Field, // The block at which we'll prove that the note exists
         spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
-        // TODO: assert that block number is less than the block number of context.block_data
-        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        // TODO: assert that block number is less than the block number of context.block_header
+        // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
-        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = context.get_block_data(block_number);
+        let block_header = context.get_block_header(block_number);
 
         // 2) Get the note from PXE.
         let private_values = storage.private_values.at(owner.address);
@@ -132,7 +131,7 @@ contract InclusionProofs {
 
         // 5) Prove that the commitment is in the note hash tree
         assert(
-            block_data.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
+            block_header.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving note inclusion failed"
         );
 
@@ -146,13 +145,14 @@ contract InclusionProofs {
         block_number: Field, // The block at which we'll prove that the nullifier does not exists
         spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
-        // TODO: assert that block number is less than the block number of context.block_data
-        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        // TODO: assert that block number is less than the block number of context.block_header
+        // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
-        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = context.get_block_data(block_number);
+        let block_header = context.get_block_header(block_number);
 
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner.address);
@@ -176,7 +176,7 @@ contract InclusionProofs {
         // 5.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
         let low_nullifier_leaf = witness.leaf_data.hash();
         assert(
-            block_data.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
+            block_header.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
             "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
         );
 
@@ -187,9 +187,9 @@ contract InclusionProofs {
         );
 
         // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
-        // included in the nullifier tree
+        // included in the nullifier tree (or to 0 if the to-be-inserted nullifier is the largest of all)
         assert(
-            full_field_greater_than(witness.leaf_data.next_value, nullifier),
+            full_field_greater_than(witness.leaf_data.next_value, nullifier) | (witness.leaf_data.next_index == 0),
             "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed"
         );
 
@@ -217,13 +217,14 @@ contract InclusionProofs {
         nullifier: Field,
         block_number: Field, // The block at which we'll prove that the nullifier not exists in the tree
     ) {
-        // TODO: assert that block number is less than the block number of context.block_data
-        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        // TODO: assert that block number is less than the block number of context.block_header
+        // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
-        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = context.get_block_data(block_number);
+        let block_header = context.get_block_header(block_number);
 
         // 2) Get the membership witness of the nullifier
         let witness = get_nullifier_membership_witness(block_number, nullifier);
@@ -236,7 +237,7 @@ contract InclusionProofs {
 
         // 5) Prove that the nullifier is in the nullifier tree
         assert(
-            block_data.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
+            block_header.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
             "Proving nullifier inclusion failed"
         );
 
@@ -249,13 +250,14 @@ contract InclusionProofs {
         public_value: Field,
         block_number: Field, // The block at which we'll prove that the public value exists
     ) {
-        // TODO: assert that block number is less than the block number of context.block_data
-        // --> This will either require a new oracle method that returns block_data.global_variables_hash preimage
+        // TODO: assert that block number is less than the block number of context.block_header
+        // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
-        // 1) Get historic block data from oracle and ensure that the block hash is included in the current blocks tree
+        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
-        let block_data = context.get_block_data(block_number);
+        let block_header = context.get_block_header(block_number);
 
         // 2) Compute the public value leaf index.
         // We have to compute the leaf index here because unlike in the case of note commitments, public values are
@@ -273,7 +275,7 @@ contract InclusionProofs {
 
         // 4) Prove that the public value provided on input is in the public data tree
         assert(
-            block_data.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
+            block_header.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
             "Proving public value inclusion failed"
         );
 

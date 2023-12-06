@@ -9,7 +9,7 @@ export * from './function_leaf_preimage.js';
 export * from './global_variables.js';
 export * from './kernel/combined_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
-export * from './kernel/historic_block_data.js';
+export * from './kernel/block_header.js';
 export * from './kernel/previous_kernel_data.js';
 export * from './kernel/private_kernel.js';
 export * from './kernel/public_inputs.js';
