@@ -89,7 +89,7 @@ class NoteHashTree {
 }
 
 class NewContractData {
-    function_root: Fr
+    function_tree_root: Fr
     address: Address
     portal: EthAddress
 }
