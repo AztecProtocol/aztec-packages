@@ -58,7 +58,8 @@ class GoblinRecursionTests : public ::testing::Test {
         // Execute recursive aggregation of previous kernel proof
         RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
-        [[maybe_unused]] auto pairing_points = verifier.verify_proof(kernel_input.proof);
+        auto pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
+        pairing_points = verifier.verify_proof(kernel_input.proof);      // previous kernel proof
     }
 };
 
