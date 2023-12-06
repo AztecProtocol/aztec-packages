@@ -1,6 +1,5 @@
-#include "avm_template_circuit_builder.hpp"
+#include "toy_avm_circuit_builder.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include <gtest/gtest.h>
 
 using namespace barretenberg;
@@ -11,22 +10,16 @@ auto& engine = numeric::random::get_debug_engine();
 
 namespace toy_avm_circuit_builder_tests {
 
-template <typename Flavor> class ToyAVMCircuitBuilderTests : public ::testing::Test {};
-
-using FlavorTypes = ::testing::Types<proof_system::honk::flavor::AVMTemplate>;
-TYPED_TEST_SUITE(AVMTemplateCircuitBuilderTests, FlavorTypes);
-
 /**
  * @brief A test explaining the work of the permutations in Toy AVM
  *
  */
-TYPED_TEST(ToyAVMCircuitBuilderTests, BaseCase)
+TEST(ToyAVMCircuitBuilder, BaseCase)
 {
-    using Flavor = TypeParam;
-    using FF = typename Flavor::FF;
 
+    using FF = proof_system::honk::flavor::ToyAVM::FF;
     const size_t circuit_size = 16;
-    proof_system::ToyAVMCircuitBuilder<Flavor> circuit_builder;
+    proof_system::ToyAVMCircuitBuilder<proof_system::honk::flavor::ToyAVM> circuit_builder;
 
     // Sample 2*16 random elements for the tuple permutation example
     std::vector<FF> column_0;

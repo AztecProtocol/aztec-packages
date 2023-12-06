@@ -6,16 +6,18 @@
  */
 #pragma once
 
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/flavor/avm_template.hpp"
+#include "barretenberg/flavor/toy_avm.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/toy_avm/generic_permutation_relation.hpp"
 
 namespace proof_system {
 
 template <typename Flavor> class ToyAVMCircuitBuilder {
   public:
-    using FF = typename Flavor::FF;
+    using FF = Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
 
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;

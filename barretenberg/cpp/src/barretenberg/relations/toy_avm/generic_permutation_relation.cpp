@@ -1,6 +1,6 @@
 #include "generic_permutation_relation.hpp"
-#include "barretenberg/flavor/avm_template.hpp"
 #include "barretenberg/flavor/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/toy_avm.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "relation_definer.hpp"
 
@@ -30,5 +30,5 @@ void GenericPermutationRelationImpl<Settings, FF>::accumulate(ContainerOverSubre
 // using GenericPermutationRelationExampleSettingsImpl = GenericPermutationRelationImpl<ExamplePermutationSettings,
 // FF_>; DEFINE_SUMCHECK_RELATION_CLASS(GenericPermutationRelationExampleSettingsImpl, flavor::AVMTemplate);
 
-DEFINE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::AVMTemplate);
+DEFINE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM);
 } // namespace proof_system::honk::sumcheck

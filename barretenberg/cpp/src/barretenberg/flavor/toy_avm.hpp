@@ -4,10 +4,10 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/avm_templates/generic_permutation_relation.hpp"
-#include "barretenberg/relations/avm_templates/relation_definer.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/toy_avm/generic_permutation_relation.hpp"
+#include "barretenberg/relations/toy_avm/relation_definer.hpp"
 #include "relation_definitions_fwd.hpp"
 #include <array>
 #include <concepts>
@@ -26,7 +26,7 @@ namespace flavor {
  * integrating those mechanisms into AVM easier
  *
  */
-class AVMTemplate {
+class ToyAVM {
   public:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -434,7 +434,7 @@ class AVMTemplate {
 } // namespace flavor
 namespace sumcheck {
 
-DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::AVMTemplate)
+DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM)
 
 } // namespace sumcheck
 } // namespace proof_system::honk
