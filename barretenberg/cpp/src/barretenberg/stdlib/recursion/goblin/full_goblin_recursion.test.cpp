@@ -58,8 +58,11 @@ class GoblinRecursionTests : public ::testing::Test {
         // Execute recursive aggregation of previous kernel proof
         RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
-        auto pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
-        pairing_points = verifier.verify_proof(kernel_input.proof);      // previous kernel proof
+        auto pairing_points = verifier.verify_proof(kernel_input.proof); // previous kernel proof
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/803): Mock app circuit. In the absence of a mocked
+        // app circuit proof, we simply perform another recursive verification for the previous kernel proof to
+        // approximate the work done for the app proof.
+        pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
     }
 };
 
@@ -74,7 +77,18 @@ TEST_F(GoblinRecursionTests, Pseudo)
     // Construct an initial circuit; its proof will be recursively verified by the first kernel
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };
     GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
-    KernelInput kernel_input = goblin.accumulate(initial_circuit);
+
+    // GoblinUltraComposer composer;
+    // auto instance = composer.create_instance(initial_circuit);
+    // auto prover = composer.create_prover(instance);
+    // auto ultra_proof = prover.construct_proof();
+
+    // auto merge_prover = composer.create_merge_prover(goblin.op_queue);
+    // auto merge_proof = merge_prover.construct_proof();
+
+    // KernelInput kernel_input = { ultra_proof, instance->verification_key };
+
+    KernelInput kernel_input = goblin.accumulate(initial_circuit, /*verify_merge=*/false);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;

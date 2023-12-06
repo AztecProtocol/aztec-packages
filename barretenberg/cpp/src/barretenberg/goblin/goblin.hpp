@@ -4,6 +4,7 @@
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
@@ -41,8 +42,11 @@ class Goblin {
     using ECCVMComposer = proof_system::honk::ECCVMComposer;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
+    using RecursiveMergeVerifier =
+        proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
+    HonkProof merge_proof;
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -57,18 +61,26 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
+    AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder, bool verify_merge = true)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/797) Complete the "kernel" logic by recursively
-        // verifying previous merge proof
+        // Complete the circuit logic by recursively verifying previous merge proof
+        // Note: the first time we call accumulate there is no merge proof to recursively verify. This is related to
+        // issue (https://github.com/AztecProtocol/barretenberg/issues/723)
+        if (verify_merge) {
+            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+            // Recursively verify the merge proof constructed on the previous call to accumulate
+            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+        }
 
+        // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
 
+        // Construct and store the merge proof to be recursively verified on the next call to accumulate
         auto merge_prover = composer.create_merge_prover(op_queue);
-        [[maybe_unused]] auto merge_proof = merge_prover.construct_proof();
+        merge_proof = merge_prover.construct_proof();
 
         return { ultra_proof, instance->verification_key };
     };
