@@ -1,4 +1,8 @@
 use dep::protocol_types::{
+    address::{
+        Address,
+        EthAddress,
+    },
     constants::{
         L1_TO_L2_MESSAGE_LENGTH,
         GENERATOR_INDEX__NULLIFIER,
@@ -11,9 +15,9 @@ use dep::protocol_types::{
 };
 
 struct L1ToL2Message {
-    sender: Field,
+    sender: EthAddress,
     chainId: Field,
-    recipient: Field,
+    recipient: Address,
     version: Field,
     content: Field,
     secret: Field,
@@ -30,9 +34,9 @@ impl L1ToL2Message {
         tree_index: Field
     ) -> L1ToL2Message {
         L1ToL2Message {
-            sender: fields[0],
+            sender: EthAddress::from_field(fields[0]),
             chainId: fields[1],
-            recipient: fields[2],
+            recipient: Address::from_field(fields[2]),
             version: fields[3],
             content: fields[4],
             secret: secret,
@@ -50,9 +54,9 @@ impl L1ToL2Message {
 
     fn message_hash(self: Self) -> Field {
         let mut hash_bytes: [u8; 256] = [0; 256];
-        let sender_bytes = self.sender.to_be_bytes(32);
+        let sender_bytes = self.sender.to_field().to_be_bytes(32);
         let chainId_bytes = self.chainId.to_be_bytes(32);
-        let recipient_bytes = self.recipient.to_be_bytes(32);
+        let recipient_bytes = self.recipient.to_field().to_be_bytes(32);
         let version_bytes = self.version.to_be_bytes(32);
         let content_bytes = self.content.to_be_bytes(32);
         let secret_hash_bytes = self.secret_hash.to_be_bytes(32);

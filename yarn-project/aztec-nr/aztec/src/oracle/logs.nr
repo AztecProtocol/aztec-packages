@@ -13,7 +13,7 @@ unconstrained pub fn emit_encrypted_log<N>(contract_address: Address, storage_sl
 }
 
 #[oracle(emitUnencryptedLog)]
-fn emit_unencrypted_log_oracle<T>(_contract_address: Field, _event_selector: Field, _message: T) -> Field {}
+fn emit_unencrypted_log_oracle<T>(_contract_address: Address, _event_selector: Field, _message: T) -> Field {}
 
 unconstrained pub fn emit_unencrypted_log<T>(contract_address: Address, event_selector: Field, message: T) -> [Field; NUM_FIELDS_PER_SHA256] {
     // https://github.com/AztecProtocol/aztec-packages/issues/885

@@ -3,6 +3,7 @@ use dep::protocol_types::{
         block_header::BlockHeader,
         call_context::CallContext,
         function_data::FunctionData,
+        function_selector::FunctionSelector,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         call_stack_item::PrivateCallStackItem,
@@ -33,6 +34,7 @@ use dep::protocol_types::{
         storage_update_request::StorageUpdateRequest,
     },
     hash::hash_args,
+    point::Point,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -48,7 +50,6 @@ use crate::messaging::process_l1_to_l2_message;
 
 use crate::types::{
     vec::BoundedVec,
-    point::Point,
 };
 
 use crate::utils::arr_copy_slice;
@@ -138,7 +139,7 @@ impl PrivateContext {
         self.inputs.private_global_variables.version
     }
 
-    pub fn selector(self) -> Field {
+    pub fn selector(self) -> FunctionSelector {
         self.inputs.call_context.function_selector
     }
 
@@ -220,7 +221,7 @@ impl PrivateContext {
     ) 
     // docs:end:context_consume_l1_to_l2_message
     {
-        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_header.block.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -241,8 +242,8 @@ impl PrivateContext {
 
     pub fn call_private_function<ARGS_COUNT>(
         &mut self,
-        contract_address: Field, 
-        function_selector: Field, 
+        contract_address: Address, 
+        function_selector: FunctionSelector, 
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
@@ -252,37 +253,37 @@ impl PrivateContext {
 
     pub fn call_private_function_no_args(
         &mut self,
-        contract_address: Field, 
-        function_selector: Field, 
+        contract_address: Address, 
+        function_selector: FunctionSelector, 
     ) -> [Field; RETURN_VALUES_LENGTH] {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0)
     }
 
     pub fn call_private_function_with_packed_args(
         &mut self,
-        contract_address: Field,
-        function_selector: Field,
+        contract_address: Address,
+        function_selector: FunctionSelector,
         args_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let fields = call_private_function_internal(
-            contract_address, 
+            contract_address,
             function_selector, 
             args_hash
         );
         let item = PrivateCallStackItem {
-            contract_address: fields[0],
+            contract_address: Address::from_field(fields[0]),
             function_data: FunctionData {
-                selector: fields[1],
+                selector: FunctionSelector::from_field(fields[1]),
                 is_internal: fields[2] as bool,
                 is_private: fields[3] as bool,
                 is_constructor: fields[4] as bool,
             },
             public_inputs: PrivateCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : fields[5],
-                    storage_contract_address : fields[6],
-                    portal_contract_address : fields[7],
-                    function_selector: fields[8], // practically same as fields[1]
+                    msg_sender : Address::from_field(fields[5]),
+                    storage_contract_address : Address::from_field(fields[6]),
+                    portal_contract_address : EthAddress::from_field(fields[7]),
+                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
                     is_delegate_call : fields[9] as bool,
                     is_static_call : fields[10] as bool,
                     is_contract_deployment: fields[11] as bool,
@@ -316,19 +317,22 @@ impl PrivateContext {
                     private_kernel_vk_tree_root: 0, // TODO(#3441)
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point::new(fields[152], fields[153]),
+                    deployer_public_key: Point {
+                        x: fields[152],
+                        y: fields[153],
+                    },
                     constructor_vk_hash : fields[154],
                     function_tree_root : fields[155],
                     contract_address_salt : fields[156],
-                    portal_contract_address : fields[157],
+                    portal_contract_address : EthAddress::from_field(fields[157]),
                 },
                 chain_id: fields[158],
                 version: fields[159],
             },
             is_execution_request: fields[160] as bool,
         };
-        assert(contract_address == item.contract_address);
-        assert(function_selector == item.function_data.function_selector);
+        assert(contract_address.eq(item.contract_address));
+        assert(function_selector.eq(item.function_data.selector));
 
         assert(args_hash == item.public_inputs.args_hash);
 
@@ -341,8 +345,8 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.is_delegate_call == false);
         assert(item.public_inputs.call_context.is_static_call == false);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
-        assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
-        assert(item.public_inputs.call_context.storage_contract_address == contract_address);
+        assert(item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address));
+        assert(item.public_inputs.call_context.storage_contract_address.eq(contract_address));
 
         self.private_call_stack_hashes.push(item.hash());
 
@@ -351,8 +355,8 @@ impl PrivateContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         &mut self,
-        contract_address: Field, 
-        function_selector: Field, 
+        contract_address: Address, 
+        function_selector: FunctionSelector, 
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args(args);
@@ -362,16 +366,16 @@ impl PrivateContext {
 
     pub fn call_public_function_no_args(
         &mut self,
-        contract_address: Field, 
-        function_selector: Field,
+        contract_address: Address, 
+        function_selector: FunctionSelector,
     ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0)
     }
 
     pub fn call_public_function_with_packed_args(
         &mut self,
-        contract_address: Field,
-        function_selector: Field,
+        contract_address: Address,
+        function_selector: FunctionSelector,
         args_hash: Field
     ) {
         let fields = enqueue_public_function_call_internal(
@@ -380,19 +384,19 @@ impl PrivateContext {
             args_hash
         );
         let item = PublicCallStackItem {
-            contract_address: fields[0],
+            contract_address:  Address::from_field(fields[0]),
             function_data: FunctionData {
-                selector: fields[1],
+                selector: FunctionSelector::from_field(fields[1]),
                 is_internal: fields[2] as bool,
                 is_private: fields[3] as bool,
                 is_constructor: fields[4] as bool,
             },
             public_inputs: PublicCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : fields[5],
-                    storage_contract_address : fields[6],
-                    portal_contract_address : fields[7],
-                    function_selector: fields[8], // practically same as fields[1]
+                    msg_sender : Address::from_field(fields[5]),
+                    storage_contract_address : Address::from_field(fields[6]),
+                    portal_contract_address : EthAddress::from_field(fields[7]),
+                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
                     is_delegate_call : fields[9] as bool,
                     is_static_call : fields[10] as bool,
                     is_contract_deployment: fields[11] as bool,
@@ -408,13 +412,13 @@ impl PrivateContext {
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 block_header: BlockHeader::empty(),
-                prover_address: 0,
+                prover_address: Address::zero(),
             },
             is_execution_request: true,
         };
 
-        assert(contract_address == item.contract_address);
-        assert(function_selector == item.function_data.function_selector);
+        assert(contract_address.eq(item.contract_address));
+        assert(function_selector.eq(item.function_data.function_selector));
         
         assert(args_hash == item.public_inputs.args_hash);
 
@@ -425,8 +429,8 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.is_delegate_call == false);
         assert(item.public_inputs.call_context.is_static_call == false);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
-        assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
-        assert(item.public_inputs.call_context.storage_contract_address == contract_address);
+        assert(item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address));
+        assert(item.public_inputs.call_context.storage_contract_address.eq(contract_address));
 
         self.public_call_stack_hashes.push(item.hash());
     }
@@ -451,7 +455,7 @@ struct PublicContext {
     unencrypted_logs_preimages_length: Field,
 
     block_header: BlockHeader,
-    prover_address: Field,
+    prover_address: Address,
 }
 
 impl PublicContext {
@@ -478,7 +482,7 @@ impl PublicContext {
             unencrypted_logs_preimages_length: 0,
 
             block_header: inputs.block_header,
-            prover_address: 0,
+            prover_address: Address::zero(),
 
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
@@ -506,7 +510,7 @@ impl PublicContext {
         self.inputs.public_global_variables.version
     }
 
-    pub fn selector(self) -> Field {
+    pub fn selector(self) -> FunctionSelector {
         self.inputs.call_context.function_selector
     }
 
@@ -579,8 +583,8 @@ impl PublicContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         _self: Self,
-        contract_address: Field, 
-        function_selector: Field,
+        contract_address: Address, 
+        function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
@@ -594,8 +598,8 @@ impl PublicContext {
 
     pub fn call_public_function_no_args(
         _self: Self,
-        contract_address: Field, 
-        function_selector: Field,
+        contract_address: Address, 
+        function_selector: FunctionSelector,
     ) -> [Field; RETURN_VALUES_LENGTH] {
         call_public_function_internal(
             contract_address, 
