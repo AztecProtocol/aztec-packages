@@ -1,32 +1,36 @@
-use dep::protocol_types::constants::{
-    EMPTY_NULLIFIED_COMMITMENT,
-    MAX_NEW_COMMITMENTS_PER_CALL,
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    MAX_NEW_NULLIFIERS_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL,
-    MAX_PENDING_READ_REQUESTS_PER_CALL,
-    NUM_FIELDS_PER_SHA256,
-    RETURN_VALUES_LENGTH,
-};
-
-use crate::abi;
-
-use crate::abi::{
-    hash_args,
-    CallContext,
-    ContractDeploymentData,
-    BlockHeader,
-    FunctionData,
-    PrivateCircuitPublicInputs,
-    PublicCircuitPublicInputs,
+use dep::protocol_types::{
+    abis::{
+        block_header::BlockHeader,
+        call_context::CallContext,
+        function_data::FunctionData,
+        private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        public_circuit_public_inputs::PublicCircuitPublicInputs,
+    },
+    constants::{
+        EMPTY_NULLIFIED_COMMITMENT,
+        MAX_NEW_COMMITMENTS_PER_CALL,
+        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NEW_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_READ_REQUESTS_PER_CALL,
+        MAX_PENDING_READ_REQUESTS_PER_CALL,
+        NUM_FIELDS_PER_SHA256,
+        RETURN_VALUES_LENGTH,
+    },
+    contrakt::deployment_data::ContractDeploymentData,
+    hash::hash_args,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
 // use dep::std::collections::vec::Vec;
+
+use crate::abi::{
+    PrivateContextInputs,
+    PublicContextInputs,
+};
 
 // l1 to l2 messaging
 use crate::messaging::process_l1_to_l2_message;
@@ -54,7 +58,7 @@ use dep::std::option::Option;
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateContext {
     // docs:start:private-context
-    inputs: abi::PrivateContextInputs,
+    inputs: PrivateContextInputs,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -79,7 +83,7 @@ struct PrivateContext {
 }
 
 impl PrivateContext {
-    pub fn new(inputs: abi::PrivateContextInputs, args_hash: Field) -> PrivateContext {
+    pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
             inputs: inputs,
 
@@ -133,14 +137,14 @@ impl PrivateContext {
         get_block_header(block_number, self)
     }
 
-    pub fn finish(self) -> abi::PrivateCircuitPublicInputs {
+    pub fn finish(self) -> PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
         let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
         let encrypted_log_preimages_length = 0;
         let unencrypted_log_preimages_length = 0;
 
-        let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
+        let priv_circuit_pub_inputs = PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
@@ -422,7 +426,7 @@ use crate::abi::{
 };
 
 struct PublicContext {
-    inputs: abi::PublicContextInputs,
+    inputs: PublicContextInputs,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -432,9 +436,9 @@ struct PublicContext {
     public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, crate::abi::MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    new_l2_to_l1_msgs: BoundedVec<Field, crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
     unencrypted_logs_preimages_length: Field,
@@ -444,7 +448,7 @@ struct PublicContext {
 }
 
 impl PublicContext {
-    pub fn new(inputs: abi::PublicContextInputs, args_hash: Field) -> PublicContext {
+    pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
         let empty_storage_read = ContractStorageRead::empty();
         let empty_storage_update = ContractStorageUpdateRequest::empty();
         PublicContext {
@@ -507,14 +511,14 @@ impl PublicContext {
         self.inputs.public_global_variables.timestamp
     }
 
-    pub fn finish(self) -> abi::PublicCircuitPublicInputs {
+    pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
         let unencrypted_log_preimages_length = 0;
 
 
         // Compute the public call stack hashes
-        let pub_circuit_pub_inputs = abi::PublicCircuitPublicInputs {
+        let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
@@ -548,7 +552,7 @@ impl PublicContext {
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
         let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_header.block.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -572,7 +576,7 @@ impl PublicContext {
         function_selector: Field,
         args: [Field; ARGS_COUNT],
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = abi::hash_args(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         call_public_function_internal(
             contract_address, 

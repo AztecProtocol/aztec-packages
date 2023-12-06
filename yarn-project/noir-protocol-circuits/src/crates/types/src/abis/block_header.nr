@@ -1,5 +1,8 @@
+use crate::hash::pedersen_hash;
+
 use crate::block::Block;
 
+// docs:start:block-header
 struct BlockHeader {
     archive_root : Field,
     block : Block,
@@ -7,6 +10,7 @@ struct BlockHeader {
     // This is marked in the cpp code as an enhancement
     private_kernel_vk_tree_root : Field,
 }
+// docs:end:block-header
 
 impl BlockHeader {
     fn assert_is_zero(self) {
@@ -36,5 +40,19 @@ impl BlockHeader {
 
     fn contract_tree_root(self) -> Field {
         self.block.contract_tree_root
+    }
+
+    pub fn block_hash(self) -> Field {
+        // TODO(#3442): Unify the ordering in `BlockHeader::serialize` function and the ordering
+        // in the block hash preimage --> This requires changes in the circuits.
+        let inputs = [
+            self.global_variables_hash,
+            self.note_hash_tree_root,
+            self.nullifier_tree_root,
+            self.contract_tree_root,
+            self.l1_to_l2_messages_tree_root,
+            self.public_data_tree_root
+        ];
+        pedersen_hash(inputs, GENERATOR_INDEX__BLOCK_HASH)
     }
 }

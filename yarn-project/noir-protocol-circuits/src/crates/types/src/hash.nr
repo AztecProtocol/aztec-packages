@@ -25,7 +25,7 @@ use crate::constants::{
         GENERATOR_INDEX__FUNCTION_ARGS,
 };
 
-use dep::std::hash::sha256;
+use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
@@ -294,4 +294,8 @@ pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commi
         }
     }
     unique_siloed_commitments
+}
+
+pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+    pedersen_hash_with_separator(inputs, hash_index)
 }
