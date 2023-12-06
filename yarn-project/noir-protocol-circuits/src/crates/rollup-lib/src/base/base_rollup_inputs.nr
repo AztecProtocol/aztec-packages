@@ -469,9 +469,9 @@ fn insert_public_data_update_requests(
             let is_update = low_preimage.slot == write.slot;
             let is_low_empty = low_preimage.is_empty();
 
-            let is_less_than_nullifier = full_field_less_than(low_preimage.slot, write.slot);
+            let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
             let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
-            let is_in_range = is_less_than_nullifier & (
+            let is_in_range = is_less_than_slot & (
                 is_next_greater_than | 
                 ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
@@ -513,26 +513,43 @@ fn insert_public_data_update_requests(
     )
 }
 
-// fn validate_public_data_reads(
-//     tree_root: Field,
-//     public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
-//     witnesses_offset: Field,
-//     witnesses: [[Field; PUBLIC_DATA_TREE_HEIGHT]; 2 * MAX_PUBLIC_DATA_READS_PER_TX]
-// ) {
-//     for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
-//         let public_data_read = public_data_reads[i];
-//         let witness = witnesses[i + witnesses_offset];
+fn validate_public_data_reads(
+    tree_root: Field,
+    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
+    public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
+    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
+) {
+    for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
+        let read = public_data_reads[i];
+        let low_preimage = public_data_reads_preimages[i];
+        let witness = public_data_reads_witnesses[i];
 
-//         if (!public_data_read.is_empty()) {
-//             components::assert_check_membership(
-//                 public_data_read.value,
-//                 public_data_read.leaf_slot,
-//                 witness,
-//                 tree_root
-//             );
-//         }
-//     }
-// }
+        let is_low_empty = low_preimage.is_empty();
+        let is_exact = low_preimage.slot == read.leaf_slot;
+
+        let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
+        let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
+        let is_in_range = is_less_than_slot & (
+            is_next_greater_than | 
+            ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
+
+        if (!read.is_empty()) {
+            assert(!is_low_empty, "public data read is not empty but low preimage is empty");
+            if is_in_range {
+                assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
+            } else {
+                assert(is_exact, "low leaf for public data read is invalid");
+                assert_eq(read.value, low_preimage.value, "low leaf for public data has different value");
+            }
+            components::assert_check_membership(
+                low_preimage.hash(),
+                witness.leaf_index,
+                witness.sibling_path,
+                tree_root
+            );
+        }
+    }
+}
 
 global NUM_CONTRACT_LEAVES = 2;
 #[test]

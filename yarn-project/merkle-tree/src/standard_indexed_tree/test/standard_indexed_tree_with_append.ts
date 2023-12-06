@@ -40,27 +40,37 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
     if (lowLeafIndex === undefined) {
       throw new Error(`Previous leaf not found!`);
     }
+
+    const isUpdate = lowLeafIndex.alreadyPresent;
     const lowLeafPreimage = (await this.getLatestLeafPreimageCopy(lowLeafIndex.index, true))!;
-
-    const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
-      newLeaf,
-      lowLeafPreimage.getNextKey(),
-      lowLeafPreimage.getNextIndex(),
-    );
-
-    if (lowLeafIndex.alreadyPresent) {
-      return;
-    }
-    // insert a new leaf at the highest index and update the values of our previous leaf copy
     const currentSize = this.getNumLeaves(true);
-    const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
-      lowLeafPreimage.asLeaf(),
-      newLeaf.getKey(),
-      BigInt(currentSize),
-    );
-    this.cachedLeafPreimages[Number(currentSize)] = newLeafPreimage;
-    this.cachedLeafPreimages[Number(lowLeafIndex.index)] = newLowLeafPreimage;
-    await this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
-    await this.updateLeaf(newLeafPreimage, this.getNumLeaves(true));
+
+    if (isUpdate) {
+      const newLowLeaf = lowLeafPreimage.asLeaf();
+      newLowLeaf.updateTo(newLeaf);
+      const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        newLowLeaf,
+        lowLeafPreimage.getNextKey(),
+        lowLeafPreimage.getNextIndex(),
+      );
+
+      await this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
+      await this.updateLeaf(this.leafPreimageFactory.empty(), currentSize);
+    } else {
+      const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        newLeaf,
+        lowLeafPreimage.getNextKey(),
+        lowLeafPreimage.getNextIndex(),
+      );
+
+      // insert a new leaf at the highest index and update the values of our previous leaf copy
+      const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        lowLeafPreimage.asLeaf(),
+        newLeaf.getKey(),
+        BigInt(currentSize),
+      );
+      await this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
+      await this.updateLeaf(newLeafPreimage, currentSize);
+    }
   }
 }
