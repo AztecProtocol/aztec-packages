@@ -73,7 +73,6 @@ TEST_F(GoblinRecursionTests, Pseudo)
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };
     GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
 
-    // Note: On the first call to accumulate there is no merge proof to recursively verify
     KernelInput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
