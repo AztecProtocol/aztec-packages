@@ -473,6 +473,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    const insertedKeys = new Map<bigint, boolean>();
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
@@ -494,6 +495,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
 
       if (newLeaf.isEmpty()) {
         continue;
+      }
+
+      if (insertedKeys.has(newLeaf.getKey())) {
+        throw new Error('Cannot insert duplicated keys in the same batch');
+      } else {
+        insertedKeys.set(newLeaf.getKey(), true);
       }
 
       const indexOfPrevious = await this.findIndexOfPreviousKey(newLeaf.getKey(), true);

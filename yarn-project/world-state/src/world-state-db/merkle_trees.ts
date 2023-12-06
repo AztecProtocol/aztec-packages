@@ -4,6 +4,7 @@ import {
   Fr,
   GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -584,17 +585,22 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync the indexed trees
-      // TODO: I think this is incorrect, when syncing all the nullifiers in a block we are inserting txCount subtrees, not just one
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
 
-      // TODO: Same as above
-      await (this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree).batchInsert(
-        l2Block.newPublicDataWrites.map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
-        PUBLIC_DATA_SUBTREE_HEIGHT,
-      );
+      const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
+
+      // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
+      for (let i = 0; i < l2Block.newPublicDataWrites.length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+        await publicDataTree.batchInsert(
+          l2Block.newPublicDataWrites
+            .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * i, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (i + 1))
+            .map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
+      }
 
       // Sync and add the block to the blocks tree
       const globalVariablesHash = computeGlobalsHash(l2Block.globalVariables);
@@ -621,7 +627,6 @@ export class MerkleTrees implements MerkleTreeDb {
         this.log(`Tree ${treeName} synched with size ${info.size} root ${rootStr}`);
       }
     }
-
     await this._snapshot(l2Block.number);
 
     return { isBlockOurs: ourBlock };
