@@ -18,7 +18,7 @@ impl BlockHeader {
         assert(self.private_kernel_vk_tree_root == 0);
     }
 
-    fn to_array(self) -> [Field;7] {
+    fn serialize(self) -> [Field;7] {
         // This comment was copied from the cpp codebase.
         //
         // TODO(#3441): Note private_kernel_vk_tree_root, is not included yet as

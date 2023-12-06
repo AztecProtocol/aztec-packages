@@ -48,7 +48,7 @@ As shown in the snippet, the application context is made up of 4 main structures
 
 First of all, the call context.
 
-#include_code call-context /yarn-project/aztec-nr/aztec/src/abi.nr rust
+#include_code call-context /yarn-project/noir-protocol-circuits/src/crates/types/src/abis/call_context.nr rust
 
 The call context contains information about the current call being made:
 
@@ -81,13 +81,13 @@ Another structure that is contained within the context is the Block Header objec
 
 Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#include_code contract-deployment-data /yarn-project/aztec-nr/aztec/src/abi.nr rust
+#include_code contract-deployment-data /yarn-project/noir-protocol-circuits/src/crates/types/src/contrakt/deployment_data.nr rust
 
 ### Private Global Variables
 
 In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
 
-#include_code private-global-variables /yarn-project/aztec-nr/aztec/src/abi.nr rust
+#include_code private-global-variables /yarn-project/noir-protocol-circuits/src/crates/types/src/contrakt/deployment_data.nr rust
 
 ### Args Hash
 

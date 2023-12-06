@@ -63,11 +63,11 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
                         chunk_args[j] = args[item_index];
                     }
                 }
-                chunk_hash = dep::std::hash::pedersen_hash_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
+                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
             }
             chunks_hashes[i] = chunk_hash;
         }
-        dep::std::hash::pedersen_hash_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }
 
@@ -148,21 +148,21 @@ pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field,
 }
 
 pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         address.to_field(),
         inner_commitment,
     ], GENERATOR_INDEX__SILOED_COMMITMENT)
 }
 
 pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         address.to_field(),
         nullifier,
     ], GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
 fn merkle_hash(left : Field, right : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([left, right], 0)
+    pedersen_hash([left, right], 0)
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(_vk : VerificationKey) -> Field {
@@ -196,7 +196,7 @@ pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Fiel
 pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
     let function_data_hash = function_data.hash();
 
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         function_data_hash,
         args_hash,
         constructor_vk_hash
@@ -251,7 +251,7 @@ pub fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Fiel
 }
 
 pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         // TODO why the zeroes?
         0,
         0,
@@ -262,7 +262,7 @@ pub fn compute_partial_address(contract_address_salt : Field, function_tree_root
 }
 
 pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let field = dep::std::hash::pedersen_hash_with_separator([
+    let field = pedersen_hash([
         point.x,
         point.y,
         partial_address
@@ -271,14 +271,14 @@ pub fn compute_contract_address_from_partial(point : Point, partial_address : Fi
 }
 
 pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         first_nullifier,
         commitment_index
     ], GENERATOR_INDEX__COMMITMENT_NONCE)
 }
 
 pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         nonce,
         siloed_commitment
     ], GENERATOR_INDEX__UNIQUE_COMMITMENT)
@@ -297,5 +297,5 @@ pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commi
 }
 
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
-    pedersen_hash_with_separator(inputs, hash_index)
+    dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
