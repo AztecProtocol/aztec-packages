@@ -7,7 +7,8 @@ use crate::constants::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     RETURN_VALUES_LENGTH,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
-    PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH
+    PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+    PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 };
 use crate::{
     abis::{
@@ -93,7 +94,7 @@ impl PublicCircuitPublicInputs{
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.block_header.serialize());
-        fields.push(self.prover_address);
+        fields.push(self.prover_address.to_field());
         fields.storage
     }
 }

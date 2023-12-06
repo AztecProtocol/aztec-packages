@@ -1,47 +1,10 @@
 use dep::protocol_types::{
     abis::{
         block_header::BlockHeader,
-        contrakt::ContractDeploymentData,
+        call_context::CallContext,
     },
-    constants::{
-        RETURN_VALUES_LENGTH,
-        MAX_READ_REQUESTS_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
-        MAX_NEW_COMMITMENTS_PER_CALL,
-        MAX_NEW_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-        MAX_PUBLIC_DATA_READS_PER_CALL,
-        GENERATOR_INDEX__FUNCTION_ARGS,
-        BLOCK_HEADER_LENGTH,
-        CONTRACT_DEPLOYMENT_DATA_LENGTH,
-        CALL_CONTEXT_LENGTH,
-        PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-        PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
-        CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
-        CONTRACT_STORAGE_READ_LENGTH,
-        PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-        PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
-        GENERATOR_INDEX__BLOCK_HASH,
-        GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
-        GENERATOR_INDEX__FUNCTION_DATA,
-        GENERATOR_INDEX__PUBLIC_DATA_READ,
-        GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST,
-        GENERATOR_INDEX__CALL_CONTEXT,
-        GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
-        GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA,
-    },
-    hash::{
-        hash_args,
-        pedersen_hash,
-    },
+    contrakt::deployment_data::ContractDeploymentData,
 };
-
-use crate::types::vec::BoundedVec;
-use crate::types::point::Point;
 
 // docs:start:private-global-variables
 struct PrivateGlobalVariables {
@@ -90,45 +53,6 @@ struct PublicContextInputs {
     public_global_variables: PublicGlobalVariables,
 }
 // docs:end:public-context-inputs
-
-struct ContractStorageRead {
-    storage_slot: Field,
-    value: Field,
-}
-
-impl ContractStorageRead {
-    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
-        [self.storage_slot, self.value]
-    }
-
-    pub fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)
-    }
-
-    pub fn empty() -> Self {
-        Self { storage_slot: 0, value: 0 }
-    }
-}
-
-struct ContractStorageUpdateRequest {
-    storage_slot: Field,
-    old_value: Field,
-    new_value: Field,
-}
-
-impl ContractStorageUpdateRequest {
-    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
-        [self.storage_slot, self.old_value, self.new_value]
-    }
-
-    pub fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
-    }
-
-    pub fn empty() -> Self {
-        Self { storage_slot: 0, old_value: 0, new_value: 0 }
-    }
-}
 
 struct Hasher {
     fields: [Field],
