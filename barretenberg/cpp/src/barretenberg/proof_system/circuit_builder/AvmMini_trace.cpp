@@ -295,7 +295,21 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     // a * b^(-1) = c
     FF a = ffMemory.at(aOffset);
     FF b = ffMemory.at(bOffset);
-    FF c = a * b.invert();
+    FF c;
+    FF inv;
+    FF error;
+
+    if (!b.is_zero()) {
+
+        inv = b.invert();
+        c = a * inv;
+        error = 0;
+    } else {
+        inv = 1;
+        c = 0;
+        error = 1;
+    }
+
     ffMemory.at(dstOffset) = c;
 
     auto clk = mainTrace.size();
@@ -312,6 +326,8 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_sel_op_div = FF(1),
+        .avmMini_op_err = error,
+        .avmMini_inv = inv,
         .avmMini_ia = a,
         .avmMini_ib = b,
         .avmMini_ic = c,
