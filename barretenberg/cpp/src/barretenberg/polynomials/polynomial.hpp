@@ -47,22 +47,21 @@ template <typename Fr> class Polynomial {
      */
     Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations);
 
-    Polynomial& operator=(Polynomial&& other) noexcept;
+    // move assignment
+    Polynomial& operator=(Polynomial&& other) noexcept = default;
     Polynomial& operator=(std::span<const Fr> coefficients) noexcept;
-    Polynomial& operator=(const Polynomial& other);
+    Polynomial& operator=(const Polynomial& other) = delete;
     ~Polynomial() = default;
 
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
-    Polynomial clone()
-    {
-        Polynomial p;
-        p.backing_memory_ = backing_memory_;
-        p.size_ = size_;
-        p.coefficients_ = coefficients_;
-        return p;
-    }
+    Polynomial clone() const;
+
+    /**
+     * Return a deep clone of the polynomial. i.e. underlying memory is copied.
+     */
+    Polynomial deep_clone() const;
 
     std::array<uint8_t, 32> hash() const { return sha256::sha256(byte_span()); }
 
@@ -74,24 +73,7 @@ template <typename Fr> class Polynomial {
         size_ = 0;
     }
 
-    bool operator==(Polynomial const& rhs) const
-    {
-        // If either is empty, both must be
-        if (is_empty() || rhs.is_empty()) {
-            return is_empty() && rhs.is_empty();
-        }
-        // Size must agree
-        if (size() != rhs.size()) {
-            return false;
-        }
-        // Each coefficient must agree
-        for (size_t i = 0; i < size(); i++) {
-            if (coefficients_[i] != rhs.coefficients_[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
+    bool operator==(Polynomial const& rhs) const;
 
     // Const and non const versions of coefficient accessors
     Fr const& operator[](const size_t i) const { return coefficients_[i]; }
@@ -150,17 +132,7 @@ template <typename Fr> class Polynomial {
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
-    Polynomial shifted() const
-    {
-        ASSERT(size_ > 0);
-        ASSERT(backing_memory_[0].is_zero());
-        ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
-        Polynomial p;
-        p.backing_memory_ = backing_memory_;
-        p.size_ = size_;
-        p.coefficients_ = coefficients_ + 1;
-        return p;
-    }
+    Polynomial shifted() const;
 
     /**
      * @brief Set self to the right shift of input coefficients

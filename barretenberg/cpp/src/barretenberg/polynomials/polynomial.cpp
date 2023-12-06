@@ -106,33 +106,17 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points, std::span<c
 
 // Assignments
 
-// full copy "expensive" assignment
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
-{
-    if (this == &other) {
-        return *this;
-    }
-    allocate_backing_memory(other.size_);
-    memcpy(static_cast<void*>(coefficients_), static_cast<void*>(other.coefficients_), sizeof(Fr) * other.size_);
-    zero_memory_beyond(size_);
-    return *this;
-}
-
-// move assignment
-// TODO(AD): why is this not =default?
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(Polynomial&& other) noexcept
-{
-    if (&other == this) {
-        return *this;
-    }
-
-    // simultaneously set members and clear other
-    backing_memory_ = std::exchange(other.backing_memory_, nullptr);
-    size_ = std::exchange(other.size_, 0);
-    coefficients_ = std::exchange(other.coefficients_, nullptr);
-
-    return *this;
-}
+// // full copy "expensive" assignment
+// template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
+// {
+//     if (this == &other) {
+//         return *this;
+//     }
+//     allocate_backing_memory(other.size_);
+//     memcpy(static_cast<void*>(coefficients_), static_cast<void*>(other.coefficients_), sizeof(Fr) * other.size_);
+//     zero_memory_beyond(size_);
+//     return *this;
+// }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
 {
@@ -143,6 +127,24 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const
 
 // #######
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::clone() const
+{
+    Polynomial p;
+    p.backing_memory_ = backing_memory_;
+    p.size_ = size_;
+    p.coefficients_ = coefficients_;
+    return p;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::deep_clone() const
+{
+    Polynomial p;
+    p.allocate_backing_memory(size_);
+    memcpy(static_cast<void*>(p.coefficients_), static_cast<void*>(coefficients_), sizeof(Fr) * size_);
+    p.zero_memory_beyond(p.size_);
+    return p;
+}
+
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
     return polynomial_arithmetic::evaluate(coefficients_, z, target_size);
@@ -151,6 +153,25 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t tar
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
     return polynomial_arithmetic::evaluate(coefficients_, z, size_);
+}
+
+template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) const
+{
+    // If either is empty, both must be
+    if (is_empty() || rhs.is_empty()) {
+        return is_empty() && rhs.is_empty();
+    }
+    // Size must agree
+    if (size() != rhs.size()) {
+        return false;
+    }
+    // Each coefficient must agree
+    for (size_t i = 0; i < size(); i++) {
+        if (coefficients_[i] != rhs.coefficients_[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
@@ -295,6 +316,18 @@ Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
 
 {
     return polynomial_arithmetic::evaluate_from_fft(coefficients_, large_domain, z, small_domain);
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
+{
+    ASSERT(size_ > 0);
+    ASSERT(backing_memory_[0].is_zero());
+    ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
+    Polynomial p;
+    p.backing_memory_ = backing_memory_;
+    p.size_ = size_;
+    p.coefficients_ = coefficients_ + 1;
+    return p;
 }
 
 // TODO(#723): This method is used for the transcript aggregation protocol. For convenience we currently enforce that
