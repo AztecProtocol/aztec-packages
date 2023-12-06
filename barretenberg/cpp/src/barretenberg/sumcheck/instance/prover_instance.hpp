@@ -4,7 +4,6 @@
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace proof_system::honk {
 /**

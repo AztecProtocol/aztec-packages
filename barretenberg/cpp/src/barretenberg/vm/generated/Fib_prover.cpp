@@ -5,7 +5,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"

@@ -2,7 +2,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
