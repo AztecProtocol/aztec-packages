@@ -37,6 +37,7 @@ const {
   MODE = 'sandbox',
   TEST_ACCOUNTS = 'true',
   DEPLOY_AZTEC_CONTRACTS = 'true',
+  API_PREFIX = '',
 } = process.env;
 
 const logger = createDebugLogger(`aztec:${MODE}`);
@@ -150,7 +151,7 @@ async function main() {
     const app = nodeRpcServer.getApp();
 
     // Add a /status endpoint
-    const statusRouter = createStatusRouter();
+    const statusRouter = createStatusRouter(API_PREFIX);
     app.use(statusRouter.routes());
     app.use(statusRouter.allowedMethods());
 
