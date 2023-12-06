@@ -51,7 +51,7 @@ class Goblin {
     bool verified{ true };
 
   private:
-    // WORKTODOD: ew
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<ECCVMBuilder> eccvm_builder;
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<ECCVMComposer> eccvm_composer;
@@ -105,7 +105,8 @@ class Goblin {
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        // WORKTODO: Make an issue about validing the translation evaluations as inputs here.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
+        //   Ensure translation_evaluations are passed correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
         return eccvm_verified && accumulator_construction_verified && translation_verified;
     };

@@ -82,9 +82,7 @@ class GoblinTestingUtils {
      */
     static void construct_simple_initial_circuit(GoblinUltraBuilder& builder)
     {
-        // WORKTODO: In theory we could use the ops from the first circuit instead of these fake ops but then we'd still
-        // have to manually compute and call set_commitments (normally performed in the merge prover) since we can call
-        // merge prove with an previous empty aggregate transcript.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
         perform_op_queue_interactions_for_mock_first_circuit(builder.op_queue);
 
         // Add some arbitrary ecc op gates
