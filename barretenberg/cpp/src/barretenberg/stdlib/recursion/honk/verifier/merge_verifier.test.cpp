@@ -1,11 +1,7 @@
 #include "barretenberg/common/test.hpp"
-// #include "barretenberg/flavor/ultra_recursive.hpp"
-// #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-// #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::goblin {
 
@@ -16,35 +12,23 @@ namespace proof_system::plonk::stdlib::recursion::goblin {
  *
  * @tparam Builder
  */
-template <typename BuilderType> class RecursiveMergeVerifierTest : public testing::Test {
+class RecursiveMergeVerifierTest : public testing::Test {
 
-    // Define types relevant for testing
-    using UltraFlavor = ::proof_system::honk::flavor::Ultra;
+    // Types for recursive verifier circuit
+    using RecursiveBuilder = GoblinUltraCircuitBuilder;
+    using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
+
+    // Define types relevant for inner circuit
     using GoblinUltraFlavor = ::proof_system::honk::flavor::GoblinUltra;
-    using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
-    using VerifierCommitmentKey = ::proof_system::honk::pcs::VerifierCommitmentKey<curve::BN254>;
-
     using InnerFlavor = GoblinUltraFlavor;
     using InnerComposer = GoblinUltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
-    using InnerCurve = bn254<InnerBuilder>;
+
+    // Define additional types for testing purposes
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
-
-    // Types for recursive verifier circuit
-    using RecursiveMergeVerifier = MergeRecursiveVerifier_<BuilderType>;
-    using OuterBuilder = BuilderType;
-
-    // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_outer_composer()
-    {
-        if constexpr (IsGoblinBuilder<BuilderT>) {
-            return GoblinUltraComposer();
-        } else {
-            return UltraComposer();
-        }
-    }
+    using VerifierCommitmentKey = ::proof_system::honk::pcs::VerifierCommitmentKey<curve::BN254>;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
@@ -100,10 +84,8 @@ template <typename BuilderType> class RecursiveMergeVerifierTest : public testin
         // Create an arbitrary inner circuit with goblin ECC op gates
         InnerBuilder sample_circuit = generate_sample_circuit(op_queue);
 
-        // Generate a merge proof for the inner circuit
-        InnerComposer composer;
-
         // Construct and natively verify the merge proof
+        InnerComposer composer;
         auto merge_prover = composer.create_merge_prover(op_queue);
         auto merge_verifier = composer.create_merge_verifier(0);
         auto merge_proof = merge_prover.construct_proof();
@@ -130,8 +112,8 @@ template <typename BuilderType> class RecursiveMergeVerifierTest : public testin
         auto merge_prover = inner_composer.create_merge_prover(op_queue);
         auto merge_proof = merge_prover.construct_proof();
 
-        // Create a recursive verification circuit for the proof of the inner circuit
-        OuterBuilder outer_circuit;
+        // Create a recursive merge verification circuit for the merge proof
+        RecursiveBuilder outer_circuit;
         RecursiveMergeVerifier verifier{ &outer_circuit };
         auto pairing_points = verifier.verify_proof(merge_proof);
 
@@ -148,7 +130,7 @@ template <typename BuilderType> class RecursiveMergeVerifierTest : public testin
         EXPECT_EQ(verified_native, verified_recursive);
         EXPECT_TRUE(verified_recursive);
 
-        // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
+        // Check 2: Ensure that the underlying native and recursive merge verification algorithms agree by ensuring
         // the manifests produced by each agree.
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
@@ -158,7 +140,7 @@ template <typename BuilderType> class RecursiveMergeVerifierTest : public testin
 
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
-            auto composer = get_outer_composer<OuterBuilder>();
+            GoblinUltraComposer composer;
             auto instance = composer.create_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
             auto verifier = composer.create_verifier(instance);
@@ -170,20 +152,14 @@ template <typename BuilderType> class RecursiveMergeVerifierTest : public testin
     }
 };
 
-// Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-// using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
-using BuilderTypes = testing::Types<GoblinUltraCircuitBuilder>;
-
-TYPED_TEST_SUITE(RecursiveMergeVerifierTest, BuilderTypes);
-
-HEAVY_TYPED_TEST(RecursiveMergeVerifierTest, NativeSampleCircuitMerge)
+TEST_F(RecursiveMergeVerifierTest, NativeSampleCircuitMerge)
 {
-    TestFixture::test_sample_circuit_merge();
+    RecursiveMergeVerifierTest::test_sample_circuit_merge();
 };
 
-HEAVY_TYPED_TEST(RecursiveMergeVerifierTest, SingleRecursiveVerification)
+TEST_F(RecursiveMergeVerifierTest, SingleRecursiveVerification)
 {
-    TestFixture::test_recursive_merge_verification();
+    RecursiveMergeVerifierTest::test_recursive_merge_verification();
 };
 
 } // namespace proof_system::plonk::stdlib::recursion::goblin
