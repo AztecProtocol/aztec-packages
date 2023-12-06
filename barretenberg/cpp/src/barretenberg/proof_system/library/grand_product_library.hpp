@@ -158,7 +158,7 @@ void compute_grand_products(std::shared_ptr<typename Flavor::ProvingKey>& key,
         barretenberg::Polynomial<FF>& full_polynomial =
             GrandProdRelation::get_grand_product_polynomial(full_polynomials);
         auto& key_polynomial = GrandProdRelation::get_grand_product_polynomial(*key);
-        full_polynomial = key_polynomial;
+        full_polynomial = key_polynomial.clone();
 
         compute_grand_product<Flavor, GrandProdRelation>(key->circuit_size, full_polynomials, relation_parameters);
         barretenberg::Polynomial<FF>& full_polynomial_shift =

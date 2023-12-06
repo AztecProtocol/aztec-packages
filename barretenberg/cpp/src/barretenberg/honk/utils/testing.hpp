@@ -29,7 +29,7 @@ get_sequential_prover_polynomials(const size_t log_circuit_size, const size_t st
 
     ProverPolynomials prover_polynomials;
     for (auto [prover_poly, storage_poly] : zip_view(prover_polynomials.get_all(), storage)) {
-        prover_poly = storage_poly;
+        prover_poly = storage_poly.clone();
     }
 
     return std::pair(std::move(storage), prover_polynomials);
@@ -55,7 +55,7 @@ get_zero_prover_polynomials(const size_t log_circuit_size)
 
     ProverPolynomials prover_polynomials;
     for (auto [prover_poly, storage_poly] : zip_view(prover_polynomials.get_all(), storage)) {
-        prover_poly = storage_poly;
+        prover_poly = storage_poly.clone();
     }
 
     return std::pair(std::move(storage), prover_polynomials);

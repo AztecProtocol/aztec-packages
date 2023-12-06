@@ -157,7 +157,7 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
         barretenberg::Polynomial<FF>& full_polynomial =
             PermutationRelation::get_grand_product_polynomial(full_polynomials);
         barretenberg::Polynomial<FF>& key_polynomial = PermutationRelation::get_grand_product_polynomial(*key);
-        full_polynomial = key_polynomial;
+        full_polynomial = key_polynomial.share();
 
         compute_permutation_grand_product<Flavor, PermutationRelation>(
             key->circuit_size, full_polynomials, relation_parameters);

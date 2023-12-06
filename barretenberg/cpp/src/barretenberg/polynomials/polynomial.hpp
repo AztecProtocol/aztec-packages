@@ -56,7 +56,7 @@ template <typename Fr> class Polynomial {
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
-    Polynomial clone() const;
+    Polynomial share() const;
 
     /**
      * Return a deep clone of the polynomial. i.e. underlying memory is copied.

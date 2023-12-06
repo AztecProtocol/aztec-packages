@@ -120,13 +120,12 @@ template <typename Curve> class ShplonkProver_ {
 
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ )
         Fr current_nu = Fr::one();
-        Polynomial tmp(G.size());
         for (size_t j = 0; j < num_opening_pairs; ++j) {
             // (Cⱼ, xⱼ, vⱼ)
             const auto& [challenge, evaluation] = opening_pairs[j];
 
             // tmp = ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )
-            tmp = witness_polynomials[j];
+            Polynomial tmp = witness_polynomials[j].deep_clone();
             tmp[0] -= evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[j]; // = ρʲ / ( r − xⱼ )
 

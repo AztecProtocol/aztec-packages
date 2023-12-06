@@ -127,7 +127,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const
 
 // #######
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::clone() const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
 {
     Polynomial p;
     p.backing_memory_ = backing_memory_;

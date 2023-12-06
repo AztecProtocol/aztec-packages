@@ -240,6 +240,38 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                               precompute_select_shift,            // column 24
                               z_perm_shift);                      // column 25
     };
+
+    template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
+    static RefVector<DataType> get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
+    {
+        // NOTE: must match order of ShiftedEntities above!
+        return { entities.transcript_mul,
+                 entities.transcript_msm_count,
+                 entities.transcript_accumulator_x,
+                 entities.transcript_accumulator_y,
+                 entities.precompute_scalar_sum,
+                 entities.precompute_s1hi,
+                 entities.precompute_dx,
+                 entities.precompute_dy,
+                 entities.precompute_tx,
+                 entities.precompute_ty,
+                 entities.msm_transition,
+                 entities.msm_add,
+                 entities.msm_double,
+                 entities.msm_skew,
+                 entities.msm_accumulator_x,
+                 entities.msm_accumulator_y,
+                 entities.msm_count,
+                 entities.msm_round,
+                 entities.msm_add1,
+                 entities.msm_pc,
+                 entities.precompute_pc,
+                 entities.transcript_pc,
+                 entities.precompute_round,
+                 entities.transcript_accumulator_empty,
+                 entities.precompute_select,
+                 entities.z_perm };
+    }
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -272,35 +304,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return { this->transcript_mul,
-                     this->transcript_msm_count,
-                     this->transcript_accumulator_x,
-                     this->transcript_accumulator_y,
-                     this->precompute_scalar_sum,
-                     this->precompute_s1hi,
-                     this->precompute_dx,
-                     this->precompute_dy,
-                     this->precompute_tx,
-                     this->precompute_ty,
-                     this->msm_transition,
-                     this->msm_add,
-                     this->msm_double,
-                     this->msm_skew,
-                     this->msm_accumulator_x,
-                     this->msm_accumulator_y,
-                     this->msm_count,
-                     this->msm_round,
-                     this->msm_add1,
-                     this->msm_pc,
-                     this->precompute_pc,
-                     this->transcript_pc,
-                     this->precompute_round,
-                     this->transcript_accumulator_empty,
-                     this->precompute_select,
-                     this->z_perm };
-        }
+        RefVector<DataType> get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<DataType>(*this); }
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -316,6 +320,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
+        RefVector<Polynomial> get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<Polynomial>(*this); }
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return {}; };
     };

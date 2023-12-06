@@ -178,6 +178,9 @@ class Ultra {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
+                                WitnessEntities<DataType>::get_all(),
+                                ShiftedEntities<DataType>::get_all());
         // get_wires inherited from WitnessEntities
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
@@ -221,6 +224,11 @@ class Ultra {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+        };
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };

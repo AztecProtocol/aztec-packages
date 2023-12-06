@@ -74,12 +74,12 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the coefficients of q_{n-1}
         size_t size_q = 1 << (log_N - 1);
-        Polynomial q = Polynomial(size_q);
+        Polynomial q{ size_q };
         for (size_t l = 0; l < size_q; ++l) {
             q[l] = polynomial[size_q + l] - polynomial[l];
         }
 
-        quotients[log_N - 1] = q;
+        quotients[log_N - 1] = std::move(q);
 
         std::vector<FF> f_k;
         f_k.resize(size_q);
@@ -94,13 +94,13 @@ template <typename Curve> class ZeroMorphProver_ {
             }
 
             size_q = size_q / 2;
-            q = Polynomial(size_q);
+            Polynomial q{ size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
                 q[l] = f_k[size_q + l] - f_k[l];
             }
 
-            quotients[log_N - k - 1] = q;
+            quotients[log_N - k - 1] = std::move(q);
             g = f_k;
         }
 

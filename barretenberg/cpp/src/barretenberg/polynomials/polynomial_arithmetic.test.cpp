@@ -642,7 +642,7 @@ TEST(polynomials, divide_by_vanishing_polynomial)
     polynomial_arithmetic::sub(&R[0], &C[0], &R[0], large_domain);
 
     polynomial R_copy(2 * n);
-    R_copy = R;
+    R_copy = R.deep_clone();
 
     polynomial_arithmetic::divide_by_pseudo_vanishing_polynomial({ &R[0] }, small_domain, large_domain, 3);
     R.coset_ifft(large_domain);
@@ -1219,7 +1219,7 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
         coeff = FF::random_element();
     }
 
-    // construct a new poly FFom the original via the move constructor
+    // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
     // verifiy that source poly is appropriately destroyed
@@ -1264,7 +1264,7 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
     EXPECT_EQ(poly.is_empty(), true);
 
     // fill the empty poly using the assignment operator
-    poly = interesting_poly;
+    poly = interesting_poly.deep_clone();
 
     // coefficients and size should be equal in value
     for (size_t i = 0; i < num_coeffs; ++i) {
