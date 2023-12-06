@@ -75,7 +75,7 @@ template <typename Curve> class ShplonkProver_ {
             const auto& [challenge, evaluation] = opening_pairs[j];
 
             // tmp = ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = witness_polynomials[j];
+            tmp = witness_polynomials[j].deep_clone();
             tmp[0] -= evaluation;
             tmp.factor_roots(challenge);
 
