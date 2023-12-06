@@ -50,7 +50,7 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
             for (size_t i = 0; i < selector_values.size(); ++i) {
                 selector_poly_lagrange[i + gate_offset] = selector_values[i];
             }
-            poly = std::move(selector_poly_lagrange);
+            poly = selector_poly_lagrange.share();
         }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
         size_t selector_idx = 0;
