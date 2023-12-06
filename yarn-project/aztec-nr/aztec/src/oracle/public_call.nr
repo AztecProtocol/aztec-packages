@@ -1,4 +1,8 @@
-use dep::protocol_types::constants::RETURN_VALUES_LENGTH;
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::Address,
+    constants::RETURN_VALUES_LENGTH,
+};
 
 #[oracle(callPublicFunction)]
 fn call_public_function_oracle(_contract_address: Address, _function_selector: FunctionSelector, _args_hash: Field) -> [Field; RETURN_VALUES_LENGTH] {}

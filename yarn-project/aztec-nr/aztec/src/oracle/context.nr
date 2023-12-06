@@ -1,3 +1,5 @@
+use dep::protocol_types::address::Address;
+
 #[oracle(getPortalContractAddress)]
 fn _get_portal_address(_contract_address: Address) -> Field {}
 

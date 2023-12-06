@@ -418,7 +418,7 @@ impl PrivateContext {
         };
 
         assert(contract_address.eq(item.contract_address));
-        assert(function_selector.eq(item.function_data.function_selector));
+        assert(function_selector.eq(item.function_data.selector));
         
         assert(args_hash == item.public_inputs.args_hash);
 

@@ -131,7 +131,7 @@ contract InclusionProofs {
 
         // 5) Prove that the commitment is in the note hash tree
         assert(
-            block_header.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
+            block_header.block.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
             "Proving note inclusion failed"
         );
 
@@ -176,7 +176,7 @@ contract InclusionProofs {
         // 5.a) Compute the low nullifier leaf and prove that it is in the nullifier tree
         let low_nullifier_leaf = witness.leaf_data.hash();
         assert(
-            block_header.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
+            block_header.block.nullifier_tree_root == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path),
             "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
         );
 
@@ -237,7 +237,7 @@ contract InclusionProofs {
 
         // 5) Prove that the nullifier is in the nullifier tree
         assert(
-            block_header.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
+            block_header.block.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
             "Proving nullifier inclusion failed"
         );
 
@@ -264,7 +264,7 @@ contract InclusionProofs {
         // not siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
         // value in the public data tree.
         let public_value_leaf_index = pedersen_hash(
-            [context.this_address(), storage.public_value.storage_slot],
+            [context.this_address().to_field(), storage.public_value.storage_slot],
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX
         );
 
@@ -275,7 +275,7 @@ contract InclusionProofs {
 
         // 4) Prove that the public value provided on input is in the public data tree
         assert(
-            block_header.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
+            block_header.block.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
             "Proving public value inclusion failed"
         );
 

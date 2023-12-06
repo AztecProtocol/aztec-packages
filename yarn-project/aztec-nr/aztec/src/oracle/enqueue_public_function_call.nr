@@ -1,3 +1,7 @@
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::Address,
+};
 
 // contract_address + 
 // args_hash +
