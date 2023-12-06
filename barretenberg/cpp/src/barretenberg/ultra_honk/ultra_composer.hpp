@@ -68,6 +68,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      *
      * @param op_queue
      * @return MergeProver_<Flavor>
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/804): Goblin should be responsible for constructing
+     * merge prover/verifier.
      */
     MergeProver_<Flavor> create_merge_prover(
         const std::shared_ptr<ECCOpQueue>& op_queue,
@@ -88,9 +90,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      * @return MergeVerifier_<Flavor>
      */
     MergeVerifier_<Flavor> create_merge_verifier(
-        size_t srs_size, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
     {
-        auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(srs_size, crs_factory_);
+        auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(0, crs_factory_);
         return MergeVerifier_<Flavor>(std::move(pcs_verification_key), transcript);
     }
 

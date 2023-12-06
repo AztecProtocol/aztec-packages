@@ -34,8 +34,8 @@ class GoblinRecursionTests : public ::testing::Test {
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
     using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using Goblin = proof_system::plonk::stdlib::recursion::goblin::Goblin;
-    using KernelInput = proof_system::plonk::stdlib::recursion::goblin::Goblin::AccumulationOutput;
+    using Goblin = barretenberg::Goblin;
+    using KernelInput = Goblin::AccumulationOutput;
 
     /**
      * @brief Construct a mock kernel circuit
@@ -87,11 +87,8 @@ TEST_F(GoblinRecursionTests, Pseudo)
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
-    // WORKTODO: need to verify final ultra and merge proofs to complete the test
-
-    // verify(kernel_input.proof)
-
     Goblin::Proof proof = goblin.prove();
+    // WORKTODO: verify(kernel_input.proof)
     bool verified = goblin.verify(proof);
     EXPECT_TRUE(verified);
 }

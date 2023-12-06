@@ -8,7 +8,7 @@
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::goblin {
+namespace barretenberg {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
@@ -88,8 +88,8 @@ class Goblin {
     Proof prove()
     {
         Proof proof;
-        // WORKTODO: std::move
-        // proof.merge_proof = merge_proof;
+
+        proof.merge_proof = std::move(merge_proof);
 
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
         eccvm_composer = std::make_unique<ECCVMComposer>();
@@ -107,8 +107,9 @@ class Goblin {
 
     bool verify(const Proof& proof)
     {
-
-        // WORKTODO: native merge verify
+        GoblinUltraComposer composer;
+        auto merge_verifier = composer.create_merge_verifier(0);
+        bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
@@ -118,7 +119,8 @@ class Goblin {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
         //   Ensure translation_evaluations are passed correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
-        return eccvm_verified && accumulator_construction_verified && translation_verified;
+
+        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
-} // namespace proof_system::plonk::stdlib::recursion::goblin
+} // namespace barretenberg
