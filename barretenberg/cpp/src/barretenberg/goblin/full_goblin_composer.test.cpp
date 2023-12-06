@@ -1,7 +1,7 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
-#include "barretenberg/goblin/utils.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
