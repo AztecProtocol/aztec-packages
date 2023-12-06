@@ -48,7 +48,7 @@ template <typename Fr> class Polynomial {
     Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations);
 
     // move assignment
-    Polynomial& operator=(Polynomial&& other) noexcept = default;
+    Polynomial& operator=(Polynomial&& other) noexcept;
     Polynomial& operator=(std::span<const Fr> coefficients) noexcept;
     Polynomial& operator=(const Polynomial& other) = delete;
     ~Polynomial() = default;

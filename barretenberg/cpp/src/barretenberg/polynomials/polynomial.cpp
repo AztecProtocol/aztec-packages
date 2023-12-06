@@ -75,7 +75,6 @@ template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, c
 }
 
 // move constructor
-// TODO(AD) why is this not =default?
 template <typename Fr>
 Polynomial<Fr>::Polynomial(Polynomial<Fr>&& other) noexcept
     : backing_memory_(std::exchange(other.backing_memory_, nullptr))
@@ -126,6 +125,18 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const
 }
 
 // #######
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(Polynomial&& other) noexcept
+{
+    if (&other == this) {
+        return *this;
+    }
+
+    // simultaneously set members and clear other
+    backing_memory_ = std::exchange(other.backing_memory_, nullptr);
+    coefficients_ = std::exchange(other.coefficients_, nullptr);
+    size_ = std::exchange(other.size_, 0);
+    return *this;
+}
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
 {
