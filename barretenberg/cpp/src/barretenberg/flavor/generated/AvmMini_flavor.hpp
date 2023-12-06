@@ -234,6 +234,15 @@ class AvmMiniFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return {
+                memTrace_m_rw,
+                memTrace_m_addr,
+                memTrace_m_val,
+
+            };
+        };
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };

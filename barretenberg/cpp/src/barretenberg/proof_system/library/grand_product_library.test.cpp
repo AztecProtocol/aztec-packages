@@ -91,7 +91,7 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         typename Flavor::ProverPolynomials prover_polynomials;
         for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-            prover_poly = key_poly.clone();
+            prover_poly = key_poly.share();
         }
 
         // Method 1: Compute z_perm using 'compute_grand_product_polynomial' as the prover would in practice

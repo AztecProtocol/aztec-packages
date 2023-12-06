@@ -314,6 +314,11 @@ class GoblinUltra {
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+        };
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };

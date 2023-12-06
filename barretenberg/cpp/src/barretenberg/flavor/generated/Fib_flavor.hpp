@@ -142,6 +142,13 @@ class FibFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return {
+                Fibonacci_x,
+                Fibonacci_y,
+            };
+        };
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };

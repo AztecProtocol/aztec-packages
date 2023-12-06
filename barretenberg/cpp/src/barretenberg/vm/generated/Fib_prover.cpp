@@ -28,22 +28,12 @@ FibProver::FibProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_
     : key(input_key)
     , commitment_key(commitment_key)
 {
-    // TODO: take every polynomial and assign it to the key!!
-
-    prover_polynomials.Fibonacci_LAST = key->Fibonacci_LAST;
-    prover_polynomials.Fibonacci_FIRST = key->Fibonacci_FIRST;
-    prover_polynomials.Fibonacci_x = key->Fibonacci_x;
-    prover_polynomials.Fibonacci_y = key->Fibonacci_y;
-
-    prover_polynomials.Fibonacci_x = key->Fibonacci_x;
-    prover_polynomials.Fibonacci_x_shift = key->Fibonacci_x.shifted();
-
-    prover_polynomials.Fibonacci_y = key->Fibonacci_y;
-    prover_polynomials.Fibonacci_y_shift = key->Fibonacci_y.shifted();
-
-    // prover_polynomials.lookup_inverses = key->lookup_inverses;
-    // key->z_perm = Polynomial(key->circuit_size);
-    // prover_polynomials.z_perm = key->z_perm;
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
+        prover_poly = key_poly.share();
+    }
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
+        prover_poly = key_poly.shifted();
+    }
 }
 
 /**

@@ -32,7 +32,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(const std::shared_ptr<typename Flavor::Provin
     // this will be initialized properly later
     key->z_perm = Polynomial(key->circuit_size);
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
-        prover_poly = key_poly.clone();
+        prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
         prover_poly = key_poly.shifted();
@@ -85,7 +85,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_
     lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitment_key->commit(key->lookup_inverses));
-    prover_polynomials.lookup_inverses = key->lookup_inverses.clone();
+    prover_polynomials.lookup_inverses = key->lookup_inverses.share();
 }
 
 /**

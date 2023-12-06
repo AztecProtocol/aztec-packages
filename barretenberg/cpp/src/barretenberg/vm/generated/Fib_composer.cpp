@@ -17,10 +17,10 @@ void FibComposer::compute_witness(CircuitConstructor& circuit)
 
     auto polynomials = circuit.compute_polynomials();
 
-    proving_key->Fibonacci_LAST = polynomials.Fibonacci_LAST;
-    proving_key->Fibonacci_FIRST = polynomials.Fibonacci_FIRST;
-    proving_key->Fibonacci_x = polynomials.Fibonacci_x;
-    proving_key->Fibonacci_y = polynomials.Fibonacci_y;
+    for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
+        // TODO(AD): can this be shared instead?
+        key_poly = prover_poly.deep_clone();
+    }
 
     computed_witness = true;
 }

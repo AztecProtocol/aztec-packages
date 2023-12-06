@@ -55,10 +55,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_witness(Circuit& c
     // Construct the conventional wire polynomials
     auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
 
-    proving_key->w_l = wire_polynomials[0];
-    proving_key->w_r = wire_polynomials[1];
-    proving_key->w_o = wire_polynomials[2];
-    proving_key->w_4 = wire_polynomials[3];
+    proving_key->w_l = wire_polynomials[0].share();
+    proving_key->w_r = wire_polynomials[1].share();
+    proving_key->w_o = wire_polynomials[2].share();
+    proving_key->w_4 = wire_polynomials[3].share();
 
     // If Goblin, construct the ECC op queue wire and databus polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -172,10 +172,10 @@ template <class Flavor> void ProverInstance_<Flavor>::construct_ecc_op_wire_poly
         }
     }
 
-    proving_key->ecc_op_wire_1 = op_wire_polynomials[0].clone();
-    proving_key->ecc_op_wire_2 = op_wire_polynomials[1].clone();
-    proving_key->ecc_op_wire_3 = op_wire_polynomials[2].clone();
-    proving_key->ecc_op_wire_4 = op_wire_polynomials[3].clone();
+    proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
+    proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
+    proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
+    proving_key->ecc_op_wire_4 = op_wire_polynomials[3].share();
 }
 
 /**
@@ -198,8 +198,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         calldata_read_counts[idx] = circuit.get_variable(circuit.calldata_read_counts[idx]);
     }
 
-    proving_key->calldata = public_calldata;
-    proving_key->calldata_read_counts = calldata_read_counts;
+    proving_key->calldata = public_calldata.share();
+    proving_key->calldata_read_counts = calldata_read_counts.share();
 }
 
 template <class Flavor>
@@ -282,7 +282,7 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
 {
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-        prover_poly = key_poly.clone();
+        prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
         prover_poly = key_poly.shifted();
@@ -307,12 +307,12 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator
     compute_sorted_list_accumulator(eta);
-    prover_polynomials.sorted_accum = proving_key->sorted_accum;
+    prover_polynomials.sorted_accum = proving_key->sorted_accum.share();
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
 
     // Finalize fourth wire polynomial by adding lookup memory records
     add_plookup_memory_records_to_wire_4(eta);
-    prover_polynomials.w_4 = proving_key->w_4;
+    prover_polynomials.w_4 = proving_key->w_4.share();
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
 }
 
@@ -344,7 +344,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
         T0 += sorted_polynomials[0][i];
         sorted_list_accumulator[i] = T0;
     }
-    proving_key->sorted_accum = sorted_list_accumulator;
+    proving_key->sorted_accum = sorted_list_accumulator.share();
 }
 
 /**

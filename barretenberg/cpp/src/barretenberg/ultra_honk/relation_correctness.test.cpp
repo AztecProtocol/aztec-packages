@@ -401,7 +401,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
         }
         Polynomial temporary_polynomial(circuit_size);
         polynomial_container.push_back(temporary_polynomial);
-        polynomial_get_all[i] = polynomial_container[i];
+        polynomial_get_all[i] = polynomial_container[i].share();
     }
 
     // Fill in lagrange polynomials used in the permutation relation
@@ -528,7 +528,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
             ordered_range_constraints_index = i;
         }
         polynomial_container.push_back(temporary_polynomial);
-        polynomial_get_all[i] = polynomial_container[i];
+        polynomial_get_all[i] = polynomial_container[i].share();
     }
 
     // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
@@ -635,15 +635,15 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
     }
-    // Assign spans to non-shifted prover polynomials
+    // Assign to non-shifted prover polynomials
     auto polynomial_get_all = prover_polynomials.get_all();
     for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
-    // Assign shifted spans to shifted prover polynomials using ids
+    // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
@@ -737,7 +737,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     // Assign spans to non-shifted prover polynomials
     for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
@@ -1153,14 +1153,14 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
     }
-    // Assign spans to non-shifted prover polynomials
+    // Assign to non-shifted prover polynomials
     for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
-    // Assign shifted spans to shifted prover polynomials using ids
+    // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];

@@ -422,13 +422,13 @@ template <typename Flavor> inline void compute_lagrange_polynomials_for_goblin_t
         lagrange_polynomial_odd_in_minicircuit[i] = 1;
         lagrange_polynomial_even_in_minicircut[i + 1] = 1;
     }
-    proving_key->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit;
+    proving_key->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit.share();
 
-    proving_key->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut;
+    proving_key->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut.share();
     lagrange_polynomial_second[1] = 1;
     lagrange_polynomial_second_to_last_in_minicircuit[Flavor::MINI_CIRCUIT_SIZE - 2] = 1;
-    proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit;
-    proving_key->lagrange_second = lagrange_polynomial_second;
+    proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit.share();
+    proving_key->lagrange_second = lagrange_polynomial_second.share();
 }
 
 } // namespace proof_system::honk::permutation_library
