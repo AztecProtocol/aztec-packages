@@ -56,13 +56,15 @@ library Constants {
   uint256 internal constant NOTE_HASH_SUBTREE_HEIGHT = 7;
   uint256 internal constant NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH = 25;
   uint256 internal constant NULLIFIER_SUBTREE_HEIGHT = 7;
-  uint256 internal constant BLOCKS_TREE_HEIGHT = 16;
+  uint256 internal constant ARCHIVE_HEIGHT = 16;
   uint256 internal constant NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH = 13;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
   uint256 internal constant NUM_FIELDS_PER_SHA256 = 2;
+  uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 32;
+  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 8;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 26;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
