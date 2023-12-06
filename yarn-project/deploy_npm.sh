@@ -11,8 +11,6 @@ extract_repo yarn-project-prod /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
-# also copy npcrc into the l1-contracts directory
-cp .npmrc ../l1-contracts
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
 DIST_TAG=${1:-"latest"}
@@ -68,13 +66,6 @@ function deploy_package() {
       # Publish new version
       npm publish $TAG_ARG --access public
     fi
-  fi
-
-  # Back to root
-  if [ "$REPOSITORY" == "../l1-contracts" ]; then
-    cd ../yarn-project
-  else
-    cd ..
   fi
 }
 
