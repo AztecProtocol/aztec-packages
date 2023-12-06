@@ -79,7 +79,7 @@ template <typename Curve> class ZeroMorphProver_ {
             q[l] = polynomial[size_q + l] - polynomial[l];
         }
 
-        quotients[log_N - 1] = std::move(q);
+        quotients[log_N - 1] = q.share();
 
         std::vector<FF> f_k;
         f_k.resize(size_q);
@@ -100,7 +100,7 @@ template <typename Curve> class ZeroMorphProver_ {
                 q[l] = f_k[size_q + l] - f_k[l];
             }
 
-            quotients[log_N - k - 1] = std::move(q);
+            quotients[log_N - k - 1] = q.share();
             g = f_k;
         }
 
