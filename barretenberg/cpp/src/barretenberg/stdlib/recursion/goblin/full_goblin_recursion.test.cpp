@@ -11,10 +11,7 @@
 
 #include <gtest/gtest.h>
 
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
-// using namespace proof_system::honk;
-
+using namespace proof_system::honk;
 namespace goblin_recursion_tests {
 
 class GoblinRecursionTests : public ::testing::Test {
@@ -29,23 +26,21 @@ class GoblinRecursionTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Fbase = Curve::BaseField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = proof_system::honk::pcs::CommitmentKey<Curve>;
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
     using OpQueue = proof_system::ECCOpQueue;
     using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
-    using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
+    using ECCVMFlavor = flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = proof_system::honk::ECCVMComposer_<ECCVMFlavor>;
-    using TranslatorFlavor = proof_system::honk::flavor::GoblinTranslator;
+    using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
+    using TranslatorFlavor = flavor::GoblinTranslator;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
+    using TranslatorComposer = GoblinTranslatorComposer;
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
     using Proof = proof_system::plonk::proof;
-    using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
-    using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
-
-    using RecursiveFlavor = ::proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
-    using RecursiveVerifier = ::proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-
+    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
+    using GoblinUltraComposer = GoblinUltraComposer;
+    using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
+    using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
     using GoblinProof = barretenberg::Goblin::GoblinProof;
 

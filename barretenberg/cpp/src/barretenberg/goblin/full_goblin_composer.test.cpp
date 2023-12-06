@@ -10,8 +10,6 @@
 
 #include <gtest/gtest.h>
 
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
 using namespace barretenberg;
 using namespace proof_system::honk;
 
@@ -35,17 +33,7 @@ class FullGoblinComposerTests : public ::testing::Test {
     using ECCVMFlavor = flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
     using ECCVMComposer = ECCVMComposer_<ECCVMFlavor>;
-    using TranslatorFlavor = flavor::GoblinTranslator;
-    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = GoblinTranslatorComposer;
-    using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
-    using Proof = proof_system::plonk::proof;
-    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
-
     using KernelInput = Goblin::AccumulationOutput;
-    using GoblinProof = barretenberg::Goblin::GoblinProof;
-
-    static constexpr size_t NUM_OP_QUEUE_COLUMNS = proof_system::honk::flavor::GoblinUltra::NUM_WIRES;
 };
 
 /**
