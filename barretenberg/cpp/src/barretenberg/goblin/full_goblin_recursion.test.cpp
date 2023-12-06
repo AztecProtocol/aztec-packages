@@ -57,7 +57,7 @@ class GoblinRecursionTests : public ::testing::Test {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/803): Mock app circuit. In the absence of a mocked
         // app circuit proof, we simply perform another recursive verification for the previous kernel proof to
         // approximate the work done for the app proof.
-        pairing_points = verifier.verify_proof(kernel_input.proof); // app function proof
+        pairing_points = verifier.verify_proof(kernel_input.proof);
     }
 };
 
@@ -74,7 +74,7 @@ TEST_F(GoblinRecursionTests, Pseudo)
     GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
 
     // Note: On the first call to accumulate there is no merge proof to recursively verify
-    KernelInput kernel_input = goblin.accumulate(initial_circuit, /*verify_merge=*/false);
+    KernelInput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;

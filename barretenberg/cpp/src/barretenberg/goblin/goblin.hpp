@@ -47,7 +47,11 @@ class Goblin {
         proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    HonkProof merge_proof; // WORKTODO
+
+    HonkProof merge_proof;
+
+    // on the first call to accumulate there is no merge proof to verify
+    bool merge_proof_exists{ false };
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -62,12 +66,10 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder, bool verify_merge = true)
+    AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
     {
-        // Complete the circuit logic by recursively verifying previous merge proof
-        // Note: the first time we call accumulate there is no merge proof to recursively verify. This is related to
-        // issue (https://github.com/AztecProtocol/barretenberg/issues/723)
-        if (verify_merge) {
+        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        if (merge_proof_exists) {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
             [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
         }
@@ -81,6 +83,10 @@ class Goblin {
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
         auto merge_prover = composer.create_merge_prover(op_queue);
         merge_proof = merge_prover.construct_proof();
+
+        if (!merge_proof_exists) {
+            merge_proof_exists = true;
+        }
 
         return { ultra_proof, instance->verification_key };
     };
@@ -108,7 +114,7 @@ class Goblin {
     bool verify(const Proof& proof)
     {
         GoblinUltraComposer composer;
-        auto merge_verifier = composer.create_merge_verifier(0);
+        auto merge_verifier = composer.create_merge_verifier();
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
