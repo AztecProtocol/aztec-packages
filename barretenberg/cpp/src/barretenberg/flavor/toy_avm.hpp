@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -76,44 +77,46 @@ class ToyAVM {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType, typename HandleType>
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        DataType lagrange_first;               // column 0
-        DataType enable_tuple_set_permutation; // column 1
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              lagrange_first,                   // column 0
+                              enable_tuple_set_permutation,     // column 1
+                              enable_single_column_permutation, // column 2
+                              enable_first_set_permutation,     // column 3
+                              enable_second_set_permutation)    // column 4
 
-        DEFINE_POINTER_VIEW(NUM_PRECOMPUTED_ENTITIES, &lagrange_first)
-
-        std::vector<HandleType> get_selectors() override { return { lagrange_first }; };
-        std::vector<HandleType> get_sigma_polynomials() override { return {}; };
-        std::vector<HandleType> get_id_polynomials() override { return {}; };
-        std::vector<HandleType> get_table_polynomials() { return {}; };
+        RefVector<DataType> get_selectors()
+        {
+            return { lagrange_first,
+                     enable_tuple_set_permutation,
+                     enable_single_column_permutation,
+                     enable_first_set_permutation,
+                     enable_second_set_permutation };
+        };
+        RefVector<DataType> get_sigma_polynomials() { return {}; };
+        RefVector<DataType> get_id_polynomials() { return {}; };
+        RefVector<DataType> get_table_polynomials() { return {}; };
     };
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
-      public:
-        DataType permutation_set_column_1;    // column 0
-        DataType permutation_set_column_2;    // column 1
-        DataType permutation_set_column_3;    // column 2
-        DataType permutation_set_column_4;    // column 3
-        DataType self_permutation_column;     // column 4
-        DataType tuple_permutation_inverses;  // column 5
-        DataType single_permutation_inverses; // column 6
 
-        DEFINE_POINTER_VIEW(NUM_WITNESS_ENTITIES,
-                            &permutation_set_column_1,
-                            &permutation_set_column_2,
-                            &permutation_set_column_3,
-                            &permutation_set_column_4,
-                            &self_permutation_column,
-                            &tuple_permutation_inverses,
-                            &single_permutation_inverses)
-        std::vector<HandleType> get_wires() override
+    template <typename DataType> class WitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              permutation_set_column_1,    // Column 0
+                              permutation_set_column_2,    // Column 1
+                              permutation_set_column_3,    // Column 2
+                              permutation_set_column_4,    // Column 3
+                              self_permutation_column,     // Column 4
+                              tuple_permutation_inverses,  // Column 5
+                              single_permutation_inverses) // Column 6
+
+        RefVector<DataType> get_wires()
         {
             return { permutation_set_column_1,
                      permutation_set_column_2,
@@ -121,8 +124,6 @@ class ToyAVM {
                      permutation_set_column_4,
                      self_permutation_column };
         };
-        // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return {}; };
     };
 
     /**
@@ -134,44 +135,30 @@ class ToyAVM {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
-      public:
-        DataType lagrange_first;                   // column 0
-        DataType enable_tuple_set_permutation;     // column 1
-        DataType enable_single_column_permutation; // column 1
-        DataType enable_first_set_permutation;     // column 1
-        DataType enable_second_set_permutation;    // column 1
-        DataType permutation_set_column_1;         // column 0
-        DataType permutation_set_column_2;         // column 1
-        DataType permutation_set_column_3;         // column 2
-        DataType permutation_set_column_4;         // column 3
-        DataType self_permutation_column;          // column 4
-        DataType tuple_permutation_inverses;       // column 5
-        DataType single_permutation_inverses;      // column 6
 
-        // defines a method pointer_view that returns the following, with const and non-const variants
-        DEFINE_POINTER_VIEW(NUM_ALL_ENTITIES,
-                            &lagrange_first,
-                            &enable_tuple_set_permutation,
-                            &enable_single_column_permutation,
-                            &enable_first_set_permutation,
-                            &enable_second_set_permutation,
-                            &permutation_set_column_1,
-                            &permutation_set_column_2,
-                            &permutation_set_column_3,
-                            &permutation_set_column_4,
-                            &self_permutation_column,
-                            &tuple_permutation_inverses,
-                            &single_permutation_inverses)
-        std::vector<HandleType> get_wires() override
+    template <typename DataType> class AllEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              lagrange_first,                   // Column 0
+                              enable_tuple_set_permutation,     // Column 1
+                              enable_single_column_permutation, // Column 2
+                              enable_first_set_permutation,     // Column 3
+                              enable_second_set_permutation,    // Column 4
+                              permutation_set_column_1,         // Column 5
+                              permutation_set_column_2,         // Column 6
+                              permutation_set_column_3,         // Column 7
+                              permutation_set_column_4,         // Column 8
+                              self_permutation_column,          // Column 9
+                              tuple_permutation_inverses,       // Column 10
+                              single_permutation_inverses)      // Column 11
+
+        RefVector<DataType> get_wires()
         {
             return {
                 permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4
             };
         };
-        // Gemini-specific getters.
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
             return { lagrange_first,
                      enable_tuple_set_permutation,
@@ -186,9 +173,8 @@ class ToyAVM {
                      tuple_permutation_inverses,
                      single_permutation_inverses };
         };
-
-        std::vector<HandleType> get_to_be_shifted() override { return {}; };
-        std::vector<HandleType> get_shifted() override { return {}; };
+        RefVector<DataType> get_to_be_shifted() { return {}; };
+        RefVector<DataType> get_shifted() { return {}; };
     };
 
   public:
@@ -197,12 +183,10 @@ class ToyAVM {
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                          WitnessEntities<Polynomial, PolynomialHandle>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                 WitnessEntities<Polynomial, PolynomialHandle>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
         // The plookup wires that store plookup read data.
@@ -217,74 +201,77 @@ class ToyAVM {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
-
-    /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
-     */
-    using FoldedPolynomials = AllEntities<std::vector<FF>, PolynomialHandle>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
     };
 
     /**
      * @brief An owning container of polynomials.
      * @warning When this was introduced it broke some of our design principles.
-     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace columns
-     *     as polynomials is a detail of the proving system, and trace builders are (sometimes in practice, always in
-     *     principle) reusable for different proving protocols (e.g., Plonk and Honk).
+     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace
+     * columns as polynomials is a detail of the proving system, and trace builders are (sometimes in practice,
+     * always in principle) reusable for different proving protocols (e.g., Plonk and Honk).
      *   - Polynomial storage is handled by key classes. Polynomials aren't moved, but are accessed elsewhere by
      * std::spans.
      *
      *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
      */
-    class AllPolynomials : public AllEntities<Polynomial, PolynomialHandle> {
+    class AllPolynomials : public AllEntities<Polynomial> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
         AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                result_field = polynomial[row_idx];
             }
             return result;
         }
     };
     /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
+     * @brief A container for polynomials handles; only stores spans.
      */
-    using RowPolynomials = AllEntities<FF, FF>;
+    class ProverPolynomials : public AllEntities<PolynomialHandle> {
+      public:
+        [[nodiscard]] size_t get_polynomial_size() const { return enable_tuple_set_permutation.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+    };
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
 
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : this->pointer_view()) {
-                *poly = Polynomial(circuit_size / 2);
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };
-
     /**
-     * @brief A container for univariates used during sumcheck.
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
-    template <size_t LENGTH>
-    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>, barretenberg::Univariate<FF, LENGTH>>;
+    template <size_t LENGTH> using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -292,23 +279,10 @@ class ToyAVM {
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
-     * @brief A container for the prover polynomials handles; only stores spans.
+     * @brief A container for the witness commitments.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle, PolynomialHandle> {
-      public:
-        /**
-         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
-         * represents one row in the execution trace.
-         */
-        AllValues get_row(const size_t row_idx)
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
-            }
-            return result;
-        }
-    };
+
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     /**
      * @brief A container for commitment labels.
@@ -316,13 +290,13 @@ class ToyAVM {
      * has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       private:
-        using Base = AllEntities<std::string, std::string>;
+        using Base = AllEntities<std::string>;
 
       public:
         CommitmentLabels()
-            : AllEntities<std::string, std::string>()
+            : AllEntities<std::string>()
         {
             Base::permutation_set_column_1 = "PERMUTATION_SET_COLUMN_1";
             Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
@@ -332,19 +306,24 @@ class ToyAVM {
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::enable_tuple_set_permutation = "__ENABLE_SET_PERMUTATION";
+            Base::enable_single_column_permutation = "__ENABLE_SINGLE_COLUMN_PERMUTATION";
+            Base::enable_first_set_permutation = "__ENABLE_FIRST_SET_PERMUTATION";
+            Base::enable_second_set_permutation = "__ENABLE_SECOND_SET_PERMUTATION";
+            permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4,
+                self_permutation_column, tuple_permutation_inverses, single_permutation_inverses
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
-      private:
-        using Base = AllEntities<Commitment, CommitmentHandle>;
+    class VerifierCommitments : public AllEntities<Commitment> {
 
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            [[maybe_unused]] const BaseTranscript<FF>& transcript)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
-            Base::lagrange_first = verification_key->lagrange_first;
+            lagrange_first = verification_key->lagrange_first;
+            enable_tuple_set_permutation = verification_key->enable_tuple_set_permutation;
+            enable_single_column_permutation = verification_key->enable_single_column_permutation;
+            enable_first_set_permutation = verification_key->enable_first_set_permutation;
+            enable_second_set_permutation = verification_key->enable_second_set_permutation;
         }
     };
 
@@ -352,7 +331,7 @@ class ToyAVM {
      * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
      *
      */
-    class Transcript : public BaseTranscript<FF> {
+    class Transcript : public BaseTranscript {
       public:
         uint32_t circuit_size;
         Commitment column_0_comm;
@@ -368,63 +347,20 @@ class ToyAVM {
         Transcript() = default;
 
         Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
-        void deserialize_full_transcript() override
+        void deserialize_full_transcript()
         {
             // TODO. Codepath is dead for now, because there is no composer
             abort();
             // take current proof and put them into the struct
-            size_t num_bytes_read = 0;
-            circuit_size = BaseTranscript<FF>::template deserialize_from_buffer<uint32_t>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            size_t log_n = numeric::get_msb(circuit_size);
-            column_0_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            column_1_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            permutation_inverses_comm = BaseTranscript<FF>::template deserialize_from_buffer<Commitment>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-
-            for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        proof_data, num_bytes_read));
-            }
-            sumcheck_evaluations =
-                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
-            }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
         }
 
-        void serialize_full_transcript() override
+        void serialize_full_transcript()
         {
             // TODO. Codepath is dead for now, because there is no composer
             abort();
-            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
-            BaseTranscript<FF>::proof_data.clear();
-            size_t log_n = numeric::get_msb(circuit_size);
-
-            BaseTranscript<FF>::template serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(column_0_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(column_1_comm, BaseTranscript<FF>::proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(permutation_inverses_comm, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                BaseTranscript<FF>::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
-            }
-            BaseTranscript<FF>::template serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                BaseTranscript<FF>::template serialize_to_buffer(zm_cq_comms[i], proof_data);
-            }
-            BaseTranscript<FF>::template serialize_to_buffer(zm_cq_comm, proof_data);
-            BaseTranscript<FF>::template serialize_to_buffer(zm_pi_comm, proof_data);
-
-            // sanity check to make sure we generate the same length of proof as before.
-            ASSERT(proof_data.size() == old_proof_length);
         }
     };
 };
