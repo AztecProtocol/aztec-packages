@@ -147,7 +147,7 @@ The ordered arrays include:
 
 #### Verifying the accumulated data.
 
-It verifies that the following values are propagated to the accumulated data from the app circuit's public inputs:
+It verifies that the following values match the result combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
 - Read requests.
 - New note hashes.
@@ -157,11 +157,13 @@ It verifies that the following values are propagated to the accumulated data fro
 - Public call requests.
 - New contracts.
 
-For the new note hashes, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
+For the newly added note hashes from app circuits' public inputs, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
 
 - Zero: if the note is not nullified in the same transaction.
 - Greater than zero: if the note is nullified in the same transaction.
   - This value must be greater than the counter of the note hash.
+
+> Nullifier counters are used in the [reset private kernel circuit](./private_kernel_reset.md) to ensure a read happens **before** a transient note is nullified.
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
@@ -171,7 +173,7 @@ It accumulates the hashes and the lengths for both encrypted and unencrypted log
   - If either hash is zero, the new hash will be `prev_hash | cur_hash`
 - New log length = `prev_length + cur_length`
 
-It ensures that the following arrays are empty:
+Additionally, it ensures that the following arrays are empty:
 
 - Public read requests.
 - Public update requests.

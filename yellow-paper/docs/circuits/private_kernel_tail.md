@@ -62,7 +62,6 @@ This circuit must silo the following with each item's contract address:
 
 - New note hashes.
 - New nullifiers.
-- L2-L1 messages.
 
 The siloed value is computed as: `hash(contract_address, value)`.
 
@@ -75,6 +74,12 @@ The circuit then applies nonces to the new note hashes:
   - `index` is the position of the note hash in the new note hashes array in the public inputs.
 
 Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
+
+Additionally, this circuit generates the final hashes for L2-L1 messages, calculated as:
+
+`hash(contract_address, version_id, portal_contract_address, chain_id, message)`
+
+Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
 
 ### Responsibilities for Validating the Public Inputs:
 
