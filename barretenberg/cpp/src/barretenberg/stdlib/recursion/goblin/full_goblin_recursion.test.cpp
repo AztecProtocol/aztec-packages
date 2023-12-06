@@ -38,7 +38,6 @@ class GoblinRecursionTests : public ::testing::Test {
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
     using Proof = proof_system::plonk::proof;
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
-    using GoblinUltraComposer = GoblinUltraComposer;
     using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
