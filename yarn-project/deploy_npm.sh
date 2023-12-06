@@ -67,6 +67,9 @@ function deploy_package() {
       npm publish $TAG_ARG --access public
     fi
   fi
+
+  # Return to root
+  cd ..
 }
 
 # New packages here should be added after the last package that they depend on
