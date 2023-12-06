@@ -25,6 +25,7 @@ class Goblin {
     };
 
     struct Proof {
+        HonkProof merge_proof;
         HonkProof eccvm_proof;
         HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
@@ -46,7 +47,7 @@ class Goblin {
         proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    HonkProof merge_proof;
+    HonkProof merge_proof; // WORKTODO
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -87,6 +88,9 @@ class Goblin {
     Proof prove()
     {
         Proof proof;
+        // WORKTODO: std::move
+        // proof.merge_proof = merge_proof;
+
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
         eccvm_composer = std::make_unique<ECCVMComposer>();
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
@@ -103,6 +107,9 @@ class Goblin {
 
     bool verify(const Proof& proof)
     {
+
+        // WORKTODO: native merge verify
+
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 

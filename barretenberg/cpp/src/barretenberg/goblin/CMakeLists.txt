@@ -1,0 +1,1 @@
+barretenberg_module(goblin stdlib_recursion ultra_honk eccvm translator_vm)

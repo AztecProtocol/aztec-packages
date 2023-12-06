@@ -1,12 +1,12 @@
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib/recursion/goblin/goblin.hpp"
-#include "barretenberg/stdlib/recursion/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
-#include "barretenberg/translator_vm/translation_evaluations.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
@@ -24,10 +24,6 @@ class GoblinRecursionTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using Fbase = Curve::BaseField;
-    using Point = Curve::AffineElement;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
-    using OpQueue = proof_system::ECCOpQueue;
     using GoblinUltraBuilder = proof_system::GoblinUltraCircuitBuilder;
     using ECCVMFlavor = flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
@@ -36,8 +32,6 @@ class GoblinRecursionTests : public ::testing::Test {
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = GoblinTranslatorComposer;
     using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
-    using Proof = proof_system::plonk::proof;
-    using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
     using RecursiveFlavor = flavor::GoblinUltraRecursive_<GoblinUltraBuilder>;
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using Goblin = proof_system::plonk::stdlib::recursion::goblin::Goblin;
@@ -92,6 +86,10 @@ TEST_F(GoblinRecursionTests, Pseudo)
         // Construct proof of the current kernel circuit to be recursively verified by the next one
         kernel_input = goblin.accumulate(circuit_builder);
     }
+
+    // WORKTODO: need to verify final ultra and merge proofs to complete the test
+
+    // verify(kernel_input.proof)
 
     Goblin::Proof proof = goblin.prove();
     bool verified = goblin.verify(proof);

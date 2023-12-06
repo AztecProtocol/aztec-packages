@@ -32,6 +32,7 @@ TESTS=(
   protogalaxy_tests
   relations_tests
   srs_tests
+  goblin_tests
   sumcheck_tests
   transcript_tests
   translator_vm_tests
