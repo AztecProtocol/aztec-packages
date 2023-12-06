@@ -15,6 +15,11 @@
 
 namespace proof_system {
 
+/**
+ * @brief Circuit builder for the ToyAVM that is used to explain generic permutation settings
+ *
+ * @tparam Flavor
+ */
 template <typename Flavor> class ToyAVMCircuitBuilder {
   public:
     using FF = Flavor::FF;
@@ -55,6 +60,7 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
         polys.lagrange_first[0] = 1;
 
         for (size_t i = 0; i < num_gates; ++i) {
+            // Fill out the witness polynomials
             polys.permutation_set_column_1[i] = wires[0][i];
             polys.permutation_set_column_2[i] = wires[1][i];
             polys.permutation_set_column_3[i] = wires[2][i];
@@ -62,6 +68,7 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
             polys.self_permutation_column[i] = wires[4][i];
             // By default the permutation is over all rows where we place data
             polys.enable_tuple_set_permutation[i] = 1;
+            // The same column permutation alternates between even and odd values
             polys.enable_single_column_permutation[i] = 1;
             polys.enable_first_set_permutation[i] = i & 1;
             polys.enable_second_set_permutation[i] = 1 - (i & 1);
@@ -90,8 +97,10 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
             .eccvm_set_permutation_delta = 0,
         };
 
+        // Compute polynomial values
         auto polynomials = compute_polynomials();
         const size_t num_rows = polynomials.get_polynomial_size();
+
         // Check the tuple permutation relation
         proof_system::honk::logderivative_library::compute_logderivative_inverse<
             Flavor,
@@ -115,6 +124,7 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
                 return false;
             }
         }
+        // Check the single permutation relation
         proof_system::honk::logderivative_library::compute_logderivative_inverse<
             Flavor,
             honk::sumcheck::GenericPermutationRelation<honk::sumcheck::ExampleSameWirePermutationSettings, FF>>(
