@@ -15,6 +15,8 @@ TEMP_CONTAINER=$(docker create $IMAGE_COMMIT_URI)
 
 echo "Extracting $EXTRACT_FROM from $REPOSITORY to $EXTRACT_TO..."
 mkdir -p $EXTRACT_TO
+ls -al $EXTRACT_TO
+ls -al $EXTRACT_TO/src
 docker cp $TEMP_CONTAINER:$EXTRACT_FROM $EXTRACT_TO
 docker rm -v $TEMP_CONTAINER > /dev/null
 
