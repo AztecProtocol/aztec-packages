@@ -22,7 +22,7 @@ namespace proof_system {
  */
 template <typename Flavor> class ToyAVMCircuitBuilder {
   public:
-    using FF = Flavor::FF;
+    using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
 
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
