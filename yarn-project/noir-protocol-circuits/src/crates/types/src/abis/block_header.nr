@@ -69,4 +69,8 @@ impl BlockHeader {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
         self.block.hash()
     }
+
+    pub fn empty() -> Self {
+        BlockHeader::deserialize([0; BLOCK_HEADER_LENGTH])
+    }
 }

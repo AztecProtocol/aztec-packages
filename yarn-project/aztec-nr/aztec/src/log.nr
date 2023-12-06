@@ -1,10 +1,13 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::oracle;
 use crate::types::point::Point;
+use dep::protocol_types::{
+    address::Address,
+};
 
 pub fn emit_encrypted_log<N>(
     context: &mut PrivateContext,
-    contract_address: Field,
+    contract_address: Address,
     storage_slot: Field,
     encryption_pub_key: Point,
     log: [Field; N]

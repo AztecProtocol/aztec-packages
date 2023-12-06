@@ -1,3 +1,4 @@
+// TODO: Nuke and replace with yarn-project/noir-protocol-circuits/src/crates/types/src/address.nr
 struct AztecAddress {
   address: Field
 }

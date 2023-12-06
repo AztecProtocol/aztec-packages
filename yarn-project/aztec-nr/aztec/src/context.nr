@@ -8,6 +8,10 @@ use dep::protocol_types::{
         call_stack_item::PrivateCallStackItem,
         call_stack_item::PublicCallStackItem,
     },
+    address::{
+        Address,
+        EthAddress,
+    },
     block::Block,
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
@@ -114,15 +118,15 @@ impl PrivateContext {
         }
     }
 
-    pub fn msg_sender(self) -> Field {
+    pub fn msg_sender(self) -> Address {
         self.inputs.call_context.msg_sender
     }
 
-    pub fn this_address(self) -> Field {
+    pub fn this_address(self) -> Address {
         self.inputs.call_context.storage_contract_address
     }
 
-    pub fn this_portal_address(self) -> Field {
+    pub fn this_portal_address(self) -> EthAddress {
         self.inputs.call_context.portal_contract_address
     }
 
@@ -482,15 +486,15 @@ impl PublicContext {
         }
     }
 
-    pub fn msg_sender(self) -> Field {
+    pub fn msg_sender(self) -> Address {
         self.inputs.call_context.msg_sender
     }
 
-    pub fn this_address(self) -> Field {
+    pub fn this_address(self) -> Address {
         self.inputs.call_context.storage_contract_address
     }
 
-    pub fn this_portal_address(self) -> Field {
+    pub fn this_portal_address(self) -> EthAddress {
         self.inputs.call_context.portal_contract_address
     }
 
