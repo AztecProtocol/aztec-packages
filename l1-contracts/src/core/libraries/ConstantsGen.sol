@@ -24,7 +24,6 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_READ_REQUESTS_PER_CALL = 32;
-  uint256 internal constant MAX_PENDING_READ_REQUESTS_PER_CALL = 32;
   uint256 internal constant MAX_NEW_COMMITMENTS_PER_TX = 64;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
@@ -35,7 +34,6 @@ library Constants {
   uint256 internal constant MAX_NEW_CONTRACTS_PER_TX = 1;
   uint256 internal constant MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
   uint256 internal constant MAX_READ_REQUESTS_PER_TX = 128;
-  uint256 internal constant MAX_PENDING_READ_REQUESTS_PER_TX = 128;
   uint256 internal constant NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;

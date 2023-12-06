@@ -70,7 +70,6 @@ export interface PublicDataRead {
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
   read_requests: FixedLengthArray<Field, 128>;
-  pending_read_requests: FixedLengthArray<Field, 128>;
   new_commitments: FixedLengthArray<Field, 64>;
   new_nullifiers: FixedLengthArray<Field, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
@@ -162,7 +161,6 @@ export interface PrivateCircuitPublicInputs {
   args_hash: Field;
   return_values: FixedLengthArray<Field, 4>;
   read_requests: FixedLengthArray<Field, 32>;
-  pending_read_requests: FixedLengthArray<Field, 32>;
   new_commitments: FixedLengthArray<Field, 16>;
   new_nullifiers: FixedLengthArray<Field, 16>;
   nullified_commitments: FixedLengthArray<Field, 16>;

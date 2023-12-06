@@ -20,8 +20,6 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-  MAX_PENDING_READ_REQUESTS_PER_CALL,
-  MAX_PENDING_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -47,6 +45,8 @@ import {
   PublicDataUpdateRequest,
   RETURN_VALUES_LENGTH,
   ReadRequestMembershipWitness,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -59,6 +59,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { executeInit, executeInner, executeOrdering } from './index.js';
+
+function _makeEmptyReadRequest() {
+  return makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty());
+}
 
 describe('Private kernel', () => {
   let logger: DebugLogger;
@@ -92,11 +96,18 @@ describe('Private kernel', () => {
       '0x25e2c017f5da1f994401e61d26be435e3cfa26efee784c6b4e947f7651bd4104',
     );
 
-    const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => Fr.ZERO);
-    newCommitments[0] = Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315');
+    const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => SideEffect.empty());
+    newCommitments[0] = new SideEffect(
+      Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315'),
+      Fr.ZERO,
+    );
 
-    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => Fr.ZERO);
-    newNullifiers[0] = Fr.fromString('0x03579f468b2283611cc4d7adfbb93b8a4815d93ac0b1e1d11dace012cf73c7aa');
+    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => SideEffectLinkedToNoteHash.empty());
+    newNullifiers[0] = new SideEffectLinkedToNoteHash(
+      Fr.fromString('0x03579f468b2283611cc4d7adfbb93b8a4815d93ac0b1e1d11dace012cf73c7aa'),
+      Fr.ZERO,
+      Fr.ZERO,
+    );
 
     const nullifiedCommitments = makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => Fr.ZERO);
     nullifiedCommitments[0] = Fr.fromString('0x0f4240');
@@ -118,8 +129,7 @@ describe('Private kernel', () => {
       callContext,
       argsHash,
       makeTuple(RETURN_VALUES_LENGTH, () => Fr.ZERO),
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, () => Fr.ZERO),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => SideEffect.empty()),
       newCommitments,
       newNullifiers,
       nullifiedCommitments,
@@ -177,13 +187,28 @@ describe('Private kernel', () => {
     );
     const txContext = new TxContext(false, false, true, contractDeploymentData, Fr.ZERO, Fr.ZERO);
 
-    const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => Fr.ZERO);
-    newCommitments[0] = Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315');
+    const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty());
+    newCommitments[0] = new SideEffect(
+      Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315'),
+      Fr.ZERO,
+    );
 
-    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => Fr.ZERO);
-    newNullifiers[0] = Fr.fromString('0x0faf656089e5a8d321b64f420fc008005736a0b4f0b8588891241392c82655b9');
-    newNullifiers[1] = Fr.fromString('0x4a5d6bc34e84c5a3d7a625a3772f4d2f84c7d46637691ef64ee2711e6c6202');
-    newNullifiers[2] = Fr.fromString('0x19085a4478c4aa3994d4a5935eaf5e0d58726a758d398a97f634df22d33d388a');
+    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => SideEffectLinkedToNoteHash.empty());
+    newNullifiers[0] = new SideEffectLinkedToNoteHash(
+      Fr.fromString('0x0faf656089e5a8d321b64f420fc008005736a0b4f0b8588891241392c82655b9'),
+      Fr.ZERO,
+      Fr.ZERO,
+    );
+    newNullifiers[1] = new SideEffectLinkedToNoteHash(
+      Fr.fromString('0x4a5d6bc34e84c5a3d7a625a3772f4d2f84c7d46637691ef64ee2711e6c6202'),
+      Fr.ZERO,
+      Fr.ZERO,
+    );
+    newNullifiers[2] = new SideEffectLinkedToNoteHash(
+      Fr.fromString('0x19085a4478c4aa3994d4a5935eaf5e0d58726a758d398a97f634df22d33d388a'),
+      Fr.ZERO,
+      Fr.ZERO,
+    );
 
     const nullifiedCommitments = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => Fr.ZERO);
     nullifiedCommitments[0] = Fr.fromString('0x0f4240');
@@ -191,8 +216,7 @@ describe('Private kernel', () => {
 
     const combinedAccumulatedData = new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, () => new Fr(0n)),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_TX, () => new Fr(0n)),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty()),
       newCommitments,
       newNullifiers,
       nullifiedCommitments,
@@ -293,10 +317,9 @@ describe('Private kernel', () => {
       callContext,
       argsHash,
       appReturnValues,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => Fr.ZERO),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => Fr.ZERO),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, () => SideEffect.empty()),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => SideEffect.empty()),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => SideEffectLinkedToNoteHash.empty()),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
@@ -355,17 +378,20 @@ describe('Private kernel', () => {
     const newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, () => Fr.ZERO);
     newCommitments[0] = Fr.fromString('0x0aced88c953b70873e4a33dde4620dc43a709c15013c46c60d167de8e1c32315');
 
-    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => Fr.ZERO);
-    newNullifiers[0] = Fr.fromString('0x02bb8255d7aa321d83b50913205c80c04ee51360dbc8aa3d5393983a39267999');
+    const newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => SideEffectLinkedToNoteHash.empty());
+    newNullifiers[0] = new SideEffectLinkedToNoteHash(
+      Fr.fromString('0x02bb8255d7aa321d83b50913205c80c04ee51360dbc8aa3d5393983a39267999'),
+      Fr.ZERO,
+      Fr.ZERO,
+    );
 
     const nullifiedCommitments = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => Fr.ZERO);
     nullifiedCommitments[0] = Fr.fromString('0x0f4240');
 
     const combinedAccumulatedData = new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, () => new Fr(0n)),
-      makeTuple(MAX_PENDING_READ_REQUESTS_PER_TX, () => new Fr(0n)),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => new Fr(0n)),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty()),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty()),
       newNullifiers,
       nullifiedCommitments,
       privateCallStack,

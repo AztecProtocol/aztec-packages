@@ -20,7 +20,6 @@ use dep::aztec::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         RETURN_VALUES_LENGTH,
@@ -34,7 +33,6 @@ struct PrivateCircuitPublicInputsBuilder {
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
     read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
-    pending_read_requests: BoundedVec<Field, MAX_PENDING_READ_REQUESTS_PER_CALL>,
 
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
@@ -115,7 +113,6 @@ impl PrivateCircuitPublicInputsBuilder {
             return_values: self.return_values.storage,
 
             read_requests: self.read_requests.storage,
-            pending_read_requests: self.pending_read_requests.storage,
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,

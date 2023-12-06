@@ -21,7 +21,13 @@ import {
   makeTuple,
   range,
 } from '@aztec/circuits.js';
-import { fr, makeNewContractData, makeNewSideEffect, makeProof } from '@aztec/circuits.js/factories';
+import {
+  fr,
+  makeNewContractData,
+  makeNewSideEffect,
+  makeNewSideEffectLinkedToNoteHash,
+  makeProof,
+} from '@aztec/circuits.js/factories';
 import { createEthereumChain } from '@aztec/ethereum';
 import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -177,7 +183,11 @@ describe('L1Publisher integration', () => {
     const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
     processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
-    processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, makeNewSideEffect, seed + 0x200);
+    processedTx.data.end.newNullifiers = makeTuple(
+      MAX_NEW_NULLIFIERS_PER_TX,
+      makeNewSideEffectLinkedToNoteHash,
+      seed + 0x200,
+    );
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);

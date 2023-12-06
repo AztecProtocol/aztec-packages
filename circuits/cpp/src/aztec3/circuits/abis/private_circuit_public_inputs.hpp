@@ -28,7 +28,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     std::array<fr, RETURN_VALUES_LENGTH> return_values{};
 
     std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
-    std::array<fr, MAX_PENDING_READ_REQUESTS_PER_CALL> pending_read_requests{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
@@ -58,7 +57,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    args_hash,
                    return_values,
                    read_requests,
-                   pending_read_requests,
                    new_commitments,
                    new_nullifiers,
                    nullified_commitments,
@@ -78,7 +76,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     {
         return call_context == other.call_context && args_hash == other.args_hash &&
                return_values == other.return_values && read_requests == other.read_requests &&
-               pending_read_requests == other.pending_read_requests && new_commitments == other.new_commitments &&
+               new_commitments == other.new_commitments &&
                new_nullifiers == other.new_nullifiers && nullified_commitments == other.nullified_commitments &&
                private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
                new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
@@ -106,7 +104,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(return_values),
 
             to_ct(read_requests),
-            to_ct(pending_read_requests),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -146,7 +143,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(return_values),
 
             to_nt(read_requests),
-            to_nt(pending_read_requests),
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
@@ -185,7 +181,6 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         spread_arr_into_vec(return_values, inputs);
 
         spread_arr_into_vec(read_requests, inputs);
-        spread_arr_into_vec(pending_read_requests, inputs);
 
         spread_arr_into_vec(new_commitments, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
@@ -236,7 +231,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     std::array<opt_fr, RETURN_VALUES_LENGTH> return_values;
 
     std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> read_requests;
-    std::array<opt_fr, MAX_PENDING_READ_REQUESTS_PER_CALL> pending_read_requests;
 
     std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
     std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
@@ -264,7 +258,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    args_hash,
                    return_values,
                    read_requests,
-                   pending_read_requests,
                    new_commitments,
                    new_nullifiers,
                    nullified_commitments,
@@ -289,7 +282,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
 
         std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
-        std::array<opt_fr, MAX_PENDING_READ_REQUESTS_PER_CALL> const& pending_read_requests,
 
         std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
         std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
@@ -315,7 +307,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , args_hash(args_hash)
         , return_values(return_values)
         , read_requests(read_requests)
-        , pending_read_requests(pending_read_requests)
         , new_commitments(new_commitments)
         , new_nullifiers(new_nullifiers)
         , nullified_commitments(nullified_commitments)
@@ -343,7 +334,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         new_inputs.return_values.fill(std::nullopt);
 
         new_inputs.read_requests.fill(std::nullopt);
-        new_inputs.pending_read_requests.fill(std::nullopt);
 
         new_inputs.new_commitments.fill(std::nullopt);
         new_inputs.new_nullifiers.fill(std::nullopt);
@@ -409,7 +399,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         make_unused_array_elements_zero(builder, return_values);
 
         make_unused_array_elements_zero(builder, read_requests);
-        make_unused_array_elements_zero(builder, pending_read_requests);
 
         make_unused_array_elements_zero(builder, new_commitments);
         make_unused_array_elements_zero(builder, new_nullifiers);
@@ -449,7 +438,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         set_array_public(return_values);
 
         set_array_public(read_requests);
-        set_array_public(pending_read_requests);
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
@@ -491,7 +479,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_ct(return_values),
 
             to_ct(read_requests),
-            to_ct(pending_read_requests),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
@@ -533,7 +520,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                                                 to_nt(return_values),
 
                                                                 to_nt(read_requests),
-                                                                to_nt(pending_read_requests),
 
                                                                 to_nt(new_commitments),
                                                                 to_nt(new_nullifiers),
@@ -576,7 +562,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         spread_arr_opt_into_vec(return_values, inputs);
 
         spread_arr_opt_into_vec(read_requests, inputs);
-        spread_arr_opt_into_vec(pending_read_requests, inputs);
 
         spread_arr_opt_into_vec(new_commitments, inputs);
         spread_arr_opt_into_vec(new_nullifiers, inputs);
@@ -614,7 +599,6 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             .return_values = map(return_values, get_value),
 
             .read_requests = map(read_requests, get_value),
-            .pending_read_requests = map(pending_read_requests, get_value),
 
             .new_commitments = map(new_commitments, get_value),
             .new_nullifiers = map(new_nullifiers, get_value),

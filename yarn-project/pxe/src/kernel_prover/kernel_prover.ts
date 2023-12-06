@@ -19,6 +19,7 @@ import {
   PrivateKernelInputsOrdering,
   PrivateKernelPublicInputs,
   ReadRequestMembershipWitness,
+  SideEffect,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -270,12 +271,12 @@ export class KernelProver {
    *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
    */
   private getReadRequestHints(
-    readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
+    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
   ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isZero(); i++) {
-      const equalToRR = (cmt: Fr) => cmt.equals(readRequests[i]);
+    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
+      const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
       const result = commitments.findIndex(equalToRR);
       if (result == -1) {
         throw new Error(
@@ -300,12 +301,12 @@ export class KernelProver {
    */
   private getNullifierHints(
     nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
       if (!nullifiedCommitments[i].isZero() && !nullifiedCommitments[i].equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
-        const equalToCommitment = (cmt: Fr) => cmt.equals(nullifiedCommitments[i]);
+        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
         const result = commitments.findIndex(equalToCommitment);
         if (result == -1) {
           throw new Error(

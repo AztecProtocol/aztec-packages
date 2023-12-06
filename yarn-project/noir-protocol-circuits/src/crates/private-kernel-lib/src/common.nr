@@ -53,7 +53,6 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     
     validate_array(app_public_inputs.return_values);
     validate_array(app_public_inputs.read_requests);
-    validate_array(app_public_inputs.pending_read_requests);
     validate_array(app_public_inputs.new_commitments);
     validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.nullified_commitments);
@@ -170,8 +169,6 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
 
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
-
-    // don't update pending_read_requests, because those just get passed through without any change
 
     let new_commitments = private_call_public_inputs.new_commitments;
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
@@ -362,7 +359,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
 }
 
 pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
-    assert(end.new_nullifiers[0] != 0, "The 0th nullifier in the accumulated nullifier array is zero");
+    assert(end.new_nullifiers[0].value != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
 
 pub fn validate_call_against_request(private_call: PrivateCallData, request: CallRequest) {

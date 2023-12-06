@@ -130,8 +130,6 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs : &
     validate_call_requests(public_call_requests, hashes, public_call);
     circuit_outputs.end.public_call_stack.push_vec(public_call_requests);
 
-    // don't update pending_read_requests, because those just get passed through without any change
-
     propagate_new_nullifiers(public_call, circuit_outputs);
     propagate_new_commitments(public_call, circuit_outputs);
 
