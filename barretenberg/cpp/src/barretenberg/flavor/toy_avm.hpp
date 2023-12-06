@@ -302,15 +302,15 @@ class ToyAVM {
             Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
             Base::permutation_set_column_3 = "PERMUTATION_SET_COLUMN_3";
             Base::permutation_set_column_4 = "PERMUTATION_SET_COLUMN_4";
+            Base::self_permutation_column = "SELF_PERMUTATION_COLUMN";
             Base::tuple_permutation_inverses = "TUPLE_PERMUTATION_INVERSES";
+            Base::single_permutation_inverses = "SINGLE_PERMUTATION_INVERSES";
             // The ones beginning with "__" are only used for debugging
             Base::lagrange_first = "__LAGRANGE_FIRST";
             Base::enable_tuple_set_permutation = "__ENABLE_SET_PERMUTATION";
             Base::enable_single_column_permutation = "__ENABLE_SINGLE_COLUMN_PERMUTATION";
             Base::enable_first_set_permutation = "__ENABLE_FIRST_SET_PERMUTATION";
             Base::enable_second_set_permutation = "__ENABLE_SECOND_SET_PERMUTATION";
-            permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4,
-                self_permutation_column, tuple_permutation_inverses, single_permutation_inverses
         };
     };
 
