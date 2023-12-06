@@ -273,7 +273,7 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
         for (size_t i = 0; i < databus_id.size(); ++i) {
             databus_id[i] = i;
         }
-        proving_key->databus_id = std::move(databus_id);
+        proving_key->databus_id = databus_id.share();
     }
 
     return proving_key;
