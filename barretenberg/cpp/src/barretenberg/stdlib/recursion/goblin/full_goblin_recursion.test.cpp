@@ -53,11 +53,9 @@ class GoblinRecursionTests : public ::testing::Test {
     static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
     {
         // Generic operations e.g. state updates (just arith gates for now)
-        info("Kernel: Adding general logic.");
         GoblinTestingUtils::construct_arithmetic_circuit(builder);
 
         // Execute recursive aggregation of previous kernel proof
-        info("Kernel: Adding recursive aggregation logic.");
         RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/801): Aggregation
         [[maybe_unused]] auto pairing_points = verifier.verify_proof(kernel_input.proof);
@@ -73,7 +71,6 @@ TEST_F(GoblinRecursionTests, Pseudo)
     barretenberg::Goblin goblin;
 
     // Construct an initial circuit; its proof will be recursively verified by the first kernel
-    info("Initial circuit.");
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };
     GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
     KernelInput kernel_input = goblin.accumulate(initial_circuit);
@@ -82,7 +79,6 @@ TEST_F(GoblinRecursionTests, Pseudo)
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Construct a circuit with logic resembling that of the "kernel circuit"
-        info("\nKernel circuit ", circuit_idx);
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
         construct_mock_kernel_circuit(circuit_builder, kernel_input);
 

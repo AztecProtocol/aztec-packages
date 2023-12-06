@@ -23,10 +23,6 @@ class Goblin {
         std::shared_ptr<NativeVerificationKey> verification_key;
     };
 
-    /**
-     * @brief A full goblin proof
-     *
-     */
     struct Proof {
         HonkProof eccvm_proof;
         HonkProof translator_proof;
@@ -45,10 +41,8 @@ class Goblin {
     using ECCVMComposer = proof_system::honk::ECCVMComposer;
     using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
     using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
-    using TranslatorConsistencyData = barretenberg::TranslationEvaluations;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    bool verified{ true };
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -68,13 +62,11 @@ class Goblin {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/797) Complete the "kernel" logic by recursively
         // verifying previous merge proof
 
-        // Construct proof of the "kernel" circuit
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
 
-        // Construct and verify op queue merge proof
         auto merge_prover = composer.create_merge_prover(op_queue);
         [[maybe_unused]] auto merge_proof = merge_prover.construct_proof();
 

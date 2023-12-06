@@ -46,9 +46,6 @@ class FullGoblinComposerTests : public ::testing::Test {
 TEST_F(FullGoblinComposerTests, SimpleCircuit)
 {
     barretenberg::Goblin goblin;
-
-    // Construct an initial circuit; its proof will be recursively verified by the first kernel
-    info("Initial circuit.");
     GoblinUltraBuilder initial_circuit{ goblin.op_queue };
     GoblinTestingUtils::construct_simple_initial_circuit(initial_circuit);
     KernelInput kernel_input = goblin.accumulate(initial_circuit);
@@ -56,13 +53,8 @@ TEST_F(FullGoblinComposerTests, SimpleCircuit)
     // Construct a series of simple Goblin circuits; generate and verify their proofs
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-
-        // Construct a circuit with logic resembling that of the "kernel circuit"
-        info("\nKernel circuit ", circuit_idx);
         GoblinUltraBuilder circuit_builder{ goblin.op_queue };
         GoblinTestingUtils::construct_arithmetic_circuit(circuit_builder);
-
-        // Construct proof of the current kernel circuit to be recursively verified by the next one
         kernel_input = goblin.accumulate(circuit_builder);
     }
 
