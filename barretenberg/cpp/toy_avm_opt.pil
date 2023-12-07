@@ -1,0 +1,8 @@
+namespace toy(256);
+    col fixed first = [1] + [0]*;
+    col fixed q_tuple_set;
+    col witness set_1_column_1;
+    col witness set_1_column_2;
+    col witness set_2_column_1;
+    col witness set_2_column_2;
+    toy.q_tuple_set { toy.set_1_column_1, toy.set_1_column_2 } is { toy.set_2_column_1, toy.set_2_column_2 };
