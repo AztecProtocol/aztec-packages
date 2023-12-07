@@ -12,12 +12,8 @@ use crate::constants::{
 use crate::{
     abis::{
         call_context::CallContext,
-<<<<<<< HEAD
-        historical_block_data::HistoricalBlockData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-=======
         block_header::BlockHeader,
->>>>>>> master
     },
     address::Address,
     contrakt::{
