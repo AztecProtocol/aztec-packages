@@ -332,7 +332,7 @@ Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
     ASSERT(size_ > 0);
-    ASSERT(backing_memory_[0].is_zero());
+    ASSERT(coefficients_[0].is_zero());
     ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
     Polynomial p;
     p.backing_memory_ = backing_memory_;

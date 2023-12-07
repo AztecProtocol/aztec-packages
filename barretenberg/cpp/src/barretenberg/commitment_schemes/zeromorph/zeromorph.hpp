@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -59,7 +60,7 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<const FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
@@ -206,7 +207,7 @@ template <typename Curve> class ZeroMorphProver_ {
         Polynomial& g_batched,
         std::vector<Polynomial>& quotients,
         FF v_evaluation,
-        std::span<FF> u_challenge,
+        std::span<const FF> u_challenge,
         FF x_challenge,
         std::vector<Polynomial> concatenation_groups_batched = {})
     {
@@ -315,13 +316,13 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param commitment_key
      * @param transcript
      */
-    static void prove(const auto& f_polynomials,
-                      const auto& g_polynomials,
-                      auto&& f_evaluations,
-                      auto&& g_shift_evaluations,
-                      auto& multilinear_challenge,
-                      auto& commitment_key,
-                      const auto& transcript,
+    static void prove(const std::vector<Polynomial>& f_polynomials,
+                      const std::vector<Polynomial>& g_polynomials,
+                      const std::vector<FF>& f_evaluations,
+                      const std::vector<FF>& g_shift_evaluations,
+                      const std::vector<FF>& multilinear_challenge,
+                      const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                      const std::shared_ptr<BaseTranscript>& transcript,
                       const std::vector<Polynomial>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
                       // TODO(https://github.com/AztecProtocol/barretenberg/issues/743) remove span
@@ -331,7 +332,7 @@ template <typename Curve> class ZeroMorphProver_ {
         const FF rho = transcript->get_challenge("rho");
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
-        std::span<FF> u_challenge = multilinear_challenge;
+        std::span<const FF> u_challenge = multilinear_challenge;
         size_t log_N = u_challenge.size();
         size_t N = 1 << log_N;
 

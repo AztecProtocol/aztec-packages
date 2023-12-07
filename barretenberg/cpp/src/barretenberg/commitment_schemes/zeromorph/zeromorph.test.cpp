@@ -37,12 +37,10 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
      */
     bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED, size_t NUM_SHIFTED)
     {
-        bool verified = false;
-
         size_t N = 16;
         size_t log_N = numeric::get_msb(N);
 
-        auto u_challenge = this->random_evaluation_point(log_N);
+        std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
 
         // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
         std::vector<Polynomial> f_polynomials; // unshifted polynomials
@@ -94,7 +92,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
         auto pairing_points = ZeroMorphVerifier::verify(
             f_commitments, g_commitments, v_evaluations, w_evaluations, u_challenge, verifier_transcript);
 
-        verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
+        bool verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
