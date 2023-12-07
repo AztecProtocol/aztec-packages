@@ -27,7 +27,8 @@ function title() {
   print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
   echo -e "${r}"
   echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
-  echo -e "We presently leverage docker to simplify releases of our complex project. Please ensure it's installed."
+  echo -e "We presently leverage docker to simplify releases of our complex project."
+  echo -e "Please ensure it's installed for your platform: https://docs.docker.com/engine/install"
   echo
   echo -e "This will install the following scripts and update your PATH if necessary:"
   echo -e "  ${bold}${g}aztec${r}         - launches various infrastructure subsystems (sequencer, prover, pxe, etc)."
@@ -74,7 +75,7 @@ fi
 
 if ! docker compose &>/dev/null && ! command -v docker-compose &>/dev/null; then
   warn "WARNING: 'docker compose' not supported and docker-compose not found."
-  warn "Continuing installation, but aztec-start will not work."
+  warn "Continuing installation, but aztec-sandbox will not work."
 fi
 
 # Create a "hidden" `$HOME/.aztec` dir, so as not to clutter the user's cwd.
@@ -101,13 +102,14 @@ curl -fsSL http://$INSTALL_HOST/docker-compose.yml -o $BIN_PATH/docker-compose.y
 function install_bin {
   curl -fsSL http://$INSTALL_HOST/$1 -o $BIN_PATH/$1
   chmod +x $BIN_PATH/$1
+  echo "Installed: $BIN_PATH/$1"
 }
 
 info "Installing scripts in $BIN_PATH..."
 install_bin .aztec-run
 install_bin aztec
 install_bin aztec-cli
-install_bin aztec-start
+install_bin aztec-sandbox
 install_bin aztec-up
 install_bin aztec-nargo
 

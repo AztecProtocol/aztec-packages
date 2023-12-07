@@ -1,9 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-CMD="docker compose"
+# Change working dir, so relative volume mounts are in the right place.
+cd ~/.aztec
 
-# Fallback on docker-compose.
-[ $CMD &>/dev/null ] || CMD="docker-compose"
+# Favour 'docker compose', falling back on docker-compose.
+CMD="docker compose"
+$CMD &>/dev/null || CMD="docker-compose"
 
 $CMD -f ~/.aztec/bin/docker-compose.yml up

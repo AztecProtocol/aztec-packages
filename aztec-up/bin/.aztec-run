@@ -71,7 +71,8 @@ done
 # Check if it's either a filename or a directory that exists outside the CWD.
 # If it is then mount inside the container.
 # NOTE: This won't work with assignement-style flags, e.g. --outdir=/foo
-for arg in "${args[@]}"; do
+for i in "${!args[@]}"; do
+    arg=${args[$i]}
     if [[ -f "$arg" || -d "$arg" && $(realpath $arg) != ${PWD}* ]]; then
       add_mount "$arg"
     fi
@@ -88,11 +89,11 @@ done
 DOCKER_VOLUME="$DOCKER_VOLUME -v cache:/cache"
 
 docker run \
+  -ti \
   --rm \
   --user $(id -u):$(id -g) \
   --workdir "$PWD" \
-  --net host \
   $DOCKER_HOST_BINDS \
   $DOCKER_ENV \
   $DOCKER_VOLUME \
-  $IMAGE:$VERSION ${args[@]}
+  $IMAGE:$VERSION ${args[@]:-}
