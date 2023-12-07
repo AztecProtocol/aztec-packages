@@ -1,3 +1,4 @@
+use dep::protocol_types::address::Address;
 use dep::std::option::Option;
 use dep::aztec::{
     note::{
@@ -15,12 +16,12 @@ global PROFILE_NOTE_LEN: Field = 2;
 struct ProfileNote {
     avatar: Field,
     xp: Field,
-    maybe_owner: Option<Field>,
+    maybe_owner: Option<Address>,
     header: NoteHeader,
 }
 
 impl ProfileNote {
-    pub fn new(avatar: Field, xp: Field, maybe_owner: Option<Field>) -> Self {
+    pub fn new(avatar: Field, xp: Field, maybe_owner: Option<Address>) -> Self {
         ProfileNote {
             avatar,
             xp,

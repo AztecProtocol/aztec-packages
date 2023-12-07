@@ -1,3 +1,4 @@
+use dep::protocol_types::address::Address;
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -35,14 +36,14 @@ impl CardNote {
     }
 
     pub fn serialize(self) -> [Field; CARD_NOTE_LEN] {
-        [self.points as Field, self.secret, self.owner]
+        [self.points as Field, self.secret, self.owner.to_field()]
     }
 
     pub fn deserialize(serialized_note: [Field; CARD_NOTE_LEN]) -> Self {
         CardNote {
             points: serialized_note[0] as u8,
             secret: serialized_note[1],
-            owner: serialized_note[2],
+            owner: Address::from_field(serialized_note[2]),
             header: NoteHeader::empty(),
         }
     }
@@ -51,7 +52,7 @@ impl CardNote {
         pedersen_hash([
             self.points as Field, 
             self.secret,
-            self.owner,
+            self.owner.to_field(),
         ],0)
     }
 
