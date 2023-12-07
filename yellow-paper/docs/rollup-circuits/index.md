@@ -3,16 +3,13 @@ title: Rollup Circuits
 sidebar_position: 99
 ---
 
-
-:::warning
-This part is not yet complete, only just started. I'm considering whether to create some of the types that @benesjan and I discussed to improve clarity on the snapshots etc a bit more. Should make it a bit easier to follow what is going on.
-:::
-
 ## Overview
 
-Our block proofs are build in a binary tree structure, rolling two proofs into one at every layer. This rolling allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
+Together with the [validating light node](./../contracts/index.md) the rollup circuits is was must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
 
-The tree structure is outlined below, but the general idea is that we have a tree where all the leafs are transactions (kernel proofs) and through $\log n$ steps we can then "compress" it down to just a single root proof. Note that we have three (3) different types of "merger" circuits, namely:
+To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure  allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
+
+The tree structure is outlined below, but the general idea is that we have a tree where all the leaves are transactions (kernel proofs) and through $\log n$ steps we can then "compress" them down to just a single root proof. Note that we have three (3) different types of "merger" circuits, namely:
 - The base rollup
   - Merges two kernel proofs
 - The merge rollup
@@ -20,29 +17,81 @@ The tree structure is outlined below, but the general idea is that we have a tre
 - The root rollup
   - Merges two merge rollup proofs 
 
-In the diagram the size of the tree is limited for show, but a larger tree will have more layers of merge rollups proofs.
+In the diagram the size of the tree is limited for show, but a larger tree will have more layers of merge rollups proofs. Circles mark the different types of proofs, while squares mark the different circuit types.
 
 ```mermaid
-graph TD
-    R[Root] --> M0[Merge 0]
-    R --> M1[Merge 1]
-    
-    M0 --> B0[Base 0]
-    M0 --> B1[Base 1]
-    M1 --> B2[Base 2]
-    M1 --> B3[Base 3]
+graph BT
+    R_p((Root))
+    R_c[Root]
 
-    B0 --> K0[Kernel 0]
-    B0 --> K1[Kernel 1]
-    B1 --> K2[Kernel 2]
-    B1 --> K3[Kernel 3]
-    B2 --> K4[Kernel 4]
-    B2 --> K5[Kernel 5]
-    B3 --> K6[Kernel 6]
-    B3 --> K7[Kernel 7]
+    R_c --> R_p
+
+    M0_p((Merge 0))
+    M1_p((Merge 1))
+    M0_p --> R_c
+    M1_p --> R_c
+
+    M0_c[Merge 0]
+    M1_c[Merge 1]
+    M0_c --> M0_p
+    M1_c --> M1_p
+
+    B0_p((Base 0))
+    B1_p((Base 1))
+    B2_p((Base 2))
+    B3_p((Base 3))
+    B0_p --> M0_c
+    B1_p --> M0_c
+    B2_p --> M1_c
+    B3_p --> M1_c
+
+
+    B0_c[Base 0]
+    B1_c[Base 1]
+    B2_c[Base 2]
+    B3_c[Base 3]
+    B0_c --> B0_p
+    B1_c --> B1_p
+    B2_c --> B2_p
+    B3_c --> B3_p
+
+    K0((Kernel 0))
+    K1((Kernel 1))
+    K2((Kernel 2))
+    K3((Kernel 3))
+    K4((Kernel 4))
+    K5((Kernel 5))
+    K6((Kernel 6))
+    K7((Kernel 7))
+    K0 --> B0_c
+    K1 --> B0_c
+    K2 --> B1_c
+    K3 --> B1_c
+    K4 --> B2_c
+    K5 --> B2_c
+    K6 --> B3_c
+    K7 --> B3_c
+
+    style R_p fill:#1976D2;
+    style M0_p fill:#1976D2;
+    style M1_p fill:#1976D2;
+    style B0_p fill:#1976D2;
+    style B1_p fill:#1976D2;
+    style B2_p fill:#1976D2;
+    style B3_p fill:#1976D2;
+    style K0 fill:#1976D2;
+    style K1 fill:#1976D2;
+    style K2 fill:#1976D2;
+    style K3 fill:#1976D2;
+    style K4 fill:#1976D2;
+    style K5 fill:#1976D2;
+    style K6 fill:#1976D2;
+    style K7 fill:#1976D2;
 ```
 
-To understand what the circuits are doing and what checks they need to apply it is useful to understand what data is going into the circuits and what data is coming out. Below is a figure of the data structures thrown around for the block proof creation. Note that the diagram does not include much of the operations for kernels, but mainly the data structures that are used for the rollup circuits.
+To understand what the circuits are doing and what checks they need to apply it is useful to understand what data is going into the circuits and what data is coming out. 
+
+Below is a figure of the data structures thrown around for the block proof creation. Note that the diagram does not include much of the operations for kernels, but mainly the data structures that are used for the rollup circuits.
 
 ```mermaid
 classDiagram
@@ -177,7 +226,6 @@ CombinedConstantData *-- Header : historical_header
 CombinedConstantData *-- TxContext : tx_context
 
 class KernelPublicInputs {
-  constants: CombinedConstantData
   is_private: bool
 }
 KernelPublicInputs *-- CombinedAccumulatedData : end
@@ -194,8 +242,8 @@ class StateDiffHints {
   sorted_nullifiers: List~Fr~
   sorted_nullifier_indexes: List~Fr~
   note_hash_subtree_sibling_path: List~Fr~,
-  nullifier_hash_subtree_sibling_path: List~Fr~,
-  contracts_subtree_sibling_path: List~Fr~,
+  nullifier_subtree_sibling_path: List~Fr~,
+  contract_subtree_sibling_path: List~Fr~,
   public_data_update_requests_sibling_paths: List~List~Fr~~
   public_data_reads_sibling_paths: List~List~Fr~~
 }
@@ -212,7 +260,8 @@ class BaseOrMergeRollupPublicInputs {
     type: Fr
     height_in_block_tree: Fr
     aggregation_object: AggregationObject
-    content_hash: Fr[2]
+    txs_hash: Fr[2]
+    out_hash: Fr[2]
 }
 BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
@@ -245,28 +294,135 @@ class RootRollupPublicInputs {
 RootRollupPublicInputs *--Header : header
 ```
 
+:::info CombinedAccumulatedData
+Note that the `CombinedAccumulatedData` contains elements that we won't be using throughout the rollup circuits. However, as the data is used for the kernel proofs (when it is build recursively), we will include it here anyway.
+:::
+
 Since the diagram can be quite overwhelming, we will go through the different data structures and what they are used for along with the three (3) different rollup circuits.
 
+### Higher-level tasks
+Before looking at the circuits individually, it can however be a good idea to recall the reason we had them in the first place. For this, we are especially interested in the tasks that goes across multiple circuits and proofs.
+
+#### State consistency
+While the individual kernels are validated on their own, they might rely on state changes earlier in the block. For the block to be correctly validated, this means that when validating kernel $n$, it must be executed on top of the state after all kernels $<n$ have been applied. For example, when kernel $3$ is executed, it must be executed on top of the state after kernel $0$, $1$ and $2$ has been applied. If this is not the case, the kernel proof might be valid, but the state changes invalid which could lead to double spends. 
+
+It is therefore of the highest importance that the circuits ensure that the state is progressed correctly across circuit types and proofs. Logically, taking a few of the kernels from the above should be executed/proven as butchered below, $k_n$ applied on top of the state that applied $k_{n-1}$
+
+```mermaid
+graph LR
+    SM[State Machine]
+    S0((State 0))
+    K0((Kernel 0))
+    S1((State 1))
+
+    S0 --> SM
+    K0 --> SM
+    SM --> S1
+
+
+    SM_2[State Machine]
+    K1((Kernel 1))
+    S2((State 2))
+
+    S1 --> SM_2
+    K1 --> SM_2
+    SM_2 --> S2
+
+    style K0 fill:#1976D2;
+    style K1 fill:#1976D2;
+```
+
+#### State availability
+To ensure that state is made available, we could rely on the full block body as public inputs, but this would be very expensive. Instead we rely on a commitment to the body (the `ContentHash`) which we build upon throughout proof generation as needed.
+
+To check that this body is published a node can reconstruct the `ContentHash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](./../contracts/index.md), we can define "available" at the level of this node, e.g., if the validating light node can reconstruct the commitment then it is available.
+
+Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full three. We can do so by building merkle trees of partial "commitments" that are then finished at the root. Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly include the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be known to the contract directly and not just proven available. This is not a concern when using calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).
+
+```mermaid
+graph BT
+    R[TxsHash]
+    M0[Hash 0-1]
+    M1[Hash 2-3]
+    B0[Hash 0.0-0.1]
+    B1[Hash 1.0-1.1]
+    B2[Hash 2.0-2.1]
+    B3[Hash 3.0-3.1]
+    K0[TxEffect 0.0]
+    K1[TxEffect 0.1]
+    K2[TxEffect 1.0]
+    K3[TxEffect 1.1]
+    K4[TxEffect 2.0]
+    K5[TxEffect 2.1]
+    K6[TxEffect 3.0]
+    K7[TxEffect 3.1]
+
+    M0 --> R
+    M1 --> R
+    B0 --> M0
+    B1 --> M0
+    B2 --> M1
+    B3 --> M1
+    K0 --> B0
+    K1 --> B0
+    K2 --> B1
+    K3 --> B1
+    K4 --> B2
+    K5 --> B2
+    K6 --> B3
+    K7 --> B3
+```
+
+
+```mermaid
+graph BT
+    R[OutHash]
+    M0[Hash 0-1]
+    M1[Hash 2-3]
+    B0[Hash 0.0-0.1]
+    B1[Hash 1.0-1.1]
+    B2[Hash 2.0-2.1]
+    B3[Hash 3.0-3.1]
+    K0[l2_to_l1_msgs 0.0]
+    K1[l2_to_l1_msgs 0.1]
+    K2[l2_to_l1_msgs 1.0]
+    K3[l2_to_l1_msgs 1.1]
+    K4[l2_to_l1_msgs 2.0]
+    K5[TxEffect 2.1]
+    K6[l2_to_l1_msgs 3.0]
+    K7[l2_to_l1_msgs 3.1]
+
+    M0 --> R
+    M1 --> R
+    B0 --> M0
+    B1 --> M0
+    B2 --> M1
+    B3 --> M1
+    K0 --> B0
+    K1 --> B0
+    K2 --> B1
+    K3 --> B1
+    K4 --> B2
+    K5 --> B2
+    K6 --> B3
+    K7 --> B3
+```
+
+ The roots of these tree together with incoming messages makes up the `ContentHash`. 
+```python
+def content_hash(body: Body):
+    txs_hash = merkle_tree(body.txs, SHA256).root
+    out_hash = merkle_tree([tx.l1_to_l2_msgs for tx in body.txs], SHA256).root
+    in_hash = SHA256(body.l1_to_l2_messages)
+    return SHA256(txs_hash, out_hash, in_hash)
+```
+
+:::info SHA256
+SHA256 is used since as the hash function since it will likely be reconstructed outside the circuit in a resource constrained environment (Ethereum L1).
+:::
+
+## Next Steps
 
 import DocCardList from '@theme/DocCardList';
 
 <DocCardList />
-
-### Types
-
-
-
-## Merge Rollup
-
-## Root Rollup
-The root rollup output (public inputs) will be the values that make their way onto the validating light node, see **REFERENCE** for more. 
-
-### Updating trees Algorithm gives 
-- Given a list of leaves to add, create a Merkle tree of them
-- This subtree must be  added to the `StartTreeSnapshot` to generate `EndTreeSnapshot`
-  - To add, use `NewSubtreeSiblingPath` provided in BaseRollupInputs for each of the trees (Contract Tree, Note Hash tree etc.)
-  - `NewSubtreeSiblingPath` MUST be of same length as the height of the subtree 
-  - `StartTreeSnapshot` at the index of insertion of subtree MUST be empty (since we insert a subtree, check that the value at the subtree index is equivalent of an empty subtree)
-  - compute new root against the sibling path
-  - Compute `NewNextAvailableLeafIndex` to be 2 ^ subtree depth + `StartContractTreeSnapshot.NextAvailableLeafIndex`
-  - Create `EndContractTreeSnapshot` = {new root, NewNextAvailableLeafIndex}
