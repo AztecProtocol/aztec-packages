@@ -1,5 +1,6 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
+    use dep::protocol_types::address::Address;
     use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
@@ -24,7 +25,7 @@ contract StatefulTest {
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 notes: Map::new(
                     context,
@@ -66,10 +67,10 @@ contract StatefulTest {
     fn destroy_and_create(recipient: Address, amount: Field) {
         let sender = context.msg_sender();
 
-        let sender_notes = storage.notes.at(sender);
+        let sender_notes = storage.notes.at(sender.to_field());
         decrement(sender_notes, amount, sender);
 
-        let recipient_notes = storage.notes.at(recipient);
+        let recipient_notes = storage.notes.at(recipient.to_field());
         increment(recipient_notes, amount, recipient);
     }
 
