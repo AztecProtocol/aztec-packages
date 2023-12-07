@@ -81,7 +81,7 @@ import {
   FunctionSelector as FunctionSelectorNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   NewContractData as NewContractDataNoir,
-  Address as NoirAztecAddress,
+  AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   Point as NoirPoint,
