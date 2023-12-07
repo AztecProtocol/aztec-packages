@@ -1,4 +1,5 @@
 use dep::aztec::constants_gen::{GENERATOR_INDEX__SIDE_EFFECT, GENERATOR_INDEX__SIDE_EFFECT_LINKED_TO_NOTE_HASH};
+use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
 
 struct SideEffect{
     value: Field,
@@ -52,7 +53,7 @@ impl SideEffectLinkedToNoteHash{
             self.value,
             self.note_hash,
             self.counter,
-        ], GENERATOR_INDEX__SIDE_EFFECT_LINKED_TO_NOTE_HASH)
+        ], GENERATOR_INDEX__SIDE_EFFECT)
     }
 
     pub fn assert_is_zero(self){
