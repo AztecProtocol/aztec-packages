@@ -139,7 +139,7 @@ mod tests {
         },
         tests::private_call_data_builder::PrivateCallDataBuilder,
         transaction::request::TxRequest,
-        utils::arrays::array_length,
+        utils::arrays::{array_length, struct_array_length},
     };
 
     struct PrivateKernelInitInputsBuilder {
@@ -632,6 +632,6 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), MAX_READ_REQUESTS_PER_CALL);
     }
 }

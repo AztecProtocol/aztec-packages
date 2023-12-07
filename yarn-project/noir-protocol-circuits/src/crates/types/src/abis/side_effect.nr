@@ -1,4 +1,3 @@
-use dep::aztec::constants_gen::{GENERATOR_INDEX__SIDE_EFFECT, GENERATOR_INDEX__SIDE_EFFECT_LINKED_TO_NOTE_HASH};
 use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
 
 struct SideEffect{
