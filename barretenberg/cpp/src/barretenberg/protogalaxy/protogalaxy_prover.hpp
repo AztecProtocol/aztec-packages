@@ -28,6 +28,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Commitment = typename Flavor::Commitment;
+    using AllPolynomials = typename Flavor::AllPolynomials;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -51,14 +52,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     std::shared_ptr<CommitmentKey> commitment_key;
 
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>> insts, std::shared_ptr<CommitmentKey> commitment_key)
+    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
+                       const std::shared_ptr<CommitmentKey>& commitment_key)
         : instances(ProverInstances(insts))
         , commitment_key(std::move(commitment_key)){};
     ~ProtoGalaxyProver_() = default;
 
     /**
-     * @brief Prior to folding, we need to finalise the given instances and add all their public data ϕ to the
+     * @brief Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
      * transcript, labelled by their corresponding instance index for domain separation.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/795):The rounds prior to actual proving/folding are
+     * common between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
      */
     void prepare_for_folding();
 
@@ -427,8 +431,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief Compute the next accumulator (ϕ, ω), send the public data (ϕ) to the verifier and return the complete
-     * accumulator
+     * @brief Compute the next accumulator (ϕ*, ω*\vec{\beta*}, e*), send the public data ϕ*  and the folding parameters
+     * (\vec{\beta*}, e*) to the verifier and return the complete accumulator
      *
      * @details At this stage, we assume that the instances have the same size and the same number of public parameter.s
      * @param instances
@@ -438,127 +442,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new accumulator
      */
-    std::shared_ptr<Instance> compute_next_accumulator(ProverInstances& instances,
-                                                       auto& combiner_quotient,
-                                                       FF challenge,
-                                                       auto compressed_perturbator)
-    {
-        auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
-
-        // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
-        // and the computation of Lagrange basis for k instances
-        auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
-        std::vector<FF> lagranges{ FF(1) - challenge, challenge };
-
-        auto next_accumulator = std::make_shared<Instance>();
-
-        // Compute the next target sum and send the next folding parameters to the verifier
-        auto next_target_sum =
-            compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-        next_accumulator->folding_parameters = { instances.next_gate_challenges, next_target_sum };
-        transcript->send_to_verifier("next_target_sum", next_target_sum);
-        for (size_t idx = 0; idx < instances.next_gate_challenges.size(); idx++) {
-            transcript->send_to_verifier("next_gate_challenge_" + std::to_string(idx),
-                                         instances.next_gate_challenges[idx]);
-        }
-
-        // Allocate space, initialised to 0, for the prover polynomials of the next accumulator
-        std::array<barretenberg::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> storage;
-        for (auto& polynomial : storage) {
-            polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
-            for (auto& value : polynomial) {
-                value = FF(0);
-            }
-        }
-        ProverPolynomials acc_prover_polynomials;
-        size_t poly_idx = 0;
-        auto prover_polynomial_pointers = acc_prover_polynomials.get_all();
-        for (auto& polynomial : storage) {
-            prover_polynomial_pointers[poly_idx] = polynomial;
-            poly_idx++;
-        }
-
-        // Fold the prover polynomials
-        for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-            for (auto [acc_poly_view, inst_poly_view] :
-                 zip_view(acc_prover_polynomials.get_all(), instances[inst_idx]->prover_polynomials.get_all())) {
-                for (size_t el_idx = 0; el_idx < inst_poly_view.size(); el_idx++) {
-                    (acc_poly_view)[el_idx] += (inst_poly_view)[el_idx] * lagranges[inst_idx];
-                }
-            }
-        }
-        next_accumulator->prover_polynomials = acc_prover_polynomials;
-
-        // Fold the witness commtiments and send them to the verifier
-        auto witness_labels = next_accumulator->commitment_labels.get_witness();
-        size_t comm_idx = 0;
-        for (auto& acc_comm : next_accumulator->witness_commitments.get_all()) {
-            acc_comm = Commitment::infinity();
-            size_t inst_idx = 0;
-            for (auto& instance : instances) {
-                acc_comm = acc_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst_idx];
-                inst_idx++;
-            }
-            transcript->send_to_verifier("next_" + witness_labels[comm_idx], acc_comm);
-            comm_idx++;
-        }
-
-        // Fold the public inputs and send to the verifier
-        next_accumulator->public_inputs = std::vector<FF>(instances[0]->public_inputs.size(), 0);
-        size_t el_idx = 0;
-        for (auto& el : next_accumulator->public_inputs) {
-            size_t inst = 0;
-            for (auto& instance : instances) {
-                el += instance->public_inputs[el_idx] * lagranges[inst];
-                inst++;
-            }
-            transcript->send_to_verifier("next_public_input_" + std::to_string(el_idx), el);
-            el_idx++;
-        }
-
-        // Evaluate the combined batching challenge α univariate at challenge to obtain next α and send it to the
-        // verifier
-        next_accumulator->alpha = instances.alpha.evaluate(challenge);
-        transcript->send_to_verifier("next_alpha", next_accumulator->alpha);
-
-        // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
-        // the verifier
-        auto combined_relation_parameters = instances.relation_parameters;
-        auto folded_relation_parameters = proof_system::RelationParameters<FF>{
-            combined_relation_parameters.eta.evaluate(challenge),
-            combined_relation_parameters.beta.evaluate(challenge),
-            combined_relation_parameters.gamma.evaluate(challenge),
-            combined_relation_parameters.public_input_delta.evaluate(challenge),
-            combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
-        };
-        transcript->send_to_verifier("next_eta", folded_relation_parameters.eta);
-        transcript->send_to_verifier("next_beta", folded_relation_parameters.beta);
-        transcript->send_to_verifier("next_gamma", folded_relation_parameters.gamma);
-        transcript->send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
-        transcript->send_to_verifier("next_lookup_grand_product_delta",
-                                     folded_relation_parameters.lookup_grand_product_delta);
-        next_accumulator->relation_parameters = folded_relation_parameters;
-
-        // Fold the verification key and send it to the verifier
-        auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-                                                        instances[0]->public_inputs.size());
-        auto labels = next_accumulator->commitment_labels.get_precomputed();
-        size_t vk_idx = 0;
-        for (auto& vk : acc_vk->get_all()) {
-            size_t inst = 0;
-            vk = Commitment::infinity();
-            for (auto& instance : instances) {
-                vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
-                inst++;
-            }
-            transcript->send_to_verifier("next_" + labels[vk_idx], vk);
-            vk_idx++;
-        }
-        next_accumulator->verification_key = acc_vk;
-
-        return next_accumulator;
-    }
+    std::shared_ptr<Instance> compute_next_accumulator(
+        ProverInstances& instances,
+        Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
+        const FF& challenge,
+        const FF& compressed_perturbator);
 };
 
 extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

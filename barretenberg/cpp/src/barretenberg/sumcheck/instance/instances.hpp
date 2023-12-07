@@ -102,10 +102,7 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
 
     VerifierInstances_()
     {
-        for (size_t idx = 0; idx < NUM; idx++) {
-            Instance inst;
-            _data[idx] = std::make_unique<Instance>(inst);
-        }
+        std::generate(_data.begin(), _data.end(), []() { return std::make_unique<Instance>(); });
     };
 };
 } // namespace proof_system::honk

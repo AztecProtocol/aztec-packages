@@ -3,7 +3,7 @@
 namespace proof_system::honk {
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_ptr<Instance> inst,
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
                                                                   const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
@@ -51,7 +51,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_pt
 }
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std::shared_ptr<Instance> inst,
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
@@ -101,15 +101,16 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std:
     }
 }
 
-// TODO(#795)
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
+// between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<uint8_t> fold_data)
+void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<uint8_t>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    inst->is_accumulator = transcript->template receive_from_prover<uint32_t>(domain_separator + "is_accumulator");
+    inst->is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
     if (inst->is_accumulator) {
         receive_accumulator(inst, domain_separator);
     } else {
@@ -137,12 +138,12 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
-    assert(perturbator_coeffs[0] == accumulator->folding_parameters.target_sum);
+    ASSERT(perturbator_coeffs[0] == accumulator->folding_parameters.target_sum);
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
-    // Thed degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
+    // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
     for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
@@ -213,9 +214,10 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha");
     verified = verified & (next_alpha == expected_alpha);
-
+    info(verified);
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
     verified = verified & (next_eta == expected_parameters.eta);
+    info(verified);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
     verified = verified & (next_beta == expected_parameters.beta);

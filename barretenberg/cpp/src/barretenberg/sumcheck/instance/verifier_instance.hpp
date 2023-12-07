@@ -19,7 +19,7 @@ template <class Flavor> class VerifierInstance_ {
     size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
     FF alpha;
-    uint32_t is_accumulator = 0;
+    bool is_accumulator = false;
     FoldingParameters folding_parameters;
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;

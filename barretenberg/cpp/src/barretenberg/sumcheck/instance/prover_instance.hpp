@@ -51,7 +51,7 @@ template <class Flavor> class ProverInstance_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
     FoldingParameters folding_parameters;
-    uint32_t is_accumulator = 0;
+    bool is_accumulator = false;
     size_t instance_size;
     size_t log_instance_size;
 

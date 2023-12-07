@@ -274,6 +274,8 @@ TEST_F(ProtoGalaxyTests, FoldAlpha)
     EXPECT_EQ(instances.alpha, expected_alpha);
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/807): Have proper full folding testing (both failing and
+// passing) and move creating a test accumulator in a separate function.
 TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
 {
     const size_t log_instance_size(4);
@@ -311,7 +313,7 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     accumulator->folding_parameters = { betas, target_sum };
     accumulator->relation_parameters = relation_parameters;
     accumulator->alpha = alpha;
-    accumulator->is_accumulator = 1;
+    accumulator->is_accumulator = true;
     accumulator->public_inputs = std::vector<FF>{ FF::random_element() };
     accumulator->verification_key = construct_ultra_verification_key(instance_size, 1);
 
