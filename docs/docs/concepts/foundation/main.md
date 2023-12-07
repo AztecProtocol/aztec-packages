@@ -16,7 +16,7 @@ On this page we will introduce the high level network architecture for Aztec wit
 
 An overview of the Aztec network architecture will help contextualize the concepts introduced in this section.
 
-<img src="/img/aztec_high_level_network_architecture.svg" alt="network architecture" />
+<Image img={require("/img/imagen2.jpg")} />
 
 ### Aztec.js
 
