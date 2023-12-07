@@ -48,7 +48,7 @@ contract Escrow {
 
     // Withdraws balance. Requires that msg.sender is registered as an owner.
     #[aztec(private)]
-    fn withdraw(token: Field, amount: Field, recipient: Field) {
+    fn withdraw(token: Field, amount: Field, recipient: Address) {
         let this = context.this_address();
         let sender = context.msg_sender();
 

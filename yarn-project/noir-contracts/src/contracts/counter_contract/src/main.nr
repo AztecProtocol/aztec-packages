@@ -44,7 +44,7 @@ contract Counter {
 
     // docs:start:constructor
     #[aztec(private)]
-    fn constructor(headstart: u120, owner: Field) {
+    fn constructor(headstart: u120, owner: Address) {
         let counters = storage.counters;
         counters.at(owner).add(headstart, owner);
     }
@@ -52,14 +52,14 @@ contract Counter {
 
     // docs:start:increment
     #[aztec(private)]
-      fn increment(owner: Field) {
+      fn increment(owner: Address) {
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
     }
     // docs:end:increment
 
     // docs:start:get_counter
-    unconstrained fn get_counter(owner: Field) -> Field {
+    unconstrained fn get_counter(owner: Address) -> Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)
     }

@@ -49,13 +49,13 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    fn constructor(owner: Field, value: Field) {
+    fn constructor(owner: Address, value: Field) {
         let loc = storage.notes.at(owner);
         increment(loc, value, owner);
     }
 
     #[aztec(private)]
-    fn create_note(owner: Field, value: Field) {
+    fn create_note(owner: Address, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -63,7 +63,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    fn destroy_and_create(recipient: Field, amount: Field) {
+    fn destroy_and_create(recipient: Address, amount: Field) {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
@@ -73,7 +73,7 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
-    unconstrained fn summed_values(owner: Field) -> Field {
+    unconstrained fn summed_values(owner: Address) -> Field {
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.

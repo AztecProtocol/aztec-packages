@@ -20,12 +20,12 @@ global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
 struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
-    owner: Field, // We store the owner address only to get the secret key to compute the nullifier
+    owner: Address, // We store the owner address only to get the secret key to compute the nullifier
     header: NoteHeader,
 }
 
 impl EcdsaPublicKeyNote {
-    pub fn new(x: [u8; 32], y: [u8; 32], owner: Field) -> Self {
+    pub fn new(x: [u8; 32], y: [u8; 32], owner: Address) -> Self {
         EcdsaPublicKeyNote {
             x,
             y,

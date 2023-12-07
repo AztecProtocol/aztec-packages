@@ -40,7 +40,7 @@ contract EasyPrivateToken {
      * initialize the contract's initial state variables.
      */
     #[aztec(private)]
-    fn constructor(initial_supply: u120, owner: Field) {
+    fn constructor(initial_supply: u120, owner: Address) {
         let balances = storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
@@ -48,7 +48,7 @@ contract EasyPrivateToken {
 
     // Mints `amount` of tokens to `owner`.
     #[aztec(private)]
-    fn mint(amount: u120, owner: Field) {
+    fn mint(amount: u120, owner: Address) {
         let balances = storage.balances;
 
         balances.at(owner).add(amount, owner);
@@ -56,7 +56,7 @@ contract EasyPrivateToken {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[aztec(private)]
-    fn transfer(amount: u120, sender: Field, recipient: Field) {
+    fn transfer(amount: u120, sender: Address, recipient: Address) {
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender);
@@ -64,7 +64,7 @@ contract EasyPrivateToken {
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
-    unconstrained fn getBalance(owner: Field) -> Field {
+    unconstrained fn getBalance(owner: Address) -> Field {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

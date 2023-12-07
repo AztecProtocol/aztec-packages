@@ -22,13 +22,13 @@ global ADDRESS_NOTE_LEN: Field = 3;
 // Stores an address
 struct AddressNote {
     address: Field,
-    owner: Field,
+    owner: Address,
     randomness: Field,
     header: NoteHeader,
 }
 
 impl AddressNote {
-    pub fn new(address: Field, owner: Field) -> Self {
+    pub fn new(address: Field, owner: Address) -> Self {
         let randomness = rand();
         AddressNote {
             address,

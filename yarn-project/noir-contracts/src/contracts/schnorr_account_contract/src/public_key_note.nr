@@ -20,12 +20,12 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 struct PublicKeyNote {
     x: Field,
     y: Field,
-    owner: Field, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
+    owner: Address, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
     header: NoteHeader,
 }
 
 impl PublicKeyNote {
-    pub fn new(x: Field, y: Field, owner: Field) -> Self {
+    pub fn new(x: Field, y: Field, owner: Address) -> Self {
         PublicKeyNote {
             x,
             y,

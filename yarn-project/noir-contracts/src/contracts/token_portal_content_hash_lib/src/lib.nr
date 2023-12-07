@@ -55,7 +55,7 @@ pub fn get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes: Fie
 
 // docs:start:get_withdraw_content_hash
 // Computes a content hash of a withdraw message.
-pub fn get_withdraw_content_hash(recipient: Field, amount: Field, callerOnL1: Field) -> Field {
+pub fn get_withdraw_content_hash(recipient: Address, amount: Field, callerOnL1: Field) -> Field {
     // Compute the content hash
     // Compute sha256(selector || amount || recipient)
     // then convert to a single field element

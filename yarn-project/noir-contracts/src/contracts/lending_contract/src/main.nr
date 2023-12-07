@@ -170,7 +170,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _deposit(owner: Field, amount: Field, collateral_asset: Field) {
+    internal fn _deposit(owner: Address, amount: Field, collateral_asset: Field) {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
 
         let coll_asset = storage.collateral_asset.read();
@@ -197,7 +197,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _withdraw(owner: Field, recipient: Field, amount: Field) {
+    internal fn _withdraw(owner: Address, recipient: Address, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
 
@@ -241,7 +241,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _borrow(owner: Field, to: Field, amount: Field) {
+    internal fn _borrow(owner: Address, to: Field, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
 
@@ -272,14 +272,14 @@ contract Lending {
     }
 
     #[aztec(public)]
-    fn repay_public(amount: Field, nonce: Field, owner: Field, stable_coin: Field) {
+    fn repay_public(amount: Field, nonce: Field, owner: Address, stable_coin: Field) {
         Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         context.call_public_function(context.this_address(), selector, [owner, amount, stable_coin]);
     }
 
     #[aztec(public)]
-    internal fn _repay(owner: Field, amount: Field, stable_coin: Field) {
+    internal fn _repay(owner: Address, amount: Field, stable_coin: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
 
         // To ensure that private is using the correct token.
@@ -295,7 +295,7 @@ contract Lending {
         storage.assets.at(assetId).read()
     }
 
-    unconstrained fn get_position(owner: Field) -> Position {
+    unconstrained fn get_position(owner: Address) -> Position {
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();

@@ -58,7 +58,7 @@ impl ProfileNote {
         self.header = header;
     }
 
-    pub fn set_owner(&mut self, owner: Field) {
+    pub fn set_owner(&mut self, owner: Address) {
         self.maybe_owner = Option::some(owner);
     }
 

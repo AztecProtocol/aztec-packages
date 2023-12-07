@@ -39,7 +39,7 @@ contract Benchmarking {
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[aztec(private)]
-    fn create_note(owner: Field, value: Field) {
+    fn create_note(owner: Address, value: Field) {
         increment(storage.notes.at(owner), value, owner);
     }
 
@@ -49,7 +49,7 @@ contract Benchmarking {
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
     #[aztec(private)]
-    fn recreate_note(owner: Field, index: u32) {
+    fn recreate_note(owner: Address, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let getter_options = NoteGetterOptions::new().set_limit(1).set_offset(index);
         let notes = owner_notes.get_notes(getter_options);
@@ -60,7 +60,7 @@ contract Benchmarking {
 
     // Reads and writes to public storage and enqueues a call to another public function.
     #[aztec(public)]
-    fn increment_balance(owner: Field, value: Field) {
+    fn increment_balance(owner: Address, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
         let _callStackItem1 = context.call_public_function(context.this_address(),
@@ -70,7 +70,7 @@ contract Benchmarking {
 
     // Emits a public log.
     #[aztec(public)]
-    fn broadcast(owner: Field) {
+    fn broadcast(owner: Address) {
         emit_unencrypted_log(&mut context, storage.balances.at(owner).read());
     }
 

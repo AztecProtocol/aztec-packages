@@ -19,13 +19,13 @@ global CARD_NOTE_LEN: Field = 3;
 struct CardNote {
     points: u8,
     secret: Field,
-    owner: Field,
+    owner: Address,
     header: NoteHeader,
 }
 // docs:end:state_vars-CardNote
 
 impl CardNote {
-    pub fn new(points: u8, secret: Field, owner: Field) -> Self {
+    pub fn new(points: u8, secret: Field, owner: Address) -> Self {
         CardNote {
             points,
             secret,
