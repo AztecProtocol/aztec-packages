@@ -18,7 +18,7 @@ function print_colored() {
 }
 
 function title() {
-  # Print each line with colors
+  echo
   print_colored " █████╗ ███████╗████████╗███████╗ ██████╗"
   print_colored "██╔══██╗╚══███╔╝╚══██╔══╝██╔════╝██╔════╝"
   print_colored "███████║  ███╔╝    ██║   █████╗  ██║"
@@ -43,6 +43,14 @@ function title() {
   fi
 }
 
+function info {
+  echo -e "${g}$1${r}"
+}
+
+function warn {
+  echo -e "${y}$1${r}"
+}
+
 AZTEC_PATH=$HOME/.aztec
 BIN_PATH=$AZTEC_PATH/bin
 
@@ -54,31 +62,19 @@ INSTALL_HOST=install.aztec.network.s3-website.eu-west-2.amazonaws.com
 
 # Check if Docker is available.
 if ! command -v docker &>/dev/null; then
-  echo "Docker is not installed. Please install Docker and try again."
+  warn "Docker is not installed. Please install Docker and try again."
   exit 1
 fi
 
 # Check if Docker is running.
 if ! docker info &>/dev/null; then
-  echo "Docker is not running. Please start Docker and try again."
+  warn "Docker is not running. Please start Docker and try again."
   exit 1
 fi
 
 if ! docker compose &>/dev/null && ! command -v docker-compose &>/dev/null; then
-  echo "WARNING: 'docker compose' command not supported and docker-compose not found."
-  echo "You can continue installation, but aztec-start will not work."
-  echo "If you want to use it, upgrade docker, or install docker-compose."
-  exit 1
-    read -p "Add it to $SHELL_PROFILE to make the aztec binaries accessible? (y/n)" -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      # Add the target directory to the user's PATH in their profile.
-      echo "export PATH=\$PATH:$TARGET_DIR" >> "$SHELL_PROFILE"
-      echo "Updated PATH. Starting fresh shell..."
-      $SHELL
-    else
-      echo "Skipped updating PATH. You might need to add $TARGET_DIR to your PATH manually to use the binary."
-    fi
+  warn "WARNING: 'docker compose' not supported and docker-compose not found."
+  warn "Continuing installation, but aztec-start will not work."
 fi
 
 # Create a "hidden" `$HOME/.aztec` dir, so as not to clutter the user's cwd.
@@ -94,7 +90,7 @@ function pull_container {
   fi
 }
 
-echo "Pulling aztec version $VERSION.."
+info "Pulling aztec version $VERSION..."
 pull_container aztec-sandbox
 pull_container cli
 pull_container noir
@@ -107,7 +103,7 @@ function install_bin {
   chmod +x $BIN_PATH/$1
 }
 
-echo "Installing scripts in $BIN_PATH..."
+info "Installing scripts in $BIN_PATH..."
 install_bin .aztec-run
 install_bin aztec
 install_bin aztec-cli
@@ -135,18 +131,20 @@ function update_path_env_var {
       ;;
     esac
     # Inform the user about the change and ask for confirmation
-    echo "The directory $TARGET_DIR is not in your PATH."
+    warn "The directory $TARGET_DIR is not in your PATH."
     read -p "Add it to $SHELL_PROFILE to make the aztec binaries accessible? (y/n)" -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       # Add the target directory to the user's PATH in their profile.
       echo "export PATH=\$PATH:$TARGET_DIR" >> "$SHELL_PROFILE"
-      echo "Updated PATH. Starting fresh shell..."
+      info "Done! Starting fresh shell..."
       $SHELL
     else
-      echo "Skipped updating PATH. You might need to add $TARGET_DIR to your PATH manually to use the binary."
+      warn "Skipped updating PATH. You might need to add $TARGET_DIR to your PATH manually to use the binary."
     fi
   fi
 }
 
 update_path_env_var $BIN_PATH
+
+info "Done!"
