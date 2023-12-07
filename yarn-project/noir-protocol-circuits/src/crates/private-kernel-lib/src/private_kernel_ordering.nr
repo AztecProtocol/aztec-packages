@@ -354,7 +354,7 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_commitments));
+        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()));
         assert(struct_array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]],
          |a, b| a.equals(b), |a| a.isEmpty()));
     }

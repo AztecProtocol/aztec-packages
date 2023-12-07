@@ -457,7 +457,12 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.read_requests.push_array([0, 9123]);
+        builder.private_call.public_inputs.read_requests.push_array([SideEffect{
+            value: 0,
+            counter: 0},
+            SideEffect{
+                value: 9123,
+                counter: 1}]);
 
         builder.failed();
     }
@@ -466,7 +471,12 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_commitments.push_array([0, 9123]);
+        builder.private_call.public_inputs.new_commitments.push_array([SideEffect{
+            value: 0,
+            counter: 0},
+            SideEffect{
+                value: 9123,
+                counter: 1}]);
 
         builder.failed();
     }
@@ -475,7 +485,15 @@ mod tests {
     fn input_validation_malformed_arrays_nullifiers() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_nullifiers.push_array([0, 12]);
+        builder.private_call.public_inputs.new_nullifiers.push_array([
+            SideEffectLinkedToNoteHash{
+                value: 0
+                note_hash: 0,
+                counter: 0},
+            SideEffectLinkedToNoteHash{
+                value: 12,
+                note_hash: 0,
+                counter: 1}]);
         
         builder.failed();
     }
@@ -521,12 +539,17 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // The current call stack has 1 commitment;
-        builder.private_call.public_inputs.new_commitments.push(4321);
+        builder.private_call.public_inputs.new_commitments.push(SideEffect{
+            value: 4321,
+            counter: 0});
 
         // Mock the previous new commitments to be full, therefore no more commitments can be added.
         let mut full_new_commitments = [0; MAX_NEW_COMMITMENTS_PER_TX];
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            full_new_commitments[i] = i + 1;
+            full_new_commitments[i] = SideEffect{
+                value: i + 1
+                counter: i
+            };
         }
         builder.previous_kernel.end.new_commitments.push_array(full_new_commitments);
         
@@ -623,7 +646,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -635,7 +658,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -647,7 +670,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -659,7 +682,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -736,7 +759,10 @@ mod tests {
     fn creating_new_commitments_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_commitments.push(1);
+        builder.private_call.public_inputs.new_commitments.push(SideEffect{
+            value: 1,
+            counter: 0,
+        });
 
         builder.failed();
     }
@@ -745,7 +771,11 @@ mod tests {
     fn creating_new_nullifiers_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_nullifiers.push(1);
+        builder.private_call.public_inputs.new_nullifiers.push(SideEffectLinkedToNoteHash{
+            value: 1,
+            note_hash: 0,
+            counter: 0,
+        });
 
         builder.failed();
     }
@@ -754,7 +784,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(0);
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
 
         builder.failed();
     }
