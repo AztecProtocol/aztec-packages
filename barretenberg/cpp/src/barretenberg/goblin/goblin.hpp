@@ -12,6 +12,9 @@ namespace barretenberg {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
+    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
+    using GUHProvingKey = GUHFlavor::ProvingKey;
+    using GUHVerificationKey = GUHFlavor::VerificationKey;
 
   public:
     /**
@@ -19,9 +22,8 @@ class Goblin {
      *
      */
     struct AccumulationOutput {
-        using NativeVerificationKey = proof_system::honk::flavor::GoblinUltra::VerificationKey;
         HonkProof proof;
-        std::shared_ptr<NativeVerificationKey> verification_key;
+        std::shared_ptr<GUHVerificationKey> verification_key;
     };
 
     struct Proof {
@@ -29,6 +31,10 @@ class Goblin {
         HonkProof eccvm_proof;
         HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
+        std::vector<uint8_t> to_buffer()
+        {
+            return {}; // WORKTODO
+        }
     };
 
     using Fr = barretenberg::fr;
@@ -36,6 +42,7 @@ class Goblin {
 
     using Transcript = proof_system::honk::BaseTranscript;
     using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
+    using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
@@ -45,11 +52,14 @@ class Goblin {
     using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
     using RecursiveMergeVerifier =
         proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = proof_system::honk::MergeVerifier_<proof_system::honk::flavor::GoblinUltra>;
+    using MergeVerifier = proof_system::honk::MergeVerifier_<GUHFlavor>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 
     HonkProof merge_proof;
+
+    std::shared_ptr<GUHProvingKey> proving_key = std::make_shared<GUHProvingKey>();
+    std::shared_ptr<GUHVerificationKey> verification_key = std::make_shared<GUHVerificationKey>();
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
@@ -60,6 +70,7 @@ class Goblin {
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<TranslatorComposer> translator_composer;
+    AccumulationOutput accumulator;
 
   public:
     /**
@@ -89,7 +100,8 @@ class Goblin {
             merge_proof_exists = true;
         }
 
-        return { ultra_proof, instance->verification_key };
+        accumulator = { ultra_proof, instance->verification_key };
+        return accumulator;
     };
 
     Proof prove()
@@ -113,7 +125,13 @@ class Goblin {
         return proof;
     };
 
-    bool verify(const Proof& proof)
+    Proof construct_proof(GoblinUltraCircuitBuilder& builder)
+    {
+        accumulate(builder);
+        return prove();
+    }
+
+    bool verify(const Proof& proof) const
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
@@ -129,5 +147,16 @@ class Goblin {
 
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
+
+    bool verify_proof(const proof_system::plonk::proof& proof) const
+    {
+        const auto extract_final_kernel_proof = [](auto& in) { return in; };
+        GoblinUltraVerifier verifier{ verification_key };
+        bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
+
+        const auto extract_goblin_proof = []([[maybe_unused]] auto& in) { return Proof{}; };
+        verified = verified && verify(extract_goblin_proof(proof));
+        return verified;
+    }
 };
 } // namespace barretenberg

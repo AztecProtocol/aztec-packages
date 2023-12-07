@@ -51,10 +51,10 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
     auto builder = create_circuit_with_witness(constraint_system, { 0, 0, 1 });
 
     auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
 
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    auto verifier = composer.create_verifier(builder);
 
     EXPECT_EQ(verifier.verify_proof(proof), false);
 }
@@ -166,10 +166,10 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                                });
 
     auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
 
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    auto verifier = composer.create_verifier(builder);
 
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -253,10 +253,10 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
     auto builder = create_circuit_with_witness(constraint_system, witness);
 
     auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
 
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    auto verifier = composer.create_verifier(builder);
 
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -343,9 +343,9 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     auto builder = create_circuit_with_witness(constraint_system, witness);
 
     auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
@@ -418,9 +418,9 @@ TEST_F(AcirFormatTests, TestVarKeccak)
     auto builder = create_circuit_with_witness(constraint_system, { 4, 2, 6, 2 });
 
     auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto prover = composer.create_prover(builder);
     auto proof = prover.construct_proof();
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 

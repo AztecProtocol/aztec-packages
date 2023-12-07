@@ -33,6 +33,8 @@ using Verifier = proof_system::honk::GoblinUltraVerifier;
 
 using RecursiveProver = Prover;
 
+// using RecursiveProver = plonk::UltraProver;
+using RecursiveProver = Prover;
 using witness_ct = proof_system::plonk::stdlib::witness_t<Builder>;
 using public_witness_ct = proof_system::plonk::stdlib::public_witness_t<Builder>;
 using bool_ct = proof_system::plonk::stdlib::bool_t<Builder>;

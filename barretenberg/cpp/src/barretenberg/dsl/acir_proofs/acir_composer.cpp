@@ -35,12 +35,15 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
     acir_format::acir_format& constraint_system)
 {
     create_circuit(constraint_system);
+    // acir_format::Composer is a GUH composer
+    // This does not become a goblin
     acir_format::Composer composer;
     vinfo("computing proving key...");
     proving_key_ = composer.compute_proving_key(builder_);
     return proving_key_;
 }
 
+// WORKTODO: what is this really doing (i.e. what will it doe in Goblin setting)
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)
@@ -52,9 +55,11 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 
     auto composer = [&]() {
         if (proving_key_) {
+            // WORKTODO: constructor from proving key needed
             return acir_format::Composer(proving_key_, nullptr);
         }
 
+        // WORKTODO this becomes a Goblin
         acir_format::Composer composer;
         vinfo("computing proving key...");
         proving_key_ = composer.compute_proving_key(builder_);
@@ -65,6 +70,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     vinfo("creating proof...");
     std::vector<uint8_t> proof;
     if (is_recursive) {
+        // WORKTODO: is this a call to accumulate?
         auto prover = composer.create_prover(builder_);
         proof = prover.construct_proof().proof_data;
     } else {
@@ -89,12 +95,15 @@ std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verifi
 
 void AcirComposer::load_verification_key(proof_system::plonk::verification_key_data&& data)
 {
+    // WORKTODO: goblin verification involves grumpkin srs as well
     verification_key_ = std::make_shared<proof_system::plonk::verification_key>(
         std::move(data), srs::get_crs_factory()->get_verifier_crs());
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
 {
+    // WORKTODO: constructor of a Goblin from a GUH pk and a GUH vk.
+    // This becomes a goblin
     acir_format::Composer composer(proving_key_, verification_key_);
 
     if (!verification_key_) {
@@ -106,7 +115,10 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
+    //WORKTODO: Ignore this for now
     if (is_recursive) {
+        // WORKTODO: what is this if in proof construction is_recursive is true?
+        // Actually maybe this doesn't matter and it's just a hack for cheap solidity verifer.
         auto verifier = composer.create_verifier(builder_);
         return verifier.verify_proof({ proof });
     } else {

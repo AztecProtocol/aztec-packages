@@ -43,6 +43,7 @@ class AcirComposer {
     size_t total_circuit_size_;
     size_t circuit_subgroup_size_;
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
+    // WORKTODO: this is a GUH vk
     std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
     bool verbose_ = true;
 

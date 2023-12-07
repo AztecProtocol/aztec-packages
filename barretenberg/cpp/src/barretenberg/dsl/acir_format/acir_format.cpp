@@ -6,7 +6,9 @@ namespace acir_format {
 
 void read_witness(Builder& builder, WitnessVector const& witness)
 {
-    builder.variables[0] = 0;
+    builder.variables[0] = 0; // WORKTODO: what's this? is this the constant 0 hacked in?
+    // WORKTODO: is the structure demonstrated in this loop the reason to populate the builder constraints twice?
+    // Prob not, kinda doesn't make sense, big hack to avoid resizing...
     for (size_t i = 0; i < witness.size(); ++i) {
         builder.variables[i + 1] = witness[i];
     }
@@ -117,6 +119,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
+
+    // WORKTODO: add new constraint types here
+    // WORKTODO: this gets called twice? understand why.
 }
 
 void create_circuit(Builder& builder, acir_format const& constraint_system)
