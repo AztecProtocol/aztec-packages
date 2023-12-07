@@ -35,4 +35,4 @@ jobs:
     - name: Run noir/tooling/noir_rs/examples/poly_check_circuit
       working-directory: noir/tooling/noir_rs/examples/poly_check_circuit
       shell: bash
-      run: nargo compile && cargo run -vv
+      run: source /github/home/.bashrc && nargo compile && cargo run -vv
