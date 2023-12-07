@@ -86,15 +86,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     /**
      * @brief Create Verifier for Goblin ECC op queue merge protocol
      *
-     * @param size Size of commitment key required to commit to shifted op queue contribution t_i
      * @return MergeVerifier_<Flavor>
      */
-    MergeVerifier_<Flavor> create_merge_verifier(
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-    {
-        auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(0, crs_factory_);
-        return MergeVerifier_<Flavor>(std::move(pcs_verification_key), transcript);
-    }
+    MergeVerifier_<Flavor> create_merge_verifier() { return MergeVerifier_<Flavor>(); }
 
     ProtoGalaxyProver_<ProverInstances> create_folding_prover(const std::vector<std::shared_ptr<Instance>>& instances)
     {

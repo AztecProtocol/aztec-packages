@@ -15,6 +15,12 @@ UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transc
     , transcript(transcript)
 {}
 
+/**
+ * @brief Construct an UltraVerifier directly from a verification key
+ *
+ * @tparam Flavor
+ * @param verifier_key
+ */
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
