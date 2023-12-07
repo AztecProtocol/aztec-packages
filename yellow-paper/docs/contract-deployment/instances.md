@@ -22,8 +22,6 @@ The structure of a contract instance is defined as:
 
 A new contract instance can be created by calling a private `deploy` function in a canonical `Deployer` contract. This function receives a `ContractInstance` struct as described above, and executes the following actions:
 
-<!-- TODO: Should deploy be private or public? Or both? --> 
-
 - Validates the referenced `contract_class_id` exists.
 - Computes the resulting contract address from the hash of the contract instance.
 - Emits the address in the `new_contract_instances` public inputs.
@@ -32,6 +30,9 @@ A new contract instance can be created by calling a private `deploy` function in
 
 The kernel circuit validates that the contract emitting the `new_contract_instances` is the canonical `Deployer`, and emits those values so they can be added to the global contract instances tree. Upon seeing a new contract deployed event, nodes are expected to store the address and preimage.
 
-<!-- TODO: Define how address is computed -->
-<!-- TODO: Define what info is emitted -->
-<!-- TODO: Define the format of the unencrypted event -->
+<!-- 
+TODO: Should deploy be private or public? Or both? 
+TODO: Define how address is computed 
+TODO: Define what info is emitted 
+TODO: Define the format of the unencrypted event 
+--> 

@@ -54,8 +54,6 @@ The structure of a contract class is defined as:
 
 A contract class is registered by calling a `register` function in a canonical `ClassRegisterer` contract. The `register` function receives a `ContractClass` struct as defined above, and performs the following checks:
 
-<!-- TODO: Should register be private or public? Or both? --> 
-
 - `version` is 1 for the initial release
 - `registerer_address` equals to self
 - `bytecode` for each function hashes to the `bytecode_hash`
@@ -66,7 +64,10 @@ The `register` function then:
 - Computes the class identifier as the hash of the `ContractClass` object.
 - Returns the computed class identifier as a `new_contract_classes` public input.
 
-<!-- TODO: Define the format of the unencrypted event -->
-<!-- TODO: Define how to compute the hash -->
-
 The kernel circuit then validates that the contract emitting the new contract classes is the canonical `ClassRegisterer`, and emits the `new_contract_classes` so they are added to the contract class tree in global state. Upon seeing a new contract class registration in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class.
+
+<!-- 
+TODO: Should register be private or public? Or both? 
+TODO: Define the format of the unencrypted event
+TODO: Define how to compute the hash
+--> 
