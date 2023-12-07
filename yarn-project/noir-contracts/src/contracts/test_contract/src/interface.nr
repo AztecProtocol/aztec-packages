@@ -2,7 +2,11 @@
   
 use dep::std;
 use dep::aztec::context::{ PrivateContext, PublicContext };
-use dep::protocol_types::constants::RETURN_VALUES_LENGTH;
+use dep::protocol_types::{
+  address::Address,
+  abis::function_selector::FunctionSelector,
+  constants::RETURN_VALUES_LENGTH,
+};
 
 struct AStructTestCodeGenStruct {
   amount: Field,
@@ -29,11 +33,11 @@ struct ManyNotesADeepStructTestCodeGenStruct {
 
 // Interface for calling Test functions from a private context
 struct TestPrivateContextInterface {
-  address: Field,
+  address: Address,
 }
 
 impl TestPrivateContextInterface {
-  pub fn at(address: Field) -> Self {
+  pub fn at(address: Address) -> Self {
       Self {
           address,
       }
@@ -55,7 +59,7 @@ impl TestPrivateContextInterface {
     serialized_args[3] = msg_key;
     serialized_args[4] = secret_for_L1_to_L2_message_consumption;
 
-    context.call_private_function(self.address, 0x8999306a, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x8999306a), serialized_args)
   }
   
 
@@ -75,7 +79,7 @@ impl TestPrivateContextInterface {
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
 
-    context.call_public_function(self.address, 0x1c60863d, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x1c60863d), serialized_args)
   }
   
 
@@ -89,7 +93,7 @@ impl TestPrivateContextInterface {
     serialized_args[0] = amount;
     serialized_args[1] = secret_hash;
 
-    context.call_public_function(self.address, 0x9749ca06, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x9749ca06), serialized_args)
   }
   
 
@@ -103,7 +107,7 @@ impl TestPrivateContextInterface {
     serialized_args[0] = amount;
     serialized_args[1] = secret_hash;
 
-    context.call_public_function(self.address, 0xdf02db8d, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0xdf02db8d), serialized_args)
   }
   
 
@@ -113,7 +117,7 @@ impl TestPrivateContextInterface {
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 0];
 
-    context.call_private_function(self.address, 0x11fb5d45, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x11fb5d45), serialized_args)
   }
   
 
@@ -125,7 +129,7 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = nullifier;
 
-    context.call_private_function(self.address, 0x82a8b183, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x82a8b183), serialized_args)
   }
   
 
@@ -137,31 +141,31 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = value;
 
-    context.call_public_function(self.address, 0x817a64cb, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x817a64cb), serialized_args)
   }
   
 
   pub fn get_portal_contract_address(
     self,
     context: &mut PrivateContext,
-    aztec_address: Field
+    aztec_address: Address
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 1];
-    serialized_args[0] = aztec_address;
+    serialized_args[0] = aztec_address.to_field();
 
-    context.call_private_function(self.address, 0x98ff64fd, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x98ff64fd), serialized_args)
   }
   
 
   pub fn get_public_key(
     self,
     context: &mut PrivateContext,
-    address: Field
+    address: Address
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 1];
-    serialized_args[0] = address;
+    serialized_args[0] = address.to_field();
 
-    context.call_private_function(self.address, 0x5ccf578f, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x5ccf578f), serialized_args)
   }
   
 
@@ -171,7 +175,7 @@ impl TestPrivateContextInterface {
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 0];
 
-    context.call_private_function(self.address, 0x95a7b2ae, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x95a7b2ae), serialized_args)
   }
   
 
@@ -181,7 +185,7 @@ impl TestPrivateContextInterface {
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 0];
 
-    context.call_private_function(self.address, 0xc71384f5, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0xc71384f5), serialized_args)
   }
   
 
@@ -193,7 +197,7 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = time;
 
-    context.call_public_function(self.address, 0x61fa2bda, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x61fa2bda), serialized_args)
   }
   
 
@@ -205,7 +209,7 @@ impl TestPrivateContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = value;
 
-    context.call_private_function(self.address, 0x1b3b9e18, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x1b3b9e18), serialized_args)
   }
   
 
@@ -238,7 +242,7 @@ impl TestPrivateContextInterface {
     serialized_args[15] = a_deep_struct.many_notes[2].amount;
     serialized_args[16] = a_deep_struct.many_notes[2].secret_hash;
 
-    context.call_private_function(self.address, 0x0f054f9b, serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x0f054f9b), serialized_args)
   }
   
 }
@@ -248,11 +252,11 @@ impl TestPrivateContextInterface {
 
 // Interface for calling Test functions from a public context
 struct TestPublicContextInterface {
-  address: Field,
+  address: Address,
 }
 
 impl TestPublicContextInterface {
-  pub fn at(address: Field) -> Self {
+  pub fn at(address: Address) -> Self {
       Self {
           address,
       }
@@ -274,7 +278,7 @@ impl TestPublicContextInterface {
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
 
-    context.call_public_function(self.address, 0x1c60863d, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x1c60863d), serialized_args)
   }
   
 
@@ -288,7 +292,7 @@ impl TestPublicContextInterface {
     serialized_args[0] = amount;
     serialized_args[1] = secret_hash;
 
-    context.call_public_function(self.address, 0x9749ca06, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x9749ca06), serialized_args)
   }
   
 
@@ -302,7 +306,7 @@ impl TestPublicContextInterface {
     serialized_args[0] = amount;
     serialized_args[1] = secret_hash;
 
-    context.call_public_function(self.address, 0xdf02db8d, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0xdf02db8d), serialized_args)
   }
   
 
@@ -314,7 +318,7 @@ impl TestPublicContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = value;
 
-    context.call_public_function(self.address, 0x817a64cb, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x817a64cb), serialized_args)
   }
   
 
@@ -326,7 +330,7 @@ impl TestPublicContextInterface {
     let mut serialized_args = [0; 1];
     serialized_args[0] = time;
 
-    context.call_public_function(self.address, 0x61fa2bda, serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x61fa2bda), serialized_args)
   }
   
 }
