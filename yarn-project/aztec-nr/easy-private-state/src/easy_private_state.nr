@@ -1,3 +1,4 @@
+use dep::protocol_types::address::Address;
 use dep::aztec::{
     context::Context,
     note::note_getter_options::NoteGetterOptions,
@@ -57,7 +58,7 @@ impl EasyPrivateUint {
 
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(note.owner == owner);
+                assert(note.owner.eq(owner));
 
                 // Removes the note from the owner's set of notes.
                 // docs:start:remove
