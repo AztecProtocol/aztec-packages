@@ -3,6 +3,7 @@ mod ecdsa_public_key_note;
 // Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
+    use dep::protocol_types::address::Address;
     use dep::std;
     use dep::std::option::Option;
     use dep::aztec::{
@@ -30,7 +31,7 @@ contract EcdsaAccount {
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 public_key: ImmutableSingleton::new(context, 1, EcdsaPublicKeyNoteInterface),
             }
@@ -103,7 +104,8 @@ contract EcdsaAccount {
         serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]
     ) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(EcdsaPublicKeyNoteInterface, note_header, serialized_note)
     }
 }

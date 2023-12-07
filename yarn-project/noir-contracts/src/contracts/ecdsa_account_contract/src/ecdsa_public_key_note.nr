@@ -1,3 +1,4 @@
+use dep::protocol_types::address::Address;
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -56,8 +57,7 @@ impl EcdsaPublicKeyNote {
         let last_x = self.x[31] as Field;
         let last_y = self.y[31] as Field;
         
-        let res: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] = [x, last_x, y, last_y, self.owner];
-        res
+        [x, last_x, y, last_y, self.owner.to_field()]
     }
 
     pub fn compute_nullifier(self) -> Field {
@@ -104,7 +104,7 @@ fn deserialize(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPubl
     }
     y[31] = serialized_note[3].to_be_bytes(32)[31];
 
-    EcdsaPublicKeyNote { x, y, owner: serialized_note[4], header: NoteHeader::empty() }
+    EcdsaPublicKeyNote { x, y, owner: Address::from_field(serialized_note[4]), header: NoteHeader::empty() }
 }
 
 fn serialize(note: EcdsaPublicKeyNote) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
