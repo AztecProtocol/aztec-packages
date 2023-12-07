@@ -4,6 +4,7 @@ use crate::{
         complete_address::CompleteAddress,
         block_header::BlockHeader,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::{compute_constructor_hash, NUM_FIELDS_PER_SHA256, hash_args},
@@ -29,10 +30,10 @@ struct PrivateCircuitPublicInputsBuilder {
     args_hash: Field,
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes: BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,

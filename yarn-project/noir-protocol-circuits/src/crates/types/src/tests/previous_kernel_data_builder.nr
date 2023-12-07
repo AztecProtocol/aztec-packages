@@ -9,6 +9,7 @@ use crate::{
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{Address, EthAddress},
     hash::NUM_FIELDS_PER_SHA256,
@@ -44,7 +45,10 @@ struct PreviousKernelDataBuilder {
 impl PreviousKernelDataBuilder {
     pub fn new() -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
+        end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+            value: 321,
+            note_hash: 0,
+            counter: 0}); // 0th nullifier must be non-zero.
         end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
 
         let tx_context = build_tx_context(false);
@@ -116,18 +120,23 @@ impl PreviousKernelDataBuilder {
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             if i as u64 < num_new_commitments as u64 {
                 // The default value is its index + 1.
-                self.end.new_commitments.push(i + mocked_value_offset);
+                self.end.new_commitments.push(SideEffect{
+                    value: i + mocked_value_offset,
+                    counter: 0});
             }
         }
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: Field) {
         let first_nullifier = self.end.new_nullifiers.get(0);
-        let mocked_value_offset = first_nullifier + self.end.new_nullifiers.len();
+        let mocked_value_offset = first_nullifier.value + self.end.new_nullifiers.len();
         for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
             if i as u64 <= num_extra_nullifier as u64 {
                 // The default value is its index + the value of the first nullifier.
-                self.end.new_nullifiers.push(i + mocked_value_offset);
+                self.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+                    value: i + mocked_value_offset,
+                    note_hash: first_nullifier.note_hash,
+                    counter: 0});
             }
         }
     }
@@ -162,6 +171,8 @@ impl PreviousKernelDataBuilder {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,
+            0,
+            0,
         }
     }
 

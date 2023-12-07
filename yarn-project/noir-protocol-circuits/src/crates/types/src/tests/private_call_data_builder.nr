@@ -149,6 +149,8 @@ impl PrivateCallDataBuilder {
                     hash,
                     caller_contract_address: self.contract_address,
                     caller_context,
+                    0,
+                    0,
                 };
                 hashes.push(hash);
                 call_requests.push(request);
