@@ -5,8 +5,8 @@
 Welcome to `noir_rs`, a pure Rust implementation for generating and verifying zkSNARK proofs. This lightweight, Rust-centric library is designed for ease of use, mobile compatibility, and performance, eliminating the need for WebAssembly (WASM) dependencies.
 
 ### Project Origin
-This project is a fork of [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages), updated to align with the latest versions.
-Explore our source code here: [`noir_rs`](noir/tooling/noir_rs/).
+This project is a fork of [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages), in order to align with the latest versions.
+Explore source code here: [`noir_rs`](noir/tooling/noir_rs/).
 
 ### Build Status
 - ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/build&test@arcrunner.yml/badge.svg)
@@ -18,13 +18,12 @@ Explore our source code here: [`noir_rs`](noir/tooling/noir_rs/).
 
 - **Rust-centric Design**: Leveraging Rust's impressive performance, safety, and concurrency for a robust zkSNARK platform.
 - **Mobile-Friendly**: Optimized for mobile devices, thanks to our Rust-native approach that bypasses WASM.
-- **User-Friendly**: A simple, efficient toolkit for developers to generate and verify zkSNARK proofs without complex configurations.
+- **User-Friendly**: A simple, efficient toolkit for developers to generate and verify zkSNARK proofs.
 
-## Future Developments
+## Built on `noir_rs`
 
-Collaborating with the noir-team, we're integrating `noir_rs` into the main noir-lang repository. Stay tuned for:
-- **Swift Integration**: Check out [noir_swift](https://github.com/visoftsolutions/noir_swift) based on `noir_rs`.
-- **Java Integration**: Check out [noir_java](https://github.com/visoftsolutions/noir_java) based on `noir_rs`.
+- **Swift Integration**: Check out [noir_swift](https://github.com/visoftsolutions/noir_swift)
+- **Java Integration**: Check out [noir_java](https://github.com/visoftsolutions/noir_java)
 
 ## Getting Started
 
