@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        runner: [ubuntu-latest, macos-13]
+        runner: [ubuntu-latest]
         # runner: [arc-runner-set]
     
     runs-on: ${{ matrix.runner }}
@@ -21,6 +21,8 @@ jobs:
       image: docker.io/rust:latest
 
     steps:
+    - name: Install
+      run: apt install -y libclang-dev
     - uses: actions/checkout@v3
     - name: Run noir/tooling/noir_rs/examples/poly_check_circuit
       working-directory: noir/tooling/noir_rs/examples/poly_check_circuit

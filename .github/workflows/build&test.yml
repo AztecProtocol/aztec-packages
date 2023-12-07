@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        runner: [ubuntu-latest, macos-13]
+        runner: [ubuntu-latest]
         # runner: [arc-runner-set]
     
     runs-on: ${{ matrix.runner }}
@@ -21,6 +21,8 @@ jobs:
       image: docker.io/rust:latest
 
     steps:
+    - name: Install
+      run: apt install -y libclang-dev
     - name: Setup | CMake
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
