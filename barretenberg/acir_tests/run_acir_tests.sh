@@ -1,5 +1,6 @@
 #!/bin/bash
 # Env var overrides:
+#   WORKTODO: this should refer to bb
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 set -eu
