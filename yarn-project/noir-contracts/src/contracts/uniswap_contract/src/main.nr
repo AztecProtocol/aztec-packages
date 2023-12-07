@@ -10,7 +10,7 @@ contract Uniswap {
         context::{PrivateContext, PublicContext, Context},
         oracle::{context::get_portal_address},
         state_vars::{map::Map, public_state::PublicState},
-        types::address::{AztecAddress, EthereumAddress},
+        types::address::{Address, EthereumAddress},
         types::type_serialization::bool_serialization::{
             BoolSerializationMethods, BOOL_SERIALIZED_LEN,
         },
@@ -55,17 +55,17 @@ contract Uniswap {
     // docs:start:swap_public
     #[aztec(public)]
     fn swap_public(
-        sender: AztecAddress,
-        input_asset_bridge: AztecAddress,
+        sender: Address,
+        input_asset_bridge: Address,
         input_amount: Field,
-        output_asset_bridge: AztecAddress,
+        output_asset_bridge: Address,
         // params for using the transfer approval
         nonce_for_transfer_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field,
         minimum_output_amount: Field,
         // params for the depositing output_asset back to Aztec
-        recipient: AztecAddress,
+        recipient: Address,
         secret_hash_for_L1_to_l2_message: Field,
         deadline_for_L1_to_l2_message: Field,
         canceller_for_L1_to_L2_message: EthereumAddress,
@@ -116,10 +116,10 @@ contract Uniswap {
     // docs:start:swap_private
     #[aztec(private)]
     fn swap_private(
-        input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
-        input_asset_bridge: AztecAddress,
+        input_asset: Address, // since private, we pass here and later assert that this is as expected by input_bridge
+        input_asset_bridge: Address,
         input_amount: Field,
-        output_asset_bridge: AztecAddress,
+        output_asset_bridge: Address,
         // params for using the unshield approval
         nonce_for_unshield_approval: Field,
         // params for the swap
@@ -190,7 +190,7 @@ contract Uniswap {
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
     #[aztec(public)]
-    internal fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
+    internal fn _approve_bridge_and_exit_input_asset_to_L1(token: Address, token_bridge: Address, amount: Field) {
         // approve bridge to burn this contract's funds (required when exiting on L1, as it burns funds on L2):
         let nonce_for_burn_approval = storage.nonce_for_burn_approval.read();
         let selector = compute_selector("burn_public((Field),Field,Field)");
@@ -214,7 +214,7 @@ contract Uniswap {
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
+    internal fn _assert_token_is_same(token: Address, token_bridge: Address) {
         assert(token.eq(TokenBridge::at(token_bridge.address).token(context)), "input_asset address is not the same as seen in the bridge contract");
     }
     // docs:end:assert_token_is_same

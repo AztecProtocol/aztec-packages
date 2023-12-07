@@ -27,7 +27,7 @@ contract Token {
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
             bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-            aztec_address_serialization::{AztecAddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
+            address_serialization::{AddressSerializationMethods, ADDRESS_SERIALIZED_LEN},
         },
         types::address::{AztecAddress},
         selector::compute_selector,
@@ -53,7 +53,7 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<Address, ADDRESS_SERIALIZED_LEN>,
         // docs:end:storage_admin
         // docs:start:storage_minters
         minters: Map<PublicState<bool, BOOL_SERIALIZED_LEN>>,
@@ -77,7 +77,7 @@ contract Token {
                 admin: PublicState::new(
                     context,
                     1,
-                    AztecAddressSerializationMethods,
+                    AddressSerializationMethods,
                 ),
                 // docs:end:storage_admin_init
                 // docs:start:storage_minters_init

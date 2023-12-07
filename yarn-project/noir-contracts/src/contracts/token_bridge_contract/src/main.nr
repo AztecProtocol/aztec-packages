@@ -12,7 +12,7 @@ contract TokenBridge {
         hash::{compute_secret_hash},
         state_vars::{public_state::PublicState},
         types::type_serialization::field_serialization::FieldSerializationMethods,
-        types::address::{AztecAddress, EthereumAddress},
+        types::address::{Address, EthereumAddress},
         selector::compute_selector,
     };
     // docs:end:token_bridge_imports
@@ -41,7 +41,7 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[aztec(private)]
-    fn constructor(token: AztecAddress) {
+    fn constructor(token: Address) {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.address]);
     }
@@ -50,7 +50,7 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, canceller: EthereumAddress, msg_key: Field, secret: Field) {
+    fn claim_public(to: Address, amount: Field, canceller: EthereumAddress, msg_key: Field, secret: Field) {
         let content_hash = get_mint_public_content_hash(to.address, amount, canceller.address);
 
         // Consume message and emit nullifier
@@ -111,7 +111,7 @@ contract TokenBridge {
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[aztec(private)]
     fn exit_to_l1_private(
-        token: AztecAddress,
+        token: Address,
         recipient: EthereumAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthereumAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -147,7 +147,7 @@ contract TokenBridge {
     }
 
     #[aztec(public)]
-    internal fn _initialize(token: AztecAddress) {
+    internal fn _initialize(token: Address) {
         storage.token.write(token.address);
     }
 

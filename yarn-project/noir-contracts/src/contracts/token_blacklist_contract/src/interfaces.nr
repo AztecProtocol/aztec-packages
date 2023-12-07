@@ -1,7 +1,7 @@
 use dep::aztec::{
   context::{ PrivateContext, PublicContext, Context },
   selector::compute_selector,
-  types::address::AztecAddress,
+  types::address::Address,
 };
 
 struct SlowMap {
@@ -9,7 +9,7 @@ struct SlowMap {
 }
 
 impl SlowMap {
-  pub fn at(address: AztecAddress) -> Self {
+  pub fn at(address: Address) -> Self {
     Self { address: address.address }
   }
 

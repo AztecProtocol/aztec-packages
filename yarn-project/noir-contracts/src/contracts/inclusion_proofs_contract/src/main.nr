@@ -19,7 +19,7 @@ contract InclusionProofs {
         },
         selector::compute_selector,
         types::{
-            address::AztecAddress,
+            address::Address,
             type_serialization::field_serialization::FieldSerializationMethods,
         },
         context::Context,
@@ -88,7 +88,7 @@ contract InclusionProofs {
     // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(
-        owner: AztecAddress,
+        owner: Address,
         value: Field,
     ) {
         let owner_private_values = storage.private_values.at(owner.address);
@@ -100,7 +100,7 @@ contract InclusionProofs {
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
     fn proveNoteInclusion(
-        owner: AztecAddress,
+        owner: Address,
         block_number: Field, // The block at which we'll prove that the note exists
         spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
@@ -144,7 +144,7 @@ contract InclusionProofs {
     // Proves that the note was not yet nullified at block `block_number`.
     #[aztec(private)]
     fn proveNullifierNonInclusion(
-        owner: AztecAddress,
+        owner: Address,
         block_number: Field, // The block at which we'll prove that the nullifier does not exists
         spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
@@ -202,7 +202,7 @@ contract InclusionProofs {
 
     #[aztec(private)]
     fn nullifyNote(
-        owner: AztecAddress,
+        owner: Address,
     ) {
         let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);

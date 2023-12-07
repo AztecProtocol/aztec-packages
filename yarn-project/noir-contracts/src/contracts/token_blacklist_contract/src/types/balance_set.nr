@@ -4,7 +4,7 @@ use dep::protocol_types::constants::MAX_READ_REQUESTS_PER_CALL;
 use dep::aztec::{
   context::Context,
   state_vars::set::Set,
-  types::address::AztecAddress,
+  types::address::Address,
 };
 use dep::aztec::note::{
     note_getter::view_notes,
@@ -29,12 +29,12 @@ use crate::types::token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteMethods};
 // Spending key requirement should be enforced by the contract using this.
 struct BalanceSet {
   context: Context,
-  owner: AztecAddress,
+  owner: Address,
   set: Set<TokenNote, TOKEN_NOTE_LEN>
 }
 
 impl BalanceSet {
-  pub fn new(context: Context, owner: AztecAddress, storage_slot: Field) -> Self {
+  pub fn new(context: Context, owner: Address, storage_slot: Field) -> Self {
     assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
     let set = Set {
         context,

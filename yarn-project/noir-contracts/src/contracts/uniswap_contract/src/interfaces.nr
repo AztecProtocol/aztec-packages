@@ -2,7 +2,7 @@
 use dep::aztec::{
   context::{ PrivateContext, PublicContext, Context },
   selector::compute_selector,
-  types::address::AztecAddress,
+  types::address::Address,
 };
 
 struct Token {
@@ -40,9 +40,9 @@ impl TokenBridge {
     Self { address }
   }
 
-  pub fn token(self: Self, context: PublicContext) -> AztecAddress {
+  pub fn token(self: Self, context: PublicContext) -> Address {
     let return_values = context.call_public_function(self.address, compute_selector("get_token()"), []);
-    AztecAddress::new(return_values[0])
+    Address::new(return_values[0])
   }
 
   pub fn exit_to_l1_public(self: Self, context: PublicContext, recipient: Address, amount: Field, callerOnL1: Field, nonce: Field) {

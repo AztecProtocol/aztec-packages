@@ -10,7 +10,7 @@ use dep::aztec::{
     log::emit_encrypted_log,
     hash::pedersen_hash,
 };
-use dep::aztec::types::address::AztecAddress;
+use dep::aztec::types::address::Address;
 use dep::aztec::oracle::{
     rand::rand,
     get_secret_key::get_secret_key,
@@ -27,7 +27,7 @@ struct TokenNote {
     // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
     // can be privately spent. When nullifier secret and encryption private key is same 
     // we can simply use the owner for this one.
-    owner: AztecAddress,
+    owner: Address,
     // randomness of the note to hide contents.
     randomness: Field,
     // the note header (contract_address, nonce, storage_slot)
@@ -36,7 +36,7 @@ struct TokenNote {
 }
 
 impl TokenNote {
-    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
+    pub fn new(amount: SafeU120, owner: Address) -> Self {
         Self {
             amount,
             owner,
@@ -52,7 +52,7 @@ impl TokenNote {
     pub fn deserialize(preimage: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: SafeU120::new(preimage[0]),
-            owner: AztecAddress::new(preimage[1]),
+            owner: Address::new(preimage[1]),
             randomness: preimage[2],
             header: NoteHeader::empty(),
         }
