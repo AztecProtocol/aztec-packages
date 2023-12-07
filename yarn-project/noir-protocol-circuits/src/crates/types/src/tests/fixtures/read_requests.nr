@@ -31,8 +31,8 @@ pub fn generate_read_requests_with_config(how_many: Field, is_transient: bool, h
 
     for i in 0..how_many {
         read_requests.push(
-            SideEffect{
-                value: i + 1
+            SideEffect {
+                value: i + 1,
                 counter: 0
     });
         let witness = ReadRequestMembershipWitness {
@@ -42,7 +42,7 @@ pub fn generate_read_requests_with_config(how_many: Field, is_transient: bool, h
             hint_to_commitment: hints_to_commitment[i],
         };
         read_request_membership_witnesses.push(
-            witness)
+            witness);
     }
 
     (read_requests, read_request_membership_witnesses)
