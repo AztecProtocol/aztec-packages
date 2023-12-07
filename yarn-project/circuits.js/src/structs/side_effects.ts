@@ -30,7 +30,7 @@ export class SideEffect implements SideEffectType {
     /**
      * The side-effect counter.
      */
-    public sideEffectCounter: Fr,
+    public counter: Fr,
   ) {}
 
   /**
@@ -38,7 +38,7 @@ export class SideEffect implements SideEffectType {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.sideEffectCounter);
+    return serializeToBuffer(this.value, this.counter);
   }
 
   /**
@@ -46,7 +46,7 @@ export class SideEffect implements SideEffectType {
    * @returns The array of fields.
    */
   toFieldArray(): Fr[] {
-    return [this.value, this.sideEffectCounter];
+    return [this.value, this.counter];
   }
 
   /**
@@ -54,7 +54,7 @@ export class SideEffect implements SideEffectType {
    * @returns True if the value and counter both are zero.
    */
   isEmpty() {
-    return this.value.isZero() && this.sideEffectCounter.isZero();
+    return this.value.isZero() && this.counter.isZero();
   }
 
   /**

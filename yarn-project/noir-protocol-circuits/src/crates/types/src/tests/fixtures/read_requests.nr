@@ -26,7 +26,7 @@ pub fn generate_read_requests_with_config(how_many: Field, is_transient: bool, h
     BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
     BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>
 ) {
-    let mut read_requests = BoundedVec::new(0);
+    let mut read_requests = BoundedVec::new(SideEffect::empty());
     let mut read_request_membership_witnesses = BoundedVec::new(dep::std::unsafe::zeroed());
 
     for i in 0..how_many {

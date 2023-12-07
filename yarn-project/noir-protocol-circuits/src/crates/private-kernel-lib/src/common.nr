@@ -178,7 +178,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
-    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(SideEffect::new());
+    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(SideEffect::zero());
     for i in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i].value;
         let witness = read_request_membership_witnesses[i];
@@ -194,7 +194,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
     // nullifiers
-    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::new());
+    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i].value;
         if new_nullifier != 0 {

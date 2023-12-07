@@ -288,9 +288,9 @@ pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commi
     let mut unique_siloed_commitments = [0; N];
     for i in 0..N {
         let siloed_commitment = siloed_commitments[i];
-        if siloed_commitment != 0 {
+        if siloed_commitment.value != 0 {
             let nonce = compute_commitment_nonce(first_nullifier, i);
-            unique_siloed_commitments[i] = compute_unique_siloed_commitment(nonce, siloed_commitment);
+            unique_siloed_commitments[i].value = compute_unique_siloed_commitment(nonce, siloed_commitment.value);
         }
     }
     unique_siloed_commitments

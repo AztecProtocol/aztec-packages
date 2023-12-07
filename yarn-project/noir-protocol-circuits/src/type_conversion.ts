@@ -61,6 +61,8 @@ import {
   ReadRequestMembershipWitness,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
@@ -92,6 +94,8 @@ import {
   PublicDataRead as PublicDataReadNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
+  SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
+  SideEffect as SideEffectNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
 } from './types/private_kernel_init_types.js';
@@ -438,6 +442,57 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
 }
 
 /**
+ * Maps a SideEffect to a noir side effect.
+ * @param sideEffect - The side effect.
+ * @returns The noir sideeffect.
+ */
+export function mapSideEffectToNoir(sideEffect: SideEffect): SideEffectNoir {
+  return {
+    value: mapFieldToNoir(sideEffect.value),
+    counter: mapFieldToNoir(sideEffect.counter),
+  };
+}
+
+/**
+ * Maps a noir side effect to aSideEffect.
+ * @param sideEffect - The noir side effect.
+ * @returns The TS sideeffect.
+ */
+export function mapSideEffectFromNoir(sideEffect: SideEffectNoir): SideEffect {
+  return new SideEffect(mapFieldFromNoir(sideEffect.value), mapFieldFromNoir(sideEffect.counter));
+}
+
+/**
+ * Maps a SideEffectLinked to a noir side effect.
+ * @param sideEffectLinked - The side effect linked to note hash.
+ * @returns The noir sideeffectlinked to note hash.
+ */
+export function mapSideEffectLinkedToNoir(
+  sideEffectLinked: SideEffectLinkedToNoteHash,
+): SideEffectLinkedToNoteHashNoir {
+  return {
+    value: mapFieldToNoir(sideEffectLinked.value),
+    note_hash: mapFieldToNoir(sideEffectLinked.noteHash),
+    counter: mapFieldToNoir(sideEffectLinked.counter),
+  };
+}
+
+/**
+ * Maps a noir side effect to aSideEffect.
+ * @param sideEffect - The noir side effect.
+ * @returns The TS sideeffect.
+ */
+export function mapSideEffectLinkedFromNoir(
+  sideEffectLinked: SideEffectLinkedToNoteHashNoir,
+): SideEffectLinkedToNoteHash {
+  return new SideEffectLinkedToNoteHash(
+    mapFieldFromNoir(sideEffectLinked.value),
+    mapFieldFromNoir(sideEffectLinked.note_hash),
+    mapFieldFromNoir(sideEffectLinked.counter),
+  );
+}
+
+/**
  * Maps a block header to a noir block header.
  * @param blockHeader - The block header.
  * @returns The noir block header.
@@ -487,9 +542,9 @@ export function mapPrivateCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
-    read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapFieldToNoir),
-    new_commitments: mapTuple(privateCircuitPublicInputs.newCommitments, mapFieldToNoir),
-    new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapFieldToNoir),
+    read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    new_commitments: mapTuple(privateCircuitPublicInputs.newCommitments, mapSideEffectToNoir),
+    new_nullifiers: mapTuple(privateCircuitPublicInputs.newNullifiers, mapSideEffectLinkedToNoir),
     nullified_commitments: mapTuple(privateCircuitPublicInputs.nullifiedCommitments, mapFieldToNoir),
     private_call_stack_hashes: mapTuple(privateCircuitPublicInputs.privateCallStackHashes, mapFieldToNoir),
     public_call_stack_hashes: mapTuple(privateCircuitPublicInputs.publicCallStackHashes, mapFieldToNoir),
