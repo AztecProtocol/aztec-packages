@@ -13,9 +13,12 @@ jobs:
   build:
     strategy:
       matrix:
-        runner: [arc-runner-set]
+        runner: [ubuntu-latest]
+        # runner: [arc-runner-set]
     
     runs-on: ${{ matrix.runner }}
+    container:
+      image: docker.io/rust:latest
 
     steps:
     - name: Install
