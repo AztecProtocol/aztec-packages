@@ -1,6 +1,6 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
     use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
@@ -50,13 +50,13 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    fn constructor(owner: Address, value: Field) {
+    fn constructor(owner: AztecAddress, value: Field) {
         let loc = storage.notes.at(owner.to_field());
         increment(loc, value, owner);
     }
 
     #[aztec(private)]
-    fn create_note(owner: Address, value: Field) {
+    fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner.to_field());
             increment(loc, value, owner);
@@ -64,7 +64,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    fn destroy_and_create(recipient: Address, amount: Field) {
+    fn destroy_and_create(recipient: AztecAddress, amount: Field) {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender.to_field());
@@ -74,7 +74,7 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
-    unconstrained fn summed_values(owner: Address) -> Field {
+    unconstrained fn summed_values(owner: AztecAddress) -> Field {
         let owner_balance = storage.notes.at(owner.to_field());
 
         // Return the sum of all notes in the set.
@@ -82,7 +82,7 @@ contract StatefulTest {
     }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

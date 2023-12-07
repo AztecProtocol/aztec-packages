@@ -1,6 +1,6 @@
 // docs:start:interfaces
 use dep::protocol_types::address::{
-  Address,
+  AztecAddress,
   EthAddress,
 };
 use dep::aztec::{
@@ -9,15 +9,15 @@ use dep::aztec::{
 };
 
 struct Token {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl Token {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
     Self { address }
   }
 
-  pub fn transfer_public(self: Self, context: PublicContext, from: Address, to: Address, amount: Field, nonce: Field) {
+  pub fn transfer_public(self: Self, context: PublicContext, from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
     context.call_public_function(
       self.address,
       compute_selector("transfer_public((Field),(Field),Field,Field)"),
@@ -25,7 +25,7 @@ impl Token {
     );
   }
 
-  pub fn unshield(self: Self, context: &mut PrivateContext, from: Address, to: Address,  amount: Field, nonce: Field) {
+  pub fn unshield(self: Self, context: &mut PrivateContext, from: AztecAddress, to: AztecAddress,  amount: Field, nonce: Field) {
     context.call_private_function(
       self.address,
       compute_selector("unshield((Field),(Field),Field,Field)"),
@@ -35,17 +35,17 @@ impl Token {
 }
 
 struct TokenBridge {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl TokenBridge {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
     Self { address }
   }
 
-  pub fn token(self: Self, context: PublicContext) -> Address {
+  pub fn token(self: Self, context: PublicContext) -> AztecAddress {
     let return_values = context.call_public_function(self.address, compute_selector("get_token()"), []);
-    Address::from_field(return_values[0])
+    AztecAddress::from_field(return_values[0])
   }
 
   pub fn exit_to_l1_public(self: Self, context: PublicContext, recipient: EthAddress, amount: Field, callerOnL1: EthAddress, nonce: Field) {

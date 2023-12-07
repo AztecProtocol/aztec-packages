@@ -57,7 +57,7 @@
                         "name": "target_address",
                         "type": {
                           "kind": "struct",
-                          "path": "aztec::protocol_types::address::Address",
+                          "path": "aztec::protocol_types::address::AztecAddress",
                           "fields": [
                             {
                               "name": "inner",
@@ -138,7 +138,7 @@
                     "name": "msg_sender",
                     "type": {
                       "kind": "struct",
-                      "path": "aztec::protocol_types::address::Address",
+                      "path": "aztec::protocol_types::address::AztecAddress",
                       "fields": [
                         {
                           "name": "inner",
@@ -153,7 +153,7 @@
                     "name": "storage_contract_address",
                     "type": {
                       "kind": "struct",
-                      "path": "aztec::protocol_types::address::Address",
+                      "path": "aztec::protocol_types::address::AztecAddress",
                       "fields": [
                         {
                           "name": "inner",
@@ -415,7 +415,7 @@
               "name": "prover_address",
               "type": {
                 "kind": "struct",
-                "path": "aztec::protocol_types::address::Address",
+                "path": "aztec::protocol_types::address::AztecAddress",
                 "fields": [
                   {
                     "name": "inner",
@@ -467,7 +467,7 @@
                     "name": "msg_sender",
                     "type": {
                       "kind": "struct",
-                      "path": "aztec::protocol_types::address::Address",
+                      "path": "aztec::protocol_types::address::AztecAddress",
                       "fields": [
                         {
                           "name": "inner",
@@ -482,7 +482,7 @@
                     "name": "storage_contract_address",
                     "type": {
                       "kind": "struct",
-                      "path": "aztec::protocol_types::address::Address",
+                      "path": "aztec::protocol_types::address::AztecAddress",
                       "fields": [
                         {
                           "name": "inner",
@@ -744,7 +744,7 @@
               "name": "prover_address",
               "type": {
                 "kind": "struct",
-                "path": "aztec::protocol_types::address::Address",
+                "path": "aztec::protocol_types::address::AztecAddress",
                 "fields": [
                   {
                     "name": "inner",

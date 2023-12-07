@@ -1,15 +1,15 @@
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 use dep::aztec::{
   context::{ PrivateContext, PublicContext, Context },
   selector::compute_selector,
 };
 
 struct SlowMap {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl SlowMap {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
     Self { address: address }
   }
 

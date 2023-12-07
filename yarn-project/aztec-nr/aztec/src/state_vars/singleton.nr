@@ -1,7 +1,7 @@
 use dep::std::option::Option;
 
 use dep::protocol_types::{
-    address::Address,
+    address::AztecAddress,
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
         GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
@@ -21,7 +21,7 @@ use crate::oracle::{
     notes::check_nullifier_exists,
 };
 
-pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Address>) -> Field {
+pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<AztecAddress>) -> Field {
     if owner.is_some() {
         let secret = get_secret_key(owner.unwrap_unchecked());
         pedersen_hash([storage_slot, secret.low, secret.high],
@@ -36,7 +36,7 @@ struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    compute_initialization_nullifier: fn (Field, Option<Address>) -> Field,
+    compute_initialization_nullifier: fn (Field, Option<AztecAddress>) -> Field,
 }
 // docs:end:struct
 
@@ -58,7 +58,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:new
 
     // docs:start:is_initialized
-    unconstrained pub fn is_initialized(self, owner: Option<Address>) -> bool {
+    unconstrained pub fn is_initialized(self, owner: Option<AztecAddress>) -> bool {
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         check_nullifier_exists(nullifier)
@@ -69,7 +69,7 @@ impl<Note, N> Singleton<Note, N> {
     pub fn initialize(
         self,
         note: &mut Note,
-        owner: Option<Address>,
+        owner: Option<AztecAddress>,
         broadcast: bool,
     ) {
         let context = self.context.unwrap();

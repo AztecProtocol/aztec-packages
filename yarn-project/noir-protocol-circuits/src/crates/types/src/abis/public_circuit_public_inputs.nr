@@ -15,7 +15,7 @@ use crate::{
         call_context::CallContext,
         block_header::BlockHeader,
     },
-    address::Address,
+    address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
@@ -46,7 +46,7 @@ struct PublicCircuitPublicInputs{
 
     block_header: BlockHeader,
 
-    prover_address: Address,
+    prover_address: AztecAddress,
 }
 
 impl PublicCircuitPublicInputs{

@@ -3,7 +3,7 @@ contract Test {
     use dep::std::option::Option;
     use dep::protocol_types::constants::EMPTY_NULLIFIED_COMMITMENT;
     use dep::protocol_types::address::{
-        Address,
+        AztecAddress,
         EthAddress,
     };
     // docs:start:unencrypted_import
@@ -55,7 +55,7 @@ contract Test {
     // docs:end:empty-constructor
 
     #[aztec(private)]
-    fn get_public_key(address: Address) -> [Field; 2] {
+    fn get_public_key(address: AztecAddress) -> [Field; 2] {
         let pub_key = get_public_key_oracle(address);
 
         [pub_key.x, pub_key.y]
@@ -63,7 +63,7 @@ contract Test {
 
     // Get the portal contract address through an oracle call
     #[aztec(private)]
-    fn get_portal_contract_address(aztec_address: Address) -> EthAddress {
+    fn get_portal_contract_address(aztec_address: AztecAddress) -> EthAddress {
         get_portal_address(aztec_address)
     }
 
@@ -75,7 +75,7 @@ contract Test {
 
     // Get the address of this contract (taken from the input context)
     #[aztec(private)]
-    fn get_this_address() -> Address {
+    fn get_this_address() -> AztecAddress {
         context.this_address()
     }
 
@@ -161,7 +161,7 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(to: Address, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
@@ -226,7 +226,7 @@ contract Test {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; FIELD_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, serialized_note)
     }

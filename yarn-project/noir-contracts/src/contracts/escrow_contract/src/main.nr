@@ -2,7 +2,7 @@
 contract Escrow {
     use dep::std::option::Option;
 
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -37,7 +37,7 @@ contract Escrow {
     // Creates a new instance
     // docs:start:constructor
     #[aztec(private)]
-    fn constructor(owner: pub Address) {
+    fn constructor(owner: pub AztecAddress) {
         let this = context.this_address();
 
         // Create a new note and add it to the owners set.
@@ -50,7 +50,7 @@ contract Escrow {
 
     // Withdraws balance. Requires that msg.sender is registered as an owner.
     #[aztec(private)]
-    fn withdraw(token: Address, amount: Field, recipient: Address) {
+    fn withdraw(token: AztecAddress, amount: Field, recipient: AztecAddress) {
         let this = context.this_address();
         let sender = context.msg_sender();
 
@@ -64,7 +64,7 @@ contract Escrow {
     }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         assert(storage_slot == 1);
         note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, serialized_note)

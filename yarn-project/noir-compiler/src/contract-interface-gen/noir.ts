@@ -168,7 +168,7 @@ function generateStaticImports() {
   return `use dep::std;
 use dep::aztec::context::{ PrivateContext, PublicContext };
 use dep::protocol_types::{
-  address::Address,
+  address::AztecAddress,
   abis::function_selector::FunctionSelector,
   constants::RETURN_VALUES_LENGTH,
 };`;
@@ -193,7 +193,7 @@ function generateContractStructName(contractName: string, kind: 'private' | 'pub
 function generateContractInterfaceStruct(contractName: string, kind: 'private' | 'public') {
   return `// Interface for calling ${contractName} functions from a ${kind} context
 struct ${generateContractStructName(contractName, kind)} {
-  address: Address,
+  address: AztecAddress,
 }
 `;
 }
@@ -207,7 +207,7 @@ struct ${generateContractStructName(contractName, kind)} {
  */
 function generateContractInterfaceImpl(contractName: string, kind: 'private' | 'public', functions: string[]) {
   return `impl ${generateContractStructName(contractName, kind)} {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
       Self {
           address,
       }

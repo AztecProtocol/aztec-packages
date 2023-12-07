@@ -1,11 +1,11 @@
 use crate::utils;
 
 // Aztec address
-struct Address {
+struct AztecAddress {
     inner : Field
 }
 
-impl Address {
+impl AztecAddress {
     pub fn zero() -> Self {
         Self {
             inner: 0

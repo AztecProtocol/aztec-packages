@@ -9,7 +9,7 @@ use dep::protocol_types::{
     },
     function_selector::FunctionSelector,
   },
-  address::Address,
+  address::AztecAddress,
   constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
   hash::pedersen_hash,
 };
@@ -23,7 +23,7 @@ global FUNCTION_CALL_SIZE_IN_BYTES: Field = 97;
 struct FunctionCall {
   args_hash: Field,
   function_selector: FunctionSelector,
-  target_address: Address,
+  target_address: AztecAddress,
   is_public: bool,
 }
 

@@ -53,7 +53,7 @@ contract Token {
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<Address, ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress, ADDRESS_SERIALIZED_LEN>,
         // docs:end:storage_admin
         // docs:start:storage_minters
         minters: Map<PublicState<bool, BOOL_SERIALIZED_LEN>>,

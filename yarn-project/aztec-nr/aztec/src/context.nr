@@ -10,7 +10,7 @@ use dep::protocol_types::{
         call_stack_item::PublicCallStackItem,
     },
     address::{
-        Address,
+        AztecAddress,
         EthAddress,
     },
     block::Block,
@@ -119,11 +119,11 @@ impl PrivateContext {
         }
     }
 
-    pub fn msg_sender(self) -> Address {
+    pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
-    pub fn this_address(self) -> Address {
+    pub fn this_address(self) -> AztecAddress {
         self.inputs.call_context.storage_contract_address
     }
 
@@ -242,7 +242,7 @@ impl PrivateContext {
 
     pub fn call_private_function<ARGS_COUNT>(
         &mut self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector, 
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -253,7 +253,7 @@ impl PrivateContext {
 
     pub fn call_private_function_no_args(
         &mut self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector, 
     ) -> [Field; RETURN_VALUES_LENGTH] {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0)
@@ -261,7 +261,7 @@ impl PrivateContext {
 
     pub fn call_private_function_with_packed_args(
         &mut self,
-        contract_address: Address,
+        contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -271,7 +271,7 @@ impl PrivateContext {
             args_hash
         );
         let item = PrivateCallStackItem {
-            contract_address: Address::from_field(fields[0]),
+            contract_address: AztecAddress::from_field(fields[0]),
             function_data: FunctionData {
                 selector: FunctionSelector::from_field(fields[1]),
                 is_internal: fields[2] as bool,
@@ -280,8 +280,8 @@ impl PrivateContext {
             },
             public_inputs: PrivateCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : Address::from_field(fields[5]),
-                    storage_contract_address : Address::from_field(fields[6]),
+                    msg_sender : AztecAddress::from_field(fields[5]),
+                    storage_contract_address : AztecAddress::from_field(fields[6]),
                     portal_contract_address : EthAddress::from_field(fields[7]),
                     function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
                     is_delegate_call : fields[9] as bool,
@@ -355,7 +355,7 @@ impl PrivateContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         &mut self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector, 
         args: [Field; ARGS_COUNT]
     ) {
@@ -366,7 +366,7 @@ impl PrivateContext {
 
     pub fn call_public_function_no_args(
         &mut self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector,
     ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0)
@@ -374,7 +374,7 @@ impl PrivateContext {
 
     pub fn call_public_function_with_packed_args(
         &mut self,
-        contract_address: Address,
+        contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field
     ) {
@@ -384,7 +384,7 @@ impl PrivateContext {
             args_hash
         );
         let item = PublicCallStackItem {
-            contract_address:  Address::from_field(fields[0]),
+            contract_address:  AztecAddress::from_field(fields[0]),
             function_data: FunctionData {
                 selector: FunctionSelector::from_field(fields[1]),
                 is_internal: fields[2] as bool,
@@ -393,8 +393,8 @@ impl PrivateContext {
             },
             public_inputs: PublicCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : Address::from_field(fields[5]),
-                    storage_contract_address : Address::from_field(fields[6]),
+                    msg_sender : AztecAddress::from_field(fields[5]),
+                    storage_contract_address : AztecAddress::from_field(fields[6]),
                     portal_contract_address : EthAddress::from_field(fields[7]),
                     function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
                     is_delegate_call : fields[9] as bool,
@@ -412,7 +412,7 @@ impl PrivateContext {
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 block_header: BlockHeader::empty(),
-                prover_address: Address::zero(),
+                prover_address: AztecAddress::zero(),
             },
             is_execution_request: true,
         };
@@ -455,7 +455,7 @@ struct PublicContext {
     unencrypted_logs_preimages_length: Field,
 
     block_header: BlockHeader,
-    prover_address: Address,
+    prover_address: AztecAddress,
 }
 
 impl PublicContext {
@@ -482,7 +482,7 @@ impl PublicContext {
             unencrypted_logs_preimages_length: 0,
 
             block_header: inputs.block_header,
-            prover_address: Address::zero(),
+            prover_address: AztecAddress::zero(),
 
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
@@ -490,11 +490,11 @@ impl PublicContext {
         }
     }
 
-    pub fn msg_sender(self) -> Address {
+    pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
-    pub fn this_address(self) -> Address {
+    pub fn this_address(self) -> AztecAddress {
         self.inputs.call_context.storage_contract_address
     }
 
@@ -583,7 +583,7 @@ impl PublicContext {
 
     pub fn call_public_function<ARGS_COUNT>(
         _self: Self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -598,7 +598,7 @@ impl PublicContext {
 
     pub fn call_public_function_no_args(
         _self: Self,
-        contract_address: Address, 
+        contract_address: AztecAddress, 
         function_selector: FunctionSelector,
     ) -> [Field; RETURN_VALUES_LENGTH] {
         call_public_function_internal(

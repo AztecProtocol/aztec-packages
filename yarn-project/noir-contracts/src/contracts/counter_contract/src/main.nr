@@ -1,6 +1,6 @@
 contract Counter {
     // docs:start:imports
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
     use dep::aztec::{
         context::{PrivateContext, Context},
         note::{
@@ -45,7 +45,7 @@ contract Counter {
 
     // docs:start:constructor
     #[aztec(private)]
-    fn constructor(headstart: u120, owner: Address) {
+    fn constructor(headstart: u120, owner: AztecAddress) {
         let counters = storage.counters;
         counters.at(owner.to_field()).add(headstart, owner);
     }
@@ -53,14 +53,14 @@ contract Counter {
 
     // docs:start:increment
     #[aztec(private)]
-      fn increment(owner: Address) {
+      fn increment(owner: AztecAddress) {
         let counters = storage.counters;
         counters.at(owner.to_field()).add(1, owner);
     }
     // docs:end:increment
 
     // docs:start:get_counter
-    unconstrained fn get_counter(owner: Address) -> Field {
+    unconstrained fn get_counter(owner: AztecAddress) -> Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner.to_field()).set)
     }
@@ -68,7 +68,7 @@ contract Counter {
 
     // docs:start:nullifier
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

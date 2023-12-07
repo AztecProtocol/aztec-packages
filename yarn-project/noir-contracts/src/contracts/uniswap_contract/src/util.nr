@@ -1,7 +1,7 @@
 // docs:start:uniswap_public_content_hash
 use dep::protocol_types::{
     address::{
-        Address,
+        AztecAddress,
         EthAddress,
     },
     hash::sha256_to_field,
@@ -15,7 +15,7 @@ pub fn compute_swap_public_content_hash(
     uniswap_fee_tier: Field,
     output_asset_bridge_portal_address: EthAddress,
     minimum_output_amount: Field,
-    aztec_recipient: Address,
+    aztec_recipient: AztecAddress,
     secret_hash_for_L1_to_l2_message: Field,
     deadline_for_L1_to_l2_message: Field,
     canceller_for_L1_to_L2_message: EthAddress,

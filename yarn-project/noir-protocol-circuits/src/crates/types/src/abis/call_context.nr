@@ -1,6 +1,6 @@
 use crate::{
     abis::function_selector::FunctionSelector,
-    address::{EthAddress,Address},
+    address::{EthAddress,AztecAddress},
     constants::{
         CALL_CONTEXT_LENGTH,
         GENERATOR_INDEX__CALL_CONTEXT,
@@ -10,8 +10,8 @@ use crate::{
 
 // docs:start:call-context
 struct CallContext {
-    msg_sender : Address,
-    storage_contract_address : Address,
+    msg_sender : AztecAddress,
+    storage_contract_address : AztecAddress,
     portal_contract_address : EthAddress,
 
     function_selector : FunctionSelector,

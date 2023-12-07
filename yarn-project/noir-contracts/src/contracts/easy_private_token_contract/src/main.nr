@@ -1,6 +1,6 @@
 // docs:start:easy_private_token_contract
 contract EasyPrivateToken {
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
     use dep::std::option::Option;
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -41,7 +41,7 @@ contract EasyPrivateToken {
      * initialize the contract's initial state variables.
      */
     #[aztec(private)]
-    fn constructor(initial_supply: u120, owner: Address) {
+    fn constructor(initial_supply: u120, owner: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(owner.to_field()).add(initial_supply, owner);
@@ -49,7 +49,7 @@ contract EasyPrivateToken {
 
     // Mints `amount` of tokens to `owner`.
     #[aztec(private)]
-    fn mint(amount: u120, owner: Address) {
+    fn mint(amount: u120, owner: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(owner.to_field()).add(amount, owner);
@@ -57,7 +57,7 @@ contract EasyPrivateToken {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[aztec(private)]
-    fn transfer(amount: u120, sender: Address, recipient: Address) {
+    fn transfer(amount: u120, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(sender.to_field()).sub(amount, sender);
@@ -65,7 +65,7 @@ contract EasyPrivateToken {
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
-    unconstrained fn getBalance(owner: Address) -> Field {
+    unconstrained fn getBalance(owner: AztecAddress) -> Field {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.
@@ -76,7 +76,7 @@ contract EasyPrivateToken {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

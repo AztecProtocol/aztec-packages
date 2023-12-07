@@ -1,6 +1,6 @@
 // docs:start:token_bridge_token_interface
 use dep::protocol_types::address::{
-        Address,
+        AztecAddress,
         EthAddress,
 };
 use dep::aztec::{
@@ -9,15 +9,15 @@ use dep::aztec::{
 };
 
 struct Token {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl Token {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
     Self { address }
   }
 
-  pub fn mint_public(self: Self, context: PublicContext, to: Address, amount: Field) {
+  pub fn mint_public(self: Self, context: PublicContext, to: AztecAddress, amount: Field) {
     let _return_values = context.call_public_function(
       self.address,
       compute_selector("mint_public((Field),Field)"),
@@ -26,7 +26,7 @@ impl Token {
   }
 
   // docs:start:public_burn_interface
-  pub fn burn_public(self: Self, context: PublicContext, from: Address, amount: Field, nonce: Field) {
+  pub fn burn_public(self: Self, context: PublicContext, from: AztecAddress, amount: Field, nonce: Field) {
     let _return_values = context.call_public_function(
       self.address,
       compute_selector("burn_public((Field),Field,Field)"),
@@ -45,7 +45,7 @@ impl Token {
 
 
   // docs:start:private_burn_interface
-  pub fn burn(self: Self, context: &mut PrivateContext, from: Address, amount: Field, nonce: Field) {
+  pub fn burn(self: Self, context: &mut PrivateContext, from: AztecAddress, amount: Field, nonce: Field) {
     let _return_values = context.call_private_function(
       self.address,
       compute_selector("burn((Field),Field,Field)"),

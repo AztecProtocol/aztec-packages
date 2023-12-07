@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::Address,
+    address::AztecAddress,
     constants::{
         GENERATOR_INDEX__UNIQUE_COMMITMENT,
         GENERATOR_INDEX__SILOED_COMMITMENT,
@@ -12,7 +12,7 @@ pub fn compute_inner_hash(storage_slot: Field, note_hash: Field) -> Field {
     pedersen_hash([storage_slot, note_hash], 0)
 }
 
-pub fn compute_siloed_hash(contract_address: Address, inner_note_hash: Field) -> Field {
+pub fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
     let inputs = [contract_address.to_field(), inner_note_hash];
     pedersen_hash(inputs, GENERATOR_INDEX__SILOED_COMMITMENT)
 }

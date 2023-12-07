@@ -11,7 +11,7 @@ mod interfaces;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
     use dep::safe_math::SafeU120;
     use dep::std::option::Option;
     use dep::aztec::{
@@ -34,8 +34,8 @@ contract Lending {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        collateral_asset: PublicState<Address, 1>,
-        stable_coin: PublicState<Address, 1>,
+        collateral_asset: PublicState<AztecAddress, 1>,
+        stable_coin: PublicState<AztecAddress, 1>,
         assets: Map<PublicState<Asset, ASSET_SERIALIZED_LEN>>,
         collateral: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
         static_debt: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // abusing keys very heavily
@@ -103,7 +103,7 @@ contract Lending {
     ) {}
 
     #[aztec(public)]
-    fn init(oracle: Address, loan_to_value: Field, collateral_asset: Address, stable_coin: Address) {
+    fn init(oracle: AztecAddress, loan_to_value: Field, collateral_asset: AztecAddress, stable_coin: AztecAddress) {
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
 
@@ -148,18 +148,18 @@ contract Lending {
     }
 
     #[aztec(private)]
-    fn deposit_private(from: Address, amount: Field, nonce: Field, secret: Field, on_behalf_of: Address, collateral_asset: Address) {
-        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+    fn deposit_private(from: AztecAddress, amount: Field, nonce: Field, secret: Field, on_behalf_of: Field, collateral_asset: AztecAddress) {
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset).unshield(&mut context, from, context.this_address(), amount, nonce);
         // _deposit(on_behalf_of, amount, collateral_asset)
         let selector = compute_selector("_deposit(Field,Field,Field)");
         context.call_public_function(context.this_address(),
             selector,
-            [on_behalf_of.to_field(), amount, collateral_asset.to_field()]);
+            [on_behalf_of, amount, collateral_asset.to_field()]);
     }
 
     #[aztec(public)]
-    fn deposit_public(amount: Field, nonce: Field, on_behalf_of: Address, collateral_asset: Address) {
+    fn deposit_public(amount: Field, nonce: Field, on_behalf_of: Field, collateral_asset: AztecAddress) {
         Token::at(collateral_asset).transfer_public(context,
             context.msg_sender(),
             context.this_address(),
@@ -168,11 +168,11 @@ contract Lending {
         let selector = compute_selector("_deposit(Field,Field,Field)");
         context.call_public_function(context.this_address(),
             selector,
-            [on_behalf_of.to_field(), amount, collateral_asset.to_field()]);
+            [on_behalf_of, amount, collateral_asset.to_field()]);
     }
 
     #[aztec(public)]
-    internal fn _deposit(owner: Address, amount: Field, collateral_asset: Address) {
+    internal fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
 
         let coll_asset = storage.collateral_asset.read();
@@ -184,14 +184,14 @@ contract Lending {
     }
 
     #[aztec(private)]
-    fn withdraw_private(secret: Field, to: Address, amount: Field) {
-        let on_behalf_of = compute_identifier(secret, Address::zero(), context.msg_sender());
+    fn withdraw_private(secret: Field, to: AztecAddress, amount: Field) {
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
         let selector = compute_selector("_withdraw(Field,Field,Field)");
-        context.call_public_function(context.this_address(), selector, [on_behalf_of.to_field(), to.to_field(), amount]);
+        context.call_public_function(context.this_address(), selector, [on_behalf_of, to.to_field(), amount]);
     }
 
     #[aztec(public)]
-    fn withdraw_public(to: Address, amount: Field) {
+    fn withdraw_public(to: AztecAddress, amount: Field) {
         let selector = compute_selector("_withdraw(Field,Field,Field)");
         context.call_public_function(context.this_address(),
             selector,
@@ -199,7 +199,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _withdraw(owner: Address, recipient: Address, amount: Field) {
+    internal fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle).get_price(context);
 
@@ -228,14 +228,14 @@ contract Lending {
     }
 
     #[aztec(private)]
-    fn borrow_private(secret: Field, to: Address, amount: Field) {
-        let on_behalf_of = compute_identifier(secret, Address::zero(), context.msg_sender());
+    fn borrow_private(secret: Field, to: AztecAddress, amount: Field) {
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
         let selector = compute_selector("_borrow(Field,Field,Field)");
-        context.call_public_function(context.this_address(), selector, [on_behalf_of.to_field(), to.to_field(), amount]);
+        context.call_public_function(context.this_address(), selector, [on_behalf_of, to.to_field(), amount]);
     }
 
     #[aztec(public)]
-    fn borrow_public(to: Address, amount: Field) {
+    fn borrow_public(to: AztecAddress, amount: Field) {
         let selector = compute_selector("_borrow(Field,Field,Field)");
         context.call_public_function(context.this_address(),
             selector,
@@ -243,7 +243,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _borrow(owner: Address, to: Address, amount: Field) {
+    internal fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle).get_price(context);
 
@@ -264,24 +264,24 @@ contract Lending {
     }
 
     #[aztec(private)]
-    fn repay_private(from: Address, amount: Field, nonce: Field, secret: Field, on_behalf_of: Address, stable_coin: Address) {
-        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+    fn repay_private(from: AztecAddress, amount: Field, nonce: Field, secret: Field, on_behalf_of: Field, stable_coin: AztecAddress) {
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(stable_coin).burn(&mut context, from, amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         context.call_public_function(context.this_address(),
             selector,
-            [on_behalf_of.to_field(), amount, stable_coin.to_field()]);
+            [on_behalf_of, amount, stable_coin.to_field()]);
     }
 
     #[aztec(public)]
-    fn repay_public(amount: Field, nonce: Field, owner: Address, stable_coin: Address) {
+    fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         context.call_public_function(context.this_address(), selector, [owner.to_field(), amount, stable_coin.to_field()]);
     }
 
     #[aztec(public)]
-    internal fn _repay(owner: Address, amount: Field, stable_coin: Address) {
+    internal fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
 
         // To ensure that private is using the correct token.
@@ -297,7 +297,7 @@ contract Lending {
         storage.assets.at(assetId).read()
     }
 
-    unconstrained fn get_position(owner: Address) -> Position {
+    unconstrained fn get_position(owner: AztecAddress) -> Position {
         let collateral = storage.collateral.at(owner.to_field()).read();
         let static_debt = storage.static_debt.at(owner.to_field()).read();
         let asset = storage.assets.at(0).read();
@@ -305,7 +305,7 @@ contract Lending {
         Position { collateral, static_debt, debt }
     }
 
-    unconstrained fn get_assets() -> [Address; 2] {
+    unconstrained fn get_assets() -> [AztecAddress; 2] {
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 

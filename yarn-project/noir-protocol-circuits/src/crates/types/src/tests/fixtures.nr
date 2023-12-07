@@ -4,13 +4,13 @@ mod contracts;
 mod note_hash_tree;
 mod read_requests;
 
-use crate::address::Address;
+use crate::address::AztecAddress;
 use crate::abis::block_header::BlockHeader;
 use crate::block::Block;
 use crate::point::Point;
 use crate::tests::fixtures;
 
-global MSG_SENDER = Address { inner: 27 };
+global MSG_SENDER = AztecAddress { inner: 27 };
 
 global DEPLOYER_PUBLIC_KEY = Point { x: 123456789, y: 123456789 };
 

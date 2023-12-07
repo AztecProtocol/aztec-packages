@@ -8,7 +8,7 @@ contract InclusionProofs {
             PUBLIC_DATA_TREE_HEIGHT,
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         },
-        address::Address,
+        address::AztecAddress,
     };
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
@@ -87,7 +87,7 @@ contract InclusionProofs {
     // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(
-        owner: Address,
+        owner: AztecAddress,
         value: Field,
     ) {
         let owner_private_values = storage.private_values.at(owner.to_field());
@@ -99,7 +99,7 @@ contract InclusionProofs {
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
     fn proveNoteInclusion(
-        owner: Address,
+        owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the note exists
         spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
@@ -143,7 +143,7 @@ contract InclusionProofs {
     // Proves that the note was not yet nullified at block `block_number`.
     #[aztec(private)]
     fn proveNullifierNonInclusion(
-        owner: Address,
+        owner: AztecAddress,
         block_number: Field, // The block at which we'll prove that the nullifier does not exists
         spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
@@ -201,7 +201,7 @@ contract InclusionProofs {
 
     #[aztec(private)]
     fn nullifyNote(
-        owner: Address,
+        owner: AztecAddress,
     ) {
         let private_values = storage.private_values.at(owner.to_field());
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
@@ -289,7 +289,7 @@ contract InclusionProofs {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

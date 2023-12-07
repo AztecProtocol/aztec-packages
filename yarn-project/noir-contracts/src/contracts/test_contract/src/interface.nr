@@ -3,7 +3,7 @@
 use dep::std;
 use dep::aztec::context::{ PrivateContext, PublicContext };
 use dep::protocol_types::{
-  address::Address,
+  address::AztecAddress,
   abis::function_selector::FunctionSelector,
   constants::RETURN_VALUES_LENGTH,
 };
@@ -53,11 +53,11 @@ struct ManyNotesADeepStructTestCodeGenStruct {
 
 // Interface for calling Test functions from a private context
 struct TestPrivateContextInterface {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl TestPrivateContextInterface {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
       Self {
           address,
       }
@@ -272,11 +272,11 @@ impl TestPrivateContextInterface {
 
 // Interface for calling Test functions from a public context
 struct TestPublicContextInterface {
-  address: Address,
+  address: AztecAddress,
 }
 
 impl TestPublicContextInterface {
-  pub fn at(address: Address) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
       Self {
           address,
       }

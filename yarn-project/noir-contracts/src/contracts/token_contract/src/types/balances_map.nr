@@ -2,7 +2,7 @@ use dep::aztec::context::{PrivateContext, PublicContext, Context};
 use dep::std::option::Option;
 use crate::types::balance_set::BalanceSet;
 use dep::aztec::hash::pedersen_hash;
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 
 struct BalancesMap {
     context: Context,
@@ -21,7 +21,7 @@ impl BalancesMap {
         }
     }
 
-    pub fn at(self, owner: Address) -> BalanceSet {
+    pub fn at(self, owner: AztecAddress) -> BalanceSet {
         let derived_storage_slot = pedersen_hash([self.storage_slot, owner.to_field()], 0);
         BalanceSet::new(self.context, owner, derived_storage_slot)
     }

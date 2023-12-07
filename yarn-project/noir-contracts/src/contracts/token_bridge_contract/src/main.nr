@@ -8,7 +8,7 @@ mod token_interface;
 
 contract TokenBridge {
     use dep::protocol_types::address::{
-        Address,
+        AztecAddress,
         EthAddress,
     };
 
@@ -28,7 +28,7 @@ contract TokenBridge {
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        token: PublicState<Address, 1>,
+        token: PublicState<AztecAddress, 1>,
     }
 
     impl Storage {
@@ -45,7 +45,7 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[aztec(private)]
-    fn constructor(token: Address) {
+    fn constructor(token: AztecAddress) {
         let selector = compute_selector("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.to_field()]);
     }
@@ -54,7 +54,7 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn claim_public(to: Address, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
+    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
 
         // Consume message and emit nullifier
@@ -115,7 +115,7 @@ contract TokenBridge {
     // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
     #[aztec(private)]
     fn exit_to_l1_private(
-        token: Address,
+        token: AztecAddress,
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
         callerOnL1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -140,18 +140,18 @@ contract TokenBridge {
     // View function that is callable by other contracts.
     // Unconstrained can't be called by others since it isn't safe.
     #[aztec(public)]
-    fn get_token() -> Address {
+    fn get_token() -> AztecAddress {
         storage.token.read()
     }
 
     // /// Unconstrained ///
 
-    unconstrained fn token() -> Address {
+    unconstrained fn token() -> AztecAddress {
         storage.token.read()
     }
 
     #[aztec(public)]
-    internal fn _initialize(token: Address) {
+    internal fn _initialize(token: AztecAddress) {
         storage.token.write(token);
     }
 
@@ -167,7 +167,7 @@ contract TokenBridge {
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: Address) {
+    internal fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same

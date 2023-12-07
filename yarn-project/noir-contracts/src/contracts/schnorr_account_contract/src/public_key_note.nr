@@ -12,7 +12,7 @@ use dep::aztec::{
     log::emit_encrypted_log,
     context::PrivateContext,
 };
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
 
@@ -21,12 +21,12 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 struct PublicKeyNote {
     x: Field,
     y: Field,
-    owner: Address, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
+    owner: AztecAddress, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
     header: NoteHeader,
 }
 
 impl PublicKeyNote {
-    pub fn new(x: Field, y: Field, owner: Address) -> Self {
+    pub fn new(x: Field, y: Field, owner: AztecAddress) -> Self {
         PublicKeyNote {
             x,
             y,
@@ -69,7 +69,7 @@ impl PublicKeyNote {
 }
 
 fn deserialize(serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]) -> PublicKeyNote {
-    PublicKeyNote { x: serialized_note[0], y: serialized_note[1], owner: Address::from_field(serialized_note[2]), header: NoteHeader::empty() }
+    PublicKeyNote { x: serialized_note[0], y: serialized_note[1], owner: AztecAddress::from_field(serialized_note[2]), header: NoteHeader::empty() }
 }
 
 fn serialize(note: PublicKeyNote) -> [Field; PUBLIC_KEY_NOTE_LEN] {

@@ -5,7 +5,7 @@ mod types;
 
 contract DocsExample {
     use dep::protocol_types::{
-        address::Address,
+        address::AztecAddress,
         abis::function_selector::FunctionSelector,
     };
     use dep::std::option::Option;
@@ -96,10 +96,10 @@ contract DocsExample {
 
     #[aztec(private)]
     fn constructor(min_points: u8, max_points: u8, legendary_card_secret: Field) {
-        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(Address::zero()));
+        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(AztecAddress::zero()));
         actions::init_game_rules(storage.game_rules, &mut game_rules);
 
-        let mut legendary_card = CardNote::new(0, legendary_card_secret, Address::zero());
+        let mut legendary_card = CardNote::new(0, legendary_card_secret, AztecAddress::zero());
         actions::init_legendary_card(storage.legendary_card, &mut legendary_card);
     }
 
@@ -120,7 +120,7 @@ contract DocsExample {
     // docs:end:functions-OpenFunction
 
     #[aztec(public)]
-    fn replace_queen(account: Address, points: u8) {
+    fn replace_queen(account: AztecAddress, points: u8) {
         let new_queen = Queen { account, points };
 
         assert(actions::can_replace_queen(storage.queen, new_queen));
@@ -149,7 +149,7 @@ contract DocsExample {
     #[aztec(private)]
     fn add_common_cards(secrets: [Field; 4]) {
         for i in 0..secrets.len() as u8 {
-            let mut card = CardNote::new(0, secrets[i], Address::zero());
+            let mut card = CardNote::new(0, secrets[i], AztecAddress::zero());
             actions::add_new_card(storage.cards, &mut card);
         }
     }
@@ -181,7 +181,7 @@ contract DocsExample {
     }
 
     #[aztec(private)]
-    fn get_points_of_common_cards(account: Address, offset: u32) {
+    fn get_points_of_common_cards(account: AztecAddress, offset: u32) {
         let mut total_points = 0;
         let options = create_account_card_getter_options(account, offset);
         let cards = actions::get_cards(storage.cards, options);
@@ -197,7 +197,7 @@ contract DocsExample {
     }
 
     // docs:start:functions-UnconstrainedFunction
-    unconstrained fn get_total_points(account: Address) -> u8 {
+    unconstrained fn get_total_points(account: AztecAddress) -> u8 {
         actions::get_total_points(storage.cards, account, 0)
     }
     // docs:end:functions-UnconstrainedFunction

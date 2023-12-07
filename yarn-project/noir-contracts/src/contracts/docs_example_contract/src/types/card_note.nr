@@ -1,4 +1,4 @@
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 use dep::aztec::{
     note::{
         note_header::NoteHeader,
@@ -20,13 +20,13 @@ global CARD_NOTE_LEN: Field = 3;
 struct CardNote {
     points: u8,
     secret: Field,
-    owner: Address,
+    owner: AztecAddress,
     header: NoteHeader,
 }
 // docs:end:state_vars-CardNote
 
 impl CardNote {
-    pub fn new(points: u8, secret: Field, owner: Address) -> Self {
+    pub fn new(points: u8, secret: Field, owner: AztecAddress) -> Self {
         CardNote {
             points,
             secret,
@@ -43,7 +43,7 @@ impl CardNote {
         CardNote {
             points: serialized_note[0] as u8,
             secret: serialized_note[1],
-            owner: Address::from_field(serialized_note[2]),
+            owner: AztecAddress::from_field(serialized_note[2]),
             header: NoteHeader::empty(),
         }
     }

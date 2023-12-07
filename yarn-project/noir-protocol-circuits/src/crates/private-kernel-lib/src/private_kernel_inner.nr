@@ -94,7 +94,7 @@ mod tests {
             previous_kernel_data_builder::PreviousKernelDataBuilder,
             private_call_data_builder::PrivateCallDataBuilder,
         },
-        address::Address,
+        address::AztecAddress,
         hash::compute_logs_hash,
         utils::{
             arrays::array_length,
@@ -161,8 +161,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Set (storage) contract_address to 0
-        builder.private_call.contract_address = Address::zero();
-        builder.private_call.public_inputs.call_context.storage_contract_address = Address::zero();
+        builder.private_call.contract_address = AztecAddress::zero();
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::zero();
 
         builder.failed();
     }
@@ -326,8 +326,8 @@ mod tests {
 
         // Tweak the (storage) contract_address to be different to msg_sender.
         let msg_sender = builder.private_call.public_inputs.call_context.msg_sender.to_field();
-        builder.private_call.contract_address = Address::from_field(msg_sender + 1);
-        builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(msg_sender + 1);
+        builder.private_call.contract_address = AztecAddress::from_field(msg_sender + 1);
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }

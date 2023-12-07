@@ -1,4 +1,4 @@
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 use dep::aztec::types::type_serialization::TypeSerializationInterface;
 
 // Struct to be used to represent "totals". Generally, there should be one per asset.
@@ -10,7 +10,7 @@ struct Asset {
     interest_accumulator: u120,
     last_updated_ts: u120,
     loan_to_value: u120,
-    oracle: Address,
+    oracle: AztecAddress,
 }
 
 global ASSET_SERIALIZED_LEN: Field = 4;
@@ -22,7 +22,7 @@ fn deserializeAsset(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
         interest_accumulator: fields[0] as u120,
         last_updated_ts: fields[1] as u120,
         loan_to_value: fields[2] as u120,
-        oracle: Address::from_field(fields[3])
+        oracle: AztecAddress::from_field(fields[3])
     }
 }
 

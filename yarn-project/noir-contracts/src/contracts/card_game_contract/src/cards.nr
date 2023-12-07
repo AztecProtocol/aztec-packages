@@ -1,5 +1,5 @@
 use dep::protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL};
-use dep::protocol_types::address::Address;
+use dep::protocol_types::address::AztecAddress;
 use dep::aztec::{
     context::{PrivateContext, PublicContext, Context},
     note::{
@@ -60,7 +60,7 @@ impl CardNote {
     fn new(
         strength: u16,
         points: u16,
-        owner: Address,
+        owner: AztecAddress,
     ) -> Self {
         let card = Card {
             strength,
@@ -69,7 +69,7 @@ impl CardNote {
         CardNote::from_card(card, owner)
     }
 
-    pub fn from_card(card: Card, owner: Address) -> CardNote {
+    pub fn from_card(card: Card, owner: AztecAddress) -> CardNote {
         CardNote {
             card,
             note: ValueNote::new(card.to_field(), owner),
@@ -126,7 +126,7 @@ impl Deck {
         }
     }
 
-    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: Address) -> [CardNote]{
+    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote]{
         let context = self.set.context.private.unwrap();
 
         let mut inserted_cards = [];
@@ -139,7 +139,7 @@ impl Deck {
         inserted_cards
     }
 
-    pub fn get_cards<N>(&mut self, cards: [Card; N], owner: Address) -> [CardNote; N] {
+    pub fn get_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote; N] {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let maybe_notes = self.set.get_notes(options);
         let mut found_cards = [Option::none(); N];
@@ -166,7 +166,7 @@ impl Deck {
         })
     }
 
-    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: Address) {
+    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) {
         let card_notes = self.get_cards(cards, owner);
         for card_note in card_notes {
             self.set.remove(card_note.note);
@@ -189,7 +189,7 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-pub fn get_pack_cards(seed: Field, owner: Address) -> [Card; PACK_CARDS] {
+pub fn get_pack_cards(seed: Field, owner: AztecAddress) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = get_secret_key(owner);
     let mix = secret.high + secret.low + seed;

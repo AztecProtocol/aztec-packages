@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::Address,
+    address::AztecAddress,
     constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
 };
 use dep::aztec::note::{
@@ -118,7 +118,7 @@ unconstrained pub fn view_cards(state_var: Set<CardNote, CARD_NOTE_LEN>, options
 }
 // docs:end:state_vars-SetView
 
-unconstrained pub fn get_total_points(state_var: Set<CardNote, CARD_NOTE_LEN>, account: Address, offset: u32) -> u8 {
+unconstrained pub fn get_total_points(state_var: Set<CardNote, CARD_NOTE_LEN>, account: AztecAddress, offset: u32) -> u8 {
     let options = NoteViewerOptions::new().select(2, account.to_field()).set_offset(offset);
     let mut total_points = 0;
     let notes = view_cards(state_var, options);
@@ -134,13 +134,13 @@ unconstrained pub fn get_total_points(state_var: Set<CardNote, CARD_NOTE_LEN>, a
 }
 
 // docs:start:state_vars-MapAtSingletonInit
-pub fn add_new_profile(state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>, account: Address, profile: &mut ProfileNote) {
+pub fn add_new_profile(state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>, account: AztecAddress, profile: &mut ProfileNote) {
     state_var.at(account.to_field()).initialize(profile, Option::some(account), true);
 }
 // docs:end:state_vars-MapAtSingletonInit
 
 // docs:start:state_vars-MapAtSingletonGet
-pub fn get_profile(state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>, account: Address) -> ProfileNote {
+pub fn get_profile(state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>, account: AztecAddress) -> ProfileNote {
     state_var.at(account.to_field()).get_note(true)
 }
 // docs:end:state_vars-MapAtSingletonGet

@@ -7,14 +7,14 @@ use crate::abi::PublicContextInputs;
 use crate::oracle::get_l1_to_l2_message::get_l1_to_l2_message_call;
 
 use dep::protocol_types::address::{
-    Address,
+    AztecAddress,
     EthAddress,
 };
 
 // Returns the nullifier for the message
 pub fn process_l1_to_l2_message(
     l1_to_l2_root: Field,
-    storage_contract_address: Address,
+    storage_contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     chain_id: Field,
     version: Field,

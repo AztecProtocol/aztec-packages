@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::{
-        Address,
+        AztecAddress,
         EthAddress,
     },
     constants::{
@@ -17,7 +17,7 @@ use dep::protocol_types::{
 struct L1ToL2Message {
     sender: EthAddress,
     chainId: Field,
-    recipient: Address,
+    recipient: AztecAddress,
     version: Field,
     content: Field,
     secret: Field,
@@ -36,7 +36,7 @@ impl L1ToL2Message {
         L1ToL2Message {
             sender: EthAddress::from_field(fields[0]),
             chainId: fields[1],
-            recipient: Address::from_field(fields[2]),
+            recipient: AztecAddress::from_field(fields[2]),
             version: fields[3],
             content: fields[4],
             secret: secret,

@@ -3,7 +3,7 @@ mod game;
 
 contract CardGame {
     use dep::protocol_types::{
-        address::Address,
+        address::AztecAddress,
         constants::MAX_NOTES_PER_PAGE,
     };
     use dep::aztec::{
@@ -136,7 +136,7 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_game_joined(game: u32, player: Address, deck_strength: u32) {
+    internal fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
@@ -170,7 +170,7 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_card_played(game: u32, player: Address, card_as_field: Field) {
+    internal fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
@@ -198,7 +198,7 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_cards_claimed(game: u32, player: Address, cards_hash: Field) {
+    internal fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = storage.games.at(game as Field);
         let mut game_data = game_storage.read();
 
@@ -213,13 +213,13 @@ contract CardGame {
         game_storage.write(game_data);
     }
 
-    unconstrained fn view_collection_cards(owner: Address, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_collection_cards(owner: AztecAddress, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let collection = storage.collections.at(owner.to_field());
 
         collection.view_cards(offset)
     }
 
-    unconstrained fn view_game_cards(game: u32, player: Address, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_game_cards(game: u32, player: AztecAddress, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let game_deck = storage.game_decks.at(game as Field).at(player.to_field());
 
         game_deck.view_cards(offset)
@@ -233,7 +233,7 @@ contract CardGame {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

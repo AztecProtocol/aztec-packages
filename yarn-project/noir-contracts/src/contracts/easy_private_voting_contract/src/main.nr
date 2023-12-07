@@ -1,7 +1,7 @@
 contract EasyPrivateVoting {
     // docs:start:imports
     use dep::protocol_types::{
-        address::Address,
+        address::AztecAddress,
         constants::EMPTY_NULLIFIED_COMMITMENT,
     };
     use dep::aztec::{
@@ -18,7 +18,7 @@ contract EasyPrivateVoting {
     // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
-        admin: PublicState<Address, ADDRESS_SERIALIZED_LEN>, // admin can end vote
+        admin: PublicState<AztecAddress, ADDRESS_SERIALIZED_LEN>, // admin can end vote
         tally: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // we will store candidate as key and number of votes as value
         voteEnded: PublicState<bool, BOOL_SERIALIZED_LEN>, // voteEnded is boolean
     }
@@ -53,7 +53,7 @@ contract EasyPrivateVoting {
     // docs:end:storage_impl
     // docs:start:constructor
     #[aztec(private)] // annotation to mark function as private and expose private context
-    fn constructor(admin: Address) { // called when contract is deployed
+    fn constructor(admin: AztecAddress) { // called when contract is deployed
         context.call_public_function(
             // we cannot update public state directly from private function but we can call public function (which queues it)
             context.this_address(), // contract address whose method we want to call
@@ -64,7 +64,7 @@ contract EasyPrivateVoting {
     // docs:end:constructor
     // docs:start:initialize
     #[aztec(public)] // annotation to mark function as public and expose public context
-    internal fn _initialize(admin: Address) { // internal - can only be called by contract
+    internal fn _initialize(admin: AztecAddress) { // internal - can only be called by contract
         storage.admin.write(admin);
         storage.voteEnded.write(false);
     }

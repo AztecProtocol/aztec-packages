@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::Address,
+    address::AztecAddress,
     constants::{
         MAX_READ_REQUESTS_PER_CALL
     },
@@ -31,7 +31,7 @@ struct TokenNote {
     // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
     // can be privately spent. When nullifier secret and encryption private key is same 
     // we can simply use the owner for this one.
-    owner: Address,
+    owner: AztecAddress,
     // randomness of the note to hide contents.
     randomness: Field,
     // the note header (contract_address, nonce, storage_slot)
@@ -40,7 +40,7 @@ struct TokenNote {
 }
 
 impl TokenNote {
-    pub fn new(amount: SafeU120, owner: Address) -> Self {
+    pub fn new(amount: SafeU120, owner: AztecAddress) -> Self {
         Self {
             amount,
             owner,
@@ -56,7 +56,7 @@ impl TokenNote {
     pub fn deserialize(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: SafeU120::new(serialized_note[0]),
-            owner: Address::from_field(serialized_note[1]),
+            owner: AztecAddress::from_field(serialized_note[1]),
             randomness: serialized_note[2],
             header: NoteHeader::empty(),
         }

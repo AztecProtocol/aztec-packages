@@ -6,7 +6,7 @@ mod types;
 // https://github.com/AztecProtocol/aztec-packages/issues/1291
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 contract SlowTree {
-    use dep::protocol_types::address::Address;
+    use dep::protocol_types::address::AztecAddress;
     use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
@@ -147,11 +147,11 @@ contract SlowTree {
         storage.trees.at(caller).update_unsafe_at(index, new_value, new_root);
     }
     // docs:end:_update
-    unconstrained fn un_read_leaf_at(address: Address, key: Field) -> Leaf {
+    unconstrained fn un_read_leaf_at(address: AztecAddress, key: Field) -> Leaf {
         storage.trees.at(address.to_field()).read_leaf_at(key)
     }
 
-    unconstrained fn un_read_root(address: Address) -> Leaf {
+    unconstrained fn un_read_root(address: AztecAddress) -> Leaf {
         storage.trees.at(address.to_field()).read_root()
     }
 

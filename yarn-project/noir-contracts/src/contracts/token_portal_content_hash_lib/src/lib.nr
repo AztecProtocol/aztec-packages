@@ -1,7 +1,7 @@
 // docs:start:mint_public_content_hash_nr
 use dep::protocol_types::{
     address::{
-        Address,
+        AztecAddress,
         EthAddress,
     },
     hash::sha256_to_field,
@@ -9,7 +9,7 @@ use dep::protocol_types::{
 
 // Computes a content hash of a deposit/mint_public message.
 // Refer TokenPortal.sol for reference on L1.
-pub fn get_mint_public_content_hash(owner: Address, amount: Field, canceller: EthAddress) -> Field {
+pub fn get_mint_public_content_hash(owner: AztecAddress, amount: Field, canceller: EthAddress) -> Field {
     
     let mut hash_bytes: [u8; 100] = [0; 100];
     let recipient_bytes = owner.to_field().to_be_bytes(32);
