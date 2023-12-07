@@ -5,7 +5,7 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 using namespace proof_system;
 
-template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_t>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_t>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
@@ -13,14 +13,14 @@ template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_t>& 
      *
      */
     auto input{ inputs };
-    return Sponge::hash_fixed_length(input);
+    return Sponge::hash_fixed_length(builder, input);
 }
 
 /**
  * Hash a byte_array.
  *
  */
-template <typename C> field_t<C> poseidon2<C>::hash_buffer(const stdlib::byte_array<C>& input)
+template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const stdlib::byte_array<C>& input)
 {
     const size_t num_bytes = input.size();
     const size_t bytes_per_element = 31;
@@ -42,11 +42,11 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(const stdlib::byte_ar
     }
     field_t hashed;
     if (elements.size() < 2) {
-        hashed = hash(elements);
+        hashed = hash(builder, elements);
     } else {
-        hashed = hash({ elements[0], elements[1] });
+        hashed = hash(builder, { elements[0], elements[1] });
         for (size_t i = 2; i < elements.size(); ++i) {
-            hashed = hash({ hashed, elements[i] });
+            hashed = hash(builder, { hashed, elements[i] });
         }
     }
     return hashed;

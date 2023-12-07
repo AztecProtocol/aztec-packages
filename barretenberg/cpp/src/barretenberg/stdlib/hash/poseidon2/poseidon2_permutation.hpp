@@ -36,10 +36,9 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
     using RoundConstants = std::array<FF, t>;
     using RoundConstantsContainer = std::array<RoundConstants, NUM_ROUNDS>;
     static constexpr RoundConstantsContainer round_constants = Params::round_constants;
-    static State permutation(const State& input)
+
+    static State permutation(Builder* builder, const State& input)
     {
-        Builder* ctx = input[0].get_context();
-        assert(ctx != nullptr);
         // deep copy
         State current_state(input);
         NativeState current_native_state;
@@ -49,7 +48,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
 
         // Apply 1st linear layer
         NativePermutation::matrix_multiplication_external(current_native_state);
-        initial_external_matrix_multiplication(current_state);
+        initial_external_matrix_multiplication(builder, current_state);
 
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
@@ -58,13 +57,13 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
                                              current_state[2].witness_index,
                                              current_state[3].witness_index,
                                              i };
-            ctx->create_poseidon2_external_gate(in);
+            builder->create_poseidon2_external_gate(in);
             // calculate the new witnesses
             NativePermutation::add_round_constants(current_native_state, round_constants[i]);
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
             }
         }
 
@@ -75,12 +74,12 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
                                              current_state[2].witness_index,
                                              current_state[3].witness_index,
                                              i };
-            ctx->create_poseidon2_internal_gate(in);
+            builder->create_poseidon2_internal_gate(in);
             current_native_state[0] += round_constants[i][0];
             NativePermutation::apply_single_sbox(current_native_state[0]);
             NativePermutation::matrix_multiplication_internal(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
             }
         }
 
@@ -90,13 +89,13 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
                                              current_state[2].witness_index,
                                              current_state[3].witness_index,
                                              i };
-            ctx->create_poseidon2_external_gate(in);
+            builder->create_poseidon2_external_gate(in);
             // calculate the new witnesses
             NativePermutation::add_round_constants(current_native_state, round_constants[i]);
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(ctx, current_native_state[j]);
+                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
             }
         }
         // need to add an extra row here to ensure that things check out
@@ -106,110 +105,108 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             current_state[2].witness_index,
             current_state[3].witness_index,
         };
-        ctx->create_poseidon2_end_gate(in);
+        builder->create_poseidon2_end_gate(in);
         return current_state;
     }
 
-    static void initial_external_matrix_multiplication(State& state)
+    static void initial_external_matrix_multiplication(Builder* builder, State& state)
     {
-        Builder* ctx = state[0].get_context();
-        assert(ctx != nullptr);
-
         // create the 6 gates for the initial matrix multiplication
         // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
-        field_t<Builder> tmp1{ ctx, state[0].get_value() + state[1].get_value() + FF(2) * state[3].get_value() };
-        add_quad_<FF> in{
+        FF tmp1 = state[0].get_value() + state[1].get_value() + FF(2) * state[3].get_value();
+        uint32_t tmp1_idx = builder->add_variable(tmp1);
+
+        builder->create_big_add_gate({
             .a = state[0].witness_index,
             .b = state[1].witness_index,
             .c = state[3].witness_index,
-            .d = tmp1.witness_index,
+            .d = tmp1_idx,
             .a_scaling = 1,
             .b_scaling = 1,
             .c_scaling = 2,
             .d_scaling = -1,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
         // gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
-        field_t<Builder> tmp2{ ctx, FF(2) * state[1].get_value() + state[2].get_value() + state[3].get_value() };
-        in = {
+        FF tmp2 = FF(2) * state[1].get_value() + state[2].get_value() + state[3].get_value();
+        uint32_t tmp2_idx = builder->add_variable(tmp2);
+        builder->create_big_add_gate({
             .a = state[1].witness_index,
             .b = state[2].witness_index,
             .c = state[3].witness_index,
-            .d = tmp2.witness_index,
+            .d = tmp2_idx,
             .a_scaling = 2,
             .b_scaling = 1,
             .c_scaling = 1,
             .d_scaling = -1,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
         // gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
-        field_t<Builder> v2{ ctx, FF(4) * state[0].get_value() + FF(4) * state[1].get_value() + tmp2.get_value() };
-        in = {
+        FF v2 = FF(4) * state[0].get_value() + FF(4) * state[1].get_value() + tmp2;
+        uint32_t v2_idx = builder->add_variable(v2);
+        builder->create_big_add_gate({
             .a = state[0].witness_index,
             .b = state[1].witness_index,
-            .c = tmp2.witness_index,
-            .d = v2.witness_index,
+            .c = tmp2_idx,
+            .d = v2_idx,
             .a_scaling = 4,
             .b_scaling = 4,
             .c_scaling = 1,
             .d_scaling = -1,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
         // gate 4: Compute v1 = v2 + tmp1
-        field_t<Builder> v1{ ctx, v2.get_value() + tmp1.get_value() };
-        in = {
-            .a = v2.witness_index,
-            .b = tmp1.witness_index,
-            .c = v1.witness_index,
-            .d = ctx->zero_idx,
+        FF v1 = v2 + tmp1;
+        uint32_t v1_idx = builder->add_variable(v1);
+        builder->create_big_add_gate({
+            .a = v2_idx,
+            .b = tmp1_idx,
+            .c = v1_idx,
+            .d = builder->zero_idx,
             .a_scaling = 1,
             .b_scaling = 1,
             .c_scaling = -1,
             .d_scaling = 0,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
         // gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
-        field_t<Builder> v4{ ctx, tmp1.get_value() + FF(4) * state[2].get_value() + FF(4) * state[3].get_value() };
-        in = {
-            .a = tmp1.witness_index,
+        FF v4 = tmp1 + FF(4) * state[2].get_value() + FF(4) * state[3].get_value();
+        uint32_t v4_idx = builder->add_variable(v4);
+        builder->create_big_add_gate({
+            .a = tmp1_idx,
             .b = state[2].witness_index,
             .c = state[3].witness_index,
-            .d = v4.witness_index,
+            .d = v4_idx,
             .a_scaling = 1,
             .b_scaling = 4,
             .c_scaling = 4,
             .d_scaling = -1,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
         // gate 6: Compute v3 = v4 + tmp2
-        field_t<Builder> v3{ ctx, v4.get_value() + tmp2.get_value() };
-        in = {
-            .a = v4.witness_index,
-            .b = tmp2.witness_index,
-            .c = v3.witness_index,
-            .d = ctx->zero_idx,
+        FF v3 = v4 + tmp2;
+        uint32_t v3_idx = builder->add_variable(v3);
+        builder->create_big_add_gate({
+            .a = v4_idx,
+            .b = tmp2_idx,
+            .c = v3_idx,
+            .d = builder->zero_idx,
             .a_scaling = 1,
             .b_scaling = 1,
             .c_scaling = -1,
             .d_scaling = 0,
             .const_scaling = 0,
-        };
-        ctx->create_big_add_gate(in);
+        });
 
-        state[0] = v1;
-        state[1] = v2;
-        state[2] = v3;
-        state[3] = v4;
+        state[0] = field_t<Builder>::from_witness_index(builder, v1_idx);
+        state[1] = field_t<Builder>::from_witness_index(builder, v2_idx);
+        state[2] = field_t<Builder>::from_witness_index(builder, v3_idx);
+        state[3] = field_t<Builder>::from_witness_index(builder, v4_idx);
     }
 };
 } // namespace proof_system::plonk::stdlib

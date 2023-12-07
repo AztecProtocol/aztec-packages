@@ -25,8 +25,8 @@ template <typename Builder> class poseidon2 {
     using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
 
   public:
-    static field_t hash(const std::vector<field_t>& in);
-    static field_t hash_buffer(const stdlib::byte_array<Builder>& input);
+    static field_t hash(Builder& builder, const std::vector<field_t>& in);
+    static field_t hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 
 extern template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;

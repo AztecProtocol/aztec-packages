@@ -44,7 +44,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         builder.fix_witness(left.witness_index, left.get_value());
         builder.fix_witness(right.witness_index, right.get_value());
 
-        fr_ct out = poseidon2::hash({ left, right });
+        fr_ct out = poseidon2::hash(builder, { left, right });
 
         info("num gates = ", builder.get_num_gates());
 
@@ -71,11 +71,11 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         fr_ct r_minus_two = witness_ct(&builder, r_minus_two_fr);
         fr_ct r = witness_ct(&builder, r_fr);
 
-        fr_ct out_1_with_zero = poseidon2::hash({ zero, one });
-        fr_ct out_1_with_r = poseidon2::hash({ r, one });
-        fr_ct out_2 = poseidon2::hash({ r_minus_one, r_minus_two });
-        fr_ct out_with_zero = poseidon2::hash({ out_1_with_zero, out_2 });
-        fr_ct out_with_r = poseidon2::hash({ out_1_with_r, out_2 });
+        fr_ct out_1_with_zero = poseidon2::hash(builder, { zero, one });
+        fr_ct out_1_with_r = poseidon2::hash(builder, { r, one });
+        fr_ct out_2 = poseidon2::hash(builder, { r_minus_one, r_minus_two });
+        fr_ct out_with_zero = poseidon2::hash(builder, { out_1_with_zero, out_2 });
+        fr_ct out_with_r = poseidon2::hash(builder, { out_1_with_r, out_2 });
 
         info("num gates = ", builder.get_num_gates());
 
@@ -115,7 +115,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         fr_ct right = witness_ct(&builder, right_in);
 
         for (size_t i = 0; i < 256; ++i) {
-            left = poseidon2::hash({ left, right });
+            left = poseidon2::hash(builder, { left, right });
         }
 
         builder.set_public_input(left.witness_index);
@@ -141,7 +141,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         fr expected = native_poseidon2::hash_buffer(input);
 
         byte_array_ct circuit_input(&builder, input);
-        auto result = poseidon2::hash_buffer(circuit_input);
+        auto result = poseidon2::hash_buffer(builder, circuit_input);
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -192,7 +192,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
             barretenberg::fr expected = native_poseidon2::hash(inputs);
 
-            fr_ct result = poseidon2::hash(witnesses);
+            fr_ct result = poseidon2::hash(builder, witnesses);
             EXPECT_EQ(result.get_value(), expected);
         }
 
@@ -216,7 +216,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
 
         fr expected = native_poseidon2::hash(inputs);
-        auto result = poseidon2::hash(witness_inputs);
+        auto result = poseidon2::hash(builder, witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
     }
@@ -238,7 +238,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
 
         barretenberg::fr expected = native_poseidon2::hash(inputs);
-        auto result = poseidon2::hash(witness_inputs);
+        auto result = poseidon2::hash(builder, witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
     }
@@ -253,7 +253,7 @@ TYPED_TEST(StdlibPoseidon2, TestHash)
     using Builder = TypeParam;
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
-    auto composer = Builder();
+    auto builder = Builder();
 
     const size_t num_inputs = 10;
 
@@ -263,15 +263,15 @@ TYPED_TEST(StdlibPoseidon2, TestHash)
     for (size_t i = 0; i < num_inputs; ++i) {
         const auto element = fr::random_element(&engine);
         inputs_native.emplace_back(element);
-        inputs.emplace_back(field_ct(witness_ct(&composer, element)));
+        inputs.emplace_back(field_ct(witness_ct(&builder, element)));
     }
 
-    auto result = stdlib::poseidon2<Builder>::hash(inputs);
+    auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
     auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
 
     EXPECT_EQ(result.get_value(), expected);
 
-    bool proof_result = composer.check_circuit();
+    bool proof_result = builder.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
 
