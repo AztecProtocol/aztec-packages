@@ -21,15 +21,15 @@ jobs:
       image: docker.io/rust:latest
 
     steps:
-    - name: Install Clang
+    - name: Install | Clang
       run: apt update && apt install -y libclang-dev
-    - name: Setup | CMake
+    - name: Install | CMake
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
         cmake-version: '3.24.0'
-    - name: Install Nargo
+    - name: Install | Nargo
       run: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash && noirup
     - uses: actions/checkout@v3
     - name: Run noir/tooling/noir_rs/examples/poly_check_circuit
       working-directory: noir/tooling/noir_rs/examples/poly_check_circuit
-      run: cargo run -vv
+      run: nargo compile && cargo run -vv
