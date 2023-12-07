@@ -77,7 +77,7 @@ contract Token {
                 admin: PublicState::new(
                     context,
                     1,
-                    AddressSerializationMethodsAddress,
+                    AddressSerializationMethods,
                 ),
                 // docs:end:storage_admin_init
                 // docs:start:storage_minters_init
@@ -154,7 +154,7 @@ contract Token {
     #[aztec(public)]
     fn mint_public(to: Address, amount: Field) {
         // docs:start:read_minter
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+        assert(storage.minters.at(context.msg_sender().to_field()).read(), "caller is not minter");
         // docs:end:read_minter
         let amount = SafeU120::new(amount);
         let new_balance = storage.public_balances.at(to.to_field()).read().add(amount);
@@ -168,7 +168,7 @@ contract Token {
     // docs:start:mint_private
     #[aztec(public)]
     fn mint_private(amount: Field, secret_hash: Field) {
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
+        assert(storage.minters.at(context.msg_sender().to_field()).read(), "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
         let supply = storage.total_supply.read().add(SafeU120::new(amount));
@@ -311,7 +311,7 @@ contract Token {
     // docs:start:initialize
     #[aztec(public)]
     internal fn _initialize(new_admin: Address) {
-        assert(new_admin.address != 0, "invalid admin");
+        assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
         storage.minters.at(new_admin.to_field()).write(true);
     }
@@ -376,7 +376,8 @@ contract Token {
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; TOKEN_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, serialized_note)
         } else {

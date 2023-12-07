@@ -22,7 +22,7 @@ impl BalancesMap {
     }
 
     pub fn at(self, owner: Address) -> BalanceSet {
-        let derived_storage_slot = pedersen_hash([self.storage_slot, owner.address],0);
+        let derived_storage_slot = pedersen_hash([self.storage_slot, owner.to_field()], 0);
         BalanceSet::new(self.context, owner, derived_storage_slot)
     }
 }
