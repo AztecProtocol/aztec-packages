@@ -93,7 +93,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
     /**
      * The counter.
      */
-    public sideEffectCounter: Fr,
+    public counter: Fr,
   ) {}
 
   /**
@@ -101,7 +101,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.noteHash, this.sideEffectCounter);
+    return serializeToBuffer(this.value, this.noteHash, this.counter);
   }
 
   /**
@@ -109,7 +109,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * @returns The array of fields.
    */
   toFieldArray(): Fr[] {
-    return [this.value, this.noteHash, this.sideEffectCounter];
+    return [this.value, this.noteHash, this.counter];
   }
 
   /**
@@ -117,7 +117,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * @returns True if the value, note hash and counter are all zero.
    */
   isEmpty() {
-    return this.value.isZero() && this.noteHash.isZero() && this.sideEffectCounter.isZero();
+    return this.value.isZero() && this.noteHash.isZero() && this.counter.isZero();
   }
 
   /**
