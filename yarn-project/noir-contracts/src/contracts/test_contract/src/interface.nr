@@ -8,6 +8,26 @@ use dep::protocol_types::{
   constants::RETURN_VALUES_LENGTH,
 };
 
+struct CancellerConsumeMintPrivateMessageStruct {
+  inner: Field,
+}
+
+struct ToConsumeMintPublicMessageStruct {
+  inner: Field,
+}
+
+struct CancellerConsumeMintPublicMessageStruct {
+  inner: Field,
+}
+
+struct AztecAddressGetPortalContractAddressStruct {
+  inner: Field,
+}
+
+struct AddressGetPublicKeyStruct {
+  inner: Field,
+}
+
 struct AStructTestCodeGenStruct {
   amount: Field,
   secret_hash: Field,
@@ -48,38 +68,38 @@ impl TestPrivateContextInterface {
     context: &mut PrivateContext,
     secret_hash_for_redeeming_minted_notes: Field,
     amount: Field,
-    canceller: Field,
+    canceller: CancellerConsumeMintPrivateMessageStruct,
     msg_key: Field,
     secret_for_L1_to_L2_message_consumption: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 5];
     serialized_args[0] = secret_hash_for_redeeming_minted_notes;
     serialized_args[1] = amount;
-    serialized_args[2] = canceller;
+    serialized_args[2] = canceller.inner;
     serialized_args[3] = msg_key;
     serialized_args[4] = secret_for_L1_to_L2_message_consumption;
 
-    context.call_private_function(self.address, FunctionSelector::from_field(0x8999306a), serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x260712c7), serialized_args)
   }
   
 
   pub fn consume_mint_public_message(
     self,
     context: &mut PrivateContext,
-    to: Field,
+    to: ToConsumeMintPublicMessageStruct,
     amount: Field,
-    canceller: Field,
+    canceller: CancellerConsumeMintPublicMessageStruct,
     msg_key: Field,
     secret: Field
   ) {
     let mut serialized_args = [0; 5];
-    serialized_args[0] = to;
+    serialized_args[0] = to.inner;
     serialized_args[1] = amount;
-    serialized_args[2] = canceller;
+    serialized_args[2] = canceller.inner;
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
 
-    context.call_public_function(self.address, FunctionSelector::from_field(0x1c60863d), serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x04ee3bb0), serialized_args)
   }
   
 
@@ -148,24 +168,24 @@ impl TestPrivateContextInterface {
   pub fn get_portal_contract_address(
     self,
     context: &mut PrivateContext,
-    aztec_address: Address
+    aztec_address: AztecAddressGetPortalContractAddressStruct
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 1];
-    serialized_args[0] = aztec_address.to_field();
+    serialized_args[0] = aztec_address.inner;
 
-    context.call_private_function(self.address, FunctionSelector::from_field(0x98ff64fd), serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x30e5344b), serialized_args)
   }
   
 
   pub fn get_public_key(
     self,
     context: &mut PrivateContext,
-    address: Address
+    address: AddressGetPublicKeyStruct
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 1];
-    serialized_args[0] = address.to_field();
+    serialized_args[0] = address.inner;
 
-    context.call_private_function(self.address, FunctionSelector::from_field(0x5ccf578f), serialized_args)
+    context.call_private_function(self.address, FunctionSelector::from_field(0x501e4f48), serialized_args)
   }
   
 
@@ -265,20 +285,20 @@ impl TestPublicContextInterface {
   pub fn consume_mint_public_message(
     self,
     context: PublicContext,
-    to: Field,
+    to: ToConsumeMintPublicMessageStruct,
     amount: Field,
-    canceller: Field,
+    canceller: CancellerConsumeMintPublicMessageStruct,
     msg_key: Field,
     secret: Field
   ) -> [Field; RETURN_VALUES_LENGTH] {
     let mut serialized_args = [0; 5];
-    serialized_args[0] = to;
+    serialized_args[0] = to.inner;
     serialized_args[1] = amount;
-    serialized_args[2] = canceller;
+    serialized_args[2] = canceller.inner;
     serialized_args[3] = msg_key;
     serialized_args[4] = secret;
 
-    context.call_public_function(self.address, FunctionSelector::from_field(0x1c60863d), serialized_args)
+    context.call_public_function(self.address, FunctionSelector::from_field(0x04ee3bb0), serialized_args)
   }
   
 
