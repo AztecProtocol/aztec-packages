@@ -36,6 +36,7 @@ class GoblinRecursionTests : public ::testing::Test {
     using RecursiveVerifier = proof_system::plonk::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using Goblin = barretenberg::Goblin;
     using KernelInput = Goblin::AccumulationOutput;
+    using UltraVerifier = UltraVerifier_<flavor::GoblinUltra>;
 
     /**
      * @brief Construct a mock kernel circuit
@@ -87,9 +88,12 @@ TEST_F(GoblinRecursionTests, Pseudo)
     }
 
     Goblin::Proof proof = goblin.prove();
-    // WORKTODO: verify(kernel_input.proof)
+    // Verify the final ultra proof
+    UltraVerifier ultra_verifier{ kernel_input.verification_key };
+    bool ultra_verified = ultra_verifier.verify_proof(kernel_input.proof);
+    // Verify the goblin proof (eccvm, translator, merge)
     bool verified = goblin.verify(proof);
-    EXPECT_TRUE(verified);
+    EXPECT_TRUE(ultra_verified && verified);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/787) Expand these tests.
