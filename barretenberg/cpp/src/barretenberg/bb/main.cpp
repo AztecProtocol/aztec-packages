@@ -26,7 +26,10 @@ const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
+    // WORKTODO: ACIR composer wraps a GUH builder
+    // create a Goblin
     acir_proofs::AcirComposer acir_composer(0, verbose);
+    // populates the GUH builder in the Goblin
     acir_composer.create_circuit(constraint_system);
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
 
@@ -38,7 +41,7 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     return acir_composer;
 }
 
-acir_proofs::AcirComposer init()
+acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? maybe rename?
 {
     acir_proofs::AcirComposer acir_composer(0, verbose);
     auto g2_data = get_g2_data(CRS_PATH);
@@ -76,15 +79,18 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
+    // WORKTODO: acir_composer wraps a goblin and a GUH builder and GUH composer
     auto acir_composer = init(constraint_system);
 
     Timer pk_timer;
+    // construct a pk for the GUH composer
     acir_composer.init_proving_key(constraint_system);
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
     write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
     write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
 
     Timer proof_timer;
+    // acir_composer.create_proof == goblin.create_proof; construct the concatenated GUH proof and Goblin::Proof
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
@@ -166,6 +172,7 @@ void gateCount(const std::string& bytecodePath)
 bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
     auto acir_composer = init();
+    // WORKTODO: need to deserialize... something else.
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
