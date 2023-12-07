@@ -52,9 +52,9 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     
     validate_array(app_public_inputs.return_values);
-    validate_array(app_public_inputs.read_requests);
-    validate_array(app_public_inputs.new_commitments);
-    validate_array(app_public_inputs.new_nullifiers);
+    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.isEmpty());
+    validate_struct_array(app_public_inputs.new_commitments, |c: SideEffect| c.isEmpty());
+    validate_struct_array(app_public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty());
     validate_array(app_public_inputs.nullified_commitments);
     validate_array(app_public_inputs.private_call_stack_hashes);
     validate_array(app_public_inputs.public_call_stack_hashes);
@@ -132,8 +132,8 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     let is_static_call = public_inputs.call_context.is_static_call;
     if is_static_call {
         // No state changes are allowed for static calls:
-        assert(is_empty_array(public_inputs.new_commitments), "new_commitments must be empty for static calls");
-        assert(is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.isEmpty()), "new_commitments must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty()), "new_nullifiers must be empty for static calls");
     }
 }
 
@@ -199,20 +199,23 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         let new_nullifier = new_nullifiers[i].value;
         if new_nullifier != 0 {
             siloed_new_nullifiers.push(SideEffectLinkedToNoteHash{
-                value: silo_nullifier(storage_contract_address, new_nullifier))
+                value: silo_nullifier(storage_contract_address, new_nullifier),
                 counter: new_nullifiers[i].counter,
                 note_hash: new_nullifiers[i].note_hash,
-        };
+        });
         }
     }
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
-    let mut siloed_new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
-        let new_commitment = new_commitments[i];
+        let new_commitment = new_commitments[i].value;
         if new_commitment != 0 {
-            siloed_new_commitments.push(silo_commitment(storage_contract_address, new_commitment));
+            siloed_new_commitments.push(
+                SideEffect{
+                    value: silo_commitment(storage_contract_address, new_commitment),
+                counter: new_commitments[i].counter});
         }
     }
     public_inputs.end.new_commitments.push_vec(siloed_new_commitments);
@@ -325,7 +328,12 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
 
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
-        public_inputs.end.new_nullifiers.push(new_contract_address_nullifier);
+        public_inputs.end.new_nullifiers.push(
+            SideEffectLinkedToNoteHash{
+                value: new_contract_address_nullifier,
+                note_hash: new_contract_address,
+                counter: 0,
+                });
     } else {
         // non-contract deployments must specify contract address being interacted with
         assert(!contract_address.is_zero(), "contract address cannot be zero");

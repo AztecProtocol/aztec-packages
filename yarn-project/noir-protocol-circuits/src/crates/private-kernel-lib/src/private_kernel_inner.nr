@@ -5,9 +5,10 @@ use dep::types::{
         previous_kernel_data::PreviousKernelData,
         private_kernel::private_call_data::PrivateCallData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     mocked::verify_previous_kernel_state,
-    utils::arrays::array_length,
+    utils::arrays::{array_length, struct_array_length},
 };
 
 struct PrivateKernelInputsInner {
@@ -457,12 +458,15 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.read_requests.push_array([SideEffect{
+        builder.private_call.public_inputs.read_requests.push_array([
+            SideEffect {
             value: 0,
-            counter: 0},
-            SideEffect{
+            counter: 0
+            },
+            SideEffect {
                 value: 9123,
-                counter: 1}]);
+                counter: 1,
+                }]);
 
         builder.failed();
     }
@@ -471,12 +475,14 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.public_inputs.new_commitments.push_array([SideEffect{
+        builder.private_call.public_inputs.new_commitments.push_array([
+            SideEffect {
             value: 0,
             counter: 0},
-            SideEffect{
+            SideEffect {
                 value: 9123,
-                counter: 1}]);
+                counter: 1,
+                }]);
 
         builder.failed();
     }
@@ -486,14 +492,15 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.private_call.public_inputs.new_nullifiers.push_array([
-            SideEffectLinkedToNoteHash{
-                value: 0
+            SideEffectLinkedToNoteHash {
+                value: 0,
                 note_hash: 0,
                 counter: 0},
-            SideEffectLinkedToNoteHash{
+            SideEffectLinkedToNoteHash {
                 value: 12,
                 note_hash: 0,
-                counter: 1}]);
+                counter: 1,
+                }]);
         
         builder.failed();
     }
@@ -547,7 +554,7 @@ mod tests {
         let mut full_new_commitments = [0; MAX_NEW_COMMITMENTS_PER_TX];
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             full_new_commitments[i] = SideEffect{
-                value: i + 1
+                value: i + 1,
                 counter: i
             };
         }
@@ -591,7 +598,11 @@ mod tests {
 
         // tweak read_request so it gives wrong root when paired with its sibling path
         let read_request = builder.private_call.public_inputs.read_requests.pop();
-        builder.private_call.public_inputs.read_requests.push(read_request + 1);
+        builder.private_call.public_inputs.read_requests.push(
+            SideEffect {
+                value: read_request.value + 1,
+                counter: read_request.counter,
+                });
 
         builder.failed();
     }
@@ -694,7 +705,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 1);
     }
 
     #[test]
@@ -708,7 +719,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 1);
     }
 
     #[test]
@@ -720,7 +731,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), MAX_READ_REQUESTS_PER_CALL);
     }
 
     #[test]

@@ -52,7 +52,7 @@ impl PrivateKernelInputsOrdering {
             if (read_request != 0) {
                 let mut match_pos = MAX_NEW_COMMITMENTS_PER_TX as u64;
                 if (hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64) {
-                    match_pos = if read_request == new_commitments.get_unchecked(hint_pos as Field) { hint_pos } else { match_pos };
+                    match_pos = if read_request == new_commitments.get_unchecked(hint_pos as Field).value { hint_pos } else { match_pos };
                 }
             
                 assert(match_pos != MAX_NEW_COMMITMENTS_PER_TX as u64, "read request is transient but does not match any commitment");
@@ -170,11 +170,12 @@ mod tests {
         MAX_NEW_NULLIFIERS_PER_TX,
     };
     use dep::types::{
-        abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+        abis::{kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}},
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
-            arrays::{array_eq, array_length, is_empty_array},
+            arrays::{array_eq, array_length, struct_array_length, is_empty_array},
             bounded_vec::BoundedVec,
         },
     };
@@ -356,7 +357,7 @@ mod tests {
         let public_inputs = builder.execute();
         assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()));
         assert(struct_array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]],
-         |a, b| a.equals(b), |a| a.isEmpty()));
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.equals(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
     }
 
     #[test]
@@ -367,8 +368,8 @@ mod tests {
         builder.append_nullifiers(2);
 
         let public_inputs = builder.execute();
-        assert(struct_array_length(public_inputs.end.new_commitments) == 2);
-        assert(struct_array_length(public_inputs.end.new_nullifiers) == 3);
+        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()) == 2);
+        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty()) == 3);
     }
 
     // same as previous test, but this time there are 0 commitments!
@@ -380,8 +381,8 @@ mod tests {
         builder.append_nullifiers(2);
 
         let public_inputs = builder.execute();
-        assert(struct_array_length(public_inputs.end.new_commitments) == 0);
-        assert(struct_array_length(public_inputs.end.new_nullifiers) == 3);
+        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()) == 0);
+        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| c.isEmpty()) == 3);
     }
 
     #[test(should_fail_with="New nullifier is transient but hint is invalid")]

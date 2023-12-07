@@ -130,6 +130,7 @@ mod tests {
             complete_address::CompleteAddress,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             private_kernel::private_call_data::PrivateCallData,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
         },
         address::Address,
         hash::{
