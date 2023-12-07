@@ -27,4 +27,14 @@ impl FunctionSelector {
     pub fn eq(self, function_selector: FunctionSelector) -> bool {
         function_selector.inner == self.inner
     }
+
+    pub fn serialize(self: Self) -> [Field; 1] {
+        [self.inner as Field]
+    }
+
+    pub fn deserialize(fields: [Field; 1]) -> Self {
+        Self {
+            inner: fields[0] as u32
+        }
+    }
 }

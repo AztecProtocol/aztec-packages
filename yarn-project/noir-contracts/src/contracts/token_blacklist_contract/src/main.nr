@@ -369,7 +369,7 @@ contract TokenBlacklist {
     }
 
     unconstrained fn balance_of_private(owner: Address) -> u120 {
-        storage.balances.at(owner).balance_of().value
+        storage.balances.at(owner.to_field()).balance_of().value
     }
 
     unconstrained fn balance_of_public(owner: Address) -> u120 {

@@ -51,7 +51,7 @@ contract Test {
     // docs:end:empty-constructor
 
     #[aztec(private)]
-    fn get_public_key(address: Field) -> [Field; 2] {
+    fn get_public_key(address: Address) -> [Field; 2] {
         let pub_key = get_public_key_oracle(address);
 
         [pub_key.x, pub_key.y]
@@ -59,7 +59,7 @@ contract Test {
 
     // Get the portal contract address through an oracle call
     #[aztec(private)]
-    fn get_portal_contract_address(aztec_address: Field) -> Field {
+    fn get_portal_contract_address(aztec_address: Address) -> Field {
         get_portal_address(aztec_address)
     }
 

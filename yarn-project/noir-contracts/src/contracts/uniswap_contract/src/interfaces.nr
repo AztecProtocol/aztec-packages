@@ -6,11 +6,11 @@ use dep::aztec::{
 };
 
 struct Token {
-  address: Field,
+  address: Address,
 }
 
 impl Token {
-  pub fn at(address: Field) -> Self {
+  pub fn at(address: Address) -> Self {
     Self { address }
   }
 
@@ -32,11 +32,11 @@ impl Token {
 }
 
 struct TokenBridge {
-  address: Field,
+  address: Address,
 }
 
 impl TokenBridge {
-  pub fn at(address: Field) -> Self {
+  pub fn at(address: Address) -> Self {
     Self { address }
   }
 

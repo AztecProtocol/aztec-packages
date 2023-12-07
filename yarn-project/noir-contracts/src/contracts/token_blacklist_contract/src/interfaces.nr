@@ -5,7 +5,7 @@ use dep::aztec::{
 };
 
 struct SlowMap {
-  address: Field,
+  address: Address,
 }
 
 impl SlowMap {

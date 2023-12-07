@@ -146,11 +146,11 @@ contract SlowTree {
         storage.trees.at(caller).update_unsafe_at(index, new_value, new_root);
     }
     // docs:end:_update
-    unconstrained fn un_read_leaf_at(address: Field, key: Field) -> Leaf {
+    unconstrained fn un_read_leaf_at(address: Address, key: Field) -> Leaf {
         storage.trees.at(address).read_leaf_at(key)
     }
 
-    unconstrained fn un_read_root(address: Field) -> Leaf {
+    unconstrained fn un_read_root(address: Address) -> Leaf {
         storage.trees.at(address).read_root()
     }
 

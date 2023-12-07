@@ -50,14 +50,14 @@ contract StatefulTest {
 
     #[aztec(private)]
     fn constructor(owner: Address, value: Field) {
-        let loc = storage.notes.at(owner);
+        let loc = storage.notes.at(owner.to_field());
         increment(loc, value, owner);
     }
 
     #[aztec(private)]
     fn create_note(owner: Address, value: Field) {
         if (value != 0) {
-            let loc = storage.notes.at(owner);
+            let loc = storage.notes.at(owner.to_field());
             increment(loc, value, owner);
         }
     }
@@ -74,7 +74,7 @@ contract StatefulTest {
     }
 
     unconstrained fn summed_values(owner: Address) -> Field {
-        let owner_balance = storage.notes.at(owner);
+        let owner_balance = storage.notes.at(owner.to_field());
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance)
