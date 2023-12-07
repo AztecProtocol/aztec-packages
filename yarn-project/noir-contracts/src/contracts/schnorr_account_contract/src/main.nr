@@ -6,6 +6,8 @@ contract SchnorrAccount {
     use dep::std;
     use dep::std::option::Option;
 
+    use dep::protocol_types::address::Address;
+
     use dep::aztec::{
         context::{PrivateContext, Context},
         note::{ note_header::NoteHeader, utils as note_utils },
@@ -27,7 +29,7 @@ contract SchnorrAccount {
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage_init
                 signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),

@@ -12,6 +12,7 @@ use dep::aztec::{
     log::emit_encrypted_log,
     context::PrivateContext,
 };
+use dep::protocol_types::address::Address;
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
 
@@ -36,7 +37,7 @@ impl PublicKeyNote {
 
     // serialize the note as 3 fields
     pub fn serialize(self) -> [Field; PUBLIC_KEY_NOTE_LEN] {
-        [self.x, self.y, self.owner]
+        [self.x, self.y, self.owner.to_field()]
     }
 
     pub fn compute_nullifier(self) -> Field {
@@ -68,7 +69,7 @@ impl PublicKeyNote {
 }
 
 fn deserialize(serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]) -> PublicKeyNote {
-    PublicKeyNote { x: serialized_note[0], y: serialized_note[1], owner: serialized_note[2], header: NoteHeader::empty() }
+    PublicKeyNote { x: serialized_note[0], y: serialized_note[1], owner: Address::from_field(serialized_note[2]), header: NoteHeader::empty() }
 }
 
 fn serialize(note: PublicKeyNote) -> [Field; PUBLIC_KEY_NOTE_LEN] {
