@@ -56,14 +56,14 @@ TEST_F(AvmMiniTests, basic)
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
 
-    //  auto verifier = composer.create_verifier(circuit_builder);
-    //  bool verified = verifier.verify_proof(proof);
+    auto verifier = composer.create_verifier(circuit_builder);
+    bool verified = verifier.verify_proof(proof);
 
-    // if (!verified) {
-    //     proof_system::log_avmMini_trace(circuit_builder.rows, 0, 10);
-    // }
+    if (!verified) {
+        proof_system::log_avmMini_trace(circuit_builder.rows, 0, 10);
+    }
 
-    // EXPECT_TRUE(verified);
+    EXPECT_TRUE(verified);
 }
 
 } // namespace example_relation_honk_composer
