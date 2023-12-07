@@ -128,7 +128,7 @@ export class PXEService implements PXE {
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
-      const pubKey = this.keyStore.addAccount(privKey);
+      const pubKey = await this.keyStore.addAccount(privKey);
       this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
