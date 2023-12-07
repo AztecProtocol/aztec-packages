@@ -42,7 +42,7 @@ impl TokenBridge {
 
   pub fn token(self: Self, context: PublicContext) -> Address {
     let return_values = context.call_public_function(self.address, compute_selector("get_token()"), []);
-    Address::new(return_values[0])
+    Address::from_field(return_values[0])
   }
 
   pub fn exit_to_l1_public(self: Self, context: PublicContext, recipient: Address, amount: Field, callerOnL1: Field, nonce: Field) {

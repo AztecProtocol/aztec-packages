@@ -19,7 +19,6 @@ contract InclusionProofs {
         },
         selector::compute_selector,
         types::{
-            address::Address,
             type_serialization::field_serialization::FieldSerializationMethods,
         },
         context::Context,
@@ -91,8 +90,8 @@ contract InclusionProofs {
         owner: Address,
         value: Field,
     ) {
-        let owner_private_values = storage.private_values.at(owner.address);
-        let mut note = ValueNote::new(value, owner.address);
+        let owner_private_values = storage.private_values.at(owner.to_field());
+        let mut note = ValueNote::new(value, owner);
         owner_private_values.insert(&mut note, true);
     }
 
@@ -114,8 +113,8 @@ contract InclusionProofs {
         let block_header = context.get_block_header(block_number);
 
         // 2) Get the note from PXE.
-        let private_values = storage.private_values.at(owner.address);
-        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let private_values = storage.private_values.at(owner.to_field());
+        let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
 
@@ -158,8 +157,8 @@ contract InclusionProofs {
         let block_header = context.get_block_header(block_number);
 
         // 2) Get the note from PXE
-        let private_values = storage.private_values.at(owner.address);
-        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let private_values = storage.private_values.at(owner.to_field());
+        let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
 
@@ -204,8 +203,8 @@ contract InclusionProofs {
     fn nullifyNote(
         owner: Address,
     ) {
-        let private_values = storage.private_values.at(owner.address);
-        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let private_values = storage.private_values.at(owner.to_field());
+        let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
