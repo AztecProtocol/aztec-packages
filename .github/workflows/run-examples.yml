@@ -30,9 +30,15 @@ jobs:
         cmake-version: '3.24.0'
     - name: Install | Nargo
       shell: bash
-      run: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash && source /github/home/.bashrc && noirup
+      run: | 
+        curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+        source /github/home/.bashrc
+        noirup
     - uses: actions/checkout@v3
     - name: Run noir/tooling/noir_rs/examples/poly_check_circuit
       working-directory: noir/tooling/noir_rs/examples/poly_check_circuit
       shell: bash
-      run: source /github/home/.bashrc && nargo compile && cargo run -vv
+      run: | 
+        source /github/home/.bashrc
+        nargo compile
+        cargo run -vv

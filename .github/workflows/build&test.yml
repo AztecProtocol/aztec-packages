@@ -30,7 +30,10 @@ jobs:
         cmake-version: '3.24.0'
     - name: Install | Nargo
       shell: bash
-      run: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash && source /github/home/.bashrc && noirup
+      run: | 
+        curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+        source /github/home/.bashrc
+        noirup
     - uses: actions/checkout@v3
     - name: Build
       working-directory: noir/tooling/noir_rs
