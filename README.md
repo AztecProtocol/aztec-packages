@@ -1,12 +1,12 @@
-# `noir_rs`: Rust-based zkSNARK Proving Scheme
+# `noir_rs`: Rust-based zkSNARK Proving&Verifying tool for noir-lang
 
 ## Introduction
 
 Welcome to `noir_rs`, a pure Rust implementation for generating and verifying zkSNARK proofs. This lightweight, Rust-centric library is designed for ease of use, mobile compatibility, and performance, eliminating the need for WebAssembly (WASM) dependencies.
 
 ### Project Origin
-This project is a fork of [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages), in order to align with the latest versions.
-Explore source code here: [`noir_rs`](noir/tooling/noir_rs/).
+#### This project is a fork of [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages), in order to align with the latest versions.
+#### Explore source code here: [`noir_rs`](noir/tooling/noir_rs/).
 
 ### Build Status
 - ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/build&test@arcrunner.yml/badge.svg)
@@ -61,7 +61,3 @@ cargo build --target TARGET_TRIPLET
 ```
 
 Replace `TARGET_TRIPLET` with your desired target. For more targets, refer to the [Rust documentation](https://doc.rust-lang.org/beta/rustc/platform-support.html).
-
----
-
-This version aims to enhance readability and organization, making the README more engaging and informative for users.
