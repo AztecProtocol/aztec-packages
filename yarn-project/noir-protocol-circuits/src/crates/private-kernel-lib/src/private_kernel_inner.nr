@@ -659,7 +659,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 0);
     }
 
     #[test]
@@ -671,7 +671,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 0);
     }
 
     #[test]
@@ -683,7 +683,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 0);
     }
 
     #[test]
@@ -695,7 +695,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 0);
     }
 
     #[test]
@@ -707,7 +707,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 1);
     }
 
     #[test]
@@ -721,7 +721,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 1);
     }
 
     #[test]
@@ -733,7 +733,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), MAX_READ_REQUESTS_PER_CALL);
     }
 
     #[test]
@@ -797,7 +797,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
 
         builder.failed();
     }

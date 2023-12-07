@@ -39,6 +39,7 @@ use dep::types::{
             array_length,
             array_to_bounded_vec,
             is_empty_array,
+            is_empty_struct_array,
             struct_array_to_bounded_vec,
             validate_array,
             validate_struct_array,

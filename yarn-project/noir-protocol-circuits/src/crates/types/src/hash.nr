@@ -284,8 +284,8 @@ pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) 
     ], GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
-pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [Field; N]) -> [Field; N] {
-    let mut unique_siloed_commitments = [0; N];
+pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [SideEffect; N]) -> [Field; N] {
+    let mut unique_siloed_commitments = [SideEffect::zero(); N];
     for i in 0..N {
         let siloed_commitment = siloed_commitments[i];
         if siloed_commitment.value != 0 {

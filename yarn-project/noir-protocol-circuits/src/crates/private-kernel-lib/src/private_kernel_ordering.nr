@@ -259,7 +259,7 @@ mod tests {
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
 
         let public_inputs = builder.execute();
-        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()) == 1);
+        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()) == 1);
         assert(public_inputs.end.new_commitments[0].value == unique_siloed_commitments[0]);
     }
 
@@ -277,7 +277,7 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert_eq(struct_array_length(public_inputs.end.new_commitments,
-        |c: SideEffect| SideEffect.isEmpty()), MAX_NEW_COMMITMENTS_PER_TX);
+        |c: SideEffect| c.is_zero()), MAX_NEW_COMMITMENTS_PER_TX);
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             assert(public_inputs.end.new_commitments[i].value == unique_siloed_commitments[i]);
         }
@@ -310,12 +310,12 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty());
+        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero());
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
         assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers)
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty())
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero())
         );
     }
 
@@ -335,12 +335,12 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert(struct_array_eq(public_inputs.end.new_commitments, unique_siloed_commitments,
-         |a: SideEffect, b: SideEffect| a.eq(b), |a: SideEffect| a.isEmpty()));
+         |a: SideEffect, b: SideEffect| a.eq(b), |a: SideEffect| a.is_zero()));
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
         assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers,
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero()));
     }
 
     #[test]
@@ -357,9 +357,9 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()));
+        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()));
         assert(struct_array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]],
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero()));
     }
 
     #[test]
@@ -370,8 +370,8 @@ mod tests {
         builder.append_nullifiers(2);
 
         let public_inputs = builder.execute();
-        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()) == 2);
-        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty()) == 3);
+        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()) == 2);
+        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero()) == 3);
     }
 
     // same as previous test, but this time there are 0 commitments!
@@ -383,8 +383,8 @@ mod tests {
         builder.append_nullifiers(2);
 
         let public_inputs = builder.execute();
-        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()) == 0);
-        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| c.isEmpty()) == 3);
+        assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()) == 0);
+        assert(struct_array_length(public_inputs.end.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero()) == 3);
     }
 
     #[test(should_fail_with="New nullifier is transient but hint is invalid")]

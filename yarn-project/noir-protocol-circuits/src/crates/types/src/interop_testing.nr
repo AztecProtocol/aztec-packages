@@ -10,6 +10,7 @@ use crate::abis::function_selector::FunctionSelector;
 use crate::hash::{compute_l2_to_l1_hash, sha256_to_field};
 use crate::abis::call_stack_item::PublicCallStackItem;
 use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
+use crate::abis::side_effect::SideEffect;
 
 #[test]
 fn compute_complete_address() {
@@ -110,7 +111,10 @@ fn compute_call_stack_item_request() {
     };
 
     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    public_inputs.new_commitments[0] = 1;
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
+        };
 
     let call_stack_item = PublicCallStackItem {
         contract_address,
@@ -133,7 +137,10 @@ fn compute_call_stack_item() {
     };
 
     let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    public_inputs.new_commitments[0] = 1;
+    public_inputs.new_commitments[0] = SideEffect{
+        value: 1,
+        counter: 0,
+        };
 
     let call_stack_item = PublicCallStackItem {
         contract_address,

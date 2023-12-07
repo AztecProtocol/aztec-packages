@@ -93,6 +93,7 @@ impl PrivateCircuitPublicInputsBuilder {
             is_delegate_call: false,
             is_static_call: false,
             is_contract_deployment: is_constructor,
+            start_side_effect_counter: 0, // needed?
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
