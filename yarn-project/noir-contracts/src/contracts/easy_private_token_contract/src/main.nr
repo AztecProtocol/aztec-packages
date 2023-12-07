@@ -1,5 +1,6 @@
 // docs:start:easy_private_token_contract
 contract EasyPrivateToken {
+    use dep::protocol_types::address::Address;
     use dep::std::option::Option;
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -43,7 +44,7 @@ contract EasyPrivateToken {
     fn constructor(initial_supply: u120, owner: Address) {
         let balances = storage.balances;
 
-        balances.at(owner).add(initial_supply, owner);
+        balances.at(owner.to_field()).add(initial_supply, owner);
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -51,7 +52,7 @@ contract EasyPrivateToken {
     fn mint(amount: u120, owner: Address) {
         let balances = storage.balances;
 
-        balances.at(owner).add(amount, owner);
+        balances.at(owner.to_field()).add(amount, owner);
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -59,8 +60,8 @@ contract EasyPrivateToken {
     fn transfer(amount: u120, sender: Address, recipient: Address) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender);
-        balances.at(recipient).add(amount, recipient);
+        balances.at(sender.to_field()).sub(amount, sender);
+        balances.at(recipient.to_field()).add(amount, recipient);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
@@ -68,14 +69,15 @@ contract EasyPrivateToken {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(balances.at(owner).set)
+        balance_utils::get_balance(balances.at(owner.to_field()).set)
     }
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }
