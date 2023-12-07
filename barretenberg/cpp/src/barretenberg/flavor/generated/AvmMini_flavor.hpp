@@ -65,14 +65,7 @@ class AvmMiniFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, avmMini_clk, avmMini_first)
 
-        RefVector<DataType> get_selectors()
-        {
-            return {
-                avmMini_clk,
-                avmMini_first,
-            };
-        };
-
+        RefVector<DataType> get_selectors() { return { avmMini_clk, avmMini_first }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -114,11 +107,9 @@ class AvmMiniFlavor {
                 memTrace_m_rw,    avmMini_sel_op_add, avmMini_sel_op_sub, avmMini_sel_op_mul, avmMini_sel_op_div,
                 avmMini_op_err,   avmMini_inv,        avmMini_ia,         avmMini_ib,         avmMini_ic,
                 avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,   avmMini_rwa,        avmMini_rwb,
-                avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b,  avmMini_mem_idx_c,  avmMini_last,
-
+                avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b,  avmMini_mem_idx_c,  avmMini_last
             };
         };
-
         RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
 
@@ -152,99 +143,77 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_val_shift,
                               memTrace_m_rw_shift,
+                              memTrace_m_val_shift,
                               memTrace_m_addr_shift)
 
         RefVector<DataType> get_wires()
         {
-            return {
-                avmMini_clk,
-                avmMini_first,
-                memTrace_m_clk,
-                memTrace_m_sub_clk,
-                memTrace_m_addr,
-                memTrace_m_val,
-                memTrace_m_lastAccess,
-                memTrace_m_rw,
-                avmMini_sel_op_add,
-                avmMini_sel_op_sub,
-                avmMini_sel_op_mul,
-                avmMini_sel_op_div,
-                avmMini_op_err,
-                avmMini_inv,
-                avmMini_ia,
-                avmMini_ib,
-                avmMini_ic,
-                avmMini_mem_op_a,
-                avmMini_mem_op_b,
-                avmMini_mem_op_c,
-                avmMini_rwa,
-                avmMini_rwb,
-                avmMini_rwc,
-                avmMini_mem_idx_a,
-                avmMini_mem_idx_b,
-                avmMini_mem_idx_c,
-                avmMini_last,
-                memTrace_m_val_shift,
-                memTrace_m_rw_shift,
-                memTrace_m_addr_shift,
-
-            };
+            return { avmMini_clk,
+                     avmMini_first,
+                     memTrace_m_clk,
+                     memTrace_m_sub_clk,
+                     memTrace_m_addr,
+                     memTrace_m_val,
+                     memTrace_m_lastAccess,
+                     memTrace_m_rw,
+                     avmMini_sel_op_add,
+                     avmMini_sel_op_sub,
+                     avmMini_sel_op_mul,
+                     avmMini_sel_op_div,
+                     avmMini_op_err,
+                     avmMini_inv,
+                     avmMini_ia,
+                     avmMini_ib,
+                     avmMini_ic,
+                     avmMini_mem_op_a,
+                     avmMini_mem_op_b,
+                     avmMini_mem_op_c,
+                     avmMini_rwa,
+                     avmMini_rwb,
+                     avmMini_rwc,
+                     avmMini_mem_idx_a,
+                     avmMini_mem_idx_b,
+                     avmMini_mem_idx_c,
+                     avmMini_last,
+                     memTrace_m_rw_shift,
+                     memTrace_m_val_shift,
+                     memTrace_m_addr_shift };
         };
-
         RefVector<DataType> get_unshifted()
         {
-            return {
-                avmMini_clk,
-                avmMini_first,
-                memTrace_m_clk,
-                memTrace_m_sub_clk,
-                memTrace_m_addr,
-                memTrace_m_val,
-                memTrace_m_lastAccess,
-                memTrace_m_rw,
-                avmMini_sel_op_add,
-                avmMini_sel_op_sub,
-                avmMini_sel_op_mul,
-                avmMini_sel_op_div,
-                avmMini_op_err,
-                avmMini_inv,
-                avmMini_ia,
-                avmMini_ib,
-                avmMini_ic,
-                avmMini_mem_op_a,
-                avmMini_mem_op_b,
-                avmMini_mem_op_c,
-                avmMini_rwa,
-                avmMini_rwb,
-                avmMini_rwc,
-                avmMini_mem_idx_a,
-                avmMini_mem_idx_b,
-                avmMini_mem_idx_c,
-                avmMini_last,
-
-            };
+            return { avmMini_clk,
+                     avmMini_first,
+                     memTrace_m_clk,
+                     memTrace_m_sub_clk,
+                     memTrace_m_addr,
+                     memTrace_m_val,
+                     memTrace_m_lastAccess,
+                     memTrace_m_rw,
+                     avmMini_sel_op_add,
+                     avmMini_sel_op_sub,
+                     avmMini_sel_op_mul,
+                     avmMini_sel_op_div,
+                     avmMini_op_err,
+                     avmMini_inv,
+                     avmMini_ia,
+                     avmMini_ib,
+                     avmMini_ic,
+                     avmMini_mem_op_a,
+                     avmMini_mem_op_b,
+                     avmMini_mem_op_c,
+                     avmMini_rwa,
+                     avmMini_rwb,
+                     avmMini_rwc,
+                     avmMini_mem_idx_a,
+                     avmMini_mem_idx_b,
+                     avmMini_mem_idx_c,
+                     avmMini_last };
         };
-
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return {
-                memTrace_m_val,
-                memTrace_m_rw,
-                memTrace_m_addr,
-
-            };
-        };
-
+        RefVector<DataType> get_to_be_shifted() { return { memTrace_m_rw, memTrace_m_val, memTrace_m_addr }; };
         RefVector<DataType> get_shifted()
         {
-            return {
-                memTrace_m_val_shift,
-                memTrace_m_rw_shift,
-                memTrace_m_addr_shift,
-
-            };
+            return { memTrace_m_rw_shift, memTrace_m_val_shift, memTrace_m_addr_shift };
         };
     };
 
@@ -317,33 +286,33 @@ class AvmMiniFlavor {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
-            Base::avmMini_clk = "avmMini_clk";
-            Base::avmMini_first = "avmMini_first";
-            Base::memTrace_m_clk = "memTrace_m_clk";
-            Base::memTrace_m_sub_clk = "memTrace_m_sub_clk";
-            Base::memTrace_m_addr = "memTrace_m_addr";
-            Base::memTrace_m_val = "memTrace_m_val";
-            Base::memTrace_m_lastAccess = "memTrace_m_lastAccess";
-            Base::memTrace_m_rw = "memTrace_m_rw";
-            Base::avmMini_sel_op_add = "avmMini_sel_op_add";
-            Base::avmMini_sel_op_sub = "avmMini_sel_op_sub";
-            Base::avmMini_sel_op_mul = "avmMini_sel_op_mul";
-            Base::avmMini_sel_op_div = "avmMini_sel_op_div";
-            Base::avmMini_op_err = "avmMini_op_err";
-            Base::avmMini_inv = "avmMini_inv";
-            Base::avmMini_ia = "avmMini_ia";
-            Base::avmMini_ib = "avmMini_ib";
-            Base::avmMini_ic = "avmMini_ic";
-            Base::avmMini_mem_op_a = "avmMini_mem_op_a";
-            Base::avmMini_mem_op_b = "avmMini_mem_op_b";
-            Base::avmMini_mem_op_c = "avmMini_mem_op_c";
-            Base::avmMini_rwa = "avmMini_rwa";
-            Base::avmMini_rwb = "avmMini_rwb";
-            Base::avmMini_rwc = "avmMini_rwc";
-            Base::avmMini_mem_idx_a = "avmMini_mem_idx_a";
-            Base::avmMini_mem_idx_b = "avmMini_mem_idx_b";
-            Base::avmMini_mem_idx_c = "avmMini_mem_idx_c";
-            Base::avmMini_last = "avmMini_last";
+            Base::avmMini_clk = "AVMMINI_CLK";
+            Base::avmMini_first = "AVMMINI_FIRST";
+            Base::memTrace_m_clk = "MEMTRACE_M_CLK";
+            Base::memTrace_m_sub_clk = "MEMTRACE_M_SUB_CLK";
+            Base::memTrace_m_addr = "MEMTRACE_M_ADDR";
+            Base::memTrace_m_val = "MEMTRACE_M_VAL";
+            Base::memTrace_m_lastAccess = "MEMTRACE_M_LASTACCESS";
+            Base::memTrace_m_rw = "MEMTRACE_M_RW";
+            Base::avmMini_sel_op_add = "AVMMINI_SEL_OP_ADD";
+            Base::avmMini_sel_op_sub = "AVMMINI_SEL_OP_SUB";
+            Base::avmMini_sel_op_mul = "AVMMINI_SEL_OP_MUL";
+            Base::avmMini_sel_op_div = "AVMMINI_SEL_OP_DIV";
+            Base::avmMini_op_err = "AVMMINI_OP_ERR";
+            Base::avmMini_inv = "AVMMINI_INV";
+            Base::avmMini_ia = "AVMMINI_IA";
+            Base::avmMini_ib = "AVMMINI_IB";
+            Base::avmMini_ic = "AVMMINI_IC";
+            Base::avmMini_mem_op_a = "AVMMINI_MEM_OP_A";
+            Base::avmMini_mem_op_b = "AVMMINI_MEM_OP_B";
+            Base::avmMini_mem_op_c = "AVMMINI_MEM_OP_C";
+            Base::avmMini_rwa = "AVMMINI_RWA";
+            Base::avmMini_rwb = "AVMMINI_RWB";
+            Base::avmMini_rwc = "AVMMINI_RWC";
+            Base::avmMini_mem_idx_a = "AVMMINI_MEM_IDX_A";
+            Base::avmMini_mem_idx_b = "AVMMINI_MEM_IDX_B";
+            Base::avmMini_mem_idx_c = "AVMMINI_MEM_IDX_C";
+            Base::avmMini_last = "AVMMINI_LAST";
         };
     };
 
@@ -407,31 +376,31 @@ class AvmMiniFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            memTrace_m_clk = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            memTrace_m_sub_clk = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            memTrace_m_addr = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            memTrace_m_val = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            memTrace_m_lastAccess = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            memTrace_m_rw = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_sel_op_add = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_sel_op_sub = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_sel_op_mul = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_sel_op_div = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_op_err = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_inv = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ia = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ib = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_ic = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_a = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_b = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_op_c = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwa = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwb = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_rwc = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_a = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_b = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_mem_idx_c = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            avmMini_last = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
+            memTrace_m_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_sub_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_lastAccess = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            memTrace_m_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_op_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwa = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_rwc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_mem_idx_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            avmMini_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -455,31 +424,31 @@ class AvmMiniFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-            serialize_to_buffer<Commitment>(memTrace_m_clk, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(memTrace_m_sub_clk, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(memTrace_m_addr, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(memTrace_m_val, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(memTrace_m_lastAccess, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(memTrace_m_rw, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_sel_op_add, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_sel_op_sub, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_sel_op_mul, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_sel_op_div, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_op_err, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_inv, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ia, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ib, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_ic, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_a, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_b, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_op_c, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwa, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwb, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_rwc, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_a, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_b, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_mem_idx_c, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer<Commitment>(avmMini_last, BaseTranscript<FF>::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_sub_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_addr, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_val, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_lastAccess, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(memTrace_m_rw, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_sel_op_add, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_sel_op_sub, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_sel_op_mul, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_sel_op_div, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_op_err, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_inv, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ia, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ib, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_ic, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_op_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwa, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwb, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_rwc, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_mem_idx_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avmMini_last, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);

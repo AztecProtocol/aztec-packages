@@ -3,7 +3,7 @@
 #include "AvmMini_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -30,7 +30,6 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     , commitment_key(commitment_key)
 {
     // TODO: take every polynomial and assign it to the key!!
-
     prover_polynomials.avmMini_clk = key->avmMini_clk;
     prover_polynomials.avmMini_first = key->avmMini_first;
     prover_polynomials.memTrace_m_clk = key->memTrace_m_clk;
@@ -59,11 +58,11 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_mem_idx_c = key->avmMini_mem_idx_c;
     prover_polynomials.avmMini_last = key->avmMini_last;
 
-    prover_polynomials.memTrace_m_val = key->memTrace_m_val;
-    prover_polynomials.memTrace_m_val_shift = key->memTrace_m_val.shifted();
-
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
     prover_polynomials.memTrace_m_rw_shift = key->memTrace_m_rw.shifted();
+
+    prover_polynomials.memTrace_m_val = key->memTrace_m_val;
+    prover_polynomials.memTrace_m_val_shift = key->memTrace_m_val.shifted();
 
     prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
     prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
@@ -135,7 +134,7 @@ plonk::proof& AvmMiniProver::export_proof()
 
 plonk::proof& AvmMiniProver::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
+    // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
     // Compute wire commitments
