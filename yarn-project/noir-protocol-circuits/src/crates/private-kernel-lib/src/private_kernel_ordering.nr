@@ -170,12 +170,14 @@ mod tests {
         MAX_NEW_NULLIFIERS_PER_TX,
     };
     use dep::types::{
-        abis::{kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}},
+        abis::{
+            kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+        },
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
-            arrays::{array_eq, array_length, struct_array_length, is_empty_array},
+            arrays::{array_eq, struct_array_eq, array_length, struct_array_length, is_empty_array, is_empty_struct_array},
             bounded_vec::BoundedVec,
         },
     };
@@ -313,7 +315,7 @@ mod tests {
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
         assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers)
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.equals(b), |a| a.isEmpty())
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty())
         );
     }
 
@@ -333,12 +335,12 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert(struct_array_eq(public_inputs.end.new_commitments, unique_siloed_commitments,
-         |a: SideEffect, b: SideEffect| a.equals(b), |a| a.isEmpty()));
+         |a: SideEffect, b: SideEffect| a.eq(b), |a: SideEffect| a.isEmpty()));
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
         assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers,
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.equals(b), |a| a.isEmpty()));
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
     }
 
     #[test]
@@ -357,7 +359,7 @@ mod tests {
         let public_inputs = builder.execute();
         assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.isEmpty()));
         assert(struct_array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]],
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.equals(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.isEmpty()));
     }
 
     #[test]
@@ -428,7 +430,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
 
         builder.failed();
     }

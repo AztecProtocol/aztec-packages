@@ -5,11 +5,12 @@ use dep::types::{
         combined_constant_data::CombinedConstantData,
         private_kernel::private_call_data::PrivateCallData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     constants::EMPTY_NULLIFIED_COMMITMENT,
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
-    utils::arrays::is_empty_array,
+    utils::arrays::{is_empty_array, is_empty_struct_array},
 };
 
 // Initialization struct for private inputs to the private kernel
@@ -218,7 +219,7 @@ mod tests {
 
         // Check the first nullifier is hash of the signed tx request
         let tx_hash = builder.tx_request.hash();
-        assert_eq(public_inputs.end.new_nullifiers[0], tx_hash);
+        assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
         assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
@@ -254,13 +255,7 @@ mod tests {
     fn input_validation_malformed_arrays_return_values() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.return_values.push_array([SideEffect{
-            value: 0,
-            counter: 0},
-            SideEffect{
-                value: 9123,
-                counter: 1
-                }]);
+        builder.private_call.public_inputs.return_values.push_array([0, 9123]);
 
         builder.failed();
     }
@@ -269,12 +264,13 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.read_requests.push_array([SideEffect{
+        builder.private_call.public_inputs.read_requests.push_array([
+            SideEffect {
             value: 0,
             counter: 0},
-            SideEffect{
+            SideEffect {
                 value: 9123,
-                counter: 1
+                counter: 1,
             }]);
         
         builder.failed();
@@ -284,12 +280,14 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_commitments.push_array([SideEffect{
+        builder.private_call.public_inputs.new_commitments.push_array([
+            SideEffect {
             value: 0,
-            counter: 0},
-            SideEffect{
+            counter: 0,
+            },
+            SideEffect {
                 value: 9123,
-                counter: 1
+                counter: 1,
             }]);
         
         builder.failed();
@@ -492,7 +490,11 @@ mod tests {
 
         // tweak read_request so it gives wrong root when paired with its sibling path
         let read_request = builder.private_call.public_inputs.read_requests.pop();
-        builder.private_call.public_inputs.read_requests.push(read_request + 1);
+        builder.private_call.public_inputs.read_requests.push(
+            SideEffect{
+                value: read_request.value + 1,
+                counter: read_request.counter,
+                });
 
         builder.failed();
     }
@@ -536,7 +538,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -552,7 +554,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -568,7 +570,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]
@@ -584,7 +586,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 0);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.isEmpty()), 0);
     }
 
     #[test]

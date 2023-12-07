@@ -41,6 +41,7 @@ use dep::types::{
             is_empty_array,
             struct_array_to_bounded_vec,
             validate_array,
+            validate_struct_array,
         },
         bounded_vec::BoundedVec,
     },
@@ -208,7 +209,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
-    let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(0);
+    let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::zero());
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
         let new_commitment = new_commitments[i].value;
         if new_commitment != 0 {
@@ -331,7 +332,7 @@ pub fn contract_logic(private_call : PrivateCallData, public_inputs : &mut Kerne
         public_inputs.end.new_nullifiers.push(
             SideEffectLinkedToNoteHash{
                 value: new_contract_address_nullifier,
-                note_hash: new_contract_address,
+                note_hash: new_contract_address.to_field(),  // check this
                 counter: 0,
                 });
     } else {

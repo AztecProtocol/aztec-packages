@@ -15,10 +15,10 @@ impl SideEffect {
     }
 
     pub fn assert_is_zero(self){
-        assert(self.is_zero());
+        assert(self.isEmpty());
     }
 
-    pub fn is_zero(self) -> bool {
+    pub fn isEmpty(self) -> bool {
         (self.value == 0)
         & (self.counter == 0)
     }
@@ -56,10 +56,10 @@ impl SideEffectLinkedToNoteHash{
     }
 
     pub fn assert_is_zero(self){
-        assert(self.is_zero());
+        assert(self.isEmpty());
     }
 
-    pub fn is_zero(self) -> bool {
+    pub fn isEmpty(self) -> bool {
         (self.value == 0)
         &  (self.note_hash == 0)
         & (self.counter == 0)

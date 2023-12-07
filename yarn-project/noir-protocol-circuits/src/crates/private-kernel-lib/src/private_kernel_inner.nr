@@ -90,6 +90,7 @@ mod tests {
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash},
         },
         tests::{
             previous_kernel_data_builder::PreviousKernelDataBuilder,
@@ -98,7 +99,7 @@ mod tests {
         address::Address,
         hash::compute_logs_hash,
         utils::{
-            arrays::array_length,
+            arrays::{array_length, struct_array_length},
             bounded_vec::BoundedVec,
         },
     };
@@ -546,16 +547,17 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // The current call stack has 1 commitment;
-        builder.private_call.public_inputs.new_commitments.push(SideEffect{
+        builder.private_call.public_inputs.new_commitments.push(SideEffect {
             value: 4321,
-            counter: 0});
+            counter: 0
+            });
 
         // Mock the previous new commitments to be full, therefore no more commitments can be added.
-        let mut full_new_commitments = [0; MAX_NEW_COMMITMENTS_PER_TX];
+        let mut full_new_commitments = [SideEffect::zero(); MAX_NEW_COMMITMENTS_PER_TX];
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            full_new_commitments[i] = SideEffect{
+            full_new_commitments[i] = SideEffect {
                 value: i + 1,
-                counter: i
+                counter: i,
             };
         }
         builder.previous_kernel.end.new_commitments.push_array(full_new_commitments);
