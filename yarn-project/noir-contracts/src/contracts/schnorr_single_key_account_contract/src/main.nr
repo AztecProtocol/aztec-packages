@@ -46,7 +46,7 @@ contract SchnorrSingleKeyAccount {
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, message_hash: Field) -> pub bool {
         let witness = get_auth_witness(message_hash);
-        assert(recover_address(message_hash, witness) == context.this_address());
+        assert(recover_address(message_hash, witness).eq(context.this_address()));
         true
     }
 }
