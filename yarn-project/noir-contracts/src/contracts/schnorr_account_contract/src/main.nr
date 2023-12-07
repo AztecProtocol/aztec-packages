@@ -107,7 +107,8 @@ contract SchnorrAccount {
         serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
     ) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = Address::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, serialized_note)
     }
 }
