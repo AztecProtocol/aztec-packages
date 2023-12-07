@@ -2,6 +2,11 @@ mod utils;
 
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
+    use dep::protocol_types::constants::{
+        NOTE_HASH_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT,
+        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    };
     use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{
@@ -20,13 +25,8 @@ contract InclusionProofs {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        constants_gen::{
-            NOTE_HASH_TREE_HEIGHT,
-            PUBLIC_DATA_TREE_HEIGHT,
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-        },
+        
         oracle::{
-            get_block_header::get_block_header,
             get_membership_witness::{
                 get_membership_witness,
                 MembershipWitness,
@@ -104,6 +104,7 @@ contract InclusionProofs {
         // TODO: assert that block number is less than the block number of context.block_header
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
         // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
@@ -147,6 +148,7 @@ contract InclusionProofs {
         // TODO: assert that block number is less than the block number of context.block_header
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
         // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
@@ -185,9 +187,9 @@ contract InclusionProofs {
         );
 
         // 5.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
-        // included in the nullifier tree
+        // included in the nullifier tree (or to 0 if the to-be-inserted nullifier is the largest of all)
         assert(
-            full_field_greater_than(witness.leaf_data.next_value, nullifier),
+            full_field_greater_than(witness.leaf_data.next_value, nullifier) | (witness.leaf_data.next_index == 0),
             "Proving nullifier non-inclusion failed: low_nullifier.next_value > nullifier.value check failed"
         );
 
@@ -218,6 +220,7 @@ contract InclusionProofs {
         // TODO: assert that block number is less than the block number of context.block_header
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
         // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.
@@ -250,6 +253,7 @@ contract InclusionProofs {
         // TODO: assert that block number is less than the block number of context.block_header
         // --> This will either require a new oracle method that returns block_header.global_variables_hash preimage
         //     or modifying the private context so that we somehow expose it.
+        // Blocked by #3564
 
         // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
         //    root.

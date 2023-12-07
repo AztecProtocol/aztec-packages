@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import { LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
@@ -28,23 +29,19 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
 
   async findLeafIndex(treeId: MerkleTreeId, value: Buffer): Promise<bigint | undefined> {
     const tree = await this.#getTreeSnapshot(treeId);
-    const numLeaves = tree.getNumLeaves();
-    for (let i = 0n; i < numLeaves; i++) {
-      const currentValue = await tree.getLeafValue(i);
-      if (currentValue && currentValue.equals(value)) {
-        return i;
-      }
-    }
-    return undefined;
+    return tree.findLeafIndex(value);
   }
 
   getLatestGlobalVariablesHash(): Promise<Fr> {
     return Promise.reject(new Error('not implemented'));
   }
 
-  async getLeafData(treeId: MerkleTreeId.NULLIFIER_TREE, index: number): Promise<LeafData | undefined> {
+  async getLeafPreimage(
+    treeId: MerkleTreeId.NULLIFIER_TREE,
+    index: bigint,
+  ): Promise<IndexedTreeLeafPreimage | undefined> {
     const snapshot = (await this.#getTreeSnapshot(treeId)) as IndexedTreeSnapshot;
-    return snapshot.getLatestLeafDataCopy(BigInt(index));
+    return snapshot.getLatestLeafPreimageCopy(BigInt(index));
   }
 
   async getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined> {
@@ -55,16 +52,19 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
   getPreviousValueIndex(
     _treeId: MerkleTreeId.NULLIFIER_TREE,
     _value: bigint,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: number;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }> {
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
     return Promise.reject(new Error('not implemented'));
   }
 
@@ -90,11 +90,11 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
       this.#getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
       this.#getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
       this.#getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      this.#getTreeSnapshot(MerkleTreeId.BLOCKS_TREE),
+      this.#getTreeSnapshot(MerkleTreeId.ARCHIVE),
     ]);
 
     return {
-      blocksTreeRoot: snapshots[MerkleTreeId.BLOCKS_TREE].getRoot(),
+      archiveRoot: snapshots[MerkleTreeId.ARCHIVE].getRoot(),
       contractDataTreeRoot: snapshots[MerkleTreeId.CONTRACT_TREE].getRoot(),
       l1Tol2MessagesTreeRoot: snapshots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE].getRoot(),
       noteHashTreeRoot: snapshots[MerkleTreeId.NOTE_HASH_TREE].getRoot(),
@@ -113,7 +113,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  updateBlocksTree(): Promise<void> {
+  updateArchive(): Promise<void> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
@@ -129,7 +129,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  updateHistoricBlocksTree(): Promise<void> {
+  updateHistoricArchive(): Promise<void> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 

@@ -2,13 +2,16 @@
 import { createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { AccountManager, createAztecNodeClient, deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
+import { init } from '@aztec/foundation/crypto';
+import { createStatusRouter } from '@aztec/foundation/json-rpc/server';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
+import { NoirCommit } from '@aztec/noir-compiler/versions';
 import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 import { GrumpkinScalar, PXEService, createPXERpcServer } from '@aztec/pxe';
 
 import { readFileSync } from 'fs';
+import http from 'http';
 import { dirname, resolve } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -34,6 +37,7 @@ const {
   MODE = 'sandbox',
   TEST_ACCOUNTS = 'true',
   DEPLOY_AZTEC_CONTRACTS = 'true',
+  API_PREFIX = '',
 } = process.env;
 
 const logger = createDebugLogger(`aztec:${MODE}`);
@@ -76,15 +80,24 @@ async function main() {
 
   const mode = MODE as SandboxMode;
 
-  const createShutdown = (cb?: () => Promise<void>) => async () => {
-    logger.info('Shutting down...');
-    if (cb) {
-      await cb();
-    }
-    process.exit(0);
+  const installSignalHandlers = (cb?: () => Promise<void>) => {
+    const shutdown = async () => {
+      logger.info('Shutting down...');
+      if (cb) {
+        await cb();
+      }
+      process.exit(0);
+    };
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
   };
 
-  let shutdown: () => Promise<void>;
+  installSignalHandlers();
+
+  // Init crypto (bb.js).
+  await init();
 
   const logStrings = [];
 
@@ -97,12 +110,12 @@ async function main() {
 
   // Code path for starting Sandbox
   if (mode === SandboxMode.Sandbox) {
-    logger.info(`Setting up Aztec Sandbox v${version} (noir v${NoirWasmVersion}), please stand by...`);
+    logger.info(`Setting up Aztec Sandbox v${version} (noir ${NoirCommit}), please stand by...`);
 
     const { pxe, node, stop, accounts } = await createAndInitialiseSandbox(deployTestAccounts);
 
     // Create shutdown cleanup function
-    shutdown = createShutdown(stop);
+    installSignalHandlers(stop);
 
     // Start Node and PXE JSON-RPC servers
     startHttpRpcServer(node, createAztecNodeRpcServer, AZTEC_NODE_PORT);
@@ -115,7 +128,7 @@ async function main() {
       const accountLogStrings = await createAccountLogs(accounts, pxe);
       logStrings.push(...accountLogStrings);
     }
-    logStrings.push(`Aztec Sandbox v${version} (noir v${NoirWasmVersion}) is now ready for use!`);
+    logStrings.push(`Aztec Sandbox v${version} (noir ${NoirCommit}) is now ready for use!`);
   } else if (mode === SandboxMode.Node) {
     // Code path for starting Node only
     const nodeConfig = getNodeConfigEnvVars();
@@ -131,13 +144,22 @@ async function main() {
     }
 
     const node = await createAztecNode(nodeConfig);
-    shutdown = createShutdown(node.stop);
+    installSignalHandlers(node.stop);
+
+    const port = process.env.AZTEC_NODE_PORT || 8080; // Use standard 8080 when no PXE is running
+    const nodeRpcServer = createAztecNodeRpcServer(node);
+    const app = nodeRpcServer.getApp();
+
+    // Add a /status endpoint
+    const statusRouter = createStatusRouter(API_PREFIX);
+    app.use(statusRouter.routes());
+    app.use(statusRouter.allowedMethods());
 
     // Start Node JSON-RPC server
-    startHttpRpcServer(node, createAztecNodeRpcServer, 8080); // Use standard 8080 when no PXE is running
-    logStrings.push(
-      `Aztec Node v${version} (noir v${NoirWasmVersion}) is now ready for use in port ${AZTEC_NODE_PORT}!`,
-    );
+    const httpServer = http.createServer(app.callback());
+    httpServer.listen(port);
+
+    logStrings.push(`Aztec Node v${version} (noir ${NoirCommit}) is now ready for use in port ${port}!`);
   } else if (mode === SandboxMode.PXE) {
     // Code path for starting PXE only
 
@@ -145,7 +167,7 @@ async function main() {
     const node = createAztecNodeClient(AZTEC_NODE_URL);
 
     const pxe = await createAztecPXE(node);
-    shutdown = createShutdown(pxe.stop);
+    installSignalHandlers(pxe.stop);
 
     // Start PXE JSON-RPC server
     startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
@@ -157,24 +179,20 @@ async function main() {
       logStrings.push(...accountLogStrings);
     }
 
-    logStrings.push(`PXE v${version} (noir v${NoirWasmVersion}) is now ready for use in port ${PXE_PORT}!`);
+    logStrings.push(`PXE v${version} (noir ${NoirCommit}) is now ready for use in port ${PXE_PORT}!`);
   } else if (mode === SandboxMode.P2PBootstrap) {
     // Code path for starting a P2P bootstrap node
     const config = getP2PConfigEnvVars();
     const bootstrapNode = new BootstrapNode(logger);
     await bootstrapNode.start(config);
-    shutdown = createShutdown(bootstrapNode.stop);
+    installSignalHandlers(bootstrapNode.stop);
     logStrings.push(
       `Bootstrap P2P node is now ready for use. Listening on: ${config.tcpListenIp}:${config.tcpListenPort}.`,
     );
-  } else {
-    shutdown = createShutdown();
   }
 
   // Log startup details
   logger.info(`${splash}\n${github}\n\n`.concat(...logStrings));
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
 }
 
 /**
