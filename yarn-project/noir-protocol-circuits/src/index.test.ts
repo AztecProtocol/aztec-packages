@@ -376,7 +376,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const contractAddress = AztecAddress.fromBigInt(1n);
     const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
     const appPublicInputs = PublicCircuitPublicInputs.empty();
-    appPublicInputs.newCommitments[0] = new Fr(1);
+    appPublicInputs.newCommitments[0] = new SideEffect(new Fr(1), Fr.ZERO);
 
     const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, false);
     expect(publicCallStackItem.hash().toString()).toMatchSnapshot();
@@ -386,7 +386,7 @@ describe('Noir compatibility tests (interop_testing.nr)', () => {
     const contractAddress = AztecAddress.fromBigInt(1n);
     const functionData = new FunctionData(new FunctionSelector(2), false, false, false);
     const appPublicInputs = PublicCircuitPublicInputs.empty();
-    appPublicInputs.newCommitments[0] = new Fr(1);
+    appPublicInputs.newCommitments[0] = new SideEffect(new Fr(1), Fr.ZERO);
 
     const publicCallStackItem = new PublicCallStackItem(contractAddress, functionData, appPublicInputs, true);
     expect(publicCallStackItem.hash().toString()).toMatchSnapshot();

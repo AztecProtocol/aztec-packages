@@ -737,9 +737,9 @@ export function mapCombinedAccumulatedDataFromNoir(
   return new CombinedAccumulatedData(
     // TODO aggregation object
     AggregationObject.makeFake(),
-    mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.nullified_commitments, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.private_call_stack,
@@ -784,8 +784,8 @@ export function mapFinalAccumulatedDataFromNoir(finalAccumulatedData: FinalAccum
   return new FinalAccumulatedData(
     // TODO aggregation object
     AggregationObject.makeFake(),
-    mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(finalAccumulatedData.new_commitments, MAX_NEW_COMMITMENTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(finalAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(finalAccumulatedData.nullified_commitments, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(
       finalAccumulatedData.private_call_stack,
@@ -821,9 +821,9 @@ export function mapCombinedAccumulatedDataToNoir(
 ): CombinedAccumulatedDataNoir {
   return {
     aggregation_object: {},
-    read_requests: mapTuple(combinedAccumulatedData.readRequests, mapFieldToNoir),
-    new_commitments: mapTuple(combinedAccumulatedData.newCommitments, mapFieldToNoir),
-    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapFieldToNoir),
+    read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
+    new_commitments: mapTuple(combinedAccumulatedData.newCommitments, mapSideEffectToNoir),
+    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     nullified_commitments: mapTuple(combinedAccumulatedData.nullifiedCommitments, mapFieldToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(combinedAccumulatedData.publicCallStack, mapCallRequestToNoir),

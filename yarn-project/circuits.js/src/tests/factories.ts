@@ -329,6 +329,7 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     false,
     false,
     false,
+    Fr.ZERO,
   );
 }
 
@@ -352,8 +353,8 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x800),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, makeNewSideEffect, seed + 0x700),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, makeNewSideEffectLinkedToNoteHash, seed + 0x800),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
@@ -683,6 +684,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       true,
       true,
       true,
+      Fr.ZERO,
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
