@@ -343,7 +343,7 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
 
 /**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
- *        M[dstOffset:dstOffset+len] = calldata[cdOffset:cdOffset+len]
+ *        M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]
  *        Simplified version with exclusively memory store operations and
  *        values from M_calldata passed by an array and loaded into
  *        intermediate registers.
@@ -354,12 +354,12 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
  *        values to the next row when not overwritten.
  *
  * @param cdOffset The starting index of the region in calldata to be copied.
- * @param len The number of finite field elements to be copied into memory.
+ * @param copySize The number of finite field elements to be copied into memory.
  * @param dstOffset The starting index of memory where calldata will be copied to.
  * @param callDataMem The vector containing calldata.
  */
 void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
-                                       uint32_t len,
+                                       uint32_t copySize,
                                        uint32_t dstOffset,
                                        std::vector<FF> const& callDataMem)
 {
@@ -372,7 +372,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
 
     uint32_t pos = 0;
 
-    while (pos < len) {
+    while (pos < copySize) {
         FF ib(0);
         FF ic(0);
         uint32_t mem_op_b(0);
@@ -392,7 +392,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
         ffMemory.at(mem_idx_a) = ia;
         storeAInMemTrace(mem_idx_a, ia);
 
-        if (len - pos > 1) {
+        if (copySize - pos > 1) {
             ib = callDataMem.at(cdOffset + pos + 1);
             mem_op_b = 1;
             mem_idx_b = dstOffset + pos + 1;
@@ -403,7 +403,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
             storeBInMemTrace(mem_idx_b, ib);
         }
 
-        if (len - pos > 2) {
+        if (copySize - pos > 2) {
             ic = callDataMem.at(cdOffset + pos + 2);
             mem_op_c = 1;
             mem_idx_c = dstOffset + pos + 2;
@@ -430,40 +430,40 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
             .avmMini_mem_idx_c = FF(mem_idx_c),
         });
 
-        if (len - pos > 2) { // Guard to prevent overflow if len is close to uint32_t maximum value.
+        if (copySize - pos > 2) { // Guard to prevent overflow if copySize is close to uint32_t maximum value.
             pos += 3;
         } else {
-            pos = len;
+            pos = copySize;
         }
     }
 }
 
 /**
  * @brief RETURN opcode with direct memory access, i.e.,
- *        return(M[offset:offset+len])
+ *        return(M[retOffset:retOffset+retSize])
  *        Simplified version with exclusively memory load operations into
  *        intermediate registers and then values are copied to the returned vector.
  *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of flagging this row as the last one? Special STOP flag?
  *
- * @param offset The starting index of the memory region to be returned.
- * @param len The number of elements to be returned.
+ * @param retOffset The starting index of the memory region to be returned.
+ * @param retSize The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
 
-std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t offset, uint32_t len)
+std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSize)
 {
     // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
-    // register Ia) relative to offset:
-    // offset + pos:       Ia memory load operation
-    // offset + pos + 1:   Ib memory load operation
-    // offset + pos + 2:   Ic memory load operation
+    // register Ia) relative to retOffset:
+    // retOffset + pos:       Ia memory load operation
+    // retOffset + pos + 1:   Ib memory load operation
+    // retOffset + pos + 2:   Ic memory load operation
 
     uint32_t pos = 0;
     std::vector<FF> returnMem;
 
-    while (pos < len) {
+    while (pos < retSize) {
         FF ib(0);
         FF ic(0);
         uint32_t mem_op_b(0);
@@ -473,16 +473,16 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t offset, uint32_t len)
         auto clk = mainTrace.size();
 
         uint32_t mem_op_a(1);
-        uint32_t mem_idx_a = offset + pos;
+        uint32_t mem_idx_a = retOffset + pos;
         FF ia = ffMemory.at(mem_idx_a);
 
         // Loading from Ia
         returnMem.push_back(ia);
         loadAInMemTrace(mem_idx_a, ia);
 
-        if (len - pos > 1) {
+        if (retSize - pos > 1) {
             mem_op_b = 1;
-            mem_idx_b = offset + pos + 1;
+            mem_idx_b = retOffset + pos + 1;
             ib = ffMemory.at(mem_idx_b);
 
             // Loading from Ib
@@ -490,9 +490,9 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t offset, uint32_t len)
             loadBInMemTrace(mem_idx_b, ib);
         }
 
-        if (len - pos > 2) {
+        if (retSize - pos > 2) {
             mem_op_c = 1;
-            mem_idx_c = offset + pos + 2;
+            mem_idx_c = retOffset + pos + 2;
             ic = ffMemory.at(mem_idx_c);
 
             // Loading from Ic
@@ -513,10 +513,10 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t offset, uint32_t len)
             .avmMini_mem_idx_c = FF(mem_idx_c),
         });
 
-        if (len - pos > 2) { // Guard to prevent overflow if len is close to uint32_t maximum value.
+        if (retSize - pos > 2) { // Guard to prevent overflow if retSize is close to uint32_t maximum value.
             pos += 3;
         } else {
-            pos = len;
+            pos = retSize;
         }
     }
     return returnMem;
