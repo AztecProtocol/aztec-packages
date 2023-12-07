@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        runner: [ubuntu-latest]
+        runner: [ubuntu-latest, arc-runner-set]
         # runner: [arc-runner-set]
     
     runs-on: ${{ matrix.runner }}
