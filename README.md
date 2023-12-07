@@ -1,63 +1,68 @@
-# Aztec Monorepo
+# `noir_rs`: Rust-based zkSNARK Proving Scheme
 
-All the packages that make up [Aztec](https://docs.aztec.network).
+## Introduction
 
-- [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
-- [**`yarn-project`**](/yarn-project): Typescript code for client and backend
-- [**`docs`**](/docs): Documentation source for the docs site
+Welcome to `noir_rs`, a pure Rust implementation for generating and verifying zkSNARK proofs. This lightweight, Rust-centric library is designed for ease of use, mobile compatibility, and performance, eliminating the need for WebAssembly (WASM) dependencies.
 
-## Popular packages
+### Project Origin
+This project is a fork of [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages), updated to align with the latest versions.
+Explore our source code here: [`noir_rs`](noir/tooling/noir_rs/).
 
-- [Aztec.nr](./yarn-project/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
-- [Aztec Sandbox](./yarn-project/aztec-sandbox/): A package for setting up a local dev net, including a local Ethereum network, deployed rollup contracts and Aztec execution environment.
-- [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
-- [Aztec Boxes](./yarn-project/boxes/): A minimal framework for building full stack applications for Aztec (using React).
-- [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
-- [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
+### Build Status
+- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/build&test@arcrunner.yml/badge.svg)
+- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/run-examples@arcrunner.yml/badge.svg)
+- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/clippy&fmt@arcrunner.yml/badge.svg)
+- ![Version](https://img.shields.io/badge/version-0.16.7-darkviolet)
 
-## Issues Board
+## Why `noir_rs`?
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/milestones) section of our docs.
+- **Rust-centric Design**: Leveraging Rust's impressive performance, safety, and concurrency for a robust zkSNARK platform.
+- **Mobile-Friendly**: Optimized for mobile devices, thanks to our Rust-native approach that bypasses WASM.
+- **User-Friendly**: A simple, efficient toolkit for developers to generate and verify zkSNARK proofs without complex configurations.
 
-## Development Setup
+## Future Developments
 
-Run `bootstrap.sh` in the project root to set up your environment. This will update git submodules, download ignition transcripts, install Foundry, compile Solidity contracts, install the current node version via nvm, and build all typescript packages.
+Collaborating with the noir-team, we're integrating `noir_rs` into the main noir-lang repository. Stay tuned for:
+- **Swift Integration**: Check out [noir_swift](https://github.com/visoftsolutions/noir_swift) based on `noir_rs`.
+- **Java Integration**: Check out [noir_java](https://github.com/visoftsolutions/noir_java) based on `noir_rs`.
 
-To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
+## Getting Started
 
-To build noir code, make sure that you are using the version from `yarn-project/noir-compiler/src/noir-version.json`.
+### Setting Up
 
-Install nargo by running
+Clone the repository to get started.
 
-```
-noirup -v TAG_FROM_THE_FILE
-```
+### Running Examples
 
-## Continuous Integration
+To run a specific `noir_rs` example, use:
 
-This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
-
-All packages need to be included in the [build manifest](`build_manifest.json`), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
-
-It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting. You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker. Run that command locally and then do
-
-```bash
-cd project
-./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
-source /tmp/.bash_env*
-{start testing your CI commands here}
+```sh
+cd noir/tooling/noir_rs/examples/poly_check_circuit
+cargo run
 ```
 
-This provide an interactive environment for debugging the CI test.
+### Examples list
+- [poly_check_circuit](noir/tooling/noir_rs/examples/poly_check_circuit).
 
-## Debugging
+## Building for Different Targets
 
-Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
+Rust's cross-platform compatibility allows you to build for various targets. Here are some common ones:
 
-## Releases
+- Linux (x86_64): `x86_64-unknown-linux-gnu`
+- Linux (ARMv7): `armv7-unknown-linux-gnueabihf`
+- Windows (MSVC): `x86_64-pc-windows-msvc`
+- macOS (x86_64): `x86_64-apple-darwin`
+- iOS: `aarch64-apple-ios`
+- Android: `aarch64-linux-android`
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
+Build for a specific target with:
 
-## Contribute
+```
+cargo build --target TARGET_TRIPLET
+```
 
-There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
+Replace `TARGET_TRIPLET` with your desired target. For more targets, refer to the [Rust documentation](https://doc.rust-lang.org/beta/rustc/platform-support.html).
+
+---
+
+This version aims to enhance readability and organization, making the README more engaging and informative for users.
