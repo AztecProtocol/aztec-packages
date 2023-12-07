@@ -9,9 +9,8 @@ Welcome to `noir_rs`, a pure Rust implementation for generating and verifying zk
 #### Explore source code here: [`noir_rs`](noir/tooling/noir_rs/).
 
 ### Build Status
-- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/build&test@arcrunner.yml/badge.svg)
-- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/run-examples@arcrunner.yml/badge.svg)
-- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/clippy&fmt@arcrunner.yml/badge.svg)
+- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/build&test.yml/badge.svg)
+- ![GitHub Workflow Status ArcRunner](https://github.com/visoftsolutions/noir_rs/actions/workflows/run-examples.yml/badge.svg)
 - ![Version](https://img.shields.io/badge/version-0.16.7-darkviolet)
 
 ## Why `noir_rs`?

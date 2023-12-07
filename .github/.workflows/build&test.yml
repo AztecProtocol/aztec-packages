@@ -1,0 +1,37 @@
+name: Rust build&test
+
+on:
+  push:
+    branches: [ "workflow" ]
+  pull_request:
+    branches: [ "latest" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        runner: [arc-runner-set]
+    
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - name: Install
+      run: sudo apt update && sudo apt upgrade -y && sudo apt install -y git build-essential curl pkg-config libssl-dev libclang-dev
+    - name: Setup | Rust
+      uses: ATiltedTree/setup-rust@v1
+      with:
+        rust-version: stable
+    - name: Setup | CMake
+      uses: jwlawson/actions-setup-cmake@v1.13
+      with:
+        cmake-version: '3.24.0'
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Build
+      run: cargo build -vv
+    - name: Run tests
+      run: cargo test -vv
