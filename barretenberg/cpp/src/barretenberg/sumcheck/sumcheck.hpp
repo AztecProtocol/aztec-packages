@@ -17,7 +17,8 @@ template <typename Flavor> class SumcheckProver {
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
 
-    Transcript& transcript;
+    std::shared_ptr<Transcript> transcript;
+
     const size_t multivariate_n;
     const size_t multivariate_d;
     SumcheckProverRound<Flavor> round;
@@ -56,7 +57,7 @@ template <typename Flavor> class SumcheckProver {
     PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
 
     // prover instantiates sumcheck with circuit size and a prover transcript
-    SumcheckProver(size_t multivariate_n, Transcript& transcript)
+    SumcheckProver(size_t multivariate_n, const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript)
         , multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
@@ -73,7 +74,7 @@ template <typename Flavor> class SumcheckProver {
                                  const proof_system::RelationParameters<FF>& relation_parameters,
                                  FF alpha) // pass by value, not by reference
     {
-        auto zeta = transcript.get_challenge("Sumcheck:zeta");
+        FF zeta = transcript->get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
 
@@ -83,8 +84,8 @@ template <typename Flavor> class SumcheckProver {
         // First round
         // This populates partially_evaluated_polynomials.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
-        transcript.send_to_verifier("Sumcheck:univariate_0", round_univariate);
-        FF round_challenge = transcript.get_challenge("Sumcheck:u_0");
+        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+        FF round_challenge = transcript->get_challenge("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
@@ -97,8 +98,8 @@ template <typename Flavor> class SumcheckProver {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
-            transcript.send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
-            FF round_challenge = transcript.get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
+            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -108,10 +109,10 @@ template <typename Flavor> class SumcheckProver {
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
         ClaimedEvaluations multivariate_evaluations;
         for (auto [eval, poly] :
-             zip_view(multivariate_evaluations.pointer_view(), partially_evaluated_polynomials.pointer_view())) {
-            *eval = (*poly)[0];
+             zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
+            eval = (poly)[0];
         }
-        transcript.send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
+        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
 
         return { multivariate_challenge, multivariate_evaluations };
     };
@@ -142,13 +143,12 @@ template <typename Flavor> class SumcheckProver {
      */
     void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
     {
-        auto pep_view = partially_evaluated_polynomials.pointer_view();
-        auto poly_view = polynomials.pointer_view();
+        auto pep_view = partially_evaluated_polynomials.get_all();
+        auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
-        parallel_for(polynomials.size(), [&](size_t j) {
+        parallel_for(poly_view.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                (*pep_view[j])[i >> 1] =
-                    (*poly_view[j])[i] + round_challenge * ((*poly_view[j])[i + 1] - (*poly_view[j])[i]);
+                pep_view[j][i >> 1] = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
             }
         });
     };
@@ -159,12 +159,11 @@ template <typename Flavor> class SumcheckProver {
     template <typename PolynomialT, std::size_t N>
     void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t round_size, FF round_challenge)
     {
-        auto pep_view = partially_evaluated_polynomials.pointer_view();
+        auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                (*pep_view[j])[i >> 1] =
-                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
+                pep_view[j][i >> 1] = polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
             }
         });
     };
@@ -176,6 +175,7 @@ template <typename Flavor> class SumcheckVerifier {
     using Utils = barretenberg::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
+    using Transcript = typename Flavor::Transcript;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
@@ -199,11 +199,11 @@ template <typename Flavor> class SumcheckVerifier {
      */
     SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
                                   FF alpha,
-                                  auto& transcript)
+                                  const std::shared_ptr<Transcript>& transcript)
     {
         bool verified(true);
 
-        auto zeta = transcript.get_challenge("Sumcheck:zeta");
+        FF zeta = transcript->get_challenge("Sumcheck:zeta");
 
         barretenberg::PowUnivariate<FF> pow_univariate(zeta);
         // All but final round.
@@ -220,12 +220,12 @@ template <typename Flavor> class SumcheckVerifier {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
-                transcript.template receive_from_prover<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                transcript->template receive_from_prover<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
 
             bool checked = round.check_sum(round_univariate);
             verified = verified && checked;
-            FF round_challenge = transcript.get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
             round.compute_next_target_sum(round_univariate, round_challenge);
@@ -235,10 +235,9 @@ template <typename Flavor> class SumcheckVerifier {
         // Final round
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
-            transcript.template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        for (auto [eval_ptr, transcript_eval] :
-             zip_view(purported_evaluations.pointer_view(), transcript_evaluations)) {
-            *eval_ptr = transcript_eval;
+            transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+        for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
+            eval = transcript_eval;
         }
 
         FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(

@@ -77,7 +77,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
         }
 
         // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+        auto prover_transcript = BaseTranscript::prover_init_empty();
 
         // Execute Prover protocol
         ZeroMorphProver::prove(f_polynomials,
@@ -88,7 +88,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
                                this->commitment_key,
                                prover_transcript);
 
-        auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
         auto pairing_points = ZeroMorphVerifier::verify(
@@ -97,7 +97,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
         verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
         // The prover and verifier manifests should agree
-        EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
+        EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 
         return verified;
     }
@@ -223,7 +223,7 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
         }
 
         // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript<Fr>::prover_init_empty();
+        auto prover_transcript = BaseTranscript::prover_init_empty();
 
         std::vector<std::span<Fr>> concatenated_polynomials_views;
         for (auto& poly : concatenated_polynomials) {
@@ -246,9 +246,9 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                prover_transcript,
                                concatenated_polynomials_views,
                                c_evaluations,
-                               concatenation_groups_views);
+                               to_vector_of_ref_vectors(concatenation_groups_views));
 
-        auto verifier_transcript = BaseTranscript<Fr>::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
         auto pairing_points = ZeroMorphVerifier::verify(f_commitments, // unshifted
@@ -257,13 +257,13 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
                                                         w_evaluations, // shifted
                                                         u_challenge,
                                                         verifier_transcript,
-                                                        concatenation_groups_commitments,
+                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
                                                         c_evaluations);
 
         verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
         // The prover and verifier manifests should agree
-        EXPECT_EQ(prover_transcript.get_manifest(), verifier_transcript.get_manifest());
+        EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 
         return verified;
     }

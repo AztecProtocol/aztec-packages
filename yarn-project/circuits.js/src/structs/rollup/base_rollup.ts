@@ -1,9 +1,11 @@
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import {
+  ARCHIVE_HEIGHT,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  HISTORIC_BLOCKS_TREE_HEIGHT,
   KERNELS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
@@ -25,28 +27,103 @@ import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
  * Class containing the data of a preimage of a single leaf in the nullifier tree.
  * Note: It's called preimage because this data gets hashed before being inserted as a node into the `IndexedTree`.
  */
-export class NullifierLeafPreimage {
+export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
   constructor(
     /**
      * Leaf value inside the indexed tree's linked list.
      */
-    public leafValue: Fr,
+    public nullifier: Fr,
     /**
      * Next value inside the indexed tree's linked list.
      */
-    public nextValue: Fr,
+    public nextNullifier: Fr,
     /**
      * Index of the next leaf in the indexed tree's linked list.
      */
-    public nextIndex: UInt32,
+    public nextIndex: bigint,
   ) {}
 
-  toBuffer() {
-    return serializeToBuffer(this.leafValue, this.nextValue, this.nextIndex);
+  getKey(): bigint {
+    return this.nullifier.toBigInt();
   }
 
-  static empty() {
-    return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0);
+  getNextKey(): bigint {
+    return this.nextNullifier.toBigInt();
+  }
+
+  getNextIndex(): bigint {
+    return this.nextIndex;
+  }
+
+  asLeaf(): NullifierLeaf {
+    return new NullifierLeaf(this.nullifier);
+  }
+
+  toBuffer(): Buffer {
+    return Buffer.concat(this.toHashInputs());
+  }
+
+  toHashInputs(): Buffer[] {
+    return [
+      Buffer.from(this.nullifier.toBuffer()),
+      Buffer.from(toBufferBE(this.nextIndex, 32)),
+      Buffer.from(this.nextNullifier.toBuffer()),
+    ];
+  }
+
+  clone(): NullifierLeafPreimage {
+    return new NullifierLeafPreimage(this.nullifier, this.nextNullifier, this.nextIndex);
+  }
+
+  static empty(): NullifierLeafPreimage {
+    return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0n);
+  }
+
+  static fromBuffer(buf: Buffer): NullifierLeafPreimage {
+    const nullifier = Fr.fromBuffer(buf.subarray(0, 32));
+    const nextIndex = toBigIntBE(buf.subarray(32, 64));
+    const nextNullifier = Fr.fromBuffer(buf.subarray(64, 96));
+    return new NullifierLeafPreimage(nullifier, nextNullifier, nextIndex);
+  }
+
+  static fromLeaf(leaf: NullifierLeaf, nextKey: bigint, nextIndex: bigint): NullifierLeafPreimage {
+    return new NullifierLeafPreimage(leaf.nullifier, new Fr(nextKey), nextIndex);
+  }
+
+  static clone(preimage: NullifierLeafPreimage): NullifierLeafPreimage {
+    return new NullifierLeafPreimage(preimage.nullifier, preimage.nextNullifier, preimage.nextIndex);
+  }
+}
+
+/**
+ * A nullifier to be inserted in the nullifier tree.
+ */
+export class NullifierLeaf implements IndexedTreeLeaf {
+  constructor(
+    /**
+     * Nullifier value.
+     */
+    public nullifier: Fr,
+  ) {}
+
+  getKey(): bigint {
+    return this.nullifier.toBigInt();
+  }
+
+  toBuffer(): Buffer {
+    return this.nullifier.toBuffer();
+  }
+
+  isEmpty(): boolean {
+    return this.nullifier.isZero();
+  }
+
+  static buildDummy(key: bigint): NullifierLeaf {
+    return new NullifierLeaf(new Fr(key));
+  }
+
+  static fromBuffer(buf: Buffer): NullifierLeaf {
+    return new NullifierLeaf(Fr.fromBuffer(buf));
   }
 }
 
@@ -56,9 +133,9 @@ export class NullifierLeafPreimage {
 export class ConstantRollupData {
   constructor(
     /**
-     * Snapshot of the historic blocks roots tree at the start of the rollup.
+     * Snapshot of the blocks tree at the start of the rollup.
      */
-    public startHistoricBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -100,7 +177,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startHistoricBlocksTreeRootsSnapshot,
+      fields.archiveSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -140,10 +217,18 @@ export class BaseRollupInputs {
      */
     public startPublicDataTreeRoot: Fr,
     /**
-     * Snapshot of the historic blocks tree at the start of the base rollup circuit.
+     * Snapshot of the blocks tree at the start of the base rollup circuit.
      */
-    public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
+    /**
+     * The nullifiers to be inserted in the tree, sorted high to low.
+     */
+    public sortedNewNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
+    /**
+     * The indexes of the sorted nullifiers to the original ones.
+     */
+    public sortednewNullifiersIndexes: Tuple<UInt32, typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP>,
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
      * See `StandardIndexedTree.batchInsert` function for more details.
@@ -186,10 +271,10 @@ export class BaseRollupInputs {
       typeof MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP
     >,
     /**
-     * Membership witnesses of historic blocks referred by each of the 2 kernels.
+     * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public historicBlocksTreeRootMembershipWitnesses: Tuple<
-      MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
+    public archiveRootMembershipWitnesses: Tuple<
+      MembershipWitness<typeof ARCHIVE_HEIGHT>,
       typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
@@ -209,7 +294,9 @@ export class BaseRollupInputs {
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
-      fields.startHistoricBlocksTreeSnapshot,
+      fields.archiveSnapshot,
+      fields.sortedNewNullifiers,
+      fields.sortednewNullifiersIndexes,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,
@@ -217,7 +304,7 @@ export class BaseRollupInputs {
       fields.newContractsSubtreeSiblingPath,
       fields.newPublicDataUpdateRequestsSiblingPaths,
       fields.newPublicDataReadsSiblingPaths,
-      fields.historicBlocksTreeRootMembershipWitnesses,
+      fields.archiveRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

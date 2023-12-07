@@ -88,6 +88,10 @@ export class FunctionSelector {
    * @returns Function selector.
    */
   static fromSignature(signature: string): FunctionSelector {
+    // throw if signature contains whitespace
+    if (/\s/.test(signature)) {
+      throw new Error('Function Signature cannot contain whitespace');
+    }
     return FunctionSelector.fromBuffer(keccak(Buffer.from(signature)).subarray(0, FunctionSelector.SIZE));
   }
 
@@ -116,7 +120,7 @@ export class FunctionSelector {
   static fromString(selector: string) {
     const buf = Buffer.from(selector.replace(/^0x/i, ''), 'hex');
     if (buf.length !== FunctionSelector.SIZE) {
-      throw new Error(`Invalid length ${buf.length}.`);
+      throw new Error(`Invalid FunctionSelector length ${buf.length}.`);
     }
     return FunctionSelector.fromBuffer(buf);
   }

@@ -2,12 +2,15 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-extract_repo yarn-project /usr/src project
+if [ -z "$COMMIT_TAG" ]; then
+  echo "No commit tag, not deploying to npm."
+  exit 0
+fi
+
+extract_repo yarn-project-prod /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
-# also copy npcrc into the l1-contracts directory
-cp .npmrc ../l1-contracts
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
 DIST_TAG=${1:-"latest"}
@@ -65,12 +68,8 @@ function deploy_package() {
     fi
   fi
 
-  # Back to root
-  if [ "$REPOSITORY" == "../l1-contracts" ]; then
-    cd ../yarn-project
-  else
-    cd ..
-  fi
+  # Return to root
+  cd ..
 }
 
 # New packages here should be added after the last package that they depend on
@@ -94,4 +93,3 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
-deploy_package ../l1-contracts

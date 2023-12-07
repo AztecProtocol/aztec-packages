@@ -130,7 +130,7 @@ A contract can't perform a delegatecall yet (if ever). Delegatecalls are quite a
 
 Ethereum has a notion of a 'full node' which keeps-up with the blockchain and stores the full chain state. Many users don't wish to run full nodes, so rely on 3rd-party 'full-node-as-a-service' infrastructure providers, who service blockchain queries from their users.
 
-This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are, or about their historic network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
+This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are, or about their historical network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
 
 ### No private data authentication
 
@@ -189,7 +189,7 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 Here are the current constants:
 
-#include_code constants /yarn-project/aztec-nr/aztec/src/constants_gen.nr rust
+#include_code constants /yarn-project/noir-protocol-circuits/src/crates/types/src/constants.nr rust
 
 #### What are the consequences?
 

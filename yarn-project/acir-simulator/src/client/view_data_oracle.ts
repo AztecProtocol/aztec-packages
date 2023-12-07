@@ -1,9 +1,9 @@
-import { HistoricBlockData, PublicKey } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/abis';
+import { BlockHeader, PublicKey } from '@aztec/circuits.js';
+import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress } from '@aztec/types';
+import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId, NullifierMembershipWitness } from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -16,8 +16,8 @@ import { pickNotes } from './pick_notes.js';
 export class ViewDataOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
-    /** Data required to reconstruct the block hash, it contains historic roots. */
-    protected readonly historicBlockData: HistoricBlockData,
+    /** Data required to reconstruct the block hash, it contains historical roots. */
+    protected readonly blockHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
@@ -33,6 +33,84 @@ export class ViewDataOracle extends TypedOracle {
    */
   public getSecretKey(owner: PublicKey) {
     return this.db.getSecretKey(this.contractAddress, owner);
+  }
+
+  /**
+   * Fetches the index and sibling path of a leaf at a given block from a given tree.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - Id of the tree to get the sibling path from.
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
+   */
+  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const index = await this.db.findLeafIndex(blockNumber, treeId, leafValue);
+    if (!index) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
+    }
+    const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
+    return [new Fr(index), ...siblingPath];
+  }
+
+  /**
+   * Fetches a sibling path at a given block and index from a tree specified by `treeId`.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - Id of the tree to get the sibling path from.
+   * @param leafIndex - Index of the leaf to get sibling path for
+   * @returns The sibling path.
+   */
+  public getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr): Promise<Fr[]> {
+    return this.db.getSiblingPath(blockNumber, treeId, leafIndex.toBigInt());
+  }
+
+  /**
+   * Returns a nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find witness for.
+   * @returns The nullifier membership witness (if found).
+   */
+  public async getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return await this.db.getNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  /**
+   * Returns a low nullifier membership witness for a given nullifier at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param nullifier - Nullifier we try to find the low nullifier witness for.
+   * @returns The low nullifier membership witness (if found).
+   * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+   * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+   * we are trying to prove non-inclusion for.
+   */
+  public async getLowNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return await this.db.getLowNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  /**
+   * Fetches a block header of a given block.
+   * @param blockNumber - The number of a block of which to get the block header.
+   * @returns Block extracted from a block with block number `blockNumber`.
+   */
+  public async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+    const block = await this.db.getBlock(blockNumber);
+    if (!block) {
+      return undefined;
+    }
+    return new BlockHeader(
+      block.endNoteHashTreeSnapshot.root,
+      block.endNullifierTreeSnapshot.root,
+      block.endContractTreeSnapshot.root,
+      block.endL1ToL2MessagesTreeSnapshot.root,
+      block.endArchiveSnapshot.root,
+      new Fr(0), // TODO(#3441) privateKernelVkTreeRoot is not present in L2Block and it's not yet populated in noir
+      block.endPublicDataTreeRoot,
+      computeGlobalsHash(block.globalVariables),
+    );
   }
 
   /**
@@ -121,7 +199,7 @@ export class ViewDataOracle extends TypedOracle {
    */
   public async getL1ToL2Message(msgKey: Fr) {
     const message = await this.db.getL1ToL2Message(msgKey);
-    return { ...message, root: this.historicBlockData.l1ToL2MessagesTreeRoot };
+    return { ...message, root: this.blockHeader.l1ToL2MessagesTreeRoot };
   }
 
   /**

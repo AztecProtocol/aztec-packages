@@ -28,15 +28,14 @@ TEST(Flavor, Getters)
     EXPECT_EQ(proving_key.id_2[0], FF(4));
     EXPECT_EQ(proving_key.id_3[0], FF(8));
 
-    Flavor::VerificationKey verification_key;
     Flavor::ProverPolynomials prover_polynomials;
-    Flavor::AllValues evals;
     Flavor::CommitmentLabels commitment_labels;
 
     // Globals are also available through STL container sizes
-    EXPECT_EQ(prover_polynomials.size(), Flavor::NUM_ALL_ENTITIES);
+    EXPECT_EQ(prover_polynomials.get_all().size(), Flavor::NUM_ALL_ENTITIES);
     // Shited polynomials have the righ tsize
-    EXPECT_EQ(prover_polynomials.size(), prover_polynomials.get_unshifted_then_shifted().size());
+    EXPECT_EQ(prover_polynomials.get_all().size(),
+              prover_polynomials.get_shifted().size() + prover_polynomials.get_unshifted().size());
     // Commitment lables are stored in the flavor.
     EXPECT_EQ(commitment_labels.w_r, "W_R");
 
@@ -136,8 +135,8 @@ TEST(Flavor, GetRow)
         return std::vector<FF>({ FF::random_element(), FF::random_element() });
     });
     Flavor::ProverPolynomials prover_polynomials;
-    for (auto [poly, entry] : zip_view(prover_polynomials.pointer_view(), data)) {
-        *poly = entry;
+    for (auto [poly, entry] : zip_view(prover_polynomials.get_all(), data)) {
+        poly = entry;
     }
     auto row0 = prover_polynomials.get_row(0);
     auto row1 = prover_polynomials.get_row(1);

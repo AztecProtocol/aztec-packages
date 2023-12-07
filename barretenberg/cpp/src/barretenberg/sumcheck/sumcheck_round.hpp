@@ -88,10 +88,9 @@ template <typename Flavor> class SumcheckProverRound {
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx)
     {
-        for (auto [extended_edge, multivariate] :
-             zip_view(extended_edges.pointer_view(), multivariates.pointer_view())) {
-            auto edge = barretenberg::Univariate<FF, 2>({ (*multivariate)[edge_idx], (*multivariate)[edge_idx + 1] });
-            *extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+            auto edge = barretenberg::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
         }
     }
 
@@ -124,13 +123,13 @@ template <typename Flavor> class SumcheckProverRound {
             barretenberg::thread_utils::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
-        // Constuct univariate accumulator containers; one per thread
+        // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
 
-        // Constuct extended edge containers; one per thread
+        // Construct extended edge containers; one per thread
         std::vector<ExtendedEdges> extended_edges;
         extended_edges.resize(num_threads);
 

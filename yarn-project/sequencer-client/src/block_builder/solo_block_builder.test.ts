@@ -54,10 +54,10 @@ import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import {
   ProcessedTx,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getHistoricBlockData } from '../sequencer/utils.js';
+import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
@@ -115,8 +115,8 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb);
-    return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
+    const historicalTreeRoots = await getBlockHeader(builderDb);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
@@ -143,7 +143,7 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
-  const updateHistoricBlocksTree = async () => {
+  const updateArchive = async () => {
     const blockHash = computeBlockHashWithGlobals(
       globalVariables,
       rootRollupOutput.endNoteHashTreeSnapshot.root,
@@ -152,7 +152,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
     );
-    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -162,7 +162,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.blockData = await getHistoricBlockData(expectsDb);
+    kernelOutput.constants.blockHeader = await getBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -204,8 +204,8 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    await updateHistoricBlocksTree();
-    rootRollupOutput.endHistoricBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
+    await updateArchive();
+    rootRollupOutput.endArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     const txs = [...txsLeft, ...txsRight];
 
@@ -235,8 +235,8 @@ describe('sequencer/solo_block_builder', () => {
       endPublicDataTreeRoot: rootRollupOutput.endPublicDataTreeRoot,
       startL1ToL2MessagesTreeSnapshot: rootRollupOutput.startL1ToL2MessagesTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
-      startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
-      endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
+      startArchiveSnapshot: rootRollupOutput.startArchiveSnapshot,
+      endArchiveSnapshot: rootRollupOutput.endArchiveSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,
@@ -298,7 +298,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.blockData = await getHistoricBlockData(builderDb);
+      kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

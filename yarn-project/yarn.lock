@@ -277,36 +277,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/bb.js@npm:0.15.1":
-  version: 0.15.1
-  resolution: "@aztec/bb.js@npm:0.15.1"
-  dependencies:
-    comlink: ^4.4.1
-    commander: ^10.0.1
-    debug: ^4.3.4
-    tslib: ^2.4.0
-  bin:
-    bb.js: dest/node/main.js
-  checksum: b3d94eb6db1d1579fa7266486d4b1c6ddc408f1d36bd2585b50e623aa90222d273e56464284b94677979840c1119c5385aa961462d3a1af6cb9a2ba1cf9655f9
-  languageName: node
-  linkType: hard
-
-"@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits.js":
+"@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Fcircuits.js%40workspace%3Acircuits.js"
-  dependencies:
-    comlink: ^4.4.1
-    commander: ^10.0.1
-    debug: ^4.3.4
-    tslib: ^2.4.0
-  bin:
-    bb.js: ./dest/node/main.js
-  languageName: node
-  linkType: soft
-
-"@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation":
-  version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@portal:../../barretenberg/ts::locator=%40aztec%2Ffoundation%40workspace%3Afoundation"
+  resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     comlink: ^4.4.1
     commander: ^10.0.1
@@ -576,6 +549,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -599,6 +573,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-compiler@workspace:noir-compiler"
   dependencies:
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
     "@ltd/j-toml": ^1.38.0
@@ -3646,8 +3621,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/backend_barretenberg@portal:../noir/packages/backend_barretenberg::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/bb.js": 0.15.1
-    "@noir-lang/types": 0.19.3
+    "@aztec/bb.js": 0.16.0
+    "@noir-lang/types": 0.19.4
     fflate: ^0.8.0
   languageName: node
   linkType: soft
@@ -3656,9 +3631,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.34.0
-    "@noir-lang/noirc_abi": 0.19.3
-    "@noir-lang/types": 0.19.3
+    "@noir-lang/acvm_js": 0.35.0
+    "@noir-lang/noirc_abi": 0.19.4
+    "@noir-lang/types": 0.19.4
   languageName: node
   linkType: soft
 
@@ -3666,7 +3641,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   peerDependencies:
-    "@noir-lang/source-resolver": 0.19.3
+    "@noir-lang/source-resolver": 0.19.4
   languageName: node
   linkType: soft
 
@@ -3686,7 +3661,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/noirc_abi": 0.19.3
+    "@noir-lang/noirc_abi": 0.19.4
   languageName: node
   linkType: soft
 
@@ -7360,9 +7335,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-ui": ^0.1.14
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@types/jest": ^29.5.0
     "@types/mocha": ^10.0.3
     "@types/node": ^20.5.9
@@ -7411,8 +7383,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-ui": ^0.1.14
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
     "@types/jest": ^29.5.0
     "@types/mocha": ^10.0.3
     "@typescript-eslint/eslint-plugin": ^6.0.0
@@ -19127,9 +19097,6 @@ __metadata:
   dependencies:
     "@aztec/aztec-ui": ^0.1.14
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.6.4
     "@types/jest": ^29.5.0
     "@types/mocha": ^10.0.3
