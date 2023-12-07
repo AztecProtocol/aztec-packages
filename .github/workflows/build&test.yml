@@ -22,13 +22,15 @@ jobs:
 
     steps:
     - name: Install | Clang
+      shell: bash
       run: apt update && apt install -y libclang-dev
     - name: Install | CMake
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
         cmake-version: '3.24.0'
     - name: Install | Nargo
-      run: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash && noirup
+      shell: bash
+      run: curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash && source /github/home/.bashrc && noirup
     - uses: actions/checkout@v3
     - name: Build
       working-directory: noir/tooling/noir_rs
