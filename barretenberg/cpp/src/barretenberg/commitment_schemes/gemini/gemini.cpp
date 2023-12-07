@@ -77,7 +77,7 @@ std::vector<typename barretenberg::Polynomial<typename Curve::ScalarField>> Gemi
     Polynomial& batched_G = gemini_polynomials.emplace_back(std::move(batched_to_be_shifted));
     constexpr size_t offset_to_folded = 2; // Offset because of F an G
     // A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X.
-    Polynomial A_0(batched_F);
+    Polynomial A_0 = batched_F.deep_clone();
     A_0 += batched_G.shifted();
 
     // Allocate everything before parallel computation
@@ -159,7 +159,7 @@ ProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
     batched_G *= r_inv;
 
     // Construct A₀₊ = F + G/r and A₀₋ = F - G/r in place in gemini_polynomials
-    Polynomial tmp = batched_F;
+    Polynomial tmp = batched_F.deep_clone();
     Polynomial& A_0_pos = gemini_polynomials[0];
 
     // A₀₊(X) = F(X) + G(X)/r, s.t. A₀₊(r) = A₀(r)

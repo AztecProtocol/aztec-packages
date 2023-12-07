@@ -375,6 +375,10 @@ class GoblinUltra {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials() = default;
+        ProverPolynomials(ProverPolynomials&& o) = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {

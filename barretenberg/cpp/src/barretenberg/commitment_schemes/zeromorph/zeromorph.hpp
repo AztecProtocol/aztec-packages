@@ -215,7 +215,7 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t log_N = quotients.size();
 
         // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
-        auto result = g_batched;
+        auto result = g_batched.deep_clone();
         result.add_scaled(f_batched, x_challenge);
 
         // Compute Z_x -= v * x * \Phi_n(x)
@@ -351,12 +351,16 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
+        int i = 0;
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
+            std::cout << "I:" << (i++) << " gp " << g_poly << " batch " << batching_scalar << std::endl;
+            std::cout << "I:" << (i++) << g_batched << std::endl;
             g_batched.add_scaled(g_poly, batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
             batching_scalar *= rho;
         };
+        std::cout << "Iafter:" << (i++) << g_batched << std::endl;
 
         size_t num_groups = concatenation_groups.size();
         size_t num_chunks_per_group = concatenation_groups.empty() ? 0 : concatenation_groups[0].size();
@@ -382,7 +386,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
         // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
-        Polynomial f_polynomial = f_batched;
+        Polynomial f_polynomial = f_batched.deep_clone();
         f_polynomial += g_batched.shifted();
         f_polynomial += concatenated_batched;
 

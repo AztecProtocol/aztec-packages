@@ -31,7 +31,7 @@ void ensure_non_zero(auto& polynomial)
  * @tparam relation_idx Index into a tuple of provided relations
  * @tparam Flavor
  */
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto polynomials, auto params)
+template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
     using AllValues = typename Flavor::AllValues;
     for (size_t i = 0; i < circuit_size; i++) {
@@ -67,7 +67,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
  * @tparam Flavor
  */
 template <typename Flavor, typename Relation>
-void check_linearly_dependent_relation(auto circuit_size, auto polynomials, auto params)
+void check_linearly_dependent_relation(auto circuit_size, auto& polynomials, auto params)
 {
     using AllValues = typename Flavor::AllValues;
     // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
@@ -292,7 +292,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
 
-    auto prover_polynomials = instance->prover_polynomials;
+    auto& prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
@@ -352,7 +352,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
-    auto prover_polynomials = instance->prover_polynomials;
+    auto& prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials

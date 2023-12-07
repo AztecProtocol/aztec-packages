@@ -119,7 +119,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
 
     auto accumulator = std::make_shared<Instance>(
-        FoldingResult<Flavor>{ .folded_prover_polynomials = full_polynomials,
+        FoldingResult<Flavor>{ .folded_prover_polynomials = std::move(full_polynomials),
                                .folded_public_inputs = std::vector<FF>{},
                                .verification_key = std::make_shared<Flavor::VerificationKey>(),
                                .folding_parameters = { betas, target_sum } });

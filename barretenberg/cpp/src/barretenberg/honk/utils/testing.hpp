@@ -32,7 +32,7 @@ get_sequential_prover_polynomials(const size_t log_circuit_size, const size_t st
         prover_poly = storage_poly.share();
     }
 
-    return std::pair(std::move(storage), prover_polynomials);
+    return std::pair(std::move(storage), std::move(prover_polynomials));
 }
 
 template <typename Flavor>
@@ -58,7 +58,7 @@ get_zero_prover_polynomials(const size_t log_circuit_size)
         prover_poly = storage_poly.share();
     }
 
-    return std::pair(std::move(storage), prover_polynomials);
+    return std::pair(std::move(storage), std::move(prover_polynomials));
 }
 
 } // namespace proof_system::honk

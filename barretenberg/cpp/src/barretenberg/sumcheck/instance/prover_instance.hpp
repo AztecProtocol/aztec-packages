@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/container.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
@@ -58,11 +59,17 @@ template <class Flavor> class ProverInstance_ {
         compute_witness(circuit);
     }
 
-    ProverInstance_(FoldingResult<Flavor> result)
+    ProverInstance_(const FoldingResult<Flavor>& result)
         : verification_key(std::move(result.verification_key))
-        , prover_polynomials(result.folded_prover_polynomials)
         , public_inputs(result.folded_public_inputs)
-        , folding_parameters(result.folding_parameters){};
+        , folding_parameters(result.folding_parameters)
+    {
+        ProverPolynomials polynomials;
+        for (auto [poly, folded_poly] : zip_view(polynomials.get_all(), result.folded_prover_polynomials.get_all())) {
+            poly = folded_poly.share();
+        }
+        prover_polynomials = std::move(polynomials);
+    };
 
     ProverInstance_() = default;
     ~ProverInstance_() = default;
