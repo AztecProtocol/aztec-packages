@@ -354,14 +354,14 @@ const INSTRUCTION_SET_RAW = [
         "#memwrites": "`s1`",
         "Args": [
             {"name": "cdOffset", "description": "offset into calldata to copy from"},
-            {"name": "size", "description": "number of words to copy", "mode": "immediate", "type": "u24"},
+            {"name": "copySize", "description": "number of words to copy", "mode": "immediate", "type": "u32"},
             {"name": "dstOffset", "description": "memory offset specifying where to copy the first word to"},
         ],
-        "Expression": "`M[dstOffset:dstOffset+size] = calldata[cdOffset:cdOffset+size]`",
+        "Expression": "`M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]`",
         "Summary": "Copy calldata into memory.",
         "Details": "Calldata is read-only and cannot be directly operated on by other instructions. This instruction moves words from calldata into memory so they can be operated on normally.",
         "Tag checks": "",
-        "Tag updates": "`T[dstOffset:dstOffset+size] = field`",
+        "Tag updates": "`T[dstOffset:dstOffset+copySize] = field`",
     },
     {
         "id": "sload",
@@ -463,7 +463,7 @@ const INSTRUCTION_SET_RAW = [
         "#memreads": "0",
         "#memwrites": "0",
         "Args": [
-            {"name": "loc", "description": "target location to jump to", "mode": "immediate", "type": "u24"},
+            {"name": "loc", "description": "target location to jump to", "mode": "immediate", "type": "u32"},
         ],
         "Expression": "`PC = loc`",
         "Summary": "Jump to a location in the bytecode.",
@@ -481,7 +481,7 @@ const INSTRUCTION_SET_RAW = [
         "#memreads": "3",
         "#memwrites": "0",
         "Args": [
-            {"name": "loc", "description": "target location conditionally jump to", "mode": "immediate", "type": "u24"},
+            {"name": "loc", "description": "target location conditionally jump to", "mode": "immediate", "type": "u32"},
             {"name": "condOffset", "description": "memory offset of the operations 'conditional' input"},
         ],
         "Expression": "`PC = M[condOffset] > 0 ? loc : PC`",
@@ -500,10 +500,10 @@ const INSTRUCTION_SET_RAW = [
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
-            {"name": "offset", "description": "memory offset of first word to return"},
-            {"name": "size", "description": "number of words to return", "mode": "immediate", "type": "u24"},
+            {"name": "retOffset", "description": "memory offset of first word to return"},
+            {"name": "retSize", "description": "number of words to return", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`return(M[offset:offset+size])`",
+        "Expression": "`return(M[retOffset:retOffset+retSize])`",
         "Summary": "Halt execution with `success`, optionally returning some data.",
         "Details": "Return control flow to the calling context/contract.",
         "Tag checks": "",
@@ -519,10 +519,10 @@ const INSTRUCTION_SET_RAW = [
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
-            {"name": "offset", "description": "memory offset of first word to return"},
-            {"name": "size", "description": "number of words to return", "mode": "immediate", "type": "u24"},
+            {"name": "retOffset", "description": "memory offset of first word to return"},
+            {"name": "retSize", "description": "number of words to return", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`revert(M[offset:offset+size])`",
+        "Expression": "`revert(M[retOffset:retOffset+retSize])`",
         "Summary": "Halt execution with `failure`, reverting state changes and optionally returning some data.",
         "Details": "Return control flow to the calling context/contract.",
         "Tag checks": "",
@@ -535,21 +535,20 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "5",
+        "#memreads": "7",
         "#memwrites": "`1+retSize`",
         "Args": [
-            {"name": "l1GasOffset", "description": "amount of L1 gas to provide to the callee"},
-            {"name": "l2GasOffset", "description": "amount of L2 gas to provide to the callee"},
+            {"name": "gasOffset", "description": "offset to two words containing `{l1Gas, l2Gas}`: amount of L1 and L2 gas to provide to the callee"},
             {"name": "addrOffset", "description": "address of the contract to call"},
             {"name": "argsOffset", "description": "memory offset to args (will become the callee's calldata)"},
-            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u24"},
+            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u32"},
             {"name": "retOffset", "description": "destination memory offset specifying where to store the data returned from the callee"},
-            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u24"},
+            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u32"},
             {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
         ],
         "Expression":`
 M[successOffset] = call(
-    M[l1GasOffset], M[l2GasOffset], M[addrOffset],
+    M[gasOffset], M[gasOffset+1], M[addrOffset],
     M[argsOffset], M[argsSize],
     M[retOffset], M[retSize])
 `,
@@ -557,7 +556,7 @@ M[successOffset] = call(
         "Details": `Creates a new CallContext, triggers execution of the corresponding contract code,
                     and then resumes execution in the current CallContext. A non-existent contract or one
                     with no code will return success. Nested call has an incremented \`CallContext.calldepth\`.`,
-        "Tag checks": "`T[l1GasOffset] == T[l2GasOffset] == u32`",
+        "Tag checks": "`T[gasOffset] == T[gasOffset+1] == u32`",
         "Tag updates": `
 T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field
@@ -570,27 +569,26 @@ T[retOffset:retOffset+retSize] = field
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "5",
+        "#memreads": "7",
         "#memwrites": "`1+retSize`",
         "Args": [
-            {"name": "l1GasOffset", "description": "amount of L1 gas to provide to the callee"},
-            {"name": "l2GasOffset", "description": "amount of L2 gas to provide to the callee"},
+            {"name": "gasOffset", "description": "offset to two words containing `{l1Gas, l2Gas}`: amount of L1 and L2 gas to provide to the callee"},
             {"name": "addrOffset", "description": "address of the contract to call"},
             {"name": "argsOffset", "description": "memory offset to args (will become the callee's calldata)"},
-            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u24"},
+            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u32"},
             {"name": "retOffset", "description": "destination memory offset specifying where to store the data returned from the callee"},
-            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u24"},
+            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u32"},
             {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
         ],
         "Expression": `
 M[successOffset] = staticcall(
-    M[l1GasOffset], M[l2GasOffset], M[addrOffset],
+    M[gasOffset], M[gasOffset+1], M[addrOffset],
     M[argsOffset], M[argsSize],
     M[retOffset], M[retSize])
 `,
         "Summary": "Call into another contract, disallowing persistent state modifications.",
         "Details": "Same as `CALL`, but the callee is cannot modify persistent state. Disallowed instructions are `SSTORE`, `ULOG`, `CALL`.",
-        "Tag checks": "`T[l1GasOffset] == T[l2GasOffset] == u32`",
+        "Tag checks": "`T[gasOffset] == T[gasOffset+1] == u32`",
         "Tag updates": `
 T[successOffset] = u8
 T[retOffset:retOffset+retSize] = field
@@ -606,10 +604,10 @@ T[retOffset:retOffset+retSize] = field
         "#memreads": "`s1`",
         "#memwrites": "0",
         "Args": [
-            {"name": "offset", "description": "memory offset of the data to log"},
-            {"name": "size", "description": "number of words to log", "mode": "immediate", "type": "u24"},
+            {"name": "logOffset", "description": "memory offset of the data to log"},
+            {"name": "logSize", "description": "number of words to log", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`ulog(M[offset:offset+size])`",
+        "Expression": "`ulog(M[logOffset:logOffset+logSize])`",
         "Summary": "Emit an unencrypted log with data from the `field` memory page",
         "Details": "",
         "Tag checks": "",

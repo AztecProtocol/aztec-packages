@@ -66,14 +66,14 @@ A `tag` refers to the maximum potential value of a cell of main memory. The foll
 | 0         | 0                         | uninitialized |
 | 1         | $2^8 - 1$                 | `u8`          |
 | 2         | $2^{16} - 1$              | `u16`         |
-| 3         | $2^{24} - 1$              | `u24`         |
-| 4         | $2^{32} - 1$              | `u32`         |
-| 5         | $2^{64} - 1$              | `u64`         |
-| 6         | $2^{128} - 1$             | `u128`        |
-| 7         | $p - 1$                   | `field`       |
+| 3         | $2^{32} - 1$              | `u32`         |
+| 4         | $2^{64} - 1$              | `u64`         |
+| 5         | $2^{128} - 1$             | `u128`        |
+| 6         | $p - 1$                   | `field`       |
+| 7         | reserved                  | reserved      |
 
 > Note: $p$ describes the modulus of the finite field that the AVM circuit is defined over (i.e. number of points on the BN254 curve).
-> Note: `u24` is used for offsets into the VM's 24-bit addressable main memory
+> Note: `u32` is used for offsets into the VM's 32-bit addressable main memory
 
 The purpose of a tag is to inform the VM of the maximum possible length of an operand value that has been loaded from memory.
 
@@ -129,12 +129,12 @@ M[dstOffset] = cast<to: u64>(M[srcOffset]) // perform cast
 
 #### Indirect `MOV` and extra tag checks
 
-A `MOV` instruction may flag its source and/or destination offsets as "indirect". An indirect memory access performs `M[M[offset]]` instead of the standard `M[offset]`. Memory offsets must be `u24`s since main memory is a 24-bit addressable space, and so indirect memory accesses include additional checks.
+A `MOV` instruction may flag its source and/or destination offsets as "indirect". An indirect memory access performs `M[M[offset]]` instead of the standard `M[offset]`. Memory offsets must be `u32`s since main memory is a 32-bit addressable space, and so indirect memory accesses include additional checks.
 
 Additional checks for a `MOV` with an indirect source offset:
 ```
 # MOV srcOffset dstOffset      // with indirect source
-assert T[srcOffset] == u24     // enforce that `M[srcOffset]` is itself a valid memory offset
+assert T[srcOffset] == u32     // enforce that `M[srcOffset]` is itself a valid memory offset
 T[dstOffset] = T[T[srcOffset]] // tag destination to match indirect source tag
 M[dstOffset] = M[M[srcOffset]] // perform move from indirect source
 ```
@@ -142,7 +142,7 @@ M[dstOffset] = M[M[srcOffset]] // perform move from indirect source
 Additional checks for a `MOV` with an indirect destination offset:
 ```
 # MOV srcOffset dstOffset      // with indirect destination
-assert T[dstOffset] == u24     // enforce that `M[dstOffset]` is itself a valid memory offset
+assert T[dstOffset] == u32     // enforce that `M[dstOffset]` is itself a valid memory offset
 T[T[dstOffset]] = T[srcOffset] // tag indirect destination to match source tag
 M[M[dstOffset]] = M[srcOffset] // perform move to indirect destination
 ```
@@ -150,7 +150,7 @@ M[M[dstOffset]] = M[srcOffset] // perform move to indirect destination
 Additional checks for a `MOV` with both indirect source and destination offsets:
 ```
 # MOV srcOffset dstOffset                  // with indirect source and destination
-assert T[srcOffset] == T[dstOffset] == u24 // enforce that `M[*Offset]` are valid memory offsets
+assert T[srcOffset] == T[dstOffset] == u32 // enforce that `M[*Offset]` are valid memory offsets
 T[T[dstOffset]] = T[T[srcOffset]]          // tag indirect destination to match indirect source tag
 M[M[dstOffset]] = M[M[srcOffset]]          // perform move to indirect destination
 ```
