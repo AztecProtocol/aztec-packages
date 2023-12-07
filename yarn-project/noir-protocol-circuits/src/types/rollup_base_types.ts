@@ -9,18 +9,18 @@ export type u32 = string;
 
 export interface AggregationObject {}
 
-export interface Address {
+export interface AztecAddress {
   inner: Field;
 }
 
 export interface CallerContext {
-  msg_sender: Address;
-  storage_contract_address: Address;
+  msg_sender: AztecAddress;
+  storage_contract_address: AztecAddress;
 }
 
 export interface CallRequest {
   hash: Field;
-  caller_contract_address: Address;
+  caller_contract_address: AztecAddress;
   caller_context: CallerContext;
 }
 
@@ -29,7 +29,7 @@ export interface EthAddress {
 }
 
 export interface NewContractData {
-  contract_address: Address;
+  contract_address: AztecAddress;
   portal_contract_address: EthAddress;
   function_tree_root: Field;
 }
