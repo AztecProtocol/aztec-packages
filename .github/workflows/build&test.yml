@@ -20,7 +20,7 @@ jobs:
     steps:
     - name: Install
       run: sudo apt update && sudo apt upgrade -y && sudo apt install -y git build-essential curl pkg-config libssl-dev libclang-dev
-    - name: Setup | Rust1
+    - name: Setup | Rust
       uses: ATiltedTree/setup-rust@v1
       with:
         rust-version: stable
