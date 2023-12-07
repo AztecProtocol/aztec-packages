@@ -270,7 +270,6 @@ impl PrivateContext {
                 args_hash: fields[12],
                 return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 13),
                 read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 17),
-<<<<<<< HEAD
                 new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 49),
                 new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 65),
                 nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 81),
@@ -281,7 +280,7 @@ impl PrivateContext {
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 109),
                 encrypted_log_preimages_length: fields[111],
                 unencrypted_log_preimages_length: fields[112],
-                block_data: HistoricBlockData {
+                block_header: BlockHeader{
                     // Must match order in `private_circuit_public_inputs.hpp`
                     note_hash_tree_root : fields[113],
                     nullifier_tree_root : fields[114],
@@ -290,28 +289,6 @@ impl PrivateContext {
                     blocks_tree_root : fields[117],
                     public_data_tree_root: fields[118],
                     global_variables_hash: fields[119],
-=======
-                pending_read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 49),
-                new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 81),
-                new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 97),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 113),
-                private_call_stack: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 129),
-                public_call_stack: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 133),
-                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 137),
-                encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 139),
-                unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 141),
-                encrypted_log_preimages_length: fields[143],
-                unencrypted_log_preimages_length: fields[144],
-                block_header: BlockHeader {
-                    // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[145],
-                    nullifier_tree_root : fields[146],
-                    contract_tree_root : fields[147],
-                    l1_to_l2_messages_tree_root : fields[148],
-                    archive_root : fields[149],
-                    public_data_tree_root: fields[150],
-                    global_variables_hash: fields[151],
->>>>>>> master
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point::new(fields[120], fields[121]),
