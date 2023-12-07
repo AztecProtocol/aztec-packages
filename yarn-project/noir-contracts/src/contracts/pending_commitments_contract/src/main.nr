@@ -20,13 +20,17 @@ contract PendingCommitments {
         },
         state_vars::{map::Map, set::Set},
     };
+    use dep::protocol_types::{
+        address::Address,
+        abis::function_selector::FunctionSelector,
+    };
 
     struct Storage {
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 balances: Map::new(
                     context,
@@ -136,29 +140,29 @@ contract PendingCommitments {
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
         owner: Address,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field,
-        get_note_zero_fn_selector: Field
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector,
+        get_note_zero_fn_selector: FunctionSelector
     ) {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            [amount, owner]);
+            [amount, owner.to_field()]);
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            [amount, owner]);
+            [amount, owner.to_field()]);
         // nested call to confirm that balance is zero
         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address,
             get_note_zero_fn_selector,
-            [owner]);
+            [owner.to_field()]);
     }
 
     // same test as above, but insert 2, get 2, nullify 2
     #[aztec(private)]
-    fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(amount: Field, owner: Address, insert_fn_selector: Field, get_then_nullify_fn_selector: Field) {
+    fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(amount: Field, owner: Address, insert_fn_selector: FunctionSelector, get_then_nullify_fn_selector: FunctionSelector) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address,
@@ -181,9 +185,9 @@ contract PendingCommitments {
 
     // same test as above, but insert 2, get 1, nullify 1
     #[aztec(private)]
-    fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(amount: Field, owner: Address, insert_fn_selector: Field, get_then_nullify_fn_selector: Field) {
+    fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(amount: Field, owner: Address, insert_fn_selector: FunctionSelector, get_then_nullify_fn_selector: FunctionSelector) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address,
@@ -205,12 +209,12 @@ contract PendingCommitments {
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: Address,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field,
-        get_note_zero_fn_selector: Field
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector,
+        get_note_zero_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address,
@@ -226,7 +230,7 @@ contract PendingCommitments {
 
         let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address,
             get_note_zero_fn_selector,
-            [owner]);
+            [owner.to_field()]);
     }
 
     // Confirm cannot get/read a pending commitment in a nested call
@@ -240,7 +244,7 @@ contract PendingCommitments {
     //fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
     //    owner: Address,
-    //    get_then_nullify_fn_selector: Field,
+    //    get_then_nullify_fn_selector: FunctionSelector,
     //) {
     //}
 
