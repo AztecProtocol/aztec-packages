@@ -1,4 +1,4 @@
-name: build&test
+name: run-examples
 
 on:
   push:
@@ -21,14 +21,7 @@ jobs:
       image: docker.io/rust:latest
 
     steps:
-    - name: Setup | CMake
-      uses: jwlawson/actions-setup-cmake@v1.13
-      with:
-        cmake-version: '3.24.0'
     - uses: actions/checkout@v3
-    - name: Build
-      working-directory: noir/tooling/noir_rs
-      run: cargo build -vv
-    - name: Run tests
-      working-directory: noir/tooling/noir_rs
-      run: cargo test -vv
+    - name: Run noir/tooling/noir_rs/examples/poly_check_circuit
+      working-directory: noir/tooling/noir_rs/examples/poly_check_circuit
+      run: cargo run -vv
