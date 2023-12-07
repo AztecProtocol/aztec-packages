@@ -45,6 +45,7 @@ class Goblin {
     using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
     using RecursiveMergeVerifier =
         proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+    using MergeVerifier = proof_system::honk::MergeVerifier_<proof_system::honk::flavor::GoblinUltra>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 
@@ -108,13 +109,13 @@ class Goblin {
         translator_composer = std::make_unique<TranslatorComposer>();
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         proof.translator_proof = translator_prover.construct_proof();
+
         return proof;
     };
 
     bool verify(const Proof& proof)
     {
-        GoblinUltraComposer composer;
-        auto merge_verifier = composer.create_merge_verifier();
+        MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
