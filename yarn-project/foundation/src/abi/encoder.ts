@@ -68,10 +68,11 @@ class ArgumentEncoder {
           this.encodeArgument(abiType.type, arg[i], `${name}[${i}]`);
         }
         break;
-      case 'struct':
+      case 'struct': {
         // If the abi expects a struct like { address: Field } and the supplied arg does not have
         // an address field in it, we try to encode it as if it were a field directly.
-        if (isAddressStruct(abiType) && typeof arg.address === 'undefined') {
+        const isAddress = isAddressStruct(abiType);
+        if (isAddress && typeof arg.address === 'undefined') {
           this.encodeArgument({ kind: 'field' }, arg, `${name}.address`);
           break;
         }
@@ -80,9 +81,14 @@ class ArgumentEncoder {
           break;
         }
         for (const field of abiType.fields) {
-          this.encodeArgument(field.type, arg[field.name], `${name}.${field.name}`);
+          // For address we get here when a `CompleteAddress` was passed and since it has `address` property but
+          // in ABI it's called inner set `field.name` here to `address` instead of using `field.name`. I know
+          // it's hacky but using address.address in Noir looks stupid.
+          const fieldName = isAddress ? 'address' : field.name;
+          this.encodeArgument(field.type, arg[fieldName], `${name}.${field.name}`);
         }
         break;
+      }
       case 'integer':
         this.flattened.push(new Fr(arg));
         break;
