@@ -85,6 +85,36 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
     return output_state;
 }
 
+template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(CircuitBuilder& circuit)
+{
+    auto instance = std::make_shared<Instance>(circuit);
+    UltraProver_<Flavor> result{
+        instance, std::make_shared<Transcript>()
+    }; // WORKTODO: will instance survive? also transcript init?
+    return result;
+}
+
+template <UltraFlavor Flavor>
+UltraProver_<Flavor> UltraComposer_<Flavor>::create_ultra_with_keccak_prover(CircuitBuilder& circuit)
+{
+    return create_prover(circuit);
+}
+
+template <UltraFlavor Flavor> UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(CircuitBuilder& circuit)
+{
+    auto instance = std::make_shared<Instance>(circuit);
+    UltraVerifier_<Flavor> result{
+        instance, std::make_shared<Transcript>()
+    }; // WORKTODO: will instance survive? also transcript init?
+    return result;
+}
+
+template <UltraFlavor Flavor>
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_ultra_with_keccak_verifier(CircuitBuilder& circuit)
+{
+    return create_verifier(circuit);
+}
+
 template <UltraFlavor Flavor>
 UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<Instance>& instance,
                                                                const std::shared_ptr<Transcript>& transcript)

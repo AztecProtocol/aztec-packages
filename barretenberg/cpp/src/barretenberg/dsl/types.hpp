@@ -1,7 +1,6 @@
 #pragma once
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
+#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
-#include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/encryption/schnorr/schnorr.hpp"
 #include "barretenberg/stdlib/merkle_tree/hash_path.hpp"
@@ -24,16 +23,15 @@
 
 namespace acir_format {
 
-using Builder = proof_system::UltraCircuitBuilder;
-using Composer = plonk::UltraComposer;
+using Builder = proof_system::GoblinUltraCircuitBuilder;
 
-using Prover =
-    std::conditional_t<std::same_as<Composer, plonk::UltraComposer>, plonk::UltraWithKeccakProver, plonk::Prover>;
+using Composer = proof_system::honk::GoblinUltraComposer;
 
-using Verifier =
-    std::conditional_t<std::same_as<Composer, plonk::UltraComposer>, plonk::UltraWithKeccakVerifier, plonk::Verifier>;
+using Prover = proof_system::honk::GoblinUltraProver;
 
-using RecursiveProver = plonk::UltraProver;
+using Verifier = proof_system::honk::GoblinUltraVerifier;
+
+using RecursiveProver = Prover;
 
 using witness_ct = proof_system::plonk::stdlib::witness_t<Builder>;
 using public_witness_ct = proof_system::plonk::stdlib::public_witness_t<Builder>;
