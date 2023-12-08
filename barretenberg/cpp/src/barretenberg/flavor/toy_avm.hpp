@@ -5,9 +5,9 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
-#include "barretenberg/relations/toy_avm/generic_permutation_relation.hpp"
 #include "barretenberg/relations/toy_avm/relation_definer.hpp"
 #include "relation_definitions_fwd.hpp"
 #include <array>
@@ -368,9 +368,4 @@ class ToyAVM {
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 } // namespace flavor
-namespace sumcheck {
-
-DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM)
-
-} // namespace sumcheck
 } // namespace proof_system::honk

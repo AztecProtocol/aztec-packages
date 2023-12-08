@@ -10,8 +10,8 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/toy_avm.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/toy_avm/generic_permutation_relation.hpp"
 
 namespace proof_system {
 
