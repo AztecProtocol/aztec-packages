@@ -1,6 +1,6 @@
 import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   BlockHeader,
   CONTRACT_TREE_HEIGHT,
   Fr,
@@ -8,6 +8,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeGlobalsHash, computePublicDataTreeIndex } from '@aztec/circuits.js/abis';
@@ -391,12 +392,12 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public async getBlocksTreeSiblingPath(
+  public async getArchiveSiblingPath(
     blockNumber: number | 'latest',
     leafIndex: bigint,
-  ): Promise<SiblingPath<typeof BLOCKS_TREE_HEIGHT>> {
+  ): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>> {
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.getSiblingPath(MerkleTreeId.BLOCKS_TREE, leafIndex);
+    return committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, leafIndex);
   }
 
   /**
@@ -429,19 +430,19 @@ export class AztecNodeService implements AztecNode {
       return undefined;
     }
 
-    const leafDataPromise = db.getLeafData(MerkleTreeId.NULLIFIER_TREE, Number(index));
+    const leafPreimagePromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
     const siblingPathPromise = db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
 
-    const [leafData, siblingPath] = await Promise.all([leafDataPromise, siblingPathPromise]);
+    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
 
-    if (!leafData) {
+    if (!leafPreimage) {
       return undefined;
     }
 
-    return new NullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
   }
 
   /**
@@ -463,22 +464,21 @@ export class AztecNodeService implements AztecNode {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const { index, alreadyPresent } = await committedDb.getPreviousValueIndex(
-      MerkleTreeId.NULLIFIER_TREE,
-      nullifier.toBigInt(),
-    );
+    const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!findResult) {
+      return undefined;
+    }
+    const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
       this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
     }
-    const leafData = await committedDb.getLeafData(MerkleTreeId.NULLIFIER_TREE, index);
-    if (!leafData) {
-      return undefined;
-    }
+    const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
+
     const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
-    return new NullifierMembershipWitness(BigInt(index), leafData, siblingPath);
+    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
   /**
@@ -506,15 +506,14 @@ export class AztecNodeService implements AztecNode {
     const committedDb = await this.#getWorldState('latest');
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
-    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
-      await Promise.all([
-        getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
-        getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-        getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-        getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-        getTreeRoot(MerkleTreeId.BLOCKS_TREE),
-        getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      ]);
+    const [noteHashTree, nullifierTree, contractTree, l1ToL2MessagesTree, archive, publicDataTree] = await Promise.all([
+      getTreeRoot(MerkleTreeId.NOTE_HASH_TREE),
+      getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+      getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+      getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      getTreeRoot(MerkleTreeId.ARCHIVE),
+      getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+    ]);
 
     return {
       [MerkleTreeId.CONTRACT_TREE]: contractTree,
@@ -522,7 +521,7 @@ export class AztecNodeService implements AztecNode {
       [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
       [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,
-      [MerkleTreeId.BLOCKS_TREE]: blocksTree,
+      [MerkleTreeId.ARCHIVE]: archive,
     };
   }
 
@@ -539,7 +538,7 @@ export class AztecNodeService implements AztecNode {
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      roots[MerkleTreeId.BLOCKS_TREE],
+      roots[MerkleTreeId.ARCHIVE],
       Fr.ZERO,
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,

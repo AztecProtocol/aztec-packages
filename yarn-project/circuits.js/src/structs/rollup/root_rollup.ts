@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
@@ -39,11 +39,11 @@ export class RootRollupInputs {
     /**
      * Snapshot of the historical block roots tree at the start of the rollup.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startArchiveSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Sibling path of the new block tree root.
      */
-    public newBlocksTreeSiblingPath: Tuple<Fr, typeof BLOCKS_TREE_HEIGHT>,
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ) {}
 
   toBuffer() {
@@ -60,8 +60,8 @@ export class RootRollupInputs {
       fields.newL1ToL2Messages,
       fields.newL1ToL2MessagesTreeRootSiblingPath,
       fields.startL1ToL2MessagesTreeSnapshot,
-      fields.startBlocksTreeSnapshot,
-      fields.newBlocksTreeSiblingPath,
+      fields.startArchiveSnapshot,
+      fields.newArchiveSiblingPath,
     ] as const;
   }
 }
@@ -120,24 +120,6 @@ export class RootRollupPublicInputs {
     public endPublicDataTreeRoot: Fr,
 
     /**
-     * Snapshot of the historical note hash tree roots tree at the start of the rollup.
-     */
-    public startTreeOfHistoricalNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the historical note hash tree roots tree at the end of the rollup.
-     */
-    public endTreeOfHistoricalNoteHashTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the historical contract tree roots tree at the start of the rollup.
-     */
-    public startTreeOfHistoricalContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the historical contract tree roots tree at the end of the rollup.
-     */
-    public endTreeOfHistoricalContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
      * Snapshot of the L1 to L2 message tree at the start of the rollup.
      */
     public startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -147,22 +129,13 @@ export class RootRollupPublicInputs {
     public endL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * Snapshot of the historical L1 to L2 message tree roots tree at the start of the rollup.
-     */
-    public startTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the historical L1 to L2 message tree roots tree at the end of the rollup.
-     */
-    public endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
      * Snapshot of the blocks tree roots tree at the start of the rollup.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startArchiveSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the blocks tree roots tree at the end of the rollup.
      */
-    public endBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public endArchiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Hash of the calldata.
@@ -186,16 +159,10 @@ export class RootRollupPublicInputs {
       fields.endContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
       fields.endPublicDataTreeRoot,
-      fields.startTreeOfHistoricalNoteHashTreeRootsSnapshot,
-      fields.endTreeOfHistoricalNoteHashTreeRootsSnapshot,
-      fields.startTreeOfHistoricalContractTreeRootsSnapshot,
-      fields.endTreeOfHistoricalContractTreeRootsSnapshot,
       fields.startL1ToL2MessagesTreeSnapshot,
       fields.endL1ToL2MessagesTreeSnapshot,
-      fields.startTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot,
-      fields.endTreeOfHistoricalL1ToL2MessagesTreeRootsSnapshot,
-      fields.startBlocksTreeSnapshot,
-      fields.endBlocksTreeSnapshot,
+      fields.startArchiveSnapshot,
+      fields.endArchiveSnapshot,
       fields.calldataHash,
       fields.l1ToL2MessagesHash,
     ] as const;
@@ -244,12 +211,6 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
