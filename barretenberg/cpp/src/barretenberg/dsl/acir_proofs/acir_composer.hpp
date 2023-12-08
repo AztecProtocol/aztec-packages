@@ -1,6 +1,6 @@
 #pragma once
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
-#include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp>
+#include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp> // WORKTODO(KEY_TYEPS)
 #include <barretenberg/plonk/proof_system/verification_key/verification_key.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +10,11 @@ namespace acir_proofs {
 
 class AcirComposer {
   public:
+    using InputFlavor = proof_system::honk::flavor::GoblinUltra;
+    // using InputFlavor = plonk::flavor::Ultra;
+    using ProvingKey = typename InputFlavor::ProvingKey;
+    using VerificationKey = typename InputFlavor::VerificationKey;
+
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     void create_circuit(acir_format::acir_format& constraint_system);
@@ -44,9 +49,9 @@ class AcirComposer {
     size_t circuit_subgroup_size_;
     // WORKTODO: these will actually have to change.
     // Maybe use flavor so that it's an easier switch
-    std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
+    std::shared_ptr<ProvingKey> proving_key_;
     // WORKTODO: this is a GUH vk
-    std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
+    std::shared_ptr<VerificationKey> verification_key_;
 
     bool verbose_ = true;
 
