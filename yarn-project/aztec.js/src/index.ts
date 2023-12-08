@@ -16,6 +16,8 @@
  *   import { AztecAddress } from '@aztec/aztec.js/aztec_address';
  *   import { EthAddress } from '@aztec/aztec.js/eth_address';
  * ```
+ *
+ * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 export {
   WaitOpts,
@@ -124,7 +126,7 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
 export { retry, retryUntil } from '@aztec/foundation/retry';
-export { sha256, init } from '@aztec/foundation/crypto';
+export { sha256 } from '@aztec/foundation/crypto';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -135,3 +137,8 @@ export {
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
 } from '@aztec/ethereum';
+
+// Start of section that exports public api via granular api.
+// Here you *can* do `export *` as the granular api defacto exports things explicitly.
+// This entire index file will be deprecated at some point after we're satisfied.
+export * from './api/init.js';
