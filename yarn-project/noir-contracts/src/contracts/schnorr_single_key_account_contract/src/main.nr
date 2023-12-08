@@ -19,6 +19,7 @@ contract SchnorrSingleKeyAccount {
     #[aztec(private)]
     fn constructor() {}
 
+    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(payload: pub EntrypointPayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);

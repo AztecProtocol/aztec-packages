@@ -50,6 +50,7 @@ global ENTRYPOINT_PAYLOAD_SIZE: Field = 17;
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
 global ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES: Field = 420;
 
+// Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:entrypoint-struct
 struct EntrypointPayload {
   function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
