@@ -55,6 +55,8 @@ bool ToyVerifier::verify_proof(const plonk::proof& proof)
     }
 
     // Get commitments to VM wires
+    commitments.toy_q_tuple_set =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.toy_q_tuple_set);
     commitments.toy_set_1_column_1 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.toy_set_1_column_1);
     commitments.toy_set_1_column_2 =

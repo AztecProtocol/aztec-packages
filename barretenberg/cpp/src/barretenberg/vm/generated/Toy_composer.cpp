@@ -18,6 +18,7 @@ void ToyComposer::compute_witness(CircuitConstructor& circuit)
     auto polynomials = circuit.compute_polynomials();
 
     proving_key->toy_first = polynomials.toy_first;
+    proving_key->toy_q_tuple_set = polynomials.toy_q_tuple_set;
     proving_key->toy_set_1_column_1 = polynomials.toy_set_1_column_1;
     proving_key->toy_set_1_column_2 = polynomials.toy_set_1_column_2;
     proving_key->toy_set_2_column_1 = polynomials.toy_set_2_column_1;

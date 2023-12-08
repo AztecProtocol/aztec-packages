@@ -1,10 +1,11 @@
 
 
 #pragma once
-#include <cstddef>
-#include <tuple>
 
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+
+#include <cstddef>
+#include <tuple>
 
 namespace proof_system::honk::sumcheck {
 
@@ -89,7 +90,8 @@ class two_column_perm_permutation_settings {
 template class GenericPermutationRelationImpl<two_column_perm_permutation_settings, barretenberg::fr>;
 
 template <typename FF_>
-using GenericPermTwoColumn = GenericPermutationRelationImpl<two_column_perm_permutation_settings, FF_>;
+using Generictwo_column_perm = GenericPermutationRelationImpl<two_column_perm_permutation_settings, FF_>;
 
-template <typename FF> using perm_two_column = Relation<GenericPermTwoColumn<FF>>;
+template <typename FF> using two_column_perm = Relation<Generictwo_column_perm<FF>>;
+
 } // namespace proof_system::honk::sumcheck

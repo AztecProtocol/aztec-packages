@@ -30,6 +30,7 @@ ToyProver::ToyProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_
 {
     // TODO: take every polynomial and assign it to the key!!
     prover_polynomials.toy_first = key->toy_first;
+    prover_polynomials.toy_q_tuple_set = key->toy_q_tuple_set;
     prover_polynomials.toy_set_1_column_1 = key->toy_set_1_column_1;
     prover_polynomials.toy_set_1_column_2 = key->toy_set_1_column_2;
     prover_polynomials.toy_set_2_column_1 = key->toy_set_2_column_1;

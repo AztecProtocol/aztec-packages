@@ -36,13 +36,13 @@ class ToyFlavor {
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 6;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 8;
+    static constexpr size_t NUM_ALL_ENTITIES = 9;
 
-    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::perm_two_column<FF>>;
+    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::two_column_perm<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -76,6 +76,7 @@ class ToyFlavor {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
+                              toy_q_tuple_set,
                               toy_set_1_column_1,
                               toy_set_1_column_2,
                               toy_set_2_column_1,
@@ -85,8 +86,8 @@ class ToyFlavor {
 
         RefVector<DataType> get_wires()
         {
-            return { toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1, toy_set_2_column_2, toy_x,
-                     two_column_perm };
+            return { toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1, toy_set_2_column_2,
+                     toy_x,           two_column_perm };
         };
         RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
@@ -95,6 +96,7 @@ class ToyFlavor {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               toy_first,
+                              toy_q_tuple_set,
                               toy_set_1_column_1,
                               toy_set_1_column_2,
                               toy_set_2_column_1,
@@ -105,13 +107,13 @@ class ToyFlavor {
 
         RefVector<DataType> get_wires()
         {
-            return { toy_first, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1, toy_set_2_column_2,
-                     toy_x,     two_column_perm,    toy_x_shift };
+            return { toy_first,          toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1,
+                     toy_set_2_column_2, toy_x,           two_column_perm,    toy_x_shift };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { toy_first, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1, toy_set_2_column_2,
-                     toy_x,     two_column_perm };
+            return { toy_first,          toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1,
+                     toy_set_2_column_2, toy_x,           two_column_perm };
         };
         RefVector<DataType> get_to_be_shifted() { return { toy_x }; };
         RefVector<DataType> get_shifted() { return { toy_x_shift }; };
@@ -142,7 +144,7 @@ class ToyFlavor {
 
     class AllPolynomials : public AllEntities<Polynomial> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->toy_set_1_column_1.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return this->toy_q_tuple_set.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
@@ -187,6 +189,7 @@ class ToyFlavor {
             : AllEntities<std::string>()
         {
             Base::toy_first = "TOY_FIRST";
+            Base::toy_q_tuple_set = "TOY_Q_TUPLE_SET";
             Base::toy_set_1_column_1 = "TOY_SET_1_COLUMN_1";
             Base::toy_set_1_column_2 = "TOY_SET_1_COLUMN_2";
             Base::toy_set_2_column_1 = "TOY_SET_2_COLUMN_1";
@@ -211,6 +214,7 @@ class ToyFlavor {
       public:
         uint32_t circuit_size;
 
+        Commitment toy_q_tuple_set;
         Commitment toy_set_1_column_1;
         Commitment toy_set_1_column_2;
         Commitment toy_set_2_column_1;
@@ -236,6 +240,7 @@ class ToyFlavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
+            toy_q_tuple_set = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             toy_set_1_column_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             toy_set_1_column_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             toy_set_2_column_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
@@ -265,6 +270,7 @@ class ToyFlavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
+            serialize_to_buffer<Commitment>(toy_q_tuple_set, Transcript::proof_data);
             serialize_to_buffer<Commitment>(toy_set_1_column_1, Transcript::proof_data);
             serialize_to_buffer<Commitment>(toy_set_1_column_2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(toy_set_2_column_1, Transcript::proof_data);

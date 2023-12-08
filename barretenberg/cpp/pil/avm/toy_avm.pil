@@ -3,7 +3,7 @@ namespace toy(256);
 
     pol constant first = [1] + [0]*;
     
-    pol constant q_tuple_set;
+    pol commit q_tuple_set;
 
     pol commit set_1_column_1;
     pol commit set_1_column_2;
