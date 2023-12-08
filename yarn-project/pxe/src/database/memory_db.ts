@@ -129,6 +129,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
       roots[MerkleTreeId.ARCHIVE],
+      Fr.ZERO, // todo: private kernel vk tree root
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       this.globalVariablesHash,
     );

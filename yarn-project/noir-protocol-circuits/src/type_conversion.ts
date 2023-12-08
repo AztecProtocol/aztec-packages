@@ -451,6 +451,7 @@ export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir 
       public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
       global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
     },
+    // TODO(#3441)
   };
 }
 
@@ -466,6 +467,7 @@ export function mapBlockHeaderFromNoir(blockHeader: BlockHeaderNoir): BlockHeade
     mapFieldFromNoir(blockHeader.block.contract_tree_root),
     mapFieldFromNoir(blockHeader.block.l1_to_l2_messages_tree_root),
     mapFieldFromNoir(blockHeader.archive_root),
+    Fr.zero(), // TODO(#3441)
     mapFieldFromNoir(blockHeader.block.public_data_tree_root),
     mapFieldFromNoir(blockHeader.block.global_variables_hash),
   );

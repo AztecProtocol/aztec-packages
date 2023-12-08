@@ -120,7 +120,16 @@ export function makeTxContext(seed: number): TxContext {
  * @returns A combined historical tree roots object.
  */
 export function makeBlockHeader(seed: number): BlockHeader {
-  return new BlockHeader(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4), fr(seed + 5), fr(seed + 6));
+  return new BlockHeader(
+    fr(seed),
+    fr(seed + 1),
+    fr(seed + 2),
+    fr(seed + 3),
+    fr(seed + 4),
+    fr(seed + 5),
+    fr(seed + 6),
+    fr(seed + 7),
+  );
 }
 
 /**
