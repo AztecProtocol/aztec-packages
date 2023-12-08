@@ -65,7 +65,7 @@ contract Benchmarking {
         let current = storage.balances.at(owner.to_field()).read();
         storage.balances.at(owner.to_field()).write(current + value);
         let _callStackItem1 = context.call_public_function(context.this_address(),
-            compute_selector("broadcast(Field)"),
+            compute_selector("broadcast((Field))"),
             [owner.to_field()]);
     }
 

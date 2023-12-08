@@ -128,7 +128,7 @@ contract TokenBridge {
         // docs:start:call_assert_token_is_same
         // Assert that user provided token address is same as seen in storage.
         context.call_public_function(context.this_address(),
-            compute_selector("_assert_token_is_same(Field)"),
+            compute_selector("_assert_token_is_same((Field))"),
             [token.to_field()]);
         // docs:end:call_assert_token_is_same
 

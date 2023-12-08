@@ -152,7 +152,7 @@ contract Lending {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset).unshield(&mut context, from, context.this_address(), amount, nonce);
         // _deposit(on_behalf_of, amount, collateral_asset)
-        let selector = compute_selector("_deposit(Field,Field,Field)");
+        let selector = compute_selector("_deposit((Field),Field,(Field))");
         context.call_public_function(context.this_address(),
             selector,
             [on_behalf_of, amount, collateral_asset.to_field()]);
@@ -165,7 +165,7 @@ contract Lending {
             context.this_address(),
             amount,
             nonce);
-        let selector = compute_selector("_deposit(Field,Field,Field)");
+        let selector = compute_selector("_deposit((Field),Field,(Field))");
         context.call_public_function(context.this_address(),
             selector,
             [on_behalf_of, amount, collateral_asset.to_field()]);
@@ -186,13 +186,13 @@ contract Lending {
     #[aztec(private)]
     fn withdraw_private(secret: Field, to: AztecAddress, amount: Field) {
         let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
-        let selector = compute_selector("_withdraw(Field,Field,Field)");
+        let selector = compute_selector("_withdraw((Field),(Field),Field)");
         context.call_public_function(context.this_address(), selector, [on_behalf_of, to.to_field(), amount]);
     }
 
     #[aztec(public)]
     fn withdraw_public(to: AztecAddress, amount: Field) {
-        let selector = compute_selector("_withdraw(Field,Field,Field)");
+        let selector = compute_selector("_withdraw((Field),(Field),Field)");
         context.call_public_function(context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount]);
@@ -230,13 +230,13 @@ contract Lending {
     #[aztec(private)]
     fn borrow_private(secret: Field, to: AztecAddress, amount: Field) {
         let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().to_field());
-        let selector = compute_selector("_borrow(Field,Field,Field)");
+        let selector = compute_selector("_borrow((Field),(Field),Field)");
         context.call_public_function(context.this_address(), selector, [on_behalf_of, to.to_field(), amount]);
     }
 
     #[aztec(public)]
     fn borrow_public(to: AztecAddress, amount: Field) {
-        let selector = compute_selector("_borrow(Field,Field,Field)");
+        let selector = compute_selector("_borrow((Field),(Field),Field)");
         context.call_public_function(context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount]);
@@ -267,7 +267,7 @@ contract Lending {
     fn repay_private(from: AztecAddress, amount: Field, nonce: Field, secret: Field, on_behalf_of: Field, stable_coin: AztecAddress) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(stable_coin).burn(&mut context, from, amount, nonce);
-        let selector = compute_selector("_repay(Field,Field,Field)");
+        let selector = compute_selector("_repay((Field),Field,(Field))");
         context.call_public_function(context.this_address(),
             selector,
             [on_behalf_of, amount, stable_coin.to_field()]);
@@ -276,7 +276,7 @@ contract Lending {
     #[aztec(public)]
     fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         Token::at(stable_coin).burn_public(context, context.msg_sender(), amount, nonce);
-        let selector = compute_selector("_repay(Field,Field,Field)");
+        let selector = compute_selector("_repay((Field),Field,(Field))");
         context.call_public_function(context.this_address(), selector, [owner.to_field(), amount, stable_coin.to_field()]);
     }
 
