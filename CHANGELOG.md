@@ -1,5 +1,70 @@
 # Changelog
 
+## [0.16.7](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.6...aztec-packages-v0.16.7) (2023-12-06)
+
+
+### Features
+
+* Encapsulated Goblin ([#3524](https://github.com/AztecProtocol/aztec-packages/issues/3524)) ([2f08423](https://github.com/AztecProtocol/aztec-packages/commit/2f08423e37942f991634fe6c45de52feb1f159cf))
+
+
+### Bug Fixes
+
+* Extract whole archive instead of subset ([#3604](https://github.com/AztecProtocol/aztec-packages/issues/3604)) ([cb000d8](https://github.com/AztecProtocol/aztec-packages/commit/cb000d828dcea0ec5025bceadd322b1d260c0111))
+
+
+### Documentation
+
+* **yellow-paper:** Note hash, nullifier, and public data trees ([#3518](https://github.com/AztecProtocol/aztec-packages/issues/3518)) ([0e2db8b](https://github.com/AztecProtocol/aztec-packages/commit/0e2db8b0a819dfe44dd5c76ff89aaa1f403d2071))
+
+## [0.16.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.5...aztec-packages-v0.16.6) (2023-12-06)
+
+
+### Bug Fixes
+
+* **pxe:** Initialise aztecjs on pxe startup ([#3601](https://github.com/AztecProtocol/aztec-packages/issues/3601)) ([ceb2ed2](https://github.com/AztecProtocol/aztec-packages/commit/ceb2ed2618398c6af56e69ec0a9f58b808547f30))
+* Remove api_prefix local ([#3599](https://github.com/AztecProtocol/aztec-packages/issues/3599)) ([0d8dd8d](https://github.com/AztecProtocol/aztec-packages/commit/0d8dd8d14fa002b4dadcd7ea70e01c5b263edaee))
+
+
+### Miscellaneous
+
+* **yellow_paper:** Fixes to my work on public private messages ([#3507](https://github.com/AztecProtocol/aztec-packages/issues/3507)) ([33a4f63](https://github.com/AztecProtocol/aztec-packages/commit/33a4f63dc8004d144d891fb8016d85471c64e880))
+
+## [0.16.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.4...aztec-packages-v0.16.5) (2023-12-06)
+
+
+### Features
+
+* Add EFS file storage to devnet nodes ([#3584](https://github.com/AztecProtocol/aztec-packages/issues/3584)) ([5b590eb](https://github.com/AztecProtocol/aztec-packages/commit/5b590eb06fab7ecfcd62aa78a04e035dc8db6b41))
+
+
+### Bug Fixes
+
+* **ci:** Aztec node devnet healthchecks ([#3598](https://github.com/AztecProtocol/aztec-packages/issues/3598)) ([1a9d742](https://github.com/AztecProtocol/aztec-packages/commit/1a9d742cb21ea71df33eb8931b0faecc96e84508))
+* **ci:** Count for EFS AZ2 ([#3597](https://github.com/AztecProtocol/aztec-packages/issues/3597)) ([d427bca](https://github.com/AztecProtocol/aztec-packages/commit/d427bca1c53aacc499f0895bb172f88d96e9347e))
+* **ci:** L1-contracts npm release ([#3596](https://github.com/AztecProtocol/aztec-packages/issues/3596)) ([008df50](https://github.com/AztecProtocol/aztec-packages/commit/008df5018e8f924ac93ad5d9d712727c51952c54))
+* **ci:** Node health-check + contract address env vars ([#3578](https://github.com/AztecProtocol/aztec-packages/issues/3578)) ([fffc700](https://github.com/AztecProtocol/aztec-packages/commit/fffc7007cf5a5fb5e721c63d4abff5184d40c9c0))
+
+
+### Miscellaneous
+
+* Make noir-circuit independent of aztec-nr ([#3591](https://github.com/AztecProtocol/aztec-packages/issues/3591)) ([3013354](https://github.com/AztecProtocol/aztec-packages/commit/301335479f45837e61e1b434566dff98a0867a37))
+* Remove foundation and types deps from boxes ([#3389](https://github.com/AztecProtocol/aztec-packages/issues/3389)) ([eade352](https://github.com/AztecProtocol/aztec-packages/commit/eade352a56b2365b5213962733735e45a6d46fb0))
+* Renaming blockstree to archive ([#3569](https://github.com/AztecProtocol/aztec-packages/issues/3569)) ([6c200e9](https://github.com/AztecProtocol/aztec-packages/commit/6c200e932b6a4bb218059e7b9f92f97c70aa8195))
+* Trivial change roundup ([#3556](https://github.com/AztecProtocol/aztec-packages/issues/3556)) ([ff893b2](https://github.com/AztecProtocol/aztec-packages/commit/ff893b236091b480b6de18ebaab57c62dcdfe1d4))
+
+
+### Documentation
+
+* Add libstdc++-12-dev to setup instructions ([#3585](https://github.com/AztecProtocol/aztec-packages/issues/3585)) ([9773e8c](https://github.com/AztecProtocol/aztec-packages/commit/9773e8c3b4789f0dd6b5fdaf0f283b9bd7c9812f))
+
+## [0.16.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.3...aztec-packages-v0.16.4) (2023-12-05)
+
+
+### Bug Fixes
+
+* **ci:** Separate step for l1-contracts npm release ([#3581](https://github.com/AztecProtocol/aztec-packages/issues/3581)) ([7745975](https://github.com/AztecProtocol/aztec-packages/commit/7745975731a009c9010291b9174d321941754760))
+
 ## [0.16.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.16.2...aztec-packages-v0.16.3) (2023-12-05)
 
 

@@ -3,6 +3,7 @@ import { createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } fr
 import { AccountManager, createAztecNodeClient, deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
 import { init } from '@aztec/foundation/crypto';
+import { createStatusRouter } from '@aztec/foundation/json-rpc/server';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NoirCommit } from '@aztec/noir-compiler/versions';
@@ -11,6 +12,7 @@ import { GrumpkinScalar, PXEService, createPXERpcServer } from '@aztec/pxe';
 
 import { resolve as dnsResolve } from 'dns';
 import { readFileSync } from 'fs';
+import http from 'http';
 import { dirname, resolve } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -47,6 +49,7 @@ const {
   MODE = 'sandbox',
   TEST_ACCOUNTS = 'true',
   DEPLOY_AZTEC_CONTRACTS = 'true',
+  API_PREFIX = '',
 } = process.env;
 
 const logger = createDebugLogger(`aztec:${MODE}`);
@@ -155,9 +158,20 @@ async function main() {
     const node = await createAztecNode(nodeConfig);
     installSignalHandlers(node.stop);
 
+    const port = process.env.AZTEC_NODE_PORT || 8080; // Use standard 8080 when no PXE is running
+    const nodeRpcServer = createAztecNodeRpcServer(node);
+    const app = nodeRpcServer.getApp();
+
+    // Add a /status endpoint
+    const statusRouter = createStatusRouter(API_PREFIX);
+    app.use(statusRouter.routes());
+    app.use(statusRouter.allowedMethods());
+
     // Start Node JSON-RPC server
-    startHttpRpcServer(node, createAztecNodeRpcServer, 8080); // Use standard 8080 when no PXE is running
-    logStrings.push(`Aztec Node v${version} (noir ${NoirCommit}) is now ready for use in port ${AZTEC_NODE_PORT}!`);
+    const httpServer = http.createServer(app.callback());
+    httpServer.listen(port);
+
+    logStrings.push(`Aztec Node v${version} (noir ${NoirCommit}) is now ready for use in port ${port}!`);
   } else if (mode === SandboxMode.PXE) {
     // Code path for starting PXE only
 

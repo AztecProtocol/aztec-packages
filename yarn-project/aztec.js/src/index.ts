@@ -69,12 +69,12 @@ export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } 
 export {
   AztecAddress,
   EthAddress,
-  Point,
   Fr,
   Fq,
   FunctionSelector,
   GlobalVariables,
   GrumpkinScalar,
+  Point,
   getContractDeploymentInfo,
 } from '@aztec/circuits.js';
 
@@ -88,8 +88,8 @@ export {
   ExtendedContractData,
   ExtendedNote,
   FunctionCall,
-  INITIAL_L2_BLOCK_NUM,
   GrumpkinPrivateKey,
+  INITIAL_L2_BLOCK_NUM,
   L2Actor,
   L2Block,
   L2BlockL2Logs,
@@ -99,10 +99,10 @@ export {
   MerkleTreeId,
   NodeInfo,
   Note,
+  PXE,
   PackedArguments,
   PartialAddress,
   PublicKey,
-  PXE,
   SyncStatus,
   Tx,
   TxExecutionRequest,
@@ -110,32 +110,32 @@ export {
   TxReceipt,
   TxStatus,
   UnencryptedL2Log,
-  emptyFunctionCall,
   createAztecNodeClient,
+  emptyFunctionCall,
   merkleTreeIds,
   mockTx,
 } from '@aztec/types';
 
-export { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
-
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
+export { ContractArtifact, FunctionArtifact, encodeArguments } from '@aztec/foundation/abi';
+export { sha256 } from '@aztec/foundation/crypto';
 export { DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
-export { fileURLToPath } from '@aztec/foundation/url';
+export { retry, retryUntil } from '@aztec/foundation/retry';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
-export { retry, retryUntil } from '@aztec/foundation/retry';
-export { sha256 } from '@aztec/foundation/crypto';
+export { fileURLToPath } from '@aztec/foundation/url';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
+export { FieldsOf } from '@aztec/foundation/types';
 
 export {
-  deployL1Contract,
-  deployL1Contracts,
   DeployL1Contracts,
   L1ContractArtifactsForDeployment,
+  deployL1Contract,
+  deployL1Contracts,
 } from '@aztec/ethereum';
 
 // Start of section that exports public api via granular api.
