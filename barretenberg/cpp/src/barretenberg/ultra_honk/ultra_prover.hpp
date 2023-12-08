@@ -62,5 +62,6 @@ extern template class UltraProver_<honk::flavor::Ultra>;
 extern template class UltraProver_<honk::flavor::GoblinUltra>;
 
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
+using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk
