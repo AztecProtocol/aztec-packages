@@ -13,7 +13,6 @@ struct BlockHeader {
     block : Block,
     // Private data
     // This is marked in the cpp code as an enhancement
-    private_kernel_vk_tree_root : Field,
 }
 // docs:end:block-header
 
@@ -21,7 +20,6 @@ impl BlockHeader {
     pub fn assert_is_zero(self) {
         assert(self.archive_root == 0);
         self.block.assert_is_zero();
-        assert(self.private_kernel_vk_tree_root == 0);
     }
 
     pub fn serialize(self) -> [Field; BLOCK_HEADER_LENGTH] {
@@ -51,7 +49,6 @@ impl BlockHeader {
                 public_data_tree_root: deserialized[5],
                 global_variables_hash: deserialized[6],
             },
-            private_kernel_vk_tree_root: 0, // TODO(#3441)
         }
     }
     

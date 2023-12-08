@@ -24,5 +24,4 @@ global BLOCK_HEADER = BlockHeader {
         public_data_tree_root: 0,
         global_variables_hash: 0,
     },
-    private_kernel_vk_tree_root: 0,
 };

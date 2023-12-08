@@ -314,7 +314,6 @@ impl PrivateContext {
                         public_data_tree_root: fields[150],
                         global_variables_hash: fields[151],
                     },
-                    private_kernel_vk_tree_root: 0, // TODO(#3441)
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point {
