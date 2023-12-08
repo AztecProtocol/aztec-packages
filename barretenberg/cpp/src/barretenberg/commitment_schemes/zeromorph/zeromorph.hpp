@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -61,6 +62,7 @@ template <typename Curve> class ZeroMorphProver_ {
      */
     static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<FF> u_challenge)
     {
+        DEBUG_LOG(polynomial, u_challenge);
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
         ASSERT(log_N == u_challenge.size());
@@ -80,6 +82,7 @@ template <typename Curve> class ZeroMorphProver_ {
         }
 
         quotients[log_N - 1] = q;
+        DEBUG_LOG("before loop", quotients);
 
         std::vector<FF> f_k;
         f_k.resize(size_q);
@@ -123,6 +126,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                              FF y_challenge,
                                                              size_t N)
     {
+        DEBUG_LOG(quotients, y_challenge, N);
         // Batched lifted degree quotient polynomial
         auto result = Polynomial(N);
 
@@ -161,6 +165,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                           FF y_challenge,
                                                                           FF x_challenge)
     {
+        DEBUG_LOG(batched_quotient, quotients, y_challenge, x_challenge);
         size_t N = batched_quotient.size();
         size_t log_N = quotients.size();
 
@@ -210,6 +215,8 @@ template <typename Curve> class ZeroMorphProver_ {
         FF x_challenge,
         std::vector<Polynomial> concatenation_groups_batched = {})
     {
+        DEBUG_LOG(
+            f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge, concatenation_groups_batched);
         size_t N = f_batched.size();
         size_t log_N = quotients.size();
 
@@ -278,6 +285,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                            FF x_challenge,
                                                                            FF z_challenge)
     {
+        DEBUG_LOG(zeta_x, Z_x, x_challenge, z_challenge);
         // We cannot commit to polynomials with size > N_max
         size_t N = zeta_x.size();
         ASSERT(N <= N_max);
@@ -327,6 +335,15 @@ template <typename Curve> class ZeroMorphProver_ {
                       // TODO(https://github.com/AztecProtocol/barretenberg/issues/743) remove span
                       const std::vector<RefVector<std::span<FF>>>& concatenation_groups = {})
     {
+        DEBUG_LOG(f_polynomials,
+                  g_polynomials,
+                  g_shift_evaluations,
+                  multilinear_challenge,
+                  commitment_key,
+                  transcript,
+                  concatenated_polynomials,
+                  concatenated_evaluations,
+                  concatenation_groups);
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         const FF rho = transcript->get_challenge("rho");
 
