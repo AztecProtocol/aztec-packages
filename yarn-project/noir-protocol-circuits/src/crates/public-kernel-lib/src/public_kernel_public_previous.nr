@@ -173,13 +173,19 @@ mod tests {
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_commitments() {
         let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
+        let contract_address = builder.public_call.contract_address;
         // Setup 2 new commitments on the previous kernel.
         builder.previous_kernel.append_new_commitments(2);
         let previous = builder.previous_kernel.end.new_commitments.storage;
         // Setup 2 new commitments on the current public inputs.
-        let current = [previous[1].value + 1, previous[1].value + 2];
+        let current = [SideEffect{
+            value: previous[1].value + 1,
+            counter: 2},
+            SideEffect{ 
+                value: previous[1].value + 2,
+                counter: 3}];
         builder.public_call.public_inputs.new_commitments.push_array(current);
-        let siloed = current.map(|c| silo_commitment(contract_address, c));
+        let siloed = current.map(|c: SideEffect| silo_commitment(contract_address, c.value));
         let new_commitments = [previous[0], previous[1], SideEffect{
             value: siloed[0],
             counter: 3,
@@ -233,15 +239,19 @@ mod tests {
         builder.previous_kernel.append_new_nullifiers(2);
         let previous = builder.previous_kernel.end.new_nullifiers.storage;
         // Setup 2 new commitments on the current public inputs.
-        let current = [previous[2].value + 1, previous[2].value + 2];
-        builder.public_call.public_inputs.new_nullifiers.push_array(current);
-        let siloed = current.map(|c| silo_nullifier(contract_address, c));
-        // There are 3 nullifiers in the previous kernel. The first one is the tx nullifier.
-        let new_nullifiers = [previous[0], previous[1], previous[2], SideEffect{
+        let currentVal = [previous[2].value + 1, previous[2].value + 2];
+        let siloed = currentVal.map(|c| silo_nullifier(contract_address, c));
+
+        let current = [SideEffectLinkedToNoteHash{
             value: siloed[0],
-            counter: 3}, SideEffect{
+            note_hash: 0,
+            counter: 3}, SideEffectLinkedToNoteHash{
                 value: siloed[1],
-                counter: 4},];
+                note_hash: 0,
+                counter: 4},] 
+        builder.public_call.public_inputs.new_nullifiers.push_array(current);
+        // There are 3 nullifiers in the previous kernel. The first one is the tx nullifier.
+        let new_nullifiers = [previous[0], previous[1], previous[2], current[0], current[1]];
 
         let public_inputs = builder.execute();
         assert(struct_array_eq(public_inputs.end.new_nullifiers, new_nullifiers,|a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero()));
