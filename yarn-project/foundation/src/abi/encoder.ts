@@ -1,6 +1,6 @@
 import { Fr } from '../fields/index.js';
 import { ABIType, FunctionAbi } from './abi.js';
-import { isAddressStruct } from './utils.js';
+import { isAddressStruct, isFunctionSelectorStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -73,6 +73,10 @@ class ArgumentEncoder {
         // an address field in it, we try to encode it as if it were a field directly.
         if (isAddressStruct(abiType) && typeof arg.address === 'undefined') {
           this.encodeArgument({ kind: 'field' }, arg, `${name}.address`);
+          break;
+        }
+        if (isFunctionSelectorStruct(abiType)) {
+          this.encodeArgument({ kind: 'field' }, arg, `${name}.selector`);
           break;
         }
         for (const field of abiType.fields) {
