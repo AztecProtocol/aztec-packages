@@ -54,9 +54,9 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     
     validate_array(app_public_inputs.return_values);
-    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.isEmpty());
-    validate_struct_array(app_public_inputs.new_commitments, |c: SideEffect| c.isEmpty());
-    validate_struct_array(app_public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty());
+    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.is_zero());
+    validate_struct_array(app_public_inputs.new_commitments, |c: SideEffect| c.is_zero());
+    validate_struct_array(app_public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero());
     validate_array(app_public_inputs.nullified_commitments);
     validate_array(app_public_inputs.private_call_stack_hashes);
     validate_array(app_public_inputs.public_call_stack_hashes);
@@ -134,8 +134,8 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     let is_static_call = public_inputs.call_context.is_static_call;
     if is_static_call {
         // No state changes are allowed for static calls:
-        assert(is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.isEmpty()), "new_commitments must be empty for static calls");
-        assert(is_empty_struct_array(public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.isEmpty()), "new_nullifiers must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.is_zero()), "new_commitments must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero()), "new_nullifiers must be empty for static calls");
     }
 }
 

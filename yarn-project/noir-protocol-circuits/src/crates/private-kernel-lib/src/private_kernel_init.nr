@@ -602,7 +602,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 1);
     }
 
     #[test]
@@ -619,7 +619,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), 1);
+        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_zero()), 1);
     }
 
     #[test]

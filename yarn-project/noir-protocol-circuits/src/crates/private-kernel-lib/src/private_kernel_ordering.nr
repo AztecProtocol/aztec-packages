@@ -310,12 +310,13 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero());
+        assert(is_empty_struct_array(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()));
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
         assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers)
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero())
+         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
+         |a: SideEffectLinkedToNoteHash| a.is_zero()
         );
     }
 

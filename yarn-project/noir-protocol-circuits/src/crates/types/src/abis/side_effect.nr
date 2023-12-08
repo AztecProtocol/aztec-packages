@@ -56,7 +56,7 @@ impl SideEffectLinkedToNoteHash{
     }
 
     pub fn assert_is_zero(self){
-        assert(self.isEmpty());
+        assert(self.is_zero());
     }
 
     pub fn is_zero(self) -> bool {
