@@ -205,13 +205,13 @@ mod tests {
             self.previous_kernel.end.new_nullifiers.storage
         }
 
-        pub fn get_unique_siloed_commitments(self) -> [Field; MAX_NEW_COMMITMENTS_PER_TX] {
+        pub fn get_unique_siloed_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
             self.compute_unique_siloed_commitments(self.previous_kernel.end.new_commitments.storage)
         }
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed 
         // commitments for the given commitments.
-        pub fn compute_unique_siloed_commitments<N>(self, commitments: [SideEffect; N]) -> [Field; N] {
+        pub fn compute_unique_siloed_commitments<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.end.new_nullifiers.get_unchecked(0);
             compute_unique_siloed_commitments(first_nullifier.value, commitments)
         }
@@ -260,7 +260,7 @@ mod tests {
 
         let public_inputs = builder.execute();
         assert(struct_array_length(public_inputs.end.new_commitments, |c: SideEffect| c.is_zero()) == 1);
-        assert(public_inputs.end.new_commitments[0].value == unique_siloed_commitments[0]);
+        assert(public_inputs.end.new_commitments[0].eq(unique_siloed_commitments[0]));
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod tests {
         assert_eq(struct_array_length(public_inputs.end.new_commitments,
         |c: SideEffect| c.is_zero()), MAX_NEW_COMMITMENTS_PER_TX);
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            assert(public_inputs.end.new_commitments[i].value == unique_siloed_commitments[i]);
+            assert(public_inputs.end.new_commitments[i].eq(unique_siloed_commitments[i]));
         }
     }
 
@@ -314,10 +314,11 @@ mod tests {
 
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers)
-         |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-         |a: SideEffectLinkedToNoteHash| a.is_zero()
-        );
+        assert(
+            struct_array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers,
+            |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
+            |a: SideEffectLinkedToNoteHash| a.is_zero()
+        ));
     }
 
     #[test]
