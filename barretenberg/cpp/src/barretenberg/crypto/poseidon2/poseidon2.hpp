@@ -11,11 +11,15 @@ template <typename Params> class Poseidon2 {
     using FF = typename Params::FF;
 
     using Sponge = FieldSponge<FF, Params::t - 1, 1, Params::t, Poseidon2Permutation<Params>>;
+    /* @brief Hashes a vector of field elements
+     */
     static FF hash(const std::vector<FF>& input)
     {
         auto input_span = input;
         return Sponge::hash_fixed_length(input_span);
     }
+    /* @brief Hashes vector of bytes by chunking it into 31 byte field elements and calling hash()
+     */
     static FF hash_buffer(const std::vector<uint8_t>& input)
     {
         const size_t num_bytes = input.size();

@@ -12,7 +12,7 @@
 namespace proof_system::plonk::stdlib {
 
 /**
- * @brief Implements a cryptographic sponge over prime fields.
+ * @brief Implements the circuit form of a cryptographic sponge over prime fields.
  *        Implements the sponge specification from the Community Cryptographic Specification Project
  *        see https://github.com/C2SP/C2SP/blob/792c1254124f625d459bfe34417e8f6bdd02eb28/poseidon-sponge.md
  *        (Note: this spec was not accepted into the C2SP repo, we might want to reference something else!)
@@ -55,7 +55,6 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < rate; ++i) {
             state[i] = witness_t<Builder>(builder, 0);
         }
-        info("domain iv: ", domain_iv.get_value());
         state[rate] = witness_t<Builder>(builder, domain_iv.get_value());
     }
 

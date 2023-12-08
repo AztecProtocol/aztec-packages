@@ -133,6 +133,7 @@ template <typename FF> struct ecc_dbl_gate_ {
     uint32_t y3;
 };
 
+/* External gate data for poseidon2 external round*/
 template <typename FF> struct poseidon2_external_gate_ {
     uint32_t a;
     uint32_t b;
@@ -141,6 +142,7 @@ template <typename FF> struct poseidon2_external_gate_ {
     size_t round_idx;
 };
 
+/* Internal gate data for poseidon2 internal round*/
 template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t a;
     uint32_t b;
@@ -149,6 +151,7 @@ template <typename FF> struct poseidon2_internal_gate_ {
     size_t round_idx;
 };
 
+/* Last gate for poseidon2, needed because poseidon2 gates compare against the shifted wires. */
 template <typename FF> struct poseidon2_end_gate_ {
     uint32_t a;
     uint32_t b;

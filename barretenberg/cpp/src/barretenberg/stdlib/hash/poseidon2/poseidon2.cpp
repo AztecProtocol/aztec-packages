@@ -5,6 +5,8 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 using namespace proof_system;
 
+/* Hash a vector of field_t.
+ */
 template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_t>& inputs)
 {
 
@@ -23,7 +25,7 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
 template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const stdlib::byte_array<C>& input)
 {
     const size_t num_bytes = input.size();
-    const size_t bytes_per_element = 31;
+    const size_t bytes_per_element = 31; // 31 bytes in a fr element
     size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
 
     std::vector<field_t> elements;

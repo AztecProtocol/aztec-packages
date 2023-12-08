@@ -246,6 +246,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     num_ecc_op_gates += 2;
 };
 
+/* @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation
+ */
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
@@ -270,6 +272,8 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseid
     ++this->num_gates;
 }
 
+/* @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation
+ */
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
@@ -294,6 +298,8 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseid
     ++this->num_gates;
 }
 
+/* @brief Poseidon2 end round gate, needed because poseidon2 rounds compare with shifted wires
+ */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
 {
     this->w_l.emplace_back(in.a);
