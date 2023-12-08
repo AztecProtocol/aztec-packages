@@ -20,7 +20,7 @@ ARCH=$3
 shift 3
 
 MULTIARCH=$(query_manifest multiarch $REPOSITORY)
-if [ "$MULTIARCH" == "host" ];
+if [ "$MULTIARCH" == "host" ]; then
   BASE_TAG=$(calculate_image_tag $REPOSITORY $ARCH)
 else
   BASE_TAG=$(calculate_image_tag $REPOSITORY)
