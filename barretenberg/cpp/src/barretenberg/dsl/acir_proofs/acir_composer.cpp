@@ -53,16 +53,19 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     create_circuit_with_witness(builder_, constraint_system, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
 
+    // construct a goblin instance from a GUH pk.
     auto composer = [&]() {
         if (proving_key_) {
             // WORKTODO: constructor from proving key needed
+            //
             return acir_format::Composer(proving_key_, nullptr);
         }
 
         // WORKTODO this becomes a Goblin
         acir_format::Composer composer;
         vinfo("computing proving key...");
-        proving_key_ = composer.compute_proving_key(builder_);
+        proving_key_ =
+            composer.compute_proving_key(builder_); // construct guh pk from guh builder via a proxy function in Goblin
         vinfo("done.");
         return composer;
     }();
@@ -115,7 +118,7 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
-    //WORKTODO: Ignore this for now
+    // WORKTODO: Ignore this for now
     if (is_recursive) {
         // WORKTODO: what is this if in proof construction is_recursive is true?
         // Actually maybe this doesn't matter and it's just a hack for cheap solidity verifer.

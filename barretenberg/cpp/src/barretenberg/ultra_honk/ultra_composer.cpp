@@ -88,9 +88,7 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
 template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(CircuitBuilder& circuit)
 {
     auto instance = std::make_shared<Instance>(circuit);
-    UltraProver_<Flavor> result{
-        instance, std::make_shared<Transcript>()
-    }; // WORKTODO: will instance survive? also transcript init?
+    UltraProver_<Flavor> result{ instance }; // WORKTODO: will instance survive? also transcript init?
     return result;
 }
 
@@ -100,11 +98,11 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_ultra_with_keccak_prover(Cir
     return create_prover(circuit);
 }
 
-template <UltraFlavor Flavor> UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(CircuitBuilder& circuit)
+template <UltraFlavor Flavor>
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier([[maybe_unused]] CircuitBuilder& circuit)
 {
-    auto instance = std::make_shared<Instance>(circuit);
     UltraVerifier_<Flavor> result{
-        instance, std::make_shared<Transcript>()
+        std::make_shared<Transcript>()
     }; // WORKTODO: will instance survive? also transcript init?
     return result;
 }
@@ -126,6 +124,20 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared
 
     return output_state;
 }
+
+template <UltraFlavor Flavor>
+std::shared_ptr<typename Flavor::ProvingKey> compute_proving_key([[maybe_unused]]
+                                                                 typename Flavor::CircuitBuilder& circuit)
+{
+    return std::make_shared<typename Flavor::ProvingKey>(); // WORKTODO: implement
+};
+
+template <UltraFlavor Flavor>
+std::shared_ptr<typename Flavor::VerificationKey> compute_verification_key([[maybe_unused]]
+                                                                           typename Flavor::CircuitBuilder& circuit)
+{
+    return std::make_shared<typename Flavor::VerificationKey>(); // WORKTODO: implement
+};
 
 template class UltraComposer_<honk::flavor::Ultra>;
 template class UltraComposer_<honk::flavor::GoblinUltra>;

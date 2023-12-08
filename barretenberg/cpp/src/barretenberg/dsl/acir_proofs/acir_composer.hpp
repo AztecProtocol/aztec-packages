@@ -42,9 +42,12 @@ class AcirComposer {
     size_t exact_circuit_size_;
     size_t total_circuit_size_;
     size_t circuit_subgroup_size_;
+    // WORKTODO: these will actually have to change.
+    // Maybe use flavor so that it's an easier switch
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
     // WORKTODO: this is a GUH vk
     std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
+
     bool verbose_ = true;
 
     template <typename... Args> inline void vinfo(Args... args)

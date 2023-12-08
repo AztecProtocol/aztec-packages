@@ -22,6 +22,22 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
     instance->initialize_prover_polynomials();
 }
 
+// WORKTODO: combine with above
+/**
+ * Create UltraProver_ from an instance.
+ *
+ * @param instance Instance whose proof we want to generate.
+ *
+ * @tparam a type of UltraFlavor
+ * */
+template <UltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const std::shared_ptr<Transcript>& transcript)
+    : instance(std::move(inst))
+    , transcript(transcript)
+{
+    instance->initialize_prover_polynomials();
+}
+
 /**
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
