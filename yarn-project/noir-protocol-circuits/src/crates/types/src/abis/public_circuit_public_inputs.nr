@@ -53,6 +53,8 @@ struct PublicCircuitPublicInputs{
 impl PublicCircuitPublicInputs{
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3059): Reuse aztec-nr
     fn hash(self) -> Field {        
+        // TODO: should be able to reduce constraint count by not hashing individual values, and instead
+        // pushing a longer array of fields to be hashed once at the end
         let mut inputs: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0);
         inputs.push(self.call_context.hash());
         inputs.push(self.args_hash);
