@@ -22,6 +22,8 @@ namespace barretenberg {
  * Throws an std::runtime_error if we would print a log that includes the env variable DEBUG_LOG_ABORT.
  * This is primarily intended to be used with a debugger to then poke around execution and see differences in a
  * comparison log. Does nothing if DEBUG_LOG_ABORT is not set.
+ * Should be run with MULTITHREADING=OFF for best results, and with no non-determinism (the BBERG_DEBUG_LOG flag
+ * currently turns off some determinism).
  * @param log_str The log string to be checked against the environment variable.
  */
 void _debug_log_check_abort_condition(const std::string& log_str);
@@ -33,6 +35,12 @@ void _debug_log_check_abort_condition(const std::string& log_str);
  */
 template <typename... FuncArgs> void _debug_log(const char* func_name, const FuncArgs&... args)
 {
+    // shut off recursive DEBUG_LOG
+    static size_t debug_log_calls = 0;
+    if (debug_log_calls > 0) {
+        return;
+    }
+    debug_log_calls++;
     std::ostringstream ss;
     ss << func_name << " ";
     // Using fold expression to append args to stringstream
@@ -41,6 +49,7 @@ template <typename... FuncArgs> void _debug_log(const char* func_name, const Fun
     // Want to be able to catch offending statements in a debugger, this throws if we match an env variable pattern
     _debug_log_check_abort_condition(log_str);
     std::cout << log_str << std::endl;
+    debug_log_calls--;
 }
 } // namespace barretenberg
 /**
@@ -50,7 +59,7 @@ template <typename... FuncArgs> void _debug_log(const char* func_name, const Fun
  * @param ... The parameters to be logged.
  */
 #define DEBUG_LOG(...)                                                                                                 \
-    if (!std::is_constant_evaluated()) {                                                                               \
+    if (!std::is_constant_evaluated()) { /*we are not in a compile-time constexpr*/                                    \
         barretenberg::_debug_log(__FUNCTION__, __VA_ARGS__);                                                           \
     }
 
