@@ -4,13 +4,15 @@ members = [
     "crates/private-kernel-lib",
     "crates/private-kernel-init",
     "crates/private-kernel-init-simulated",
-    "crates/private-kernel-inner",
-    "crates/private-kernel-inner-simulated",
     "crates/private-kernel-ordering",
     "crates/private-kernel-ordering-simulated",
     "crates/public-kernel-lib",
     "crates/public-kernel-private-previous",
     "crates/public-kernel-private-previous-simulated",
+]
+rest = [
+    "crates/private-kernel-inner",
+    "crates/private-kernel-inner-simulated",
     "crates/public-kernel-public-previous",
     "crates/public-kernel-public-previous-simulated",
     "crates/rollup-lib",
