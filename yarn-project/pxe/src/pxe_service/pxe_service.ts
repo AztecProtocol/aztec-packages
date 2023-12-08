@@ -55,7 +55,7 @@ import {
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -75,7 +75,7 @@ export class PXEService implements PXE {
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
-    private db: Database,
+    private db: PxeDatabase,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {

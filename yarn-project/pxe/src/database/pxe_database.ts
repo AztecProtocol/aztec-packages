@@ -9,7 +9,7 @@ import { NoteDao } from './note_dao.js';
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
  * addresses, storage slots, and nullifiers.
  */
-export interface Database extends ContractDatabase {
+export interface PxeDatabase extends ContractDatabase {
   /**
    * Add a auth witness to the database.
    * @param messageHash - The message hash.

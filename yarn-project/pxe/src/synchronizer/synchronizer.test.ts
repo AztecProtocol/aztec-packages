@@ -6,12 +6,12 @@ import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/t
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 
-import { Database, MemoryDB } from '../database/index.js';
+import { MemoryDB, PxeDatabase } from '../database/index.js';
 import { Synchronizer } from './synchronizer.js';
 
 describe('Synchronizer', () => {
   let aztecNode: MockProxy<AztecNode>;
-  let database: Database;
+  let database: PxeDatabase;
   let synchronizer: TestSynchronizer;
   let roots: Record<MerkleTreeId, Fr>;
   let blockHeader: BlockHeader;

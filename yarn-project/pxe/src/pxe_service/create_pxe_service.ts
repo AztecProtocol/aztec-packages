@@ -3,7 +3,7 @@ import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, KeyStore } from '@aztec/types';
 
 import { PXEServiceConfig } from '../config/index.js';
-import { Database, MemoryDB } from '../database/index.js';
+import { PxeDatabase, MemoryDB } from '../database/index.js';
 import { PXEService } from './pxe_service.js';
 
 /**
@@ -17,7 +17,7 @@ interface CreatePXEServiceOptions {
   /**
    * Storage for the PXE.
    */
-  db?: Database;
+  db?: PxeDatabase;
 }
 
 /**

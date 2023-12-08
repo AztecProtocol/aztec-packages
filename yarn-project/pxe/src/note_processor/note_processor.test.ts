@@ -21,7 +21,7 @@ import {
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { Database, MemoryDB } from '../database/index.js';
+import { MemoryDB, PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
@@ -29,7 +29,7 @@ const TXS_PER_BLOCK = 4;
 
 describe('Note Processor', () => {
   let grumpkin: Grumpkin;
-  let database: Database;
+  let database: PxeDatabase;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addNotesSpy: any;
   let noteProcessor: NoteProcessor;

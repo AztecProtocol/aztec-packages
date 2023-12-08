@@ -7,6 +7,7 @@ import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Tx, PXE, mockTx } from '@aztec/types
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { MemoryDB } from '../../database/memory_db.js';
+import { PxeDatabase } from '../../database/pxe_database.js';
 import { PXEServiceConfig } from '../../index.js';
 import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
@@ -39,7 +40,7 @@ pxeTestSuite('PXEService', createPXEService);
 describe('PXEService', () => {
   let keyStore: TestKeyStore;
   let node: MockProxy<AztecNode>;
-  let db: MemoryDB;
+  let db: PxeDatabase;
   let config: PXEServiceConfig;
 
   beforeEach(() => {
