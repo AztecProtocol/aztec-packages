@@ -77,7 +77,6 @@ export interface Block {
 export interface BlockHeader {
   archive_root: Field;
   block: Block;
-  private_kernel_vk_tree_root: Field;
 }
 
 export interface PrivateCircuitPublicInputs {

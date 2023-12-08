@@ -35,10 +35,6 @@ export class BlockHeader {
      */
     public archiveRoot: Fr,
     /**
-     * Root of the private kernel vk tree at the time of when this information was assembled.
-     */
-    public privateKernelVkTreeRoot: Fr, // TODO(#3441) future enhancement
-    /**
      * Current public state tree hash.
      */
     public publicDataTreeRoot: Fr,
@@ -53,16 +49,7 @@ export class BlockHeader {
   }
 
   static random() {
-    return new BlockHeader(
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-    );
+    return new BlockHeader(Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random());
   }
 
   static getFields(fields: FieldsOf<BlockHeader>) {
@@ -72,7 +59,6 @@ export class BlockHeader {
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
       fields.archiveRoot,
-      fields.privateKernelVkTreeRoot,
       fields.publicDataTreeRoot,
       fields.globalVariablesHash,
     ] as const;
@@ -114,7 +100,6 @@ export class BlockHeader {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
     );
   }
 
@@ -129,13 +114,12 @@ export class BlockHeader {
       this.contractTreeRoot.isZero() &&
       this.l1ToL2MessagesTreeRoot.isZero() &&
       this.archiveRoot.isZero() &&
-      this.privateKernelVkTreeRoot.isZero() &&
       this.publicDataTreeRoot.isZero() &&
       this.globalVariablesHash.isZero()
     );
   }
 
   static empty() {
-    return new BlockHeader(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new BlockHeader(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }

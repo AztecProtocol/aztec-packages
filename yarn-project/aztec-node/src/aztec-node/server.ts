@@ -539,7 +539,6 @@ export class AztecNodeService implements AztecNode {
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
       roots[MerkleTreeId.ARCHIVE],
-      Fr.ZERO,
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,
     );
