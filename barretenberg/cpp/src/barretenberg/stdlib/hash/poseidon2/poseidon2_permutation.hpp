@@ -63,7 +63,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
+                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
             }
         }
 
@@ -79,7 +79,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             NativePermutation::apply_single_sbox(current_native_state[0]);
             NativePermutation::matrix_multiplication_internal(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
+                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
             }
         }
 
@@ -95,7 +95,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
             NativePermutation::apply_sbox(current_native_state);
             NativePermutation::matrix_multiplication_external(current_native_state);
             for (size_t j = 0; j < t; ++j) {
-                current_state[j] = field_t<Builder>(builder, current_native_state[j]);
+                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
             }
         }
         // need to add an extra row here to ensure that things check out
