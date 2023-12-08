@@ -286,7 +286,7 @@ impl PrivateContext {
                     nullifier_tree_root : fields[114],
                     contract_tree_root : fields[115],
                     l1_to_l2_messages_tree_root : fields[116],
-                    blocks_tree_root : fields[117],
+                    archive_root : fields[117],
                     public_data_tree_root: fields[118],
                     global_variables_hash: fields[119],
                 },
