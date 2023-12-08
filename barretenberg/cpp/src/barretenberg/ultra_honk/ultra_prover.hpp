@@ -23,9 +23,12 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Transcript = typename Flavor::Transcript;
 
   public:
-    explicit UltraProver_(const std::shared_ptr<Instance>&,
-                          const std::shared_ptr<CommitmentKey>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    UltraProver_(const std::shared_ptr<Instance>&,
+                 const std::shared_ptr<CommitmentKey>&,
+                 const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    UltraProver_(const std::shared_ptr<Instance>&,
+                 const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BBERG_PROFILE void execute_preamble_round();
     BBERG_PROFILE void execute_wire_commitments_round();

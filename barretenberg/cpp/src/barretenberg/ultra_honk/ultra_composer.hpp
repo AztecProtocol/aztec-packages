@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk/transcript/manifest.hpp" // WORKTODO: hack
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"           // WORKTODO
+#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp" // WORKTODO
+#include "barretenberg/plonk/transcript/manifest.hpp"                            // WORKTODO: hack
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -42,6 +44,11 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     explicit UltraComposer_(std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
         : crs_factory_(std::move(crs_factory))
+    {}
+
+    // WORKTODO
+    UltraComposer_([[maybe_unused]] std::shared_ptr<plonk::proving_key> p_key,
+                   [[maybe_unused]] std::shared_ptr<plonk::verification_key> v_key)
     {}
 
     UltraComposer_(UltraComposer_&& other) noexcept = default;
@@ -119,13 +126,15 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // WORKTODO: hack
     static transcript::Manifest create_manifest([[maybe_unused]] size_t num_public_inputs) { return {}; }
 
-  private:
     /**
      * @brief Compute the verification key of an Instance, produced from a finalised circuit.
      *
      * @param inst
      */
     void compute_verification_key(const std::shared_ptr<Instance>&);
+    // WORKTODO: implement; overcome different notions of key
+    std::shared_ptr<proof_system::plonk::proving_key> compute_proving_key(CircuitBuilder& circuit);
+    std::shared_ptr<proof_system::plonk::verification_key> compute_verification_key(CircuitBuilder& circuit);
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;
 extern template class UltraComposer_<honk::flavor::GoblinUltra>;
