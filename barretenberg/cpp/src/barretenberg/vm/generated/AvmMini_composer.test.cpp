@@ -35,15 +35,16 @@ TEST_F(AvmMiniTests, basic)
 
     trace_builder.callDataCopy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
 
-    trace_builder.add(2, 3, 4);
-    trace_builder.add(4, 5, 5);
-    trace_builder.add(5, 5, 5);
-    trace_builder.add(5, 6, 7);
-    trace_builder.sub(7, 6, 8);
-    trace_builder.mul(8, 8, 8);
-    trace_builder.div(3, 5, 1);
-    trace_builder.div(1, 1, 9);
-    trace_builder.div(9, 0, 4);
+    //           Memory layout:    [0,0,45,23,12,0,0,0,....]
+    trace_builder.add(2, 3, 4); // [0,0,45,23,68,0,0,0,....]
+    trace_builder.add(4, 5, 5); // [0,0,45,23,68,68,0,0,....]
+    trace_builder.add(5, 5, 5); // [0,0,45,23,68,136,0,0,....]
+    trace_builder.add(5, 6, 7); // [0,0,45,23,68,136,0,136,0....]
+    trace_builder.sub(7, 6, 8); // [0,0,45,23,68,136,0,136,136,0....]
+    trace_builder.mul(8, 8, 8); // [0,0,45,23,68,136,0,136,136^2,0....]
+    trace_builder.div(3, 5, 1); // [0,23*136^(-1),45,23,68,136,0,136,136^2,0....]
+    trace_builder.div(1, 1, 9); // [0,23*136^(-1),45,23,68,136,0,136,136^2,1,0....]
+    trace_builder.div(9, 0, 4); // [0,23*136^(-1),45,23,1/0,136,0,136,136^2,1,0....] Error: division by 0
 
     trace_builder.returnOP(1, 8);
 
