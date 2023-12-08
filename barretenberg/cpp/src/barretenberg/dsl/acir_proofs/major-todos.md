@@ -18,3 +18,19 @@ Update AcirComposer
   Make acir_format and acir_proofs tests work
 
   Stetch: try to understand what is_recursive flag should do
+
+  --------------------------
+  --------------------------
+  --------------------------
+
+NEW_CONSTRAINTS: expose the new gates
+   - circuit_buf_to_acir_format
+   - build_constraints in acir_format.cpp
+   - make sure that ensure_nonzero is called?
+
+WRAP: AcirComposer now wraps a goblin and a GUH CB and Composer
+
+KEY_TYPES: use UGH keys in place of plonk ones
+
+USE_GOBLIN: in acir_composer create_proof
+ - put OpQueue in proving key?

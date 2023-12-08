@@ -38,6 +38,9 @@ struct acir_format {
     std::vector<HashToFieldConstraint> hash_to_field_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+    // std::vector<GoblinECC> goblin_ecc_constraints; // WORKTODO(NEW_CONSTRAINTS)
+    // std::vector<QueuedOperation> newly_queued_operation; // WORKTODO(NEW_CONSTRAINTS)
+
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.

@@ -132,7 +132,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      * @param inst
      */
     void compute_verification_key(const std::shared_ptr<Instance>&);
-    // WORKTODO: implement; overcome different notions of key
+    // WORKTODO(KEY_TYPES): implement; overcome different notions of key
     std::shared_ptr<proof_system::plonk::proving_key> compute_proving_key(CircuitBuilder& circuit);
     std::shared_ptr<proof_system::plonk::verification_key> compute_verification_key(CircuitBuilder& circuit);
 };

@@ -26,7 +26,7 @@ const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
-    // WORKTODO: ACIR composer wraps a GUH builder
+    // WORKTODO(WRAP): ACIR composer wraps a GUH builder
     // create a Goblin
     acir_proofs::AcirComposer acir_composer(0, verbose);
     // populates the GUH builder in the Goblin
@@ -76,7 +76,7 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
  */
 bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecodePath);
+    auto constraint_system = get_constraint_system(bytecodePath); // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     auto witness = get_witness(witnessPath);
 
     // WORKTODO: acir_composer wraps a goblin and a GUH builder and GUH composer
@@ -84,13 +84,14 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 
     Timer pk_timer;
     // construct a pk for the GUH composer
-    acir_composer.init_proving_key(constraint_system);
+    acir_composer.init_proving_key(constraint_system); // WORKTODO(KEY_TYPES)
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
     write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
     write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
 
     Timer proof_timer;
-    // acir_composer.create_proof == goblin.create_proof; construct the concatenated GUH proof and Goblin::Proof
+    // WORKTODO(WRAPx) acir_composer.create_proof == goblin.create_proof; construct the concatenated GUH proof and
+    // Goblin::Proof output Goblin+ proof
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
