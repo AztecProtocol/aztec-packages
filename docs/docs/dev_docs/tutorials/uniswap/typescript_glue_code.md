@@ -121,11 +121,11 @@ const expectedForkBlockNumber = 17514288;
 
 ## Private flow test
 
-#include_code uniswap_private yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts typescript
+#include_code uniswap_private yarn-project/end-to-end/src/uniswap_trade_on_l1_from_l2.test.ts typescript
 
 ## Public flow test
 
-#include_code uniswap_public yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts typescript
+#include_code uniswap_public yarn-project/end-to-end/src/uniswap_trade_on_l1_from_l2.test.ts typescript
 
 ## Running the test
 
