@@ -50,19 +50,20 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
     Builder* builder;
 
     FieldSponge(Builder& builder_, field_t domain_iv = 0)
+        : builder(&builder_)
     {
         for (size_t i = 0; i < rate; ++i) {
-            state[i] = 0;
+            state[i] = witness_t<Builder>(builder, 0);
         }
-        builder = &builder_;
-        state[rate] = witness_t<Builder>(&builder_, domain_iv.get_value());
+        info("domain iv: ", domain_iv.get_value());
+        state[rate] = witness_t<Builder>(builder, domain_iv.get_value());
     }
 
     std::array<field_t, rate> perform_duplex()
     {
         // zero-pad the cache
         for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = 0;
+            cache[i] = witness_t<Builder>(builder, 0);
         }
         // add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
@@ -122,7 +123,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             cache[i - 1] = cache[i];
         }
         cache_size -= 1;
-        cache[cache_size] = 0;
+        cache[cache_size] = witness_t<Builder>(builder, 0);
         return result;
     }
 
