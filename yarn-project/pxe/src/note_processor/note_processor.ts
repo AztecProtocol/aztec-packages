@@ -47,6 +47,7 @@ export class NoteProcessor {
     private keyStore: KeyStore,
     private db: PxeDatabase,
     private node: AztecNode,
+    private startingBlock: number,
     private simulator = getAcirSimulator(db, node, keyStore),
     private log = createDebugLogger('aztec:note_processor'),
   ) {

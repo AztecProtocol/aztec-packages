@@ -27,9 +27,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await expect(database.getAuthWitness(messageHash)).resolves.toEqual(witness);
       });
 
-      it("returns an empty array if it doesn't have auth witnesses for the message", async () => {
+      it("returns undefined if it doesn't have auth witnesses for the message", async () => {
         const messageHash = Fr.random();
-        await expect(database.getAuthWitness(messageHash)).resolves.toEqual([]);
+        await expect(database.getAuthWitness(messageHash)).resolves.toBeUndefined();
       });
 
       it.skip('refuses to overwrite auth witnesses for the same message', async () => {

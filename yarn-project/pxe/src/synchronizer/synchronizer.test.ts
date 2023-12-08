@@ -1,6 +1,7 @@
-import { BlockHeader, CompleteAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, EthAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -102,7 +103,7 @@ describe('Synchronizer', () => {
     aztecNode.getBlockNumber.mockResolvedValueOnce(1);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(new Grumpkin());
+    const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.create(EthAddress.random()));
     const privateKey = GrumpkinScalar.random();
     await keyStore.addAccount(privateKey);
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
