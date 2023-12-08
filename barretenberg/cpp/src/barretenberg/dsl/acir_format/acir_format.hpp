@@ -7,7 +7,6 @@
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
 #include "fixed_base_scalar_mul.hpp"
-#include "hash_to_field.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "pedersen.hpp"
@@ -35,7 +34,6 @@ struct acir_format {
     std::vector<KeccakVarConstraint> keccak_var_constraints;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
-    std::vector<HashToFieldConstraint> hash_to_field_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -60,7 +58,6 @@ struct acir_format {
                    keccak_var_constraints,
                    pedersen_constraints,
                    pedersen_hash_constraints,
-                   hash_to_field_constraints,
                    fixed_base_scalar_mul_constraints,
                    recursion_constraints,
                    constraints,
