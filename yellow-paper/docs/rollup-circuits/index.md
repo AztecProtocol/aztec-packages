@@ -187,17 +187,19 @@ class NewContractData {
 }
 
 class CombinedAccumulatedData {
-  aggregation_object: AggregationObject
-  read_requests: List~Fr~
-  pending_read_requests: List~Fr~
-  note_hashes: List~Fr~
-  nullifiers: List~Fr~
-  nullified_note_hashes: List~Fr~
-  
-  l2_to_l1_messages: List~Fr~
+    aggregation_object: AggregationObject
+    read_requests: List~Fr~
+    pending_read_requests: List~Fr~
+    note_hashes: List~Fr~
+    nullifiers: List~Fr~
+    nullified_note_hashes: List~Fr~
 
-  private_call_stack: List~CallRequest~
-  public_call_stack: List~CallRequest~
+    l2_to_l1_messages: List~Fr~
+
+    private_call_stack: List~CallRequest~
+    public_call_stack: List~CallRequest~
+    start_public_data_root: Fr
+    end_public_data_root: Fr
 }
 CombinedAccumulatedData *-- "m" NewContractData: contracts
 CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: publicUpdateRequests
@@ -244,8 +246,7 @@ class StateDiffHints {
   note_hash_subtree_sibling_path: List~Fr~,
   nullifier_subtree_sibling_path: List~Fr~,
   contract_subtree_sibling_path: List~Fr~,
-  public_data_update_requests_sibling_paths: List~List~Fr~~
-  public_data_reads_sibling_paths: List~List~Fr~~
+  public_data_sibling_path: List~Fr~,
 }
 
 class BaseRollupInputs {

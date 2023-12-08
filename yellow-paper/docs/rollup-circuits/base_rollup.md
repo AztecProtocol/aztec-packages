@@ -121,6 +121,8 @@ class CombinedAccumulatedData {
 
   private_call_stack: List~CallRequest~
   public_call_stack: List~CallRequest~
+  start_public_data_root: Fr
+  end_public_data_root: Fr
 }
 CombinedAccumulatedData *-- "m" NewContractData: contracts
 CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: publicUpdateRequests
@@ -167,8 +169,7 @@ class StateDiffHints {
   note_hash_subtree_sibling_path: List~Fr~,
   nullifier_subtree_sibling_path: List~Fr~,
   contract_subtree_sibling_path: List~Fr~,
-  public_data_update_requests_sibling_paths: List~List~Fr~~
-  public_data_reads_sibling_paths: List~List~Fr~~
+  public_data_sibling_path: List~Fr~,
 }
 
 class BaseRollupInputs {
@@ -204,16 +205,16 @@ def BaseRollupCircuit(
 
   tx_hashes = Fr[][2]
   contracts = Fr[]
-  public_data_tree = partial.public_data_tree
+  public_data_tree_root = partial.public_data_tree
   for i in len(kernel_data):
-    tx_hash, _c = kernel_checks(
+    tx_hash, _c, public_data_tree_root = kernel_checks(
       kernel_data[i], 
       constants, 
-      historical_header_membership_witnesses[i]
+      public_data_tree_root,
+      historical_header_membership_witnesses[i],
     )
     tx_hashes.push(tx_hash)
     contracts.push_array(_c)
-    handle_public_state(kernel_data[i], public_data_tree, state_diff_hints)
 
   note_hash_subtree = MerkleTree(
     [...note_hashes for kernel_data.public_inputs.end.note_hashes in kernel_data]
@@ -265,15 +266,17 @@ def BaseRollupCircuit(
       note_hash_tree=note_hash_snapshot,
       nullifier_tree=nullifier_snapshot,
       contract_tree=contract_snapshot,
-      public_data_tree=public_data_snapshot,
+      public_data_tree=public_data_tree_root,
     ),
   )
 
 def kernel_checks(
   kernel: KernelData, 
   constants: ConstantRollupData, 
+  public_data_tree_root: Fr,
   historical_header_membership_witness: HeaderMembershipWitness
-) -> (Fr[2], Fr[]):
+) -> (Fr[2], Fr[], Fr):
+  assert public_data_tree_root == kernel.public_inputs.end.start_public_data_root
   assert kernel.proof.verify(kernel.public_inputs)
 
   tx_context = kernel.public_inputs.constants.tx_context
@@ -304,7 +307,7 @@ def kernel_checks(
     kernel.public_inputs.end.public_data_writes |
     kernel.public_inputs.end.l2_to_l1_messages
   )
-  return (tx_hash, contracts)
+  return (tx_hash, contracts, kernel.public_inputs.end.end_public_data_root)
 
 def handle_public_state(
   kernel: KernelData, 
