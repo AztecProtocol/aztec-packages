@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -25,6 +26,7 @@ namespace barretenberg {
  **/
 template <class T> constexpr field<T> field<T>::operator*(const field& other) const noexcept
 {
+    DEBUG_LOG(*this, other);
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         // >= 255-bits or <= 64-bits.
@@ -39,6 +41,7 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
 {
+    DEBUG_LOG(*this, other);
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         // >= 255-bits or <= 64-bits.
@@ -105,6 +108,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator+=(const field& other) noexcept
 {
+    DEBUG_LOG(*this, other);
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         (*this) = operator+(other);
@@ -120,6 +124,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
 
 template <class T> constexpr field<T> field<T>::operator++() noexcept
 {
+    DEBUG_LOG(*this);
     return *this += 1;
 }
 
@@ -138,6 +143,7 @@ template <class T> constexpr field<T> field<T>::operator++(int) noexcept
  **/
 template <class T> constexpr field<T> field<T>::operator-(const field& other) const noexcept
 {
+    DEBUG_LOG(*this, other);
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
         return subtract_coarse(other); // modulus - *this;
@@ -255,11 +261,13 @@ template <class T> constexpr bool field<T>::operator>(const field& other) const 
  */
 template <class T> constexpr bool field<T>::operator<(const field& other) const noexcept
 {
+    DEBUG_LOG(*this, other);
     return (other > *this);
 }
 
 template <class T> constexpr bool field<T>::operator==(const field& other) const noexcept
 {
+    DEBUG_LOG(*this, other);
     const field left = reduce_once();
     const field right = other.reduce_once();
     return (left.data[0] == right.data[0]) && (left.data[1] == right.data[1]) && (left.data[2] == right.data[2]) &&
@@ -340,7 +348,7 @@ template <class T> constexpr void field<T>::self_reduce_once() noexcept
 
 template <class T> constexpr field<T> field<T>::pow(const uint256_t& exponent) const noexcept
 {
-
+    DEBUG_LOG(*this, exponent);
     field accumulator{ data[0], data[1], data[2], data[3] };
     field to_mul{ data[0], data[1], data[2], data[3] };
     const uint64_t maximum_set_bit = exponent.get_msb();
