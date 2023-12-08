@@ -92,7 +92,7 @@ describe('e2e_nested_contract', () => {
       expect(await getChildStoredValue(childContract)).toEqual(new Fr(42n));
     }, 100_000);
 
-    it('enqueues multiple public calls with nested public calls', async () => {
+        it('enqueues multiple public calls with nested public calls', async () => {
       await parentContract.methods
         .enqueueCallsToPubEntryPoint(childContract.address, childContract.methods.pubIncValue.selector, 42n)
         .send()
