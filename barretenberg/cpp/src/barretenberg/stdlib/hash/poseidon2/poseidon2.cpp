@@ -40,16 +40,7 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
     for (auto& x : elements) {
         std::cout << x << std::endl;
     }
-    field_t hashed;
-    if (elements.size() < 2) {
-        hashed = hash(builder, elements);
-    } else {
-        hashed = hash(builder, { elements[0], elements[1] });
-        for (size_t i = 2; i < elements.size(); ++i) {
-            hashed = hash(builder, { hashed, elements[i] });
-        }
-    }
-    return hashed;
+    return hash(builder, elements);
 }
 template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;
 
