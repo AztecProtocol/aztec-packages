@@ -19,7 +19,12 @@ CPUS=$2
 ARCH=$3
 shift 3
 
-BASE_TAG=$(calculate_image_tag $REPOSITORY)
+MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+if [ "$MULTIARCH" == "host" ];
+  BASE_TAG=$(calculate_image_tag $REPOSITORY $ARCH)
+else
+  BASE_TAG=$(calculate_image_tag $REPOSITORY)
+fi
 SUCCESS_TAG=$BASE_TAG
 
 if [ -n "${TAG_POSTFIX:-}" ]; then
