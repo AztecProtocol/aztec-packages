@@ -38,7 +38,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         ABSORB,
         SQUEEZE,
     };
-    using field_t = field_t<Builder>;
+    using field_t = stdlib::field_t<Builder>;
 
     // sponge state. t = rate + capacity. capacity = 1 field element (~256 bits)
     std::array<field_t, t> state;
