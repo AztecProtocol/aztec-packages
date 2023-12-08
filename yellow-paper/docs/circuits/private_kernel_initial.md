@@ -88,6 +88,17 @@ It ensures the app circuit's intention by checking the following:
 
 > Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
 
+#### Verifying the call requests.
+
+For both private and public call requests initiated in the current function call, it ensures that for each request at index _i_:
+
+- Its hash equals the value at index _i_ within the call request hashes array in app circuit's public inputs.
+- Its caller context is either empty or aligns with the call context of the current function call, including:
+  - _msg_sender_
+  - Storage contract address.
+
+> It is important to note that the caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
+
 #### Verifying the counters.
 
 It verifies that each relevant value is associated with a legitimate counter.

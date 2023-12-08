@@ -108,10 +108,11 @@ The following must match the respective values in the previous kernel's public i
 - Log hashes.
 - Log lengths.
 
-Any hints aiding verifications in the private kernels should be cleared:
+No hints aiding verifications and siloing should be present:
 
 - Counter.
 - Contract address.
+- Portal contract address.
 - Nullified note hash.
 
 #### Verifying the constant data.

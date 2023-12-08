@@ -55,7 +55,7 @@ To ensure the function's existence, the circuit executes the following steps:
 
 #### Ensuring the current call matches the call request.
 
-The top item in the previous iteration's call requests must pertain to the current function call.
+The top item in the previous iteration's private call requests must pertain to the current function call.
 
 This circuit will pop the request from the stack, comparing the hash with that of the current function call.
 
@@ -85,8 +85,6 @@ If it is an internal call:
 
 - The _msg_sender_ of the current iteration must equal the storage contract address.
 
-> It is important to note that the caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
-
 #### Verifying the app private function proof.
 
 It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the app circuit.
@@ -97,12 +95,12 @@ This circuit verifies this proof and [the proof for the previous function call](
 
 It ensures the app circuit's intention by checking the following:
 
-- The contract address for each non-empty item in the following arrays must equal the current contract address:
+- The contract address for each non-empty item in the following arrays must equal the storage contract address of the current call:
   - Read requests.
   - New note hashes.
   - New nullifiers.
   - L2-to-L1 messages.
-- The portal contract address for each non-empty L2-to-L1 message must equal the current portal contract address.
+- The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
 - If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
 - The historical data must match the one in the constant data.
 
@@ -114,6 +112,17 @@ If it is a static call, it must ensure that the function does not induce any sta
 - New nullifiers.
 - L2-to-L1 messages.
 
+#### Verifying the call requests.
+
+For both private and public call requests initiated in the current function call, it ensures that for each request at index _i_:
+
+- Its hash equals the value at index _i_ within the call request hashes array in app circuit's public inputs.
+- Its caller context is either empty or aligns with the call context of the current function call, including:
+  - _msg_sender_
+  - Storage contract address.
+
+> It is important to note that the caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
+
 #### Verifying the counters.
 
 It verifies that each relevant value is associated with a legitimate counter.
@@ -121,16 +130,16 @@ It verifies that each relevant value is associated with a legitimate counter.
 For the current call:
 
 - The _counter_end_ of the current call must be greater than its _counter_start_.
-- Both counters must match the ones defined in the top item in the previous iteration's call requests.
+- Both counters must match the ones defined in the top item in the previous iteration's private call requests.
 
-For both private and public call requests:
+For both private and public call requests in the app circuit's public inputs:
 
 - The _counter_end_ of each request must be greater than its _counter_start_.
 - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
 - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
 - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-For items in each ordered array created in the current call:
+For items in each ordered array in the app circuit's public inputs:
 
 - The counter of the first item much be greater than the _counter_start_ of the current call.
 - The counter of each subsequent item much be greater than the counter of the previous item.
@@ -147,17 +156,16 @@ The ordered arrays include:
 
 #### Verifying the accumulated data.
 
-It verifies that the following values match the result combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
 - Read requests.
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
-- Private call requests.
 - Public call requests.
 - New contracts.
 
-For the newly added note hashes from app circuits' public inputs, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
+2. For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
 
 - Zero: if the note is not nullified in the same transaction.
 - Greater than zero: if the note is nullified in the same transaction.
@@ -167,13 +175,18 @@ For the newly added note hashes from app circuits' public inputs, it also verifi
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
-It accumulates the hashes and the lengths for both encrypted and unencrypted logs:
+3. It verifies that the private call requests include:
+
+- All requests from the previous iteration's public inputs except for the top one.
+- All requests present in the app circuit's public inputs.
+
+4. It checks that the hashes and the lengths for both encrypted and unencrypted logs are accumulated as follows:
 
 - New log hash = `hash(prev_hash, cur_hash)`
   - If either hash is zero, the new hash will be `prev_hash | cur_hash`
 - New log length = `prev_length + cur_length`
 
-Additionally, it ensures that the following arrays are empty:
+5. It ensures that the following arrays are empty:
 
 - Public read requests.
 - Public update requests.
