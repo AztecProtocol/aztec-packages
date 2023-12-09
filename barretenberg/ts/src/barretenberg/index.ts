@@ -76,9 +76,7 @@ export class BarretenbergSync extends BarretenbergApiSync {
 }
 
 // If we're in ESM environment, use top level await. CJS users need to call it manually.
-if (typeof __filename === 'undefined') {
-  // Need to ignore for cjs build.
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  await BarretenbergSync.initSingleton();
-}
+// Need to ignore for cjs build.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+await BarretenbergSync.initSingleton(); // POSTPROCESS ESM ONLY
