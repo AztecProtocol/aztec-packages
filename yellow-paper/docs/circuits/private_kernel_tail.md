@@ -54,7 +54,7 @@ A hints array is provided via the private inputs. This circuit verifies that:
 
 > The length of an array is the number of **consecutive** non-empty items from index 0 in an array.
 
-> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and more efficient to be done in the tail circuit.
+> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and _usually_ more efficient to be done in the tail circuit.
 
 #### Siloing values.
 

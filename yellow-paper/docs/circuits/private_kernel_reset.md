@@ -30,8 +30,6 @@ A read request can pertain to one of two note types:
 - A persistent note: generated in a prior successful transaction and included in the note hash tree.
 - A transient note: created in the current transaction, not yet part of the note hash tree.
 
-This distinction is indicated by a flag _is_transient_ in the read request.
-
 For each non-empty read request in the previous kernel's public inputs, it can be cleared if it meets either of the following conditions:
 
 1. When reading a persistent note, it requires a valid membership check, where:
