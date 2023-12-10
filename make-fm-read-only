@@ -1,0 +1,4223 @@
+From 7e0a3d11ad3c5473ae4411d8e90be96f3a69c7d1 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 21:07:41 +0000
+Subject: [PATCH 01/30] make `find_module` be an immutable reference
+
+---
+ compiler/fm/src/lib.rs | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index ea9640557..2b16cdeb3 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -94,7 +94,7 @@ impl FileManager {
+         self.id_to_path.get(&file_id).unwrap().as_path()
+     }
+ 
+-    pub fn find_module(&mut self, anchor: FileId, mod_name: &str) -> Result<FileId, String> {
++    pub fn find_module(&self, anchor: FileId, mod_name: &str) -> Result<FileId, String> {
+         let anchor_path = self.path(anchor).with_extension("");
+         let anchor_dir = anchor_path.parent().unwrap();
+ 
+@@ -107,9 +107,10 @@ impl FileManager {
+             anchor_path.join(format!("{mod_name}.{FILE_EXTENSION}"))
+         };
+ 
+-        self.add_file(&candidate).ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
++        self.name_to_id(candidate.clone()).ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
+     }
+ 
++    // TODO: This should accept a &Path instead of a PathBuf
+     pub fn name_to_id(&self, file_name: PathBuf) -> Option<FileId> {
+         self.file_map.get_file_id(&PathString::from_path(file_name))
+     }
+-- 
+2.25.1
+
+
+From b2ff05b6aebe11e0c67da6c1ae2c4c95dd5b1823 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 21:08:12 +0000
+Subject: [PATCH 02/30] add method in nargo that pre-populates the FileManager
+
+---
+ tooling/nargo/src/lib.rs | 87 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 86 insertions(+), 1 deletion(-)
+
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index ef014fb43..fee3a3a30 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -42,9 +42,29 @@ pub fn prepare_dependencies(
+     }
+ }
+ 
++// We will pre-populate the file manager with all the files in the package
++// This is so that we can avoid having to read from disk when we are compiling
++//
++// This does not require parsing because we are interested in the files under the src directory
++// it may turn out that we do not need to include some Noir files that we add to the file 
++// manager
++pub fn insert_all_files_for_package_into_file_manager(package : &Package, file_manager : &mut FileManager) {
++    // Start off at the root directory of the package and add all of the files located
++    // in that directory.
++    let root_path = package.root_dir.clone();
++    
++    // Get all files in the package and add them to the file manager
++    let paths = get_all_paths_in_dir(&root_path).expect("could not get all paths in the package");
++    for path in paths {
++        file_manager.add_file(path.as_path());
++    }
++}
++
+ pub fn prepare_package(package: &Package, file_reader: Box<FileReader>) -> (Context, CrateId) {
+     // TODO: FileManager continues to leak into various crates
+-    let fm = FileManager::new(&package.root_dir, file_reader);
++    let mut fm = FileManager::new(&package.root_dir, file_reader);
++    insert_all_files_for_package_into_file_manager(package, &mut fm);
++
+     let graph = CrateGraph::default();
+     let mut context = Context::new(fm, graph);
+ 
+@@ -54,3 +74,68 @@ pub fn prepare_package(package: &Package, file_reader: Box<FileReader>) -> (Cont
+ 
+     (context, crate_id)
+ }
++
++// Get all paths in the directory and subdirectories.
++//
++// Panics: If the path is not a path to a directory.
++//
++// TODO: Along with prepare_package, this function is an abstraction leak
++// TODO given that this crate should not know about the file manager.
++// TODO: We can clean this up in a future refactor
++fn get_all_paths_in_dir(dir: &std::path::Path) -> std::io::Result<Vec<std::path::PathBuf>> {
++    assert!(dir.is_dir(), "directory {dir:?} is not a path to a directory");
++
++    let mut paths = Vec::new();
++
++    if dir.is_dir() {
++        for entry in std::fs::read_dir(dir)? {
++            let entry = entry?;
++            let path = entry.path();
++            if path.is_dir() {
++                let mut sub_paths = get_all_paths_in_dir(&path)?;
++                paths.append(&mut sub_paths);
++            } else {
++                paths.push(path);
++            }
++        }
++    }
++
++    Ok(paths)
++}
++
++#[cfg(test)]
++ mod tests {
++    use crate::get_all_paths_in_dir;
++    use std::{fs::{self, File}, path::Path};
++    use tempfile::tempdir;
++
++    fn create_test_dir_structure(temp_dir: &Path) -> std::io::Result<()> {
++        fs::create_dir(temp_dir.join("subdir1"))?;
++        File::create(temp_dir.join("subdir1/file1.txt"))?;
++        fs::create_dir(temp_dir.join("subdir2"))?;
++        File::create(temp_dir.join("subdir2/file2.txt"))?;
++        File::create(temp_dir.join("file3.txt"))?;
++        Ok(())
++    }
++
++    #[test]
++    fn test_get_all_paths_in_dir() {
++        let temp_dir = tempdir().expect("could not create a temporary directory");
++        create_test_dir_structure(temp_dir.path()).expect("could not create test directory structure");
++
++        let paths = get_all_paths_in_dir(temp_dir.path()).expect("could not get all paths in the test directory");
++
++        // This should be the paths to all of the files in the directory and the subdirectory
++        let expected_paths = vec![
++            temp_dir.path().join("file3.txt"),
++            temp_dir.path().join("subdir1/file1.txt"),
++            temp_dir.path().join("subdir2/file2.txt"),
++        ];
++
++        assert_eq!(paths.len(), expected_paths.len());
++        for path in expected_paths {
++            assert!(paths.contains(&path));
++        }
++    }
++
++ }
+\ No newline at end of file
+-- 
+2.25.1
+
+
+From 55923488827a2b5d194e425997106a6de8294417 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 21:08:49 +0000
+Subject: [PATCH 03/30] change add_file to `name_to_id` -- we assume that the
+ file manager has already been populated
+
+---
+ compiler/noirc_driver/src/lib.rs     | 4 ++--
+ tooling/nargo_cli/src/cli/fmt_cmd.rs | 6 ++++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 23869fc2a..d564be4d3 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -78,7 +78,7 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+     let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
+     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+ 
+-    let root_file_id = context.file_manager.add_file(file_name).unwrap();
++    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap();
+ 
+     let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+ 
+@@ -89,7 +89,7 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+ 
+ // Adds the file from the file system at `Path` to the crate graph
+ pub fn prepare_dependency(context: &mut Context, file_name: &Path) -> CrateId {
+-    let root_file_id = context.file_manager.add_file(file_name).unwrap();
++    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).expect("files are expected to be added to the FileManager before reaching the compiler");
+ 
+     let crate_id = context.crate_graph.add_crate(root_file_id);
+ 
+diff --git a/tooling/nargo_cli/src/cli/fmt_cmd.rs b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+index ec3d373a4..ea90282f3 100644
+--- a/tooling/nargo_cli/src/cli/fmt_cmd.rs
++++ b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+@@ -2,6 +2,7 @@ use std::{fs::DirEntry, path::Path};
+ 
+ use clap::Args;
+ use fm::FileManager;
++use nargo::insert_all_files_for_package_into_file_manager;
+ use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
+ use noirc_driver::NOIR_ARTIFACT_VERSION_STRING;
+ use noirc_errors::CustomDiagnostic;
+@@ -37,9 +38,10 @@ pub(crate) fn run(args: FormatCommand, config: NargoConfig) -> Result<(), CliErr
+     for package in &workspace {
+         let mut file_manager =
+             FileManager::new(&package.root_dir, Box::new(|path| std::fs::read_to_string(path)));
+-
++            insert_all_files_for_package_into_file_manager(package, &mut file_manager);
++            
+         visit_noir_files(&package.root_dir.join("src"), &mut |entry| {
+-            let file_id = file_manager.add_file(&entry.path()).expect("file exists");
++            let file_id = file_manager.name_to_id(entry.path().to_path_buf()).expect("The file should exist since we added all files in the package into the file manager");
+             let (parsed_module, errors) = parse_file(&file_manager, file_id);
+ 
+             let is_all_warnings = errors.iter().all(ParserError::is_warning);
+-- 
+2.25.1
+
+
+From d5fd4e0cef0f369d69db9dda4b032a0a49bd8e95 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 21:08:56 +0000
+Subject: [PATCH 04/30] cargo
+
+---
+ Cargo.lock               | 1 +
+ tooling/nargo/Cargo.toml | 5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 58b867053..df702fef5 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2403,6 +2403,7 @@ dependencies = [
+  "rayon",
+  "rustc_version",
+  "serde",
++ "tempfile",
+  "thiserror",
+ ]
+ 
+diff --git a/tooling/nargo/Cargo.toml b/tooling/nargo/Cargo.toml
+index f82694599..2c224d870 100644
+--- a/tooling/nargo/Cargo.toml
++++ b/tooling/nargo/Cargo.toml
+@@ -24,4 +24,7 @@ iter-extended.workspace = true
+ serde.workspace = true
+ thiserror.workspace = true
+ codespan-reporting.workspace = true
+-rayon = "1.8.0"
+\ No newline at end of file
++rayon = "1.8.0"
++# TODO: This dependency is used to generate unit tests for `get_all_paths_in_dir`
++# TODO: once that method is moved to nargo_cli, we can move this dependency to nargo_cli
++tempfile = "3.2.0"
+\ No newline at end of file
+-- 
+2.25.1
+
+
+From 2f137b70e5d0497869a071bde8e8c557e3dfe684 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 21:27:20 +0000
+Subject: [PATCH 05/30] Update tooling/nargo/src/lib.rs
+
+---
+ tooling/nargo/src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index fee3a3a30..adc7ab619 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -80,7 +80,7 @@ pub fn prepare_package(package: &Package, file_reader: Box<FileReader>) -> (Cont
+ // Panics: If the path is not a path to a directory.
+ //
+ // TODO: Along with prepare_package, this function is an abstraction leak
+-// TODO given that this crate should not know about the file manager.
++// TODO: given that this crate should not know about the file manager.
+ // TODO: We can clean this up in a future refactor
+ fn get_all_paths_in_dir(dir: &std::path::Path) -> std::io::Result<Vec<std::path::PathBuf>> {
+     assert!(dir.is_dir(), "directory {dir:?} is not a path to a directory");
+-- 
+2.25.1
+
+
+From 41ae81f08c9c3abae0cebbd8555ddaf22ed2eef8 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:32:35 +0000
+Subject: [PATCH 06/30] add a method in file manager that allows us to add a
+ file with its source
+
+---
+ compiler/fm/src/lib.rs | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index 2b16cdeb3..5b41a2717 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -73,6 +73,22 @@ impl FileManager {
+         Some(file_id)
+     }
+ 
++    // TODO: this will become the default strategy for adding files. Possibly with file_reader.
++    // TODO: we are still migrating to this strategy, so we keep the old one for now.
++    // TODO: For the stdlib crate, we need to do this preemptively due to the way we special handle it
++    pub fn add_file_with_source(&mut self, file_name: &Path, source : String) -> Option<FileId> {
++        // Check that the file name already exists in the file map, if it is, we return it.
++        if let Some(file_id) = self.path_to_id.get(file_name) {
++            return Some(*file_id);
++        }
++        let file_name_path_buf = file_name.to_path_buf();
++
++        // Otherwise we add the file
++        let file_id = self.file_map.add_file(file_name_path_buf.clone().into(), source);
++        self.register_path(file_id, file_name_path_buf);
++        Some(file_id)
++    }
++
+     fn register_path(&mut self, file_id: FileId, path: PathBuf) {
+         let old_value = self.id_to_path.insert(file_id, path.clone());
+         assert!(
+@@ -94,6 +110,9 @@ impl FileManager {
+         self.id_to_path.get(&file_id).unwrap().as_path()
+     }
+ 
++    // TODO: This should also ideally not be here, so that the file manager
++    // TODO: does not know about rust modules.
++    // TODO: Ideally this is moved to def_collector_mod and we make this method accept a FileManager
+     pub fn find_module(&self, anchor: FileId, mod_name: &str) -> Result<FileId, String> {
+         let anchor_path = self.path(anchor).with_extension("");
+         let anchor_dir = anchor_path.parent().unwrap();
+@@ -116,6 +135,9 @@ impl FileManager {
+     }
+ }
+ 
++// TODO: This should not be here because the file manager should not know about the 
++// TODO: rust modules. See comment on `find_module``
++// TODO: Moreover, the check for main, lib, mod should ideally not be done here
+ /// Returns true if a module's child module's are expected to be in the same directory.
+ /// Returns false if they are expected to be in a subdirectory matching the name of the module.
+ fn should_check_siblings_for_module(module_path: &Path, parent_path: &Path) -> bool {
+-- 
+2.25.1
+
+
+From c7f576c056cbc97b671687137150327dc6f5e627 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:32:52 +0000
+Subject: [PATCH 07/30] add deprecation TODO to file_reader
+
+---
+ compiler/fm/src/file_reader.rs | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/compiler/fm/src/file_reader.rs b/compiler/fm/src/file_reader.rs
+index d17aefeda..e7ffd93df 100644
+--- a/compiler/fm/src/file_reader.rs
++++ b/compiler/fm/src/file_reader.rs
+@@ -5,6 +5,11 @@ use std::path::Path;
+ // Based on the environment, we either read files using the rust standard library or we
+ // read files using the javascript host function
+ 
++// TODO: DO NOT MERGE PR WITH THIS TODO
++// TODO: We have duplicated this logic in noirc_driver. For now, we leave this here
++// TODO: until we make the breaking change to the API which will allow us to remove this
++// TODO: file.
++
+ pub type FileReader = dyn Fn(&Path) -> std::io::Result<String> + Send;
+ 
+ #[derive(RustEmbed)]
+-- 
+2.25.1
+
+
+From a2460e6e2dc3a69379b99f6df954cd5c217cf323 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:33:31 +0000
+Subject: [PATCH 08/30] add stdlib file in noirc_driver that returns the stdlib
+ paths alongside their source code
+
+---
+ compiler/noirc_driver/src/stdlib.rs | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 compiler/noirc_driver/src/stdlib.rs
+
+diff --git a/compiler/noirc_driver/src/stdlib.rs b/compiler/noirc_driver/src/stdlib.rs
+new file mode 100644
+index 000000000..b6fa76ff8
+--- /dev/null
++++ b/compiler/noirc_driver/src/stdlib.rs
+@@ -0,0 +1,24 @@
++use rust_embed::RustEmbed;
++
++#[derive(RustEmbed)]
++#[folder = "../../noir_stdlib/src"]
++#[cfg_attr(not(target_os = "windows"), prefix = "std/")]
++#[cfg_attr(target_os = "windows", prefix = r"std\")] // Note reversed slash direction
++struct StdLibAssets;
++
++// Returns a vector of tuples containing the path to a stdlib file in the std lib crate
++// along with the source code of that file.
++//
++// This is needed because when we preload the file manager, it needs to know where
++// the source code for the stdlib is. The stdlib is treated special because it comes with
++// the compiler and is never included as a dependency like other user defined crates.
++pub(crate) fn stdlib_paths_with_source() -> Vec<(String, String)> {
++    StdLibAssets::iter()
++        .map(|path| {
++            let source = std::str::from_utf8(StdLibAssets::get(&path).unwrap().data.as_ref())
++                .unwrap()
++                .to_string();
++            (path.to_string(), source)
++        })
++        .collect()
++}
+\ No newline at end of file
+-- 
+2.25.1
+
+
+From 270a0f41e21b0e92f63b2524c303872e66f5a87b Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:33:59 +0000
+Subject: [PATCH 09/30] add the contents of the stdlib whenever we call
+ prepare_crate
+
+---
+ compiler/noirc_driver/src/lib.rs | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index d564be4d3..0ba50ad96 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -23,6 +23,7 @@ mod abi_gen;
+ mod contract;
+ mod debug;
+ mod program;
++mod stdlib;
+ 
+ use debug::filter_relevant_files;
+ 
+@@ -76,6 +77,12 @@ pub type CompilationResult<T> = Result<(T, Warnings), ErrorsAndWarnings>;
+ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
+     let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
++    let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
++    for (path, source) in stdlib_paths_with_source {
++        let path_buf = std::path::Path::new(&path);
++        context.file_manager.add_file_with_source(path_buf, source);
++    }
++
+     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+ 
+     let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap();
+-- 
+2.25.1
+
+
+From 52d33a5adcf0344d0463a0b7c15c57e6e0f322e7 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:34:04 +0000
+Subject: [PATCH 10/30] cargo
+
+---
+ Cargo.lock                       | 1 +
+ compiler/noirc_driver/Cargo.toml | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index df702fef5..31a6c3932 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2627,6 +2627,7 @@ dependencies = [
+  "noirc_errors",
+  "noirc_evaluator",
+  "noirc_frontend",
++ "rust-embed",
+  "serde",
+ ]
+ 
+diff --git a/compiler/noirc_driver/Cargo.toml b/compiler/noirc_driver/Cargo.toml
+index c717efed6..0faa6c777 100644
+--- a/compiler/noirc_driver/Cargo.toml
++++ b/compiler/noirc_driver/Cargo.toml
+@@ -21,6 +21,7 @@ iter-extended.workspace = true
+ fm.workspace = true
+ serde.workspace = true
+ fxhash.workspace = true
++rust-embed = "6.6.0"
+ 
+ aztec_macros ={path = "../../aztec_macros", optional = true}
+ 
+-- 
+2.25.1
+
+
+From a38c27c98898357efe01d001547b0710f9d6f547 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:35:56 +0000
+Subject: [PATCH 11/30] cargo fmt
+
+---
+ compiler/fm/src/lib.rs               |  7 ++++---
+ compiler/noirc_driver/src/lib.rs     |  5 ++++-
+ compiler/noirc_driver/src/stdlib.rs  |  2 +-
+ tooling/nargo/src/lib.rs             | 25 ++++++++++++++++---------
+ tooling/nargo_cli/src/cli/fmt_cmd.rs |  4 ++--
+ 5 files changed, 27 insertions(+), 16 deletions(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index 5b41a2717..e84904b8b 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -76,7 +76,7 @@ impl FileManager {
+     // TODO: this will become the default strategy for adding files. Possibly with file_reader.
+     // TODO: we are still migrating to this strategy, so we keep the old one for now.
+     // TODO: For the stdlib crate, we need to do this preemptively due to the way we special handle it
+-    pub fn add_file_with_source(&mut self, file_name: &Path, source : String) -> Option<FileId> {
++    pub fn add_file_with_source(&mut self, file_name: &Path, source: String) -> Option<FileId> {
+         // Check that the file name already exists in the file map, if it is, we return it.
+         if let Some(file_id) = self.path_to_id.get(file_name) {
+             return Some(*file_id);
+@@ -126,7 +126,8 @@ impl FileManager {
+             anchor_path.join(format!("{mod_name}.{FILE_EXTENSION}"))
+         };
+ 
+-        self.name_to_id(candidate.clone()).ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
++        self.name_to_id(candidate.clone())
++            .ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
+     }
+ 
+     // TODO: This should accept a &Path instead of a PathBuf
+@@ -135,7 +136,7 @@ impl FileManager {
+     }
+ }
+ 
+-// TODO: This should not be here because the file manager should not know about the 
++// TODO: This should not be here because the file manager should not know about the
+ // TODO: rust modules. See comment on `find_module``
+ // TODO: Moreover, the check for main, lib, mod should ideally not be done here
+ /// Returns true if a module's child module's are expected to be in the same directory.
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 0ba50ad96..71ca721bc 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -96,7 +96,10 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+ 
+ // Adds the file from the file system at `Path` to the crate graph
+ pub fn prepare_dependency(context: &mut Context, file_name: &Path) -> CrateId {
+-    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).expect("files are expected to be added to the FileManager before reaching the compiler");
++    let root_file_id = context
++        .file_manager
++        .name_to_id(file_name.to_path_buf())
++        .expect("files are expected to be added to the FileManager before reaching the compiler");
+ 
+     let crate_id = context.crate_graph.add_crate(root_file_id);
+ 
+diff --git a/compiler/noirc_driver/src/stdlib.rs b/compiler/noirc_driver/src/stdlib.rs
+index b6fa76ff8..5a91e3f45 100644
+--- a/compiler/noirc_driver/src/stdlib.rs
++++ b/compiler/noirc_driver/src/stdlib.rs
+@@ -21,4 +21,4 @@ pub(crate) fn stdlib_paths_with_source() -> Vec<(String, String)> {
+             (path.to_string(), source)
+         })
+         .collect()
+-}
+\ No newline at end of file
++}
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index adc7ab619..8fdb4d88c 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -46,13 +46,16 @@ pub fn prepare_dependencies(
+ // This is so that we can avoid having to read from disk when we are compiling
+ //
+ // This does not require parsing because we are interested in the files under the src directory
+-// it may turn out that we do not need to include some Noir files that we add to the file 
++// it may turn out that we do not need to include some Noir files that we add to the file
+ // manager
+-pub fn insert_all_files_for_package_into_file_manager(package : &Package, file_manager : &mut FileManager) {
++pub fn insert_all_files_for_package_into_file_manager(
++    package: &Package,
++    file_manager: &mut FileManager,
++) {
+     // Start off at the root directory of the package and add all of the files located
+     // in that directory.
+     let root_path = package.root_dir.clone();
+-    
++
+     // Get all files in the package and add them to the file manager
+     let paths = get_all_paths_in_dir(&root_path).expect("could not get all paths in the package");
+     for path in paths {
+@@ -104,9 +107,12 @@ fn get_all_paths_in_dir(dir: &std::path::Path) -> std::io::Result<Vec<std::path:
+ }
+ 
+ #[cfg(test)]
+- mod tests {
++mod tests {
+     use crate::get_all_paths_in_dir;
+-    use std::{fs::{self, File}, path::Path};
++    use std::{
++        fs::{self, File},
++        path::Path,
++    };
+     use tempfile::tempdir;
+ 
+     fn create_test_dir_structure(temp_dir: &Path) -> std::io::Result<()> {
+@@ -121,9 +127,11 @@ fn get_all_paths_in_dir(dir: &std::path::Path) -> std::io::Result<Vec<std::path:
+     #[test]
+     fn test_get_all_paths_in_dir() {
+         let temp_dir = tempdir().expect("could not create a temporary directory");
+-        create_test_dir_structure(temp_dir.path()).expect("could not create test directory structure");
++        create_test_dir_structure(temp_dir.path())
++            .expect("could not create test directory structure");
+ 
+-        let paths = get_all_paths_in_dir(temp_dir.path()).expect("could not get all paths in the test directory");
++        let paths = get_all_paths_in_dir(temp_dir.path())
++            .expect("could not get all paths in the test directory");
+ 
+         // This should be the paths to all of the files in the directory and the subdirectory
+         let expected_paths = vec![
+@@ -137,5 +145,4 @@ fn get_all_paths_in_dir(dir: &std::path::Path) -> std::io::Result<Vec<std::path:
+             assert!(paths.contains(&path));
+         }
+     }
+-
+- }
+\ No newline at end of file
++}
+diff --git a/tooling/nargo_cli/src/cli/fmt_cmd.rs b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+index ea90282f3..cb3b83435 100644
+--- a/tooling/nargo_cli/src/cli/fmt_cmd.rs
++++ b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+@@ -38,8 +38,8 @@ pub(crate) fn run(args: FormatCommand, config: NargoConfig) -> Result<(), CliErr
+     for package in &workspace {
+         let mut file_manager =
+             FileManager::new(&package.root_dir, Box::new(|path| std::fs::read_to_string(path)));
+-            insert_all_files_for_package_into_file_manager(package, &mut file_manager);
+-            
++        insert_all_files_for_package_into_file_manager(package, &mut file_manager);
++
+         visit_noir_files(&package.root_dir.join("src"), &mut |entry| {
+             let file_id = file_manager.name_to_id(entry.path().to_path_buf()).expect("The file should exist since we added all files in the package into the file manager");
+             let (parsed_module, errors) = parse_file(&file_manager, file_id);
+-- 
+2.25.1
+
+
+From 6a5bf3389ab20424f053233087ed00c79f3b97a3 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:38:01 +0000
+Subject: [PATCH 12/30] move tempfile to dev dependencies
+
+---
+ tooling/nargo/Cargo.toml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tooling/nargo/Cargo.toml b/tooling/nargo/Cargo.toml
+index 2c224d870..48741c367 100644
+--- a/tooling/nargo/Cargo.toml
++++ b/tooling/nargo/Cargo.toml
+@@ -25,6 +25,8 @@ serde.workspace = true
+ thiserror.workspace = true
+ codespan-reporting.workspace = true
+ rayon = "1.8.0"
++
++[dev-dependencies]
+ # TODO: This dependency is used to generate unit tests for `get_all_paths_in_dir`
+ # TODO: once that method is moved to nargo_cli, we can move this dependency to nargo_cli
+ tempfile = "3.2.0"
+\ No newline at end of file
+-- 
+2.25.1
+
+
+From f72ce9993efb93a30346ce0ad0b609f7a4bdbc49 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:53:46 +0000
+Subject: [PATCH 13/30] add files into file manager in test since find_module
+ does not add files into the file manager anymore
+
+---
+ compiler/fm/src/lib.rs | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index e84904b8b..bfe5b81df 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -240,9 +240,11 @@ mod tests {
+     use super::*;
+     use tempfile::{tempdir, TempDir};
+ 
+-    fn create_dummy_file(dir: &TempDir, file_name: &Path) {
++    // Returns the absolute path to the file
++    fn create_dummy_file(dir: &TempDir, file_name: &Path) -> PathBuf {
+         let file_path = dir.path().join(file_name);
+-        let _file = std::fs::File::create(file_path).unwrap();
++        let _file = std::fs::File::create(&file_path).unwrap();
++        file_path
+     }
+ 
+     #[test]
+@@ -281,30 +283,30 @@ mod tests {
+ 
+         // Create a lib.nr file at the root.
+         // we now have dir/lib.nr
+-        let file_name = Path::new("lib.nr");
+-        create_dummy_file(&dir, file_name);
+-
+-        let file_id = fm.add_file(file_name).unwrap();
+-
++        let lib_nr_path = create_dummy_file(&dir, Path::new("lib.nr"));
++        let file_id = fm.add_file(lib_nr_path.as_path()).expect("could not add file to file manager and obtain a FileId");
++        
+         // Create a sub directory
+         // we now have:
+         // - dir/lib.nr
+         // - dir/sub_dir
+         let sub_dir = TempDir::new_in(&dir).unwrap();
+         let sub_dir_name = sub_dir.path().file_name().unwrap().to_str().unwrap();
+-
++        
+         // Add foo.nr to the subdirectory
+         // we no have:
+         // - dir/lib.nr
+         // - dir/sub_dir/foo.nr
+-        create_dummy_file(&sub_dir, Path::new("foo.nr"));
+-
++        let foo_nr_path =create_dummy_file(&sub_dir, Path::new("foo.nr"));
++        fm.add_file(foo_nr_path.as_path());
++        
+         // Add a parent module for the sub_dir
+         // we no have:
+         // - dir/lib.nr
+         // - dir/sub_dir.nr
+         // - dir/sub_dir/foo.nr
+-        create_dummy_file(&dir, Path::new(&format!("{sub_dir_name}.nr")));
++        let sub_dir_nr_path = create_dummy_file(&dir, Path::new(&format!("{sub_dir_name}.nr")));
++        fm.add_file(sub_dir_nr_path.as_path());
+ 
+         // First check for the sub_dir.nr file and add it to the FileManager
+         let sub_dir_file_id = fm.find_module(file_id, sub_dir_name).unwrap();
+-- 
+2.25.1
+
+
+From b30ad5473dc64af10bba8e2acb8f9c4f59954ff3 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:59:28 +0000
+Subject: [PATCH 14/30] insert all files for this packages dependencies into
+ the file manager too
+
+---
+ tooling/nargo/src/lib.rs | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index 8fdb4d88c..7c81b6bcb 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -61,6 +61,24 @@ pub fn insert_all_files_for_package_into_file_manager(
+     for path in paths {
+         file_manager.add_file(path.as_path());
+     }
++
++    insert_all_files_for_packages_dependencies_into_file_manager(package, file_manager);
++}
++
++// Inserts all files for the dependencies of the package into the file manager
++// too
++fn insert_all_files_for_packages_dependencies_into_file_manager(
++    package: &Package,
++    file_manager: &mut FileManager,
++) {
++    for (_, dep) in package.dependencies.iter() {
++        match dep {
++            Dependency::Local { package } | Dependency::Remote { package } => {
++                insert_all_files_for_package_into_file_manager(package, file_manager);
++                insert_all_files_for_packages_dependencies_into_file_manager(package, file_manager);
++            }
++        }
++    }
+ }
+ 
+ pub fn prepare_package(package: &Package, file_reader: Box<FileReader>) -> (Context, CrateId) {
+-- 
+2.25.1
+
+
+From 15a94ee507fe8594499d5ec71c0b35ee7d13b409 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 22:59:41 +0000
+Subject: [PATCH 15/30] cargo fmt
+
+---
+ compiler/fm/src/lib.rs | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index bfe5b81df..4f4eb9d98 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -284,22 +284,24 @@ mod tests {
+         // Create a lib.nr file at the root.
+         // we now have dir/lib.nr
+         let lib_nr_path = create_dummy_file(&dir, Path::new("lib.nr"));
+-        let file_id = fm.add_file(lib_nr_path.as_path()).expect("could not add file to file manager and obtain a FileId");
+-        
++        let file_id = fm
++            .add_file(lib_nr_path.as_path())
++            .expect("could not add file to file manager and obtain a FileId");
++
+         // Create a sub directory
+         // we now have:
+         // - dir/lib.nr
+         // - dir/sub_dir
+         let sub_dir = TempDir::new_in(&dir).unwrap();
+         let sub_dir_name = sub_dir.path().file_name().unwrap().to_str().unwrap();
+-        
++
+         // Add foo.nr to the subdirectory
+         // we no have:
+         // - dir/lib.nr
+         // - dir/sub_dir/foo.nr
+-        let foo_nr_path =create_dummy_file(&sub_dir, Path::new("foo.nr"));
++        let foo_nr_path = create_dummy_file(&sub_dir, Path::new("foo.nr"));
+         fm.add_file(foo_nr_path.as_path());
+-        
++
+         // Add a parent module for the sub_dir
+         // we no have:
+         // - dir/lib.nr
+-- 
+2.25.1
+
+
+From 45993614fd13e23300fc2afefc38dbcb638cbf20 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 23:00:59 +0000
+Subject: [PATCH 16/30] remove un-needed fully qualified path
+
+---
+ compiler/noirc_driver/src/lib.rs | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 71ca721bc..a62c30e7d 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -79,8 +79,7 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+     let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
+     let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
+     for (path, source) in stdlib_paths_with_source {
+-        let path_buf = std::path::Path::new(&path);
+-        context.file_manager.add_file_with_source(path_buf, source);
++        context.file_manager.add_file_with_source(Path::new(&path), source);
+     }
+ 
+     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+-- 
+2.25.1
+
+
+From f20109e2b09420a75249a760ce871f074aa38e98 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 23:03:02 +0000
+Subject: [PATCH 17/30] Add note on stdlib
+
+---
+ compiler/noirc_driver/src/lib.rs | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index a62c30e7d..7f8d91dfa 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -77,6 +77,11 @@ pub type CompilationResult<T> = Result<(T, Warnings), ErrorsAndWarnings>;
+ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
+     let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
++    
++    // Add the stdlib contents to the file manager, since every package automatically has a dependency
++    // on the stdlib. For other dependencies, we read the package.Dependencies file to add their file 
++    // contents to the file manager. However since the dependency on the stdlib is implicit, we need
++    // to manually add it here.
+     let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
+     for (path, source) in stdlib_paths_with_source {
+         context.file_manager.add_file_with_source(Path::new(&path), source);
+-- 
+2.25.1
+
+
+From 4413350ca79839092360a05ca28b0a40a3caef84 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Sun, 10 Dec 2023 23:06:09 +0000
+Subject: [PATCH 18/30] cargo fmt
+
+---
+ compiler/noirc_driver/src/lib.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 7f8d91dfa..719984122 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -77,9 +77,9 @@ pub type CompilationResult<T> = Result<(T, Warnings), ErrorsAndWarnings>;
+ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
+     let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
+-    
++
+     // Add the stdlib contents to the file manager, since every package automatically has a dependency
+-    // on the stdlib. For other dependencies, we read the package.Dependencies file to add their file 
++    // on the stdlib. For other dependencies, we read the package.Dependencies file to add their file
+     // contents to the file manager. However since the dependency on the stdlib is implicit, we need
+     // to manually add it here.
+     let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
+-- 
+2.25.1
+
+
+From d6a24e8529a8c831d20a3fa3058c4c3871252288 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 00:22:36 +0000
+Subject: [PATCH 19/30] add comment to process_dep_graph and fix
+ setup_test_context
+
+---
+ compiler/wasm/src/compile.rs | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/compiler/wasm/src/compile.rs b/compiler/wasm/src/compile.rs
+index e7fd3dd52..246e6ab77 100644
+--- a/compiler/wasm/src/compile.rs
++++ b/compiler/wasm/src/compile.rs
+@@ -200,6 +200,12 @@ pub fn compile(
+     }
+ }
+ 
++// Root dependencies are dependencies which the entry-point package relies upon.
++// These will be in the Nargo.toml of the package being compiled.
++//
++// Library dependencies are transitive dependencies; for example, if the entry-point relies
++// upon some library `lib1`. Then the packages that `lib1` depend upon will be placed in the 
++// `library_dependencies` list and the `lib1` will be placed in the `root_dependencies` list.
+ fn process_dependency_graph(context: &mut Context, dependency_graph: DependencyGraph) {
+     let mut crate_names: HashMap<&CrateName, CrateId> = HashMap::new();
+ 
+@@ -320,10 +326,10 @@ mod test {
+     }
+ 
+     fn setup_test_context() -> Context {
+-        let fm = FileManager::new(Path::new("/"), Box::new(mock_get_non_stdlib_asset));
++        let mut fm = FileManager::new(Path::new("/"), Box::new(mock_get_non_stdlib_asset));
++        fm.add_file_with_source(Path::new("/main.nr"), "stuff".to_string());
+         let graph = CrateGraph::default();
+         let mut context = Context::new(fm, graph);
+-
+         prepare_crate(&mut context, Path::new("/main.nr"));
+ 
+         context
+-- 
+2.25.1
+
+
+From 552a4dda457835992577952a11b698e2216cadb0 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 00:59:00 +0000
+Subject: [PATCH 20/30] replace expect with unwrap_or_else: expect doesn't
+ allow you to add placeholders like panic! and format! do
+
+---
+ compiler/noirc_driver/src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 719984122..ba0e12cd7 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -103,7 +103,7 @@ pub fn prepare_dependency(context: &mut Context, file_name: &Path) -> CrateId {
+     let root_file_id = context
+         .file_manager
+         .name_to_id(file_name.to_path_buf())
+-        .expect("files are expected to be added to the FileManager before reaching the compiler");
++        .unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
+ 
+     let crate_id = context.crate_graph.add_crate(root_file_id);
+ 
+-- 
+2.25.1
+
+
+From 3f8551b6749c191b30fc8744125d4ab9a5c35db6 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 01:00:15 +0000
+Subject: [PATCH 21/30] try: add a `PathToFileSourceMap` object
+
+---
+ compiler/wasm/src/compile.rs | 91 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 83 insertions(+), 8 deletions(-)
+
+diff --git a/compiler/wasm/src/compile.rs b/compiler/wasm/src/compile.rs
+index 246e6ab77..f4aea0874 100644
+--- a/compiler/wasm/src/compile.rs
++++ b/compiler/wasm/src/compile.rs
+@@ -126,6 +126,31 @@ struct DependencyGraph {
+     library_dependencies: HashMap<CrateName, Vec<CrateName>>,
+ }
+ 
++#[wasm_bindgen]
++// This is a map containing the paths of all of the files in the entry-point crate and
++// the transitive dependencies of the entry-point crate.
++//
++// This is for all intents and purposes the file system that the compiler will use to resolve/compile
++// files in the crate being compiled and its dependencies.
++#[derive(Deserialize, Default)]
++pub struct PathToFileSourceMap(HashMap<std::path::PathBuf, String>);
++
++#[wasm_bindgen]
++impl PathToFileSourceMap {
++    #[wasm_bindgen(constructor)]
++    pub fn new() -> PathToFileSourceMap {
++        PathToFileSourceMap::default()
++    }
++    // Inserts a path and its source code into the map.
++    //
++    // Returns true, if there was already source code in the map for the given path
++    pub fn add_source_code(&mut self, path: String, source_code: String) -> bool {
++        let path_buf = Path::new(&path).to_path_buf();
++        let old_value = self.0.insert(path_buf, source_code);
++        old_value.is_some()
++    }
++}
++
+ pub enum CompileResult {
+     Contract { contract: PreprocessedContract, debug: DebugArtifact },
+     Program { program: PreprocessedProgram, debug: DebugArtifact },
+@@ -136,6 +161,7 @@ pub fn compile(
+     entry_point: String,
+     contracts: Option<bool>,
+     dependency_graph: Option<JsDependencyGraph>,
++    file_source_map: PathToFileSourceMap,
+ ) -> Result<JsCompileResult, JsCompileError> {
+     console_error_panic_hook::set_once();
+ 
+@@ -154,7 +180,7 @@ pub fn compile(
+     let path = Path::new(&entry_point);
+     let crate_id = prepare_crate(&mut context, path);
+ 
+-    process_dependency_graph(&mut context, dependency_graph);
++    process_dependency_graph(&mut context, dependency_graph, file_source_map);
+ 
+     let compile_options = CompileOptions::default();
+ 
+@@ -204,11 +230,20 @@ pub fn compile(
+ // These will be in the Nargo.toml of the package being compiled.
+ //
+ // Library dependencies are transitive dependencies; for example, if the entry-point relies
+-// upon some library `lib1`. Then the packages that `lib1` depend upon will be placed in the 
++// upon some library `lib1`. Then the packages that `lib1` depend upon will be placed in the
+ // `library_dependencies` list and the `lib1` will be placed in the `root_dependencies` list.
+-fn process_dependency_graph(context: &mut Context, dependency_graph: DependencyGraph) {
++fn process_dependency_graph(
++    context: &mut Context,
++    dependency_graph: DependencyGraph,
++    file_source_map: PathToFileSourceMap,
++) {
+     let mut crate_names: HashMap<&CrateName, CrateId> = HashMap::new();
+ 
++    // Add all files from the file_source_map into the file manager
++    for (path, source) in file_source_map.0 {
++        context.file_manager.add_file_with_source(path.as_path(), source);
++    }
++
+     for lib in &dependency_graph.root_dependencies {
+         let crate_id = add_noir_lib(context, lib);
+         crate_names.insert(lib, crate_id);
+@@ -285,6 +320,14 @@ fn preprocess_contract(contract: CompiledContract) -> CompileResult {
+     CompileResult::Contract { contract: preprocessed_contract, debug: debug_artifact }
+ }
+ 
++// TODO: This is no longer needed because we are passing in a map from every path
++// TODO: to the source file.
++// TODO: how things get resolved are now the responsibility of the caller
++// TODO: We will have future PRs which make this resolution nicer by taking in a Nargo.toml
++// TODO: and producing paths with source files, though for now, I think this API is okay
++//
++// TODO: We will also be able to remove the file_reader being a parameter to FileManager but
++// TODO will stay until we have this working so we don't break the API too much.
+ cfg_if::cfg_if! {
+     if #[cfg(target_os = "wasi")] {
+         fn get_non_stdlib_asset(path_to_file: &Path) -> std::io::Result<String> {
+@@ -318,6 +361,8 @@ mod test {
+         hir::Context,
+     };
+ 
++    use crate::compile::PathToFileSourceMap;
++
+     use super::{process_dependency_graph, DependencyGraph};
+     use std::{collections::HashMap, path::Path};
+ 
+@@ -345,7 +390,7 @@ mod test {
+         let dependency_graph =
+             DependencyGraph { root_dependencies: vec![], library_dependencies: HashMap::new() };
+ 
+-        process_dependency_graph(&mut context, dependency_graph);
++        process_dependency_graph(&mut context, dependency_graph, PathToFileSourceMap::default());
+ 
+         // one stdlib + one root crate
+         assert_eq!(context.crate_graph.number_of_crates(), 2);
+@@ -359,7 +404,13 @@ mod test {
+             library_dependencies: HashMap::new(),
+         };
+ 
+-        process_dependency_graph(&mut context, dependency_graph);
++        let path_to_source_map = PathToFileSourceMap(
++            vec![(Path::new("/lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
++                .into_iter()
++                .collect(),
++        );
++
++        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 3);
+     }
+@@ -372,7 +423,12 @@ mod test {
+             library_dependencies: HashMap::new(),
+         };
+ 
+-        process_dependency_graph(&mut context, dependency_graph);
++        let path_to_source_map = PathToFileSourceMap(
++            vec![(Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
++                .into_iter()
++                .collect(),
++        );
++        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 3);
+     }
+@@ -388,7 +444,17 @@ mod test {
+             ]),
+         };
+ 
+-        process_dependency_graph(&mut context, dependency_graph);
++        let path_to_source_map = PathToFileSourceMap(
++            vec![
++                (Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++                (Path::new("lib2/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++                (Path::new("lib3/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++            ]
++            .into_iter()
++            .collect(),
++        );
++
++        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 5);
+     }
+@@ -401,7 +467,16 @@ mod test {
+             library_dependencies: HashMap::from([(crate_name("lib2"), vec![crate_name("lib3")])]),
+         };
+ 
+-        process_dependency_graph(&mut context, dependency_graph);
++        let path_to_source_map = PathToFileSourceMap(
++            vec![
++                (Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++                (Path::new("lib2/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++                (Path::new("lib3/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
++            ]
++            .into_iter()
++            .collect(),
++        );
++        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 5);
+     }
+-- 
+2.25.1
+
+
+From dd94b46bece6b94840db953dbe2e5937deb83754 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 01:07:40 +0000
+Subject: [PATCH 22/30] remove extraneous forward slash
+
+---
+ compiler/wasm/src/compile.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/wasm/src/compile.rs b/compiler/wasm/src/compile.rs
+index f4aea0874..afd44fd98 100644
+--- a/compiler/wasm/src/compile.rs
++++ b/compiler/wasm/src/compile.rs
+@@ -405,7 +405,7 @@ mod test {
+         };
+ 
+         let path_to_source_map = PathToFileSourceMap(
+-            vec![(Path::new("/lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
++            vec![(Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
+                 .into_iter()
+                 .collect(),
+         );
+-- 
+2.25.1
+
+
+From 3495de5976f6e006d728f341e5dd317e1b74093b Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 02:26:10 +0000
+Subject: [PATCH 23/30] add file_manager_with_source_map method so we ensure
+ that FileManager always has its data
+
+---
+ compiler/wasm/src/compile.rs | 80 +++++++++++++++++++++---------------
+ 1 file changed, 48 insertions(+), 32 deletions(-)
+
+diff --git a/compiler/wasm/src/compile.rs b/compiler/wasm/src/compile.rs
+index afd44fd98..715583f5d 100644
+--- a/compiler/wasm/src/compile.rs
++++ b/compiler/wasm/src/compile.rs
+@@ -172,15 +172,15 @@ pub fn compile(
+         DependencyGraph { root_dependencies: vec![], library_dependencies: HashMap::new() }
+     };
+ 
+-    let root = Path::new("/");
+-    let fm = FileManager::new(root, Box::new(get_non_stdlib_asset));
++    let fm = file_manager_with_source_map(file_source_map);
++
+     let graph = CrateGraph::default();
+     let mut context = Context::new(fm, graph);
+ 
+     let path = Path::new(&entry_point);
+     let crate_id = prepare_crate(&mut context, path);
+ 
+-    process_dependency_graph(&mut context, dependency_graph, file_source_map);
++    process_dependency_graph(&mut context, dependency_graph);
+ 
+     let compile_options = CompileOptions::default();
+ 
+@@ -226,24 +226,34 @@ pub fn compile(
+     }
+ }
+ 
++// Create a new FileManager with the given source map
++//
++// Note: Use this method whenever initializing a new FileManager
++// to ensure that the file manager contains all of the files
++// that one intends the compiler to use.
++//
++// For all intents and purposes, the file manager being returned
++// should be considered as immutable.
++fn file_manager_with_source_map(source_map: PathToFileSourceMap) -> FileManager {
++    let root = Path::new("/");
++    let mut fm = FileManager::new(root, Box::new(get_non_stdlib_asset));
++
++    for (path, source) in source_map.0 {
++        fm.add_file_with_source(path.as_path(), source);
++    }
++
++    fm
++}
++
+ // Root dependencies are dependencies which the entry-point package relies upon.
+ // These will be in the Nargo.toml of the package being compiled.
+ //
+ // Library dependencies are transitive dependencies; for example, if the entry-point relies
+ // upon some library `lib1`. Then the packages that `lib1` depend upon will be placed in the
+ // `library_dependencies` list and the `lib1` will be placed in the `root_dependencies` list.
+-fn process_dependency_graph(
+-    context: &mut Context,
+-    dependency_graph: DependencyGraph,
+-    file_source_map: PathToFileSourceMap,
+-) {
++fn process_dependency_graph(context: &mut Context, dependency_graph: DependencyGraph) {
+     let mut crate_names: HashMap<&CrateName, CrateId> = HashMap::new();
+ 
+-    // Add all files from the file_source_map into the file manager
+-    for (path, source) in file_source_map.0 {
+-        context.file_manager.add_file_with_source(path.as_path(), source);
+-    }
+-
+     for lib in &dependency_graph.root_dependencies {
+         let crate_id = add_noir_lib(context, lib);
+         crate_names.insert(lib, crate_id);
+@@ -354,7 +364,6 @@ cfg_if::cfg_if! {
+ 
+ #[cfg(test)]
+ mod test {
+-    use fm::FileManager;
+     use noirc_driver::prepare_crate;
+     use noirc_frontend::{
+         graph::{CrateGraph, CrateName},
+@@ -363,16 +372,18 @@ mod test {
+ 
+     use crate::compile::PathToFileSourceMap;
+ 
+-    use super::{process_dependency_graph, DependencyGraph};
++    use super::{file_manager_with_source_map, process_dependency_graph, DependencyGraph};
+     use std::{collections::HashMap, path::Path};
+ 
+     fn mock_get_non_stdlib_asset(_path_to_file: &Path) -> std::io::Result<String> {
+         Ok("".to_string())
+     }
+ 
+-    fn setup_test_context() -> Context {
+-        let mut fm = FileManager::new(Path::new("/"), Box::new(mock_get_non_stdlib_asset));
+-        fm.add_file_with_source(Path::new("/main.nr"), "stuff".to_string());
++    fn setup_test_context(source_map: PathToFileSourceMap) -> Context {
++        let mut fm = file_manager_with_source_map(source_map);
++        // Add this due to us calling prepare_crate on "/main.nr" below
++        fm.add_file_with_source(Path::new("/main.nr"), "fn foo() {}".to_string());
++
+         let graph = CrateGraph::default();
+         let mut context = Context::new(fm, graph);
+         prepare_crate(&mut context, Path::new("/main.nr"));
+@@ -386,11 +397,13 @@ mod test {
+ 
+     #[test]
+     fn test_works_with_empty_dependency_graph() {
+-        let mut context = setup_test_context();
+         let dependency_graph =
+             DependencyGraph { root_dependencies: vec![], library_dependencies: HashMap::new() };
+ 
+-        process_dependency_graph(&mut context, dependency_graph, PathToFileSourceMap::default());
++        let source_map = PathToFileSourceMap::default();
++        let mut context = setup_test_context(source_map);
++
++        process_dependency_graph(&mut context, dependency_graph);
+ 
+         // one stdlib + one root crate
+         assert_eq!(context.crate_graph.number_of_crates(), 2);
+@@ -398,44 +411,45 @@ mod test {
+ 
+     #[test]
+     fn test_works_with_root_dependencies() {
+-        let mut context = setup_test_context();
+         let dependency_graph = DependencyGraph {
+             root_dependencies: vec![crate_name("lib1")],
+             library_dependencies: HashMap::new(),
+         };
+ 
+-        let path_to_source_map = PathToFileSourceMap(
++        let source_map = PathToFileSourceMap(
+             vec![(Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
+                 .into_iter()
+                 .collect(),
+         );
+ 
+-        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
++        let mut context = setup_test_context(source_map);
++
++        process_dependency_graph(&mut context, dependency_graph);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 3);
+     }
+ 
+     #[test]
+     fn test_works_with_duplicate_root_dependencies() {
+-        let mut context = setup_test_context();
+         let dependency_graph = DependencyGraph {
+             root_dependencies: vec![crate_name("lib1"), crate_name("lib1")],
+             library_dependencies: HashMap::new(),
+         };
+ 
+-        let path_to_source_map = PathToFileSourceMap(
++        let source_map = PathToFileSourceMap(
+             vec![(Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string())]
+                 .into_iter()
+                 .collect(),
+         );
+-        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
++        let mut context = setup_test_context(source_map);
++
++        process_dependency_graph(&mut context, dependency_graph);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 3);
+     }
+ 
+     #[test]
+     fn test_works_with_transitive_dependencies() {
+-        let mut context = setup_test_context();
+         let dependency_graph = DependencyGraph {
+             root_dependencies: vec![crate_name("lib1")],
+             library_dependencies: HashMap::from([
+@@ -444,7 +458,7 @@ mod test {
+             ]),
+         };
+ 
+-        let path_to_source_map = PathToFileSourceMap(
++        let source_map = PathToFileSourceMap(
+             vec![
+                 (Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
+                 (Path::new("lib2/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
+@@ -454,20 +468,20 @@ mod test {
+             .collect(),
+         );
+ 
+-        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
++        let mut context = setup_test_context(source_map);
++        process_dependency_graph(&mut context, dependency_graph);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 5);
+     }
+ 
+     #[test]
+     fn test_works_with_missing_dependencies() {
+-        let mut context = setup_test_context();
+         let dependency_graph = DependencyGraph {
+             root_dependencies: vec![crate_name("lib1")],
+             library_dependencies: HashMap::from([(crate_name("lib2"), vec![crate_name("lib3")])]),
+         };
+ 
+-        let path_to_source_map = PathToFileSourceMap(
++        let source_map = PathToFileSourceMap(
+             vec![
+                 (Path::new("lib1/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
+                 (Path::new("lib2/lib.nr").to_path_buf(), "fn foo() {}".to_string()),
+@@ -476,7 +490,9 @@ mod test {
+             .into_iter()
+             .collect(),
+         );
+-        process_dependency_graph(&mut context, dependency_graph, path_to_source_map);
++
++        let mut context = setup_test_context(source_map);
++        process_dependency_graph(&mut context, dependency_graph);
+ 
+         assert_eq!(context.crate_graph.number_of_crates(), 5);
+     }
+-- 
+2.25.1
+
+
+From 851fab19180b848adcb19364dc73b208b2e52ad7 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 02:26:54 +0000
+Subject: [PATCH 24/30] add expect
+
+---
+ compiler/noirc_driver/src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index ba0e12cd7..08763b697 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -89,7 +89,7 @@ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+ 
+     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+ 
+-    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap();
++    let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
+ 
+     let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+ 
+-- 
+2.25.1
+
+
+From 3cd35fd39948e9fb6e1655e8aa060a4132fe487a Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 02:27:11 +0000
+Subject: [PATCH 25/30] fix node tests
+
+---
+ compiler/wasm/test/node/index.test.ts | 44 +++++++++++++--------------
+ 1 file changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/compiler/wasm/test/node/index.test.ts b/compiler/wasm/test/node/index.test.ts
+index c0d5f88e4..404ba85d3 100644
+--- a/compiler/wasm/test/node/index.test.ts
++++ b/compiler/wasm/test/node/index.test.ts
+@@ -9,8 +9,7 @@ import {
+ } from '../shared';
+ import { readFileSync } from 'node:fs';
+ import { join, resolve } from 'node:path';
+-import { compile } from '@noir-lang/noir_wasm';
+-import { initializeResolver } from '@noir-lang/source-resolver';
++import { compile, PathToFileSourceMap } from '@noir-lang/noir_wasm';
+ 
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+ async function getPrecompiledSource(path: string): Promise<any> {
+@@ -21,7 +20,12 @@ async function getPrecompiledSource(path: string): Promise<any> {
+ describe('noir wasm compilation', () => {
+   describe('can compile simple scripts', () => {
+     it('matching nargos compilation', async () => {
+-      const wasmCircuit = await compile(join(__dirname, simpleScriptSourcePath));
++      const sourceFileMap = new PathToFileSourceMap();
++      sourceFileMap.add_source_code(
++        join(__dirname, simpleScriptSourcePath),
++        readFileSync(join(__dirname, simpleScriptSourcePath), 'utf-8'),
++      );
++      const wasmCircuit = await compile(join(__dirname, simpleScriptSourcePath), undefined, undefined, sourceFileMap);
+       const cliCircuit = await getPrecompiledSource(simpleScriptExpectedArtifact);
+ 
+       if (!('program' in wasmCircuit)) {
+@@ -36,32 +40,28 @@ describe('noir wasm compilation', () => {
+   });
+ 
+   describe('can compile scripts with dependencies', () => {
++    let map: PathToFileSourceMap;
+     beforeEach(() => {
+       // this test requires a custom resolver in order to correctly resolve dependencies
+-      initializeResolver((file) => {
+-        switch (file) {
+-          case '/script/main.nr':
+-            return readFileSync(join(__dirname, depsScriptSourcePath), 'utf-8');
+ 
+-          case '/lib_a/lib.nr':
+-            return readFileSync(join(__dirname, libASourcePath), 'utf-8');
+-
+-          case '/lib_b/lib.nr':
+-            return readFileSync(join(__dirname, libBSourcePath), 'utf-8');
+-
+-          default:
+-            return '';
+-        }
+-      });
++      map = new PathToFileSourceMap();
++      map.add_source_code('script/main.nr', readFileSync(join(__dirname, depsScriptSourcePath), 'utf-8'));
++      map.add_source_code('lib_a/lib.nr', readFileSync(join(__dirname, libASourcePath), 'utf-8'));
++      map.add_source_code('lib_b/lib.nr', readFileSync(join(__dirname, libBSourcePath), 'utf-8'));
+     });
+ 
+     it('matching nargos compilation', async () => {
+-      const wasmCircuit = await compile('/script/main.nr', false, {
+-        root_dependencies: ['lib_a'],
+-        library_dependencies: {
+-          lib_a: ['lib_b'],
++      const wasmCircuit = await compile(
++        'script/main.nr',
++        false,
++        {
++          root_dependencies: ['lib_a'],
++          library_dependencies: {
++            lib_a: ['lib_b'],
++          },
+         },
+-      });
++        map,
++      );
+ 
+       const cliCircuit = await getPrecompiledSource(depsScriptExpectedArtifact);
+ 
+-- 
+2.25.1
+
+
+From d2590d5b7c1c9abd69136e2ec938bfb08c52a862 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 02:35:09 +0000
+Subject: [PATCH 26/30] fix browser tests and naming nit
+
+---
+ .../test/browser/compile_prove_verify.test.ts | 21 +++----
+ .../test/browser/recursion.test.ts            | 19 +++---
+ .../onchain_recursive_verification.test.ts    | 33 +++++++---
+ .../test/node/smart_contract_verifier.test.ts |  8 ++-
+ compiler/wasm/test/browser/index.test.ts      | 63 +++++++------------
+ compiler/wasm/test/node/index.test.ts         | 19 +++---
+ 6 files changed, 75 insertions(+), 88 deletions(-)
+
+diff --git a/compiler/integration-tests/test/browser/compile_prove_verify.test.ts b/compiler/integration-tests/test/browser/compile_prove_verify.test.ts
+index 2aef56c23..29e2fbc55 100644
+--- a/compiler/integration-tests/test/browser/compile_prove_verify.test.ts
++++ b/compiler/integration-tests/test/browser/compile_prove_verify.test.ts
+@@ -1,17 +1,17 @@
+ import { expect } from '@esm-bundle/chai';
+-import { Logger } from 'tslog';
+ import * as TOML from 'smol-toml';
+ 
+-import { initializeResolver } from '@noir-lang/source-resolver';
+-import newCompiler, { CompiledProgram, compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
++import newCompiler, {
++  CompiledProgram,
++  PathToFileSourceMap,
++  compile,
++  init_log_level as compilerLogLevel,
++} from '@noir-lang/noir_wasm';
+ import { Noir } from '@noir-lang/noir_js';
+ import { InputMap } from '@noir-lang/noirc_abi';
+ import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
+ 
+ import { getFile } from './utils.js';
+-import { TEST_LOG_LEVEL } from '../environment.js';
+-
+-const logger = new Logger({ name: 'test', minLevel: TEST_LOG_LEVEL });
+ 
+ await newCompiler();
+ 
+@@ -33,14 +33,11 @@ const suite = Mocha.Suite.create(mocha.suite, 'Noir end to end test');
+ suite.timeout(60 * 20e3); //20mins
+ 
+ function getCircuit(noirSource: string): CompiledProgram {
+-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-  initializeResolver((id: string) => {
+-    logger.debug('source-resolver: resolving:', id);
+-    return noirSource;
+-  });
++  const sourceMap = new PathToFileSourceMap();
++  sourceMap.add_source_code('main.nr', noirSource);
+ 
+   // We're ignoring this in the resolver but pass in something sensible.
+-  const result = compile('/main.nr');
++  const result = compile('main.nr', undefined, undefined, sourceMap);
+   if (!('program' in result)) {
+     throw new Error('Compilation failed');
+   }
+diff --git a/compiler/integration-tests/test/browser/recursion.test.ts b/compiler/integration-tests/test/browser/recursion.test.ts
+index 308be8141..faa317b2c 100644
+--- a/compiler/integration-tests/test/browser/recursion.test.ts
++++ b/compiler/integration-tests/test/browser/recursion.test.ts
+@@ -2,8 +2,12 @@
+ import { expect } from '@esm-bundle/chai';
+ import { TEST_LOG_LEVEL } from '../environment.js';
+ import { Logger } from 'tslog';
+-import { initializeResolver } from '@noir-lang/source-resolver';
+-import newCompiler, { CompiledProgram, compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
++import newCompiler, {
++  CompiledProgram,
++  PathToFileSourceMap,
++  compile,
++  init_log_level as compilerLogLevel,
++} from '@noir-lang/noir_wasm';
+ import { acvm, abi, Noir } from '@noir-lang/noir_js';
+ 
+ import * as TOML from 'smol-toml';
+@@ -27,14 +31,9 @@ const circuit_main = 'test_programs/execution_success/assert_statement';
+ const circuit_recursion = 'compiler/integration-tests/circuits/recursion';
+ 
+ function getCircuit(noirSource: string): CompiledProgram {
+-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+-  initializeResolver((id: string) => {
+-    logger.debug('source-resolver: resolving:', id);
+-    return noirSource;
+-  });
+-
+-  // We're ignoring this in the resolver but pass in something sensible.
+-  const result = compile('/main.nr');
++  const sourceMap = new PathToFileSourceMap();
++  sourceMap.add_source_code('main.nr', noirSource);
++  const result = compile('main.nr', undefined, undefined, sourceMap);
+   if (!('program' in result)) {
+     throw new Error('Compilation failed');
+   }
+diff --git a/compiler/integration-tests/test/node/onchain_recursive_verification.test.ts b/compiler/integration-tests/test/node/onchain_recursive_verification.test.ts
+index 353678b47..6c20d4488 100644
+--- a/compiler/integration-tests/test/node/onchain_recursive_verification.test.ts
++++ b/compiler/integration-tests/test/node/onchain_recursive_verification.test.ts
+@@ -5,7 +5,12 @@ import { readFileSync } from 'node:fs';
+ import { resolve } from 'path';
+ import toml from 'toml';
+ 
+-import { compile, CompiledProgram, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
++import {
++  compile,
++  CompiledProgram,
++  init_log_level as compilerLogLevel,
++  PathToFileSourceMap,
++} from '@noir-lang/noir_wasm';
+ import { Noir } from '@noir-lang/noir_js';
+ import { BarretenbergBackend, flattenPublicInputs } from '@noir-lang/backend_barretenberg';
+ import { Field, InputMap } from '@noir-lang/noirc_abi';
+@@ -13,16 +18,24 @@ import { Field, InputMap } from '@noir-lang/noirc_abi';
+ compilerLogLevel('INFO');
+ 
+ it(`smart contract can verify a recursive proof`, async () => {
+-  const inner_source_path = resolve(`../../test_programs/execution_success/assert_statement/src/main.nr`);
+-  const inner_program = (compile(inner_source_path) as { program: CompiledProgram }).program;
+-
+-  const recursion_source_path = resolve(`./circuits/recursion/src/main.nr`);
+-  const recursion_program = (compile(recursion_source_path) as { program: CompiledProgram }).program;
++  const innerSourcePath = resolve(`../../test_programs/execution_success/assert_statement/src/main.nr`);
++  const sourceMapInnerProgram = new PathToFileSourceMap();
++  sourceMapInnerProgram.add_source_code(innerSourcePath, readFileSync(innerSourcePath, 'utf-8'));
++  const innerProgram = (
++    compile(innerSourcePath, undefined, undefined, sourceMapInnerProgram) as { program: CompiledProgram }
++  ).program;
++
++  const recursionSourcePath = resolve(`./circuits/recursion/src/main.nr`);
++  const sourceMapRecursionProgram = new PathToFileSourceMap();
++  sourceMapRecursionProgram.add_source_code(recursionSourcePath, readFileSync(recursionSourcePath, 'utf-8'));
++  const recursionProgram = (
++    compile(recursionSourcePath, undefined, undefined, sourceMapRecursionProgram) as { program: CompiledProgram }
++  ).program;
+ 
+   // Intermediate proof
+ 
+-  const inner_backend = new BarretenbergBackend(inner_program);
+-  const inner = new Noir(inner_program);
++  const inner_backend = new BarretenbergBackend(innerProgram);
++  const inner = new Noir(innerProgram);
+ 
+   const inner_prover_toml = readFileSync(
+     resolve(`../../test_programs/execution_success/assert_statement/Prover.toml`),
+@@ -41,8 +54,8 @@ it(`smart contract can verify a recursive proof`, async () => {
+ 
+   // Final proof
+ 
+-  const recursion_backend = new BarretenbergBackend(recursion_program);
+-  const recursion = new Noir(recursion_program, recursion_backend);
++  const recursion_backend = new BarretenbergBackend(recursionProgram);
++  const recursion = new Noir(recursionProgram, recursion_backend);
+ 
+   const recursion_inputs: InputMap = {
+     verification_key: vkAsFields,
+diff --git a/compiler/integration-tests/test/node/smart_contract_verifier.test.ts b/compiler/integration-tests/test/node/smart_contract_verifier.test.ts
+index 7dafada0f..5b3d0e2d3 100644
+--- a/compiler/integration-tests/test/node/smart_contract_verifier.test.ts
++++ b/compiler/integration-tests/test/node/smart_contract_verifier.test.ts
+@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
+ import { resolve } from 'path';
+ import toml from 'toml';
+ 
+-import { compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
++import { PathToFileSourceMap, compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
+ import { Noir } from '@noir-lang/noir_js';
+ import { BarretenbergBackend, flattenPublicInputs } from '@noir-lang/backend_barretenberg';
+ 
+@@ -31,9 +31,11 @@ test_cases.forEach((testInfo) => {
+     const base_relative_path = '../..';
+     const test_case = testInfo.case;
+ 
+-    const noir_source_path = resolve(`${base_relative_path}/${test_case}/src/main.nr`);
++    const noirSourcePath = resolve(`${base_relative_path}/${test_case}/src/main.nr`);
++    const sourceMap = new PathToFileSourceMap();
++    sourceMap.add_source_code(noirSourcePath, readFileSync(noirSourcePath, 'utf-8'));
+ 
+-    const compileResult = compile(noir_source_path);
++    const compileResult = compile(noirSourcePath, undefined, undefined, sourceMap);
+     if (!('program' in compileResult)) {
+       throw new Error('Compilation failed');
+     }
+diff --git a/compiler/wasm/test/browser/index.test.ts b/compiler/wasm/test/browser/index.test.ts
+index 8a3f82fff..346c20c83 100644
+--- a/compiler/wasm/test/browser/index.test.ts
++++ b/compiler/wasm/test/browser/index.test.ts
+@@ -1,6 +1,5 @@
+ import { expect } from '@esm-bundle/chai';
+-import initNoirWasm, { compile } from '@noir-lang/noir_wasm';
+-import { initializeResolver } from '@noir-lang/source-resolver';
++import initNoirWasm, { PathToFileSourceMap, compile } from '@noir-lang/noir_wasm';
+ import {
+   depsScriptExpectedArtifact,
+   depsScriptSourcePath,
+@@ -28,23 +27,11 @@ async function getPrecompiledSource(path: string): Promise<any> {
+ 
+ describe('noir wasm', () => {
+   describe('can compile script without dependencies', () => {
+-    beforeEach(async () => {
+-      const source = await getFileContent(simpleScriptSourcePath);
+-      initializeResolver((id: string) => {
+-        console.log(`Resolving source ${id}`);
+-
+-        if (typeof source === 'undefined') {
+-          throw Error(`Could not resolve source for '${id}'`);
+-        } else if (id !== '/main.nr') {
+-          throw Error(`Unexpected id: '${id}'`);
+-        } else {
+-          return source;
+-        }
+-      });
+-    });
+-
+     it('matching nargos compilation', async () => {
+-      const wasmCircuit = await compile('/main.nr');
++      const sourceMap = new PathToFileSourceMap();
++      sourceMap.add_source_code('main.nr', await getFileContent(simpleScriptSourcePath));
++
++      const wasmCircuit = await compile('main.nr', undefined, undefined, sourceMap);
+       const cliCircuit = await getPrecompiledSource(simpleScriptExpectedArtifact);
+ 
+       if (!('program' in wasmCircuit)) {
+@@ -59,37 +46,29 @@ describe('noir wasm', () => {
+   });
+ 
+   describe('can compile script with dependencies', () => {
+-    beforeEach(async () => {
++    it('matching nargos compilation', async () => {
+       const [scriptSource, libASource, libBSource] = await Promise.all([
+         getFileContent(depsScriptSourcePath),
+         getFileContent(libASourcePath),
+         getFileContent(libBSourcePath),
+       ]);
+ 
+-      initializeResolver((file: string) => {
+-        switch (file) {
+-          case '/script/main.nr':
+-            return scriptSource;
+-
+-          case '/lib_a/lib.nr':
+-            return libASource;
+-
+-          case '/lib_b/lib.nr':
+-            return libBSource;
+-
+-          default:
+-            return '';
+-        }
+-      });
+-    });
+-
+-    it('matching nargos compilation', async () => {
+-      const wasmCircuit = await compile('/script/main.nr', false, {
+-        root_dependencies: ['lib_a'],
+-        library_dependencies: {
+-          lib_a: ['lib_b'],
++      const sourceMap = new PathToFileSourceMap();
++      sourceMap.add_source_code('script/main.nr', scriptSource);
++      sourceMap.add_source_code('lib_a/lib.nr', libASource);
++      sourceMap.add_source_code('lib_b/lib.nr', libBSource);
++
++      const wasmCircuit = await compile(
++        'script/main.nr',
++        false,
++        {
++          root_dependencies: ['lib_a'],
++          library_dependencies: {
++            lib_a: ['lib_b'],
++          },
+         },
+-      });
++        sourceMap,
++      );
+ 
+       if (!('program' in wasmCircuit)) {
+         throw Error('Expected program to be present');
+diff --git a/compiler/wasm/test/node/index.test.ts b/compiler/wasm/test/node/index.test.ts
+index 404ba85d3..5cf9e3be2 100644
+--- a/compiler/wasm/test/node/index.test.ts
++++ b/compiler/wasm/test/node/index.test.ts
+@@ -20,12 +20,12 @@ async function getPrecompiledSource(path: string): Promise<any> {
+ describe('noir wasm compilation', () => {
+   describe('can compile simple scripts', () => {
+     it('matching nargos compilation', async () => {
+-      const sourceFileMap = new PathToFileSourceMap();
+-      sourceFileMap.add_source_code(
++      const sourceMap = new PathToFileSourceMap();
++      sourceMap.add_source_code(
+         join(__dirname, simpleScriptSourcePath),
+         readFileSync(join(__dirname, simpleScriptSourcePath), 'utf-8'),
+       );
+-      const wasmCircuit = await compile(join(__dirname, simpleScriptSourcePath), undefined, undefined, sourceFileMap);
++      const wasmCircuit = await compile(join(__dirname, simpleScriptSourcePath), undefined, undefined, sourceMap);
+       const cliCircuit = await getPrecompiledSource(simpleScriptExpectedArtifact);
+ 
+       if (!('program' in wasmCircuit)) {
+@@ -40,14 +40,11 @@ describe('noir wasm compilation', () => {
+   });
+ 
+   describe('can compile scripts with dependencies', () => {
+-    let map: PathToFileSourceMap;
++    const sourceMap: PathToFileSourceMap = new PathToFileSourceMap();
+     beforeEach(() => {
+-      // this test requires a custom resolver in order to correctly resolve dependencies
+-
+-      map = new PathToFileSourceMap();
+-      map.add_source_code('script/main.nr', readFileSync(join(__dirname, depsScriptSourcePath), 'utf-8'));
+-      map.add_source_code('lib_a/lib.nr', readFileSync(join(__dirname, libASourcePath), 'utf-8'));
+-      map.add_source_code('lib_b/lib.nr', readFileSync(join(__dirname, libBSourcePath), 'utf-8'));
++      sourceMap.add_source_code('script/main.nr', readFileSync(join(__dirname, depsScriptSourcePath), 'utf-8'));
++      sourceMap.add_source_code('lib_a/lib.nr', readFileSync(join(__dirname, libASourcePath), 'utf-8'));
++      sourceMap.add_source_code('lib_b/lib.nr', readFileSync(join(__dirname, libBSourcePath), 'utf-8'));
+     });
+ 
+     it('matching nargos compilation', async () => {
+@@ -60,7 +57,7 @@ describe('noir wasm compilation', () => {
+             lib_a: ['lib_b'],
+           },
+         },
+-        map,
++        sourceMap,
+       );
+ 
+       const cliCircuit = await getPrecompiledSource(depsScriptExpectedArtifact);
+-- 
+2.25.1
+
+
+From 5b867d531eee2f950fef67512ffb347a67fc236b Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 17:38:47 +0000
+Subject: [PATCH 27/30] chore!: Remove `add_file` and `file_reader` from
+ FileManager (#3762)
+
+# Description
+
+This removes FileManager from add_file and uses add_file_with_source
+
+## Problem\*
+
+Resolves <!-- Link to GitHub Issue -->
+
+## Summary\*
+
+
+
+## Additional Context
+
+
+
+## Documentation\*
+
+Check one:
+- [ ] No documentation needed.
+- [ ] Documentation included in this PR.
+- [ ] **[Exceptional Case]** Documentation to be submitted in a separate
+PR.
+
+# PR Checklist\*
+
+- [ ] I have tested the changes locally.
+- [ ] I have formatted the changes with [Prettier](https://prettier.io/)
+and/or `cargo fmt` on default settings.
+---
+ Cargo.lock                                    |  3 -
+ compiler/fm/Cargo.toml                        |  1 -
+ compiler/fm/src/file_reader.rs                | 54 ---------------
+ compiler/fm/src/lib.rs                        | 65 +++++++------------
+ compiler/noirc_driver/src/lib.rs              | 10 +--
+ compiler/noirc_frontend/src/tests.rs          |  3 +-
+ compiler/wasm/Cargo.toml                      |  1 -
+ compiler/wasm/src/compile.rs                  | 40 +-----------
+ tooling/lsp/Cargo.toml                        |  1 -
+ tooling/lsp/src/lib.rs                        | 28 +-------
+ tooling/lsp/src/notifications/mod.rs          |  4 +-
+ tooling/lsp/src/requests/code_lens_request.rs |  4 +-
+ tooling/lsp/src/requests/goto_definition.rs   |  3 +-
+ tooling/lsp/src/requests/test_run.rs          |  3 +-
+ tooling/lsp/src/requests/tests.rs             |  4 +-
+ tooling/nargo/src/lib.rs                      | 10 +--
+ tooling/nargo/src/ops/compile.rs              |  6 +-
+ tooling/nargo_cli/src/cli/check_cmd.rs        |  3 +-
+ tooling/nargo_cli/src/cli/compile_cmd.rs      |  6 +-
+ tooling/nargo_cli/src/cli/fmt_cmd.rs          |  3 +-
+ tooling/nargo_cli/src/cli/test_cmd.rs         |  3 +-
+ 21 files changed, 54 insertions(+), 201 deletions(-)
+ delete mode 100644 compiler/fm/src/file_reader.rs
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 31a6c3932..220eb803c 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1608,7 +1608,6 @@ version = "0.20.0"
+ dependencies = [
+  "codespan-reporting",
+  "iter-extended",
+- "rust-embed",
+  "serde",
+  "tempfile",
+ ]
+@@ -2537,7 +2536,6 @@ version = "0.20.0"
+ dependencies = [
+  "acvm",
+  "async-lsp",
+- "cfg-if",
+  "codespan-lsp",
+  "codespan-reporting",
+  "fm",
+@@ -2562,7 +2560,6 @@ version = "0.20.0"
+ dependencies = [
+  "acvm",
+  "build-data",
+- "cfg-if",
+  "console_error_panic_hook",
+  "fm",
+  "getrandom",
+diff --git a/compiler/fm/Cargo.toml b/compiler/fm/Cargo.toml
+index 9e4309693..699f709e9 100644
+--- a/compiler/fm/Cargo.toml
++++ b/compiler/fm/Cargo.toml
+@@ -9,7 +9,6 @@ license.workspace = true
+ 
+ [dependencies]
+ codespan-reporting.workspace = true
+-rust-embed = "6.6.0"
+ serde.workspace = true
+ 
+ [dev-dependencies]
+diff --git a/compiler/fm/src/file_reader.rs b/compiler/fm/src/file_reader.rs
+deleted file mode 100644
+index e7ffd93df..000000000
+--- a/compiler/fm/src/file_reader.rs
++++ /dev/null
+@@ -1,54 +0,0 @@
+-use rust_embed::RustEmbed;
+-use std::io::{Error, ErrorKind};
+-use std::path::Path;
+-
+-// Based on the environment, we either read files using the rust standard library or we
+-// read files using the javascript host function
+-
+-// TODO: DO NOT MERGE PR WITH THIS TODO
+-// TODO: We have duplicated this logic in noirc_driver. For now, we leave this here
+-// TODO: until we make the breaking change to the API which will allow us to remove this
+-// TODO: file.
+-
+-pub type FileReader = dyn Fn(&Path) -> std::io::Result<String> + Send;
+-
+-#[derive(RustEmbed)]
+-#[folder = "../../noir_stdlib/src"]
+-#[cfg_attr(not(target_os = "windows"), prefix = "std/")]
+-#[cfg_attr(target_os = "windows", prefix = r"std\")] // Note reversed slash direction
+-struct StdLibAssets;
+-
+-#[cfg(target_os = "windows")]
+-pub(super) fn is_stdlib_asset(path: &Path) -> bool {
+-    path.starts_with("std\\")
+-}
+-
+-#[cfg(not(target_os = "windows"))]
+-pub(super) fn is_stdlib_asset(path: &Path) -> bool {
+-    path.starts_with("std/")
+-}
+-
+-fn get_stdlib_asset(path: &Path) -> std::io::Result<String> {
+-    if !is_stdlib_asset(path) {
+-        return Err(Error::new(ErrorKind::InvalidInput, "requested a non-stdlib asset"));
+-    }
+-
+-    match StdLibAssets::get(path.to_str().unwrap()) {
+-        Some(std_lib_asset) => {
+-            Ok(std::str::from_utf8(std_lib_asset.data.as_ref()).unwrap().to_string())
+-        }
+-
+-        None => Err(Error::new(ErrorKind::NotFound, "invalid stdlib path")),
+-    }
+-}
+-
+-pub(crate) fn read_file_to_string(
+-    path_to_file: &Path,
+-    get_non_stdlib_asset: &impl Fn(&Path) -> std::io::Result<String>,
+-) -> std::io::Result<String> {
+-    if is_stdlib_asset(path_to_file) {
+-        get_stdlib_asset(path_to_file)
+-    } else {
+-        get_non_stdlib_asset(path_to_file)
+-    }
+-}
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index 4f4eb9d98..3f1f5e09a 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -4,11 +4,8 @@
+ #![warn(clippy::semicolon_if_nothing_returned)]
+ 
+ mod file_map;
+-mod file_reader;
+ 
+ pub use file_map::{File, FileId, FileMap, PathString};
+-use file_reader::is_stdlib_asset;
+-pub use file_reader::FileReader;
+ 
+ use std::{
+     collections::HashMap,
+@@ -22,7 +19,6 @@ pub struct FileManager {
+     file_map: file_map::FileMap,
+     id_to_path: HashMap<FileId, PathBuf>,
+     path_to_id: HashMap<PathBuf, FileId>,
+-    file_reader: Box<FileReader>,
+ }
+ 
+ impl std::fmt::Debug for FileManager {
+@@ -37,13 +33,12 @@ impl std::fmt::Debug for FileManager {
+ }
+ 
+ impl FileManager {
+-    pub fn new(root: &Path, file_reader: Box<FileReader>) -> Self {
++    pub fn new(root: &Path) -> Self {
+         Self {
+             root: root.normalize(),
+             file_map: Default::default(),
+             id_to_path: Default::default(),
+             path_to_id: Default::default(),
+-            file_reader,
+         }
+     }
+ 
+@@ -51,34 +46,19 @@ impl FileManager {
+         &self.file_map
+     }
+ 
+-    pub fn add_file(&mut self, file_name: &Path) -> Option<FileId> {
+-        // Handle both relative file paths and std/lib virtual paths.
+-        let resolved_path: PathBuf = if is_stdlib_asset(file_name) {
+-            // Special case for stdlib where we want to read specifically the `std/` relative path
+-            // TODO: The stdlib path should probably be an absolute path rooted in something people would never create
+-            file_name.to_path_buf()
+-        } else {
+-            self.root.join(file_name).normalize()
+-        };
+-
+-        // Check that the resolved path already exists in the file map, if it is, we return it.
+-        if let Some(file_id) = self.path_to_id.get(&resolved_path) {
+-            return Some(*file_id);
+-        }
+-
+-        // Otherwise we add the file
+-        let source = file_reader::read_file_to_string(&resolved_path, &self.file_reader).ok()?;
+-        let file_id = self.file_map.add_file(resolved_path.clone().into(), source);
+-        self.register_path(file_id, resolved_path);
+-        Some(file_id)
++    pub fn add_file_with_source(&mut self, file_name: &Path, source: String) -> Option<FileId> {
++        let file_name = self.root.join(file_name).normalize();
++        self.add_file_with_source_canonical_path(&file_name, source)
+     }
+ 
+-    // TODO: this will become the default strategy for adding files. Possibly with file_reader.
+-    // TODO: we are still migrating to this strategy, so we keep the old one for now.
+-    // TODO: For the stdlib crate, we need to do this preemptively due to the way we special handle it
+-    pub fn add_file_with_source(&mut self, file_name: &Path, source: String) -> Option<FileId> {
++    pub fn add_file_with_source_canonical_path(
++        &mut self,
++        file_name: &Path,
++        source: String,
++    ) -> Option<FileId> {
++        let file_name = file_name.normalize();
+         // Check that the file name already exists in the file map, if it is, we return it.
+-        if let Some(file_id) = self.path_to_id.get(file_name) {
++        if let Some(file_id) = self.path_to_id.get(&file_name) {
+             return Some(*file_id);
+         }
+         let file_name_path_buf = file_name.to_path_buf();
+@@ -254,9 +234,9 @@ mod tests {
+         let entry_file_name = Path::new("my_dummy_file.nr");
+         create_dummy_file(&dir, entry_file_name);
+ 
+-        let mut fm = FileManager::new(dir.path(), Box::new(|path| std::fs::read_to_string(path)));
++        let mut fm = FileManager::new(dir.path());
+ 
+-        let file_id = fm.add_file(entry_file_name).unwrap();
++        let file_id = fm.add_file_with_source(entry_file_name, "fn foo() {}".to_string()).unwrap();
+ 
+         let dep_file_name = Path::new("foo.nr");
+         create_dummy_file(&dir, dep_file_name);
+@@ -269,9 +249,9 @@ mod tests {
+         let file_name = Path::new("foo.nr");
+         create_dummy_file(&dir, file_name);
+ 
+-        let mut fm = FileManager::new(dir.path(), Box::new(|path| std::fs::read_to_string(path)));
++        let mut fm = FileManager::new(dir.path());
+ 
+-        let file_id = fm.add_file(file_name).unwrap();
++        let file_id = fm.add_file_with_source(file_name, "fn foo() {}".to_string()).unwrap();
+ 
+         assert!(fm.path(file_id).ends_with("foo.nr"));
+     }
+@@ -279,13 +259,13 @@ mod tests {
+     #[test]
+     fn path_resolve_sub_module() {
+         let dir = tempdir().unwrap();
+-        let mut fm = FileManager::new(dir.path(), Box::new(|path| std::fs::read_to_string(path)));
++        let mut fm = FileManager::new(dir.path());
+ 
+         // Create a lib.nr file at the root.
+         // we now have dir/lib.nr
+         let lib_nr_path = create_dummy_file(&dir, Path::new("lib.nr"));
+         let file_id = fm
+-            .add_file(lib_nr_path.as_path())
++            .add_file_with_source(lib_nr_path.as_path(), "fn foo() {}".to_string())
+             .expect("could not add file to file manager and obtain a FileId");
+ 
+         // Create a sub directory
+@@ -300,7 +280,7 @@ mod tests {
+         // - dir/lib.nr
+         // - dir/sub_dir/foo.nr
+         let foo_nr_path = create_dummy_file(&sub_dir, Path::new("foo.nr"));
+-        fm.add_file(foo_nr_path.as_path());
++        fm.add_file_with_source(foo_nr_path.as_path(), "fn foo() {}".to_string());
+ 
+         // Add a parent module for the sub_dir
+         // we no have:
+@@ -308,7 +288,7 @@ mod tests {
+         // - dir/sub_dir.nr
+         // - dir/sub_dir/foo.nr
+         let sub_dir_nr_path = create_dummy_file(&dir, Path::new(&format!("{sub_dir_name}.nr")));
+-        fm.add_file(sub_dir_nr_path.as_path());
++        fm.add_file_with_source(sub_dir_nr_path.as_path(), "fn foo() {}".to_string());
+ 
+         // First check for the sub_dir.nr file and add it to the FileManager
+         let sub_dir_file_id = fm.find_module(file_id, sub_dir_name).unwrap();
+@@ -327,7 +307,7 @@ mod tests {
+         let sub_dir = TempDir::new_in(&dir).unwrap();
+         let sub_sub_dir = TempDir::new_in(&sub_dir).unwrap();
+ 
+-        let mut fm = FileManager::new(dir.path(), Box::new(|path| std::fs::read_to_string(path)));
++        let mut fm = FileManager::new(dir.path());
+ 
+         // Create a lib.nr file at the root.
+         let file_name = Path::new("lib.nr");
+@@ -337,8 +317,9 @@ mod tests {
+         let second_file_name = PathBuf::from(sub_sub_dir.path()).join("./../../lib.nr");
+ 
+         // Add both files to the file manager
+-        let file_id = fm.add_file(file_name).unwrap();
+-        let second_file_id = fm.add_file(&second_file_name).unwrap();
++        let file_id = fm.add_file_with_source(file_name, "fn foo() {}".to_string()).unwrap();
++        let second_file_id =
++            fm.add_file_with_source(&second_file_name, "fn foo() {}".to_string()).unwrap();
+ 
+         assert_eq!(file_id, second_file_id);
+     }
+diff --git a/compiler/noirc_driver/src/lib.rs b/compiler/noirc_driver/src/lib.rs
+index 08763b697..3fb164472 100644
+--- a/compiler/noirc_driver/src/lib.rs
++++ b/compiler/noirc_driver/src/lib.rs
+@@ -75,18 +75,20 @@ pub type CompilationResult<T> = Result<(T, Warnings), ErrorsAndWarnings>;
+ 
+ /// Adds the file from the file system at `Path` to the crate graph as a root file
+ pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
+-    let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
+-    let std_file_id = context.file_manager.add_file(&path_to_std_lib_file).unwrap();
+-
+     // Add the stdlib contents to the file manager, since every package automatically has a dependency
+     // on the stdlib. For other dependencies, we read the package.Dependencies file to add their file
+     // contents to the file manager. However since the dependency on the stdlib is implicit, we need
+     // to manually add it here.
+     let stdlib_paths_with_source = stdlib::stdlib_paths_with_source();
+     for (path, source) in stdlib_paths_with_source {
+-        context.file_manager.add_file_with_source(Path::new(&path), source);
++        context.file_manager.add_file_with_source_canonical_path(Path::new(&path), source);
+     }
+ 
++    let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
++    let std_file_id = context
++        .file_manager
++        .name_to_id(path_to_std_lib_file)
++        .expect("stdlib file id is expected to be present");
+     let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+ 
+     let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
+diff --git a/compiler/noirc_frontend/src/tests.rs b/compiler/noirc_frontend/src/tests.rs
+index 13ce71c46..16db445df 100644
+--- a/compiler/noirc_frontend/src/tests.rs
++++ b/compiler/noirc_frontend/src/tests.rs
+@@ -59,8 +59,7 @@ mod test {
+         src: &str,
+     ) -> (ParsedModule, Context, Vec<(CompilationError, FileId)>) {
+         let root = std::path::Path::new("/");
+-        let fm = FileManager::new(root, Box::new(|path| std::fs::read_to_string(path)));
+-        //let fm = FileManager::new(root,  Box::new(get_non_stdlib_asset));
++        let fm = FileManager::new(root);
+         let graph = CrateGraph::default();
+         let mut context = Context::new(fm, graph);
+         let root_file_id = FileId::dummy();
+diff --git a/compiler/wasm/Cargo.toml b/compiler/wasm/Cargo.toml
+index 9ece26c6d..6c7a8f26a 100644
+--- a/compiler/wasm/Cargo.toml
++++ b/compiler/wasm/Cargo.toml
+@@ -21,7 +21,6 @@ noirc_errors.workspace = true
+ wasm-bindgen.workspace = true
+ serde.workspace = true
+ js-sys.workspace = true
+-cfg-if.workspace = true
+ console_error_panic_hook.workspace = true
+ gloo-utils.workspace = true
+ 
+diff --git a/compiler/wasm/src/compile.rs b/compiler/wasm/src/compile.rs
+index 715583f5d..13b366819 100644
+--- a/compiler/wasm/src/compile.rs
++++ b/compiler/wasm/src/compile.rs
+@@ -235,8 +235,8 @@ pub fn compile(
+ // For all intents and purposes, the file manager being returned
+ // should be considered as immutable.
+ fn file_manager_with_source_map(source_map: PathToFileSourceMap) -> FileManager {
+-    let root = Path::new("/");
+-    let mut fm = FileManager::new(root, Box::new(get_non_stdlib_asset));
++    let root = Path::new("");
++    let mut fm = FileManager::new(root);
+ 
+     for (path, source) in source_map.0 {
+         fm.add_file_with_source(path.as_path(), source);
+@@ -330,38 +330,6 @@ fn preprocess_contract(contract: CompiledContract) -> CompileResult {
+     CompileResult::Contract { contract: preprocessed_contract, debug: debug_artifact }
+ }
+ 
+-// TODO: This is no longer needed because we are passing in a map from every path
+-// TODO: to the source file.
+-// TODO: how things get resolved are now the responsibility of the caller
+-// TODO: We will have future PRs which make this resolution nicer by taking in a Nargo.toml
+-// TODO: and producing paths with source files, though for now, I think this API is okay
+-//
+-// TODO: We will also be able to remove the file_reader being a parameter to FileManager but
+-// TODO will stay until we have this working so we don't break the API too much.
+-cfg_if::cfg_if! {
+-    if #[cfg(target_os = "wasi")] {
+-        fn get_non_stdlib_asset(path_to_file: &Path) -> std::io::Result<String> {
+-            std::fs::read_to_string(path_to_file)
+-        }
+-    } else {
+-        use std::io::{Error, ErrorKind};
+-
+-        #[wasm_bindgen(module = "@noir-lang/source-resolver")]
+-        extern "C" {
+-            #[wasm_bindgen(catch)]
+-            fn read_file(path: &str) -> Result<String, JsValue>;
+-        }
+-
+-        fn get_non_stdlib_asset(path_to_file: &Path) -> std::io::Result<String> {
+-            let path_str = path_to_file.to_str().unwrap();
+-            match read_file(path_str) {
+-                Ok(buffer) => Ok(buffer),
+-                Err(_) => Err(Error::new(ErrorKind::Other, "could not read file using wasm")),
+-            }
+-        }
+-    }
+-}
+-
+ #[cfg(test)]
+ mod test {
+     use noirc_driver::prepare_crate;
+@@ -375,10 +343,6 @@ mod test {
+     use super::{file_manager_with_source_map, process_dependency_graph, DependencyGraph};
+     use std::{collections::HashMap, path::Path};
+ 
+-    fn mock_get_non_stdlib_asset(_path_to_file: &Path) -> std::io::Result<String> {
+-        Ok("".to_string())
+-    }
+-
+     fn setup_test_context(source_map: PathToFileSourceMap) -> Context {
+         let mut fm = file_manager_with_source_map(source_map);
+         // Add this due to us calling prepare_crate on "/main.nr" below
+diff --git a/tooling/lsp/Cargo.toml b/tooling/lsp/Cargo.toml
+index 67778c744..b9f47c941 100644
+--- a/tooling/lsp/Cargo.toml
++++ b/tooling/lsp/Cargo.toml
+@@ -22,7 +22,6 @@ noirc_frontend.workspace = true
+ serde.workspace = true
+ serde_json.workspace = true
+ tower.workspace = true
+-cfg-if.workspace = true
+ async-lsp = { workspace = true, features = ["omni-trait"] }
+ serde_with = "3.2.0"
+ fm.workspace = true
+diff --git a/tooling/lsp/src/lib.rs b/tooling/lsp/src/lib.rs
+index 1474085a3..3699286ee 100644
+--- a/tooling/lsp/src/lib.rs
++++ b/tooling/lsp/src/lib.rs
+@@ -7,7 +7,7 @@ use std::{
+     collections::HashMap,
+     future::Future,
+     ops::{self, ControlFlow},
+-    path::{Path, PathBuf},
++    path::PathBuf,
+     pin::Pin,
+     task::{self, Poll},
+ };
+@@ -176,29 +176,3 @@ fn byte_span_to_range<'a, F: files::Files<'a> + ?Sized>(
+         None
+     }
+ }
+-
+-cfg_if::cfg_if! {
+-    if #[cfg(all(target_arch = "wasm32", not(target_os = "wasi")))] {
+-        use wasm_bindgen::{prelude::*, JsValue};
+-
+-        #[wasm_bindgen(module = "@noir-lang/source-resolver")]
+-        extern "C" {
+-
+-            #[wasm_bindgen(catch)]
+-            fn read_file(path: &str) -> Result<String, JsValue>;
+-
+-        }
+-
+-        fn get_non_stdlib_asset(path_to_file: &Path) -> std::io::Result<String> {
+-            let path_str = path_to_file.to_str().unwrap();
+-            match read_file(path_str) {
+-                Ok(buffer) => Ok(buffer),
+-                Err(_) => Err(Error::new(ErrorKind::Other, "could not read file using wasm")),
+-            }
+-        }
+-    } else {
+-        fn get_non_stdlib_asset(path_to_file: &Path) -> std::io::Result<String> {
+-            std::fs::read_to_string(path_to_file)
+-        }
+-    }
+-}
+diff --git a/tooling/lsp/src/notifications/mod.rs b/tooling/lsp/src/notifications/mod.rs
+index f6484f49d..9ae48e6c7 100644
+--- a/tooling/lsp/src/notifications/mod.rs
++++ b/tooling/lsp/src/notifications/mod.rs
+@@ -13,7 +13,7 @@ use crate::types::{
+     PublishDiagnosticsParams,
+ };
+ 
+-use crate::{byte_span_to_range, get_non_stdlib_asset, get_package_tests_in_crate, LspState};
++use crate::{byte_span_to_range, get_package_tests_in_crate, LspState};
+ 
+ pub(super) fn on_initialized(
+     _state: &mut LspState,
+@@ -111,7 +111,7 @@ pub(super) fn on_did_save_text_document(
+     let diagnostics: Vec<_> = workspace
+         .into_iter()
+         .flat_map(|package| -> Vec<Diagnostic> {
+-            let (mut context, crate_id) = prepare_package(package, Box::new(get_non_stdlib_asset));
++            let (mut context, crate_id) = prepare_package(package);
+ 
+             let file_diagnostics = match check_crate(&mut context, crate_id, false) {
+                 Ok(((), warnings)) => warnings,
+diff --git a/tooling/lsp/src/requests/code_lens_request.rs b/tooling/lsp/src/requests/code_lens_request.rs
+index 602ed2689..320fd519d 100644
+--- a/tooling/lsp/src/requests/code_lens_request.rs
++++ b/tooling/lsp/src/requests/code_lens_request.rs
+@@ -8,7 +8,7 @@ use noirc_driver::{check_crate, NOIR_ARTIFACT_VERSION_STRING};
+ use noirc_frontend::hir::FunctionNameMatch;
+ 
+ use crate::{
+-    byte_span_to_range, get_non_stdlib_asset,
++    byte_span_to_range,
+     types::{CodeLens, CodeLensParams, CodeLensResult, Command, LogMessageParams, MessageType},
+     LspState,
+ };
+@@ -83,7 +83,7 @@ fn on_code_lens_request_inner(
+     let mut lenses: Vec<CodeLens> = vec![];
+ 
+     for package in &workspace {
+-        let (mut context, crate_id) = prepare_package(package, Box::new(get_non_stdlib_asset));
++        let (mut context, crate_id) = prepare_package(package);
+         // We ignore the warnings and errors produced by compilation for producing code lenses
+         // because we can still get the test functions even if compilation fails
+         let _ = check_crate(&mut context, crate_id, false);
+diff --git a/tooling/lsp/src/requests/goto_definition.rs b/tooling/lsp/src/requests/goto_definition.rs
+index 706c95d44..c44704bcf 100644
+--- a/tooling/lsp/src/requests/goto_definition.rs
++++ b/tooling/lsp/src/requests/goto_definition.rs
+@@ -52,8 +52,7 @@ fn on_goto_definition_inner(
+     let mut definition_position = None;
+ 
+     for package in &workspace {
+-        let (mut context, crate_id) =
+-            nargo::prepare_package(package, Box::new(crate::get_non_stdlib_asset));
++        let (mut context, crate_id) = nargo::prepare_package(package);
+ 
+         // We ignore the warnings and errors produced by compilation while resolving the definition
+         let _ = noirc_driver::check_crate(&mut context, crate_id, false);
+diff --git a/tooling/lsp/src/requests/test_run.rs b/tooling/lsp/src/requests/test_run.rs
+index 962fe99a4..66fb51289 100644
+--- a/tooling/lsp/src/requests/test_run.rs
++++ b/tooling/lsp/src/requests/test_run.rs
+@@ -10,7 +10,6 @@ use noirc_driver::{check_crate, CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
+ use noirc_frontend::hir::FunctionNameMatch;
+ 
+ use crate::{
+-    get_non_stdlib_asset,
+     types::{NargoTestRunParams, NargoTestRunResult},
+     LspState,
+ };
+@@ -51,7 +50,7 @@ fn on_test_run_request_inner(
+     // Since we filtered on crate name, this should be the only item in the iterator
+     match workspace.into_iter().next() {
+         Some(package) => {
+-            let (mut context, crate_id) = prepare_package(package, Box::new(get_non_stdlib_asset));
++            let (mut context, crate_id) = prepare_package(package);
+             if check_crate(&mut context, crate_id, false).is_err() {
+                 let result = NargoTestRunResult {
+                     id: params.id.clone(),
+diff --git a/tooling/lsp/src/requests/tests.rs b/tooling/lsp/src/requests/tests.rs
+index 6b94b921a..dc0ccad6d 100644
+--- a/tooling/lsp/src/requests/tests.rs
++++ b/tooling/lsp/src/requests/tests.rs
+@@ -7,7 +7,7 @@ use nargo_toml::{find_package_manifest, resolve_workspace_from_toml, PackageSele
+ use noirc_driver::{check_crate, NOIR_ARTIFACT_VERSION_STRING};
+ 
+ use crate::{
+-    get_non_stdlib_asset, get_package_tests_in_crate,
++    get_package_tests_in_crate,
+     types::{NargoPackageTests, NargoTestsParams, NargoTestsResult},
+     LspState,
+ };
+@@ -53,7 +53,7 @@ fn on_tests_request_inner(
+     let package_tests: Vec<_> = workspace
+         .into_iter()
+         .filter_map(|package| {
+-            let (mut context, crate_id) = prepare_package(package, Box::new(get_non_stdlib_asset));
++            let (mut context, crate_id) = prepare_package(package);
+             // We ignore the warnings and errors produced by compilation for producing tests
+             // because we can still get the test functions even if compilation fails
+             let _ = check_crate(&mut context, crate_id, false);
+diff --git a/tooling/nargo/src/lib.rs b/tooling/nargo/src/lib.rs
+index 7c81b6bcb..2b5ac8e5a 100644
+--- a/tooling/nargo/src/lib.rs
++++ b/tooling/nargo/src/lib.rs
+@@ -16,7 +16,7 @@ pub mod workspace;
+ 
+ use std::collections::BTreeMap;
+ 
+-use fm::{FileManager, FileReader};
++use fm::FileManager;
+ use noirc_driver::{add_dep, prepare_crate, prepare_dependency};
+ use noirc_frontend::{
+     graph::{CrateGraph, CrateId, CrateName},
+@@ -59,7 +59,9 @@ pub fn insert_all_files_for_package_into_file_manager(
+     // Get all files in the package and add them to the file manager
+     let paths = get_all_paths_in_dir(&root_path).expect("could not get all paths in the package");
+     for path in paths {
+-        file_manager.add_file(path.as_path());
++        let source = std::fs::read_to_string(path.as_path())
++            .unwrap_or_else(|_| panic!("could not read file {:?} into string", path));
++        file_manager.add_file_with_source(path.as_path(), source);
+     }
+ 
+     insert_all_files_for_packages_dependencies_into_file_manager(package, file_manager);
+@@ -81,9 +83,9 @@ fn insert_all_files_for_packages_dependencies_into_file_manager(
+     }
+ }
+ 
+-pub fn prepare_package(package: &Package, file_reader: Box<FileReader>) -> (Context, CrateId) {
++pub fn prepare_package(package: &Package) -> (Context, CrateId) {
+     // TODO: FileManager continues to leak into various crates
+-    let mut fm = FileManager::new(&package.root_dir, file_reader);
++    let mut fm = FileManager::new(&package.root_dir);
+     insert_all_files_for_package_into_file_manager(package, &mut fm);
+ 
+     let graph = CrateGraph::default();
+diff --git a/tooling/nargo/src/ops/compile.rs b/tooling/nargo/src/ops/compile.rs
+index d4164eaa8..7b6506e4f 100644
+--- a/tooling/nargo/src/ops/compile.rs
++++ b/tooling/nargo/src/ops/compile.rs
+@@ -70,8 +70,7 @@ pub fn compile_program(
+     np_language: Language,
+     is_opcode_supported: &impl Fn(&Opcode) -> bool,
+ ) -> (FileManager, CompilationResult<CompiledProgram>) {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+ 
+     let program_artifact_path = workspace.package_build_path(package);
+     let mut debug_artifact_path = program_artifact_path.clone();
+@@ -111,8 +110,7 @@ fn compile_contract(
+     np_language: Language,
+     is_opcode_supported: &impl Fn(&Opcode) -> bool,
+ ) -> (FileManager, CompilationResult<CompiledContract>) {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+     let (contract, warnings) =
+         match noirc_driver::compile_contract(&mut context, crate_id, compile_options) {
+             Ok(contracts_and_warnings) => contracts_and_warnings,
+diff --git a/tooling/nargo_cli/src/cli/check_cmd.rs b/tooling/nargo_cli/src/cli/check_cmd.rs
+index 57b36b893..e4bc29bf3 100644
+--- a/tooling/nargo_cli/src/cli/check_cmd.rs
++++ b/tooling/nargo_cli/src/cli/check_cmd.rs
+@@ -55,8 +55,7 @@ pub(crate) fn run(
+ }
+ 
+ fn check_package(package: &Package, compile_options: &CompileOptions) -> Result<(), CompileError> {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+     check_crate_and_report_errors(
+         &mut context,
+         crate_id,
+diff --git a/tooling/nargo_cli/src/cli/compile_cmd.rs b/tooling/nargo_cli/src/cli/compile_cmd.rs
+index 02ba0d13e..3c2de841d 100644
+--- a/tooling/nargo_cli/src/cli/compile_cmd.rs
++++ b/tooling/nargo_cli/src/cli/compile_cmd.rs
+@@ -175,8 +175,7 @@ fn compile_program(
+     np_language: Language,
+     is_opcode_supported: &impl Fn(&Opcode) -> bool,
+ ) -> (FileManager, CompilationResult<CompiledProgram>) {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+ 
+     let program_artifact_path = workspace.package_build_path(package);
+     let mut debug_artifact_path = program_artifact_path.clone();
+@@ -238,8 +237,7 @@ fn compile_contract(
+     np_language: Language,
+     is_opcode_supported: &impl Fn(&Opcode) -> bool,
+ ) -> (FileManager, CompilationResult<CompiledContract>) {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+     let (contract, warnings) =
+         match noirc_driver::compile_contract(&mut context, crate_id, compile_options) {
+             Ok(contracts_and_warnings) => contracts_and_warnings,
+diff --git a/tooling/nargo_cli/src/cli/fmt_cmd.rs b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+index cb3b83435..0c2ca71eb 100644
+--- a/tooling/nargo_cli/src/cli/fmt_cmd.rs
++++ b/tooling/nargo_cli/src/cli/fmt_cmd.rs
+@@ -36,8 +36,7 @@ pub(crate) fn run(args: FormatCommand, config: NargoConfig) -> Result<(), CliErr
+     let mut check_exit_code_one = false;
+ 
+     for package in &workspace {
+-        let mut file_manager =
+-            FileManager::new(&package.root_dir, Box::new(|path| std::fs::read_to_string(path)));
++        let mut file_manager = FileManager::new(&package.root_dir);
+         insert_all_files_for_package_into_file_manager(package, &mut file_manager);
+ 
+         visit_noir_files(&package.root_dir.join("src"), &mut |entry| {
+diff --git a/tooling/nargo_cli/src/cli/test_cmd.rs b/tooling/nargo_cli/src/cli/test_cmd.rs
+index 1b6dbcab3..c91cd83f8 100644
+--- a/tooling/nargo_cli/src/cli/test_cmd.rs
++++ b/tooling/nargo_cli/src/cli/test_cmd.rs
+@@ -86,8 +86,7 @@ fn run_tests<S: BlackBoxFunctionSolver>(
+     show_output: bool,
+     compile_options: &CompileOptions,
+ ) -> Result<(), CliError> {
+-    let (mut context, crate_id) =
+-        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
++    let (mut context, crate_id) = prepare_package(package);
+     check_crate_and_report_errors(
+         &mut context,
+         crate_id,
+-- 
+2.25.1
+
+
+From 5ebf83a94b65de26595c245c035576f196eac1ef Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 17:40:38 +0000
+Subject: [PATCH 28/30] Update compiler/fm/src/lib.rs
+
+---
+ compiler/fm/src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index 3f1f5e09a..2a8230935 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -47,7 +47,7 @@ impl FileManager {
+     }
+ 
+     pub fn add_file_with_source(&mut self, file_name: &Path, source: String) -> Option<FileId> {
+-        let file_name = self.root.join(file_name).normalize();
++        let file_name = self.root.join(file_name);
+         self.add_file_with_source_canonical_path(&file_name, source)
+     }
+ 
+-- 
+2.25.1
+
+
+From 419273e5ac89dcab8885ac9ef04124c4ecee5c77 Mon Sep 17 00:00:00 2001
+From: kevaundray <kevtheappdev@gmail.com>
+Date: Mon, 11 Dec 2023 17:56:00 +0000
+Subject: [PATCH 29/30] file_reader is no longer being used
+
+---
+ compiler/fm/src/lib.rs | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/compiler/fm/src/lib.rs b/compiler/fm/src/lib.rs
+index 899d1a93e..9900be209 100644
+--- a/compiler/fm/src/lib.rs
++++ b/compiler/fm/src/lib.rs
+@@ -10,9 +10,6 @@ pub use file_map::{File, FileId, FileMap, PathString};
+ // Re-export for the lsp
+ pub use codespan_reporting::files as codespan_files;
+ 
+-use file_reader::is_stdlib_asset;
+-pub use file_reader::FileReader;
+-
+ use std::{
+     collections::HashMap,
+     path::{Component, Path, PathBuf},
+-- 
+2.25.1
+
+
+From 24ff886781157ab9a7d4c5b01a1e22d06371db19 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jos=C3=A9=20Pedro=20Sousa?= <jose@aztecprotocol.com>
+Date: Wed, 13 Dec 2023 07:07:55 +0000
+Subject: [PATCH 30/30] chore: moving ordering to category jsons and
+ frontmatters (#3777)
+
+# Description
+
+This big PR does a simple thing: It makes pages ordering respect
+metadata instead of filenames
+
+## Problem\*
+
+A naive approach supported over the years at docusaurus was to simply
+have files prefixed with 00, 01, 02, which were removed automatically by
+docusaurus.
+
+This makes docs a bit harder to maintain if for some reason you decide
+to move pages around, as it breaks all the links.
+
+## Summary\*
+
+- Renames all the folders and pages to remove the prefixes
+- Adds `sidebar_position` property in frontmatter, to order them
+- Adds `_category_.json` files to order folders
+- Removes ordering of top level folders in `sidebars.json`
+---
+ docs/docs/explanations/_category_.json        |   5 +
+ .../modules_packages_crates/_category_.json   |   6 +
+ .../crates_and_packages.md                    |   1 +
+ .../dependencies.md                           |   1 +
+ .../modules.md                                |   1 +
+ .../workspaces.md                             |   3 +-
+ docs/docs/explanations/noir/_category_.json   |   6 +
+ .../{00_noir/04_assert.md => noir/assert.md}  |   1 +
+ .../09_comments.md => noir/comments.md}       |   1 +
+ .../control_flow.md}                          |   1 +
+ .../12_data_bus.md => noir/data_bus.md}       |   4 +-
+ .../noir/data_types/_category_.json           |   5 +
+ .../data_types/arrays.md}                     |   1 +
+ .../data_types/booleans.md}                   |   1 +
+ .../data_types/fields.md}                     |   1 +
+ .../data_types/function_types.md}             |   3 +-
+ .../data_types}/index.md                      |   2 +-
+ .../data_types/integers.md}                   |   1 +
+ .../data_types/references.md}                 |   1 +
+ .../data_types/slices.mdx}                    |   1 +
+ .../data_types/strings.md}                    |   1 +
+ .../data_types/structs.md}                    |   1 +
+ .../data_types/tuples.md}                     |   1 +
+ .../data_types/vectors.mdx}                   |   1 +
+ .../10_distinct.md => noir/distinct.md}       |   1 +
+ .../01_functions.md => noir/functions.md}     |  13 +-
+ .../06_generics.md => noir/generics.md}       |   1 +
+ .../08_lambdas.md => noir/lambdas.md}         |   5 +-
+ .../07_mutability.md => noir/mutability.md}   |   1 +
+ .../{00_noir/03_ops.md => noir/ops.md}        |   1 +
+ .../11_shadowing.md => noir/shadowing.md}     |   1 +
+ .../unconstrained.md}                         |   3 +-
+ .../standard_library/_category_.json          |   6 +
+ .../black_box_fns.md                          |   0
+ .../cryptographic_primitives/_category_.json  |   5 +
+ .../ec_primitives.md}                         |   1 +
+ .../ecdsa_sig_verification.mdx}               |   1 +
+ .../cryptographic_primitives/eddsa.mdx}       |   1 +
+ .../cryptographic_primitives/hashes.mdx}      |   1 +
+ .../cryptographic_primitives}/index.md        |   0
+ .../cryptographic_primitives/scalar.mdx}      |   1 +
+ .../cryptographic_primitives/schnorr.mdx}     |   1 +
+ .../logging.md                                |   0
+ .../merkle_trees.md                           |   2 +-
+ .../options.md                                |   0
+ .../recursion.md                              |   0
+ .../zeroed.md                                 |   0
+ docs/docs/getting_started/_category_.json     |   5 +
+ ...reate_a_project.md => create_a_project.md} |   8 +-
+ .../installation/_category_.json              |   6 +
+ .../index.md                                  |   0
+ .../other_install_methods.md                  |   5 +-
+ ...ject_breakdown.md => project_breakdown.md} |   5 +-
+ .../getting_started/tooling/_category_.json   |   6 +
+ .../{03_tooling => tooling}/index.md          |   0
+ .../language_server.md}                       |   1 +
+ .../01_testing.md => tooling/testing.md}      |   1 +
+ docs/docs/how_to/_category_.json              |   5 +
+ docs/docs/index.md                            |   5 +-
+ docs/docs/migration_notes.md                  |   2 +-
+ .../reference/NoirJS/noir_js/classes/Noir.md  |   5 +-
+ docs/docs/reference/_category_.json           |   5 +
+ ...00_nargo_commands.md => nargo_commands.md} |   5 +-
+ .../{00_noirjs_app.md => noirjs_app.md}       |   3 +-
+ docs/docusaurus.config.ts                     |  10 ++
+ docs/package.json                             |   4 +-
+ docs/sidebars.js                              |  30 +---
+ yarn.lock                                     | 140 ++++++++++++++++--
+ 68 files changed, 274 insertions(+), 72 deletions(-)
+ create mode 100644 docs/docs/explanations/_category_.json
+ create mode 100644 docs/docs/explanations/modules_packages_crates/_category_.json
+ rename docs/docs/explanations/{02_modules_packages_crates => modules_packages_crates}/crates_and_packages.md (99%)
+ rename docs/docs/explanations/{02_modules_packages_crates => modules_packages_crates}/dependencies.md (99%)
+ rename docs/docs/explanations/{02_modules_packages_crates => modules_packages_crates}/modules.md (99%)
+ rename docs/docs/explanations/{02_modules_packages_crates => modules_packages_crates}/workspaces.md (96%)
+ create mode 100644 docs/docs/explanations/noir/_category_.json
+ rename docs/docs/explanations/{00_noir/04_assert.md => noir/assert.md} (98%)
+ rename docs/docs/explanations/{00_noir/09_comments.md => noir/comments.md} (98%)
+ rename docs/docs/explanations/{00_noir/02_control_flow.md => noir/control_flow.md} (97%)
+ rename docs/docs/explanations/{00_noir/12_data_bus.md => noir/data_bus.md} (97%)
+ create mode 100644 docs/docs/explanations/noir/data_types/_category_.json
+ rename docs/docs/explanations/{00_noir/00_data_types/04_arrays.md => noir/data_types/arrays.md} (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/02_booleans.md => noir/data_types/booleans.md} (97%)
+ rename docs/docs/explanations/{00_noir/00_data_types/00_fields.md => noir/data_types/fields.md} (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/10_function_types.md => noir/data_types/function_types.md} (87%)
+ rename docs/docs/explanations/{00_noir/00_data_types => noir/data_types}/index.md (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/01_integers.md => noir/data_types/integers.md} (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/09_references.md => noir/data_types/references.md} (96%)
+ rename docs/docs/explanations/{00_noir/00_data_types/05_slices.mdx => noir/data_types/slices.mdx} (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/03_strings.md => noir/data_types/strings.md} (99%)
+ rename docs/docs/explanations/{00_noir/00_data_types/08_structs.md => noir/data_types/structs.md} (98%)
+ rename docs/docs/explanations/{00_noir/00_data_types/07_tuples.md => noir/data_types/tuples.md} (98%)
+ rename docs/docs/explanations/{00_noir/00_data_types/06_vectors.mdx => noir/data_types/vectors.mdx} (99%)
+ rename docs/docs/explanations/{00_noir/10_distinct.md => noir/distinct.md} (98%)
+ rename docs/docs/explanations/{00_noir/01_functions.md => noir/functions.md} (90%)
+ rename docs/docs/explanations/{00_noir/06_generics.md => noir/generics.md} (99%)
+ rename docs/docs/explanations/{00_noir/08_lambdas.md => noir/lambdas.md} (98%)
+ rename docs/docs/explanations/{00_noir/07_mutability.md => noir/mutability.md} (99%)
+ rename docs/docs/explanations/{00_noir/03_ops.md => noir/ops.md} (99%)
+ rename docs/docs/explanations/{00_noir/11_shadowing.md => noir/shadowing.md} (98%)
+ rename docs/docs/explanations/{00_noir/05_unconstrained.md => noir/unconstrained.md} (97%)
+ create mode 100644 docs/docs/explanations/standard_library/_category_.json
+ rename docs/docs/explanations/{01_standard_library => standard_library}/black_box_fns.md (100%)
+ create mode 100644 docs/docs/explanations/standard_library/cryptographic_primitives/_category_.json
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/04_ec_primitives.md => standard_library/cryptographic_primitives/ec_primitives.md} (99%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/03_ecdsa_sig_verification.mdx => standard_library/cryptographic_primitives/ecdsa_sig_verification.mdx} (98%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/05_eddsa.mdx => standard_library/cryptographic_primitives/eddsa.mdx} (96%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/00_hashes.mdx => standard_library/cryptographic_primitives/hashes.mdx} (99%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives => standard_library/cryptographic_primitives}/index.md (100%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/01_scalar.mdx => standard_library/cryptographic_primitives/scalar.mdx} (97%)
+ rename docs/docs/explanations/{01_standard_library/00_cryptographic_primitives/02_schnorr.mdx => standard_library/cryptographic_primitives/schnorr.mdx} (98%)
+ rename docs/docs/explanations/{01_standard_library => standard_library}/logging.md (100%)
+ rename docs/docs/explanations/{01_standard_library => standard_library}/merkle_trees.md (93%)
+ rename docs/docs/explanations/{01_standard_library => standard_library}/options.md (100%)
+ rename docs/docs/explanations/{01_standard_library => standard_library}/recursion.md (100%)
+ rename docs/docs/explanations/{01_standard_library => standard_library}/zeroed.md (100%)
+ create mode 100644 docs/docs/getting_started/_category_.json
+ rename docs/docs/getting_started/{01_create_a_project.md => create_a_project.md} (93%)
+ create mode 100644 docs/docs/getting_started/installation/_category_.json
+ rename docs/docs/getting_started/{00_installation => installation}/index.md (100%)
+ rename docs/docs/getting_started/{00_installation => installation}/other_install_methods.md (98%)
+ rename docs/docs/getting_started/{02_project_breakdown.md => project_breakdown.md} (96%)
+ create mode 100644 docs/docs/getting_started/tooling/_category_.json
+ rename docs/docs/getting_started/{03_tooling => tooling}/index.md (100%)
+ rename docs/docs/getting_started/{03_tooling/00_language_server.md => tooling/language_server.md} (99%)
+ rename docs/docs/getting_started/{03_tooling/01_testing.md => tooling/testing.md} (98%)
+ create mode 100644 docs/docs/how_to/_category_.json
+ create mode 100644 docs/docs/reference/_category_.json
+ rename docs/docs/reference/{00_nargo_commands.md => nargo_commands.md} (99%)
+ rename docs/docs/tutorials/{00_noirjs_app.md => noirjs_app.md} (96%)
+
+diff --git a/docs/docs/explanations/_category_.json b/docs/docs/explanations/_category_.json
+new file mode 100644
+index 000000000..151ee2048
+--- /dev/null
++++ b/docs/docs/explanations/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 3,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/modules_packages_crates/_category_.json b/docs/docs/explanations/modules_packages_crates/_category_.json
+new file mode 100644
+index 000000000..1debcfe76
+--- /dev/null
++++ b/docs/docs/explanations/modules_packages_crates/_category_.json
+@@ -0,0 +1,6 @@
++{
++    "label": "Modules, Packages and Crates",
++    "position": 2,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/02_modules_packages_crates/crates_and_packages.md b/docs/docs/explanations/modules_packages_crates/crates_and_packages.md
+similarity index 99%
+rename from docs/docs/explanations/02_modules_packages_crates/crates_and_packages.md
+rename to docs/docs/explanations/modules_packages_crates/crates_and_packages.md
+index fb83a33d9..aae6795b2 100644
+--- a/docs/docs/explanations/02_modules_packages_crates/crates_and_packages.md
++++ b/docs/docs/explanations/modules_packages_crates/crates_and_packages.md
+@@ -2,6 +2,7 @@
+ title: Crates and Packages
+ description: Learn how to use Crates and Packages in your Noir project
+ keywords: [Nargo, dependencies, package management, crates, package]
++sidebar_position: 0
+ ---
+ 
+ ## Crates
+diff --git a/docs/docs/explanations/02_modules_packages_crates/dependencies.md b/docs/docs/explanations/modules_packages_crates/dependencies.md
+similarity index 99%
+rename from docs/docs/explanations/02_modules_packages_crates/dependencies.md
+rename to docs/docs/explanations/modules_packages_crates/dependencies.md
+index 75f95aaa3..57f0f9fd4 100644
+--- a/docs/docs/explanations/02_modules_packages_crates/dependencies.md
++++ b/docs/docs/explanations/modules_packages_crates/dependencies.md
+@@ -4,6 +4,7 @@ description:
+   Learn how to specify and manage dependencies in Nargo, allowing you to upload packages to GitHub
+   and use them easily in your project.
+ keywords: [Nargo, dependencies, GitHub, package management, versioning]
++sidebar_position: 1
+ ---
+ 
+ Nargo allows you to upload packages to GitHub and use them as dependencies.
+diff --git a/docs/docs/explanations/02_modules_packages_crates/modules.md b/docs/docs/explanations/modules_packages_crates/modules.md
+similarity index 99%
+rename from docs/docs/explanations/02_modules_packages_crates/modules.md
+rename to docs/docs/explanations/modules_packages_crates/modules.md
+index 147c9b284..f9f15aee8 100644
+--- a/docs/docs/explanations/02_modules_packages_crates/modules.md
++++ b/docs/docs/explanations/modules_packages_crates/modules.md
+@@ -4,6 +4,7 @@ description:
+   Learn how to organize your files using modules in Noir, following the same convention as Rust's
+   module system. Examples included.
+ keywords: [Noir, Rust, modules, organizing files, sub-modules]
++sidebar_position: 2
+ ---
+ 
+ Noir's module system follows the same convention as the _newer_ version of Rust's module system.
+diff --git a/docs/docs/explanations/02_modules_packages_crates/workspaces.md b/docs/docs/explanations/modules_packages_crates/workspaces.md
+similarity index 96%
+rename from docs/docs/explanations/02_modules_packages_crates/workspaces.md
+rename to docs/docs/explanations/modules_packages_crates/workspaces.md
+index a979ef9f0..67a1dafa3 100644
+--- a/docs/docs/explanations/02_modules_packages_crates/workspaces.md
++++ b/docs/docs/explanations/modules_packages_crates/workspaces.md
+@@ -1,5 +1,6 @@
+ ---
+ title: Workspaces
++sidebar_position: 3
+ ---
+ 
+ Workspaces are a feature of nargo that allow you to manage multiple related Noir packages in a single repository. A workspace is essentially a group of related projects that share common build output directories and configurations.
+@@ -36,4 +37,4 @@ default-member = "crates/a"
+ 
+ Libraries can be defined in a workspace. Inside a workspace, these are consumed as `{ path = "../to_lib" }` dependencies in Nargo.toml.
+ 
+-Inside a workspace, these are consumed as `{ path = "../to_lib" }` dependencies in Nargo.toml.
+\ No newline at end of file
++Inside a workspace, these are consumed as `{ path = "../to_lib" }` dependencies in Nargo.toml.
+diff --git a/docs/docs/explanations/noir/_category_.json b/docs/docs/explanations/noir/_category_.json
+new file mode 100644
+index 000000000..448d8987d
+--- /dev/null
++++ b/docs/docs/explanations/noir/_category_.json
+@@ -0,0 +1,6 @@
++{
++    "label": "Noir",
++    "position": 0,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/00_noir/04_assert.md b/docs/docs/explanations/noir/assert.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/04_assert.md
+rename to docs/docs/explanations/noir/assert.md
+index 7427ec6cc..c5f9aff13 100644
+--- a/docs/docs/explanations/00_noir/04_assert.md
++++ b/docs/docs/explanations/noir/assert.md
+@@ -5,6 +5,7 @@ description:
+   comparison expression that follows to be true, and what happens if the expression is false at
+   runtime.
+ keywords: [Noir programming language, assert statement, predicate expression, comparison expression]
++sidebar_position: 4
+ ---
+ 
+ Noir includes a special `assert` function which will explicitly constrain the predicate/comparison
+diff --git a/docs/docs/explanations/00_noir/09_comments.md b/docs/docs/explanations/noir/comments.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/09_comments.md
+rename to docs/docs/explanations/noir/comments.md
+index 3bb4d2f25..f76ab4909 100644
+--- a/docs/docs/explanations/00_noir/09_comments.md
++++ b/docs/docs/explanations/noir/comments.md
+@@ -5,6 +5,7 @@ description:
+   ignored by the compiler, but it can be read by programmers. Single-line and multi-line comments
+   are supported in Noir.
+ keywords: [Noir programming language, comments, single-line comments, multi-line comments]
++sidebar_position: 9
+ ---
+ 
+ A comment is a line in your codebase which the compiler ignores, however it can be read by
+diff --git a/docs/docs/explanations/00_noir/02_control_flow.md b/docs/docs/explanations/noir/control_flow.md
+similarity index 97%
+rename from docs/docs/explanations/00_noir/02_control_flow.md
+rename to docs/docs/explanations/noir/control_flow.md
+index a7f853601..4ce65236d 100644
+--- a/docs/docs/explanations/00_noir/02_control_flow.md
++++ b/docs/docs/explanations/noir/control_flow.md
+@@ -4,6 +4,7 @@ description:
+   Learn how to use loops and if expressions in the Noir programming language. Discover the syntax
+   and examples for for loops and if-else statements.
+ keywords: [Noir programming language, loops, for loop, if-else statements, Rust syntax]
++sidebar_position: 2
+ ---
+ 
+ ## Loops
+diff --git a/docs/docs/explanations/00_noir/12_data_bus.md b/docs/docs/explanations/noir/data_bus.md
+similarity index 97%
+rename from docs/docs/explanations/00_noir/12_data_bus.md
+rename to docs/docs/explanations/noir/data_bus.md
+index 9ef5c33fc..6c7e9b608 100644
+--- a/docs/docs/explanations/00_noir/12_data_bus.md
++++ b/docs/docs/explanations/noir/data_bus.md
+@@ -1,5 +1,6 @@
+ ---
+ title: Data Bus
++sidebar_position: 12
+ ---
+ **Disclaimer** this feature is experimental, do not use it!
+ 
+@@ -8,10 +9,8 @@ In order to use it, you must define some inputs of the program entry points (usu
+ function) with the `call_data` modifier, and the return values with the `return_data` modifier.
+ These modifiers are incompatible with `pub` and `mut` modifiers.
+ 
+-
+ ## Example
+ 
+-
+ ```rust
+ fn main(mut x: u32, y: call_data u32, z: call_data [u32;4] ) -> return_data u32 {
+   let a = z[x];
+@@ -20,4 +19,3 @@ fn main(mut x: u32, y: call_data u32, z: call_data [u32;4] ) -> return_data u32
+ ```
+ 
+ As a result, both call_data and return_data will be treated as private inputs and encapsulated into a read-only array each, for the backend to process.
+-
+diff --git a/docs/docs/explanations/noir/data_types/_category_.json b/docs/docs/explanations/noir/data_types/_category_.json
+new file mode 100644
+index 000000000..5d694210b
+--- /dev/null
++++ b/docs/docs/explanations/noir/data_types/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 0,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/00_noir/00_data_types/04_arrays.md b/docs/docs/explanations/noir/data_types/arrays.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/04_arrays.md
+rename to docs/docs/explanations/noir/data_types/arrays.md
+index bdbd1798b..075d39dad 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/04_arrays.md
++++ b/docs/docs/explanations/noir/data_types/arrays.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     indexing,
+   ]
++sidebar_position: 4
+ ---
+ 
+ An array is one way of grouping together values into one compound type. Array types can be inferred
+diff --git a/docs/docs/explanations/00_noir/00_data_types/02_booleans.md b/docs/docs/explanations/noir/data_types/booleans.md
+similarity index 97%
+rename from docs/docs/explanations/00_noir/00_data_types/02_booleans.md
+rename to docs/docs/explanations/noir/data_types/booleans.md
+index 885db167d..69826fcd7 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/02_booleans.md
++++ b/docs/docs/explanations/noir/data_types/booleans.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     logical operations,
+   ]
++sidebar_position: 2
+ ---
+ 
+ 
+diff --git a/docs/docs/explanations/00_noir/00_data_types/00_fields.md b/docs/docs/explanations/noir/data_types/fields.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/00_fields.md
+rename to docs/docs/explanations/noir/data_types/fields.md
+index 78d3d2af1..a1c67945d 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/00_fields.md
++++ b/docs/docs/explanations/noir/data_types/fields.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     best practices,
+   ]
++sidebar_position: 0
+ ---
+ 
+ The field type corresponds to the native field type of the proving backend.
+diff --git a/docs/docs/explanations/00_noir/00_data_types/10_function_types.md b/docs/docs/explanations/noir/data_types/function_types.md
+similarity index 87%
+rename from docs/docs/explanations/00_noir/00_data_types/10_function_types.md
+rename to docs/docs/explanations/noir/data_types/function_types.md
+index 1ec92efd5..f6121af17 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/10_function_types.md
++++ b/docs/docs/explanations/noir/data_types/function_types.md
+@@ -1,5 +1,6 @@
+ ---
+ title: Function types
++sidebar_position: 10
+ ---
+ 
+ Noir supports higher-order functions. The syntax for a function type is as follows:
+@@ -22,4 +23,4 @@ fn main() {
+ ```
+ 
+ A function type also has an optional capture environment - this is necessary to support closures.
+-See [Lambdas](../08_lambdas.md) for more details.
++See [Lambdas](../lambdas.md) for more details.
+diff --git a/docs/docs/explanations/00_noir/00_data_types/index.md b/docs/docs/explanations/noir/data_types/index.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/index.md
+rename to docs/docs/explanations/noir/data_types/index.md
+index 2eda54575..56ed55c44 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/index.md
++++ b/docs/docs/explanations/noir/data_types/index.md
+@@ -79,7 +79,7 @@ fn main() {
+ }
+ ```
+ 
+-Type aliases can also be used with [generics](@site/docs/explanations/00_noir/06_generics.md):
++Type aliases can also be used with [generics](@site/docs/explanations/noir/generics.md):
+ 
+ ```rust
+ type Id<Size> = Size;
+diff --git a/docs/docs/explanations/00_noir/00_data_types/01_integers.md b/docs/docs/explanations/noir/data_types/integers.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/01_integers.md
+rename to docs/docs/explanations/noir/data_types/integers.md
+index b1e7ad11b..7d1e83cf4 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/01_integers.md
++++ b/docs/docs/explanations/noir/data_types/integers.md
+@@ -2,6 +2,7 @@
+ title: Integers
+ description: Explore the Integer data type in Noir. Learn about its methods, see real-world examples, and grasp how to efficiently use Integers in your Noir code.
+ keywords: [noir, integer types, methods, examples, arithmetic]
++sidebar_position: 1
+ ---
+ 
+ An integer type is a range constrained field type. The Noir frontend supports arbitrarily-sized, both unsigned and signed integer types.
+diff --git a/docs/docs/explanations/00_noir/00_data_types/09_references.md b/docs/docs/explanations/noir/data_types/references.md
+similarity index 96%
+rename from docs/docs/explanations/00_noir/00_data_types/09_references.md
+rename to docs/docs/explanations/noir/data_types/references.md
+index b0c35ce2c..a5293d11c 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/09_references.md
++++ b/docs/docs/explanations/noir/data_types/references.md
+@@ -1,5 +1,6 @@
+ ---
+ title: References
++sidebar_position: 9
+ ---
+ 
+ Noir supports first-class references. References are a bit like pointers: they point to a specific address that can be followed to access the data stored at that address. You can use Rust-like syntax to use pointers in Noir: the `&` operator references the variable, the `*` operator dereferences it.
+diff --git a/docs/docs/explanations/00_noir/00_data_types/05_slices.mdx b/docs/docs/explanations/noir/data_types/slices.mdx
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/05_slices.mdx
+rename to docs/docs/explanations/noir/data_types/slices.mdx
+index 1be0ec4a1..4a6ee816a 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/05_slices.mdx
++++ b/docs/docs/explanations/noir/data_types/slices.mdx
+@@ -2,6 +2,7 @@
+ title: Slices
+ description: Explore the Slice data type in Noir. Understand its methods, see real-world examples, and learn how to effectively use Slices in your Noir programs.
+ keywords: [noir, slice type, methods, examples, subarrays]
++sidebar_position: 5
+ ---
+ 
+ import Experimental from '@site/src/components/Notes/_experimental.mdx';
+diff --git a/docs/docs/explanations/00_noir/00_data_types/03_strings.md b/docs/docs/explanations/noir/data_types/strings.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/03_strings.md
+rename to docs/docs/explanations/noir/data_types/strings.md
+index e647a5847..8d76d4ca6 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/03_strings.md
++++ b/docs/docs/explanations/noir/data_types/strings.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     concatenation,
+   ]
++sidebar_position: 3
+ ---
+ 
+ 
+diff --git a/docs/docs/explanations/00_noir/00_data_types/08_structs.md b/docs/docs/explanations/noir/data_types/structs.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/00_data_types/08_structs.md
+rename to docs/docs/explanations/noir/data_types/structs.md
+index 354217346..dbf68c998 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/08_structs.md
++++ b/docs/docs/explanations/noir/data_types/structs.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     data structures,
+   ]
++sidebar_position: 8
+ ---
+ 
+ A struct also allows for grouping multiple values of different types. Unlike tuples, we can also
+diff --git a/docs/docs/explanations/00_noir/00_data_types/07_tuples.md b/docs/docs/explanations/noir/data_types/tuples.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/00_data_types/07_tuples.md
+rename to docs/docs/explanations/noir/data_types/tuples.md
+index 5f6cab974..2ec5c9c41 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/07_tuples.md
++++ b/docs/docs/explanations/noir/data_types/tuples.md
+@@ -10,6 +10,7 @@ keywords:
+     examples,
+     multi-value containers,
+   ]
++sidebar_position: 7
+ ---
+ 
+ A tuple collects multiple values like an array, but with the added ability to collect values of
+diff --git a/docs/docs/explanations/00_noir/00_data_types/06_vectors.mdx b/docs/docs/explanations/noir/data_types/vectors.mdx
+similarity index 99%
+rename from docs/docs/explanations/00_noir/00_data_types/06_vectors.mdx
+rename to docs/docs/explanations/noir/data_types/vectors.mdx
+index 4617e90d0..10e35711b 100644
+--- a/docs/docs/explanations/00_noir/00_data_types/06_vectors.mdx
++++ b/docs/docs/explanations/noir/data_types/vectors.mdx
+@@ -2,6 +2,7 @@
+ title: Vectors
+ description: Delve into the Vector data type in Noir. Learn about its methods, practical examples, and best practices for using Vectors in your Noir code.
+ keywords: [noir, vector type, methods, examples, dynamic arrays]
++sidebar_position: 6
+ ---
+ 
+ import Experimental from '@site/src/components/Notes/_experimental.mdx';
+diff --git a/docs/docs/explanations/00_noir/10_distinct.md b/docs/docs/explanations/noir/distinct.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/10_distinct.md
+rename to docs/docs/explanations/noir/distinct.md
+index e7ff7f501..b59e0296b 100644
+--- a/docs/docs/explanations/00_noir/10_distinct.md
++++ b/docs/docs/explanations/noir/distinct.md
+@@ -1,5 +1,6 @@
+ ---
+ title: Distinct Witnesses
++sidebar_position: 10
+ ---
+ 
+ The `distinct` keyword prevents repetitions of witness indices in the program's ABI. This ensures
+diff --git a/docs/docs/explanations/00_noir/01_functions.md b/docs/docs/explanations/noir/functions.md
+similarity index 90%
+rename from docs/docs/explanations/00_noir/01_functions.md
+rename to docs/docs/explanations/noir/functions.md
+index 9eeff5147..94f929038 100644
+--- a/docs/docs/explanations/00_noir/01_functions.md
++++ b/docs/docs/explanations/noir/functions.md
+@@ -4,6 +4,7 @@ description:
+   Learn how to declare functions and methods in Noir, a programming language with Rust semantics.
+   This guide covers parameter declaration, return types, call expressions, and more.
+ keywords: [Noir, Rust, functions, methods, parameter declaration, return types, call expressions]
++sidebar_position: 1
+ ---
+ 
+ Functions in Noir follow the same semantics of Rust, though Noir does not support early returns.
+@@ -14,7 +15,7 @@ To declare a function the `fn` keyword is used.
+ fn foo() {}
+ ```
+ 
+-By default, functions are visible only within the package they are defined. To make them visible outside of that package (for example, as part of a [library](@site/docs/explanations/02_modules_packages_crates/crates_and_packages.md#libraries)), you should mark them as `pub`:
++By default, functions are visible only within the package they are defined. To make them visible outside of that package (for example, as part of a [library](@site/docs/explanations/modules_packages_crates/crates_and_packages.md#libraries)), you should mark them as `pub`:
+ 
+ ```rust
+ pub fn foo() {}
+@@ -61,7 +62,7 @@ fn main(x : [Field]) // can't compile, has variable size
+ fn main(....// i think you got it by now
+ ```
+ 
+-Keep in mind [tests](@site/docs/getting_started/03_tooling/01_testing.md) don't differentiate between `main` and any other function. The following snippet passes tests, but won't compile or prove:
++Keep in mind [tests](@site/docs/getting_started/tooling/testing.md) don't differentiate between `main` and any other function. The following snippet passes tests, but won't compile or prove:
+ 
+ ```rust
+ fn main(x : [Field]) {
+@@ -138,7 +139,7 @@ follows:
+ assert(MyStruct::sum(s) == 42);
+ ```
+ 
+-It is also possible to specialize which method is chosen depending on the [generic](./06_generics.md) type that is used. In this example, the `foo` function returns different values depending on its type:
++It is also possible to specialize which method is chosen depending on the [generic](./generics.md) type that is used. In this example, the `foo` function returns different values depending on its type:
+ 
+ ```rust
+ struct Foo<T> {}
+@@ -177,7 +178,7 @@ let add_50 = |val| val + 50;
+ assert(add_50(100) == 150);
+ ```
+ 
+-See [Lambdas](./08_lambdas.md) for more details.
++See [Lambdas](./lambdas.md) for more details.
+ 
+ ## Attributes
+ 
+@@ -188,8 +189,8 @@ Supported attributes include:
+ - **builtin**: the function is implemented by the compiler, for efficiency purposes.
+ - **deprecated**: mark the function as _deprecated_. Calling the function will generate a warning: `warning: use of deprecated function`
+ - **field**: Used to enable conditional compilation of code depending on the field size. See below for more details
+-- **oracle**: mark the function as _oracle_; meaning it is an external unconstrained function, implemented in noir_js. See [Unconstrained](./05_unconstrained.md) and [NoirJS](@site/docs/reference/NoirJS/noir_js/index.md) for more details.
+-- **test**: mark the function as unit tests. See [Tests](@site/docs/getting_started/03_tooling/01_testing.md) for more details
++- **oracle**: mark the function as _oracle_; meaning it is an external unconstrained function, implemented in noir_js. See [Unconstrained](./unconstrained.md) and [NoirJS](@site/docs/reference/NoirJS/noir_js/index.md) for more details.
++- **test**: mark the function as unit tests. See [Tests](@site/docs/getting_started/tooling/testing.md) for more details
+ 
+ ### Field Attribute
+ 
+diff --git a/docs/docs/explanations/00_noir/06_generics.md b/docs/docs/explanations/noir/generics.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/06_generics.md
+rename to docs/docs/explanations/noir/generics.md
+index 9fb4177c2..443ca2b45 100644
+--- a/docs/docs/explanations/00_noir/06_generics.md
++++ b/docs/docs/explanations/noir/generics.md
+@@ -2,6 +2,7 @@
+ title: Generics
+ description: Learn how to use Generics in Noir
+ keywords: [Noir, Rust, generics, functions, structs]
++sidebar_position: 6
+ ---
+ 
+ Generics allow you to use the same functions with multiple different concrete data types. You can
+diff --git a/docs/docs/explanations/00_noir/08_lambdas.md b/docs/docs/explanations/noir/lambdas.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/08_lambdas.md
+rename to docs/docs/explanations/noir/lambdas.md
+index ae1e6aeca..e0a267adf 100644
+--- a/docs/docs/explanations/00_noir/08_lambdas.md
++++ b/docs/docs/explanations/noir/lambdas.md
+@@ -2,6 +2,7 @@
+ title: Lambdas
+ description: Learn how to use anonymous functions in Noir programming language.
+ keywords: [Noir programming language, lambda, closure, function, anonymous function]
++sidebar_position: 8
+ ---
+ 
+ ## Introduction
+@@ -43,7 +44,7 @@ It may catch you by surprise that the following code fails to compile:
+ 
+ ```rust
+ fn foo(f: fn () -> Field) -> Field {
+-	f()
++ f()
+ }
+ 
+ fn main() {
+@@ -69,7 +70,7 @@ with closures with any environment, as well as with regular functions:
+ 
+ ```rust
+ fn foo<Env>(f: fn[Env]() -> Field) -> Field {
+-	f()
++ f()
+ }
+ 
+ fn main() {
+diff --git a/docs/docs/explanations/00_noir/07_mutability.md b/docs/docs/explanations/noir/mutability.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/07_mutability.md
+rename to docs/docs/explanations/noir/mutability.md
+index ad902c42c..58e9c1cec 100644
+--- a/docs/docs/explanations/00_noir/07_mutability.md
++++ b/docs/docs/explanations/noir/mutability.md
+@@ -4,6 +4,7 @@ description:
+   Learn about mutable variables, constants, and globals in Noir programming language. Discover how
+   to declare, modify, and use them in your programs.
+ keywords: [noir programming language, mutability in noir, mutable variables, constants, globals]
++sidebar_position: 7
+ ---
+ 
+ Variables in noir can be declared mutable via the `mut` keyword. Mutable variables can be reassigned
+diff --git a/docs/docs/explanations/00_noir/03_ops.md b/docs/docs/explanations/noir/ops.md
+similarity index 99%
+rename from docs/docs/explanations/00_noir/03_ops.md
+rename to docs/docs/explanations/noir/ops.md
+index d5caa4637..977c8ba12 100644
+--- a/docs/docs/explanations/00_noir/03_ops.md
++++ b/docs/docs/explanations/noir/ops.md
+@@ -14,6 +14,7 @@ keywords:
+     short-circuiting,
+     backend,
+   ]
++sidebar_position: 3
+ ---
+ 
+ # Operations
+diff --git a/docs/docs/explanations/00_noir/11_shadowing.md b/docs/docs/explanations/noir/shadowing.md
+similarity index 98%
+rename from docs/docs/explanations/00_noir/11_shadowing.md
+rename to docs/docs/explanations/noir/shadowing.md
+index efd743e76..b5a6b6b38 100644
+--- a/docs/docs/explanations/00_noir/11_shadowing.md
++++ b/docs/docs/explanations/noir/shadowing.md
+@@ -1,5 +1,6 @@
+ ---
+ title: Shadowing
++sidebar_position: 11
+ ---
+ 
+ Noir allows for inheriting variables' values and re-declaring them with the same name similar to Rust, known as shadowing.
+diff --git a/docs/docs/explanations/00_noir/05_unconstrained.md b/docs/docs/explanations/noir/unconstrained.md
+similarity index 97%
+rename from docs/docs/explanations/00_noir/05_unconstrained.md
+rename to docs/docs/explanations/noir/unconstrained.md
+index 6b621eda3..7a61d3953 100644
+--- a/docs/docs/explanations/00_noir/05_unconstrained.md
++++ b/docs/docs/explanations/noir/unconstrained.md
+@@ -3,10 +3,9 @@ title: Unconstrained Functions
+ description: "Learn about what unconstrained functions in Noir are, how to use them and when you'd want to."
+ 
+ keywords: [Noir programming language, unconstrained, open]
++sidebar_position: 5
+ ---
+ 
+-<!-- Source material for much of this page comes from here: https://github.com/noir-lang/acvm-docs/blob/main/docs/brillig/00_intro.md -->
+-
+ Unconstrained functions are functions which do not constrain any of the included computation and allow for non-determinisitic computation.
+ 
+ ## Why?
+diff --git a/docs/docs/explanations/standard_library/_category_.json b/docs/docs/explanations/standard_library/_category_.json
+new file mode 100644
+index 000000000..af04c0933
+--- /dev/null
++++ b/docs/docs/explanations/standard_library/_category_.json
+@@ -0,0 +1,6 @@
++{
++    "label": "Standard Library",
++    "position": 1,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/01_standard_library/black_box_fns.md b/docs/docs/explanations/standard_library/black_box_fns.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/black_box_fns.md
+rename to docs/docs/explanations/standard_library/black_box_fns.md
+diff --git a/docs/docs/explanations/standard_library/cryptographic_primitives/_category_.json b/docs/docs/explanations/standard_library/cryptographic_primitives/_category_.json
+new file mode 100644
+index 000000000..5d694210b
+--- /dev/null
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 0,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/04_ec_primitives.md b/docs/docs/explanations/standard_library/cryptographic_primitives/ec_primitives.md
+similarity index 99%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/04_ec_primitives.md
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/ec_primitives.md
+index 6e6b19b68..8d573adb3 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/04_ec_primitives.md
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/ec_primitives.md
+@@ -1,6 +1,7 @@
+ ---
+ title: Elliptic Curve Primitives
+ keywords: [cryptographic primitives, Noir project]
++sidebar_position: 4
+ ---
+ 
+ Data structures and methods on them that allow you to carry out computations involving elliptic
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/03_ecdsa_sig_verification.mdx b/docs/docs/explanations/standard_library/cryptographic_primitives/ecdsa_sig_verification.mdx
+similarity index 98%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/03_ecdsa_sig_verification.mdx
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/ecdsa_sig_verification.mdx
+index 72bce9848..1376c51df 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/03_ecdsa_sig_verification.mdx
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/ecdsa_sig_verification.mdx
+@@ -2,6 +2,7 @@
+ title: ECDSA Signature Verification
+ description: Learn about the cryptographic primitives regarding ECDSA over the secp256k1 and secp256r1 curves
+ keywords: [cryptographic primitives, Noir project, ecdsa, secp256k1, secp256r1, signatures]
++sidebar_position: 3
+ ---
+ 
+ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/05_eddsa.mdx b/docs/docs/explanations/standard_library/cryptographic_primitives/eddsa.mdx
+similarity index 96%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/05_eddsa.mdx
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/eddsa.mdx
+index 9a5beb55e..a9c10da6c 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/05_eddsa.mdx
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/eddsa.mdx
+@@ -2,6 +2,7 @@
+ title: EdDSA Verification
+ description: Learn about the cryptographic primitives regarding EdDSA
+ keywords: [cryptographic primitives, Noir project, eddsa, signatures]
++sidebar_position: 5
+ ---
+ 
+ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/00_hashes.mdx b/docs/docs/explanations/standard_library/cryptographic_primitives/hashes.mdx
+similarity index 99%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/00_hashes.mdx
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/hashes.mdx
+index 38077af1c..9250cb4a0 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/00_hashes.mdx
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/hashes.mdx
+@@ -5,6 +5,7 @@ description:
+   blake2s, pedersen, mimc_bn254 and mimc
+ keywords:
+   [cryptographic primitives, Noir project, sha256, blake2s, pedersen, mimc_bn254, mimc, hash]
++sidebar_position: 0
+ ---
+ 
+ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/index.md b/docs/docs/explanations/standard_library/cryptographic_primitives/index.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/index.md
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/index.md
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/01_scalar.mdx b/docs/docs/explanations/standard_library/cryptographic_primitives/scalar.mdx
+similarity index 97%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/01_scalar.mdx
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/scalar.mdx
+index c7eed820a..1e686303c 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/01_scalar.mdx
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/scalar.mdx
+@@ -2,6 +2,7 @@
+ title: Scalar multiplication
+ description: See how you can perform scalar multiplications over a fixed base in Noir
+ keywords: [cryptographic primitives, Noir project, scalar multiplication]
++sidebar_position: 1
+ ---
+ 
+ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
+diff --git a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/02_schnorr.mdx b/docs/docs/explanations/standard_library/cryptographic_primitives/schnorr.mdx
+similarity index 98%
+rename from docs/docs/explanations/01_standard_library/00_cryptographic_primitives/02_schnorr.mdx
+rename to docs/docs/explanations/standard_library/cryptographic_primitives/schnorr.mdx
+index c184ce281..7a2c9c202 100644
+--- a/docs/docs/explanations/01_standard_library/00_cryptographic_primitives/02_schnorr.mdx
++++ b/docs/docs/explanations/standard_library/cryptographic_primitives/schnorr.mdx
+@@ -2,6 +2,7 @@
+ title: Schnorr Signatures
+ description: Learn how you can verify Schnorr signatures using Noir
+ keywords: [cryptographic primitives, Noir project, schnorr, signatures]
++sidebar_position: 2
+ ---
+ 
+ import BlackBoxInfo from '@site/src/components/Notes/_blackbox.mdx';
+diff --git a/docs/docs/explanations/01_standard_library/logging.md b/docs/docs/explanations/standard_library/logging.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/logging.md
+rename to docs/docs/explanations/standard_library/logging.md
+diff --git a/docs/docs/explanations/01_standard_library/merkle_trees.md b/docs/docs/explanations/standard_library/merkle_trees.md
+similarity index 93%
+rename from docs/docs/explanations/01_standard_library/merkle_trees.md
+rename to docs/docs/explanations/standard_library/merkle_trees.md
+index 86452a2cc..07fa2ccda 100644
+--- a/docs/docs/explanations/01_standard_library/merkle_trees.md
++++ b/docs/docs/explanations/standard_library/merkle_trees.md
+@@ -17,7 +17,7 @@ keywords:
+ 
+ ## compute_merkle_root
+ 
+-Returns the root of the tree from the provided leaf and its hash path, using a [Pedersen hash](@site/docs/explanations/01_standard_library/00_cryptographic_primitives/00_hashes.mdx#pedersen_hash).
++Returns the root of the tree from the provided leaf and its hash path, using a [Pedersen hash](@site/docs/explanations/standard_library/cryptographic_primitives/hashes.mdx#pedersen_hash).
+ 
+ ```rust
+ fn compute_merkle_root(leaf : Field, index : Field, hash_path: [Field]) -> Field
+diff --git a/docs/docs/explanations/01_standard_library/options.md b/docs/docs/explanations/standard_library/options.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/options.md
+rename to docs/docs/explanations/standard_library/options.md
+diff --git a/docs/docs/explanations/01_standard_library/recursion.md b/docs/docs/explanations/standard_library/recursion.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/recursion.md
+rename to docs/docs/explanations/standard_library/recursion.md
+diff --git a/docs/docs/explanations/01_standard_library/zeroed.md b/docs/docs/explanations/standard_library/zeroed.md
+similarity index 100%
+rename from docs/docs/explanations/01_standard_library/zeroed.md
+rename to docs/docs/explanations/standard_library/zeroed.md
+diff --git a/docs/docs/getting_started/_category_.json b/docs/docs/getting_started/_category_.json
+new file mode 100644
+index 000000000..5d694210b
+--- /dev/null
++++ b/docs/docs/getting_started/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 0,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/getting_started/01_create_a_project.md b/docs/docs/getting_started/create_a_project.md
+similarity index 93%
+rename from docs/docs/getting_started/01_create_a_project.md
+rename to docs/docs/getting_started/create_a_project.md
+index d32f39737..76bed5be9 100644
+--- a/docs/docs/getting_started/01_create_a_project.md
++++ b/docs/docs/getting_started/create_a_project.md
+@@ -13,6 +13,8 @@ keywords:
+     verify Noir program,
+     step-by-step guide,
+   ]
++sidebar_position: 1
++
+ ---
+ 
+ Now that we have installed Nargo, it is time to make our first hello world program!
+@@ -67,7 +69,7 @@ x : Field, y : pub Field
+ 
+ Program inputs in Noir are private by default (e.g. `x`), but can be labeled public using the
+ keyword `pub` (e.g. `y`). To learn more about private and public values, check the
+-[Data Types](@site/docs/explanations/00_noir/00_data_types/index.md) section.
++[Data Types](@site/docs/explanations/noir/data_types/index.md) section.
+ 
+ The next line of the program specifies its body:
+ 
+@@ -77,7 +79,7 @@ assert(x != y);
+ 
+ The Noir syntax `assert` can be interpreted as something similar to constraints in other zk-contract languages.
+ 
+-For more Noir syntax, check the [Language Concepts](@site/docs/explanations/00_noir/09_comments.md) chapter.
++For more Noir syntax, check the [Language Concepts](@site/docs/explanations/noir/comments.md) chapter.
+ 
+ ## Build In/Output Files
+ 
+@@ -137,4 +139,4 @@ corresponding error instead.
+ 
+ Congratulations, you have now created and verified a proof for your very first Noir program!
+ 
+-In the [next section](@site/docs/getting_started/02_project_breakdown.md), we will go into more detail on each step performed.
++In the [next section](@site/docs/getting_started/project_breakdown.md), we will go into more detail on each step performed.
+diff --git a/docs/docs/getting_started/installation/_category_.json b/docs/docs/getting_started/installation/_category_.json
+new file mode 100644
+index 000000000..0c02fb5d4
+--- /dev/null
++++ b/docs/docs/getting_started/installation/_category_.json
+@@ -0,0 +1,6 @@
++{
++    "position": 0,
++    "label": "Install Nargo",
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/getting_started/00_installation/index.md b/docs/docs/getting_started/installation/index.md
+similarity index 100%
+rename from docs/docs/getting_started/00_installation/index.md
+rename to docs/docs/getting_started/installation/index.md
+diff --git a/docs/docs/getting_started/00_installation/other_install_methods.md b/docs/docs/getting_started/installation/other_install_methods.md
+similarity index 98%
+rename from docs/docs/getting_started/00_installation/other_install_methods.md
+rename to docs/docs/getting_started/installation/other_install_methods.md
+index cd27185a2..d90a10103 100644
+--- a/docs/docs/getting_started/00_installation/other_install_methods.md
++++ b/docs/docs/getting_started/installation/other_install_methods.md
+@@ -18,12 +18,13 @@ keywords: [
+    Uninstalling Nargo
+    Noir vs code extension
+ ]
++sidebar_position: 1
+ ---
+ 
+ 
+ ## Installation
+ 
+-The most common method of installing Nargo is through [Noirup](@site/docs/getting_started/00_installation/index.md)
++The most common method of installing Nargo is through [Noirup](@site/docs/getting_started/installation/index.md)
+ 
+ However, there are other methods for installing Nargo:
+ 
+@@ -166,7 +167,7 @@ The default backend for Noir (Barretenberg) doesn't provide Windows binaries at
+ 
+ Step 1: Follow the instructions [here](https://learn.microsoft.com/en-us/windows/wsl/install) to install and run WSL.
+ 
+-step 2: Follow the [Noirup instructions](@site/docs/getting_started/00_installation/index.md).
++step 2: Follow the [Noirup instructions](@site/docs/getting_started/installation/index.md).
+ 
+ ## Uninstalling Nargo
+ 
+diff --git a/docs/docs/getting_started/02_project_breakdown.md b/docs/docs/getting_started/project_breakdown.md
+similarity index 96%
+rename from docs/docs/getting_started/02_project_breakdown.md
+rename to docs/docs/getting_started/project_breakdown.md
+index 8e4bf3952..026127b9e 100644
+--- a/docs/docs/getting_started/02_project_breakdown.md
++++ b/docs/docs/getting_started/project_breakdown.md
+@@ -5,6 +5,7 @@ description:
+   files, and how to prove and verify your program.
+ keywords:
+   [Nargo, Nargo project, Prover.toml, Verifier.toml, proof verification, private asset transfer]
++sidebar_position: 2 
+ ---
+ 
+ This section breaks down our hello world program in section _1.2_. We elaborate on the project
+@@ -51,7 +52,7 @@ license = "MIT"
+ ecrecover = {tag = "v0.9.0", git = "https://github.com/colinnielsen/ecrecover-noir.git"}
+ ```
+ 
+-Nargo.toml for a [workspace](@site/docs/explanations/02_modules_packages_crates/workspaces.md) will look a bit different. For example:
++Nargo.toml for a [workspace](@site/docs/explanations/modules_packages_crates/workspaces.md) will look a bit different. For example:
+ 
+ ```toml
+ [workspace]
+@@ -74,7 +75,7 @@ The package section requires a number of fields including:
+ 
+ #### Dependencies section
+ 
+-This is where you will specify any dependencies for your project. See the [Dependencies page](@site/docs/explanations/02_modules_packages_crates/dependencies.md) for more info.
++This is where you will specify any dependencies for your project. See the [Dependencies page](@site/docs/explanations/modules_packages_crates/dependencies.md) for more info.
+ 
+ `./proofs/` and `./contract/` directories will not be immediately visible until you create a proof or
+ verifier contract respectively.
+diff --git a/docs/docs/getting_started/tooling/_category_.json b/docs/docs/getting_started/tooling/_category_.json
+new file mode 100644
+index 000000000..dff520ebc
+--- /dev/null
++++ b/docs/docs/getting_started/tooling/_category_.json
+@@ -0,0 +1,6 @@
++{
++    "position": 3,
++    "label": "Tooling",
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/getting_started/03_tooling/index.md b/docs/docs/getting_started/tooling/index.md
+similarity index 100%
+rename from docs/docs/getting_started/03_tooling/index.md
+rename to docs/docs/getting_started/tooling/index.md
+diff --git a/docs/docs/getting_started/03_tooling/00_language_server.md b/docs/docs/getting_started/tooling/language_server.md
+similarity index 99%
+rename from docs/docs/getting_started/03_tooling/00_language_server.md
+rename to docs/docs/getting_started/tooling/language_server.md
+index 48c01465f..81e0356ef 100644
+--- a/docs/docs/getting_started/03_tooling/00_language_server.md
++++ b/docs/docs/getting_started/tooling/language_server.md
+@@ -2,6 +2,7 @@
+ title: Language Server
+ description: Learn about the Noir Language Server, how to install the components, and configuration that may be required.
+ keywords: [Nargo, Language Server, LSP, VSCode, Visual Studio Code]
++sidebar_position: 0
+ ---
+ 
+ This section helps you install and configure the Noir Language Server.
+diff --git a/docs/docs/getting_started/03_tooling/01_testing.md b/docs/docs/getting_started/tooling/testing.md
+similarity index 98%
+rename from docs/docs/getting_started/03_tooling/01_testing.md
+rename to docs/docs/getting_started/tooling/testing.md
+index da767274e..868a06120 100644
+--- a/docs/docs/getting_started/03_tooling/01_testing.md
++++ b/docs/docs/getting_started/tooling/testing.md
+@@ -2,6 +2,7 @@
+ title: Testing in Noir
+ description: Learn how to use Nargo to test your Noir program in a quick and easy way
+ keywords: [Nargo, testing, Noir, compile, test]
++sidebar_position: 1
+ ---
+ 
+ You can test your Noir programs using Noir circuits.
+diff --git a/docs/docs/how_to/_category_.json b/docs/docs/how_to/_category_.json
+new file mode 100644
+index 000000000..23b560f61
+--- /dev/null
++++ b/docs/docs/how_to/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 1,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/index.md b/docs/docs/index.md
+index de04d263e..754f9f6e3 100644
+--- a/docs/docs/index.md
++++ b/docs/docs/index.md
+@@ -17,6 +17,7 @@ keywords:
+     Proving System,
+     Smart Contract Language,
+   ]
++sidebar_position: 0
+ ---
+ 
+ ## What's new about Noir?
+@@ -37,7 +38,7 @@ programming.
+ ### Solidity Developers
+ 
+ Noir streamlines the creation of Solidity contracts that interface with SNARK systems.
+-[`Utilize the nargo codegen-verifier`](@site/docs/reference/00_nargo_commands.md#nargo-codegen-verifier) command to construct verifier
++[`Utilize the nargo codegen-verifier`](@site/docs/reference/nargo_commands.md#nargo-codegen-verifier) command to construct verifier
+ contracts efficiently. While the current alpha version offers this as a direct feature, future updates aim
+ to modularize this process for even greater ease of use.
+ 
+@@ -81,4 +82,4 @@ Some libraries that are available today include:
+ - [Fraction](https://github.com/resurgencelabs/fraction) - a library for accessing fractional number data type in Noir,
+   allowing results that aren't whole numbers
+ 
+-See the section on [dependencies](@site/docs/explanations/02_modules_packages_crates/dependencies.md) for more information.
++See the section on [dependencies](@site/docs/explanations/modules_packages_crates/dependencies.md) for more information.
+diff --git a/docs/docs/migration_notes.md b/docs/docs/migration_notes.md
+index 4964a85c8..a5fd10769 100644
+--- a/docs/docs/migration_notes.md
++++ b/docs/docs/migration_notes.md
+@@ -16,7 +16,7 @@ To update, please make sure this field in `Nargo.toml` matches the output of `na
+ 
+ ## ≥0.14
+ 
+-The index of the [for loops](@site/docs/explanations/00_noir/02_control_flow.md#loops) is now of type `u64` instead of `Field`. An example refactor would be:
++The index of the [for loops](@site/docs/explanations/noir/control_flow.md#loops) is now of type `u64` instead of `Field`. An example refactor would be:
+ 
+ ```rust
+ for i in 0..10 {
+diff --git a/docs/docs/reference/NoirJS/noir_js/classes/Noir.md b/docs/docs/reference/NoirJS/noir_js/classes/Noir.md
+index e54116fb1..34e20d996 100644
+--- a/docs/docs/reference/NoirJS/noir_js/classes/Noir.md
++++ b/docs/docs/reference/NoirJS/noir_js/classes/Noir.md
+@@ -75,7 +75,7 @@ async execute(inputs)
+ ### generateFinalProof()
+ 
+ ```ts
+-generateFinalProof(inputs): Promise<ProofData>
++generateFinalProof(inputs, foreignCallHandler?): Promise<ProofData>
+ ```
+ 
+ #### Parameters
+@@ -83,6 +83,7 @@ generateFinalProof(inputs): Promise<ProofData>
+ | Parameter | Type |
+ | :------ | :------ |
+ | `inputs` | [`InputMap`](../type-aliases/InputMap.md) |
++| `foreignCallHandler`? | [`ForeignCallHandler`](../type-aliases/ForeignCallHandler.md) |
+ 
+ #### Returns
+ 
+@@ -95,7 +96,7 @@ Generates a witness and a proof given an object as input.
+ #### Example
+ 
+ ```typescript
+-async generateFinalproof(input)
++async generateFinalProof(input)
+ ```
+ 
+ ***
+diff --git a/docs/docs/reference/_category_.json b/docs/docs/reference/_category_.json
+new file mode 100644
+index 000000000..5b6a20a60
+--- /dev/null
++++ b/docs/docs/reference/_category_.json
+@@ -0,0 +1,5 @@
++{
++    "position": 4,
++    "collapsible": true,
++    "collapsed": true
++}
+diff --git a/docs/docs/reference/00_nargo_commands.md b/docs/docs/reference/nargo_commands.md
+similarity index 99%
+rename from docs/docs/reference/00_nargo_commands.md
+rename to docs/docs/reference/nargo_commands.md
+index 8c564ca49..239e88d96 100644
+--- a/docs/docs/reference/00_nargo_commands.md
++++ b/docs/docs/reference/nargo_commands.md
+@@ -1,5 +1,5 @@
+ ---
+-title: nargo
++title: Nargo
+ description:
+   Noir CLI Commands for Noir Prover and Verifier to create, execute, prove and verify programs,
+   generate Solidity verifier smart contract and compile into JSON file containing ACIR
+@@ -16,6 +16,7 @@ keywords:
+     ABI of circuit,
+     TypeScript,
+   ]
++sidebar_position: 0
+ ---
+ 
+ ## General options
+@@ -212,7 +213,7 @@ you run `nargo test`. To print `println` statements in tests, use the `--show-ou
+ 
+ Takes an optional `--exact` flag which allows you to select tests based on an exact name.
+ 
+-See an example on the [testing page](@site/docs/getting_started/03_tooling/01_testing.md).
++See an example on the [testing page](@site/docs/getting_started/tooling/testing.md).
+ 
+ ### Options
+ 
+diff --git a/docs/docs/tutorials/00_noirjs_app.md b/docs/docs/tutorials/noirjs_app.md
+similarity index 96%
+rename from docs/docs/tutorials/00_noirjs_app.md
+rename to docs/docs/tutorials/noirjs_app.md
+index 4a4161d70..e0f674fa0 100644
+--- a/docs/docs/tutorials/00_noirjs_app.md
++++ b/docs/docs/tutorials/noirjs_app.md
+@@ -2,6 +2,7 @@
+ title: Tiny NoirJS app
+ description: Learn how to setup a new app that uses Noir to generate and verify zero-knowledge SNARK proofs in a typescript or javascript environment
+ keywords: [how to, guide, javascript, typescript, noir, barretenberg, zero-knowledge, proofs]
++sidebar_position: 0
+ ---
+ 
+ NoirJS works both on the browser and on the server, and works for both ESM and CJS module systems. In this page, we will learn how can we write a simple test and a simple web app to verify the standard Noir example.
+@@ -20,7 +21,7 @@ In this guide, we will be pinned to 0.17.0.
+ 
+ Make sure you have Node installed on your machine by opening a terminal and executing `node --version`. If you don't see a version, you should install [node](https://github.com/nvm-sh/nvm). You can also use `yarn` if you prefer that package manager over npm (which comes with node).
+ 
+-First of all, follow the the [Nargo guide](@site/docs/getting_started/00_installation/index.md) to install nargo version 0.17.0 and create a new project with `nargo new circuit`. Once there, `cd` into the `circuit` folder. You should then be able to compile your circuit into `json` format and see it inside the `target` folder:
++First of all, follow the the [Nargo guide](@site/docs/getting_started/installation/index.md) to install nargo version 0.17.0 and create a new project with `nargo new circuit`. Once there, `cd` into the `circuit` folder. You should then be able to compile your circuit into `json` format and see it inside the `target` folder:
+ 
+ ```bash
+ nargo compile
+diff --git a/docs/docusaurus.config.ts b/docs/docusaurus.config.ts
+index 14abaf04b..98ef1fd68 100644
+--- a/docs/docusaurus.config.ts
++++ b/docs/docusaurus.config.ts
+@@ -133,6 +133,16 @@ export default {
+     },
+   },
+   plugins: [
++    () => ({
++      name: 'resolve-react',
++      configureWebpack() {
++        return {
++          optimization: {
++            innerGraph: false,
++          },
++        };
++      },
++    }),
+     [
+       'docusaurus-plugin-typedoc',
+       {
+diff --git a/docs/package.json b/docs/package.json
+index 6a95fcb89..86f15b0a3 100644
+--- a/docs/package.json
++++ b/docs/package.json
+@@ -5,7 +5,8 @@
+   "scripts": {
+     "start": "docusaurus start",
+     "build": "yarn version::stables && docusaurus build",
+-    "version::stables": "node --loader ts-node/esm ./scripts/setStable.ts"
++    "version::stables": "node --loader ts-node/esm ./scripts/setStable.ts",
++    "serve": "serve build"
+   },
+   "dependencies": {
+     "@docusaurus/core": "^3.0.1",
+@@ -34,6 +35,7 @@
+     "docusaurus-plugin-typedoc": "1.0.0-next.18",
+     "eslint-plugin-prettier": "^5.0.0",
+     "prettier": "3.0.3",
++    "serve": "^14.2.1",
+     "ts-node": "^10.9.1",
+     "typedoc": "^0.25.0",
+     "typedoc-plugin-frontmatter": "^0.0.2",
+diff --git a/docs/sidebars.js b/docs/sidebars.js
+index fba1c9ae1..016ead14a 100644
+--- a/docs/sidebars.js
++++ b/docs/sidebars.js
+@@ -20,34 +20,8 @@ export default {
+       label: 'The Noir Language',
+       items: [
+         {
+-          type: 'category',
+-          label: 'Language Concepts',
+-          items: [
+-            {
+-              type: 'autogenerated',
+-              dirName: 'explanations/00_noir',
+-            },
+-          ],
+-        },
+-        {
+-          type: 'category',
+-          label: 'Standard Library',
+-          items: [
+-            {
+-              type: 'autogenerated',
+-              dirName: 'explanations/01_standard_library',
+-            },
+-          ],
+-        },
+-        {
+-          type: 'category',
+-          label: 'Modules, Packages and Crates',
+-          items: [
+-            {
+-              type: 'autogenerated',
+-              dirName: 'explanations/02_modules_packages_crates',
+-            },
+-          ],
++          type: 'autogenerated',
++          dirName: 'explanations',
+         },
+       ],
+     },
+diff --git a/yarn.lock b/yarn.lock
+index 7454ec947..bdb9c205d 100644
+--- a/yarn.lock
++++ b/yarn.lock
+@@ -6369,6 +6369,13 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"@zeit/schemas@npm:2.29.0":
++  version: 2.29.0
++  resolution: "@zeit/schemas@npm:2.29.0"
++  checksum: 3cea06bb67d790336aca0cc17580fd492ff3fc66ef4d180dce7053ff7ff54ab81b56bf718ba6f537148c581161d06306a481ec218d540bff922e0e009844ffd1
++  languageName: node
++  linkType: hard
++
+ "abbrev@npm:^2.0.0":
+   version: 2.0.0
+   resolution: "abbrev@npm:2.0.0"
+@@ -6535,6 +6542,18 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"ajv@npm:8.11.0":
++  version: 8.11.0
++  resolution: "ajv@npm:8.11.0"
++  dependencies:
++    fast-deep-equal: ^3.1.1
++    json-schema-traverse: ^1.0.0
++    require-from-string: ^2.0.2
++    uri-js: ^4.2.2
++  checksum: 5e0ff226806763be73e93dd7805b634f6f5921e3e90ca04acdf8db81eed9d8d3f0d4c5f1213047f45ebbf8047ffe0c840fa1ef2ec42c3a644899f69aa72b5bef
++  languageName: node
++  linkType: hard
++
+ "ajv@npm:^6.12.2, ajv@npm:^6.12.4, ajv@npm:^6.12.5":
+   version: 6.12.6
+   resolution: "ajv@npm:6.12.6"
+@@ -6689,20 +6708,27 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"arg@npm:^4.1.0":
+-  version: 4.1.3
+-  resolution: "arg@npm:4.1.3"
+-  checksum: 544af8dd3f60546d3e4aff084d451b96961d2267d668670199692f8d054f0415d86fc5497d0e641e91546f0aa920e7c29e5250e99fc89f5552a34b5d93b77f43
++"arch@npm:^2.2.0":
++  version: 2.2.0
++  resolution: "arch@npm:2.2.0"
++  checksum: e21b7635029fe8e9cdd5a026f9a6c659103e63fff423834323cdf836a1bb240a72d0c39ca8c470f84643385cf581bd8eda2cad8bf493e27e54bd9783abe9101f
+   languageName: node
+   linkType: hard
+ 
+-"arg@npm:^5.0.0":
++"arg@npm:5.0.2, arg@npm:^5.0.0":
+   version: 5.0.2
+   resolution: "arg@npm:5.0.2"
+   checksum: 6c69ada1a9943d332d9e5382393e897c500908d91d5cb735a01120d5f71daf1b339b7b8980cbeaba8fd1afc68e658a739746179e4315a26e8a28951ff9930078
+   languageName: node
+   linkType: hard
+ 
++"arg@npm:^4.1.0":
++  version: 4.1.3
++  resolution: "arg@npm:4.1.3"
++  checksum: 544af8dd3f60546d3e4aff084d451b96961d2267d668670199692f8d054f0415d86fc5497d0e641e91546f0aa920e7c29e5250e99fc89f5552a34b5d93b77f43
++  languageName: node
++  linkType: hard
++
+ "argparse@npm:^1.0.7":
+   version: 1.0.10
+   resolution: "argparse@npm:1.0.10"
+@@ -7175,6 +7201,22 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"boxen@npm:7.0.0":
++  version: 7.0.0
++  resolution: "boxen@npm:7.0.0"
++  dependencies:
++    ansi-align: ^3.0.1
++    camelcase: ^7.0.0
++    chalk: ^5.0.1
++    cli-boxes: ^3.0.0
++    string-width: ^5.1.2
++    type-fest: ^2.13.0
++    widest-line: ^4.0.1
++    wrap-ansi: ^8.0.1
++  checksum: b917cf7a168ef3149635a8c02d5c9717d66182348bd27038d85328ad12655151e3324db0f2815253846c33e5f0ddf28b6cd52d56a12b9f88617b7f8f722b946a
++  languageName: node
++  linkType: hard
++
+ "boxen@npm:^5.0.0":
+   version: 5.1.2
+   resolution: "boxen@npm:5.1.2"
+@@ -7521,7 +7563,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"camelcase@npm:^7.0.1":
++"camelcase@npm:^7.0.0, camelcase@npm:^7.0.1":
+   version: 7.0.1
+   resolution: "camelcase@npm:7.0.1"
+   checksum: 86ab8f3ebf08bcdbe605a211a242f00ed30d8bfb77dab4ebb744dd36efbc84432d1c4adb28975ba87a1b8be40a80fbd1e60e2f06565315918fa7350011a26d3d
+@@ -7610,7 +7652,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"chalk-template@npm:^0.4.0":
++"chalk-template@npm:0.4.0, chalk-template@npm:^0.4.0":
+   version: 0.4.0
+   resolution: "chalk-template@npm:0.4.0"
+   dependencies:
+@@ -7619,6 +7661,13 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"chalk@npm:5.0.1":
++  version: 5.0.1
++  resolution: "chalk@npm:5.0.1"
++  checksum: 7b45300372b908f0471fbf7389ce2f5de8d85bb949026fd51a1b95b10d0ed32c7ed5aab36dd5e9d2bf3191867909b4404cef75c5f4d2d1daeeacd301dd280b76
++  languageName: node
++  linkType: hard
++
+ "chalk@npm:^2.4.2":
+   version: 2.4.2
+   resolution: "chalk@npm:2.4.2"
+@@ -7936,6 +7985,17 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"clipboardy@npm:3.0.0":
++  version: 3.0.0
++  resolution: "clipboardy@npm:3.0.0"
++  dependencies:
++    arch: ^2.2.0
++    execa: ^5.1.1
++    is-wsl: ^2.2.0
++  checksum: 2c292acb59705494cbe07d7df7c8becff4f01651514d32ebd80f4aec2d20946d8f3824aac67ecdf2d09ef21fdf0eb24b6a7f033c137ccdceedc4661c54455c94
++  languageName: node
++  linkType: hard
++
+ "cliui@npm:^7.0.2":
+   version: 7.0.4
+   resolution: "cliui@npm:7.0.4"
+@@ -8232,7 +8292,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"compression@npm:^1.7.4":
++"compression@npm:1.7.4, compression@npm:^1.7.4":
+   version: 1.7.4
+   resolution: "compression@npm:1.7.4"
+   dependencies:
+@@ -9183,6 +9243,7 @@ __metadata:
+     react-spinners: ^0.13.8
+     rehype-katex: ^7.0.0
+     remark-math: ^6.0.0
++    serve: ^14.2.1
+     ts-node: ^10.9.1
+     typedoc: ^0.25.0
+     typedoc-plugin-frontmatter: ^0.0.2
+@@ -10139,7 +10200,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"execa@npm:^5.0.0":
++"execa@npm:^5.0.0, execa@npm:^5.1.1":
+   version: 5.1.1
+   resolution: "execa@npm:5.1.1"
+   dependencies:
+@@ -12483,6 +12544,13 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"is-port-reachable@npm:4.0.0":
++  version: 4.0.0
++  resolution: "is-port-reachable@npm:4.0.0"
++  checksum: 47b7e10db8edcef27fbf9e50f0de85ad368d35688790ca64a13db67260111ac5f4b98989b11af06199fa93f25d810bd09a5b21b2c2646529668638f7c34d3c04
++  languageName: node
++  linkType: hard
++
+ "is-promise@npm:^4.0.0":
+   version: 4.0.0
+   resolution: "is-promise@npm:4.0.0"
+@@ -16624,7 +16692,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"rc@npm:1.2.8, rc@npm:^1.2.8":
++"rc@npm:1.2.8, rc@npm:^1.0.1, rc@npm:^1.1.6, rc@npm:^1.2.8":
+   version: 1.2.8
+   resolution: "rc@npm:1.2.8"
+   dependencies:
+@@ -16946,6 +17014,16 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"registry-auth-token@npm:3.3.2":
++  version: 3.3.2
++  resolution: "registry-auth-token@npm:3.3.2"
++  dependencies:
++    rc: ^1.1.6
++    safe-buffer: ^5.0.1
++  checksum: c9d7ae160a738f1fa825556e3669e6c771d2c0239ce37679f7e8646157a97d0a76464738be075002a1f754ef9bfb913b689f4bbfd5296d28f136fbf98c8c2217
++  languageName: node
++  linkType: hard
++
+ "registry-auth-token@npm:^4.0.0":
+   version: 4.2.2
+   resolution: "registry-auth-token@npm:4.2.2"
+@@ -16964,6 +17042,15 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"registry-url@npm:3.1.0":
++  version: 3.1.0
++  resolution: "registry-url@npm:3.1.0"
++  dependencies:
++    rc: ^1.0.1
++  checksum: 6d223da41b04e1824f5faa63905c6f2e43b216589d72794111573f017352b790aef42cd1f826463062f89d804abb2027e3d9665d2a9a0426a11eedd04d470af3
++  languageName: node
++  linkType: hard
++
+ "registry-url@npm:^5.0.0":
+   version: 5.1.0
+   resolution: "registry-url@npm:5.1.0"
+@@ -17759,7 +17846,7 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
+-"serve-handler@npm:^6.1.3, serve-handler@npm:^6.1.5":
++"serve-handler@npm:6.1.5, serve-handler@npm:^6.1.3, serve-handler@npm:^6.1.5":
+   version: 6.1.5
+   resolution: "serve-handler@npm:6.1.5"
+   dependencies:
+@@ -17802,6 +17889,27 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"serve@npm:^14.2.1":
++  version: 14.2.1
++  resolution: "serve@npm:14.2.1"
++  dependencies:
++    "@zeit/schemas": 2.29.0
++    ajv: 8.11.0
++    arg: 5.0.2
++    boxen: 7.0.0
++    chalk: 5.0.1
++    chalk-template: 0.4.0
++    clipboardy: 3.0.0
++    compression: 1.7.4
++    is-port-reachable: 4.0.0
++    serve-handler: 6.1.5
++    update-check: 1.5.4
++  bin:
++    serve: build/main.js
++  checksum: c39a517b5d795a0a5c2f9fb9ff088b7e4962c579e34ace5b85dd62f93e0eacbc8a90359792c153c444a83258ffda392113dff7bfd10d41ced574a2d1886c2994
++  languageName: node
++  linkType: hard
++
+ "set-function-length@npm:^1.1.1":
+   version: 1.1.1
+   resolution: "set-function-length@npm:1.1.1"
+@@ -19545,6 +19653,16 @@ __metadata:
+   languageName: node
+   linkType: hard
+ 
++"update-check@npm:1.5.4":
++  version: 1.5.4
++  resolution: "update-check@npm:1.5.4"
++  dependencies:
++    registry-auth-token: 3.3.2
++    registry-url: 3.1.0
++  checksum: 2c9f7de6f030364c5ea02a341e5ae2dfe76da6559b32d40dd3b047b3ac0927408cf92d322c51cd8e009688210a85ccbf1eba449762a65a0d1b14f3cdf1ea5c48
++  languageName: node
++  linkType: hard
++
+ "update-notifier@npm:^5.1.0":
+   version: 5.1.0
+   resolution: "update-notifier@npm:5.1.0"
+-- 
+2.25.1
+

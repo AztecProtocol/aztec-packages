@@ -94,7 +94,7 @@ impl FileManager {
         self.id_to_path.get(&file_id).unwrap().as_path()
     }
 
-    pub fn find_module(&mut self, anchor: FileId, mod_name: &str) -> Result<FileId, String> {
+    pub fn find_module(&self, anchor: FileId, mod_name: &str) -> Result<FileId, String> {
         let anchor_path = self.path(anchor).with_extension("");
         let anchor_dir = anchor_path.parent().unwrap();
 
@@ -107,8 +107,16 @@ impl FileManager {
             anchor_path.join(format!("{mod_name}.{FILE_EXTENSION}"))
         };
 
-        self.add_file(&candidate).ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
+        self.name_to_id(candidate.clone()).ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
     }
+<<<<<<< HEAD
+=======
+
+    // TODO: This should accept a &Path instead of a PathBuf
+    pub fn name_to_id(&self, file_name: PathBuf) -> Option<FileId> {
+        self.file_map.get_file_id(&PathString::from_path(file_name))
+    }
+>>>>>>> make `find_module` be an immutable reference
 }
 
 /// Returns true if a module's child module's are expected to be in the same directory.
