@@ -37,8 +37,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    // std::shared_ptr<CRSFactory> crs_factory_;
-    std::shared_ptr<CRSFactory> crs_factory_ = barretenberg::srs::get_crs_factory();
+    std::shared_ptr<CRSFactory> crs_factory_;
+    // std::shared_ptr<CRSFactory> crs_factory_ = barretenberg::srs::get_crs_factory();
     // std::shared_ptr<CRSFactory> crs_factory_ = std::make_shared<CRSFactory>();
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -62,7 +62,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size + 1, crs_factory_); // WORKTODO
+        commitment_key =
+            std::make_shared<CommitmentKey>(circuit_size + 1, barretenberg::srs::get_crs_factory()); // WORKTODO
         return commitment_key;
     };
 
