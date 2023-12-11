@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
@@ -15,6 +16,8 @@ class Goblin {
     using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
+    using Commitment = GUHFlavor::Commitment;
+    using FF = GUHFlavor::FF;
 
   public:
     /**
@@ -137,21 +140,37 @@ class Goblin {
 
     Proof prove()
     {
+        info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
+        GoblinTestingUtils::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+        info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
+
+        info("goblin: prove");
         Proof proof;
 
         proof.merge_proof = std::move(merge_proof);
 
+        info("eccvm: construct builder");
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        info("eccvm: construct composer");
         eccvm_composer = std::make_unique<ECCVMComposer>();
+        info("eccvm: construct prover");
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
+        info("eccvm: construct proof");
         proof.eccvm_proof = eccvm_prover.construct_proof();
+        info("eccvm: translation_evaluations");
         proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
+        info("translator: construct builder");
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
+        info("translator: construct composer");
         translator_composer = std::make_unique<TranslatorComposer>();
+        info("translator: construct prover");
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
+        info("translator: construct proof");
         proof.translator_proof = translator_prover.construct_proof();
+
+        info("goblin: prove complete!");
 
         return proof;
     };

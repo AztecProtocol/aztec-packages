@@ -63,6 +63,7 @@ class GoblinTranslatorComposer {
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
         if (commitment_key) {
+            info("Exit condition in Translator CommitmentKey");
             return commitment_key;
         }
 
