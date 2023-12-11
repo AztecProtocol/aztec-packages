@@ -95,9 +95,15 @@ template <typename... FuncArgs> void _debug_log(const char* func_name, const cha
         barretenberg::_debug_log(__FUNCTION__, #__VA_ARGS__, __VA_ARGS__);                                             \
     }
 
+#define DEBUG_LOG_ALL(container)                                                                                       \
+    for (auto& x : (container)) {                                                                                      \
+        barretenberg::_debug_log(__FUNCTION__, #container, x);                                                         \
+    }
+
 #else // If BBERG_DEBUG_LOG is not defined
 
 // Define empty macros and functions
 #define DEBUG_LOG(...)
+#define DEBUG_LOG_ALL(container)
 
 #endif // BBERG_DEBUG_LOG
