@@ -106,6 +106,10 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
+  getBlockHeaderBlockNumber(_nullifierTreeRoot: Fr): Promise<number | undefined> {
+    throw new Error('Not available.');
+  }
+
   getCompleteAddress(_address: AztecAddress): Promise<CompleteAddress> {
     throw new Error('Not available.');
   }

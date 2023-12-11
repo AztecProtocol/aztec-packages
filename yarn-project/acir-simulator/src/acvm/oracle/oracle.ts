@@ -119,6 +119,16 @@ export class Oracle {
     return blockHeader.toArray().map(toACVMField);
   }
 
+  async getBlockHeaderBlockNumber([nullifierTreeRoot]: ACVMField[]): Promise<ACVMField[]> {
+    const parsedRoot = fromACVMField(nullifierTreeRoot);
+
+    const blockHeaderBlockNumber = await this.typedOracle.getBlockHeaderBlockNumber(parsedRoot);
+    if (!blockHeaderBlockNumber) {
+      throw new Error(`Block header not found for block ${parsedRoot}.`);
+    }
+    return [toACVMField(blockHeaderBlockNumber)];
+  }
+
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
     const messageHashField = fromACVMField(messageHash);
     const witness = await this.typedOracle.getAuthWitness(messageHashField);

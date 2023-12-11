@@ -13,6 +13,10 @@ use crate::{
     },
 };
 
+// TODO(#3564) - Nuke this oracle and Inject the number directly to context
+#[oracle(getBlockHeaderBlockNumber)]
+fn get_block_header_block_number(nullifier_tree_root: Field) -> Field {}
+
 #[oracle(getBlockHeader)]
 fn get_block_header_oracle(_block_number: Field) -> [Field; BLOCK_HEADER_LENGTH] {}
 
@@ -31,12 +35,8 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     // 3) Get the membership witness of the block in the archive
     let archive_id = 5; // TODO(#3443)
     
-    // Using `block_number` here for path is incorrect and it will break if we pass in an incorrect block number on input.
-    // Instead here should be the block number corresponding to `context.block_header.blocks_tree_root`
-    // This is not currently available in private context. See issue #3564
-    let path_block_number = block_number;
-    
-    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(path_block_number, archive_id, block_hash);
+    let block_header_block_number = get_block_header_block_number(context.block_header.nullifier_tree_root);
+    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(block_header_block_number, archive_id, block_hash);
 
     // 4) Check that the block is in the archive (i.e. the witness is valid)
     assert(context.block_header.archive_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed");

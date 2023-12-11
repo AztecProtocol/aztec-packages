@@ -114,6 +114,16 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
+   * Gets number of a given block header based on the nullifier tree root which was contained in it.
+   * @remarks Using nullifier tree root because that changes in every block (every tx emits a nullifier).
+   * @param nullifierTreeRoot - The nullifier tree root of block header to get the block number for.
+   * @returns The block number of the block header.
+   */
+  public async getBlockHeaderBlockNumber(nullifierTreeRoot: Fr): Promise<number | undefined> {
+    // TODO
+  }
+
+  /**
    * Retrieve the complete address associated to a given address.
    * @param address - Address to fetch the complete address for.
    * @returns A complete address associated with the input address.
