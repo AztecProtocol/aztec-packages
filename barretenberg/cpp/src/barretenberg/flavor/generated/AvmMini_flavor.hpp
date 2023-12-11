@@ -7,6 +7,8 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -40,7 +42,7 @@ class AvmMiniFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 25;
 
-    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
+    using Relations = std::tuple<AvmMini_vm::mem_trace<FF>, AvmMini_vm::avm_mini<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -65,14 +67,7 @@ class AvmMiniFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, avmMini_clk, avmMini_first)
 
-        RefVector<DataType> get_selectors()
-        {
-            return {
-                avmMini_clk,
-                avmMini_first,
-            };
-        };
-
+        RefVector<DataType> get_selectors() { return { avmMini_clk, avmMini_first }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -104,15 +99,11 @@ class AvmMiniFlavor {
 
         RefVector<DataType> get_wires()
         {
-            return {
-                memTrace_m_clk,   memTrace_m_sub_clk, memTrace_m_addr,   memTrace_m_val,    memTrace_m_lastAccess,
-                memTrace_m_rw,    avmMini_subop,      avmMini_ia,        avmMini_ib,        avmMini_ic,
-                avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,  avmMini_rwa,       avmMini_rwb,
-                avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b, avmMini_mem_idx_c, avmMini_last,
-
-            };
+            return { memTrace_m_clk,   memTrace_m_sub_clk, memTrace_m_addr,   memTrace_m_val,    memTrace_m_lastAccess,
+                     memTrace_m_rw,    avmMini_subop,      avmMini_ia,        avmMini_ib,        avmMini_ic,
+                     avmMini_mem_op_a, avmMini_mem_op_b,   avmMini_mem_op_c,  avmMini_rwa,       avmMini_rwb,
+                     avmMini_rwc,      avmMini_mem_idx_a,  avmMini_mem_idx_b, avmMini_mem_idx_c, avmMini_last };
         };
-
         RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
 
@@ -141,89 +132,67 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_rw_shift,
                               memTrace_m_addr_shift,
-                              memTrace_m_val_shift)
+                              memTrace_m_val_shift,
+                              memTrace_m_rw_shift)
 
         RefVector<DataType> get_wires()
         {
-            return {
-                avmMini_clk,
-                avmMini_first,
-                memTrace_m_clk,
-                memTrace_m_sub_clk,
-                memTrace_m_addr,
-                memTrace_m_val,
-                memTrace_m_lastAccess,
-                memTrace_m_rw,
-                avmMini_subop,
-                avmMini_ia,
-                avmMini_ib,
-                avmMini_ic,
-                avmMini_mem_op_a,
-                avmMini_mem_op_b,
-                avmMini_mem_op_c,
-                avmMini_rwa,
-                avmMini_rwb,
-                avmMini_rwc,
-                avmMini_mem_idx_a,
-                avmMini_mem_idx_b,
-                avmMini_mem_idx_c,
-                avmMini_last,
-                memTrace_m_rw_shift,
-                memTrace_m_addr_shift,
-                memTrace_m_val_shift,
-
-            };
+            return { avmMini_clk,
+                     avmMini_first,
+                     memTrace_m_clk,
+                     memTrace_m_sub_clk,
+                     memTrace_m_addr,
+                     memTrace_m_val,
+                     memTrace_m_lastAccess,
+                     memTrace_m_rw,
+                     avmMini_subop,
+                     avmMini_ia,
+                     avmMini_ib,
+                     avmMini_ic,
+                     avmMini_mem_op_a,
+                     avmMini_mem_op_b,
+                     avmMini_mem_op_c,
+                     avmMini_rwa,
+                     avmMini_rwb,
+                     avmMini_rwc,
+                     avmMini_mem_idx_a,
+                     avmMini_mem_idx_b,
+                     avmMini_mem_idx_c,
+                     avmMini_last,
+                     memTrace_m_addr_shift,
+                     memTrace_m_val_shift,
+                     memTrace_m_rw_shift };
         };
-
         RefVector<DataType> get_unshifted()
         {
-            return {
-                avmMini_clk,
-                avmMini_first,
-                memTrace_m_clk,
-                memTrace_m_sub_clk,
-                memTrace_m_addr,
-                memTrace_m_val,
-                memTrace_m_lastAccess,
-                memTrace_m_rw,
-                avmMini_subop,
-                avmMini_ia,
-                avmMini_ib,
-                avmMini_ic,
-                avmMini_mem_op_a,
-                avmMini_mem_op_b,
-                avmMini_mem_op_c,
-                avmMini_rwa,
-                avmMini_rwb,
-                avmMini_rwc,
-                avmMini_mem_idx_a,
-                avmMini_mem_idx_b,
-                avmMini_mem_idx_c,
-                avmMini_last,
-
-            };
+            return { avmMini_clk,
+                     avmMini_first,
+                     memTrace_m_clk,
+                     memTrace_m_sub_clk,
+                     memTrace_m_addr,
+                     memTrace_m_val,
+                     memTrace_m_lastAccess,
+                     memTrace_m_rw,
+                     avmMini_subop,
+                     avmMini_ia,
+                     avmMini_ib,
+                     avmMini_ic,
+                     avmMini_mem_op_a,
+                     avmMini_mem_op_b,
+                     avmMini_mem_op_c,
+                     avmMini_rwa,
+                     avmMini_rwb,
+                     avmMini_rwc,
+                     avmMini_mem_idx_a,
+                     avmMini_mem_idx_b,
+                     avmMini_mem_idx_c,
+                     avmMini_last };
         };
-
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return {
-                memTrace_m_rw,
-                memTrace_m_addr,
-                memTrace_m_val,
-
-            };
-        };
-
+        RefVector<DataType> get_to_be_shifted() { return { memTrace_m_addr, memTrace_m_val, memTrace_m_rw }; };
         RefVector<DataType> get_shifted()
         {
-            return {
-                memTrace_m_rw_shift,
-                memTrace_m_addr_shift,
-                memTrace_m_val_shift,
-
-            };
+            return { memTrace_m_addr_shift, memTrace_m_val_shift, memTrace_m_rw_shift };
         };
     };
 
@@ -296,28 +265,28 @@ class AvmMiniFlavor {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
-            Base::avmMini_clk = "avmMini_clk";
-            Base::avmMini_first = "avmMini_first";
-            Base::memTrace_m_clk = "memTrace_m_clk";
-            Base::memTrace_m_sub_clk = "memTrace_m_sub_clk";
-            Base::memTrace_m_addr = "memTrace_m_addr";
-            Base::memTrace_m_val = "memTrace_m_val";
-            Base::memTrace_m_lastAccess = "memTrace_m_lastAccess";
-            Base::memTrace_m_rw = "memTrace_m_rw";
-            Base::avmMini_subop = "avmMini_subop";
-            Base::avmMini_ia = "avmMini_ia";
-            Base::avmMini_ib = "avmMini_ib";
-            Base::avmMini_ic = "avmMini_ic";
-            Base::avmMini_mem_op_a = "avmMini_mem_op_a";
-            Base::avmMini_mem_op_b = "avmMini_mem_op_b";
-            Base::avmMini_mem_op_c = "avmMini_mem_op_c";
-            Base::avmMini_rwa = "avmMini_rwa";
-            Base::avmMini_rwb = "avmMini_rwb";
-            Base::avmMini_rwc = "avmMini_rwc";
-            Base::avmMini_mem_idx_a = "avmMini_mem_idx_a";
-            Base::avmMini_mem_idx_b = "avmMini_mem_idx_b";
-            Base::avmMini_mem_idx_c = "avmMini_mem_idx_c";
-            Base::avmMini_last = "avmMini_last";
+            Base::avmMini_clk = "AVMMINI_CLK";
+            Base::avmMini_first = "AVMMINI_FIRST";
+            Base::memTrace_m_clk = "MEMTRACE_M_CLK";
+            Base::memTrace_m_sub_clk = "MEMTRACE_M_SUB_CLK";
+            Base::memTrace_m_addr = "MEMTRACE_M_ADDR";
+            Base::memTrace_m_val = "MEMTRACE_M_VAL";
+            Base::memTrace_m_lastAccess = "MEMTRACE_M_LASTACCESS";
+            Base::memTrace_m_rw = "MEMTRACE_M_RW";
+            Base::avmMini_subop = "AVMMINI_SUBOP";
+            Base::avmMini_ia = "AVMMINI_IA";
+            Base::avmMini_ib = "AVMMINI_IB";
+            Base::avmMini_ic = "AVMMINI_IC";
+            Base::avmMini_mem_op_a = "AVMMINI_MEM_OP_A";
+            Base::avmMini_mem_op_b = "AVMMINI_MEM_OP_B";
+            Base::avmMini_mem_op_c = "AVMMINI_MEM_OP_C";
+            Base::avmMini_rwa = "AVMMINI_RWA";
+            Base::avmMini_rwb = "AVMMINI_RWB";
+            Base::avmMini_rwc = "AVMMINI_RWC";
+            Base::avmMini_mem_idx_a = "AVMMINI_MEM_IDX_A";
+            Base::avmMini_mem_idx_b = "AVMMINI_MEM_IDX_B";
+            Base::avmMini_mem_idx_c = "AVMMINI_MEM_IDX_C";
+            Base::avmMini_last = "AVMMINI_LAST";
         };
     };
 
@@ -457,4 +426,6 @@ class AvmMiniFlavor {
 };
 
 } // namespace flavor
+
+namespace sumcheck {}
 } // namespace proof_system::honk

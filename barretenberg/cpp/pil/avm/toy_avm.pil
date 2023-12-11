@@ -15,3 +15,6 @@ namespace toy(256);
     // Relation not used -> we currently require a single relation for codegen
     pol commit x;
     x' - x = 0;
+
+    // Also needs a fixed relation 
+    pol fixed first = [1] + [0]*;
