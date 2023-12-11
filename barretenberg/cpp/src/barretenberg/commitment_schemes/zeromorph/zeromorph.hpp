@@ -111,10 +111,10 @@ template <typename Curve> class ZeroMorphProver_ {
     /**
      * @brief Construct batched, lifted-degree univariate quotient \hat{q} = \sum_k y^k * X^{N - d_k - 1} * q_k
      * @details The purpose of the batched lifted-degree quotient is to reduce the individual degree checks
-     * deg(q_k) <= 2^k - 1 to a single degree check on \hat{q}. This is done by first shifting each of the q_k to
-     * the right (i.e. multiplying by an appropriate power of X) so that each is degree N-1, then batching them all
-     * together using powers of the provided challenge. Note: In practice, we do not actually compute the shifted
-     * q_k, we simply accumulate them into \hat{q} at the appropriate offset.
+     * deg(q_k) <= 2^k - 1 to a single degree check on \hat{q}. This is done by first shifting each of the q_k to the
+     * right (i.e. multiplying by an appropriate power of X) so that each is degree N-1, then batching them all together
+     * using powers of the provided challenge. Note: In practice, we do not actually compute the shifted q_k, we simply
+     * accumulate them into \hat{q} at the appropriate offset.
      *
      * @param quotients Polynomials q_k, interpreted as univariates; deg(q_k) = 2^k - 1
      * @param N circuit size
@@ -131,9 +131,8 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t k = 0;
         auto scalar = FF(1); // y^k
         for (auto& quotient : quotients) {
-            // Rather than explicitly computing the shifts of q_k by N - d_k - 1 (i.e. multiplying q_k by X^{N - d_k
-            // - 1}) then accumulating them, we simply accumulate y^k*q_k into \hat{q} at the index offset N - d_k -
-            // 1
+            // Rather than explicitly computing the shifts of q_k by N - d_k - 1 (i.e. multiplying q_k by X^{N - d_k -
+            // 1}) then accumulating them, we simply accumulate y^k*q_k into \hat{q} at the index offset N - d_k - 1
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
@@ -195,8 +194,8 @@ template <typename Curve> class ZeroMorphProver_ {
      *
      * and concatenation_term = \sum_{i=0}^{num_chunks_per_group}(x^{i * min_N + 1}concatenation_groups_batched_{i})
      *
-     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of
-     * the conventional ZM protocol
+     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * conventional ZM protocol
      * @param input_polynomial
      * @param quotients
      * @param v_evaluation
@@ -247,8 +246,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // If necessary, add to Z_x the contribution related to concatenated polynomials:
         // \sum_{i=0}^{num_chunks_per_group}(x^{i * min_n + 1}concatenation_groups_batched_{i}).
         // We are effectively reconstructing concatenated polynomials from their chunks now that we know x
-        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard
-        // protocol.
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
         if (!concatenation_groups_batched.empty()) {
             size_t MINICIRCUIT_N = N / concatenation_groups_batched.size();
             auto x_to_minicircuit_N =
@@ -295,13 +293,13 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // TODO(#742): To complete the degree check, we need to commit to (q_{\zeta} + z*q_Z)*X^{N_max - N - 1}.
         // Verification then requires a pairing check similar to the standard KZG check but with [1]_2 replaced by
-        // [X^{N_max - N -1}]_2. Two issues: A) we do not have an SRS with these G2 elements (so need to generate a
-        // fake setup until we can do the real thing), and B) its not clear to me how to update our pairing
-        // algorithms to do this type of pairing. For now, simply construct q_{\zeta} + z*q_Z without the shift and
-        // do a standard KZG pairing check. When we're ready, all we have to do to make this fully legit is commit
-        // to the shift here and update the pairing check accordingly. Note: When this is implemented properly, it
-        // doesnt make sense to store the (massive) shifted polynomial of size N_max. Ideally would only store the
-        // unshifted version and just compute the shifted commitment directly via a new method.
+        // [X^{N_max - N -1}]_2. Two issues: A) we do not have an SRS with these G2 elements (so need to generate a fake
+        // setup until we can do the real thing), and B) its not clear to me how to update our pairing algorithms to do
+        // this type of pairing. For now, simply construct q_{\zeta} + z*q_Z without the shift and do a standard KZG
+        // pairing check. When we're ready, all we have to do to make this fully legit is commit to the shift here and
+        // update the pairing check accordingly. Note: When this is implemented properly, it doesnt make sense to store
+        // the (massive) shifted polynomial of size N_max. Ideally would only store the unshifted version and just
+        // compute the shifted commitment directly via a new method.
         auto batched_shifted_quotient = batched_quotient;
 
         return batched_shifted_quotient;
@@ -380,8 +378,8 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
-        // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is
-        // the polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
+        // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
+        // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
         Polynomial f_polynomial = f_batched;
         f_polynomial += g_batched.shifted();
         f_polynomial += concatenated_batched;
@@ -506,8 +504,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
      *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{num_chunks_per_group}(rho^{m+l+i} * x^{j * min_N + 1}
      *                       * concatenation_groups_commitments_{i}_{j})
      *
-     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of
-     * the conventional ZM protocol
+     * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
+     * conventional ZM protocol
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
@@ -563,8 +561,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         // If applicable, add contribution from concatenated polynomial commitments
-        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard
-        // protocol.
+        // Note: this is an implementation detail related to Goblin Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
             size_t CONCATENATION_INDEX = concatenation_groups_commitments[0].size();
             size_t MINICIRCUIT_N = N / CONCATENATION_INDEX;
