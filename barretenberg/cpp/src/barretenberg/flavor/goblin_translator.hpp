@@ -962,11 +962,11 @@ class GoblinTranslator {
         {
             os << "{ ";
             std::ios_base::fmtflags f(os.flags());
-            for (size_t i = 0; i < NUM_ALL_ENTITIES - 1; i++) {
-                os << "e[" << std::setw(2) << i << "] = " << (a._data[i]) << ",\n";
+            auto entities = a.get_all();
+            for (size_t i = 0; i < entities.size() - 1; i++) {
+                os << "e[" << std::setw(2) << i << "] = " << (entities[i]) << ",\n";
             }
-            os << "e[" << std::setw(2) << (NUM_ALL_ENTITIES - 1) << "] = " << std::get<NUM_ALL_ENTITIES - 1>(a._data)
-               << " }";
+            os << "e[" << std::setw(2) << (entities.size() - 1) << "] = " << entities[entities.size() - 1] << " }";
 
             os.flags(f);
             return os;
