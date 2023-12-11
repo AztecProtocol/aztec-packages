@@ -53,7 +53,7 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
         size_t num_gates_pow2 = 1UL << (num_gates_log2 + (1UL << num_gates_log2 == num_gates ? 0 : 1));
 
         ProverPolynomials polys;
-        for (auto& poly : polys.get_all()) {
+        for (Polynomial& poly : polys.get_all()) {
             poly = Polynomial(num_gates_pow2);
         }
 

@@ -216,7 +216,7 @@ class ToyAVM {
     /**
      * @brief A container for polynomials handles; only stores spans.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         [[nodiscard]] size_t get_polynomial_size() const { return enable_tuple_set_permutation.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
