@@ -26,8 +26,6 @@ const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
-    // WORKTODO(WRAP): ACIR composer wraps a GUH builder
-    // create a Goblin
     acir_proofs::AcirComposer acir_composer(0, verbose);
     // populates the GUH builder in the Goblin
     acir_composer.create_circuit(constraint_system);
@@ -79,7 +77,6 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto constraint_system = get_constraint_system(bytecodePath); // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     auto witness = get_witness(witnessPath);
 
-    // WORKTODO: acir_composer wraps a goblin and a GUH builder and GUH composer
     auto acir_composer = init(constraint_system);
 
     Timer pk_timer;
@@ -90,8 +87,6 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
 
     Timer proof_timer;
-    // WORKTODO(WRAPx) acir_composer.create_proof == goblin.create_proof; construct the concatenated GUH proof and
-    // Goblin::Proof output Goblin+ proof
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
@@ -212,8 +207,10 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto acir_composer = init(constraint_system);
-    auto pk = acir_composer.init_proving_key(constraint_system);
-    auto serialized_pk = to_buffer(*pk);
+    // WORKTODO(KEY_TYPES)
+    [[maybe_unused]] auto pk = acir_composer.init_proving_key(constraint_system);
+    std::shared_ptr<proof_system::plonk::proving_key> dummy_pk;
+    auto serialized_pk = to_buffer(*dummy_pk);
 
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_pk);
