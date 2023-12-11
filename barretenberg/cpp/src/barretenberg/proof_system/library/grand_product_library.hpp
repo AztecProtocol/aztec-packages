@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -81,6 +82,9 @@ void compute_grand_product(const size_t circuit_size,
         }
     });
 
+    DEBUG_LOG_ALL(numerator);
+    DEBUG_LOG_ALL(denominator);
+
     // Step (2)
     // Compute the accumulating product of the numerator and denominator terms.
     // This step is split into three parts for efficient multithreading:
@@ -106,6 +110,9 @@ void compute_grand_product(const size_t circuit_size,
         partial_numerators[thread_idx] = numerator[end - 1];
         partial_denominators[thread_idx] = denominator[end - 1];
     });
+
+    DEBUG_LOG_ALL(partial_numerators);
+    DEBUG_LOG_ALL(partial_numerators);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
@@ -138,6 +145,8 @@ void compute_grand_product(const size_t circuit_size,
             grand_product_polynomial[i + 1] = numerator[i] * denominator[i];
         }
     });
+
+    DEBUG_LOG_ALL(grand_product_polynomial);
 }
 
 template <typename Flavor>
