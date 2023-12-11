@@ -132,15 +132,18 @@ template <typename FF> struct PowUnivariate {
 };
 
 template <typename FF> struct PowPolynomial {
-    std::vector<FF> scalars;
+    std::vector<FF> values;
+    std::vector<FF> pow_values;
     FF current_element;
     size_t current_element_idx = 0;
     FF partial_evaluation_result = FF(1);
 
-    explicit PowPolynomial(const std::vector<FF>& scalars)
-        : scalars(scalars)
-        , current_element(scalars[0])
-    {}
+    explicit PowPolynomial(const std::vector<FF>& values)
+        : values(values)
+        , current_element(values[0])
+    {
+        compute_pow_polynomial_at_values();
+    }
 
     /**
      * @brief Evaluate the monomial ((1−X_l) + X_l⋅ζ_l) in the challenge point X_l=u_l.
@@ -158,8 +161,25 @@ template <typename FF> struct PowPolynomial {
         FF current_univariate_eval = univariate_eval(challenge);
         partial_evaluation_result *= current_univariate_eval;
 
-        current_element = scalars[current_element_idx + 1];
-        current_element_idx++;
+        if (current_element_idx != values.size() - 1) {
+            current_element_idx++;
+            current_element = values[current_element_idx];
+        }
+    }
+
+    void compute_pow_polynomial_at_values()
+    {
+        size_t pow_size = 1 << values.size();
+        pow_values = std::vector<FF>(1 << values.size(), 0);
+        for (size_t i = 0; i < pow_size; i++) {
+            auto res = FF(1);
+            for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
+                if ((j & 1) == 1) {
+                    res *= values[beta_idx];
+                }
+            }
+            pow_values[i] = res;
+        }
     }
 };
 } // namespace barretenberg

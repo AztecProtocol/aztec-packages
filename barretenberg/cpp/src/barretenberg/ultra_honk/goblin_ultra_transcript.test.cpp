@@ -66,8 +66,11 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_LOOKUP", size_G);
         manifest_expected.add_challenge(round, "alpha");
 
-        round++;
-        manifest_expected.add_challenge(round, "Sumcheck:zeta");
+        for (size_t i = 0; i < log_n; i++) {
+            round++;
+            std::string label = "Sumcheck:beta_" + std::to_string(i);
+            manifest_expected.add_challenge(round, label);
+        }
 
         for (size_t i = 0; i < log_n; ++i) {
             round++;

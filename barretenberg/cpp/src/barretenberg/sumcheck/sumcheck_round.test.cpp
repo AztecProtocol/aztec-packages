@@ -41,9 +41,9 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
-    PowUnivariate<FF> pow_univariate(1);
+    barretenberg::PowPolynomial<FF> pow_polynomial({ 1 });
     auto result = Univariate<FF, MAX_LENGTH>();
-    SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_univariate);
+    SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, pow_polynomial);
 
     // Repeat the batching process manually
     auto result_expected = univariate_1.template extend_to<MAX_LENGTH>() * 1 +

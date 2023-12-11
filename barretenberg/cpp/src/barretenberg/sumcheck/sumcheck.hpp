@@ -61,7 +61,7 @@ template <typename Flavor> class SumcheckProver {
         : transcript(transcript)
         , multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
-        , round(multivariate_n)
+        , round(multivariate_n, 2)
         , partially_evaluated_polynomials(multivariate_n){};
 
     /**
@@ -74,10 +74,11 @@ template <typename Flavor> class SumcheckProver {
                                  const proof_system::RelationParameters<FF>& relation_parameters,
                                  FF alpha) // pass by value, not by reference
     {
-        auto betas = std::vector<FF>(multivariate_d, 0);
+        std::vector<FF> betas(multivariate_d, 0);
         size_t beta_idx = 0;
         for (auto& beta : betas) {
             beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
+            beta_idx++;
         }
 
         barretenberg::PowPolynomial<FF> pow_univariate(betas);
@@ -95,7 +96,7 @@ template <typename Flavor> class SumcheckProver {
         pow_univariate.partially_evaluate(round_challenge);
         round.round_size =
             round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and release memory?
-
+        round.hop_size = round.hop_size << 1;
         // All but final round
         // We operate on partially_evaluated_polynomials in place.
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
@@ -108,6 +109,7 @@ template <typename Flavor> class SumcheckProver {
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
+            round.hop_size = round.hop_size << 1;
         }
 
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
@@ -211,6 +213,7 @@ template <typename Flavor> class SumcheckVerifier {
         size_t beta_idx = 0;
         for (auto& beta : betas) {
             beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
+            beta_idx++;
         }
 
         barretenberg::PowPolynomial<FF> pow_univariate(betas);
