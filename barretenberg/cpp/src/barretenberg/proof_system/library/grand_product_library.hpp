@@ -63,8 +63,6 @@ void compute_grand_product(const size_t circuit_size,
     Polynomial numerator{ circuit_size };
     Polynomial denominator{ circuit_size };
 
-    DEBUG_LOG(full_polynomials.w_l, full_polynomials.w_r, full_polynomials.q_lookup);
-
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
