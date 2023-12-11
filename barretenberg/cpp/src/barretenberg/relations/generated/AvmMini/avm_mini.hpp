@@ -7,16 +7,16 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_subop{};
     FF avmMini_mem_op_a{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_rwb{};
     FF avmMini_rwa{};
     FF avmMini_mem_op_c{};
+    FF avmMini_mem_op_b{};
     FF avmMini_rwc{};
-    FF avmMini_ib{};
+    FF avmMini_rwb{};
     FF avmMini_ic{};
+    FF avmMini_ib{};
     FF avmMini_ia{};
+    FF avmMini_subop{};
 };
 
 template <typename FF_> class avm_miniImpl {

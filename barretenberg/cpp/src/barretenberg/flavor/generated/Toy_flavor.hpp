@@ -42,7 +42,7 @@ class ToyFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 9;
 
-    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::two_column_perm<FF>>;
+    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::two_column_perm_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 

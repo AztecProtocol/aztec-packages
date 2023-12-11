@@ -213,4 +213,6 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 template <typename Settings, typename FF>
 using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<Settings, FF>>;
 
+template <typename Settings, typename FF> using GenericPermutation = GenericPermutationRelationImpl<Settings, FF>;
+
 } // namespace proof_system::honk::sumcheck

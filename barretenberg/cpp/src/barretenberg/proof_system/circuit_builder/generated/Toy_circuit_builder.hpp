@@ -142,7 +142,8 @@ class ToyCircuitBuilder {
             return false;
         }
 
-        if (!evaluate_permutation.template operator()<honk::sumcheck::two_column_perm<FF>>("two_column_perm")) {
+        if (!evaluate_permutation.template operator()<honk::sumcheck::two_column_perm_relation<FF>>(
+                "two_column_perm")) {
             return false;
         }
 

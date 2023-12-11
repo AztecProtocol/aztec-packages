@@ -7,8 +7,8 @@
 namespace proof_system::Toy_vm {
 
 template <typename FF> struct Toy_avmRow {
-    FF toy_x{};
     FF toy_x_shift{};
+    FF toy_x{};
 };
 
 template <typename FF_> class toy_avmImpl {

@@ -87,6 +87,8 @@ class two_column_perm_permutation_settings {
     }
 };
 
-template <typename FF_> using two_column_perm = GenericPermutationRelation<two_column_perm_permutation_settings, FF_>;
+template <typename FF_>
+using two_column_perm_relation = GenericPermutationRelation<two_column_perm_permutation_settings, FF_>;
+template <typename FF_> using two_column_perm = GenericPermutation<two_column_perm_permutation_settings, FF_>;
 
 } // namespace proof_system::honk::sumcheck
