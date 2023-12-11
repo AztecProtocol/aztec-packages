@@ -9,14 +9,14 @@ namespace proof_system::honk {
  * function returns an array of data pointed to by the ProverPolynomials.
  */
 template <typename Flavor>
-std::pair<typename Flavor::AllPolynomials, typename Flavor::ProverPolynomials> get_sequential_prover_polynomials(
+std::pair<typename Flavor::ProverPolynomials, typename Flavor::ProverPolynomials> get_sequential_prover_polynomials(
     const size_t log_circuit_size, const size_t starting_value)
 {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
 
-    typename Flavor::AllPolynomials storage;
+    typename Flavor::ProverPolynomials storage;
     size_t circuit_size = 1 << log_circuit_size;
     size_t value_idx = starting_value;
     for (auto& polynomial : storage.get_all()) {
@@ -35,14 +35,14 @@ std::pair<typename Flavor::AllPolynomials, typename Flavor::ProverPolynomials> g
 }
 
 template <typename Flavor>
-std::pair<typename Flavor::AllPolynomials, typename Flavor::ProverPolynomials> get_zero_prover_polynomials(
+std::pair<typename Flavor::ProverPolynomials, typename Flavor::ProverPolynomials> get_zero_prover_polynomials(
     const size_t log_circuit_size)
 {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
 
-    typename Flavor::AllPolynomials storage;
+    typename Flavor::ProverPolynomials storage;
     size_t circuit_size = 1 << log_circuit_size;
     for (auto& polynomial : storage.get_all()) {
         polynomial = Polynomial(circuit_size);

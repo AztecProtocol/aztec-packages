@@ -28,7 +28,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Commitment = typename Flavor::Commitment;
-    using AllPolynomials = typename Flavor::AllPolynomials;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial

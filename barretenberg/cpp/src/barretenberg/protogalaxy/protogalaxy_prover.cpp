@@ -198,20 +198,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         transcript->send_to_verifier("next_gate_challenge_" + std::to_string(idx), instances.next_gate_challenges[idx]);
     }
 
-    // Allocate space, initialised to 0, for the prover polynomials of the next accumulator
-    AllPolynomials storage;
-    for (auto& polynomial : storage.get_all()) {
-        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
-        for (auto& value : polynomial) {
-            value = FF(0);
-        }
-    }
+    // Initialize prover polynomials
     ProverPolynomials acc_prover_polynomials;
-    size_t poly_idx = 0;
-    auto prover_polynomial_pointers = acc_prover_polynomials.get_all();
-    for (auto& polynomial : storage.get_all()) {
-        prover_polynomial_pointers[poly_idx] = polynomial;
-        poly_idx++;
+    for (auto& polynomial : acc_prover_polynomials.get_all()) {
+        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
     }
 
     // Fold the prover polynomials
