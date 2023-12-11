@@ -307,6 +307,10 @@ template <typename Curve> class IO {
 
         const bool monomial_srs_condition = num_read < degree;
         if (monomial_srs_condition) {
+            char cwd[PATH_MAX];
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                info("pwd in read_transcript_g1: ", cwd);
+            }
             throw_or_abort(
                 format("Only read ",
                        num_read,
