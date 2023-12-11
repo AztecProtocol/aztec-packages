@@ -34,8 +34,10 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.memTrace_m_clk = key->memTrace_m_clk;
     prover_polynomials.memTrace_m_sub_clk = key->memTrace_m_sub_clk;
     prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
+    prover_polynomials.memTrace_m_tag = key->memTrace_m_tag;
     prover_polynomials.memTrace_m_val = key->memTrace_m_val;
     prover_polynomials.memTrace_m_lastAccess = key->memTrace_m_lastAccess;
+    prover_polynomials.memTrace_m_last = key->memTrace_m_last;
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
     prover_polynomials.avmMini_sel_op_add = key->avmMini_sel_op_add;
     prover_polynomials.avmMini_sel_op_sub = key->avmMini_sel_op_sub;
@@ -65,6 +67,9 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
 
     prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
     prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
+
+    prover_polynomials.memTrace_m_tag = key->memTrace_m_tag;
+    prover_polynomials.memTrace_m_tag_shift = key->memTrace_m_tag.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);

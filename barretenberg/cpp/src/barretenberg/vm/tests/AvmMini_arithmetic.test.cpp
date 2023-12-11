@@ -484,7 +484,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
 
     // Activate the operator error
     row->avmMini_op_err = FF(1);
-
+    log_avmMini_trace(trace, 0, 10);
     // TODO: check that the expected sub-relation failed
     EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
 }

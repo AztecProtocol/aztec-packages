@@ -7,21 +7,21 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_mem_op_b{};
-    FF avmMini_ib{};
+    FF avmMini_ia{};
+    FF avmMini_sel_op_mul{};
+    FF avmMini_sel_op_div{};
     FF avmMini_ic{};
+    FF avmMini_op_err{};
+    FF avmMini_rwa{};
+    FF avmMini_rwc{};
+    FF avmMini_mem_op_b{};
     FF avmMini_sel_op_sub{};
     FF avmMini_mem_op_c{};
-    FF avmMini_op_err{};
-    FF avmMini_ia{};
-    FF avmMini_inv{};
-    FF avmMini_sel_op_div{};
-    FF avmMini_mem_op_a{};
-    FF avmMini_rwa{};
-    FF avmMini_sel_op_mul{};
-    FF avmMini_rwc{};
-    FF avmMini_sel_op_add{};
+    FF avmMini_ib{};
     FF avmMini_rwb{};
+    FF avmMini_mem_op_a{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_inv{};
 };
 
 template <typename FF_> class avm_miniImpl {

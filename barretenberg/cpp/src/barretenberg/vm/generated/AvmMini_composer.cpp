@@ -22,8 +22,10 @@ void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
     proving_key->memTrace_m_clk = polynomials.memTrace_m_clk;
     proving_key->memTrace_m_sub_clk = polynomials.memTrace_m_sub_clk;
     proving_key->memTrace_m_addr = polynomials.memTrace_m_addr;
+    proving_key->memTrace_m_tag = polynomials.memTrace_m_tag;
     proving_key->memTrace_m_val = polynomials.memTrace_m_val;
     proving_key->memTrace_m_lastAccess = polynomials.memTrace_m_lastAccess;
+    proving_key->memTrace_m_last = polynomials.memTrace_m_last;
     proving_key->memTrace_m_rw = polynomials.memTrace_m_rw;
     proving_key->avmMini_sel_op_add = polynomials.avmMini_sel_op_add;
     proving_key->avmMini_sel_op_sub = polynomials.avmMini_sel_op_sub;

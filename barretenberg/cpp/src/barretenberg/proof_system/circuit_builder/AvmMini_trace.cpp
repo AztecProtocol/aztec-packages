@@ -559,8 +559,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         mainTrace.push_back(Row{});
     }
 
-    size_t lastIndex = (memTraceSize > mainTraceSize) ? memTraceSize - 1 : mainTraceSize - 1;
-    mainTrace.at(lastIndex).avmMini_last = FF(1);
+    mainTrace.at(mainTraceSize - 1).avmMini_last = FF(1);
 
     for (size_t i = 0; i < memTraceSize; i++) {
         auto const& src = memTrace.at(i);
@@ -577,11 +576,12 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
             dest.memTrace_m_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
         } else {
             dest.memTrace_m_lastAccess = FF(1);
+            dest.memTrace_m_last = FF(1);
         }
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.
-    Row first_row = Row{ .avmMini_first = 1 };
+    Row first_row = Row{ .avmMini_first = FF(1), .memTrace_m_lastAccess = FF(1) };
     mainTrace.insert(mainTrace.begin(), first_row);
 
     return std::move(mainTrace);
