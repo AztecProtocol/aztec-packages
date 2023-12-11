@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/common/container.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
