@@ -147,9 +147,14 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_c
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
-
-    auto sumcheck = Sumcheck(instance->proving_key->circuit_size, transcript);
+    auto circuit_size = instance->proving_key->circuit_size;
+    auto sumcheck = Sumcheck(circuit_size, transcript);
     instance->alpha = transcript->get_challenge("alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    instance->gate_challenges = gate_challenges;
     sumcheck_output = sumcheck.prove(instance);
 }
 

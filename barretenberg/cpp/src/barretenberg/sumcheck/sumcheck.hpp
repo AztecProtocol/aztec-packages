@@ -17,10 +17,10 @@ template <typename Flavor> class SumcheckProver {
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
 
-    std::shared_ptr<Transcript> transcript;
-
     const size_t multivariate_n;
     const size_t multivariate_d;
+
+    std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
 
     /**
@@ -58,11 +58,22 @@ template <typename Flavor> class SumcheckProver {
 
     // prover instantiates sumcheck with circuit size and a prover transcript
     SumcheckProver(size_t multivariate_n, const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript)
-        , multivariate_n(multivariate_n)
+        : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
+        , transcript(transcript)
         , round(multivariate_n, 2)
         , partially_evaluated_polynomials(multivariate_n){};
+
+    // WORKTODO delete this
+    /**
+     * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
+     * until final round, then compute multivariate evaluations and place in transcript.
+     */
+    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    {
+        return prove(
+            instance->prover_polynomials, instance->relation_parameters, instance->alpha, instance->gate_challenges);
+    };
 
     /**
      * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
@@ -72,16 +83,11 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove(ProverPolynomials full_polynomials,
                                  const proof_system::RelationParameters<FF>& relation_parameters,
-                                 FF alpha) // pass by value, not by reference
+                                 const FF alpha,
+                                 const std::vector<FF>& gate_challenges)
     {
-        std::vector<FF> betas(multivariate_d, 0);
-        size_t beta_idx = 0;
-        for (auto& beta : betas) {
-            beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
-            beta_idx++;
-        }
 
-        barretenberg::PowPolynomial<FF> pow_univariate(betas);
+        barretenberg::PowPolynomial<FF> pow_univariate(gate_challenges);
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -121,15 +127,6 @@ template <typename Flavor> class SumcheckProver {
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
 
         return { multivariate_challenge, multivariate_evaluations };
-    };
-
-    /**
-     * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
-     * until final round, then compute multivariate evaluations and place in transcript.
-     */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
-    {
-        return prove(instance->prover_polynomials, instance->relation_parameters, instance->alpha);
     };
 
     /**
@@ -187,17 +184,20 @@ template <typename Flavor> class SumcheckVerifier {
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     const size_t multivariate_d;
+    FF targegt_sum = 0;
+    std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
 
     // verifier instantiates sumcheck with circuit size
-    explicit SumcheckVerifier(size_t multivariate_n)
-        : multivariate_d(numeric::get_msb(multivariate_n))
-        , round(){};
+    explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
+        : multivariate_d(multivariate_d)
+        , transcript(transcript)
+        , round(target_sum){};
 
     /**
-     * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until final
-     * round, then use purported evaluations to generate purported full Honk relation value and check against final
-     * target sum.
+     * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
+     * final round, then use purported evaluations to generate purported full Honk relation value and check against
+     * final target sum.
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      * @param relation_parameters
@@ -205,18 +205,11 @@ template <typename Flavor> class SumcheckVerifier {
      */
     SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
                                   FF alpha,
-                                  const std::shared_ptr<Transcript>& transcript)
+                                  const std::vector<FF>& gate_challenges)
     {
         bool verified(true);
 
-        auto betas = std::vector<FF>(multivariate_d, 0);
-        size_t beta_idx = 0;
-        for (auto& beta : betas) {
-            beta = transcript->get_challenge("Sumcheck:beta_" + std::to_string(beta_idx));
-            beta_idx++;
-        }
-
-        barretenberg::PowPolynomial<FF> pow_univariate(betas);
+        barretenberg::PowPolynomial<FF> pow_univariate(gate_challenges);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 

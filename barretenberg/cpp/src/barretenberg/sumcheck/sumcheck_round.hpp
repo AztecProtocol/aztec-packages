@@ -285,7 +285,11 @@ template <typename Flavor> class SumcheckVerifierRound {
     TupleOfArraysOfValues relation_evaluations;
 
     // Verifier constructor
-    explicit SumcheckVerifierRound() { Utils::zero_elements(relation_evaluations); };
+    explicit SumcheckVerifierRound(FF target_total_sum = 0)
+        : target_total_sum(target_total_sum)
+    {
+        Utils::zero_elements(relation_evaluations);
+    };
 
     bool check_sum(barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {

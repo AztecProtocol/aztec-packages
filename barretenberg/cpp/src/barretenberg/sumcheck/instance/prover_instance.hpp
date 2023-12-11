@@ -22,7 +22,6 @@ template <class Flavor> class ProverInstance_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
-    using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -48,9 +47,13 @@ template <class Flavor> class ProverInstance_ {
     FF alpha;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    // non-empty for the accumulated instances
-    FoldingParameters folding_parameters;
-    uint32_t is_accumulator = 0;
+
+    bool is_accumulator = false;
+
+    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    std::vector<FF> gate_challenges;
+    FF target_sum;
+
     size_t instance_size;
     size_t log_instance_size;
 

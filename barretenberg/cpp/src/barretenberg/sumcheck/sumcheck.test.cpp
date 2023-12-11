@@ -108,7 +108,12 @@ TEST_F(SumcheckTests, PolynomialNormalization)
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
     FF alpha = transcript->get_challenge("alpha");
-    auto output = sumcheck.prove(full_polynomials, {}, alpha);
+    std::vector<FF> gate_challenges(multivariate_d);
+    for (size_t idx = 0; idx < multivariate_d; idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    info("here");
+    auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
 
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
@@ -172,7 +177,11 @@ TEST_F(SumcheckTests, Prover)
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
     FF alpha = transcript->get_challenge("alpha");
-    auto output = sumcheck.prove(full_polynomials, {}, alpha);
+    std::vector<FF> gate_challenges(multivariate_d);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
     std::vector<FF> expected_values;
@@ -247,13 +256,23 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
         FF prover_alpha = prover_transcript->get_challenge("alpha");
-        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha);
+        std::vector<FF> prover_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            prover_gate_challenges[idx] =
+                prover_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha, prover_gate_challenges);
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_d, verifier_transcript);
         FF verifier_alpha = verifier_transcript->get_challenge("alpha");
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_transcript);
+        std::vector<FF> verifier_gate_challenges(multivariate_d);
+        for (size_t idx = 0; idx < multivariate_d; idx++) {
+            verifier_gate_challenges[idx] =
+                verifier_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        }
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
         auto verified = verifier_output.verified.value();
 

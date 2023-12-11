@@ -7,7 +7,6 @@ template <class Flavor> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
-    using FoldingParameters = typename Flavor::FoldingParameters;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
@@ -19,8 +18,12 @@ template <class Flavor> class VerifierInstance_ {
     size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
     FF alpha;
-    uint32_t is_accumulator = 0;
-    FoldingParameters folding_parameters;
+    bool is_accumulator = false;
+
+    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    std::vector<FF> gate_challenges;
+    FF target_sum;
+
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 };

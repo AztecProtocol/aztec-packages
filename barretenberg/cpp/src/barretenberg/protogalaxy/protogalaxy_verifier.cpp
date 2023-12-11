@@ -27,12 +27,11 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_pt
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
     inst->alpha = transcript->template receive_from_prover<FF>(domain_separator + "_alpha");
 
-    inst->folding_parameters.target_sum =
-        transcript->template receive_from_prover<FF>(domain_separator + "_target_sum");
+    inst->target_sum = transcript->template receive_from_prover<FF>(domain_separator + "_target_sum");
 
-    inst->folding_parameters.gate_challenges = std::vector<FF>(inst->log_instance_size);
+    inst->gate_challenges = std::vector<FF>(inst->log_instance_size);
     for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
-        inst->folding_parameters.gate_challenges[idx] =
+        inst->gate_challenges[idx] =
             transcript->template receive_from_prover<FF>(domain_separator + "_gate_challenge_" + std::to_string(idx));
     }
     auto comm_view = inst->witness_commitments.get_all();
@@ -109,7 +108,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<ui
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    inst->is_accumulator = transcript->template receive_from_prover<uint32_t>(domain_separator + "is_accumulator");
+    inst->is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
     if (inst->is_accumulator) {
         receive_accumulator(inst, domain_separator);
     } else {
@@ -137,7 +136,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
-    assert(perturbator_coeffs[0] == accumulator->folding_parameters.target_sum);
+    assert(perturbator_coeffs[0] == accumulator->target_sum);
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
@@ -161,8 +160,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
     bool verified = (expected_next_target_sum == next_target_sum);
-    auto expected_betas_star =
-        update_gate_challenges(perturbator_challenge, accumulator->folding_parameters.gate_challenges, deltas);
+    auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
         verified = verified & (expected_betas_star[idx] == beta_star);

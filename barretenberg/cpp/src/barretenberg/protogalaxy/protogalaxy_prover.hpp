@@ -235,7 +235,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto full_honk_evaluations = compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
-        const auto betas = accumulator->folding_parameters.gate_challenges;
+        const auto betas = accumulator->gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
@@ -456,12 +456,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Compute the next target sum and send the next folding parameters to the verifier
         auto next_target_sum =
             compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-        next_accumulator->folding_parameters = { instances.next_gate_challenges, next_target_sum };
         transcript->send_to_verifier("next_target_sum", next_target_sum);
+        next_accumulator->target_sum = next_target_sum;
         for (size_t idx = 0; idx < instances.next_gate_challenges.size(); idx++) {
             transcript->send_to_verifier("next_gate_challenge_" + std::to_string(idx),
                                          instances.next_gate_challenges[idx]);
         }
+        next_accumulator->gate_challenges = instances.next_gate_challenges;
 
         // Allocate space, initialised to 0, for the prover polynomials of the next accumulator
         std::array<barretenberg::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> storage;

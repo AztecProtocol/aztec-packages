@@ -8,7 +8,6 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
     static_assert(NUM_ > 0, "Must have at least one prover instance");
     using Flavor = Flavor_;
-    using FoldingParameters = typename Flavor::FoldingParameters;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     using Instance = ProverInstance_<Flavor>;

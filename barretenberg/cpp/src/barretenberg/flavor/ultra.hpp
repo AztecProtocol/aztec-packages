@@ -395,12 +395,6 @@ class Ultra {
         }
     };
 
-    class FoldingParameters {
-      public:
-        std::vector<FF> gate_challenges;
-        FF target_sum;
-    };
-
     /**
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *

@@ -1,7 +1,5 @@
 #pragma once
-#include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/goblin_ultra_recursive.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"

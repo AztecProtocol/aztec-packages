@@ -90,11 +90,10 @@ void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Insta
 
     transcript->send_to_verifier(domain_separator + "_alpha", instance->alpha);
 
-    auto folding_parameters = instance->folding_parameters;
-    transcript->send_to_verifier(domain_separator + "_target_sum", folding_parameters.target_sum);
-    for (size_t idx = 0; idx < folding_parameters.gate_challenges.size(); idx++) {
+    transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
+    for (size_t idx = 0; idx < instance->gate_challenges.size(); idx++) {
         transcript->send_to_verifier(domain_separator + "_gate_challenge_" + std::to_string(idx),
-                                     folding_parameters.gate_challenges[idx]);
+                                     instance->gate_challenges[idx]);
     }
 
     auto comm_view = instance->witness_commitments.get_all();
@@ -146,10 +145,10 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
-    assert(perturbator[0] == accumulator->folding_parameters.target_sum);
+    assert(perturbator[0] == accumulator->target_sum);
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
-        update_gate_challenges(perturbator_challenge, accumulator->folding_parameters.gate_challenges, deltas);
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     const auto pow_betas_star =
         compute_pow_polynomial_at_values(instances.next_gate_challenges, accumulator->instance_size);
 

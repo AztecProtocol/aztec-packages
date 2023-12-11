@@ -530,11 +530,6 @@ class GoblinUltra {
     };
     // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-    class FoldingParameters {
-      public:
-        std::vector<FF> gate_challenges;
-        FF target_sum;
-    };
 
     /**
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.

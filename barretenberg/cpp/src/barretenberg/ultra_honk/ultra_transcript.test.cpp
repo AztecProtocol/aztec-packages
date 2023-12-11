@@ -61,7 +61,7 @@ class UltraTranscriptTests : public ::testing::Test {
 
         for (size_t i = 0; i < log_n; i++) {
             round++;
-            std::string label = "Sumcheck:beta_" + std::to_string(i);
+            std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
         }
 

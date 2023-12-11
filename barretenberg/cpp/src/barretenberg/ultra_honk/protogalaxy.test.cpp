@@ -185,7 +185,8 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 
     auto accumulator = std::make_shared<Instance>();
     accumulator->prover_polynomials = full_polynomials;
-    accumulator->folding_parameters = { betas, target_sum };
+    accumulator->gate_challenges = betas;
+    accumulator->target_sum = target_sum;
     accumulator->relation_parameters = relation_parameters;
     accumulator->alpha = alpha;
 
@@ -308,7 +309,8 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     accumulator->instance_size = instance_size;
     accumulator->log_instance_size = log_instance_size;
     accumulator->prover_polynomials = full_polynomials;
-    accumulator->folding_parameters = { betas, target_sum };
+    accumulator->gate_challenges = betas;
+    accumulator->target_sum = target_sum;
     accumulator->relation_parameters = relation_parameters;
     accumulator->alpha = alpha;
     accumulator->is_accumulator = 1;
