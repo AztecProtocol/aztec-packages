@@ -1,4 +1,4 @@
-#include "generic_permutation_relation.hpp"
+#include "generic_lookup_relation.hpp"
 #include "barretenberg/flavor/relation_definitions_fwd.hpp"
 #include "barretenberg/flavor/toy_avm.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -15,15 +15,15 @@ namespace proof_system::honk::sumcheck {
  */
 template <typename Settings, typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-void GenericPermutationRelationImpl<Settings, FF>::accumulate(ContainerOverSubrelations& accumulator,
-                                                              const AllEntities& in,
-                                                              const Parameters& params,
-                                                              const FF& scaling_factor)
+void GenericLookupRelationImpl<Settings, FF>::accumulate(ContainerOverSubrelations& accumulator,
+                                                         const AllEntities& in,
+                                                         const Parameters& params,
+                                                         const FF& scaling_factor)
 {
     logderivative_library::accumulate_logderivative_permutation_subrelation_contributions<
         FF,
         GenericPermutationRelationImpl<Settings, FF>>(accumulator, in, params, scaling_factor);
 }
 
-DEFINE_PERMUTATION_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM);
+// DEFINE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericLookupRelationImpl, flavor::ToyAVM);
 } // namespace proof_system::honk::sumcheck

@@ -7,6 +7,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/relations/toy_avm/generic_lookup_relation.hpp"
 #include "barretenberg/relations/toy_avm/generic_permutation_relation.hpp"
 #include "barretenberg/relations/toy_avm/relation_definer.hpp"
 #include "relation_definitions_fwd.hpp"
@@ -85,7 +86,9 @@ class ToyAVM {
                               enable_tuple_set_permutation,     // column 1
                               enable_single_column_permutation, // column 2
                               enable_first_set_permutation,     // column 3
-                              enable_second_set_permutation)    // column 4
+                              enable_second_set_permutation,    // column 4
+                              lookup_is_range_constrained,      // column 5
+                              lookup_is_table_entry)            // column 6
 
         RefVector<DataType> get_selectors()
         {
@@ -93,7 +96,9 @@ class ToyAVM {
                      enable_tuple_set_permutation,
                      enable_single_column_permutation,
                      enable_first_set_permutation,
-                     enable_second_set_permutation };
+                     enable_second_set_permutation,
+                     lookup_is_range_constrained,
+                     lookup_is_table_entry };
         };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
@@ -108,21 +113,22 @@ class ToyAVM {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              permutation_set_column_1,    // Column 0
-                              permutation_set_column_2,    // Column 1
-                              permutation_set_column_3,    // Column 2
-                              permutation_set_column_4,    // Column 3
-                              self_permutation_column,     // Column 4
-                              tuple_permutation_inverses,  // Column 5
-                              single_permutation_inverses) // Column 6
+                              permutation_set_column_1, // Column 0
+                              permutation_set_column_2, // Column 1
+                              permutation_set_column_3, // Column 2
+                              permutation_set_column_4, // Column 3
+                              self_permutation_column,  // Column 4
+                              lookup_range_constraint_read_count,
+                              range_constrained_column,
+                              tuple_permutation_inverses, // Column 5
+                              single_permutation_inverses,
+                              lookup_range_constraint_inverses) // Column 6
 
         RefVector<DataType> get_wires()
         {
-            return { permutation_set_column_1,
-                     permutation_set_column_2,
-                     permutation_set_column_3,
-                     permutation_set_column_4,
-                     self_permutation_column };
+            return { permutation_set_column_1, permutation_set_column_2, permutation_set_column_3,
+                     permutation_set_column_4, self_permutation_column,  lookup_range_constraint_read_count,
+                     range_constrained_column };
         };
     };
 
@@ -139,39 +145,51 @@ class ToyAVM {
     template <typename DataType> class AllEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              lagrange_first,                   // Column 0
-                              enable_tuple_set_permutation,     // Column 1
-                              enable_single_column_permutation, // Column 2
-                              enable_first_set_permutation,     // Column 3
-                              enable_second_set_permutation,    // Column 4
-                              permutation_set_column_1,         // Column 5
-                              permutation_set_column_2,         // Column 6
-                              permutation_set_column_3,         // Column 7
-                              permutation_set_column_4,         // Column 8
-                              self_permutation_column,          // Column 9
-                              tuple_permutation_inverses,       // Column 10
-                              single_permutation_inverses)      // Column 11
+                              lagrange_first,                   // column 0
+                              enable_tuple_set_permutation,     // column 1
+                              enable_single_column_permutation, // column 2
+                              enable_first_set_permutation,     // column 3
+                              enable_second_set_permutation,    // column 4
+                              lookup_is_range_constrained,      // column 5
+                              lookup_is_table_entry,            // column 6
+                              permutation_set_column_1,         // Column 0
+                              permutation_set_column_2,         // Column 1
+                              permutation_set_column_3,         // Column 2
+                              permutation_set_column_4,         // Column 3
+                              self_permutation_column,          // Column 4
+                              lookup_range_constraint_read_count,
+                              range_constrained_column,
+                              tuple_permutation_inverses, // Column 5
+                              single_permutation_inverses,
+                              lookup_range_constraint_inverses) // Column 11
 
         RefVector<DataType> get_wires()
         {
-            return {
-                permutation_set_column_1, permutation_set_column_2, permutation_set_column_3, permutation_set_column_4
-            };
+            return { permutation_set_column_1, permutation_set_column_2, permutation_set_column_3,
+                     permutation_set_column_4, self_permutation_column,  lookup_range_constraint_read_count,
+                     range_constrained_column };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { lagrange_first,
-                     enable_tuple_set_permutation,
-                     enable_single_column_permutation,
-                     enable_first_set_permutation,
-                     enable_second_set_permutation,
-                     permutation_set_column_1,
-                     permutation_set_column_2,
-                     permutation_set_column_3,
-                     permutation_set_column_4,
-                     self_permutation_column,
-                     tuple_permutation_inverses,
-                     single_permutation_inverses };
+            return { lagrange_first,                   // column 0
+                     enable_tuple_set_permutation,     // column 1
+                     enable_single_column_permutation, // column 2
+                     enable_first_set_permutation,     // column 3
+                     enable_second_set_permutation,    // column 4
+                     lookup_is_range_constrained,      // column 5
+                     lookup_is_table_entry,            // column 6
+                     permutation_set_column_1,         // Column 0
+                     permutation_set_column_2,         // Column 1
+                     permutation_set_column_3,         // Column 2
+                     permutation_set_column_4,         // Column 3
+                     self_permutation_column,          // Column 4
+                     lookup_range_constraint_read_count,
+                     range_constrained_column,
+                     tuple_permutation_inverses, // Column 5
+                     single_permutation_inverses,
+                     lookup_range_constraint_inverses
+
+            };
         };
         RefVector<DataType> get_to_be_shifted() { return {}; };
         RefVector<DataType> get_shifted() { return {}; };
@@ -354,7 +372,8 @@ class ToyAVM {
 } // namespace flavor
 namespace sumcheck {
 
-DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM)
+DECLARE_PERMUTATION_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM)
+DECLARE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericLookupRelationImpl, flavor::ToyAVM)
 
 } // namespace sumcheck
 } // namespace proof_system::honk

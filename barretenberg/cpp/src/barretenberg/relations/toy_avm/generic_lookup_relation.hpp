@@ -1,9 +1,18 @@
 /**
- * @file generic_permutation_relation.hpp
+ * @file generic_lookup_relation.hpp
  * @author Rumata888
- * @brief This file contains the template for the generic permutation that can be specialized to enforce various
- * permutations (for explanation on how to define them, see "relation_definer.hpp")
+ * @brief This file contains the template for the generic lookup that can be specialized to enforce various
+ * lookups (for explanation on how to define them, see "relation_definer.hpp")
  *
+ * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
+ * witnesses, selectors or function of these) is contained withing a particular set. It is a relative of set
+ * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
+ * are being looked up from. In this relation template we use the following terminology:
+ * + READ - the action of looking up the value in the table
+ * + WRITE - the action of adding the value to the lookup table
+ *
+ * TODO(@Rumata888): Talk to Zac why "lookup_read_count" refers to the count of the looked up element in the multiset.
+ * (The value is applied to the write predicate, so it is confusing).
  */
 #pragma once
 #include <array>
@@ -19,27 +28,27 @@ namespace proof_system::honk::sumcheck {
  * @brief Specifies positions of elements in the tuple of entities received from methods in the Settings class
  *
  */
-enum GenericPermutationSettingIndices {
-    INVERSE_POLYNOMIAL_INDEX,                          /* The index of the inverse polynomial*/
-    ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX, /* The index of the polynomial enabling first subrelation*/
-    FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX,  /* The index of the polynomial that adds an element from the first
-                                                       set to the sum*/
-    SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX, /* The index of the polynomial that adds an element from the second
-                                                       set to the sum*/
 
-    PERMUTATION_SETS_START_POLYNOMIAL_INDEX, /* The starting index of the polynomials that are used in the permutation
-                                                sets*/
-};
-
-template <typename Settings, typename FF_> class GenericPermutationRelationImpl {
+template <typename Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
     // Read and write terms counts should stay set to 1 unless we want to permute several columns at once as accumulated
     // sets (not as tuples).
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERMS = Settings::READ_TERMS;
+    static constexpr size_t WRITE_TERMS = Settings::WRITE_TERMS;
+
+    static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
+
+    static constexpr size_t INVERSE_POLYNOMIAL_INDEX = 0;
+    static constexpr size_t LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX = 1;
+    static constexpr size_t LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + WRITE_TERMS;
+    static constexpr size_t LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX + READ_TERMS;
+    static constexpr size_t LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX =
+        LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + WRITE_TERMS;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness sub-relation
@@ -85,13 +94,33 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
 
-        // WIRE/SELECTOR enabling the permutation used in the sumcheck computation. This affects the first subrelation
-        return Accumulator(
-            View(std::get<ENABLE_INVERSE_CORRECTNESS_CHECK_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+        // A lookup could be enabled by one of several selectors or witnesses, so we want to give as much freedom as
+        // possible to the implementor
+        return Settings::template compute_inverse_exists<Accumulator>(in);
     }
 
+    /**
+     * @brief Returns the number of times a particular value is written (how many times it is being looked up)
+     *
+     * @details Lookup read counts should be independent columns, so there is no need to call a separate function
+     *
+     * @tparam Accumulator
+     * @tparam index The index of the write predicate to which this count belongs
+     * @tparam AllEntities
+     * @param in
+     * @return Accumulator
+     */
+    template <typename Accumulator, size_t index, typename AllEntities>
+    static Accumulator lookup_read_counts(const AllEntities& in)
+    {
+
+        static_assert(index < WRITE_TERMS);
+        using View = typename Accumulator::View;
+
+        return Accumulator(
+            View(std::get<LOOKUP_READ_COUNT_START_POLYNOMIAL_INDEX + index>(Settings::get_const_entities(in))));
+    }
     /**
      * @brief Compute if the value from the first set exists in this row
      *
@@ -106,8 +135,8 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 
         // The selector/wire value that determines that an element from the first set needs to be included. Can be
         // different from the wire used in the write part.
-        return Accumulator(
-            View(std::get<FIRST_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+        return Accumulator(View(std::get<LOOKUP_READ_TERM_PREDICATE_START_POLYNOMIAL_INDEX + read_index>(
+            Settings::get_const_entities(in))));
     }
 
     /**
@@ -118,13 +147,14 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate(const AllEntities& in)
     {
+
         static_assert(write_index < WRITE_TERMS);
         using View = typename Accumulator::View;
 
-        // The selector/wire value that determines that an element from the second set needs to be included. Can be
-        // different from the wire used in the read part.
-        return Accumulator(
-            View(std::get<SECOND_PERMUTATION_SET_ENABLE_POLYNOMIAL_INDEX>(Settings::get_const_entities(in))));
+        // The selector/wire value that determines that an element from the first set needs to be included. Can be
+        // different from the wire used in the write part.
+        return Accumulator(View(std::get<LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + write_index>(
+            Settings::get_const_entities(in))));
     }
 
     /**
@@ -133,7 +163,7 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
      * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
      * in the first set
      *
-     * @tparam read_index Kept for compatibility with lookups, behavior doesn't change
+     * @tparam read_index The chosen polynomial relation
      *
      * @param params Used for beta and gamma
      */
@@ -150,8 +180,9 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
         auto result = Accumulator(0);
 
         // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX,
-                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
+        barretenberg::constexpr_for<LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index * LOOKUP_TUPLE_SIZE,
+                                    LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index*(LOOKUP_TUPLE_SIZE + 1) -
+                                        1,
                                     1>(
             [&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
 
@@ -172,22 +203,11 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
-        using View = typename Accumulator::View;
 
         static_assert(write_index < WRITE_TERMS);
 
-        // Get all used entities
-        const auto& used_entities = Settings::get_const_entities(in);
-
-        auto result = Accumulator(0);
-        // Iterate over tuple and sum as a polynomial over beta
-        barretenberg::constexpr_for<PERMUTATION_SETS_START_POLYNOMIAL_INDEX + Settings::COLUMNS_PER_SET,
-                                    PERMUTATION_SETS_START_POLYNOMIAL_INDEX + 2 * Settings::COLUMNS_PER_SET,
-                                    1>(
-            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(used_entities)); });
-
-        const auto& gamma = params.gamma;
-        return result + gamma;
+        // Sometimes we construct lookup tables on the fly from intermediate
+        return Settings::template compute_write_term<Accumulator, write_index>(in, params);
     }
 
     /**
@@ -205,6 +225,6 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
 };
 
 template <typename Settings, typename FF>
-using GenericPermutationRelation = Relation<GenericPermutationRelationImpl<Settings, FF>>;
+using GenericLookupRelation = Relation<GenericLookupRelationImpl<Settings, FF>>;
 
 } // namespace proof_system::honk::sumcheck

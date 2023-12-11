@@ -193,21 +193,88 @@ class ExampleSameWirePermutationSettings {
     }
 };
 
+class ExampleLookupBasedRangeConstraintSettings {
+  public:
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
+
+    /**
+     * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
+     * value needs to be set to zero.
+     *
+     * @details If this is true then the lookup takes place in this row
+     *
+     */
+    template <typename AllEntities> static inline bool inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in.lookup_is_range_constrained == 1) || (in.lookup_is_table_entry == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static Accumulator compute_inverse_exists(const AllEntities& in)
+    {
+
+        using View = Accumulator::View;
+        const auto is_constrained = View(in.lookup_is_range_constrained);
+        const auto is_table_entry = View(in.lookup_is_table_entry);
+        return (is_constrained + is_table_entry + is_constrained * is_table_entry);
+    }
+    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
+    static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
+    {
+
+        static_assert(write_index < WRITE_TERMS);
+
+        using View = typename Accumulator::View;
+        return Accumulator(View(in.lookup_range_table_entries) + View(params.gamma));
+    }
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+
+        return std::forward_as_tuple(
+            in.lookup_range_constraint_inverses,   /* The polynomial containing the inverse product*/
+            in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
+            in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
+            in.lookup_is_table_entry,              /* Enables adding second set to the sum */
+            in.range_constrained_column            /* The first set column */
+        );
+    }
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+
+        return std::forward_as_tuple(
+            in.lookup_range_constraint_inverses,   /* The polynomial containing the inverse product*/
+            in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
+            in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
+            in.lookup_is_table_entry,              /* Enables adding second set to the sum */
+            in.range_constrained_column            /* The first set column */
+        );
+    }
+};
+
 #define DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, Settings)                                  \
     template class RelationImplementation<Settings, flavor::FF>;                                                       \
     template <typename FF_> using RelationImplementation##Settings = RelationImplementation<Settings, FF_>;            \
     DEFINE_SUMCHECK_RELATION_CLASS(RelationImplementation##Settings, flavor);
-
-#define DEFINE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                                        \
-    DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleTuplePermutationSettings);              \
-    DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleSameWirePermutationSettings);
 
 #define DECLARE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, Settings)                                 \
     extern template class RelationImplementation<Settings, flavor::FF>;                                                \
     template <typename FF_> using RelationImplementation##Settings = RelationImplementation<Settings, FF_>;            \
     DECLARE_SUMCHECK_RELATION_CLASS(RelationImplementation##Settings, flavor);
 
-#define DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                                       \
+#define DEFINE_PERMUTATION_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                            \
+    DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleTuplePermutationSettings);              \
+    DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleSameWirePermutationSettings);
+
+#define DECLARE_PERMUTATION_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                           \
     DECLARE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleTuplePermutationSettings);             \
     DECLARE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleSameWirePermutationSettings);
+
+#define DEFINE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                                 \
+    DEFINE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleLookupBasedRangeConstraintSettings);
+
+#define DECLARE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(RelationImplementation, flavor)                                \
+    DECLARE_IMPLEMENTATIONS_FOR_SETTINGS(RelationImplementation, flavor, ExampleLookupBasedRangeConstraintSettings);
+
 } // namespace proof_system::honk::sumcheck
