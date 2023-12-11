@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
@@ -270,7 +269,6 @@ class BaseTranscript {
      */
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
-        DEBUG_LOG(label, element);
         using serialize::write;
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
@@ -303,7 +301,6 @@ class BaseTranscript {
         BaseTranscript::consume_prover_element_bytes(label, element_bytes);
 
         T element = from_buffer<T>(element_bytes);
-        DEBUG_LOG(label, element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -347,7 +344,6 @@ class BaseTranscript {
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
 #endif
-        DEBUG_LOG(label, result);
         return result;
     }
 
