@@ -77,7 +77,11 @@ class ArgumentEncoder {
           break;
         }
         if (isFunctionSelectorStruct(abiType)) {
-          this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg, `${name}.inner`);
+          if (typeof arg.value === 'undefined') {
+            this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg, `${name}.inner`);
+          } else {
+            this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg.value, `${name}.inner`);
+          }
           break;
         }
         for (const field of abiType.fields) {
