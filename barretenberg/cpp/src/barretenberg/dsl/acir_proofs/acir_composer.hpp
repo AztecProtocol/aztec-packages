@@ -1,25 +1,24 @@
 #pragma once
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
-#include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp> // WORKTODO(KEY_TYEPS)
+#include <barretenberg/goblin/goblin.hpp>
+#include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp> // WORKTODO(KEY_TYPES)
 #include <barretenberg/plonk/proof_system/verification_key/verification_key.hpp>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
 
 namespace acir_proofs {
 
 class AcirComposer {
   public:
-    using InputFlavor = proof_system::honk::flavor::GoblinUltra;
-    // using InputFlavor = plonk::flavor::Ultra;
-    using ProvingKey = typename InputFlavor::ProvingKey;
-    using VerificationKey = typename InputFlavor::VerificationKey;
+    using Flavor = proof_system::honk::flavor::GoblinUltra;
+    // WORKTODO: it would be nice if we could just flip the flavor
+    // using Flavor = plonk::flavor::Ultra;
+    using ProvingKey = typename Flavor::ProvingKey;
+    using VerificationKey = typename Flavor::VerificationKey;
 
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     void create_circuit(acir_format::acir_format& constraint_system);
 
-    std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
+    std::shared_ptr<ProvingKey> init_proving_key(acir_format::acir_format& constraint_system);
 
     std::vector<uint8_t> create_proof(acir_format::acir_format& constraint_system,
                                       acir_format::WitnessVector& witness,
@@ -27,7 +26,7 @@ class AcirComposer {
 
     void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
-    std::shared_ptr<proof_system::plonk::verification_key> init_verification_key();
+    std::shared_ptr<VerificationKey> init_verification_key();
 
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
 
@@ -43,6 +42,8 @@ class AcirComposer {
 
   private:
     acir_format::Builder builder_;
+    acir_format::Composer composer_; // WORKTODO: how should this be used? Also: better name?
+    Goblin goblin;
     size_t size_hint_;
     size_t exact_circuit_size_;
     size_t total_circuit_size_;

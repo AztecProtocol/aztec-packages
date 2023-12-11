@@ -47,8 +47,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     {}
 
     // WORKTODO
-    UltraComposer_([[maybe_unused]] std::shared_ptr<plonk::proving_key> p_key,
-                   [[maybe_unused]] std::shared_ptr<plonk::verification_key> v_key)
+    UltraComposer_([[maybe_unused]] std::shared_ptr<ProvingKey> p_key,
+                   [[maybe_unused]] std::shared_ptr<VerificationKey> v_key)
     {}
 
     UltraComposer_(UltraComposer_&& other) noexcept = default;
@@ -133,9 +133,10 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      */
     void compute_verification_key(const std::shared_ptr<Instance>&);
     // WORKTODO(KEY_TYPES): implement; overcome different notions of key
-    std::shared_ptr<proof_system::plonk::proving_key> compute_proving_key(CircuitBuilder& circuit);
-    std::shared_ptr<proof_system::plonk::verification_key> compute_verification_key(CircuitBuilder& circuit);
+    static std::shared_ptr<ProvingKey> compute_proving_key(CircuitBuilder& circuit);
+    static std::shared_ptr<VerificationKey> compute_verification_key(CircuitBuilder& circuit);
 };
+
 extern template class UltraComposer_<honk::flavor::Ultra>;
 extern template class UltraComposer_<honk::flavor::GoblinUltra>;
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

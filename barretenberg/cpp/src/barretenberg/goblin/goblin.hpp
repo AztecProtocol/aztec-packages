@@ -33,7 +33,20 @@ class Goblin {
         TranslationEvaluations translation_evaluations;
         std::vector<uint8_t> to_buffer()
         {
-            return {}; // WORKTODO
+            // WORKTODO: so much copying and duplication added here and elsewhere
+            std::vector<uint8_t> translation_evaluations_buf = translation_evaluations.to_buffer();
+            size_t proof_size = merge_proof.proof_data.size() + eccvm_proof.proof_data.size() +
+                                translator_proof.proof_data.size() + translation_evaluations_buf.size();
+
+            std::vector<uint8_t> result(proof_size);
+            const auto insert = [&result](const std::vector<uint8_t>& buf) {
+                result.insert(result.end(), buf.begin(), buf.end());
+            };
+            insert(merge_proof.proof_data);
+            insert(eccvm_proof.proof_data);
+            insert(translator_proof.proof_data);
+            insert(translation_evaluations_buf);
+            return result;
         }
     };
 
@@ -61,8 +74,18 @@ class Goblin {
     std::shared_ptr<GUHProvingKey> proving_key = std::make_shared<GUHProvingKey>();
     std::shared_ptr<GUHVerificationKey> verification_key = std::make_shared<GUHVerificationKey>();
 
+    GoblinUltraComposer composer;
+
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
+
+    Goblin(const std::shared_ptr<GUHProvingKey>& proving_key,
+           const std::shared_ptr<GUHVerificationKey>& verification_key)
+        : proving_key(proving_key)
+        , verification_key(verification_key)
+    {}
+
+    Goblin() = default;
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -74,7 +97,7 @@ class Goblin {
 
   public:
     /**
-     * @brief
+     * @brief If there is a previous merge proof, recursively verify it. Generate next accmulated proof and merge proof.
      *
      * @param circuit_builder
      */
@@ -125,10 +148,17 @@ class Goblin {
         return proof;
     };
 
-    Proof construct_proof(GoblinUltraCircuitBuilder& builder)
+    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
     {
         accumulate(builder);
-        return prove();
+        std::vector<uint8_t> goblin_proof = prove().to_buffer();
+        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
+        const auto insert = [&result](const std::vector<uint8_t>& buf) {
+            result.insert(result.end(), buf.begin(), buf.end());
+        };
+        insert(accumulator.proof.proof_data);
+        insert(goblin_proof);
+        return result;
     }
 
     bool verify(const Proof& proof) const

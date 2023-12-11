@@ -99,6 +99,7 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 add_library(
     barretenberg
     STATIC
+    $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
@@ -111,12 +112,17 @@ add_library(
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
+    $<TARGET_OBJECTS:eccvm_objects>
     $<TARGET_OBJECTS:examples_objects>
+    $<TARGET_OBJECTS:flavor_objects>
+    $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:plonk_objects>
     $<TARGET_OBJECTS:polynomials_objects>
     $<TARGET_OBJECTS:proof_system_objects>
+    $<TARGET_OBJECTS:protogalaxy_objects>
+    $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
@@ -126,9 +132,13 @@ add_library(
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
+    $<TARGET_OBJECTS:stdlib_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
+    $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
+    $<TARGET_OBJECTS:translator_vm_objects>
+    $<TARGET_OBJECTS:ultra_honk_objects>
 )
 
 if(WASM)
@@ -156,8 +166,8 @@ if(WASM)
         $<TARGET_OBJECTS:crypto_sha256_objects>
         $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:ecc_objects>
+        $<TARGET_OBJECTS:eccvm_objects>
         $<TARGET_OBJECTS:examples_objects>
-        $<TARGET_OBJECTS:honk_objects>
         $<TARGET_OBJECTS:numeric_objects>
         $<TARGET_OBJECTS:plonk_objects>
         $<TARGET_OBJECTS:polynomials_objects>
@@ -174,6 +184,7 @@ if(WASM)
         $<TARGET_OBJECTS:stdlib_schnorr_objects>
         $<TARGET_OBJECTS:stdlib_sha256_objects>
         $<TARGET_OBJECTS:transcript_objects>
+        $<TARGET_OBJECTS:translator_vm_objects>
         $<TARGET_OBJECTS:wasi_objects>
     )
 

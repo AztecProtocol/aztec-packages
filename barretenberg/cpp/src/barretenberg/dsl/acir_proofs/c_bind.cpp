@@ -78,9 +78,11 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto pk = acir_composer->init_proving_key(constraint_system);
+    // WORKTODO(KEY_TYPES)
+    [[maybe_unused]] auto pk = acir_composer->init_proving_key(constraint_system);
+    std::shared_ptr<plonk::proving_key> dummy_pk;
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
-    *out = to_heap_buffer(to_buffer(*pk));
+    *out = to_heap_buffer(to_buffer(*dummy_pk));
 }
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
