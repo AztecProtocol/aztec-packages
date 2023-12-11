@@ -242,7 +242,14 @@ template <class FF> class GrandProductTests : public testing::Test {
         for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
             prover_poly = key_poly.share();
         }
+        for (auto [prover_poly, key_poly] :
+             zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
+            prover_poly = key_poly.shifted();
+        }
+        // Test a few assignments
         EXPECT_EQ(&proving_key->z_lookup[0], &prover_polynomials.z_lookup[0]);
+        EXPECT_EQ(&proving_key->sigma_1[0], &prover_polynomials.sigma_1[0]);
+        EXPECT_EQ(&proving_key->lagrange_last[0], &prover_polynomials.lagrange_last[0]);
 
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;
@@ -285,7 +292,7 @@ template <class FF> class GrandProductTests : public testing::Test {
             // q_lookup * f + γ
             accumulators[0][i] = lookup_selector[i] * f_i + gamma;
 
-            // t = t_1 + ηt_2 + η²t_3 + η³t_4
+            // t = t_1 + ηt_2 + η²t_3 + η³t_41
             FF table_i_plus_1 = tables[0][shift_idx] + eta * tables[1][shift_idx] + eta_sqr * tables[2][shift_idx] +
                                 eta_cube * tables[3][shift_idx];
 

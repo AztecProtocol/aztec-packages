@@ -258,7 +258,10 @@ template <typename Fr> class Polynomial {
 
 template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynomial<Fr> const& p)
 {
-    if (p.size() < 2) {
+    if (p.size() == 0) {
+        return os << "[]";
+    }
+    if (p.size() == 1) {
         return os << "[ data " << p[0] << "]";
     }
     return os << "[ data\n"

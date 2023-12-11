@@ -2,6 +2,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -52,27 +53,30 @@ void compute_grand_product(const size_t circuit_size,
                            typename Flavor::ProverPolynomials& full_polynomials,
                            proof_system::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
+    DEBUG_LOG_ALL(full_polynomials.get_all());
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    Polynomial numerator = Polynomial{ circuit_size };
-    Polynomial denominator = Polynomial{ circuit_size };
+    Polynomial numerator{ circuit_size };
+    Polynomial denominator{ circuit_size };
+
+    DEBUG_LOG(full_polynomials.w_l, full_polynomials.w_r, full_polynomials.q_lookup);
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = circuit_size / num_threads;
-    auto full_polynomials_unshifted = full_polynomials.get_unshifted();
+    auto full_polynomials_view = full_polynomials.get_all();
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            typename Flavor::AllValues evaluations{};
-            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials_unshifted)) {
-                eval = full_poly[i];
+            typename Flavor::AllValues evaluations;
+            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials_view)) {
+                eval = full_poly.size() > i ? full_poly[i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
@@ -111,7 +115,7 @@ void compute_grand_product(const size_t circuit_size,
     });
 
     DEBUG_LOG_ALL(partial_numerators);
-    DEBUG_LOG_ALL(partial_numerators);
+    DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
