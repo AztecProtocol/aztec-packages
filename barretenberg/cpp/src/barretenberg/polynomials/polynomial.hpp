@@ -58,11 +58,6 @@ template <typename Fr> class Polynomial {
      */
     Polynomial share() const;
 
-    /**
-     * Return a deep clone of the polynomial. i.e. underlying memory is copied.
-     */
-    Polynomial deep_clone() const;
-
     std::array<uint8_t, 32> hash() const { return sha256::sha256(byte_span()); }
 
     void clear()

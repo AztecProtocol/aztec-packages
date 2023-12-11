@@ -49,7 +49,7 @@ template <typename Curve> class IPA {
         ASSERT((poly_degree > 0) && (!(poly_degree & (poly_degree - 1))) &&
                "The poly_degree should be positive and a power of two");
 
-        auto a_vec = polynomial.deep_clone();
+        auto a_vec = polynomial;
         auto srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_degree);
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the

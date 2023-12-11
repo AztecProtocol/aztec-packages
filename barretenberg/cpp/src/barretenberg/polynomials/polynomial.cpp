@@ -147,15 +147,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
     return p;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::deep_clone() const
-{
-    Polynomial p;
-    p.allocate_backing_memory(size_);
-    memcpy(static_cast<void*>(p.coefficients_), static_cast<void*>(coefficients_), sizeof(Fr) * size_);
-    p.zero_memory_beyond(p.size_);
-    return p;
-}
-
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
     return polynomial_arithmetic::evaluate(coefficients_, z, target_size);

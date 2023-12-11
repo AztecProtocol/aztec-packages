@@ -642,7 +642,7 @@ TEST(polynomials, divide_by_vanishing_polynomial)
     polynomial_arithmetic::sub(&R[0], &C[0], &R[0], large_domain);
 
     polynomial R_copy(2 * n);
-    R_copy = R.deep_clone();
+    R_copy = R;
 
     polynomial_arithmetic::divide_by_pseudo_vanishing_polynomial({ &R[0] }, small_domain, large_domain, 3);
     R.coset_ifft(large_domain);
@@ -1264,7 +1264,7 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
     EXPECT_EQ(poly.is_empty(), true);
 
     // fill the empty poly using the assignment operator
-    poly = interesting_poly.deep_clone();
+    poly = interesting_poly;
 
     // coefficients and size should be equal in value
     for (size_t i = 0; i < num_coeffs; ++i) {

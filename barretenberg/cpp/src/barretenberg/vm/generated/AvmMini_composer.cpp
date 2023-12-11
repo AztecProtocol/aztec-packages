@@ -19,7 +19,7 @@ void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
         // TODO(AD): can this be shared instead?
-        key_poly = prover_poly.deep_clone();
+        key_poly = prover_poly;
     }
 
     computed_witness = true;

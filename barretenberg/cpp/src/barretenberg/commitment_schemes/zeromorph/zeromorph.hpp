@@ -215,7 +215,7 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t log_N = quotients.size();
 
         // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
-        auto result = g_batched.deep_clone();
+        auto result = g_batched;
         result.add_scaled(f_batched, x_challenge);
 
         // Compute Z_x -= v * x * \Phi_n(x)
@@ -382,7 +382,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
         // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
-        Polynomial f_polynomial = f_batched.deep_clone();
+        Polynomial f_polynomial = f_batched;
         f_polynomial += g_batched.shifted();
         f_polynomial += concatenated_batched;
 

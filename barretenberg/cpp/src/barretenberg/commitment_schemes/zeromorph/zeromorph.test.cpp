@@ -462,8 +462,8 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     auto rho = Fr::random_element();
 
     // compute batched polynomial and evaluation
-    auto f_batched = multilinear_f.deep_clone();
-    auto g_batched = multilinear_g.deep_clone();
+    auto f_batched = multilinear_f;
+    auto g_batched = multilinear_g;
     g_batched *= rho;
     auto v_batched = v_evaluation + rho * w_evaluation;
 
@@ -480,7 +480,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
         f_batched, g_batched, quotients, v_batched, u_challenge, x_challenge);
 
     // Compute Z_x directly
-    auto Z_x_expected = g_batched.deep_clone();
+    auto Z_x_expected = g_batched;
     Z_x_expected.add_scaled(f_batched, x_challenge);
     Z_x_expected[0] -= v_batched * x_challenge * this->Phi(x_challenge, log_N);
     for (size_t k = 0; k < log_N; ++k) {
