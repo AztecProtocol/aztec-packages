@@ -286,23 +286,7 @@ class GoblinUltra {
                      this->lookup_inverses };
         };
 
-        RefVector<DataType> get_witness()
-        {
-            return { this->w_l,
-                     this->w_r,
-                     this->w_o,
-                     this->w_4,
-                     this->sorted_accum,
-                     this->z_perm,
-                     this->z_lookup,
-                     this->ecc_op_wire_1,
-                     this->ecc_op_wire_2,
-                     this->ecc_op_wire_3,
-                     this->ecc_op_wire_4,
-                     this->calldata,
-                     this->calldata_read_counts,
-                     this->lookup_inverses };
-        };
+        RefVector<DataType> get_witness() { return WitnessEntities<DataType>::get_all(); };
         RefVector<DataType> get_to_be_shifted()
         {
             return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,

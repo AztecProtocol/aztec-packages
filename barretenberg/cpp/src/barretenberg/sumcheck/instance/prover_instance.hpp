@@ -63,21 +63,6 @@ template <class Flavor> class ProverInstance_ {
         compute_witness(circuit);
     }
 
-<<<<<<< HEAD
-    ProverInstance_(const FoldingResult<Flavor>& result)
-        : verification_key(std::move(result.verification_key))
-        , public_inputs(result.folded_public_inputs)
-        , folding_parameters(result.folding_parameters)
-    {
-        ProverPolynomials polynomials;
-        for (auto [poly, folded_poly] : zip_view(polynomials.get_all(), result.folded_prover_polynomials.get_all())) {
-            poly = folded_poly.share();
-        }
-        prover_polynomials = std::move(polynomials);
-    };
-
-=======
->>>>>>> origin/master
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 

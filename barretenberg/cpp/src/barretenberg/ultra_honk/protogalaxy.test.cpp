@@ -268,7 +268,7 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     accumulator->witness_commitments = construct_witness_commitments();
     accumulator->instance_size = instance_size;
     accumulator->log_instance_size = log_instance_size;
-    accumulator->prover_polynomials = full_polynomials;
+    accumulator->prover_polynomials = std::move(full_polynomials);
     accumulator->folding_parameters = { betas, target_sum };
     accumulator->relation_parameters = relation_parameters;
     accumulator->alpha = alpha;
