@@ -87,11 +87,8 @@ class two_column_perm_permutation_settings {
     }
 };
 
-template class GenericPermutationRelationImpl<two_column_perm_permutation_settings, barretenberg::fr>;
-
+// TODO: declare just this template at the bottom of the permutation settings file
 template <typename FF_>
-using Generictwo_column_perm = GenericPermutationRelationImpl<two_column_perm_permutation_settings, FF_>;
-
-template <typename FF> using two_column_perm = Relation<Generictwo_column_perm<FF>>;
+using TwoColumnPerpSettings = GenericPermutationRelation<two_column_perm_permutation_settings, FF_>;
 
 } // namespace proof_system::honk::sumcheck

@@ -2,20 +2,21 @@
 
 #pragma once
 #include "../relation_definitions_fwd.hpp"
+
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 
-#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
-
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
+
 #include "barretenberg/relations/generated/Toy/toy_avm.hpp"
 #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 
 namespace proof_system::honk {
 namespace flavor {
@@ -42,7 +43,7 @@ class ToyFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 9;
 
-    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::two_column_perm<FF>>;
+    using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::TwoColumnPerpSettings<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -295,4 +296,10 @@ class ToyFlavor {
 };
 
 } // namespace flavor
+
+// TODO: define the sumcheck relation class at the bottom of the flavor for each permutation settings
+namespace sumcheck {
+DECLARE_SUMCHECK_RELATION_CLASS(TwoColumnPerpSettings, flavor::ToyFlavor);
+}
+
 } // namespace proof_system::honk

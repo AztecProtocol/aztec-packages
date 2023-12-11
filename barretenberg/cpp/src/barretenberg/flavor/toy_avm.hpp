@@ -368,4 +368,11 @@ class ToyAVM {
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 } // namespace flavor
+
+// TODO: NEED THIS - how to generate cleanly
+namespace sumcheck {
+
+DECLARE_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericPermutationRelationImpl, flavor::ToyAVM)
+
+} // namespace sumcheck
 } // namespace proof_system::honk

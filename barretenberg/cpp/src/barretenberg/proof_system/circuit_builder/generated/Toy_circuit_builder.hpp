@@ -14,6 +14,8 @@
 #include "barretenberg/relations/generated/Toy/toy_avm.hpp"
 #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
 
+#include "barretenberg/relations/relation_parameters.hpp"
+
 using namespace barretenberg;
 
 namespace proof_system {
@@ -77,7 +79,7 @@ class ToyCircuitBuilder {
 
         const FF gamma = FF::random_element();
         const FF beta = FF::random_element();
-        proof_system::RelationParameters<typename Flavor::FF> params{
+        proof_system::RelationParameters<FF> params{
             .eta = 0,
             .beta = beta,
             .gamma = gamma,
@@ -116,18 +118,18 @@ class ToyCircuitBuilder {
             return true;
         };
 
-        const auto evaluate_permutation = [&]<typename PermutationSettings>(const std::string& permutation_name) {
+        const auto evaluate_permutation = [&]<typename Permutation>(const std::string& permutation_name) {
             // Check the tuple permutation relation
-            proof_system::honk::logderivative_library::compute_logderivative_inverse<Flavor, PermutationSettings>(
-                polys, params, num_rows);
 
-            typename PermutationSettings::SumcheckArrayOfValuesOverSubrelations permutation_result;
+            proof_system::honk::logderivative_library::compute_logderivative_inverse<Flavor, Permutation>(
+                polys, params, num_rows);
+            typename Permutation::SumcheckArrayOfValuesOverSubrelations permutation_result;
 
             for (auto& r : permutation_result) {
                 r = 0;
             }
             for (size_t i = 0; i < num_rows; ++i) {
-                PermutationSettings::accumulate(permutation_result, polys.get_row(i), params, 1);
+                Permutation::accumulate(permutation_result, polys.get_row(i), params, 1);
             }
             for (auto r : permutation_result) {
                 if (r != 0) {
@@ -142,7 +144,7 @@ class ToyCircuitBuilder {
             return false;
         }
 
-        if (!evaluate_permutation.template operator()<honk::sumcheck::two_column_perm<FF>>("two_column_perm")) {
+        if (!evaluate_permutation.template operator()<honk::sumcheck::TwoColumnPerpSettings<FF>>("two_column_perm")) {
             return false;
         }
 

@@ -28,7 +28,7 @@ template <typename FF_> class toy_avmImpl {
 
         // Contribution 0
         {
-            DECLARE_VIEWS(0);
+            TOY_DECLARE_VIEWS(0);
 
             auto tmp = (toy_x_shift - toy_x);
             tmp *= scaling_factor;

@@ -16,7 +16,7 @@ namespace toy(256);
     // TODO: how can we leverage same column things
 
     // This is a column based tuple lookup
-    #[two_column_perm]
+    #[two_column_perm] // the name of the inverse
     q_tuple_set { set_1_column_1, set_1_column_2 } is { set_2_column_1, set_2_column_2 };
 
     // Toy relation
