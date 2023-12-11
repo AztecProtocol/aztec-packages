@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <string>
 #include <stdexcept>
-
+#ifdef BBERG_DEBUG_LOG
 namespace barretenberg {
 void _debug_log_check_abort_condition(const std::string& log_str)
 {
@@ -12,3 +12,4 @@ void _debug_log_check_abort_condition(const std::string& log_str)
     }
 }
 } // namespace barretenberg
+#endif
