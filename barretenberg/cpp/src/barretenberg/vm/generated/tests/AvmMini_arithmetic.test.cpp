@@ -33,6 +33,7 @@ class AvmMiniArithmeticTests : public ::testing::Test {
 
 class AvmMiniArithmeticNegativeTests : public AvmMiniArithmeticTests {};
 
+// We add some helper functions in the anonymous namespace.
 namespace {
 
 /**
@@ -95,10 +96,29 @@ void mutateIcInTrace(std::vector<Row>& trace, std::function<bool(Row)>&& selectR
 
 /******************************************************************************
  *
- * POSITIVE TESTS
+ * POSITIVE TESTS - Finite Field Type
  *
+ ******************************************************************************
+ * The positive tests aim at testing that a genuinely generated execution trace
+ * is correct, i.e., the evaluation is correct and the proof passes.
+ * Positive refers to the proof system and not that the arithmetic operation has valid
+ * operands. A division by zero needs to be handled by the AVM and needs to raise an error.
+ * This will be positively tested, i.e., that the error is correctly raised.
+ *
+ * We isolate each operation addition, subtraction, multiplication and division
+ * by having dedicated unit test for each of them.
+ * In any positive test, we also verify that the main trace contains
+ * a write memory operation for the intermediate register Ic at the
+ * correct address. This operation belongs to the same row as the arithmetic
+ * operation.
+ *
+ * Finding the row pertaining to the arithmetic operation is done through
+ * a scan of all rows and stopping at the first one with the corresponding
+ * operator selector. This mechanism is used with the hope that these unit tests
+ * will still correctly work along the development of the AVM.
  ******************************************************************************/
 
+// Test on basic addition over finite field type.
 TEST_F(AvmMiniArithmeticTests, additionFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
@@ -121,6 +141,7 @@ TEST_F(AvmMiniArithmeticTests, additionFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on basic subtraction over finite field type.
 TEST_F(AvmMiniArithmeticTests, subtractionFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
@@ -143,6 +164,7 @@ TEST_F(AvmMiniArithmeticTests, subtractionFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on basic multiplication over finite field type.
 TEST_F(AvmMiniArithmeticTests, multiplicationFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
@@ -165,6 +187,7 @@ TEST_F(AvmMiniArithmeticTests, multiplicationFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on multiplication by zero over finite field type.
 TEST_F(AvmMiniArithmeticTests, multiplicationByZeroFF)
 {
     trace_builder.callDataCopy(0, 1, 0, std::vector<FF>{ 127 });
@@ -187,6 +210,7 @@ TEST_F(AvmMiniArithmeticTests, multiplicationByZeroFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on basic division over finite field type.
 TEST_F(AvmMiniArithmeticTests, divisionFF)
 {
     trace_builder.callDataCopy(0, 2, 0, std::vector<FF>{ 15, 315 });
@@ -209,6 +233,7 @@ TEST_F(AvmMiniArithmeticTests, divisionFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on division with zero numerator over finite field type.
 TEST_F(AvmMiniArithmeticTests, divisionNumeratorZeroFF)
 {
     trace_builder.callDataCopy(0, 1, 0, std::vector<FF>{ 15 });
@@ -231,6 +256,8 @@ TEST_F(AvmMiniArithmeticTests, divisionNumeratorZeroFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on division by zero over finite field type.
+// We check that the operator error flag is raised.
 TEST_F(AvmMiniArithmeticTests, divisionByZeroErrorFF)
 {
     trace_builder.callDataCopy(0, 1, 0, std::vector<FF>{ 15 });
@@ -278,10 +305,26 @@ TEST_F(AvmMiniArithmeticTests, arithmeticFFWithError)
 
 /******************************************************************************
  *
- * NEGATIVE TESTS
+ * NEGATIVE TESTS - Finite Field Type
  *
+ ******************************************************************************
+ * The negative tests are the counterparts of the positive tests for which we want
+ * to test that a deviation of the prescribed behaviour of the VM will lead to
+ * an exception being raised while attempting to generate a proof.
+ *
+ * As for the positive tests, we isolate each operation addition, subtraction, multiplication
+ * and division by having dedicated unit test for each of them.
+ * A typical pattern is to wrongly mutate the result of the operation. The memory trace
+ * is consistently adapted so that the negative test is applying to the relation
+ * if the arithmetic operation and not the layout of the memory trace.
+ *
+ * Finding the row pertaining to the arithmetic operation is done through
+ * a scan of all rows and stopping at the first one with the corresponding
+ * operator selector. This mechanism is used with the hope that these unit tests
+ * will still correctly work along the development of the AVM.
  ******************************************************************************/
 
+// Test on basic incorrect addition over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTests, additionFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
@@ -298,6 +341,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, additionFF)
     EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
 }
 
+// Test on basic incorrect subtraction over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTests, subtractionFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
@@ -314,6 +358,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, subtractionFF)
     EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
 }
 
+// Test on basic incorrect multiplication over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTests, multiplicationFF)
 {
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
@@ -330,6 +375,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, multiplicationFF)
     EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
 }
 
+// Test on basic incorrect division over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTests, divisionFF)
 {
     trace_builder.callDataCopy(0, 2, 0, std::vector<FF>{ 15, 315 });
