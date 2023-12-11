@@ -218,7 +218,23 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
-    return this.#addresses.setIfNotExists(completeAddress.address.toString(), completeAddress.toBuffer());
+    return this.#db.transaction(() => {
+      const addressString = completeAddress.address.toString();
+      const buffer = completeAddress.toBuffer();
+      const existing = this.#addresses.get(addressString);
+      if (!existing) {
+        void this.#addresses.set(addressString, buffer);
+        return true;
+      }
+
+      if (existing.equals(buffer)) {
+        return false;
+      }
+
+      throw new Error(
+        `Complete address with aztec address ${addressString} but different public key or partial key already exists in memory database`,
+      );
+    });
   }
 
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
