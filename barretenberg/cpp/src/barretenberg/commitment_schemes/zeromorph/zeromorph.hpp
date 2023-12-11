@@ -95,7 +95,7 @@ template <typename Curve> class ZeroMorphProver_ {
             }
 
             size_q = size_q / 2;
-            Polynomial q{ size_q };
+            q = Polynomial{ size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
                 q[l] = f_k[size_q + l] - f_k[l];
