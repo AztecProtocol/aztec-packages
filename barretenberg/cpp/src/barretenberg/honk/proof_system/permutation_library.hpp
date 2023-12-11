@@ -186,9 +186,6 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
-    // TODO(AD): use RefVector<PolynomialHandle> here, see https://github.com/AztecProtocol/barretenberg/issues/743
-    // RefVector makes PolynomialHandle now redundant. Can scale back use of auto then too.
-    // using PolynomialHandle = typename Flavor::PolynomialHandle;
     // Concatenation groups are vectors of polynomials that are concatenated together
     auto concatenation_groups = proving_key->get_concatenation_groups();
 

@@ -325,7 +325,6 @@ template <typename Curve> class ZeroMorphProver_ {
                       const std::shared_ptr<BaseTranscript>& transcript,
                       const std::vector<Polynomial>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
-                      // TODO(https://github.com/AztecProtocol/barretenberg/issues/743) remove span
                       const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
@@ -351,7 +350,6 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
-        int i = 0;
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
