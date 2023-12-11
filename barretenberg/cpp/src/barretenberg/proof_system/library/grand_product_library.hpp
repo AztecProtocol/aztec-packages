@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
