@@ -354,18 +354,14 @@ template <typename Curve> class ZeroMorphProver_ {
         int i = 0;
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
-            std::cout << "I:" << (i++) << " gp " << g_poly << " batch " << batching_scalar << std::endl;
-            std::cout << "I:" << (i++) << g_batched << std::endl;
             g_batched.add_scaled(g_poly, batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
             batching_scalar *= rho;
         };
-        std::cout << "Iafter:" << (i++) << g_batched << std::endl;
 
         size_t num_groups = concatenation_groups.size();
         size_t num_chunks_per_group = concatenation_groups.empty() ? 0 : concatenation_groups[0].size();
         // Concatenated polynomials
-        // std::vector<Polynomial> concatenated_polynomials;
         Polynomial concatenated_batched(N);
 
         // construct concatention_groups_batched
