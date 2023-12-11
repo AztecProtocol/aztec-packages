@@ -292,7 +292,7 @@ template <class FF> class GrandProductTests : public testing::Test {
             // q_lookup * f + γ
             accumulators[0][i] = lookup_selector[i] * f_i + gamma;
 
-            // t = t_1 + ηt_2 + η²t_3 + η³t_41
+            // t = t_1 + ηt_2 + η²t_3 + η³t_4
             FF table_i_plus_1 = tables[0][shift_idx] + eta * tables[1][shift_idx] + eta_sqr * tables[2][shift_idx] +
                                 eta_cube * tables[3][shift_idx];
 
