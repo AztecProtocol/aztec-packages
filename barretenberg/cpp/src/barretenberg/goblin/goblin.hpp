@@ -103,6 +103,7 @@ class Goblin {
      */
     AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
     {
+        info("goblin: accumulate");
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
@@ -110,18 +111,25 @@ class Goblin {
         }
 
         // Construct a Honk proof for the main circuit
+        info("default constuct UGH composer");
         GoblinUltraComposer composer;
+        info("create_instance ultra");
         auto instance = composer.create_instance(circuit_builder);
+        info("create_prover ultra");
         auto prover = composer.create_prover(instance);
+        info("construct_proof ultra");
         auto ultra_proof = prover.construct_proof();
 
-        // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        auto merge_prover = composer.create_merge_prover(op_queue);
-        merge_proof = merge_prover.construct_proof();
+        // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
+        // // Construct and store the merge proof to be recursively verified on the next call to accumulate
+        // info("create_merge_prover");
+        // auto merge_prover = composer.create_merge_prover(op_queue);
+        // info("merge_prover.construct_proof()");
+        // merge_proof = merge_prover.construct_proof();
 
-        if (!merge_proof_exists) {
-            merge_proof_exists = true;
-        }
+        // if (!merge_proof_exists) {
+        //     merge_proof_exists = true;
+        // }
 
         accumulator = { ultra_proof, instance->verification_key };
         return accumulator;
@@ -150,7 +158,9 @@ class Goblin {
 
     std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
     {
+        info("goblin: construct_proof");
         accumulate(builder);
+        info("accumulate complete.");
         std::vector<uint8_t> goblin_proof = prove().to_buffer();
         std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
         const auto insert = [&result](const std::vector<uint8_t>& buf) {

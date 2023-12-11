@@ -23,6 +23,8 @@ void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<Prov
     auto verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
 
+    info("Computing commitments for VK");
+
     // Compute and store commitments to all precomputed polynomials
     verification_key->q_m = commitment_key->commit(proving_key->q_m);
     verification_key->q_l = commitment_key->commit(proving_key->q_l);
@@ -50,6 +52,7 @@ void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<Prov
     verification_key->table_2 = commitment_key->commit(proving_key->table_2);
     verification_key->table_3 = commitment_key->commit(proving_key->table_3);
     verification_key->table_4 = commitment_key->commit(proving_key->table_4);
+    info("Done computing basic ultra commitments.");
 
     // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to these polynomials
     // due to their simple structure.
@@ -70,8 +73,10 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
     auto instance = std::make_shared<Instance>(circuit);
+    info("Computing commitment key");
     commitment_key = compute_commitment_key(instance->proving_key->circuit_size);
 
+    info("Computing verification key");
     compute_verification_key(instance);
     return instance;
 }

@@ -19,16 +19,20 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
 
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
+    // WORKTODO: this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
+    // sizes below never get set and that eventually causes too few srs points to be extracted
     if (builder_.get_num_gates() > 1) {
+
+        info("create_circuit: early return: builder_.get_num_gates() > 1; num_gates = ", builder_.get_num_gates());
         return;
     }
-    vinfo("building circuit...");
+    info("create_circuit: building circuit...");
     builder_ = acir_format::create_circuit(constraint_system, size_hint_); // WORKTODO
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
     size_hint_ = circuit_subgroup_size_;
-    vinfo("gates: ", builder_.get_total_circuit_size());
+    info("create_circuit: gates: ", builder_.get_total_circuit_size());
 }
 std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_format::acir_format& constraint_system)
 {
@@ -50,10 +54,11 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)
 {
-    vinfo("building circuit with witness...");
+    info("building circuit with witness...");
     builder_ = acir_format::Builder(size_hint_);
+    info("set builder_ in create_proof");
     create_circuit_with_witness(builder_, constraint_system, witness);
-    vinfo("gates: ", builder_.get_total_circuit_size());
+    info("gates: ", builder_.get_total_circuit_size());
 
     // WORKTODO: should we be using the internal Goblin?
     auto goblin = [&]() {
@@ -66,14 +71,14 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 
         // WORKTODO this becomes a Goblin
         Goblin goblin;
-        vinfo("computing proving key...");
+        info("computing proving key...");
         // WORKTODO(USE_GOBLIN) construct guh pk from guh builder via a proxy function in Goblin
         proving_key_ = composer_.compute_proving_key(builder_);
-        vinfo("done.");
+        info("done.");
         return goblin;
     }();
 
-    vinfo("creating proof...");
+    info("creating proof...");
     std::vector<uint8_t> proof;
     if (is_recursive) {
         // WORKTODO: is this a call to accumulate?
@@ -81,7 +86,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     } else {
         proof = goblin.construct_proof(builder_); // WORKTODO serialize
     }
-    vinfo("done.");
+    info("done.");
     return proof;
 }
 

@@ -34,6 +34,9 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     acir_composer.create_circuit(constraint_system);
     info("created circuit");
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
+    // WORKTODO: subgroup_size is 0 since the member variable is not being set properly in create_circuit
+    info("init: subgroup_size = ", subgroup_size);
+    subgroup_size = 4096;
     // Must +1!
     auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
     auto g2_data = get_g2_data(CRS_PATH);
