@@ -33,12 +33,16 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_format::acir_format& constraint_system)
 {
     create_circuit(constraint_system);
+    info("created circuit in init_proving_key");
     // acir_format::Composer is a GUH composer
     // This does not become a goblin
     acir_format::Composer composer; // WORKTODO: access through Goblin?
+    info("created composer in init_proving_key");
     vinfo("computing proving key...");
     proving_key_ =
         composer.compute_proving_key(builder_); // WORKTODO: static execution if this doesn't change composer state
+    info("assigned proving_key_ in init_proving_key");
+
     return proving_key_;
 }
 

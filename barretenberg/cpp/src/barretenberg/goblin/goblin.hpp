@@ -81,7 +81,7 @@ class Goblin {
 
     Goblin(const std::shared_ptr<GUHProvingKey>& proving_key,
            const std::shared_ptr<GUHVerificationKey>& verification_key)
-        : proving_key(proving_key)
+        : proving_key(proving_key) // WORKTODO(KEY_TYPES): should this be pk of the composer member?
         , verification_key(verification_key)
     {}
 

@@ -26,15 +26,19 @@ const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
+    // WORKTODO initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
+    srs::init_crs_factory(CRS_PATH);
     acir_proofs::AcirComposer acir_composer(0, verbose);
+    info("created AcirComposer");
     // populates the GUH builder in the Goblin
     acir_composer.create_circuit(constraint_system);
-    auto subgroup_size = acir_composer.get_circuit_subgroup_size();
-
-    // Must +1!
-    auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
-    auto g2_data = get_g2_data(CRS_PATH);
-    srs::init_crs_factory(g1_data, g2_data);
+    info("created circuit");
+    // auto subgroup_size = acir_composer.get_circuit_subgroup_size();
+    // // Must +1!
+    // auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
+    // auto g2_data = get_g2_data(CRS_PATH);
+    // info("initializing crs factory in init(constraint_system)");
+    // srs::init_crs_factory(g1_data, g2_data);
 
     return acir_composer;
 }
@@ -74,10 +78,13 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
  */
 bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
 {
+    info("executing proveAndVerify");
     auto constraint_system = get_constraint_system(bytecodePath); // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
+    info("got constraint system");
     auto witness = get_witness(witnessPath);
-
+    info("got witness");
     auto acir_composer = init(constraint_system);
+    info("initialized acir_composer");
 
     Timer pk_timer;
     // construct a pk for the GUH composer
