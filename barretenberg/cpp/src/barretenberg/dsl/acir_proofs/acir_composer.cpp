@@ -60,6 +60,8 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     create_circuit_with_witness(builder_, constraint_system, witness);
     info("gates: ", builder_.get_total_circuit_size());
 
+    info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
+
     // WORKTODO: should we be using the internal Goblin?
     auto goblin = [&]() {
         if (proving_key_) {
@@ -74,7 +76,6 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
         info("computing proving key...");
         // WORKTODO(USE_GOBLIN) construct guh pk from guh builder via a proxy function in Goblin
         proving_key_ = composer_.compute_proving_key(builder_);
-        info("done.");
         return goblin;
     }();
 
@@ -86,7 +87,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     } else {
         proof = goblin.construct_proof(builder_); // WORKTODO serialize
     }
-    info("done.");
+    info("AcirComposer::create_proof complete.");
     return proof;
 }
 
@@ -113,12 +114,13 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
 {
     // WORKTODO: constructor of a Goblin from a GUH pk and a GUH vk.
     // This becomes a goblin
-    acir_format::Composer composer(proving_key_, verification_key_);
+    // Goblin composer(proving_key_, verification_key_);
+    goblin.composer = acir_format::Composer(proving_key_, verification_key_);
 
     if (!verification_key_) {
-        vinfo("computing verification key...");
-        verification_key_ = composer.compute_verification_key(builder_);
-        vinfo("done.");
+        info("computing verification key...");
+        verification_key_ = goblin.composer.compute_verification_key(builder_);
+        info("done computing verification key.");
     }
 
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
@@ -128,11 +130,11 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     if (is_recursive) {
         // WORKTODO: what is this if in proof construction is_recursive is true?
         // Actually maybe this doesn't matter and it's just a hack for cheap solidity verifer.
-        auto verifier = composer.create_verifier(builder_);
-        return verifier.verify_proof({ proof });
+        return goblin.verify_proof({ proof });
     } else {
-        auto verifier = composer.create_ultra_with_keccak_verifier(builder_);
-        return verifier.verify_proof({ proof });
+        info("Verify proof.");
+        return goblin.verify_proof({ proof });
+        info("Verify proof complete.");
     }
 }
 

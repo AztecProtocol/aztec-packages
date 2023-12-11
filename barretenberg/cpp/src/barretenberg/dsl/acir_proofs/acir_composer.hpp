@@ -3,6 +3,7 @@
 #include <barretenberg/goblin/goblin.hpp>
 #include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp> // WORKTODO(KEY_TYPES)
 #include <barretenberg/plonk/proof_system/verification_key/verification_key.hpp>
+#include <barretenberg/proof_system/op_queue/ecc_op_queue.hpp>
 
 namespace acir_proofs {
 
@@ -39,6 +40,8 @@ class AcirComposer {
                                                               size_t num_inner_public_inputs);
 
     std::vector<barretenberg::fr> serialize_verification_key_into_fields();
+
+    std::shared_ptr<proof_system::ECCOpQueue> get_goblin_op_queue() { return goblin.op_queue; };
 
   private:
     acir_format::Builder builder_;

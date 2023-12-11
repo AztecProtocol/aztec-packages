@@ -36,12 +36,15 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
     // WORKTODO: subgroup_size is 0 since the member variable is not being set properly in create_circuit
     info("init: subgroup_size = ", subgroup_size);
-    subgroup_size = 4096;
+    // subgroup_size = 4096;
+    subgroup_size = 65536; // WORKTODO: to accomodate Translator which uses the same srs?
     // Must +1!
     auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
     auto g2_data = get_g2_data(CRS_PATH);
     info("initializing crs factory in init(constraint_system)");
     srs::init_crs_factory(g1_data, g2_data);
+
+    srs::init_grumpkin_crs_factory(CRS_PATH);
 
     return acir_composer;
 }
@@ -100,9 +103,13 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
+    info("acir_composer.init_verification_key()");
+
     Timer vk_timer;
     acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
+
+    info("acir_composer.verify_proof(...)");
 
     auto verified = acir_composer.verify_proof(proof, recursive);
 
