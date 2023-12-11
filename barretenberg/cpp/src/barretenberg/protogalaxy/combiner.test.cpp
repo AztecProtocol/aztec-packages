@@ -83,12 +83,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 storage_arrays[idx] = std::move(storage);
-<<<<<<< HEAD
                 instance->prover_polynomials = std::move(prover_polynomials);
-=======
-                instance->prover_polynomials = prover_polynomials;
                 instance->instance_size = 2;
->>>>>>> origin/master
                 instance_data[idx] = instance;
             }
 
@@ -179,12 +175,8 @@ TEST(Protogalaxy, CombinerOn4Instances)
             auto [storage, prover_polynomials] = proof_system::honk::get_zero_prover_polynomials<Flavor>(
                 /*log_circuit_size=*/1);
             storage_arrays[idx] = std::move(storage);
-<<<<<<< HEAD
             instance->prover_polynomials = std::move(prover_polynomials);
-=======
-            instance->prover_polynomials = prover_polynomials;
             instance->instance_size = 2;
->>>>>>> origin/master
             instance_data[idx] = instance;
         }
 
