@@ -25,6 +25,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using Instance = ProverInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
+    using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
 
     static constexpr size_t NUM_FOLDING = 2;
     using ProverInstances = ProverInstances_<Flavor, NUM_FOLDING>;
@@ -36,13 +37,15 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
+    // std::shared_ptr<CRSFactory> crs_factory_;
+    std::shared_ptr<CRSFactory> crs_factory_ = barretenberg::srs::get_crs_factory();
+    // std::shared_ptr<CRSFactory> crs_factory_ = std::make_shared<CRSFactory>();
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
+    UltraComposer_() = default;
 
-    explicit UltraComposer_(std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
+    explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
 
@@ -59,7 +62,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size + 1, crs_factory_); // WORKTODO
         return commitment_key;
     };
 

@@ -57,6 +57,7 @@ inline std::vector<uint8_t> download_g2_data()
 inline std::vector<barretenberg::g1::affine_element> get_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
+    info("getting g1 data at ", path);
     std::ifstream size_file(path / "size");
     size_t size = 0;
     if (size_file) {
