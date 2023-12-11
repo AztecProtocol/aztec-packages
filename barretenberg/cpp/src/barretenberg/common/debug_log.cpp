@@ -1,7 +1,7 @@
 #include "debug_log.hpp"
 #include <cstdlib>
-#include <string>
 #include <stdexcept>
+#include <string>
 #ifdef BBERG_DEBUG_LOG
 namespace barretenberg {
 void _debug_log_check_abort_condition(const std::string& log_str)
