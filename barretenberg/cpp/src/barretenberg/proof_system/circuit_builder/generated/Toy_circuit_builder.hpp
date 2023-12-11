@@ -7,11 +7,12 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/generated/Toy_flavor.hpp"
 #include "barretenberg/relations/generated/Toy/toy_avm.hpp"
-// #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
+#include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
 
 using namespace barretenberg;
 
@@ -39,7 +40,7 @@ class ToyCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using AllPolynomials = Flavor::AllPolynomials;
 
-    static constexpr size_t num_fixed_columns = 1;
+    static constexpr size_t num_fixed_columns = 9;
     static constexpr size_t num_polys = 8;
     std::vector<Row> rows;
 
@@ -125,7 +126,7 @@ class ToyCircuitBuilder {
             for (auto& r : permutation_result) {
                 r = 0;
             }
-            for (size_t i = 0; i < num_rows; i++) {
+            for (size_t i = 0; i < num_rows; ++i) {
                 PermutationSettings::accumulate(permutation_result, polys.get_row(i), params, 1);
             }
             for (auto r : permutation_result) {
