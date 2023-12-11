@@ -172,8 +172,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Set historical_tree_root to a wrong value (the correct value + 1).
-        let contract_tree_root = builder.previous_kernel.block_header.block.contract_tree_root;
-        builder.previous_kernel.block_header.block.contract_tree_root = contract_tree_root + 1;
+        let contract_tree_root = builder.previous_kernel.block_header.contract_tree_root;
+        builder.previous_kernel.block_header.contract_tree_root = contract_tree_root + 1;
 
         builder.failed();
     }
@@ -608,8 +608,8 @@ mod tests {
         builder.private_call.append_read_requests(1);
 
         // Set the root to be a different root so the above read request is not under this root.
-        let old_root = builder.previous_kernel.block_header.block.note_hash_tree_root;
-        builder.previous_kernel.block_header.block.note_hash_tree_root = old_root + 1;
+        let old_root = builder.previous_kernel.block_header.note_hash_tree_root;
+        builder.previous_kernel.block_header.note_hash_tree_root = old_root + 1;
 
         builder.failed();
     }

@@ -383,7 +383,7 @@ impl BaseRollupInputs {
         for i in 0..KERNELS_PER_BASE_ROLLUP {
             // Rebuild the block hash
             let block_header = self.kernel_data[i].public_inputs.constants.block_header;
-            let previous_block_hash = block_header.block.hash();
+            let previous_block_hash = block_header.block_hash();
 
             let previous_block_hash_witness = self.archive_root_membership_witnesses[i];
 
@@ -613,7 +613,7 @@ mod tests {
             });
 
             inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
-                builder.block_header.block.hash()
+                builder.block_header.block_hash()
             });
 
             inputs

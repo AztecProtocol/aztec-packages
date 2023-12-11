@@ -13,7 +13,6 @@ use dep::protocol_types::{
         AztecAddress,
         EthAddress,
     },
-    block::Block,
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_CALL,
@@ -221,7 +220,7 @@ impl PrivateContext {
     ) 
     // docs:end:context_consume_l1_to_l2_message
     {
-        let nullifier = process_l1_to_l2_message(self.block_header.block.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+                let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -305,15 +304,13 @@ impl PrivateContext {
                 unencrypted_log_preimages_length: fields[144],
                 block_header: BlockHeader {
                     // Must match order in `private_circuit_public_inputs.hpp`
+                    note_hash_tree_root : fields[145],
+                    nullifier_tree_root : fields[146],
+                    contract_tree_root : fields[147],
+                    l1_to_l2_messages_tree_root : fields[148],
                     archive_root : fields[149],
-                    block: Block {
-                        note_hash_tree_root : fields[145],
-                        nullifier_tree_root : fields[146],
-                        contract_tree_root : fields[147],
-                        l1_to_l2_messages_tree_root : fields[148],
-                        public_data_tree_root: fields[150],
-                        global_variables_hash: fields[151],
-                    },
+                    public_data_tree_root: fields[150],
+                    global_variables_hash: fields[151],
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point {
@@ -562,7 +559,7 @@ impl PublicContext {
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
         let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(self.block_header.block.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)

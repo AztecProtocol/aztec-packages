@@ -34,12 +34,12 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     let archive_id = 5; // TODO(#3443)
     
     // Using `block_number` here for path is incorrect and it will break if we pass in an incorrect block number on input.
-    // Instead here should be the block number corresponding to `context.block_header.blocks_tree_root`
+    // Instead here should be the block number corresponding to `context.block_header.archive_root`
     // This is not currently available in private context. See issue #3564
     let path_block_number = block_number;
-    
-    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(path_block_number, archive_id, block_hash);
 
+    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(path_block_number, archive_id, block_hash);
+    
     // 4) Check that the block is in the archive (i.e. the witness is valid)
     assert(context.block_header.archive_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed");
 

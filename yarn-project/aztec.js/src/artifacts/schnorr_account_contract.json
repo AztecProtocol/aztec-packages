@@ -417,54 +417,45 @@
                 "path": "aztec::protocol_types::abis::block_header::BlockHeader",
                 "fields": [
                   {
+                    "name": "note_hash_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "nullifier_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "contract_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "l1_to_l2_messages_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
                     "name": "archive_root",
                     "type": {
                       "kind": "field"
                     }
                   },
                   {
-                    "name": "block",
+                    "name": "public_data_tree_root",
                     "type": {
-                      "kind": "struct",
-                      "path": "aztec::protocol_types::block::Block",
-                      "fields": [
-                        {
-                          "name": "note_hash_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "nullifier_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "contract_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "l1_to_l2_messages_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "public_data_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "global_variables_hash",
-                          "type": {
-                            "kind": "field"
-                          }
-                        }
-                      ]
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "global_variables_hash",
+                    "type": {
+                      "kind": "field"
                     }
                   }
                 ]
@@ -740,54 +731,45 @@
                 "path": "aztec::protocol_types::abis::block_header::BlockHeader",
                 "fields": [
                   {
+                    "name": "note_hash_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "nullifier_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "contract_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "l1_to_l2_messages_tree_root",
+                    "type": {
+                      "kind": "field"
+                    }
+                  },
+                  {
                     "name": "archive_root",
                     "type": {
                       "kind": "field"
                     }
                   },
                   {
-                    "name": "block",
+                    "name": "public_data_tree_root",
                     "type": {
-                      "kind": "struct",
-                      "path": "aztec::protocol_types::block::Block",
-                      "fields": [
-                        {
-                          "name": "note_hash_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "nullifier_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "contract_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "l1_to_l2_messages_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "public_data_tree_root",
-                          "type": {
-                            "kind": "field"
-                          }
-                        },
-                        {
-                          "name": "global_variables_hash",
-                          "type": {
-                            "kind": "field"
-                          }
-                        }
-                      ]
+                      "kind": "field"
+                    }
+                  },
+                  {
+                    "name": "global_variables_hash",
+                    "type": {
+                      "kind": "field"
                     }
                   }
                 ]
