@@ -242,6 +242,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
             prover_poly = key_poly.share();
         }
+        EXPECT_EQ(&proving_key->z_lookup[0], &prover_polynomials.z_lookup[0]);
 
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;

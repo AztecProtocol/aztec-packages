@@ -105,7 +105,8 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
-    auto get_all() { return concatenate(get_witness_polynomials(), get_precomputed_polynomials()); }
+    // This order matters! must match get_unshifted in entity classes
+    auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
     auto get_witness_polynomials() { return WitnessPolynomials::get_all(); }
     auto get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
     ProvingKey_() = default;

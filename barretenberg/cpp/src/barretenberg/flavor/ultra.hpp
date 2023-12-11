@@ -185,16 +185,7 @@ class Ultra {
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
-            return { this->q_c,           this->q_l,          this->q_r,      this->q_o,
-                     this->q_4,           this->q_m,          this->q_arith,  this->q_sort,
-                     this->q_elliptic,    this->q_aux,        this->q_lookup, this->sigma_1,
-                     this->sigma_2,       this->sigma_3,      this->sigma_4,  this->id_1,
-                     this->id_2,          this->id_3,         this->id_4,     this->table_1,
-                     this->table_2,       this->table_3,      this->table_4,  this->lagrange_first,
-                     this->lagrange_last, this->w_l,          this->w_r,      this->w_o,
-                     this->w_4,           this->sorted_accum, this->z_perm,   this->z_lookup
-
-            };
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
         RefVector<DataType> get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
