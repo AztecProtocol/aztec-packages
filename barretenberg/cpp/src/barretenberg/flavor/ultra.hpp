@@ -199,7 +199,7 @@ class Ultra {
 
         RefVector<DataType> get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         // get_wires is inherited
-        RefVector<DataType> get_Witness() { return WitnessEntities<DataType>::get_all(); }
+        RefVector<DataType> get_witness() { return WitnessEntities<DataType>::get_all(); }
         RefVector<DataType> get_to_be_shifted()
         {
             return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
