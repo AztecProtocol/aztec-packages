@@ -1,5 +1,5 @@
 
-#define TOY_DECLARE_VIEWS(index)                                                                                       \
+#define Toy_DECLARE_VIEWS(index)                                                                                       \
     using Accumulator = typename std::tuple_element<index, ContainerOverSubrelations>::type;                           \
     using View = typename Accumulator::View;                                                                           \
     [[maybe_unused]] auto toy_first = View(new_term.toy_first);                                                        \
