@@ -102,7 +102,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     size_t get_num_gates() const override
     {
+
         auto num_ultra_gates = UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates();
+        info("get_num_gates: num_ultra_gates = ", num_ultra_gates);
+        info("get_num_gates: num_ecc_op_gates = ", num_ecc_op_gates);
         return num_ultra_gates + num_ecc_op_gates;
     }
 

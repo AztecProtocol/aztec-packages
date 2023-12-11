@@ -31,7 +31,9 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<CommitmentKey>& commitm
  */
 template <typename Flavor> plonk::proof& MergeProver_<Flavor>::construct_proof()
 {
+    // WORKTODO: for acir tests we need to ensure the right op_queue is used here
     size_t N = op_queue->get_current_size();
+    info("MergeProver: N = ", N);
 
     // Extract T_i, T_{i-1}
     auto T_current = op_queue->get_aggregate_transcript();
