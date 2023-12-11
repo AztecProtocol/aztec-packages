@@ -41,15 +41,15 @@ The following must be empty to ensure a comprehensive final reset:
 
 The initial and inner kernel iterations may produce values in an unordered state due to the serial nature of the kernel, contrasting with the stack-based nature of code execution.
 
-This circuit ensures correct ordering of the following array in the final public inputs:
+This circuit ensures correct ordering of the following array in the public inputs:
 
 - Public call requests.
 
 A hints array is provided via the private inputs. This circuit verifies that:
 
 - The length of the hints must equal the length of the public call requests array in the previous iteration's public inputs (_prev_public_call_requests_).
-- The length of _prev_public_call_requests_ must equal the length of the public call requests array in the final public inputs (_final_public_call_requests_).
-- For each hint _hints[i]_ at index _i_, the request at index _i_ in _final_public_call_requests_ must equal the request at index _hints[i]_ in _prev_public_call_requests_.
+- The length of _prev_public_call_requests_ must equal the length of the public call requests array in the public inputs (_public_call_requests_).
+- For each hint _hints[i]_ at index _i_, the request at index _i_ in _public_call_requests_ must equal the request at index _hints[i]_ in _prev_public_call_requests_.
 - For _i_ > 0, the counter of the request at index _hints[i]_ must be greater than the counter of the request at index _hints[i - 1]_ in _prev_public_call_requests_.
 
 > The length of an array is the number of **consecutive** non-empty items from index 0 in an array.
@@ -85,22 +85,13 @@ Where _version_id_ and _portal_contract_address_ equal the values defined in the
 
 #### Verifying the accumulated data.
 
-The following must align with the outcome after ordering (details [above](#verifying-ordered-arrays)):
-
-- Public call requests.
-
-The following must correspond to the result after siloing:
+The following must correspond to the value after siloing:
 
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
 
-The following must be empty:
-
-- Read requests.
-- Private call requests.
-- Public read requests.
-- Public update requests.
+> Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
 The following must match the respective values in the previous kernel's public inputs:
 
@@ -108,12 +99,16 @@ The following must match the respective values in the previous kernel's public i
 - Log hashes.
 - Log lengths.
 
-No hints aiding verifications and siloing should be present:
+The following must be empty:
 
-- Counter.
-- Contract address.
-- Portal contract address.
-- Nullified note hash.
+- Old public data tree root.
+- New public data tree root.
+
+#### Verifying the transient accumulated data.
+
+It ensures that all data in the transient accumulated data is empty except for the public call requests.
+
+The public call requests must be ordered and was verified in a [previous step](#verifying-ordered-arrays).
 
 #### Verifying the constant data.
 
@@ -125,11 +120,11 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 The data of the previous kernel iteration:
 
-- Public inputs of the previous kernel proof.
-- Proof of the kernel circuit. It could be one of the following private kernel circuits:
-  - Initial.
-  - Inner.
-  - Reset.
+- Proof of the kernel circuit. It could be one of the following:
+  - [Initial private kernel circuit](./private_kernel_initial.md).
+  - [Inner private kernel circuit](./private_kernel_inner.md).
+  - [Reset private kernel circuit](./private_kernel_reset.md).
+- Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
 
@@ -141,23 +136,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
-
-### Accumulated Data
-
-It contains the result from the current function call:
-
-- Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Public read requests.
-- Public update requests.
+The structure of this public inputs aligns with that of the [iterative public kernel circuit](./public_kernel_iterative.md) and the [tail public kernel circuit](./public_kernel_tail.md).
 
 ### Constant Data
 
@@ -171,4 +150,32 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- Transaction context.
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Accumulated Data
+
+It contains data accumulated during the execution of the transaction:
+
+- New note hashes.
+- New nullifiers.
+- L2-to-L1 messages.
+- New contracts.
+- Log hashes.
+- Log lengths.
+- Old public data tree root.
+- New public data tree root.
+
+### Transient Accumulated Data
+
+It includes data that aids in processing each kernel iteration. They must be empty for this circuit except for the public call requests.
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).
+- Update requests (with counters).

@@ -46,7 +46,7 @@ An ordered requests array and a hints array are provided for each requests array
 
 #### Siloing values.
 
-1. It silos the following with each item's contract address:
+1. It silos the following in the transient accumulated data with each item's contract address:
 
 - New note hashes.
 - New nullifiers.
@@ -68,8 +68,6 @@ Siloing with a nonce guarantees that each final note hash is a unique value in t
 `hash(contract_address, version_id, portal_contract_address, chain_id, message)`
 
 Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
-
-> For all the above operations, it skips items whose contract address is zero, as they were siloed in the [tail private kernel circuit](./private_kernel_tail.md#siloing-values) and the associated contract address has been cleared.
 
 4. It silos the storage slot of each item in the following array with the item's contract address:
 
@@ -98,7 +96,7 @@ This circuit ensures the uniqueness of each snap within the provided public data
 
 To facilitate the verification of read requests and streamline update requests, it is imperative to establish connections between update requests targeting the same storage slot. Moreover, the initial update request in a group must be associated with a public data snap to ensure the dataset has evolved from the correct value.
 
-A new field, prev_counter, is introduced to the update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
+A new field, _prev_counter_, is introduced to the update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
 
 1. For each non-empty public data snap:
 
@@ -197,27 +195,28 @@ After all the update requests are processed, the circuit creates a subtree from 
 
 #### Verifying the accumulated data.
 
-The following must align with the outcome after ordering:
-
-- Public read requests.
-- Public update requests.
-
 The following must correspond to the result after siloing:
 
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
 
-The following must be empty:
-
-- Read requests.
-- Private call requests.
+> Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
 The following must match the respective values in the previous kernel's public inputs:
 
 - New contracts.
 - Log hashes.
 - Log lengths.
+
+The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
+
+- Old public data tree root.
+- New public data tree root.
+
+#### Verifying the transient accumulated data.
+
+It ensures that the transient accumulated data is empty.
 
 #### Verifying the constant data.
 
@@ -229,8 +228,9 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 The data of the previous kernel iteration:
 
-- Public inputs of the previous kernel proof.
-- Proof of the iterative public kernel circuit.
+- Proof of the kernel circuit. It must be:
+  - [Iterative public kernel circuit](./public_kernel_iterative.md).
+- Public inputs of the proof.
 - Verification key of the circuit.
 - Membership witness for the verification key.
 
@@ -238,30 +238,36 @@ The data of the previous kernel iteration:
 
 Data that aids in the verifications carried out in this circuit:
 
-- Sorted indices of public read requests.
-- Sorted indices of public update requests.
-- Public data hints.
-- Indices of public data hints for read requests.
+- Sorted indices of read requests.
+- Ordered read requests.
+- Sorted indices of update requests.
+- Ordered update requests.
+- Public data snaps.
+- Indices of update requests for public data snaps.
+- Indices of update requests for transient update requests.
+- Indices of update requests for read requests.
+- Indices of public data snaps for read requests.
+- Membership witnesses for read requests.
+- Low leaves for read requests.
+- Membership witnesses for update requests.
+- Low leaves for update requests.
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private_kernel_tail.md) and the [iterative public kernel circuit](./public_kernel_iterative.md).
 
 ### Accumulated Data
 
-It contains the result from the current function call:
+It contains data accumulated during the execution of the entire transaction:
 
-- Read requests.
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
 - New contracts.
 - Log hashes.
 - Log lengths.
-- Public read requests.
-- Public update requests.
+- Old public data tree root.
+- New public data tree root.
 
 ### Constant Data
 
@@ -275,4 +281,19 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- Transaction context.
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Transient Accumulated Data
+
+It includes data that aids in processing each kernel iteration. They must be empty for this circuit.
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).
+- Update requests (with counters).

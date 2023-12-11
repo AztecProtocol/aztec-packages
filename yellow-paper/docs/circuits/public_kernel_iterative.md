@@ -16,7 +16,7 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [Reset private kernel proof](./private_kernel_reset.md).
+- [tail private kernel proof](./private_kernel_tail.md).
 - Iterative public kernel proof.
 
 ### Responsibilities for Processing the Public Function Call:
@@ -94,8 +94,8 @@ It ensures the function's intention by checking the following:
   - New note hashes.
   - New nullifiers.
   - L2-to-L1 messages.
-  - Public read requests.
-  - Public update requests.
+  - Read requests.
+  - Update requests.
 - The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
 
 > Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
@@ -105,7 +105,7 @@ If it is a static call, it must ensure that the function does not induce any sta
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
-- Public update requests.
+- Update requests.
 
 #### Verifying the call requests.
 
@@ -140,28 +140,41 @@ For items in each ordered array created in the current call:
 
 The ordered arrays include:
 
-- Public read requests.
-- Public update requests.
+- Read requests.
+- Update requests.
 
 ### Responsibilities for Validating the Public Inputs:
 
 #### Verifying the accumulated data.
 
-1. It ensures that the following values align with those in the previous iteration's public inputs:
-
-- New contracts.
-- Encrypted log hash.
-- Encrypted log length.
-
-2. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+It ensures that the following values match those in the previous iteration's public inputs:
 
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
-- Public read requests.
-- Public update requests.
+- New contracts.
+- **Encrypted** log hash.
+- **Encrypted** log length.
+- Old public data tree root.
+- New public data tree root.
 
-3. For the newly added public update requests from app circuits' public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
+It checks that the hash and the length for **unencrypted** logs are accumulated as follows:
+
+- New log hash = `hash(prev_hash, cur_hash)`
+  - If either hash is zero, the new hash will be `prev_hash | cur_hash`
+- New log length = `prev_length + cur_length`
+
+#### Verifying the transient accumulated data.
+
+It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+
+- New note hashes.
+- New nullifiers.
+- L2-to-L1 messages.
+- Read requests.
+- Update requests.
+
+For the newly added update requests from app circuits' public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
 
 - Zero: if the slot does not change later in the same transaction.
 - Greater than zero: if the slot is updated later in the same transaction.
@@ -171,21 +184,10 @@ The ordered arrays include:
 
 > Zero serves as an indicator for an unchanged update, as this value can never act as the counter of an update request. It corresponds to the _counter_start_ of the first function call.
 
-4. It verifies that the public call requests include:
+It verifies that the public call requests include:
 
 - All requests from the previous iteration's public inputs except for the top one.
 - All requests present in the app circuit's public inputs.
-
-5. It checks that the hash and the length for unencrypted logs are accumulated as follows:
-
-- New log hash = `hash(prev_hash, cur_hash)`
-  - If either hash is zero, the new hash will be `prev_hash | cur_hash`
-- New log length = `prev_length + cur_length`
-
-6. It ensures that the following arrays are empty:
-
-- Read requests.
-- Private call requests.
 
 #### Verifying the constant data.
 
@@ -197,16 +199,16 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 The data of the previous kernel iteration:
 
-- Public inputs of the previous kernel proof.
-- Proof of the kernel circuit. It could be one of the following kernel circuits:
-  - Reset private kernel circuit.
+- Proof of the kernel circuit. It could be one of the following:
+  - [Tail private kernel circuit](./private_kernel_tail.md).
   - Iterative public kernel circuit.
+- Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
 
 ### Public Call Data
 
-The call data holds details about the current public function call and includes hints that aid in the verifications carried out in this circuit:
+The call data holds details about the current public function call:
 
 - Contract address.
 - Function data.
@@ -215,29 +217,16 @@ The call data holds details about the current public function call and includes 
 - Proof of the app circuit.
 - Verification key.
 - Hash of the function bytecode.
+
+It also includes hints that aid in the verifications carried out in this circuit:
+
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.
 - Update requests override counters.
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
-
-### Accumulated Data
-
-It contains the result from the current function call:
-
-- Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Public read requests.
-- Public update requests.
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private_kernel_tail.md) and the [tail public kernel circuit](./public_kernel_tail.md).
 
 ### Constant Data
 
@@ -251,4 +240,32 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- Transaction context.
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Accumulated Data
+
+It contains data accumulated during the execution of the transaction up to this point:
+
+- New note hashes.
+- New nullifiers.
+- L2-to-L1 messages.
+- New contracts.
+- Log hashes.
+- Log lengths.
+- Old public data tree root.
+- New public data tree root.
+
+### Transient Accumulated Data
+
+It includes data from the current function call, aggregated with the results from the previous iterations:
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).
+- Update requests (with counters).

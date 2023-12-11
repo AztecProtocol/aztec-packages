@@ -134,15 +134,20 @@ The ordered arrays include:
 
 It verifies that the following values align with those in the app circuit's public inputs:
 
+- New contracts.
+- Log hashes.
+- Log lengths.
+
+#### Verifying the transient accumulated data.
+
+It ensures that the following values match those in the app circuit's public inputs:
+
 - Read requests.
 - New note hashes.
 - New nullifiers.
 - L2-to-L1 messages.
 - Private call requests.
 - Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
 
 For the new note hashes, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
 
@@ -153,11 +158,6 @@ For the new note hashes, it also verifies that each is associated with a nullifi
 > Nullifier counters are used in the [reset private kernel circuit](./private_kernel_reset.md#verifying-read-requests) to ensure a read happens **before** a transient note is nullified.
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
-
-Additionally, it ensures that the following arrays are empty:
-
-- Public read requests.
-- Public update requests.
 
 #### Verifying the constant data.
 
@@ -181,8 +181,7 @@ A transaction request represents the caller's intent. It contains:
   - A flag indicating whether the function is an internal function.
 
 - Hash of the function arguments.
-- <a name="transaction_context">Transaction context</a>:
-
+- Transaction context
   - A flag indicating whether it is a fee paying transaction.
   - A flag indicating whether it is a fee rebate transaction.
   - Chain ID.
@@ -190,7 +189,7 @@ A transaction request represents the caller's intent. It contains:
 
 ### Private Call Data
 
-The private call data holds details about the current private function call and includes hints that aid in the verifications carried out in this circuit:
+The private call data holds details about the current private function call:
 
 - Contract address.
 - Function data.
@@ -200,29 +199,16 @@ The private call data holds details about the current private function call and 
 - Proof of the app circuit.
 - Verification key.
 - Hash of the function bytecode.
+
+It also includes hints that aid in the verifications carried out in this circuit or later iterations:
+
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.
 - Transient note nullifier counters.
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
-
-### Accumulated Data
-
-It contains the result from the current function call:
-
-- Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Public read requests.
-- Public update requests.
+The structure of this public inputs aligns with that of the [inner private kernel circuit](./private_kernel_inner.md) and the [reset private kernel circuit](./private_kernel_reset.md).
 
 ### Constant Data
 
@@ -236,4 +222,27 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- [Transaction context](#transaction_context).
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Accumulated Data
+
+It contains the result from the current function call:
+
+- New contracts.
+- Log hashes.
+- Log lengths.
+
+### Transient Accumulated Data
+
+It includes transient data accumulated during the execution of the transaction up to this point:
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Private call requests (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).

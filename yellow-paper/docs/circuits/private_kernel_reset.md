@@ -76,25 +76,21 @@ For each nullifier associated with a non-zero nullified note hash:
 
 #### Verifying the accumulated data.
 
-The following must equal the result after verifying or squashing:
+It ensures that the accumulated data matches the data in the previous iteration's public inputs.
+
+#### Verifying the transient accumulated data.
+
+The following must equal the result after verification or squashing:
 
 - Read requests.
 - New note hashes.
 - New nullifiers.
-
-The following must be empty:
-
-- Public read requests.
-- Public update requests.
 
 The following must equal the corresponding values in the previous kernel's public inputs:
 
 - L2-to-L1 messages.
 - Private call requests.
 - Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
 
 #### Verifying the constant data.
 
@@ -106,10 +102,10 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 The data of the previous kernel iteration:
 
-- Public inputs of the previous kernel proof.
-- Proof of the kernel circuit. It could be one of the following private kernel circuits:
-  - Initial.
-  - Inner.
+- Proof of the kernel circuit. It must be one of the following:
+  - [Initial private kernel circuit](./private_kernel_initial.md).
+  - [Inner private kernel circuit](./private_kernel_inner.md).
+- Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
 
@@ -123,23 +119,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
-
-### Accumulated Data
-
-It contains the result from the current function call:
-
-- Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Public read requests.
-- Public update requests.
+The structure of this public inputs aligns with that of the [initial private kernel circuit](./private_kernel_initial.md) and the [inner private kernel circuit](./private_kernel_inner.md).
 
 ### Constant Data
 
@@ -153,4 +133,27 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- Transaction context.
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Accumulated Data
+
+It contains data accumulated during the execution of the transaction up to this point:
+
+- New contracts.
+- Log hashes.
+- Log lengths.
+
+### Transient Accumulated Data
+
+It includes transient data accumulated during the execution of the transaction up to this point:
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Private call requests (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).

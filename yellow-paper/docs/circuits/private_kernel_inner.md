@@ -156,7 +156,19 @@ The ordered arrays include:
 
 #### Verifying the accumulated data.
 
-1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+It verifies that the following match the values in the previous iteration's public inputs combining with those in the app circuit's public inputs:
+
+- New contracts.
+
+It checks that the hashes and the lengths for both encrypted and unencrypted logs are accumulated as follows:
+
+- New log hash = `hash(prev_hash, cur_hash)`
+  - If either hash is zero, the new hash will be `prev_hash | cur_hash`
+- New log length = `prev_length + cur_length`
+
+#### Verifying the transient accumulated data.
+
+It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
 - Read requests.
 - New note hashes.
@@ -165,7 +177,7 @@ The ordered arrays include:
 - Public call requests.
 - New contracts.
 
-2. For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
+For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
 
 - Zero: if the note is not nullified in the same transaction.
 - Greater than zero: if the note is nullified in the same transaction.
@@ -175,21 +187,10 @@ The ordered arrays include:
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
-3. It verifies that the private call requests include:
+It verifies that the private call requests include:
 
 - All requests from the previous iteration's public inputs except for the top one.
 - All requests present in the app circuit's public inputs.
-
-4. It checks that the hashes and the lengths for both encrypted and unencrypted logs are accumulated as follows:
-
-- New log hash = `hash(prev_hash, cur_hash)`
-  - If either hash is zero, the new hash will be `prev_hash | cur_hash`
-- New log length = `prev_length + cur_length`
-
-5. It ensures that the following arrays are empty:
-
-- Public read requests.
-- Public update requests.
 
 #### Verifying the constant data.
 
@@ -201,17 +202,17 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 The data of the previous kernel iteration:
 
-- Public inputs of the previous kernel proof.
-- Proof of the kernel circuit. It could be one of the following private kernel circuits:
-  - Initial.
-  - Inner.
-  - Reset.
+- Proof of the kernel circuit. It must be one of the following:
+  - [Initial private kernel circuit](./private_kernel_initial.md).
+  - Inner private kernel circuit.
+  - [Reset private kernel circuit](./private_kernel_reset.md).
+- Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
 
 ### Private Call Data
 
-The private call data holds details about the current private function call and includes hints that aid in the verifications carried out in this circuit:
+The private call data holds details about the current private function call:
 
 - Contract address.
 - Function data.
@@ -221,29 +222,16 @@ The private call data holds details about the current private function call and 
 - Proof of the app circuit.
 - Verification key of the app circuit.
 - Hash of the function bytecode.
+
+It also includes hints that aid in the verifications carried out in this circuit or later iterations:
+
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.
 - Transient note nullifier counters.
 
 ## Public Inputs
 
-The structure of public inputs aligns with that of other kernel circuits.
-
-### Accumulated Data
-
-It contains the result from the current function call:
-
-- Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
-- Private call requests.
-- Public call requests.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Public read requests.
-- Public update requests.
+The structure of this public inputs aligns with that of the [initial private kernel circuit](./private_kernel_initial.md) and the [reset private kernel circuit](./private_kernel_reset.md).
 
 ### Constant Data
 
@@ -257,4 +245,27 @@ These are constants that remain the same throughout the entire transaction:
     - Contract tree.
     - L1-to-l2 message tree.
     - Public data tree.
-- Transaction context.
+- Transaction context
+  - A flag indicating whether it is a fee paying transaction.
+  - A flag indicating whether it is a fee rebate transaction.
+  - Chain ID.
+  - Version of the transaction.
+
+### Accumulated Data
+
+It contains data accumulated during the execution of the transaction up to this point:
+
+- New contracts.
+- Log hashes.
+- Log lengths.
+
+### Transient Accumulated Data
+
+It includes transient data accumulated during the execution of the transaction up to this point:
+
+- New note hashes (with counters).
+- New nullifiers (with counters).
+- L2-to-L1 messages (with counters).
+- Private call requests (with counters).
+- Public call requests (with counters).
+- Read requests (with counters).
