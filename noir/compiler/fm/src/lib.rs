@@ -7,6 +7,9 @@ mod file_map;
 
 pub use file_map::{File, FileId, FileMap, PathString};
 
+// Re-export for the lsp
+pub use codespan_reporting::files as codespan_files;
+
 use std::{
     collections::HashMap,
     path::{Component, Path, PathBuf},
@@ -109,14 +112,11 @@ impl FileManager {
         self.name_to_id(candidate.clone())
             .ok_or_else(|| candidate.as_os_str().to_string_lossy().to_string())
     }
-<<<<<<< HEAD
-=======
 
     // TODO: This should accept a &Path instead of a PathBuf
     pub fn name_to_id(&self, file_name: PathBuf) -> Option<FileId> {
         self.file_map.get_file_id(&PathString::from_path(file_name))
     }
->>>>>>> make `find_module` be an immutable reference
 }
 
 // TODO: This should not be here because the file manager should not know about the
