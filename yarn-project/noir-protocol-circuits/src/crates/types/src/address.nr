@@ -24,7 +24,7 @@ impl AztecAddress {
         }
     }
 
-    pub fn to_field(self) -> Field{
+    pub fn to_field(self) -> Field {
         self.inner
     }
 
