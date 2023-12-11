@@ -1,23 +1,17 @@
-
 namespace toy(256);
-
-    pol constant first = [1] + [0]*;
-    
     pol commit q_tuple_set;
 
+    // Set 1
     pol commit set_1_column_1;
     pol commit set_1_column_2;
+    // Set 2
     pol commit set_2_column_1;
     pol commit set_2_column_2;
-
-    pol commit x;
-
-    // We now define all of the pairs we want to create and the permutations we want to show
-    // TODO: how can we leverage same column things
-
+    
     // This is a column based tuple lookup
     #[two_column_perm] // the name of the inverse
     q_tuple_set { set_1_column_1, set_1_column_2 } is { set_2_column_1, set_2_column_2 };
 
-    // Toy relation
+    // Relation not used -> we currently require a single relation for codegen
+    pol commit x;
     x' - x = 0;
