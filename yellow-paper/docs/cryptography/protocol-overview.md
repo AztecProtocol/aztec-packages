@@ -48,6 +48,16 @@ The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol defines a folding 
 
 It is a variant of [Protostar](https://eprint.iacr.org/2023/620). Unlike Protostar, Protogalaxy enables multiple instances to be efficiently folded into the same accumulator instance.
 
+The Protogalaxy protocol is split into two subprotocols, each modelled as interactive protocols between a Prover and a Verifier.
+
+#### Protogalaxy Fold
+
+The "Fold" Prover/Verifier validates that `k` instances of a defined relation (in our case the Honk relation) have been correctly folded into an accumulator instance.
+
+#### Protogalaxy Decider
+
+The "Decider" Prover/Verifier valiate whether an accumulator instance correctly satisfies the accumulator relation.
+
 ## Goblin Plonk
 
 [Goblin Plonk](https://hackmd.io/@aztec-network/BkGNaHUJn/%2FGfNR5SE5ShyXXmLxNCsg3g) is a computation delegation scheme that improves Prover performance when evaluating complex algorithms.
