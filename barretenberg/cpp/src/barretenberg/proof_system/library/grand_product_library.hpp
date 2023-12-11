@@ -65,15 +65,14 @@ void compute_grand_product(const size_t circuit_size,
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = circuit_size / num_threads;
-    auto full_polynomial_pointers = full_polynomials.get_all();
+    auto full_polynomials_unshifted = full_polynomials.get_unshifted();
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            typename Flavor::AllValues evaluations;
-            auto evaluations_pointer = evaluations.get_all();
-            for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
-                evaluations_pointer[k] = full_polynomial_pointers[k].size() > i ? full_polynomial_pointers[k][i] : 0;
+            typename Flavor::AllValues evaluations{};
+            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials_unshifted)) {
+                eval = full_poly[i];
             }
             numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
