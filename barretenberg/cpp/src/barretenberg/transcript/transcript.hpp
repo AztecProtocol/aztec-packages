@@ -1,8 +1,9 @@
 #pragma once
 
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/blake3s/blake3s.hpp"
-#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
@@ -126,11 +127,8 @@ class BaseTranscript {
         // Only a collision-resistant hash-function like Pedersen is required for this step.
         // Note: this pre-hashing is an efficiency trick that may be discareded if using a SNARK-friendly or in contexts
         // (eg smart contract verification) where the cost of elliptic curve operations is high.
-        std::vector<uint8_t> compressed_buffer = to_buffer(crypto::pedersen_hash::hash_buffer(full_buffer));
-
-        // Use a strong hash function to derive the new challenge_buffer.
-        auto base_hash = blake3::blake3s(compressed_buffer);
-
+        std::vector<uint8_t> base_hash =
+            to_buffer(crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash_buffer(full_buffer));
         std::array<uint8_t, HASH_OUTPUT_SIZE> new_challenge_buffer;
         std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
         // update previous challenge buffer for next time we call this function
