@@ -389,10 +389,13 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        // Define all operations as default, except only all move construction/assignment
         ProverPolynomials() = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
         ProverPolynomials(const ProverPolynomials& o) = delete;
-        ProverPolynomials(ProverPolynomials&& o) = default;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which

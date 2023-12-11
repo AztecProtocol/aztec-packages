@@ -262,10 +262,13 @@ class Ultra {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        ProverPolynomials(const ProverPolynomials& o) = delete;
+        // Define all operations as default, except only all move construction/assignment
         ProverPolynomials() = default;
-        ProverPolynomials(ProverPolynomials&& o) = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {

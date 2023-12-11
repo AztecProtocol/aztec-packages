@@ -60,11 +60,6 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroM
     allocate_backing_memory(initial_size);
 }
 
-template <typename Fr>
-Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
-    : Polynomial<Fr>(other, other.size())
-{}
-
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
@@ -104,18 +99,6 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points, std::span<c
 }
 
 // Assignments
-
-// // full copy "expensive" assignment
-// template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
-// {
-//     if (this == &other) {
-//         return *this;
-//     }
-//     allocate_backing_memory(other.size_);
-//     memcpy(static_cast<void*>(coefficients_), static_cast<void*>(other.coefficients_), sizeof(Fr) * other.size_);
-//     zero_memory_beyond(size_);
-//     return *this;
-// }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
 {
