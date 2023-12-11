@@ -27,8 +27,7 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t initial_size);
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t initial_size, DontZeroMemory flag);
-    // We want to be explicit about when creating polynomials, use = .share() or .deep_clone()
-    Polynomial(const Polynomial& other) = delete;
+    Polynomial(const Polynomial& other);
     Polynomial(const Polynomial& other, size_t target_size);
 
     Polynomial(Polynomial&& other) noexcept;
@@ -51,8 +50,7 @@ template <typename Fr> class Polynomial {
     // move assignment
     Polynomial& operator=(Polynomial&& other) noexcept;
     Polynomial& operator=(std::span<const Fr> coefficients) noexcept;
-    // We want to be explicit about when creating polynomials, use = .share() or .deep_clone()
-    Polynomial& operator=(const Polynomial& other) = delete;
+    Polynomial& operator=(const Polynomial& other);
     ~Polynomial() = default;
 
     /**
