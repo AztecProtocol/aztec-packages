@@ -54,20 +54,20 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
     EXPECT_EQ(result, true);
 
     // Store value temporarily
-    // FF tmp = circuit_builder.wires[0][5];
+    FF tmp = circuit_builder.rows[5].toy_set_1_column_1;
 
-    // // Replace one of the values in a tuple permutation column with a random one, breaking the permutation
-    // circuit_builder.wires[0][5] = FF::random_element();
+    // Replace one of the values in a tuple permutation column with a random one, breaking the permutation
+    circuit_builder.rows[5].toy_set_1_column_1 = FF::random_element();
 
-    // // Check that it fails
-    // result = circuit_builder.check_circuit();
-    // EXPECT_EQ(result, false);
+    // Check that it fails
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, false);
 
-    // // Restore value
-    // circuit_builder.wires[0][5] = tmp;
+    // Restore value
+    circuit_builder.rows[5].toy_set_1_column_1 = tmp;
 
-    // // Check circuit passes
-    // result = circuit_builder.check_circuit();
-    // EXPECT_EQ(result, true);
+    // Check circuit passes
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, true);
 }
 } // namespace toy_avm_circuit_builder_tests
