@@ -32,6 +32,7 @@ contract Test {
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
 
+    // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3655
     // #[event]
     // struct ExampleEvent {
     //     value: Field,
