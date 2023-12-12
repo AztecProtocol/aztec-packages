@@ -222,7 +222,7 @@ class Goblin {
         GoblinUltraVerifier verifier{ accumulator.verification_key }; // WORKTODO This needs the vk
         info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
-        info("verified GUH proof; result: ", verified);
+        info("                           verified GUH proof; result: ", verified);
 
         const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         auto goblin_proof = extract_goblin_proof(proof);
