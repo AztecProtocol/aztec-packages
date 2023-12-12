@@ -7,6 +7,12 @@
 
 namespace acir_proofs {
 
+/**
+ * @brief A class responsible for marshalling construction of keys and prover and verifier instances used to prove
+ * satisfiability of circuits written in ACIR.
+ * @todo WORKTODO: This reflects the design of Plonk. Perhaps we should author new classes to better reflect the
+ * structure of the newer code since there's much more of that code now?
+ */
 class AcirComposer {
   public:
     using Flavor = proof_system::honk::flavor::GoblinUltra;
