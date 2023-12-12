@@ -34,8 +34,6 @@ GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Fl
     , commitment_key(commitment_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
-        std::cout << flavor_get_label(prover_polynomials, prover_poly) << " vs " << flavor_get_label(*key, key_poly)
-                  << std::endl;
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
         prover_poly = key_poly.share();
     }
@@ -43,6 +41,12 @@ GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Fl
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly) + "_shift");
         prover_poly = key_poly.shifted();
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/810): resolve weirdness around concatenated range
+    // constraints
+    prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
+    prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
+    prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
+    prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
 }
 
 /**

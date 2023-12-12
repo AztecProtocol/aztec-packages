@@ -342,12 +342,21 @@ class GoblinTranslator {
         };
 
         // everything but ConcatenatedRangeConstraints
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
         RefVector<DataType> get_unshifted_wires()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all());
-        };
+        }
+        // everything but ConcatenatedRangeConstraints
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+        std::vector<std::string> get_unshifted_wire_labels()
+        {
+            return concatenate(WireNonshiftedEntities<DataType>::get_labels(),
+                               WireToBeShiftedEntities<DataType>::get_labels(),
+                               DerivedWitnessEntities<DataType>::get_labels());
+        }
         RefVector<DataType> get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -900,7 +909,13 @@ class GoblinTranslator {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
-        // HACK to get around concatenated constraints being weird
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810): get around this by properly having
+        // concatenated range be a concept outside of witnessentities
+        std::vector<std::string> get_labels()
+        {
+            return concatenate(PrecomputedEntities<Polynomial>::get_labels(),
+                               WitnessEntities<Polynomial>::get_unshifted_wire_labels());
+        }
         RefVector<Polynomial> get_all()
         {
             return concatenate(PrecomputedEntities<Polynomial>::get_all(),
