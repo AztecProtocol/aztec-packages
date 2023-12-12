@@ -25,7 +25,7 @@ Honk uses a custom arithmetisation that extends the Ultra circuit arithmetisatio
 
 # Incrementally Verifiable Computation Subprotocols
 
-An Incrementally Verifiable Computation (IVC) scheme describes a protocol that enables multiple successive proofs to evolve the value taken by some defined persistent state over time.
+An Incrementally Verifiable Computation (IVC) scheme describes a protocol that enables multiple successive proofs to evolve persistent state over time.
 
 IVC schemes are used by Aztec in two capacities:
 
@@ -38,15 +38,21 @@ The client-side IVC scheme is substantially more complex than the rollup-side sc
 
 Rollup-side, each "step" in the IVC scheme is a Honk proof, which are recursively verified. As a result, no protoocols other than Honk are required to execute rollup-side IVC.
 
-We perform one layer of "proof-system compression" in the rollup. The final proof of block-correctness is constructed as a Honk proof. An UltraPlonk circuit is used to verify the correctness of the Honk proof, so that the proof that is verified on-chain is an UltraPlonk proof (verification gas costs are lower for UltraPlonk vs Honk).
+We perform one layer of "proof-system compression" in the rollup. The final proof of block-correctness is constructed as a Honk proof. An UltraPlonk circuit is used to verify the correctness of the Honk proof, so that the proof that is verified on-chain is an UltraPlonk proof.
+Verification gas costs are lower for UltraPlonk vs Honk due to the following factors:
+
+1. Fewer precomputed selector polynomials, reducing Verifier G1 scalar multiplications
+2. UltraPlonk does not use multilinear polynomials, which removes 1 pairing from the Verifier, as well as O(logn) G1 scalar multiplications.
 
 The following sections list the protocol components required to implement client-side IVC.
 
 ## Protogalaxy
 
-The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol defines a folding scheme that enables instances of a relation to be folded into a single instance of a "relaxed" form of the original relation.
+The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol defines a folding scheme that enables instances of a relation to be folded into a single instance of the original relation, but in a "relaxed" form.  
 
 It is a variant of [Protostar](https://eprint.iacr.org/2023/620). Unlike Protostar, Protogalaxy enables multiple instances to be efficiently folded into the same accumulator instance.
+
+We use the Protostar/galaxy family of folding schemes, as it efficiently supports the ability to fold multiple Honk instances (describing different circuits) into the same accumulator. To constrast, the Nova/Supernova/Hypernova family of folding schemes assume that a single circuit is being repeatedly folded (each Aztec function circuit is a distinct circuit, which breaks this assumption).
 
 The Protogalaxy protocol is split into two subprotocols, each modelled as interactive protocols between a Prover and a Verifier.
 
@@ -56,7 +62,7 @@ The "Fold" Prover/Verifier validates that `k` instances of a defined relation (i
 
 #### Protogalaxy Decider
 
-The "Decider" Prover/Verifier valiate whether an accumulator instance correctly satisfies the accumulator relation.
+The "Decider" Prover/Verifier validate whether an accumulator instance correctly satisfies the accumulator relation. The accumulator being satisfiable inductively shows that all instances that have been folded were satisfied as well. (additional protocol checks are required to reason about *which* instances have been folded into the accumulator. See the [IVC specification](https://hackmd.io/h0yTcOHiQWeeTXnxTQhTNQ?view) for more information. (note to zac: put this in the yellow paper!)
 
 ## Goblin Plonk
 
@@ -72,19 +78,23 @@ This subprotocol aggregates deferred computations from two independent instances
 
 #### Elliptic Curve Virtual Machine (ECCVM) Subprotocol
 
-The ECCVM is a Honk circuit with a custom circuit arithmetisation, designed to optimally evaluate elliptic curve arithmetic computations that have been deferred. It is defined over the Grumpkin elliptic curve
+The ECCVM is a Honk circuit with a custom circuit arithmetisation, designed to optimally evaluate elliptic curve arithmetic computations that have been deferred. It is defined over the Grumpkin elliptic curve.  
 
 #### Translator Subprotocol
 
-The Translator is a Honk circuit with a custom circuit arithmetisation, designed to validate the input commitments of an ECCVM circuit align with the delegated computations described by a Goblin Plonk transcript commitment
+The Translator is a Honk circuit with a custom circuit arithmetisation, designed to validate that the input commitments of an ECCVM circuit align with the delegated computations described by a Goblin Plonk transcript commitment.  
 
 ## Plonk Data Bus
+
+When passing data between successive IVC steps, the canonical method is to do so via public inputs. This adds significant costs to an IVC folding verifier (or recursive verifier when not using a folding scheme). Public inputs for part of the proof and therefore must be hashed prior to generating Fiat-Shamir challenges. When this is performed in-circuit, this adds a cost linear in the number of public inputs (with unpleasant constants ~30 constraints per field element).
+
+The Data Bus protocol eliminiates this cost by representing cross-step data via succinct commitments instead of raw field elements.
 
 The [Plonk Data Bus](https://aztecprotocol.slack.com/files/U8Q1VAX6Y/F05G2B971FY/plonk_bus.pdf) protocol enables efficient data transfer between two Honk instances within a larger IVC protocol.
 
 # Polynomial Commitment Schemes
 
-The UltraPlonk, Honk, Goblin Plonk and Plonk Data Bus protocols utilize Polynomial Interactive Oracle Proofs as a core component, neccessitating the use of polynomial commitment schemes (PCX).
+The UltraPlonk, Honk, Goblin Plonk and Plonk Data Bus protocols utilize Polynomial Interactive Oracle Proofs as a core component, thus requiring the use of polynomial commitment schemes (PCS).  
 
 UltraPlonk and Honk utilize multilinear PCS. The Plonk Data Bus and Goblin Plonk also utilize univariate PCS.
 
@@ -101,6 +111,8 @@ Computing an opening proof of a degree-$n$ polynomial requires $n$ scalar multip
 ## Inner Product Argument
 
 The [IPA](https://eprint.iacr.org/2019/1177.pdf) PCS has worse asymptotics than KZG but can be instantiated over non-pairing friendly curves.
+
+We utilize the Grumpkin elliptic curve as part of the Goblin Plonk protocol, where we utilize the curve cycle formed between BN254 and Grumpkin to translate expensiven on-native BN254 group operations in a BN254 circuit, into native group operations in a Grumpkin circuit.
 
 Computing an opening proof of a degree-$n$ polynomial requires $2n$ scalar multiplications, with a $O(logn)$ proof size and an $O(n)$ verifier time.
 
