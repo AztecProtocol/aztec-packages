@@ -52,7 +52,6 @@ template <typename BuilderType> class UltraRecursive_ {
     using Curve = plonk::stdlib::bn254<CircuitBuilder>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
-    using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
     using NativeVerificationKey = flavor::Ultra::VerificationKey;
 

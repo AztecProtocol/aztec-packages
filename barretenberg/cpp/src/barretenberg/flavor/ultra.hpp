@@ -25,7 +25,6 @@ class Ultra {
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
-    using CommitmentHandle = Curve::AffineElement;
     using PCS = pcs::kzg::KZG<Curve>;
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;

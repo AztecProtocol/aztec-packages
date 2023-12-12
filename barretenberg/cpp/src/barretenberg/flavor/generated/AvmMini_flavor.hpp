@@ -29,7 +29,6 @@ class AvmMiniFlavor {
     using PolynomialHandle = std::span<FF>;
     using GroupElement = G1::element;
     using Commitment = G1::affine_element;
-    using CommitmentHandle = G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
