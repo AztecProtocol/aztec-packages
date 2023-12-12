@@ -38,13 +38,11 @@ std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_fo
 {
     create_circuit(constraint_system);
     info("created circuit in init_proving_key");
-    // acir_format::Composer is a GUH composer
-    // This does not become a goblin
-    acir_format::Composer composer; // WORKTODO: access through Goblin?
-    info("created composer in init_proving_key");
+    Goblin goblin;
+    info("created goblin in init_proving_key");
     vinfo("computing proving key...");
-    proving_key_ =
-        composer.compute_proving_key(builder_); // WORKTODO: static execution if this doesn't change composer state
+    // WORKTODO: static execution if this doesn't change composer state
+    proving_key_ = goblin.composer.compute_proving_key(builder_);
     info("assigned proving_key_ in init_proving_key");
 
     return proving_key_;
@@ -66,16 +64,16 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     auto goblin = [&]() {
         if (proving_key_) {
             // WORKTODO(WRAP & KEY_TYPES): constructor from proving key needed
-            Goblin result{ proving_key_, nullptr };
-            composer_ = result.composer;
-            return result;
+            return Goblin{ proving_key_, nullptr };
         }
 
         // WORKTODO this becomes a Goblin
         Goblin goblin;
         info("computing proving key...");
         // WORKTODO(USE_GOBLIN) construct guh pk from guh builder via a proxy function in Goblin
-        proving_key_ = composer_.compute_proving_key(builder_);
+        // WORKTODO(STATIC)
+        proving_key_ = goblin.composer.compute_proving_key(builder_);
+        info("done.");
         return goblin;
     }();
 
