@@ -155,8 +155,8 @@ It ensures that the following values match those in the previous iteration's pub
 - New contracts.
 - **Encrypted** log hash.
 - **Encrypted** log length.
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 It checks that the hash and the length for **unencrypted** logs are accumulated as follows:
 
@@ -256,8 +256,8 @@ It contains data accumulated during the execution of the transaction up to this 
 - New contracts.
 - Log hashes.
 - Log lengths.
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 ### Transient Accumulated Data
 

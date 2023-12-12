@@ -98,8 +98,8 @@ The following must match the respective values in the previous kernel's public i
 
 The following must be empty:
 
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 #### Verifying the transient accumulated data.
 
@@ -163,8 +163,8 @@ It contains data accumulated during the execution of the transaction:
 - New contracts.
 - Log hashes.
 - Log lengths.
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 ### Transient Accumulated Data
 

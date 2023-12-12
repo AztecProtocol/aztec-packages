@@ -72,8 +72,8 @@ Where _version_id_ and _portal_contract_address_ equal the values defined in the
 
 4. It silos the storage slot of each item in the following array with the item's contract address:
 
-- Read requests.
-- Update requests.
+- Ordered read requests.
+- Ordered update requests.
 
 The siloed storage slot is computed as: `hash(contract_address, storage_slot)`.
 
@@ -97,7 +97,7 @@ This circuit ensures the uniqueness of each snap within the provided public data
 
 To facilitate the verification of read requests and streamline update requests, it is imperative to establish connections between update requests targeting the same storage slot. Moreover, the initial update request in a group must be associated with a public data snap to ensure the dataset has evolved from the correct value.
 
-A new field, _prev_counter_, is introduced to the update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
+A new field, _prev_counter_, is introduced to the ordered update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
 
 1. For each non-empty public data snap:
 
@@ -160,7 +160,7 @@ Depending on the value of the _exists_ flag in the snap, verify its presence or 
   - The value must be zero.
   - It must pass a non-membership check on the low leaf.
 
-> The membership checks are executed against the **old** public data tree root, as defined in the public inputs. The membership witnesses for the leaves and the low leaves are provided as hints through private inputs.
+> The membership checks are executed against the root in **old** public data tree snapshot, as defined in the public inputs. The membership witnesses for the leaves and the low leaves are provided as hints through private inputs.
 
 #### Updating the public data tree.
 
@@ -186,11 +186,19 @@ For a non-transient update request, if the _exists_ flag is true, it is updating
 
 3. Inserting a new value.
 
-For a non-transient update request, if the _exist_ flag is false, it is inserting a new value.
+For a non-transient update request, if the _exist_ flag is false, it is inserting a new value. The circuit adds this value to a subtree:
 
-The new leaf is in a pending leaves array, waiting to be appended to the public data tree.
+- Perform a membership check on the low leaf in the latest public data tree or the subtree.
+  - The membership witness is provided as a hint through private inputs.
+- Update the low leaf to point to the new leaf.
+- Append the new leaf to the subtree.
 
-After all the update requests are processed, the circuit creates a subtree from the pending leaves and batch inserts the subtree to the public data tree. It then verifies that the latest root matches the **new** public data tree root in the public inputs.
+After all the update requests are processed:
+
+- Batch insert the subtree to the public data tree.
+  - The insertion index is the index in the **old** public data tree snapshot.
+- Verify that the latest root matches the root in the **new** public data tree snapshot in the public inputs.
+- Verify that the index in the **new** public data tree snapshot equals the index in the **old** public data tree snapshot plus the number of the new leaves appended to the subtree.
 
 ### Responsibilities for Validating the Public Inputs:
 
@@ -212,8 +220,8 @@ The following must match the respective values in the previous kernel's public i
 
 The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
 
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 #### Verifying the transient accumulated data.
 
@@ -246,12 +254,14 @@ Data that aids in the verifications carried out in this circuit:
 - Public data snaps.
 - Indices of update requests for public data snaps.
 - Indices of update requests for transient update requests.
-- Indices of update requests for read requests.
-- Indices of public data snaps for read requests.
-- Membership witnesses for read requests.
-- Low leaves for read requests.
+- Hints for read requests, including:
+  - A flag indicating whether it's reading an update request or a leaf in the public data tree.
+  - Index of the update request or a public data snap.
+  - Membership witness.
+- Indices of update requests for transient updates.
 - Membership witnesses for update requests.
-- Low leaves for update requests.
+- Membership witnesses of low leaves in public data tree for update requests.
+- Membership witnesses of low leaves in subtree for update requests.
 
 ## Public Inputs
 
@@ -267,8 +277,8 @@ It contains data accumulated during the execution of the entire transaction:
 - New contracts.
 - Log hashes.
 - Log lengths.
-- Old public data tree root.
-- New public data tree root.
+- Old public data tree snapshot.
+- New public data tree snapshot.
 
 ### Constant Data
 
