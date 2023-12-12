@@ -130,20 +130,6 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared
     return output_state;
 }
 
-template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_proving_key(
-    [[maybe_unused]] typename Flavor::CircuitBuilder& circuit)
-{
-    return std::make_shared<typename Flavor::ProvingKey>(); // WORKTODO(KEY_TYPES): implement
-};
-
-template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::compute_verification_key(
-    [[maybe_unused]] typename Flavor::CircuitBuilder& circuit)
-{
-    return std::make_shared<typename Flavor::VerificationKey>(); // WORKTODO(KEY_TYPES): implement
-};
-
 template class UltraComposer_<honk::flavor::Ultra>;
 template class UltraComposer_<honk::flavor::GoblinUltra>;
 } // namespace proof_system::honk

@@ -42,7 +42,9 @@ std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_fo
     info("created goblin in init_proving_key");
     vinfo("computing proving key...");
     // WORKTODO: static execution if this doesn't change composer state
-    proving_key_ = goblin.composer.compute_proving_key(builder_);
+    // WORKTODO: does this finalize? if so we can't call function in Goblin::accumulate
+    prover_instance_ = goblin.composer.create_instance(builder_);
+    proving_key_ = prover_instance_->proving_key;
     info("assigned proving_key_ in init_proving_key");
 
     return proving_key_;
@@ -60,7 +62,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 
     info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
 
-    // WORKTODO: should we be using the internal Goblin?
+    // WORKTODO: accumulate creates an instance and a pk, ignoring this one.
     auto goblin = [&]() {
         if (proving_key_) {
             // WORKTODO(WRAP & KEY_TYPES): constructor from proving key needed
@@ -72,7 +74,8 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
         info("computing proving key...");
         // WORKTODO(USE_GOBLIN) construct guh pk from guh builder via a proxy function in Goblin
         // WORKTODO(STATIC)
-        proving_key_ = goblin.composer.compute_proving_key(builder_);
+        prover_instance_ = goblin.composer.create_instance(builder_);
+        proving_key_ = prover_instance_->proving_key;
         info("done.");
         return goblin;
     }();
@@ -94,11 +97,7 @@ std::shared_ptr<AcirComposer::VerificationKey> AcirComposer::init_verification_k
     if (!proving_key_) {
         throw_or_abort("Compute proving key first.");
     }
-    vinfo("computing verification key...");
-    acir_format::Composer composer(proving_key_, nullptr);
-    verification_key_ = composer.compute_verification_key(builder_);
-    vinfo("done.");
-    return verification_key_;
+    return prover_instance_->verification_key;
 }
 
 void AcirComposer::load_verification_key([[maybe_unused]] proof_system::plonk::verification_key_data&& data)
@@ -110,14 +109,14 @@ void AcirComposer::load_verification_key([[maybe_unused]] proof_system::plonk::v
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
 {
-    // WORKTODO: constructor of a Goblin from a GUH pk and a GUH vk.
-    // This becomes a goblin
-    // Goblin composer(proving_key_, verification_key_);
+    // WORKTODO: this is actually just the goblin.verify_proof call in our proveAndVerify case
+    // WORKTODO: this is not the same (but possibly == to) the pk
     goblin.composer = acir_format::Composer(proving_key_, verification_key_);
 
     if (!verification_key_) {
         info("computing verification key...");
-        verification_key_ = goblin.composer.compute_verification_key(builder_);
+        prover_instance_ = goblin.composer.create_instance(builder_);
+        verification_key_ = prover_instance_->verification_key;
         info("done computing verification key.");
     }
 

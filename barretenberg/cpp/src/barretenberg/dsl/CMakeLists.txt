@@ -1,1 +1,1 @@
-barretenberg_module(dsl goblin plonk stdlib_primitives stdlib_sha256 stdlib_blake2s stdlib_keccak stdlib_pedersen_hash stdlib_merkle_tree stdlib_schnorr crypto_sha256 goblin)
+barretenberg_module(dsl goblin plonk stdlib_primitives stdlib_sha256 stdlib_blake2s stdlib_keccak stdlib_pedersen_hash stdlib_merkle_tree stdlib_schnorr crypto_sha256)
