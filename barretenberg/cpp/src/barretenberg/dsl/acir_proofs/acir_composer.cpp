@@ -63,9 +63,10 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
 
     // WORKTODO: accumulate creates an instance and a pk, ignoring this one.
-    auto goblin = [&]() {
+    goblin = [&]() {
         if (proving_key_) {
             // WORKTODO(WRAP & KEY_TYPES): constructor from proving key needed
+            info("Proving key exists; initializing a Goblin with it");
             return Goblin{ proving_key_, nullptr };
         }
 
