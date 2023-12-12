@@ -72,6 +72,8 @@ namespace avmMini(256);
     rwb * (1 - rwb) = 0;
     rwc * (1 - rwc) = 0;
     
+    // TODO: Constrain rwa, rwb, rwc to u32 type
+
     // Relation for addition over the finite field
     sel_op_add * (ia + ib - ic) = 0;
     
@@ -87,7 +89,8 @@ namespace avmMini(256);
     // When sel_op_div == 1, we want ib == 0 <==> op_err == 1
     // This can be achieved with the 2 following relations.
     // inv is an extra witness to show that we can invert ib, i.e., inv = ib^(-1)
-    // If ib == 0, we have to set inv = 1 to satisfy the second relation.
+    // If ib == 0, we have to set inv = 1 to satisfy the second relation,
+    // because op_err == 1 from the first relation.
     sel_op_div * (ib * inv - 1 + op_err) = 0;
     sel_op_div * op_err * (1 - inv) = 0;
 
