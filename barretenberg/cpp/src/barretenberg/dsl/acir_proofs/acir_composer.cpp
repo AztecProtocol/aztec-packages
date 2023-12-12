@@ -44,6 +44,15 @@ std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_fo
     return {};
 }
 
+void AcirComposer::init_and_finalize_builder(acir_format::acir_format& constraint_system)
+{
+    // populate the builder
+    create_circuit(constraint_system);
+    // WORKTODO: static execution if this doesn't change composer state
+    // finalize the circuit
+    goblin.composer.create_instance(builder_);
+}
+
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)
@@ -86,6 +95,13 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     return proof;
 }
 
+std::vector<uint8_t> AcirComposer::create_goblin_proof(acir_format::acir_format& constraint_system,
+                                                       acir_format::WitnessVector& witness)
+{
+    builder_ = acir_format::Builder(size_hint_);
+    create_circuit_with_witness(builder_, constraint_system, witness);
+    return goblin.construct_proof(builder_);
+}
 // WORKTODO: this function is not currently being used.
 std::shared_ptr<AcirComposer::VerificationKey> AcirComposer::init_verification_key()
 {
@@ -128,6 +144,12 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
         return goblin.verify_proof({ proof });
         info("Verify proof complete.");
     }
+}
+
+bool AcirComposer::verify_goblin_proof(std::vector<uint8_t> const& proof)
+{
+
+    return goblin.verify_proof({ proof });
 }
 
 std::string AcirComposer::get_solidity_verifier()
