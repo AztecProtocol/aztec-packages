@@ -26,24 +26,24 @@ const auto current_dir = current_path.filename().string();
 
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
-    // WORKTODO initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
-    // srs::init_crs_factory(CRS_PATH);
     acir_proofs::AcirComposer acir_composer(0, verbose);
     info("created AcirComposer");
-    // populates the GUH builder in the Goblin
+    // populates the builder in the ACIR composer
     acir_composer.create_circuit(constraint_system);
     info("created circuit");
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
     // WORKTODO: subgroup_size is 0 since the member variable is not being set properly in create_circuit
-    info("init: subgroup_size = ", subgroup_size);
-    // subgroup_size = 4096;
-    subgroup_size = 65536; // WORKTODO: to accomodate Translator which uses the same srs?
+    info("init: compute subgroup_size = ", subgroup_size);
+    // WORKTODO: this size now must be large enough for both input circuit and the translator prover
+    subgroup_size = 32768;
+
     // Must +1!
     auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
     auto g2_data = get_g2_data(CRS_PATH);
     info("initializing crs factory in init(constraint_system)");
     srs::init_crs_factory(g1_data, g2_data);
 
+    // WORKTODO(ADAM) initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
     srs::init_grumpkin_crs_factory(CRS_PATH);
 
     return acir_composer;
@@ -59,6 +59,7 @@ acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? ma
 
 acir_format::WitnessVector get_witness(std::string const& witness_path)
 {
+    // WORKTODO(NEW_CONSTRAINTS): opqueue data is now being extracted here?
     auto witness_data = get_witness_data(witness_path);
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
@@ -85,7 +86,8 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
 bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
 {
     info("executing proveAndVerify");
-    auto constraint_system = get_constraint_system(bytecodePath); // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
+    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
+    auto constraint_system = get_constraint_system(bytecodePath);
     info("got constraint system");
     auto witness = get_witness(witnessPath);
     info("got witness");
@@ -106,7 +108,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     info("acir_composer.init_verification_key()");
 
     Timer vk_timer;
-    acir_composer.init_verification_key();
+    // acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
 
     info("acir_composer.verify_proof(...)");
