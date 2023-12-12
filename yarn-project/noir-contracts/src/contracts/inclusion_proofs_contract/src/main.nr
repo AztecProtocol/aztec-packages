@@ -1,10 +1,5 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::protocol_types::constants::{
-        PUBLIC_DATA_TREE_HEIGHT,
-        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-    };
-    use dep::std::merkle::compute_merkle_root;
     use dep::aztec::{
         state_vars::{
             map::Map,
@@ -23,17 +18,6 @@ contract InclusionProofs {
             utils as note_utils,
         },
         
-        oracle::{
-            get_membership_witness::{
-                get_membership_witness,
-                MembershipWitness,
-            },
-            get_sibling_path::get_sibling_path,
-            get_nullifier_membership_witness::{
-                get_nullifier_membership_witness,
-            },
-        },
-        hash::pedersen_hash,
         history::{
             note_inclusion::{
                 prove_note_commitment_inclusion,
@@ -45,6 +29,9 @@ contract InclusionProofs {
             nullifier_non_inclusion::{
                 prove_nullifier_non_inclusion,
                 prove_note_not_nullified,
+            },
+            public_value_inclusion::{
+                prove_public_value_inclusion,
             },
         },
     };
@@ -169,31 +156,7 @@ contract InclusionProofs {
         public_value: Field,
         block_number: u32, // The block at which we'll prove that the public value exists
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the archive.
-        let block_header = context.get_block_header(block_number);
-
-        // 2) Compute the public value leaf index.
-        // We have to compute the leaf index here because unlike in the case of note commitments, public values are
-        // not siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
-        // value in the public data tree.
-        let public_value_leaf_index = pedersen_hash(
-            [context.this_address(), storage.public_value.storage_slot],
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX
-        );
-
-        // 3) Get the sibling path of the public value leaf index in the public data tree at block `block_number`.
-        let public_data_tree_id = 3; // TODO(#3443)
-        let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
-            get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
-
-        // 4) Prove that the public value provided on input is in the public data tree
-        assert(
-            block_header.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
-            "Proving public value inclusion failed"
-        );
-
-        // --> Now we have traversed the trees all the way up to blocks tree root and that way verified that
-        //     a specific `public_value` was really set in a given contract storage slot at block `block_number`.
+        prove_public_value_inclusion(public_value, storage.public_value.storage_slot, block_number, context);
     }
 
     // Computes note hash and nullifier.

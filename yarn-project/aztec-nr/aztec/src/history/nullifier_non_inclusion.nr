@@ -1,4 +1,3 @@
-use dep::protocol_types::constants::NOTE_HASH_TREE_HEIGHT;
 use dep::std::merkle::compute_merkle_root;
 
 use crate::{
