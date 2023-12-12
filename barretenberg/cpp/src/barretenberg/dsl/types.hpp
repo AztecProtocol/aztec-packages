@@ -23,13 +23,13 @@
 
 namespace acir_format {
 
-using Builder = proof_system::GoblinUltraCircuitBuilder;
+using Builder = proof_system::UltraCircuitBuilder;
 
-using Composer = proof_system::honk::GoblinUltraComposer;
+using Composer = proof_system::honk::UltraComposer;
 
-using Prover = proof_system::honk::GoblinUltraProver;
+using Prover = proof_system::honk::UltraProver;
 
-using Verifier = proof_system::honk::GoblinUltraVerifier;
+using Verifier = proof_system::honk::UltraVerifier;
 
 using RecursiveProver = Prover;
 
