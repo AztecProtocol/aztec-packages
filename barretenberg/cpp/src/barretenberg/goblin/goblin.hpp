@@ -143,8 +143,9 @@ class Goblin {
         info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
 
         info("goblin: prove");
+        Proof proof;
 
-        proof_.merge_proof = std::move(merge_proof);
+        proof.merge_proof = std::move(merge_proof);
 
         info("eccvm: construct builder");
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
@@ -153,9 +154,9 @@ class Goblin {
         info("eccvm: construct prover");
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
         info("eccvm: construct proof");
-        proof_.eccvm_proof = eccvm_prover.construct_proof();
+        proof.eccvm_proof = eccvm_prover.construct_proof();
         info("eccvm: translation_evaluations");
-        proof_.translation_evaluations = eccvm_prover.translation_evaluations;
+        proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
         info("translator: construct builder");
         translator_builder = std::make_unique<TranslatorBuilder>(
@@ -165,11 +166,12 @@ class Goblin {
         info("translator: construct prover");
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         info("translator: construct proof");
-        proof_.translator_proof = translator_prover.construct_proof();
+        proof.translator_proof = translator_prover.construct_proof();
 
         info("goblin: prove complete!");
+        proof_ = proof;
 
-        return proof_;
+        return proof;
     };
 
     std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
@@ -211,10 +213,14 @@ class Goblin {
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
         GoblinUltraVerifier verifier{ accumulator.verification_key }; // WORKTODO This needs the vk
+        info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
+        info("verified GUH proof; result: ", verified);
 
         const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
+        info("extracted goblin proof");
         verified = verified && verify(extract_goblin_proof(proof));
+        info("verified goblin proo");
         return verified;
     }
 };
