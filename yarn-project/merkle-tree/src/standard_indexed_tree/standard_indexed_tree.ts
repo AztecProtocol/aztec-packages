@@ -43,6 +43,14 @@ export interface PreimageFactory {
   clone(preimage: IndexedTreeLeafPreimage): IndexedTreeLeafPreimage;
 }
 
+export const buildDbKeyForPreimage = (name: string, index: bigint) => {
+  return `${name}:leaf_by_index:${toBufferBE(index, 32).toString('hex')}`;
+};
+
+export const buildDbKeyForLeafIndex = (name: string, key: bigint) => {
+  return `${name}:leaf_index_by_leaf_key:${toBufferBE(key, 32).toString('hex')}`;
+};
+
 /**
  * Factory for creating leaves.
  */
@@ -58,14 +66,6 @@ export interface LeafFactory {
    */
   fromBuffer(buffer: Buffer): IndexedTreeLeaf;
 }
-
-export const buildDbKeyForPreimage = (name: string, index: bigint) => {
-  return `${name}:leaf_by_index:${toBufferBE(index, 32).toString('hex')}`;
-};
-
-export const buildDbKeyForLeafIndex = (name: string, key: bigint) => {
-  return `${name}:leaf_index_by_leaf_key:${toBufferBE(key, 32).toString('hex')}`;
-};
 
 /**
  * Pre-compute empty witness.

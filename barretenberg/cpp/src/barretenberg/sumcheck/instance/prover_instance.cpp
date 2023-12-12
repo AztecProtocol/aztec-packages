@@ -1,5 +1,5 @@
 #include "prover_instance.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
@@ -353,6 +353,9 @@ template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomi
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
     }
+
+    instance_size = proving_key->circuit_size;
+    log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
@@ -453,7 +456,7 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     relation_parameters.gamma = gamma;
 
     // Compute permutation and lookup grand product polynomials
-    lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+    logderivative_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
 }
 

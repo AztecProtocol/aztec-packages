@@ -36,8 +36,8 @@ import {Hash} from "./Hash.sol";
  *  | 0x010c                                                                           | 0x04         | startPublicDataTreeSnapshot.nextAvailableLeafIndex
  *  | 0x0110                                                                           | 0x20         | startL1ToL2MessageTreeSnapshot.root
  *  | 0x0130                                                                           | 0x04         | startL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
- *  | 0x0134                                                                           | 0x20         | startBlocksTreeSnapshot.root
- *  | 0x0154                                                                           | 0x04         | startBlocksTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x0134                                                                           | 0x20         | startArchiveSnapshot.root
+ *  | 0x0154                                                                           | 0x04         | startArchiveSnapshot.nextAvailableLeafIndex
  *  | 0x0158                                                                           | 0x20         | endNoteHashTreeSnapshot.root
  *  | 0x0178                                                                           | 0x04         | endNoteHashTreeSnapshot.nextAvailableLeafIndex
  *  | 0x017c                                                                           | 0x20         | endNullifierTreeSnapshot.root
@@ -48,8 +48,8 @@ import {Hash} from "./Hash.sol";
  *  | 0x01e4                                                                           | 0x04         | endPublicDataTreeSnapshot.nextAvailableLeafIndex
  *  | 0x01e8                                                                           | 0x20         | endL1ToL2MessageTreeSnapshot.root
  *  | 0x0208                                                                           | 0x04         | endL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
- *  | 0x020c                                                                           | 0x20         | endBlocksTreeSnapshot.root
- *  | 0x022c                                                                           | 0x04         | endBlocksTreeSnapshot.nextAvailableLeafIndex
+ *  | 0x020c                                                                           | 0x20         | endArchiveSnapshot.root
+ *  | 0x022c                                                                           | 0x04         | endArchiveSnapshot.nextAvailableLeafIndex
  *  | 0x0230                                                                           | 0x04         | len(newCommitments) (denoted a)
  *  | 0x0234                                                                           | a * 0x20     | newCommitments
  *  | 0x0234 + a * 0x20                                                                | 0x04         | len(newNullifiers) (denoted b)

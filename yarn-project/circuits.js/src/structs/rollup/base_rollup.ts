@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   KERNELS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
@@ -34,7 +34,7 @@ export class ConstantRollupData {
     /**
      * Snapshot of the blocks tree at the start of the rollup.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -76,7 +76,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startBlocksTreeSnapshot,
+      fields.archiveSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -118,7 +118,7 @@ export class BaseRollupInputs {
     /**
      * Snapshot of the blocks tree at the start of the base rollup circuit.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * The nullifiers to be inserted in the tree, sorted high to low.
@@ -212,8 +212,8 @@ export class BaseRollupInputs {
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public blocksTreeRootMembershipWitnesses: Tuple<
-      MembershipWitness<typeof BLOCKS_TREE_HEIGHT>,
+    public archiveRootMembershipWitnesses: Tuple<
+      MembershipWitness<typeof ARCHIVE_HEIGHT>,
       typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
@@ -233,7 +233,7 @@ export class BaseRollupInputs {
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeSnapshot,
-      fields.startBlocksTreeSnapshot,
+      fields.archiveSnapshot,
       fields.sortedNewNullifiers,
       fields.sortednewNullifiersIndexes,
       fields.lowNullifierLeafPreimages,
@@ -248,7 +248,7 @@ export class BaseRollupInputs {
       fields.publicDataWritesSubtreeSiblingPaths,
       fields.publicDataReadsPreimages,
       fields.publicDataReadsMembershipWitnesses,
-      fields.blocksTreeRootMembershipWitnesses,
+      fields.archiveRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

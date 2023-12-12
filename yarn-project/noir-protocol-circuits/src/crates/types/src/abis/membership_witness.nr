@@ -1,11 +1,11 @@
-use dep::aztec::constants_gen::{
+use crate::constants::{
     CONTRACT_TREE_HEIGHT,
     FUNCTION_TREE_HEIGHT,
     KERNELS_PER_BASE_ROLLUP,
     NULLIFIER_TREE_HEIGHT,
     NOTE_HASH_TREE_HEIGHT,
     ROLLUP_VK_TREE_HEIGHT,
-    BLOCKS_TREE_HEIGHT,
+    ARCHIVE_HEIGHT,
     PUBLIC_DATA_TREE_HEIGHT,
 };
 
@@ -43,9 +43,9 @@ struct PublicDataMembershipWitness{
     sibling_path: [Field; PUBLIC_DATA_TREE_HEIGHT]
 }
 
-struct BlocksTreeRootMembershipWitness{
+struct ArchiveRootMembershipWitness{
     leaf_index: Field,
-    sibling_path: [Field; BLOCKS_TREE_HEIGHT]
+    sibling_path: [Field; ARCHIVE_HEIGHT]
 }
 
 struct ReadRequestMembershipWitness {

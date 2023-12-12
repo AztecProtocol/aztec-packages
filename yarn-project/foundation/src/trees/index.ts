@@ -14,7 +14,6 @@ export interface IndexedTreeLeaf {
    * Returns true if the leaf is empty.
    */
   isEmpty(): boolean;
-
   /**
    * Updates the leaf with the data of another leaf.
    * @param another - The leaf to update to.
