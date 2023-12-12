@@ -35,14 +35,15 @@ This circuit ensures the correct ordering of the following arrays:
 - Read requests.
 - Update requests.
 
-An ordered requests array and a hints array are provided for each requests array via the private inputs. It verifies that:
+An ordered requests array (_ordered_requests_) and a hints array are provided for each requests array via the private inputs.
 
-- The length of the hints must equal the length of the requests array in the previous iteration's public inputs (_prev_requests_).
-- The length of _prev_requests_ must equal the length of the ordered requests array (_ordered_requests_).
-- For each hint _hints[i]_ at index _i_, the request at index _i_ in _ordered_requests_ must equal the request at index _hints[i]_ in _prev_requests_.
-- For _i_ > 0, the counter of the request at index _hints[i]_ must be greater than the counter of the request at index _hints[i - 1]_ in _prev_requests_.
+For each hint _hints[i]_ at index _i_, this circuit locates the request at index _i_ in _ordered_requests_:
 
-> The length of an array is the number of **consecutive** non-empty items from index 0 in an array.
+- If the request is not empty:
+  - It must match the request at index _hints[i]_ in the corresponding requests in the previous iteration's public inputs (_prev_requests_).
+  - If _i_ != 0, its counter must be greater than the counter of the request at index _i - 1_.
+- If the request is empty:
+  - All the subsequent requests must be empty in both _ordered_requests_ and _prev_requests_.
 
 #### Siloing values.
 
@@ -80,7 +81,7 @@ The siloed storage slot is computed as: `hash(contract_address, storage_slot)`.
 
 #### Verifying public data snaps.
 
-The public data snaps array is provided through private inputs, serving as hints for read requests to prove that the value in the tree aligns with the read operation. For update requests, it serves to prove that the old value specified in the update request was accurate. The maximum length of a public data snaps array is the maximum length of the read requests array plus the maximum length of the update requests array.
+The public data snaps array is provided through private inputs, serving as hints for read requests to prove that the value in the tree aligns with the read operation. For update requests, it serves to prove that the old value specified in the update request was accurate. The length of a public data snaps array is the length of the read requests array plus the length of the update requests array.
 
 A public data snap contains:
 

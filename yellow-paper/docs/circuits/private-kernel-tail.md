@@ -41,20 +41,17 @@ The following must be empty to ensure a comprehensive final reset:
 
 The initial and inner kernel iterations may produce values in an unordered state due to the serial nature of the kernel, contrasting with the stack-based nature of code execution.
 
-This circuit ensures correct ordering of the following array in the public inputs:
+This circuit ensures correct ordering of the public call requests in the public inputs (_public_call_requests_).
 
-- Public call requests.
+A hints array is provided via the private inputs. For each hint _hints[i]_ at index _i_, this circuit locates the request at index _i_ in _public_call_requests_:
 
-A hints array is provided via the private inputs. This circuit verifies that:
+- If the request is not empty:
+  - It must match the request at index _hints[i]_ in the public call requests in the previous iteration's public inputs (_prev_public_call_requests_).
+  - If _i_ != 0, its counter must be greater than the counter of the request at index _i - 1_.
+- If the request is empty:
+  - All the subsequent requests must be empty in both _public_call_requests_ and _prev_public_call_requests_.
 
-- The length of the hints must equal the length of the public call requests array in the previous iteration's public inputs (_prev_public_call_requests_).
-- The length of _prev_public_call_requests_ must equal the length of the public call requests array in the public inputs (_public_call_requests_).
-- For each hint _hints[i]_ at index _i_, the request at index _i_ in _public_call_requests_ must equal the request at index _hints[i]_ in _prev_public_call_requests_.
-- For _i_ > 0, the counter of the request at index _hints[i]_ must be greater than the counter of the request at index _hints[i - 1]_ in _prev_public_call_requests_.
-
-> The length of an array is the number of **consecutive** non-empty items from index 0 in an array.
-
-> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and _usually_ more efficient to be done in the tail circuit.
+> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done in the tail circuit.
 
 #### Siloing values.
 
