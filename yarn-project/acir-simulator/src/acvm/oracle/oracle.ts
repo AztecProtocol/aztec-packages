@@ -119,14 +119,15 @@ export class Oracle {
     return blockHeader.toArray().map(toACVMField);
   }
 
-  async getBlockHeaderBlockNumber([nullifierTreeRoot]: ACVMField[]): Promise<ACVMField[]> {
+  // TODO(#3564) - Nuke this oracle and inject the number directly to context
+  async getNullifierRootBlockNumber([nullifierTreeRoot]: ACVMField[]): Promise<ACVMField> {
     const parsedRoot = fromACVMField(nullifierTreeRoot);
 
-    const blockHeaderBlockNumber = await this.typedOracle.getBlockHeaderBlockNumber(parsedRoot);
-    if (!blockHeaderBlockNumber) {
+    const blockNumber = await this.typedOracle.getNullifierRootBlockNumber(parsedRoot);
+    if (!blockNumber) {
       throw new Error(`Block header not found for block ${parsedRoot}.`);
     }
-    return [toACVMField(blockHeaderBlockNumber)];
+    return toACVMField(blockNumber);
   }
 
   async getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {

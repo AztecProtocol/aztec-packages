@@ -14,8 +14,12 @@ use crate::{
 };
 
 // TODO(#3564) - Nuke this oracle and Inject the number directly to context
-#[oracle(getBlockHeaderBlockNumber)]
-fn get_block_header_block_number(nullifier_tree_root: Field) -> Field {}
+#[oracle(getNullifierRootBlockNumber)]
+fn get_nullifier_root_block_number_oracle(_nullifier_tree_root: Field) -> Field {}
+
+unconstrained pub fn get_nullifier_root_block_number(nullifier_tree_root: Field) -> Field {
+    get_nullifier_root_block_number_oracle(nullifier_tree_root)
+}
 
 #[oracle(getBlockHeader)]
 fn get_block_header_oracle(_block_number: Field) -> [Field; BLOCK_HEADER_LENGTH] {}
@@ -35,7 +39,8 @@ pub fn get_block_header(block_number: Field, context: PrivateContext) -> BlockHe
     // 3) Get the membership witness of the block in the archive
     let archive_id = 5; // TODO(#3443)
     
-    let block_header_block_number = get_block_header_block_number(context.block_header.nullifier_tree_root);
+    // Using nullifier tree root to get the block header block number because that changes in every block (every tx emits a nullifier).
+    let block_header_block_number = get_nullifier_root_block_number(context.block_header.nullifier_tree_root);
     let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(block_header_block_number, archive_id, block_hash);
 
     // 4) Check that the block is in the archive (i.e. the witness is valid)
