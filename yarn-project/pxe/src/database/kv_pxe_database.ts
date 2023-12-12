@@ -19,7 +19,8 @@ type SerializedBlockHeader = {
  */
 export class KVPxeDatabase implements PxeDatabase {
   #blockHeader: AztecSingleton<SerializedBlockHeader>;
-  #addresses: AztecMap<string, Buffer>;
+  #addresses: AztecArray<Buffer>;
+  #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
   #contracts: AztecMap<string, Buffer>;
@@ -33,11 +34,15 @@ export class KVPxeDatabase implements PxeDatabase {
 
   constructor(db: AztecKVStore) {
     this.#db = db;
-    this.#addresses = db.createMap('addresses');
+
+    this.#addresses = db.createArray('addresses');
+    this.#addressIndex = db.createMap('address_index');
+
     this.#authWitnesses = db.createMap('auth_witnesses');
     this.#capsules = db.createArray('capsules');
     this.#blockHeader = db.createSingleton('block_header');
     this.#contracts = db.createMap('contracts');
+
     this.#notes = db.createArray('notes');
     this.#nullifiedNotes = db.createMap('nullified_notes');
 
@@ -221,29 +226,39 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#db.transaction(() => {
       const addressString = completeAddress.address.toString();
       const buffer = completeAddress.toBuffer();
-      const existing = this.#addresses.get(addressString);
-      if (!existing) {
-        void this.#addresses.set(addressString, buffer);
+      const existing = this.#addressIndex.get(addressString);
+      if (typeof existing === 'undefined') {
+        const index = this.#addresses.length;
+        void this.#addresses.push(buffer);
+        void this.#addressIndex.set(addressString, index);
+
         return true;
-      }
+      } else {
+        const existingBuffer = this.#addresses.at(existing);
 
-      if (existing.equals(buffer)) {
-        return false;
-      }
+        if (existingBuffer?.equals(buffer)) {
+          return false;
+        }
 
-      throw new Error(
-        `Complete address with aztec address ${addressString} but different public key or partial key already exists in memory database`,
-      );
+        throw new Error(
+          `Complete address with aztec address ${addressString} but different public key or partial key already exists in memory database`,
+        );
+      }
     });
   }
 
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const value = this.#addresses.get(address.toString());
+    const index = this.#addressIndex.get(address.toString());
+    if (typeof index === 'undefined') {
+      return Promise.resolve(undefined);
+    }
+
+    const value = this.#addresses.at(index);
     return Promise.resolve(value ? CompleteAddress.fromBuffer(value) : undefined);
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return Promise.resolve(Array.from(this.#addresses.values()).map(v => CompleteAddress.fromBuffer(v)));
+    return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
   }
 
   estimateSize(): number {
