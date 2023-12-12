@@ -2,18 +2,37 @@
 title: CLI Commands
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Here you will find a reference to the commands available in the Aztec CLI.
 
 ## Installation
 
 ### Docker
 
-The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
+The CLI will be installed automatically via Docker by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
 
 :::info
 
-The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm are deprecated in favor of Docker. If you've installed the sandbox or the CLI via NPM, uninstall them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
+The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm are deprecated in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
 
+<Tabs>
+  <TabItem value="yarn" label="yarn" default>
+    
+<code>
+yarn global remove @aztec/aztec-sandbox @aztec/cli
+</code>
+
+  </TabItem>
+  <TabItem value="npm" label="npm">
+
+<code>
+npm -g uninstall @aztec/aztec-sandbox @aztec/cli
+</code>
+
+   </TabItem>
+</Tabs>
 :::
 
 ## Update
@@ -34,7 +53,7 @@ The sandbox must be running for the update command to work.
 
 :::info
 
-The update command won't update the CLI itself. You can update the CLI itself by [running the command again](./sandbox-reference.md#installation-with-docker).
+The update command won't update the CLI itself. To update these follow the [updating instructions which point to our curl command](./sandbox-reference.md#with-docker).
 
 :::
 
