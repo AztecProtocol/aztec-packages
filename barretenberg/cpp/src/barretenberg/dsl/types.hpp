@@ -23,6 +23,7 @@
 
 namespace acir_format {
 
+// WORKTODO(NEW_CONSTRAINTS)
 using Builder = proof_system::UltraCircuitBuilder;
 
 using Composer = proof_system::honk::UltraComposer;

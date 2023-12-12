@@ -19,7 +19,6 @@ class MemProverCrs : public ProverCrs<curve::BN254> {
         std::copy(points.begin(), points.end(), monomials_.get());
         scalar_multiplication::generate_pippenger_point_table<curve::BN254>(
             monomials_.get(), monomials_.get(), num_points);
-        info("Constructing MEM PROVER SRS; num_points = ", num_points);
     }
 
     g1::affine_element* get_monomial_points() override { return monomials_.get(); }

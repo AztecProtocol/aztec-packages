@@ -14,7 +14,6 @@ namespace barretenberg::srs {
 // Initializes the crs using the memory buffers
 void init_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const g2_point)
 {
-    info("GLOBAL CRS: init global CRS from g1 and g2 points.");
     crs_factory = std::make_shared<factories::MemCrsFactory>(points, g2_point);
 }
 

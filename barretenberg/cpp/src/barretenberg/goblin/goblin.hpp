@@ -13,6 +13,7 @@ namespace barretenberg {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
+    // WORKTODO(NEW_CONSTRAINTS)
     using GUHFlavor = proof_system::honk::flavor::Ultra;
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
@@ -94,7 +95,7 @@ class Goblin {
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<TranslatorComposer> translator_composer;
     AccumulationOutput accumulator;
-    Proof proof_; // WORKTODO: hack to avoid paring out from big byte array
+    Proof proof_; // WORKTODO: hack to avoid parsing out from big byte array
 
   public:
     /**
@@ -104,7 +105,6 @@ class Goblin {
      */
     AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
     {
-        info("goblin: accumulate");
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
@@ -112,15 +112,12 @@ class Goblin {
         }
 
         // Construct a Honk proof for the main circuit
-        info("default constuct UGH composer");
         GoblinUltraComposer composer;
-        info("create_instance ultra");
         auto instance = composer.create_instance(circuit_builder);
-        info("create_prover ultra");
         auto prover = composer.create_prover(instance);
-        info("construct_proof ultra");
         auto ultra_proof = prover.construct_proof();
 
+        // WORKTODO(MERGE_VERIFIER)
         // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
         // // Construct and store the merge proof to be recursively verified on the next call to accumulate
         // info("create_merge_prover");
@@ -138,38 +135,22 @@ class Goblin {
 
     Proof prove()
     {
-        info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
         GoblinTestingUtils::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-        info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
-
-        info("goblin: prove");
         Proof proof;
 
         proof.merge_proof = std::move(merge_proof);
 
-        info("eccvm: construct builder");
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        info("eccvm: construct composer");
         eccvm_composer = std::make_unique<ECCVMComposer>();
-        info("eccvm: construct prover");
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
-        info("eccvm: construct proof");
         proof.eccvm_proof = eccvm_prover.construct_proof();
-        info("eccvm: translation_evaluations");
         proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
-        info("translator: construct builder");
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
-        info("translator: construct composer");
         translator_composer = std::make_unique<TranslatorComposer>();
-        info("translator: construct prover");
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
-        info("translator: construct proof");
         proof.translator_proof = translator_prover.construct_proof();
-
-        info("goblin: prove complete!");
-        proof_ = proof;
 
         return proof;
     };
@@ -192,24 +173,20 @@ class Goblin {
 
     bool verify(const Proof& proof) const
     {
+        // // WORKTODO(MERGE)
         // MergeVerifier merge_verifier;
         // info("constructed merge_verifier");
         // bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
         // info("verified merge proof. result: ", merge_verified);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
-        info("constructed eccvm_verifier");
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-        info("verified eccvm proof. result:", eccvm_verified);
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
-        info("constructed translator_verifier");
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        info("verified translator proof. result:", accumulator_construction_verified);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
         //   Ensure translation_evaluations are passed correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
-        info("tried to verify translation. result:", translation_verified);
 
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
     };
