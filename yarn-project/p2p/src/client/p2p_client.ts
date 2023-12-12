@@ -229,7 +229,7 @@ export class P2PClient implements P2P {
     if (!ready) {
       throw new Error('P2P client not ready');
     }
-    this.txPool.deleteTxs(txHashes);
+    await this.txPool.deleteTxs(txHashes);
   }
 
   /**
@@ -264,14 +264,13 @@ export class P2PClient implements P2P {
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private reconcileTxPool(blocks: L2Block[]): Promise<void> {
+  private async reconcileTxPool(blocks: L2Block[]): Promise<void> {
     for (let i = 0; i < blocks.length; i++) {
       const blockContext = new L2BlockContext(blocks[i]);
       const txHashes = blockContext.getTxHashes();
-      this.txPool.deleteTxs(txHashes);
+      await this.txPool.deleteTxs(txHashes);
       this.p2pService.settledTxs(txHashes);
     }
-    return Promise.resolve();
   }
 
   /**
