@@ -27,20 +27,15 @@ const auto current_dir = current_path.filename().string();
 acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 {
     acir_proofs::AcirComposer acir_composer(0, verbose);
-    info("created AcirComposer");
-    // populates the builder in the ACIR composer
     acir_composer.create_circuit(constraint_system);
-    info("created circuit");
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
     // WORKTODO: subgroup_size is 0 since the member variable is not being set properly in create_circuit
-    info("init: compute subgroup_size = ", subgroup_size);
     // WORKTODO: this size now must be large enough for both input circuit and the translator prover
     subgroup_size = 32768;
 
     // Must +1!
     auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
     auto g2_data = get_g2_data(CRS_PATH);
-    info("initializing crs factory in init(constraint_system)");
     srs::init_crs_factory(g1_data, g2_data);
 
     // WORKTODO(ADAM) initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
@@ -88,10 +83,11 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
+
     auto acir_composer = init(constraint_system);
 
     Timer pk_timer;
-    // used to construct pk, now just populate builder and finalize circuit.
+    // Function used to construct pk, now just populate builder and finalize circuit.
     acir_composer.init_proving_key(constraint_system);
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
     write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
@@ -105,8 +101,6 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     // This state is now managed internally to Goblin.
     // acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
-
-    info("acir_composer.verify_proof(...)");
 
     auto verified = acir_composer.verify_proof(proof, recursive);
 

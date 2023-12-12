@@ -22,17 +22,15 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     // WORKTODO: this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
     // sizes below never get set and that eventually causes too few srs points to be extracted
     if (builder_.get_num_gates() > 1) {
-
-        info("create_circuit: early return: builder_.get_num_gates() > 1; num_gates = ", builder_.get_num_gates());
         return;
     }
-    info("create_circuit: building circuit...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_); // WORKTODO
+    vinfo("create_circuit: building circuit...");
+    builder_ = acir_format::create_circuit(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
     size_hint_ = circuit_subgroup_size_;
-    info("create_circuit: gates: ", builder_.get_total_circuit_size());
+    vinfo("create_circuit: gates: ", builder_.get_total_circuit_size());
 }
 
 // this function now populates the circuit builder and finalizes
@@ -50,10 +48,10 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)
 {
-    info("building circuit with witness...");
+    vinfo("building circuit with witness...");
     builder_ = acir_format::Builder(size_hint_);
     create_circuit_with_witness(builder_, constraint_system, witness);
-    info("gates in circuit with witness: ", builder_.get_total_circuit_size());
+    vinfo("gates in circuit with witness: ", builder_.get_total_circuit_size());
 
     // // WORKTODO(NEW_CONSTRAINTS)
     // info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
@@ -77,7 +75,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     //     return goblin;
     // }();
 
-    info("creating proof...");
+    vinfo("creating proof...");
     std::vector<uint8_t> proof;
     if (is_recursive) {
         // WORKTODO: not dealing with this now; in the future this is a call to accumulate
@@ -122,8 +120,8 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     // builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
-    // WORKTODO: Ignore this for now
     if (is_recursive) {
+        // WORKTODO: Ignore this for now
         return goblin.verify_proof({ proof });
     } else {
         info("Verify proof.");

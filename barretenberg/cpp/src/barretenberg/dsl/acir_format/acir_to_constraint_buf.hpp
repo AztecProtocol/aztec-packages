@@ -273,7 +273,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                // WORKTODO?: special handling here for: goblin (:grimace:); databus (void?).
+                // WORKTODO(NEW_CONSTRAINTS/*  */): special handling here for: goblin (:grimace:); databus (void?).
                 if constexpr (std::is_same_v<T, Circuit::Opcode::Arithmetic>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {

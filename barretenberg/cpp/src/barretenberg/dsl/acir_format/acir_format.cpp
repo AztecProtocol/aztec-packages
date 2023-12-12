@@ -120,8 +120,8 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         }
     }
 
-    // WORKTODO: add new constraint types here
-    // WORKTODO: this gets called twice? understand why.
+    // WORKTODO(NEW_CONSTRAINTS): add new constraint types here
+    // WORKTODO(NEW_CONSTRAINTS): this gets called twice? understand why.
 }
 
 void create_circuit(Builder& builder, acir_format const& constraint_system)
