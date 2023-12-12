@@ -67,6 +67,7 @@ At launch, the throughput won't be this high, but ideally we architect Aztec suc
 ### Prover time
 
 The critical UX factor. 1 minute per user tx is on the cusp of workable. The faster we can get this the better our network's value proposition for users and developers
+. The benchmark is a standard "Aztec Connect" defi interaction transaction, as this is a tx with non-trivial complexity but can also be expected to be a common type of transaction. (note: we need to write such a circuit in noir so we can benchmark against it!)
 
 ### Verifier time
 
