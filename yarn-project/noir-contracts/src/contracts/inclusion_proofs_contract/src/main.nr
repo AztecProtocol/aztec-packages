@@ -23,6 +23,9 @@ contract InclusionProofs {
                 prove_note_commitment_inclusion,
                 prove_note_inclusion,
             },
+            note_validity::{
+                prove_note_validity,
+            },
             nullifier_inclusion::{
                 prove_nullifier_inclusion,
             },
@@ -86,7 +89,7 @@ contract InclusionProofs {
 
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
-    fn proveNoteInclusion(
+    fn test_note_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the note exists
         spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
@@ -108,7 +111,7 @@ contract InclusionProofs {
 
     // Proves that the note was not yet nullified at block `block_number`.
     #[aztec(private)]
-    fn proveNullifierNonInclusion(
+    fn test_nullifier_non_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
         spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
@@ -129,7 +132,22 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
-    fn nullifyNote(
+    fn test_note_validity_proof(
+        owner: AztecAddress,
+        block_number: u32, // The block at which we'll prove that the note exists and is not nullified
+    ) {
+        // 1) Get the note from PXE.
+        let private_values = storage.private_values.at(owner.address);
+        let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
+        let notes = private_values.get_notes(options);
+        let note = notes[0].unwrap();
+
+        // 2) Prove the note validity
+        prove_note_validity(ValueNoteMethods, note, block_number, context);
+    }
+
+    #[aztec(private)]
+    fn nullify_note(
         owner: AztecAddress,
     ) {
         let private_values = storage.private_values.at(owner.address);
@@ -144,7 +162,7 @@ contract InclusionProofs {
     // Note: I am not getting a nullifier of the note that was created in this contract in this function because it is
     //       currently not possible to obtain a nullified note from PXE.
     #[aztec(private)]
-    fn proveNullifierInclusion(
+    fn test_nullifier_inclusion_proof(
         nullifier: Field,
         block_number: u32, // The block at which we'll prove that the nullifier not exists in the tree
     ) {
@@ -152,7 +170,7 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
-    fn provePublicValueInclusion(
+    fn test_public_value_inclusion_proof(
         public_value: Field,
         block_number: u32, // The block at which we'll prove that the public value exists
     ) {
