@@ -85,17 +85,13 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
  */
 bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessPath, bool recursive)
 {
-    info("executing proveAndVerify");
     // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     auto constraint_system = get_constraint_system(bytecodePath);
-    info("got constraint system");
     auto witness = get_witness(witnessPath);
-    info("got witness");
     auto acir_composer = init(constraint_system);
-    info("initialized acir_composer");
 
     Timer pk_timer;
-    // construct a pk for the GUH composer
+    // used to construct pk, now just populate builder and finalize circuit.
     acir_composer.init_proving_key(constraint_system);
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
     write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
@@ -105,9 +101,8 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
-    info("acir_composer.init_verification_key()");
-
     Timer vk_timer;
+    // This state is now managed internally to Goblin.
     // acir_composer.init_verification_key();
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
 

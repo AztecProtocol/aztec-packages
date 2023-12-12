@@ -35,17 +35,15 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     info("create_circuit: gates: ", builder_.get_total_circuit_size());
 }
 
-// WORKTODO: this is more like init_instance now or something
+// this function now populates the circuit builder and finalizes
 std::shared_ptr<AcirComposer::ProvingKey> AcirComposer::init_proving_key(acir_format::acir_format& constraint_system)
 {
+    // populate the builder
     create_circuit(constraint_system);
-    vinfo("computing proving key...");
     // WORKTODO: static execution if this doesn't change composer state
-    prover_instance_ = goblin.composer.create_instance(builder_);
-    proving_key_ = prover_instance_->proving_key;
-    info("assigned proving_key_ in init_proving_key");
-
-    return proving_key_;
+    // finalize the circuit
+    goblin.composer.create_instance(builder_);
+    return {};
 }
 
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
@@ -54,10 +52,10 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 {
     info("building circuit with witness...");
     builder_ = acir_format::Builder(size_hint_);
-    info("set builder_ in create_proof");
     create_circuit_with_witness(builder_, constraint_system, witness);
     info("gates in circuit with witness: ", builder_.get_total_circuit_size());
 
+    // // WORKTODO(NEW_CONSTRAINTS)
     // info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
 
     // // WORKTODO: accumulate creates an instance and a pk, ignoring this one.
@@ -82,12 +80,11 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     info("creating proof...");
     std::vector<uint8_t> proof;
     if (is_recursive) {
-        // WORKTODO: is this a call to accumulate?
-        proof = goblin.construct_proof(builder_); // WORKTODO serialize
+        // WORKTODO: not dealing with this now; in the future this is a call to accumulate
+        proof = goblin.construct_proof(builder_);
     } else {
-        proof = goblin.construct_proof(builder_); // WORKTODO serialize
+        proof = goblin.construct_proof(builder_);
     }
-    info("AcirComposer::create_proof complete.");
     return proof;
 }
 
@@ -112,8 +109,7 @@ void AcirComposer::load_verification_key([[maybe_unused]] proof_system::plonk::v
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recursive)
 {
-    // // WORKTODO: this is actually just the goblin.verify_proof call in our proveAndVerify case
-    // // WORKTODO: this is not the same (but possibly == to) the pk
+
     // goblin.composer = acir_format::Composer(proving_key_, verification_key_);
 
     // if (!verification_key_) {
