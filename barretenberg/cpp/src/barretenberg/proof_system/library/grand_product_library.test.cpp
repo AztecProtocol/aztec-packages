@@ -95,12 +95,6 @@ template <class FF> class GrandProductTests : public testing::Test {
                    proof_system::flavor_get_label(*proving_key, key_poly));
             prover_poly = key_poly.share();
         }
-        for (auto [prover_poly, key_poly] :
-             zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
-            ASSERT(proof_system::flavor_get_label(prover_polynomials, prover_poly) ==
-                   (proof_system::flavor_get_label(*proving_key, key_poly) + "_shift"));
-            prover_poly = key_poly.shifted();
-        }
 
         // Method 1: Compute z_perm using 'compute_grand_product_polynomial' as the prover would in practice
         constexpr size_t PERMUTATION_RELATION_INDEX = 0;

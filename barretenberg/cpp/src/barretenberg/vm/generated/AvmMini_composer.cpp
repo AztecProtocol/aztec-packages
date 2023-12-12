@@ -18,7 +18,7 @@ void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
     auto polynomials = circuit.compute_polynomials();
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
-        // TODO(AD): can this be shared instead?
+        ASSERT(flavor_get_label(*proving_key, key_poly) == flavor_get_label(polynomials, prover_poly));
         key_poly = prover_poly;
     }
 
