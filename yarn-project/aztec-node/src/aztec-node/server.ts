@@ -495,7 +495,7 @@ export class AztecNodeService implements AztecNode {
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     const committedDb = await this.#getWorldState('latest');
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
-    // TODO change this to findLeafIndex, should be faster
+
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
       return Fr.ZERO;

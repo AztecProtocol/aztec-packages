@@ -92,7 +92,6 @@ export class WorldStatePublicDB implements PublicStateDB {
       return commited;
     }
 
-    // TODO change this to findLeafIndex, should be faster
     const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
       return Fr.ZERO;
