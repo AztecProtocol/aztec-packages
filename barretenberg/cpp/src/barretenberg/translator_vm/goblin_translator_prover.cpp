@@ -35,6 +35,7 @@ GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Fl
 {
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
+        std::cout << flavor_get_label(prover_polynomials, prover_poly) << " vs " << flavor_get_label(*key, key_poly);
         prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
