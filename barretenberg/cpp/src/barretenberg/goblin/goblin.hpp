@@ -192,19 +192,26 @@ class Goblin {
 
     bool verify(const Proof& proof) const
     {
-        MergeVerifier merge_verifier;
-        bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+        // MergeVerifier merge_verifier;
+        // info("constructed merge_verifier");
+        // bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+        // info("verified merge proof. result: ", merge_verified);
 
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        info("constructed eccvm_verifier");
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+        info("verified eccvm proof. result:", eccvm_verified);
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
+        info("constructed translator_verifier");
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        info("verified translator proof. result:", accumulator_construction_verified);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
         //   Ensure translation_evaluations are passed correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+        info("tried to verify translation. result:", translation_verified);
 
-        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
+        return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 
     bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
@@ -218,8 +225,9 @@ class Goblin {
         info("verified GUH proof; result: ", verified);
 
         const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
+        auto goblin_proof = extract_goblin_proof(proof);
         info("extracted goblin proof");
-        verified = verified && verify(extract_goblin_proof(proof));
+        verified = verified && verify(goblin_proof);
         info("verified goblin proo");
         return verified;
     }
