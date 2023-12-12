@@ -47,5 +47,6 @@ class Engine {
 
 Engine& get_debug_engine(bool reset = false);
 Engine& get_engine();
+Engine& get_devurandom_engine();
 
 } // namespace numeric::random
