@@ -213,6 +213,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         prover_polynomial_pointers[poly_idx] = polynomial;
         poly_idx++;
     }
+    // WORKTODO return storage
 
     // Fold the prover polynomials
     auto acc_poly_views = acc_prover_polynomials.get_all();

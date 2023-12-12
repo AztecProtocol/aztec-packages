@@ -35,6 +35,7 @@ template <class Flavor> class ProverInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
+    // This is meh here
     std::array<Polynomial, 4> sorted_polynomials;
 
     // The number of public inputs has to be the same for all instances because they are
