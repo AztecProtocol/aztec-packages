@@ -25,7 +25,7 @@ Honk uses a custom arithmetisation that extends the Ultra circuit arithmetisatio
 
 # Incrementally Verifiable Computation Subprotocols
 
-An Incrementally Verifiable Computation (IVC) scheme describes a protocol that enables multiple successive proofs to evolve persistent state over time.
+An Incrementally Verifiable Computation (IVC) scheme describes a protocol that defines some concept of persistent state, and enables multiple successive proofs to evolve the state over time.
 
 IVC schemes are used by Aztec in two capacities:
 
