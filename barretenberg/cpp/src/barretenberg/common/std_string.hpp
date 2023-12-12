@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 namespace std {
 std::vector<std::string> split(const std::string& str, char delimiter);
