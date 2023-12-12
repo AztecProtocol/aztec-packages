@@ -756,7 +756,8 @@ class GoblinTranslator {
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
-            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
+            return concatenate(PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_unshifted_wires());
         }
         // get_to_be_shifted is inherited
         RefVector<DataType> get_shifted()
@@ -898,6 +899,13 @@ class GoblinTranslator {
         // Expose constructors on the base class
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
+
+        // HACK to get around concatenated constraints being weird
+        RefVector<Polynomial> get_all()
+        {
+            return concatenate(PrecomputedEntities<Polynomial>::get_all(),
+                               WitnessEntities<Polynomial>::get_unshifted_wires());
+        }
 
         ProvingKey(const size_t circuit_size)
             : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>(circuit_size, 0)
