@@ -44,6 +44,19 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     return acir_composer;
 }
 
+void init_reference_strings()
+{
+    size_t subgroup_size = 32768;
+
+    // Must +1!
+    auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
+    auto g2_data = get_g2_data(CRS_PATH);
+    srs::init_crs_factory(g1_data, g2_data);
+
+    // WORKTODO(ADAM) initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
+    srs::init_grumpkin_crs_factory(CRS_PATH);
+}
+
 acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? maybe rename?
 {
     acir_proofs::AcirComposer acir_composer(0, verbose);
@@ -103,6 +116,49 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     write_benchmark("vk_construction_time", vk_timer.milliseconds(), "acir_test", current_dir);
 
     auto verified = acir_composer.verify_proof(proof, recursive);
+
+    vinfo("verified: ", verified);
+    return verified;
+}
+
+/**
+ * @brief Proves and Verifies an ACIR circuit
+ *
+ * Communication:
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *   an exit code of 0 will be returned for success and 1 for failure.
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param recursive Whether to use recursive proof generation of non-recursive
+ * @return true if the proof is valid
+ * @return false if the proof is invalid
+ */
+bool proveAndVerifyGoblin(const std::string& bytecodePath,
+                          const std::string& witnessPath,
+                          [[maybe_unused]] bool recursive)
+{
+    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto witness = get_witness(witnessPath);
+
+    init_reference_strings();
+
+    Timer pk_timer;
+    // Function used to construct pk, now just populate builder and finalize circuit.
+    acir_proofs::AcirComposer acir_composer;
+    acir_composer.init_and_finalize_builder(constraint_system);
+    write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
+    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
+
+    Timer proof_timer;
+    auto proof = acir_composer.create_goblin_proof(constraint_system, witness);
+    write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
+
+    Timer vk_timer;
+
+    auto verified = acir_composer.verify_goblin_proof(proof);
 
     vinfo("verified: ", verified);
     return verified;
@@ -409,7 +465,7 @@ int main(int argc, char* argv[])
         }
 
         if (command == "prove_and_verify") {
-            return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
+            return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
         }
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
