@@ -100,7 +100,8 @@ void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_builder)
     auto wire_polynomials = construct_wire_polynomials_base_goblin_translator(circuit_builder, dyadic_circuit_size);
 
     // Most of the witness polynomials are the original wire polynomials
-    for (auto [key_poly, wire_poly] : zip_view(proving_key->get_all(), wire_polynomials)) {
+    for (auto [key_poly, wire_poly] :
+         zip_view(ZipAllowDifferentSizes::FLAG, proving_key->get_all(), wire_polynomials)) {
         key_poly = wire_poly.share();
     }
 
