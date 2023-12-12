@@ -3,7 +3,14 @@ import { computeGlobalsHash, siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AuthWitness, AztecNode, CompleteAddress, MerkleTreeId, NullifierMembershipWitness } from '@aztec/types';
+import {
+  AuthWitness,
+  AztecNode,
+  CompleteAddress,
+  MerkleTreeId,
+  NullifierMembershipWitness,
+  PublicDataWitness,
+} from '@aztec/types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -89,6 +96,16 @@ export class ViewDataOracle extends TypedOracle {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return await this.db.getLowNullifierMembershipWitness(blockNumber, nullifier);
+  }
+
+  /**
+   * Returns a public data tree witness for a given leaf slot at a given block.
+   * @param blockNumber - The block number at which to get the index.
+   * @param leafSlot - The slot of the public data tree to get the witness for.
+   * @returns - The witness
+   */
+  public async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return await this.db.getPublicDataTreeWitness(blockNumber, leafSlot);
   }
 
   /**

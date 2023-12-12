@@ -36,6 +36,10 @@ contract InclusionProofs {
                 get_nullifier_membership_witness,
                 NullifierMembershipWitness,
             },
+            get_public_data_witness::{
+                get_public_data_witness,
+                PublicDataWitness,
+            }
         },
         hash::pedersen_hash,
     };
@@ -254,23 +258,28 @@ contract InclusionProofs {
         //    root.
         let block_header = context.get_block_header(block_number);
 
-        // 2) Compute the public value leaf index.
-        // We have to compute the leaf index here because unlike in the case of note commitments, public values are
-        // not siloed with contract address so an oracle could cheat and give us a membership witness for arbitrary
-        // value in the public data tree.
-        let public_value_leaf_index = pedersen_hash(
+        // 2) Compute the leaf slot by siloing the storage slot with our own address
+        let public_value_leaf_slot = pedersen_hash(
             [context.this_address(), storage.public_value.storage_slot],
             GENERATOR_INDEX__PUBLIC_LEAF_INDEX
         );
 
-        // 3) Get the sibling path of the public value leaf index in the public data tree at block `block_number`.
-        let public_data_tree_id = 3; // TODO(#3443)
-        let path: [Field; PUBLIC_DATA_TREE_HEIGHT] =
-            get_sibling_path(block_number, public_data_tree_id, public_value_leaf_index);
+        // 3) Get the membership witness of the slot
+        let witness = get_public_data_witness(block_number, public_value_leaf_slot);
 
-        // 4) Prove that the public value provided on input is in the public data tree
+        // 4) Check that the witness matches the corresponding public_value
+        let preimage = witness.leaf_preimage;
+        if preimage.slot == public_value_leaf_slot {
+            assert_eq(preimage.value, public_value, "Public value does not match value in witness");
+        } else {
+            assert_eq(public_value, 0, "Got non-zero public value for non-existing slot");
+            assert(full_field_less_than(preimage.slot, public_value_leaf_slot), "Invalid witness range");
+            assert(full_field_less_than(public_value_leaf_slot, preimage.next_slot), "Invalid witness range");
+        }
+
+        // 5) Prove that the leaf we validated is in the public data tree
         assert(
-            block_header.public_data_tree_root == compute_merkle_root(public_value, public_value_leaf_index, path),
+            block_header.public_data_tree_root == compute_merkle_root(preimage.hash(), witness.index, witness.path),
             "Proving public value inclusion failed"
         );
 

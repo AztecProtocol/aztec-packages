@@ -41,6 +41,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  PublicDataWitness,
   SequencerConfig,
   SiblingPath,
   Tx,
@@ -480,6 +481,24 @@ export class AztecNodeService implements AztecNode {
       BigInt(index),
     );
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
+  }
+
+  async getPublicDataTreeWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult) {
+      return undefined;
+    } else {
+      const preimage = (await committedDb.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      );
+      return new PublicDataWitness(lowLeafResult.index, preimage, path);
+    }
   }
 
   /**

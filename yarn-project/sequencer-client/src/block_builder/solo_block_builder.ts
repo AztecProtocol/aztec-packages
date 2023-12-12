@@ -648,11 +648,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       }
       const preimage = await this.db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-      const array = path.toFieldArray();
       newPublicDataReadsWitnesses[i] = new MembershipWitness(
         PUBLIC_DATA_TREE_HEIGHT,
         BigInt(lowLeafResult.index),
-        makeTuple(PUBLIC_DATA_TREE_HEIGHT, i => array[i]),
+        path.toTuple<typeof PUBLIC_DATA_TREE_HEIGHT>(),
       );
       newPublicDataReadsPreimages[i] = preimage! as PublicDataTreeLeafPreimage;
     }
