@@ -152,6 +152,7 @@ class Goblin {
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         proof.translator_proof = translator_prover.construct_proof();
 
+        proof_ = proof;
         return proof;
     };
 
