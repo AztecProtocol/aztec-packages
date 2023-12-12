@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { Database, Key, RootDatabase, open } from 'lmdb';
 
@@ -18,9 +19,11 @@ export class AztecLmdbStore implements AztecKVStore {
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
   #rollupAddress: AztecSingleton<string>;
+  #log: Logger;
 
-  constructor(rootDb: RootDatabase) {
+  constructor(rootDb: RootDatabase, log: Logger) {
     this.#rootDb = rootDb;
+    this.#log = log;
 
     // big bucket to store all the data
     this.#data = rootDb.openDB('data', {
@@ -47,14 +50,21 @@ export class AztecLmdbStore implements AztecKVStore {
    *
    * @param rollupAddress - The ETH address of the rollup contract
    * @param path - A path on the disk to store the database. Optional
+   * @param log - A logger to use. Optional
    * @returns The store
    */
-  static async create(rollupAddress: EthAddress, path?: string): Promise<AztecLmdbStore> {
+  static async create(
+    rollupAddress: EthAddress,
+    path?: string,
+    log = createDebugLogger('aztec:kv-store:lmdb'),
+  ): Promise<AztecLmdbStore> {
+    log.info(`Opening LMDB database at ${path || 'temporary location'}`);
+
     const rootDb = open({
       path,
     });
 
-    const db = new AztecLmdbStore(rootDb);
+    const db = new AztecLmdbStore(rootDb, log);
     await db.#init(rollupAddress);
 
     return db;
@@ -110,6 +120,9 @@ export class AztecLmdbStore implements AztecKVStore {
     const rollupAddressString = rollupAddress.toString();
 
     if (typeof storedRollupAddress === 'string' && rollupAddressString !== storedRollupAddress) {
+      this.#log.warn(
+        `Rollup address mismatch: expected ${rollupAddress}, found ${storedRollupAddress}. Clearing entire database...`,
+      );
       await this.#rootDb.clearAsync();
     }
 
