@@ -27,7 +27,12 @@ template <typename FF> struct AvmMiniFullRow {
     FF memTrace_m_val{};
     FF memTrace_m_lastAccess{};
     FF memTrace_m_rw{};
-    FF avmMini_subop{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_sel_op_sub{};
+    FF avmMini_sel_op_mul{};
+    FF avmMini_sel_op_div{};
+    FF avmMini_op_err{};
+    FF avmMini_inv{};
     FF avmMini_ia{};
     FF avmMini_ib{};
     FF avmMini_ic{};
@@ -41,9 +46,9 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
+    FF memTrace_m_rw_shift{};
     FF memTrace_m_addr_shift{};
     FF memTrace_m_val_shift{};
-    FF memTrace_m_rw_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -56,8 +61,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using AllPolynomials = Flavor::AllPolynomials;
 
-    static constexpr size_t num_fixed_columns = 25;
-    static constexpr size_t num_polys = 22;
+    static constexpr size_t num_fixed_columns = 30;
+    static constexpr size_t num_polys = 27;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -81,7 +86,12 @@ class AvmMiniCircuitBuilder {
             polys.memTrace_m_val[i] = rows[i].memTrace_m_val;
             polys.memTrace_m_lastAccess[i] = rows[i].memTrace_m_lastAccess;
             polys.memTrace_m_rw[i] = rows[i].memTrace_m_rw;
-            polys.avmMini_subop[i] = rows[i].avmMini_subop;
+            polys.avmMini_sel_op_add[i] = rows[i].avmMini_sel_op_add;
+            polys.avmMini_sel_op_sub[i] = rows[i].avmMini_sel_op_sub;
+            polys.avmMini_sel_op_mul[i] = rows[i].avmMini_sel_op_mul;
+            polys.avmMini_sel_op_div[i] = rows[i].avmMini_sel_op_div;
+            polys.avmMini_op_err[i] = rows[i].avmMini_op_err;
+            polys.avmMini_inv[i] = rows[i].avmMini_inv;
             polys.avmMini_ia[i] = rows[i].avmMini_ia;
             polys.avmMini_ib[i] = rows[i].avmMini_ib;
             polys.avmMini_ic[i] = rows[i].avmMini_ic;
@@ -97,9 +107,9 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
 
         return polys;
     }
