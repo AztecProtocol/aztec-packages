@@ -14,7 +14,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;

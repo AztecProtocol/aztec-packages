@@ -1,8 +1,6 @@
 #pragma once
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
 #include <barretenberg/goblin/goblin.hpp>
-#include <barretenberg/plonk/proof_system/proving_key/proving_key.hpp> // WORKTODO(KEY_TYPES)
-#include <barretenberg/plonk/proof_system/verification_key/verification_key.hpp>
 #include <barretenberg/proof_system/op_queue/ecc_op_queue.hpp>
 
 namespace acir_proofs {
@@ -56,6 +54,8 @@ class AcirComposer {
     size_t exact_circuit_size_;
     size_t total_circuit_size_;
     size_t circuit_subgroup_size_;
+    std::shared_ptr<acir_format::Composer::ProverInstance> prover_instance_; // WORKTODO: keys needed?
+    // std::shared_ptr<acir_format::Composer::VerifierInstance> verifier_instance_; // WORKTODO: keys needed?
     std::shared_ptr<ProvingKey> proving_key_;
     std::shared_ptr<VerificationKey> verification_key_;
 

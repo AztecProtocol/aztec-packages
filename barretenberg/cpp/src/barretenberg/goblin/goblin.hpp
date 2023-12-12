@@ -58,6 +58,7 @@ class Goblin {
 
     using Transcript = proof_system::honk::BaseTranscript;
     using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
+    // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
@@ -74,9 +75,6 @@ class Goblin {
 
     HonkProof merge_proof;
 
-    std::shared_ptr<GUHProvingKey> proving_key = std::make_shared<GUHProvingKey>();
-    std::shared_ptr<GUHVerificationKey> verification_key = std::make_shared<GUHVerificationKey>();
-
     GoblinUltraComposer composer;
 
     // on the first call to accumulate there is no merge proof to verify
@@ -84,8 +82,7 @@ class Goblin {
 
     Goblin(const std::shared_ptr<GUHProvingKey>& proving_key,
            const std::shared_ptr<GUHVerificationKey>& verification_key)
-        : proving_key(proving_key) // WORKTODO(KEY_TYPES): should this be pk of the composer member?
-        , verification_key(verification_key)
+        : composer(proving_key, verification_key)
     {}
 
     Goblin() = default;
@@ -97,6 +94,7 @@ class Goblin {
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<TranslatorComposer> translator_composer;
     AccumulationOutput accumulator;
+    Proof proof_; // WORKTODO: hack to avoid paring out from big byte array
 
   public:
     /**
@@ -145,9 +143,8 @@ class Goblin {
         info("GOBLIN: op_queue size = ", op_queue->ultra_ops[0].size());
 
         info("goblin: prove");
-        Proof proof;
 
-        proof.merge_proof = std::move(merge_proof);
+        proof_.merge_proof = std::move(merge_proof);
 
         info("eccvm: construct builder");
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
@@ -156,9 +153,9 @@ class Goblin {
         info("eccvm: construct prover");
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
         info("eccvm: construct proof");
-        proof.eccvm_proof = eccvm_prover.construct_proof();
+        proof_.eccvm_proof = eccvm_prover.construct_proof();
         info("eccvm: translation_evaluations");
-        proof.translation_evaluations = eccvm_prover.translation_evaluations;
+        proof_.translation_evaluations = eccvm_prover.translation_evaluations;
 
         info("translator: construct builder");
         translator_builder = std::make_unique<TranslatorBuilder>(
@@ -168,11 +165,11 @@ class Goblin {
         info("translator: construct prover");
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         info("translator: construct proof");
-        proof.translator_proof = translator_prover.construct_proof();
+        proof_.translator_proof = translator_prover.construct_proof();
 
         info("goblin: prove complete!");
 
-        return proof;
+        return proof_;
     };
 
     std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
@@ -182,6 +179,7 @@ class Goblin {
         info("accumulate complete.");
         std::vector<uint8_t> goblin_proof = prove().to_buffer();
         std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
+
         const auto insert = [&result](const std::vector<uint8_t>& buf) {
             result.insert(result.end(), buf.begin(), buf.end());
         };
@@ -207,13 +205,15 @@ class Goblin {
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 
-    bool verify_proof(const proof_system::plonk::proof& proof) const
+    bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
     {
-        const auto extract_final_kernel_proof = [](auto& in) { return in; };
-        GoblinUltraVerifier verifier{ verification_key };
+        // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
+        const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
+
+        GoblinUltraVerifier verifier{ accumulator.verification_key }; // WORKTODO This needs the vk
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
 
-        const auto extract_goblin_proof = []([[maybe_unused]] auto& in) { return Proof{}; };
+        const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         verified = verified && verify(extract_goblin_proof(proof));
         return verified;
     }

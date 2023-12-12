@@ -22,7 +22,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Instance = ProverInstance_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using Instance = ProverInstance;
+    // using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
@@ -49,9 +51,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         : crs_factory_(std::move(crs_factory))
     {}
 
-    // WORKTODO
-    UltraComposer_([[maybe_unused]] std::shared_ptr<ProvingKey> p_key,
-                   [[maybe_unused]] std::shared_ptr<VerificationKey> v_key)
+    // WORKTODO(KEY_TYPES)
+    UltraComposer_([[maybe_unused]] std::shared_ptr<ProvingKey> proving_key,
+                   [[maybe_unused]] std::shared_ptr<VerificationKey> verification_key)
     {}
 
     UltraComposer_(UltraComposer_&& other) noexcept = default;
@@ -136,9 +138,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      * @param inst
      */
     void compute_verification_key(const std::shared_ptr<Instance>&);
-    // WORKTODO(KEY_TYPES): implement; overcome different notions of key
-    static std::shared_ptr<ProvingKey> compute_proving_key(CircuitBuilder& circuit);
-    static std::shared_ptr<VerificationKey> compute_verification_key(CircuitBuilder& circuit);
 };
 
 extern template class UltraComposer_<honk::flavor::Ultra>;
