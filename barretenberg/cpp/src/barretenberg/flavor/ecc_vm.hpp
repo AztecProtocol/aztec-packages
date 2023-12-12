@@ -201,7 +201,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <typename DataType>
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return {}; };
@@ -295,9 +295,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         {}
         // get_wires is inherited
 
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
-                                WitnessEntities<DataType>::get_all(),
-                                ShiftedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {

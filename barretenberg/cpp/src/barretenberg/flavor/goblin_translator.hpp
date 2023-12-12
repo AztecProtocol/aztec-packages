@@ -246,10 +246,10 @@ class GoblinTranslator {
                             public DerivedWitnessEntities<DataType>,
                             public ConcatenatedRangeConstraints<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireNonshiftedEntities<DataType>::get_all(),
-                                WireToBeShiftedEntities<DataType>::get_all(),
-                                DerivedWitnessEntities<DataType>::get_all(),
-                                ConcatenatedRangeConstraints<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(WireNonshiftedEntities<DataType>,
+                                WireToBeShiftedEntities<DataType>,
+                                DerivedWitnessEntities<DataType>,
+                                ConcatenatedRangeConstraints<DataType>)
 
         RefVector<DataType> get_wires()
         {
@@ -647,9 +647,7 @@ class GoblinTranslator {
                      this->ordered_range_constraints_4 };
         }
 
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
-                                WitnessEntities<DataType>::get_all(),
-                                ShiftedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         /**
          * @brief Get the polynomials that are concatenated for the permutation relation
          *
