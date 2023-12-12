@@ -281,12 +281,65 @@ std::shared_ptr<typename Flavor::ProvingKey> ProverInstance_<Flavor>::compute_pr
 
 template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
 {
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-        prover_poly = key_poly.share();
+    prover_polynomials.q_c = proving_key->q_c.share();
+    prover_polynomials.q_l = proving_key->q_l.share();
+    prover_polynomials.q_r = proving_key->q_r.share();
+    prover_polynomials.q_o = proving_key->q_o.share();
+    prover_polynomials.q_m = proving_key->q_m.share();
+    prover_polynomials.sigma_1 = proving_key->sigma_1.share();
+    prover_polynomials.sigma_2 = proving_key->sigma_2.share();
+    prover_polynomials.sigma_3 = proving_key->sigma_3.share();
+    prover_polynomials.id_1 = proving_key->id_1.share();
+    prover_polynomials.id_2 = proving_key->id_2.share();
+    prover_polynomials.id_3 = proving_key->id_3.share();
+    prover_polynomials.lagrange_first = proving_key->lagrange_first.share();
+    prover_polynomials.lagrange_last = proving_key->lagrange_last.share();
+    prover_polynomials.w_l = proving_key->w_l.share();
+    prover_polynomials.w_r = proving_key->w_r.share();
+    prover_polynomials.w_o = proving_key->w_o.share();
+
+    prover_polynomials.q_4 = proving_key->q_4.share();
+    prover_polynomials.q_arith = proving_key->q_arith.share();
+    prover_polynomials.q_sort = proving_key->q_sort.share();
+    prover_polynomials.q_elliptic = proving_key->q_elliptic.share();
+    prover_polynomials.q_aux = proving_key->q_aux.share();
+    prover_polynomials.q_lookup = proving_key->q_lookup.share();
+    prover_polynomials.sigma_4 = proving_key->sigma_4.share();
+    prover_polynomials.id_4 = proving_key->id_4.share();
+    prover_polynomials.table_1 = proving_key->table_1.share();
+    prover_polynomials.table_2 = proving_key->table_2.share();
+    prover_polynomials.table_3 = proving_key->table_3.share();
+    prover_polynomials.table_4 = proving_key->table_4.share();
+    prover_polynomials.table_1_shift = proving_key->table_1.shifted();
+    prover_polynomials.table_2_shift = proving_key->table_2.shifted();
+    prover_polynomials.table_3_shift = proving_key->table_3.shifted();
+    prover_polynomials.table_4_shift = proving_key->table_4.shifted();
+    prover_polynomials.w_l_shift = proving_key->w_l.shifted();
+    prover_polynomials.w_r_shift = proving_key->w_r.shifted();
+    prover_polynomials.w_o_shift = proving_key->w_o.shifted();
+
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        prover_polynomials.ecc_op_wire_1 = proving_key->ecc_op_wire_1.share();
+        prover_polynomials.ecc_op_wire_2 = proving_key->ecc_op_wire_2.share();
+        prover_polynomials.ecc_op_wire_3 = proving_key->ecc_op_wire_3.share();
+        prover_polynomials.ecc_op_wire_4 = proving_key->ecc_op_wire_4.share();
+        prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op.share();
+        // DataBus polynomials
+        prover_polynomials.calldata = proving_key->calldata.share();
+        prover_polynomials.calldata_read_counts = proving_key->calldata_read_counts.share();
+        prover_polynomials.lookup_inverses = proving_key->lookup_inverses.share();
+        prover_polynomials.q_busread = proving_key->q_busread.share();
+        prover_polynomials.databus_id = proving_key->databus_id.share();
+        prover_polynomials.q_poseidon2_external = proving_key->q_poseidon2_external.share();
+        prover_polynomials.q_poseidon2_internal = proving_key->q_poseidon2_internal.share();
     }
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
-        prover_poly = key_poly.shifted();
-    }
+
+    // These polynomials have not yet been computed; initialize them so prover_polynomials is "full" and we can use
+    // utilities like get_row()
+    prover_polynomials.z_perm = proving_key->z_perm.share();
+    prover_polynomials.z_lookup = proving_key->z_lookup.share();
+    prover_polynomials.z_perm_shift = proving_key->z_perm.shifted();
+    prover_polynomials.z_lookup_shift = proving_key->z_lookup.shifted();
 
     std::span<FF> public_wires_source = prover_polynomials.w_r;
 
