@@ -32,15 +32,31 @@ The following is a list of the relevant properties that affect the performance o
 
  "MVP" = minimum standards that we can go to main-net with.
 
-| metric | how to measure | MVP | ideal |
+Note: gb = gigabytes (not gigabits, gigibits or gigibytes)
+
+| metric | how to measure | MVP (10tps) | ideal (100tps) |
 | --- | --- | --- | --- |
 | proof size | total size of a user tx incl. goblin plonk proofs | 32kb | 8kb |
 | prover time | 8 iterations of protogalaxy with 2^17 circuits (web browser) | 1 min | 10 seconds |
-| verifier time | how long does it take the verifier to check a proof (incl. grumpkin IPA MSMs) | 25ms | 1ms |
-| memory consumption | fold 2^17 circuits into an accumulator an arbitrary number of times | 2gb | 512mb |
+| verifier time | how long does it take the verifier to check a proof (incl. grumpkin IPA MSMs) | 20ms | 1ms |
+| client memory consumption | fold 2^19 circuits into an accumulator an arbitrary number of times | 4gb | 1gb |
 | size of the kernel circuit | number of gates | 2^17 | 2^15 |
-| Aztec Virtual Machine prover time | 1 million VM step circuit | 30 seconds | 5 seconds |
-| Aztec Virtual Machine memory consumption | 1 million VM step circuit | 128Gb | 16Gb |
+| Aztec Virtual Machine prover time | 1 million VM step circuit | 60 seconds | 6 seconds |
+| Aztec Virtual Machine memory consumption | 1 million VM step circuit | 128gb | 16gb |
+| 2x2 rollup proving time | 1 2x2 rollup proof | 7.4 seconds | 0.74 seconds |
+| 2x2 rollup memory consumption | 1 2x2 rollup proof | 128gb | 16gb |
+
+To come up with the above estimates, we are targetting 10 transactions per second for the MVP and 100 tps for the "ideal" case. We are assuming both block producers and rollup Provers have access to 128-core machines with 128gb of RAM. Additionally, we assume that the various process required to produce a block consume the following: 
+
+| process | percent of block production time allocated to process |
+| --- | --- |
+| transaction validation | 10% |
+| block building (tx simulation) | 20% |
+| public VM proof construction time | 20% |
+| rollup prover time | 40% |
+| UltraPlonk proof compression time | 10% | 
+
+These are very rough estimates that could use further evaluation and validation!
 
 ### Proof size
 
@@ -56,13 +72,17 @@ The critical UX factor. 1 minute per user tx is on the cusp of workable. The fas
 
 This matters because verifying a transaction is effectively free work being performed by sequencers and network nodes that propagate txns to the mempool. If verification time becomes too large it opens up potential DDOS attacks.
 
-At a 1,024 transactions per second and 20ms verification time, a block builder needs to run 20 machines in parallel just to verify natively all of the proofs in a block! Not ideal but probably tolerable given this problem has a "more hardware go brrrr" solution.
+If we reserve 10% of the block production time for verifying user proofs, at 10 transaction per seconds this gives us 0.01s per transaction. i.e. 10ms per proof.
+
+If the block producer has access to more than one physical machine that they can use to parallelise verification, we can extend the maximum tolerable verification time. For an MVP that requires 20ms to verify each proof, each block producer would require at least 2 physical machines to successfully build blocks.
+
+100tps with one physical machine would require a verifiation time of 1ms per proof.
 
 ### Memory consumption
 
 This is *critical*. Users can tolerate slow proofs, but if Honk consumes too much memory, a user cannot make a proof at all.
 
-safari on iPhone will purge tabs that consume more than 1gb of RAM. 2gb will work in web browsers and some phones (but not all). 512mb will allow most phones to make proofs.
+safari on iPhone will purge tabs that consume more than 1gb of RAM. The WASM memory cap is 4gb which defines the upper limit for an MVP.
 
 ### Kernel circuit size
 
@@ -74,48 +94,37 @@ Our goal is to hit main-net with a network that can support 10 transactions per 
 
 An Ethereum block consists of approximately 1,000 transactions, with a block gas limit of roughly 10 million gas. Basic computational steps in the Ethereum Virtual Machine consume 3 gas. If the entire block gas limit is consumed with basic computation steps (not true but let's assume for a moment), this implies that 1,000 transactions consume 3.33 million computation steps. i.e. 10 transactions per second would require roughly 33,000 steps per second and 3,330 steps per transaction.
 
-An AVM circuit with 1 million steps can therefore accomodate approximately 300 transactions. Proof construction time must therefore be approximately 30 seconds to be able to prove all AVM programs in a block and achieve 10 tps.
+An AVM circuit with 1 million steps can therefore accomodate approximately 300 "typical" transactions. If we budget 20% of the block time to constructing AVM public funciton proofs, proof construction time must therefore be approximately 6 seconds to be able to prove all AVM programs in a block and achieve 10 tps.
+
+However, with device parallelisation these numbers can be increased substantially. Assuming the Prover network has access to 10 machines, this scales to 60 seconds.
+
+Note: this measurement assumes we can evaluate multiple public VM function calls in a single VM execution trace.
 
 ### AVM Memory consumption
 
 A large AWS instance can consume 128Gb of memory which puts an upper limit for AVM RAM consumption. Ideally consumer-grade hardware can be used to generate AVM proofs i.e. 16 Gb.
 
+### 2x2 rollup proving time
 
-<!-- # Digging deeper: what does halycon success look like?
+For a rollup block containing $2^d$ transactions, we need to compute 2x2 rollup proofs across $d$ layers (i.e. 2^{d-1} 2x2 proofs, followed by 2^{d-2} proofs, followed by... etc down to requiring 1 2x2 proof). To hit 10tps, we must produce 1 block in $\frac{2^d}{10}$ seconds.
 
-Honk is not naturally the fastest cryptosystem of all available options (Starks/Hypernova) as we are selecting for other properties that these systems lack (small proofs, efficiently fold arbitrary instances).
+Note: this excludes network coordination costs, latency costs, block construction costs, public VM proof construction costs (must be computed before the 2x2 rollup proofs), cost to compute the final UltraPlonk proof.
 
-That being said...we can get close (and perhaps more with good engineering). apples-to-apples benchmark comparisons against these proving systems can be made. Once core Honk is built, we can work on whittling away the performance gap.
+To accomodate the above costs, we assume can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
 
-All Prover speed-ups directly translate into a better Aztec user experience and  have intrinsic value.
+| block size | number of successive 2x2 rollup proofs | number of parallel Prover machines required for base layer proofs | time required to construct a rollup proof |
+| --- | --- | --- | --- |
+| $1,024$ | $10$ | $512$ | 4.1s |
+| $2,048$ | $11$ | $1,024$ | 7.4s |
+| $4,096$ | $12$ | $2,048$ | 13.6s |
+| $8,192$ | $13$ | $4,096$ | 25.2s |
+| $16,384$ | $14$ | $8,192$ | 46.8s |
 
-We can perform much more rigorous analysis on Honk's performance by building a detailed internal benchmarking suite, that we can also use to compare against other projects in the space.
+We must also define the maximum number of physical machines we can reasonably expect to be constructing proofs across the Prover network. If we can assume we can expect $1,024$ machines available, this caps the MPV proof construction time at 7.4 seconds.
 
-There were conversations at ZCon about ideal benchmarking suites, and there was a (very small) amount of consensus on the following being useful benchmarks:
+Supporting a proof construction time of 4.1s would enable us to reduce minimum hardware requirements for the Prover network to 512 physical machines.
 
-1. Benchmark circuits that evaluate the following algorithms (with varying input sizes)
+### 2x2 rollup memory consumption
 
-| Benchmark | Input data format | Input ranges |
-| --- | --- | --- | 
-| SHA256 | number of hash blocks | 1, 2, 4, 8, 16 etc blocks |
-| Keccak256 | number of hash blocks | 1, 2, 4, 8, 16 etc blocks |
-| SNARK-friendly hash | number of hash blocks | 1, 2, 4, 8, 16 etc blocks |
-| Merkle tree proofs (depth 32 tree) | number of membership proofs | 1, 2, 4, 8, 16 proofs etc  |
-| ECDSA over secp256k1 | number of signatures | 1, 2, 4, 8, 16 sigs etc  |
-| ECDSA over secp256r1 | number of signatures | 1, 2, 4, 8, 16 sigs etc  |
-| RSA | number of signatures | 1, 2, 4, 8, 16 sigs etc  |
-| JSON parsing | kb of input data | 1, 2, 4, 8, 16 kb etc  |
+Same rationale as the public VM proof construction time.
 
-We can skip RSA and JSON due to the lack of a gadget (one for the Noir team!).
-
-2. Benchmark **incremental verifiable computation** schemes that evaluate the above table of algorithms but recursively (e.g. each "block" is a recursive IVC step)
-
-The benchmarks ideally measure the following:
-
-1. Proving time (native)
-2. Proving time (wasm)
-3. Proof size
-4. Prover memory
-5. Verifier time
-
- -->
