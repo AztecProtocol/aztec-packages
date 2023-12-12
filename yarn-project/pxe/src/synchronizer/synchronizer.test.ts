@@ -7,7 +7,8 @@ import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/t
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 
-import { MemoryDB, PxeDatabase } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
+import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
 
 describe('Synchronizer', () => {
@@ -17,7 +18,7 @@ describe('Synchronizer', () => {
   let roots: Record<MerkleTreeId, Fr>;
   let blockHeader: BlockHeader;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     blockHeader = BlockHeader.random();
     roots = {
       [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot,
@@ -29,7 +30,7 @@ describe('Synchronizer', () => {
     };
 
     aztecNode = mock<AztecNode>();
-    database = new MemoryDB();
+    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
     synchronizer = new TestSynchronizer(aztecNode, database);
   });
 
