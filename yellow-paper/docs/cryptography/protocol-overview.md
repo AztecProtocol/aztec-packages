@@ -44,15 +44,15 @@ Verification gas costs are lower for UltraPlonk vs Honk due to the following fac
 1. Fewer precomputed selector polynomials, reducing Verifier G1 scalar multiplications
 2. UltraPlonk does not use multilinear polynomials, which removes 1 pairing from the Verifier, as well as O(logn) G1 scalar multiplications.
 
-The following sections list the protocol components required to implement client-side IVC.
+The following sections list the protocol components required to implement client-side IVC. We make heavy use of folding schemes to build an IVC scheme. A folding scheme  enables instances of a relation to be folded into a single instance of the original relation, but in a "relaxed" form. Depending on the scheme, restrictions may be placed on the instances that can be folded.
+
+The main two families of folding schemes are derived from the [Nova](https://eprint.iacr.org/2021/370) protocol and the [Protostar](https://eprint.iacr.org/2023/620) protocol respectively.
 
 ## Protogalaxy
 
-The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol defines a folding scheme that enables instances of a relation to be folded into a single instance of the original relation, but in a "relaxed" form.  
+The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol efficiently supports the ability to fold multiple Honk instances (describing different circuits) into the same accumulator. To constrast, the Nova/Supernova/Hypernova family of folding schemes assume that a single circuit is being repeatedly folded (each Aztec function circuit is a distinct circuit, which breaks this assumption).
 
 It is a variant of [Protostar](https://eprint.iacr.org/2023/620). Unlike Protostar, Protogalaxy enables multiple instances to be efficiently folded into the same accumulator instance.
-
-We use the Protostar/galaxy family of folding schemes, as it efficiently supports the ability to fold multiple Honk instances (describing different circuits) into the same accumulator. To constrast, the Nova/Supernova/Hypernova family of folding schemes assume that a single circuit is being repeatedly folded (each Aztec function circuit is a distinct circuit, which breaks this assumption).
 
 The Protogalaxy protocol is split into two subprotocols, each modelled as interactive protocols between a Prover and a Verifier.
 
