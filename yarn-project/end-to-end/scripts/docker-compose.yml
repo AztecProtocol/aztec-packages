@@ -17,6 +17,7 @@ services:
     environment:
       DEBUG: 'aztec:*'
       DEBUG_COLORS: 1
+      LOG_LEVEL: 'info'
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50
