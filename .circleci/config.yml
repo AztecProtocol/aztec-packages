@@ -358,15 +358,15 @@ jobs:
           command: build yarn-project-prod | add_timestamps
 
   yarn-project-formatting:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: Check Formatting
-          command: cond_run_container yarn-project formatting | add_timestamps
+          command: cond_spot_run_container yarn-project 8 formatting | add_timestamps
 
   yarn-project-tests:
     docker:
@@ -917,6 +917,11 @@ jobs:
           command: |
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
+      - run:
+          name: "l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts
 
   release-dockerhub:
     machine:
