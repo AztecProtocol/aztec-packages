@@ -37,7 +37,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
         // relation.
         if (is_random_input) {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
-            std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
+            std::array<typename Flavor::AllPolynomials, NUM_INSTANCES> storage_arrays;
             ProtoGalaxyProver prover;
             std::vector<FF> pow_betas = { FF(1), FF(2) };
 
@@ -73,7 +73,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
             EXPECT_EQ(result, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
-            std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
+            std::array<typename Flavor::AllPolynomials, NUM_INSTANCES> storage_arrays;
             ProtoGalaxyProver prover;
             std::vector<FF> pow_betas = { FF(1), FF(2) };
 
@@ -166,7 +166,7 @@ TEST(Protogalaxy, CombinerOn4Instances)
 
     auto run_test = [&]() {
         std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
-        std::array<std::array<Polynomial, Flavor::NUM_ALL_ENTITIES>, NUM_INSTANCES> storage_arrays;
+        std::array<typename Flavor::AllPolynomials, NUM_INSTANCES> storage_arrays;
         ProtoGalaxyProver prover;
         std::vector<FF> pow_betas = { FF(1), FF(2) };
 

@@ -119,8 +119,6 @@ template <typename Flavor> class SumcheckProverRound {
         std::vector<FF> pow_challenges(round_size >> 1);
         pow_challenges[0] = pow_polynomial.partial_evaluation_result;
         for (size_t i = 1; i < (round_size >> 1); ++i) {
-            info(hop_size);
-            info(i * hop_size);
             pow_challenges[i] = pow_challenges[0] * pow_polynomial.pow_values[i * hop_size];
         }
 

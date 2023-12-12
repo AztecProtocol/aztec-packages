@@ -62,19 +62,19 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding(std::vector<uint8_t>);
+    void prepare_for_folding(const std::vector<uint8_t>&);
 
     /**
      * @brief Instantiatied the accumulator (i.e. the relaxed instance) from the transcript.
      *
      */
-    void receive_accumulator(std::shared_ptr<Instance>, const std::string&);
+    void receive_accumulator(const std::shared_ptr<Instance>&, const std::string&);
 
     /**
      * @brief Process the public data ϕ for the Instances to be folded.
      *
      */
-    void receive_and_finalise_instance(std::shared_ptr<Instance>, const std::string&);
+    void receive_and_finalise_instance(const std::shared_ptr<Instance>&, const std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new

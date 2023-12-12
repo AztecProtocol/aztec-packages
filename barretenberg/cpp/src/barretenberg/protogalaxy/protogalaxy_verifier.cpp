@@ -3,7 +3,7 @@
 namespace proof_system::honk {
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_ptr<Instance> inst,
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
                                                                   const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
@@ -50,7 +50,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(std::shared_pt
 }
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std::shared_ptr<Instance> inst,
+void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
     inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
@@ -100,9 +100,10 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(std:
     }
 }
 
-// TODO(#795)
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
+// between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(std::vector<uint8_t> fold_data)
+void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<uint8_t>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
@@ -141,7 +142,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
-    // Thed degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
+    // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
     for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
