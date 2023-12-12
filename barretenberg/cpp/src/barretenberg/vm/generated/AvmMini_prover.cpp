@@ -39,11 +39,16 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.memTrace_m_lastAccess = key->memTrace_m_lastAccess;
     prover_polynomials.memTrace_m_last = key->memTrace_m_last;
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
+    prover_polynomials.memTrace_m_in_tag = key->memTrace_m_in_tag;
+    prover_polynomials.memTrace_m_tag_err = key->memTrace_m_tag_err;
+    prover_polynomials.memTrace_m_one_min_inv = key->memTrace_m_one_min_inv;
     prover_polynomials.avmMini_sel_op_add = key->avmMini_sel_op_add;
     prover_polynomials.avmMini_sel_op_sub = key->avmMini_sel_op_sub;
     prover_polynomials.avmMini_sel_op_mul = key->avmMini_sel_op_mul;
     prover_polynomials.avmMini_sel_op_div = key->avmMini_sel_op_div;
+    prover_polynomials.avmMini_in_tag = key->avmMini_in_tag;
     prover_polynomials.avmMini_op_err = key->avmMini_op_err;
+    prover_polynomials.avmMini_tag_err = key->avmMini_tag_err;
     prover_polynomials.avmMini_inv = key->avmMini_inv;
     prover_polynomials.avmMini_ia = key->avmMini_ia;
     prover_polynomials.avmMini_ib = key->avmMini_ib;
@@ -59,14 +64,14 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_mem_idx_c = key->avmMini_mem_idx_c;
     prover_polynomials.avmMini_last = key->avmMini_last;
 
+    prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
+    prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
+
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
     prover_polynomials.memTrace_m_rw_shift = key->memTrace_m_rw.shifted();
 
     prover_polynomials.memTrace_m_val = key->memTrace_m_val;
     prover_polynomials.memTrace_m_val_shift = key->memTrace_m_val.shifted();
-
-    prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
-    prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
 
     prover_polynomials.memTrace_m_tag = key->memTrace_m_tag;
     prover_polynomials.memTrace_m_tag_shift = key->memTrace_m_tag.shifted();

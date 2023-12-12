@@ -13,11 +13,22 @@ namespace memTrace(256);
     pol commit m_last; // Boolean indicating the last row of the memory trace (not execution trace)
     pol commit m_rw; // Enum: 0 (read), 1 (write)
 
+    pol commit m_in_tag; // Instruction memory tag ("foreign key" pointing to avmMini.in_tag)
+
+    // Error columns
+    pol commit m_tag_err; // Boolean (1 if m_in_tag != m_tag is detected)
+
+    // Helper columns
+    pol commit m_one_min_inv; // Extra value to prove m_in_tag != m_tag with error handling
+
     // Type constraints
     m_lastAccess * (1 - m_lastAccess) = 0;
     m_last * (1 - m_last) = 0;
     m_rw * (1 - m_rw) = 0;
+    m_tag_err * (1 - m_tag_err) = 0;
+
     // TODO: m_addr is u32 and 0 <= m_tag <= 6
+    //       (m_in_tag will be constrained through inclusion check to main trace)
 
     // Remark: m_lastAccess == 1 on first row and therefore any relation with the
     //         multiplicative term (1 - m_lastAccess) implicitly includes (1 - avmMini.first)
@@ -61,5 +72,22 @@ namespace memTrace(256);
     // If we set m_lastAccess = 1 on the first row, we can enforce this (should be ok as long as we do not shift m_lastAccess):
     m_lastAccess * (1 - m_rw') * m_val' = 0;
 
+    // Memory tag consistency check
+    // We want to prove that m_in_tag == m_tag <==> m_tag_err == 0
+    // We introduce m_one_min_inv extra column to show that we can invert
+    // (m_in_tag - m_tag) when m_tag_err != 0
+    // m_one_min_inv is set to 1 - (m_in_tag - m_tag)^(-1) when m_tag_err == 1
+    // but must be set to 0 when tags are matching and m_tag_err = 0
+    (m_in_tag - m_tag) * (1 - m_one_min_inv) - m_tag_err = 0;
+    (1 - m_tag_err) * m_one_min_inv = 0;
+
+    // Correctness of above checks
+    // m_in_tag == m_tag ==> m_tag_err == 0 (first relation)
+    // m_tag_err == 0 ==> m_one_min_inv == 0 by second relation. First relation ==> m_in_tag - m_tag == 0
+
     // TODO: when introducing load/store as sub-operations, we will have to add consistency of intermediate
     // register values ia, ib, ic
+
+    // Inter-table Constraints
+    
+    // TODO: {m_clk, m_in_tag} IN {avmMini.clk, avmMini.in_tag}
