@@ -294,7 +294,7 @@ contract TokenBlacklist {
         let to_roles = UserFlags::new(slow.read_at(&mut context, to.to_field()) as u120);
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        if (from.eq(context.msg_sender())) {
+        if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
