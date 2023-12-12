@@ -25,7 +25,7 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
   }
 
   push(...vals: T[]): Promise<number> {
-    return this.#db.transaction(() => {
+    return this.#db.childTransaction(() => {
       let length = this.length;
       for (const val of vals) {
         void this.#db.put(this.#slot(length), val);
@@ -39,7 +39,7 @@ export class LmdbAztecArray<T> implements AztecArray<T> {
   }
 
   pop(): Promise<T | undefined> {
-    return this.#db.transaction(() => {
+    return this.#db.childTransaction(() => {
       const length = this.length;
       if (length === 0) {
         return undefined;
