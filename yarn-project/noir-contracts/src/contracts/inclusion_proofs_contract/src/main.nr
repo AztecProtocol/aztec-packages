@@ -39,6 +39,9 @@ contract InclusionProofs {
                 prove_note_commitment_inclusion,
                 prove_note_inclusion,
             },
+            nullifier_inclusion::{
+                prove_nullifier_inclusion,
+            },
             nullifier_non_inclusion::{
                 prove_nullifier_non_inclusion,
                 prove_note_not_nullified,
@@ -158,26 +161,7 @@ contract InclusionProofs {
         nullifier: Field,
         block_number: u32, // The block at which we'll prove that the nullifier not exists in the tree
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the archive.
-        let block_header = context.get_block_header(block_number);
-
-        // 2) Get the membership witness of the nullifier
-        let witness = get_nullifier_membership_witness(block_number, nullifier);
-
-        // 3) Check that the witness we obtained matches the nullifier
-        assert(witness.leaf_data.value == nullifier, "Nullifier does not match value in witness");
-
-        // 4) Compute the nullifier tree leaf
-        let nullifier_leaf = witness.leaf_data.hash();
-
-        // 5) Prove that the nullifier is in the nullifier tree
-        assert(
-            block_header.nullifier_tree_root == compute_merkle_root(nullifier_leaf, witness.index, witness.path),
-            "Proving nullifier inclusion failed"
-        );
-
-        // --> Now we have traversed the trees all the way up to blocks tree root and verified that the nullifier
-        //     was not yet included in the nullifier tree.
+        prove_nullifier_inclusion(nullifier, block_number, context);
     }
 
     #[aztec(private)]
