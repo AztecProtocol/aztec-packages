@@ -13,7 +13,7 @@ namespace barretenberg {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
+    using GUHFlavor = proof_system::honk::flavor::Ultra;
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
@@ -57,10 +57,10 @@ class Goblin {
     using Fq = barretenberg::fq;
 
     using Transcript = proof_system::honk::BaseTranscript;
-    using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer;
+    using GoblinUltraComposer = proof_system::honk::UltraComposer;
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
+    using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;

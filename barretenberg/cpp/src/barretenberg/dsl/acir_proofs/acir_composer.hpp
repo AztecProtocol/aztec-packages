@@ -13,7 +13,7 @@ namespace acir_proofs {
  */
 class AcirComposer {
   public:
-    using Flavor = proof_system::honk::flavor::GoblinUltra;
+    using Flavor = proof_system::honk::flavor::Ultra;
     // WORKTODO: it would be nice if we could just flip the flavor
     // using Flavor = plonk::flavor::Ultra;
     using ProvingKey = typename Flavor::ProvingKey;

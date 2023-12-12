@@ -60,7 +60,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     create_circuit_with_witness(builder_, constraint_system, witness);
     info("gates: ", builder_.get_total_circuit_size());
 
-    info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
+    // info("create_proof: ULTRA OPS SIZE = ", builder_.op_queue->ultra_ops.size());
 
     // WORKTODO: accumulate creates an instance and a pk, ignoring this one.
     goblin = [&]() {
