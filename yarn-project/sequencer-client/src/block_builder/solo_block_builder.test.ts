@@ -11,7 +11,9 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
+  PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   makeTuple,
@@ -133,8 +135,14 @@ describe('sequencer/solo_block_builder', () => {
       flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer())),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
-      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafSlot.value);
+    for (const tx of txs) {
+      await expectsDb.batchInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        tx.data.end.publicDataUpdateRequests.map(write => {
+          return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
+        }),
+        PUBLIC_DATA_SUBTREE_HEIGHT,
+      );
     }
   };
 
@@ -363,8 +371,6 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
-    // TODO(Alvaro) This test is horribly slow since it creates strictly increasing nullifiers, the worst case scenario for the simulated base rollup
-    // With the current implementation.
     it('builds a mixed L2 block', async () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const txs = await Promise.all([
