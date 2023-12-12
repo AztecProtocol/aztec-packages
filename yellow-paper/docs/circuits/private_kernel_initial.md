@@ -38,7 +38,7 @@ This nullifier serves multiple purposes:
 
 - Identifying a transaction.
 - Preventing the signature of a transaction request from being reused in another transaction.
-- Generating values that should be maintained within the transaction's scope. For example, it is utilized to compute the nonces for all the new note hashes in a transaction.
+- Generating values that should be maintained within the transaction's scope. For example, it is utilized to compute the nonces for all the note hashes in a transaction.
 
 > Note that the final transaction data is not deterministic for a given transaction request. The production of new notes, the destruction of notes, and various other values are likely to change based on the time and conditions when a transaction is being composed. However, the intricacies of implementation should not be a concern for the entity initiating the transaction.
 
@@ -78,11 +78,11 @@ It verifies that the private function was executed successfully with the provide
 It ensures the app circuit's intention by checking the following:
 
 - The contract address for each non-empty item in the following arrays must equal the current contract address:
+  - Note hash contexts.
+  - Nullifier contexts.
+  - L2-to-L1 message contexts.
   - Read requests.
-  - New note hashes.
-  - New nullifiers.
-  - L2-to-L1 messages.
-- The portal contract address for each non-empty L2-to-L1 message must equal the current portal contract address.
+- The portal contract address for each non-empty L2-to-L1 message context must equal the current portal contract address.
 - If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
 - The historical data must match the one in the constant data.
 
@@ -123,10 +123,9 @@ For items in each ordered array created in the current call:
 
 The ordered arrays include:
 
+- Note hash contexts.
+- Nullifier contexts.
 - Read requests.
-- New note hashes.
-- New nullifiers.
-- New contracts.
 
 ### Responsibilities for Validating the Public Inputs:
 
@@ -142,14 +141,14 @@ It verifies that the following values align with those in the app circuit's publ
 
 It ensures that the following values match those in the app circuit's public inputs:
 
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
 - Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
 - Private call requests.
 - Public call requests.
 
-For the new note hashes, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
+For the note hash contexts, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
 
 - Zero: if the note is not nullified in the same transaction.
 - Greater than zero: if the note is nullified in the same transaction.
@@ -240,9 +239,9 @@ It contains the result from the current function call:
 
 It includes transient data accumulated during the execution of the transaction up to this point:
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Private call requests (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Private call requests.
+- Public call requests.

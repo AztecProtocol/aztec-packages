@@ -48,18 +48,18 @@ An ordered requests array and a hints array are provided for each requests array
 
 1. It silos the following in the transient accumulated data with each item's contract address:
 
-- New note hashes.
-- New nullifiers.
+- Note hash contexts.
+- Nullifier contexts.
 
 The siloed value is computed as: `hash(contract_address, value)`.
 
 Siloing with a contract address ensures that data produced by a contract is accurately attributed to the correct contract and cannot be misconstrued as data created in a different contract.
 
-2. It then applies nonces to the new note hashes:
+2. It then applies nonces to the note hashes:
 
 - The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
   - `first_nullifier` is the hash of the transaction request.
-  - `index` is the position of the note hash in the new note hashes array in the public inputs.
+  - `index` is the position of the note hash in the note hashes array in the public inputs.
 
 Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
 
@@ -197,8 +197,8 @@ After all the update requests are processed, the circuit creates a subtree from 
 
 The following must correspond to the result after siloing:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 
 > Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
@@ -260,8 +260,8 @@ The structure of this public inputs aligns with that of the [tail private kernel
 
 It contains data accumulated during the execution of the entire transaction:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 - New contracts.
 - Log hashes.
@@ -291,9 +291,9 @@ These are constants that remain the same throughout the entire transaction:
 
 It includes data that aids in processing each kernel iteration. They must be empty for this circuit.
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
-- Update requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Update requests.
+- Public call requests.

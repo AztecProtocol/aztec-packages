@@ -40,8 +40,8 @@ For each non-empty read request in the previous kernel's public inputs, it can b
 
 2. When reading a transient note, it must have been created before the read operation:
 
-- Locates the note hash within the new note hashes.
-  - Its index in the new note hashes array is provided as a hint through private inputs.
+- Locates the note hash within the note hash contexts.
+  - Its index in the note hash contexts is provided as a hint through private inputs.
 - The note hash must equal the note hash of the read request.
 - The contract address of the note hash must equal the contract address of the read request.
 - The counter of the note hash must be less than the counter of the read request.
@@ -49,7 +49,7 @@ For each non-empty read request in the previous kernel's public inputs, it can b
 
 For reading a transient note created in a yet-to-be-processed nested execution:
 
-- The index provided as a hint will be the length of the new note hashes array, indicating the transient note hasn't been added yet.
+- The index provided as a hint will be the length of the note hash contexts array, indicating the transient note hasn't been added yet.
 - The read request must be propagated to the public inputs.
 
 > Given that a reset circuit can execute between two inner circuits, there's a possibility that a transient note is created in a nested execution and hasn't been added to the public inputs. In such cases, the read request cannot be verified in the current reset circuit and must be processed in another reset circuit after the transient note has been included in the public input.
@@ -60,8 +60,8 @@ In the event that a transient note is nullified within the same transaction, bot
 
 For each nullifier associated with a non-zero nullified note hash:
 
-1. Finds its index in the new note hashes array using hints provided through private inputs. Proceeds no further if the index value equals the length of the new note hashes array.
-2. Locates the note hash in the new note hashes array using the identified index.
+1. Finds its index in the note hash contexts using hints provided through private inputs. Proceeds no further if the index value equals the length of the note hash contexts array.
+2. Locates the note hash in the note hash contexts using the identified index.
 3. The note hash must equal the nullified note hash associated with the nullifier.
 4. The contract address of the note hash must equal the contract address of the nullifier.
 5. The nullifier counter of the note hash must equal the counter of the nullifier.
@@ -82,13 +82,13 @@ It ensures that the accumulated data matches the data in the previous iteration'
 
 The following must equal the result after verification or squashing:
 
+- Note hash contexts.
+- Nullifier contexts.
 - Read requests.
-- New note hashes.
-- New nullifiers.
 
 The following must equal the corresponding values in the previous kernel's public inputs:
 
-- L2-to-L1 messages.
+- L2-to-L1 message contexts.
 - Private call requests.
 - Public call requests.
 
@@ -151,9 +151,9 @@ It contains data accumulated during the execution of the transaction up to this 
 
 It includes transient data accumulated during the execution of the transaction up to this point:
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Private call requests (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Private call requests.
+- Public call requests.

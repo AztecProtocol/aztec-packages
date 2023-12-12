@@ -91,9 +91,9 @@ It verifies that the public function was executed with the provided proof data, 
 It ensures the function's intention by checking the following:
 
 - The contract address for each non-empty item in the following arrays must equal the storage contract address of the current call:
-  - New note hashes.
-  - New nullifiers.
-  - L2-to-L1 messages.
+  - Note hash contexts.
+  - Nullifier contexts.
+  - L2-to-L1 message contexts.
   - Read requests.
   - Update requests.
 - The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
@@ -102,9 +102,9 @@ It ensures the function's intention by checking the following:
 
 If it is a static call, it must ensure that the function does not induce any state changes by verifying that the following arrays are empty:
 
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
 - Update requests.
 
 #### Verifying the call requests.
@@ -149,8 +149,8 @@ The ordered arrays include:
 
 It ensures that the following values match those in the previous iteration's public inputs:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 - New contracts.
 - **Encrypted** log hash.
@@ -168,9 +168,9 @@ It checks that the hash and the length for **unencrypted** logs are accumulated 
 
 It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
 - Read requests.
 - Update requests.
 
@@ -250,8 +250,8 @@ These are constants that remain the same throughout the entire transaction:
 
 It contains data accumulated during the execution of the transaction up to this point:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 - New contracts.
 - Log hashes.
@@ -263,9 +263,9 @@ It contains data accumulated during the execution of the transaction up to this 
 
 It includes data from the current function call, aggregated with the results from the previous iterations:
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
-- Update requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Update requests.
+- Public call requests.

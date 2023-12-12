@@ -30,8 +30,8 @@ The following must be empty to ensure all the private function calls are process
 
 The following must be empty to ensure a comprehensive final reset:
 
+- The nullified note hash associated with each nullifier.
 - Read requests.
-- The nullified note hash associated with each new nullifier.
 
 > A [reset iteration](./private_kernel_reset.md) should ideally precede this step. Although it doesn't have to be executed immediately before the tail circuit, as long as it effectively clears the specified values.
 
@@ -60,18 +60,18 @@ A hints array is provided via the private inputs. This circuit verifies that:
 
 This circuit must silo the following with each item's contract address:
 
-- New note hashes.
-- New nullifiers.
+- Note hash contexts.
+- Nullifier contexts.
 
 The siloed value is computed as: `hash(contract_address, value)`.
 
 Siloing with a contract address ensures that data produced by a contract is accurately attributed to the correct contract and cannot be misconstrued as data created in a different contract.
 
-The circuit then applies nonces to the new note hashes:
+The circuit then applies nonces to the note hashes:
 
 - The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
   - `first_nullifier` is the hash of the transaction request.
-  - `index` is the position of the note hash in the new note hashes array in the public inputs.
+  - `index` is the position of the note hash in the note hashes array in the public inputs.
 
 Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
 
@@ -87,8 +87,8 @@ Where _version_id_ and _portal_contract_address_ equal the values defined in the
 
 The following must correspond to the value after siloing:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 
 > Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
@@ -160,8 +160,8 @@ These are constants that remain the same throughout the entire transaction:
 
 It contains data accumulated during the execution of the transaction:
 
-- New note hashes.
-- New nullifiers.
+- Note hashes.
+- Nullifiers.
 - L2-to-L1 messages.
 - New contracts.
 - Log hashes.
@@ -173,9 +173,9 @@ It contains data accumulated during the execution of the transaction:
 
 It includes data that aids in processing each kernel iteration. They must be empty for this circuit except for the public call requests.
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
-- Update requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Update requests.
+- Public call requests.

@@ -96,10 +96,10 @@ This circuit verifies this proof and [the proof for the previous function call](
 It ensures the app circuit's intention by checking the following:
 
 - The contract address for each non-empty item in the following arrays must equal the storage contract address of the current call:
+  - Note hash contexts.
+  - Nullifier contexts.
+  - L2-to-L1 message contexts.
   - Read requests.
-  - New note hashes.
-  - New nullifiers.
-  - L2-to-L1 messages.
 - The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
 - If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
 - The historical data must match the one in the constant data.
@@ -108,9 +108,9 @@ It ensures the app circuit's intention by checking the following:
 
 If it is a static call, it must ensure that the function does not induce any state changes by verifying that the following arrays are empty:
 
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
 
 #### Verifying the call requests.
 
@@ -147,10 +147,9 @@ For items in each ordered array in the app circuit's public inputs:
 
 The ordered arrays include:
 
+- Note hash contexts.
+- Nullifier contexts.
 - Read requests.
-- New note hashes.
-- New nullifiers.
-- New contracts.
 
 ### Responsibilities for Validating the Public Inputs:
 
@@ -170,12 +169,11 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 
 It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
 - Read requests.
-- New note hashes.
-- New nullifiers.
-- L2-to-L1 messages.
 - Public call requests.
-- New contracts.
 
 For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
 
@@ -263,9 +261,9 @@ It contains data accumulated during the execution of the transaction up to this 
 
 It includes transient data accumulated during the execution of the transaction up to this point:
 
-- New note hashes (with counters).
-- New nullifiers (with counters).
-- L2-to-L1 messages (with counters).
-- Private call requests (with counters).
-- Public call requests (with counters).
-- Read requests (with counters).
+- Note hash contexts.
+- Nullifier contexts.
+- L2-to-L1 message contexts.
+- Read requests.
+- Private call requests.
+- Public call requests.
