@@ -3,7 +3,6 @@ mod utils;
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
     use dep::protocol_types::constants::{
-        NOTE_HASH_TREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT,
         GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
     };
@@ -39,6 +38,10 @@ contract InclusionProofs {
             },
         },
         hash::pedersen_hash,
+        history::note_inclusion::{
+            prove_note_inclusion,
+            prove_note_commitment_inclusion,
+        },
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
 
@@ -101,36 +104,19 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the note exists
         spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
-        //    root.
-        let block_header = context.get_block_header(block_number);
-
-        // 2) Get the note from PXE.
+        // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
 
-        // 3) Compute the commitment from the note
-        let note_commitment = if maybe_note.is_some() {
-            note_utils::compute_unique_siloed_note_hash(ValueNoteMethods, maybe_note.unwrap_unchecked())
+        // 2) Prove the note inclusion
+        if maybe_note.is_some() {
+            prove_note_inclusion(ValueNoteMethods, maybe_note.unwrap_unchecked(), block_number, context);
         } else {
-            // Note was not found so we will use the spare commitment
-            spare_commitment
+            // Note was not found so we will prove inclusion of the spare commitment
+            prove_note_commitment_inclusion(spare_commitment, block_number, context);
         };
-
-        // 4) Get the membership witness of the note in the note hash tree
-        let note_hash_tree_id = 2; // TODO(#3443)
-        let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
-            get_membership_witness(block_number, note_hash_tree_id, note_commitment);
-
-        // 5) Prove that the commitment is in the note hash tree
-        assert(
-            block_header.note_hash_tree_root == compute_merkle_root(note_commitment, witness.index, witness.path),
-            "Proving note inclusion failed"
-        );
-
-        // --> Now we have traversed the trees all the way up to blocks tree root.
     }
 
     // Proves that the note was not yet nullified at block `block_number`.
@@ -140,8 +126,7 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
         spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
-        //    root.
+        // 1) Get block header from oracle and ensure that the block hash is included in the archive.
         let block_header = context.get_block_header(block_number);
 
         // 2) Get the note from PXE
@@ -207,8 +192,7 @@ contract InclusionProofs {
         nullifier: Field,
         block_number: u32, // The block at which we'll prove that the nullifier not exists in the tree
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
-        //    root.
+        // 1) Get block header from oracle and ensure that the block hash is included in the archive.
         let block_header = context.get_block_header(block_number);
 
         // 2) Get the membership witness of the nullifier
@@ -235,8 +219,7 @@ contract InclusionProofs {
         public_value: Field,
         block_number: u32, // The block at which we'll prove that the public value exists
     ) {
-        // 1) Get block header from oracle and ensure that the block hash is included in the current blocks tree
-        //    root.
+        // 1) Get block header from oracle and ensure that the block hash is included in the archive.
         let block_header = context.get_block_header(block_number);
 
         // 2) Compute the public value leaf index.
