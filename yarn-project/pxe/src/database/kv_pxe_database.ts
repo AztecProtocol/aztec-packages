@@ -262,8 +262,15 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   estimateSize(): number {
-    // TODO
-    return 0;
+    const notesSize = Array.from(this.#getAllNonNullifiedNotes()).reduce((sum, note) => sum + note.getSize(), 0);
+    const authWitsSize = Array.from(this.#authWitnesses.values()).reduce(
+      (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
+      0,
+    );
+    const addressesSize = this.#addresses.length * CompleteAddress.SIZE_IN_BYTES;
+    const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
+
+    return notesSize + treeRootsSize + authWitsSize + addressesSize;
   }
 
   async addContract(contract: ContractDao): Promise<void> {
