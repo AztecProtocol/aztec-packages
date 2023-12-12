@@ -23,8 +23,6 @@ void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<Prov
     auto verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
 
-    info("Computing commitments for VK");
-
     // Compute and store commitments to all precomputed polynomials
     verification_key->q_m = commitment_key->commit(proving_key->q_m);
     verification_key->q_l = commitment_key->commit(proving_key->q_l);
