@@ -154,9 +154,9 @@ describe('e2e_inclusion_proofs_contract', () => {
     const blockNumber = await pxe.getBlockNumber();
     const randomNullifier = Fr.random();
 
-    await expect(contract.methods.test_nullifier_inclusion_proof(randomNullifier, blockNumber).send().wait()).rejects.toThrow(
-      /Low nullifier witness not found for nullifier 0x[0-9a-fA-F]+ at block/,
-    );
+    await expect(
+      contract.methods.test_nullifier_inclusion_proof(randomNullifier, blockNumber).send().wait(),
+    ).rejects.toThrow(/Low nullifier witness not found for nullifier 0x[0-9a-fA-F]+ at block/);
   });
 
   const getRandomBlockNumberSinceDeployment = async () => {
