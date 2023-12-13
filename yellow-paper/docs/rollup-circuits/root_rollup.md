@@ -3,18 +3,19 @@ title: Root Rollup
 sidebar_position: 4
 ---
 
-The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. It is the one that will communicate with the [validating light node](./../contracts/index.md). 
-
-:::info Squishers
-This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
-:::
-
-Since the output (public inputs) you will see some overlap with the `ProvenBlock` which is what a node must receive together with a proof to progress the chain. More on this will be covered in the [cross-chain communication](./../contracts/index.md) section.
+The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. Essentially, it is the last step that allow us to prove that the state transition function $\mathcal{T}(S, B) \mapsto S'$ was applied correctly for a state $S$ and a block $B$. Note, that while its public inputs might not be the block itself, it have commitments to the. Provided with the block (`ProvenBlock`) and proof, a node is able to derive the public inputs from the block and his state and then execute the proof against the values derived. If the proof is passing, the block is valid and the state progression is correct.
 
 ```mermaid
 graph LR
 A[RootRollupInputs] --> C[RootRollupCircuit] --> B[RootRollupPublicInputs] --> D[ProvenBlock] --> E[Node]
 ```
+
+For rollup purposes, the node we want to convince of the correctness is the [validating light node](./../contracts/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](./../contracts/index.md) section.
+
+
+:::info Squishers
+This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
+:::
 
 ## Overview
 

@@ -191,10 +191,10 @@ struct L2ToL1Msg {
 }
 ```
 
-Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost. The `version` value of the `L2Actor` is the version of the rollup, intended to be used allow specifying what version of the rollup the message is intended for or sent from.
+Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost. The `version` value of the `L2Actor` is the version of the rollup, which is intended to be used to specifying what version of the rollup the message is intended for or sent from. This waw, multiple rollup instances can use the same inbox/outbox contracts.
 
 :::info Why a single hash?
-Persistent storage is expensive so to reduce overhead we only commit to the messages and then "open" these for consumption later. We need a hash function that is relatively cheap on both L1 and L2, we chose a modded SHA256 to fit the output value into a single field element.
+Compute on L1 is expensive, but storage is extremely expensive! To reduce overhead, we trade storage for computation and only commit to the messages and then "open" these for consumption later. However, since computation also bears significant we need to use a hash function that is relatively cheap on L1, while still being doable inside a snark. For this purpose a modded SHA256 was chosen, modded here meaning that it fits the output value into a single field element using the modulo operator.
 :::
 
 Some additional discussion/comments on the message structure can be found in [The Republic](https://forum.aztec.network/t/the-republic-a-flexible-optional-governance-proposal-with-self-governed-portals/609/2#supporting-pending-messages-5).
@@ -308,7 +308,6 @@ Note that some conditions are marked as SHOULD, which is not strictly needed for
 ## Logical Execution
 Below, we will outline the **LOGICAL** execution of a L2 block and how the contracts interact with the circuits. We will be executing cross-chain communication before and after the block itself. Note that in reality, the L2 inbox does not exists, and its functionality is handled by the kernel and the rollup circuits.
 
-
 ```mermaid
 sequenceDiagram
     autonumber
@@ -380,21 +379,21 @@ sequenceDiagram
     O->>O: Validate msg
     O->>O: Update state (delete)
 ```
-We will walk briefly through the steps of the diagram above.
+We will walk briefly through the steps of the diagram above. The numbering matches the numbering of nodes in the diagram, the start of the action.
 
 1. A portal contract on L1 wants to send a message for L2
-1. The L1 inbox populates the message with `sender` information
+1. The L1 inbox populates the message with information of the `sender` (using `msg.sender` and `block.chainid`)
 1. The L1 inbox contract inserts the message into its storage
-1. On the L2, as part of a L2 block, a transaction tries to consume a message from the L2 outbox.
+1. On the L2, as part of a L2 block, a transaction wish to consume a message from the L2 outbox.
 1. The L2 outbox ensures that the message is included, and that the caller is the recipient and knows the secret to spend. (This is practically done by the application circuit)
 1. The nullifier of the message is emitted to privately spend the message (This is practically done by the application circuit)
-1. The L2 contract wishes to send a message to L1
-1. The L2 inbox populates the message with `sender` and `recipient` information
+1. The L2 contract wishes to send a message to L1 (specifying a recipient)
+1. The L2 inbox populates the message with `sender` information
 1. The L2 inbox inserts the message into its storage
 1. The rollup circuit starts consuming the messages from the inbox
 1. The L2 inbox deletes the messages from its storage
 1. The L2 block includes messages from the L1 inbox that are to be inserted into the L2 outbox.
-1. The outbox state is updated to include the messages
+1. The L2 outbox state is updated to include the messages
 1. The L2 block is submitted to L1 
 1. The state transitioner receives the block and verifies the proof + validate constraints on block.
 1. The state transitioner updates it state to the ending state of the block
@@ -407,7 +406,7 @@ We will walk briefly through the steps of the diagram above.
 1. The state transitioner inserts the messages into the L1 inbox that was specified in the block. Note that they have logically been consumed from the L2 outbox, ensuring atomicity.
 1. The L1 outbox updates it local state by inserting the messages
 1. The portal later consumes the message from the L1 outbox
-1. The L1 outbox validates that the message exists and that the caller is the recipient
+1. The L1 outbox validates that the message exists and that the caller is indeed the recipient
 1. The L1 outbox updates it local state by deleting the message
 
 :::info L2 inbox is not real
