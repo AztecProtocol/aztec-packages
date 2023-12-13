@@ -44,17 +44,17 @@ class ToyAVM {
     // The number of wires is 5. The set of tuples (permutation_set_column_1,permutation_set_column_2) should be
     // equivalent to (permutation_set_column_3, permutation_set_column_4) and the self_permutation_column contains 2
     // subsets which are permutations of each other
-    static constexpr size_t NUM_WIRES = 5;
+    static constexpr size_t NUM_WIRES = 6;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 12;
+    static constexpr size_t NUM_ALL_ENTITIES = 18;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 5;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 8;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<sumcheck::GenericPermutationRelation<sumcheck::ExampleTuplePermutationSettings, FF>>;
@@ -88,7 +88,8 @@ class ToyAVM {
                               enable_first_set_permutation,     // column 3
                               enable_second_set_permutation,    // column 4
                               lookup_is_range_constrained,      // column 5
-                              lookup_is_table_entry)            // column 6
+                              lookup_is_table_entry,            // column 6
+                              lookup_range_table_entries)       // column 7
 
         RefVector<DataType> get_selectors()
         {
@@ -98,7 +99,8 @@ class ToyAVM {
                      enable_first_set_permutation,
                      enable_second_set_permutation,
                      lookup_is_range_constrained,
-                     lookup_is_table_entry };
+                     lookup_is_table_entry,
+                     lookup_range_table_entries };
         };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
@@ -152,11 +154,12 @@ class ToyAVM {
                               enable_second_set_permutation,    // column 4
                               lookup_is_range_constrained,      // column 5
                               lookup_is_table_entry,            // column 6
-                              permutation_set_column_1,         // Column 0
-                              permutation_set_column_2,         // Column 1
-                              permutation_set_column_3,         // Column 2
-                              permutation_set_column_4,         // Column 3
-                              self_permutation_column,          // Column 4
+                              lookup_range_table_entries,
+                              permutation_set_column_1, // Column 0
+                              permutation_set_column_2, // Column 1
+                              permutation_set_column_3, // Column 2
+                              permutation_set_column_4, // Column 3
+                              self_permutation_column,  // Column 4
                               lookup_range_constraint_read_count,
                               range_constrained_column,
                               tuple_permutation_inverses, // Column 5
@@ -178,11 +181,12 @@ class ToyAVM {
                      enable_second_set_permutation,    // column 4
                      lookup_is_range_constrained,      // column 5
                      lookup_is_table_entry,            // column 6
-                     permutation_set_column_1,         // Column 0
-                     permutation_set_column_2,         // Column 1
-                     permutation_set_column_3,         // Column 2
-                     permutation_set_column_4,         // Column 3
-                     self_permutation_column,          // Column 4
+                     lookup_range_table_entries,
+                     permutation_set_column_1, // Column 0
+                     permutation_set_column_2, // Column 1
+                     permutation_set_column_3, // Column 2
+                     permutation_set_column_4, // Column 3
+                     self_permutation_column,  // Column 4
                      lookup_range_constraint_read_count,
                      range_constrained_column,
                      tuple_permutation_inverses, // Column 5

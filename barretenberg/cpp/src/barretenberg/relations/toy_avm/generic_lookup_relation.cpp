@@ -20,10 +20,10 @@ void GenericLookupRelationImpl<Settings, FF>::accumulate(ContainerOverSubrelatio
                                                          const Parameters& params,
                                                          const FF& scaling_factor)
 {
-    logderivative_library::accumulate_logderivative_permutation_subrelation_contributions<
-        FF,
-        GenericPermutationRelationImpl<Settings, FF>>(accumulator, in, params, scaling_factor);
+    logderivative_library::
+        accumulate_logderivative_lookup_subrelation_contributions<FF, GenericLookupRelationImpl<Settings, FF>>(
+            accumulator, in, params, scaling_factor);
 }
 
-// DEFINE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericLookupRelationImpl, flavor::ToyAVM);
+DEFINE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS(GenericLookupRelationImpl, flavor::ToyAVM);
 } // namespace proof_system::honk::sumcheck

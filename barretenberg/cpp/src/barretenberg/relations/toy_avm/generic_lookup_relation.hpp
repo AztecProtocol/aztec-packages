@@ -181,10 +181,9 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
 
         // Iterate over tuple and sum as a polynomial over beta
         barretenberg::constexpr_for<LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index * LOOKUP_TUPLE_SIZE,
-                                    LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index*(LOOKUP_TUPLE_SIZE + 1) -
-                                        1,
+                                    LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + (read_index + 1) * LOOKUP_TUPLE_SIZE,
                                     1>(
-            [&]<size_t i>() { result = result * params.beta + View(std::get<i>(all_polynomials)); });
+            [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
 
         const auto& gamma = params.gamma;
         return result + gamma;
@@ -207,6 +206,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         static_assert(write_index < WRITE_TERMS);
 
         // Sometimes we construct lookup tables on the fly from intermediate
+
         return Settings::template compute_write_term<Accumulator, write_index>(in, params);
     }
 

@@ -38,7 +38,12 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
     for (size_t i = 0; i < circuit_size; i++) {
         // We put the same tuple of values in the first 2 wires and in the next 2 to at different rows
         // We also put the same value in the self_permutation column in 2 consecutive rows
-        circuit_builder.add_row({ column_0[i], column_1[i], column_0[15 - i], column_1[15 - i], column_2[i / 2] });
+        circuit_builder.add_row({ column_0[i],
+                                  column_1[i],
+                                  column_0[15 - i],
+                                  column_1[15 - i],
+                                  column_2[i / 2],
+                                  engine.get_random_uint8() });
     }
 
     // Test that permutations with correct values work
@@ -63,7 +68,7 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
     EXPECT_EQ(result, true);
 
     // Break single-column permutation
-    circuit_builder.wires[circuit_builder.wires.size() - 1][0] = FF::random_element();
+    circuit_builder.wires[4][0] = FF::random_element();
     result = circuit_builder.check_circuit();
     EXPECT_EQ(result, false);
 }

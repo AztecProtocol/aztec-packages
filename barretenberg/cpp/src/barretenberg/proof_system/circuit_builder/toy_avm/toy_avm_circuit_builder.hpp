@@ -52,6 +52,12 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
         const auto num_gates_log2 = static_cast<size_t>(numeric::get_msb64(num_gates));
         size_t num_gates_pow2 = 1UL << (num_gates_log2 + (1UL << num_gates_log2 == num_gates ? 0 : 1));
 
+        // We need at least 256 values for the range constraint
+        num_gates_pow2 = num_gates_pow2 > 256 ? num_gates_pow2 : 256;
+
+        // We need at least 256 values for the range constraint
+        num_gates_pow2 = num_gates_pow2 > 256 ? num_gates_pow2 : 256;
+
         ProverPolynomials polys;
         for (Polynomial& poly : polys.get_all()) {
             poly = Polynomial(num_gates_pow2);
@@ -66,12 +72,30 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
             polys.permutation_set_column_3[i] = wires[2][i];
             polys.permutation_set_column_4[i] = wires[3][i];
             polys.self_permutation_column[i] = wires[4][i];
+
             // By default the permutation is over all rows where we place data
             polys.enable_tuple_set_permutation[i] = 1;
             // The same column permutation alternates between even and odd values
             polys.enable_single_column_permutation[i] = 1;
             polys.enable_first_set_permutation[i] = i & 1;
             polys.enable_second_set_permutation[i] = 1 - (i & 1);
+
+            // Lookup-based range constraint related values
+
+            // Store the value
+            polys.range_constrained_column[i] = wires[5][i];
+            // Make range constrained
+            polys.lookup_is_range_constrained[i] = 1;
+            uint256_t constrained_value = wires[5][i];
+            // If the value is correct, update the appropriate counter
+            if (constrained_value < 256) {
+                polys.lookup_range_constraint_read_count[static_cast<size_t>(constrained_value.data[0])] =
+                    polys.lookup_range_constraint_read_count[static_cast<size_t>(constrained_value.data[0])] + 1;
+            }
+        }
+        for (size_t i = 0; i < 256; i++) {
+            polys.lookup_is_table_entry[i] = FF(1);
+            polys.lookup_range_table_entries[i] = FF(i);
         }
         return polys;
     }
@@ -144,6 +168,30 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
         for (auto r : second_permutation_result) {
             if (r != 0) {
                 info("Same wire  GenericPermutationRelation failed.");
+                return false;
+            }
+        }
+
+        // Check the range constraint relation
+        proof_system::honk::logderivative_library::compute_logderivative_inverse<
+            Flavor,
+            honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleLookupBasedRangeConstraintSettings, FF>>(
+            polynomials, params, num_rows);
+
+        using LookupRelation =
+            honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleLookupBasedRangeConstraintSettings, FF>;
+        typename honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleLookupBasedRangeConstraintSettings,
+                                                       typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
+            range_constraint_result;
+        for (auto& r : range_constraint_result) {
+            r = 0;
+        }
+        for (size_t i = 0; i < num_rows; ++i) {
+            LookupRelation::accumulate(range_constraint_result, polynomials.get_row(i), params, 1);
+        }
+        for (auto r : range_constraint_result) {
+            if (r != 0) {
+                info("RangeConstraintRelation failed.");
                 return false;
             }
         }

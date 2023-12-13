@@ -218,7 +218,7 @@ class ExampleLookupBasedRangeConstraintSettings {
         using View = Accumulator::View;
         const auto is_constrained = View(in.lookup_is_range_constrained);
         const auto is_table_entry = View(in.lookup_is_table_entry);
-        return (is_constrained + is_table_entry + is_constrained * is_table_entry);
+        return (is_constrained + is_table_entry - is_constrained * is_table_entry);
     }
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
@@ -227,7 +227,8 @@ class ExampleLookupBasedRangeConstraintSettings {
         static_assert(write_index < WRITE_TERMS);
 
         using View = typename Accumulator::View;
-        return Accumulator(View(in.lookup_range_table_entries) + View(params.gamma));
+        info("Write value: ", View(in.lookup_range_table_entries));
+        return Accumulator(View(in.lookup_range_table_entries) + params.gamma);
     }
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
