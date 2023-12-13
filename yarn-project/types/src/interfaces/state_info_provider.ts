@@ -1,5 +1,5 @@
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -12,7 +12,7 @@ import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path.js';
-import { NullifierMembershipWitness } from './nullifier_witness.js';
+import { NullifierMembershipWitness } from './nullifier_tree.js';
 
 /** Helper type for a specific L2 block number or the latest block number */
 type BlockNumber = number | 'latest';
@@ -93,10 +93,7 @@ export interface StateInfoProvider {
    * @returns The sibling path.
    * TODO: https://github.com/AztecProtocol/aztec-packages/issues/3414
    */
-  getBlocksTreeSiblingPath(
-    blockNumber: BlockNumber,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof BLOCKS_TREE_HEIGHT>>;
+  getArchiveSiblingPath(blockNumber: BlockNumber, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
 
   /**
    * Returns a sibling path for a leaf in the committed public data tree.
@@ -141,4 +138,10 @@ export interface StateInfoProvider {
    * @returns The requested block.
    */
   getBlock(number: number): Promise<L2Block | undefined>;
+
+  /**
+   * Fetches the current block number.
+   * @returns The block number.
+   */
+  getBlockNumber(): Promise<number>;
 }

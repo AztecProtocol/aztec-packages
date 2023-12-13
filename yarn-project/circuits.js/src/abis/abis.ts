@@ -116,10 +116,18 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   );
 }
 
-// The "zero leaf" of the function tree is the hash of 5 zero fields.
-// TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
-const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
-const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+let functionTreeRootCalculator: MerkleTreeCalculator | undefined;
+/**
+ * The "zero leaf" of the function tree is the hash of 5 zero fields.
+ * TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+ */
+function getFunctionTreeRootCalculator() {
+  if (!functionTreeRootCalculator) {
+    const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+    functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+  }
+  return functionTreeRootCalculator;
+}
 
 /**
  * Computes a function tree from function leaves.
@@ -128,7 +136,9 @@ const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT
  */
 export function computeFunctionTree(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return functionTreeRootCalculator.computeTree(leaves).map(b => Fr.fromBuffer(b));
+  return getFunctionTreeRootCalculator()
+    .computeTree(leaves)
+    .map(b => Fr.fromBuffer(b));
 }
 
 /**
@@ -138,7 +148,7 @@ export function computeFunctionTree(fnLeaves: Fr[]) {
  */
 export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(leaves));
+  return Fr.fromBuffer(getFunctionTreeRootCalculator().computeTreeRoot(leaves));
 }
 
 /**
@@ -535,7 +545,7 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     input.blockHeader.nullifierTreeRoot.toBuffer(),
     input.blockHeader.contractTreeRoot.toBuffer(),
     input.blockHeader.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.blockHeader.blocksTreeRoot.toBuffer(),
+    input.blockHeader.archiveRoot.toBuffer(),
     input.blockHeader.publicDataTreeRoot.toBuffer(),
     input.blockHeader.globalVariablesHash.toBuffer(),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
@@ -603,7 +613,7 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     input.blockHeader.nullifierTreeRoot.toBuffer(),
     input.blockHeader.contractTreeRoot.toBuffer(),
     input.blockHeader.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.blockHeader.blocksTreeRoot.toBuffer(),
+    input.blockHeader.archiveRoot.toBuffer(),
     input.blockHeader.publicDataTreeRoot.toBuffer(),
     input.blockHeader.globalVariablesHash.toBuffer(),
     input.proverAddress.toBuffer(),

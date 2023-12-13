@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export ETHEREUM_HOST=https://$DEPLOY_TAG-mainnet-fork.aztec.network:8545/$FORK_API_KEY
 
@@ -26,7 +26,7 @@ docker run \
   ./scripts/deploy_contracts.sh
 
 # Write the contract addresses as terraform variables
-for KEY in ROLLUP_CONTRACT_ADDRESS REGISTRY_CONTRACT_ADDRESS INBOX_CONTRACT_ADDRESS OUTBOX_CONTRACT_ADDRESS; do
+for KEY in ROLLUP_CONTRACT_ADDRESS REGISTRY_CONTRACT_ADDRESS INBOX_CONTRACT_ADDRESS OUTBOX_CONTRACT_ADDRESS CONTRACT_DEPLOYMENT_EMITTER_ADDRESS; do
   VALUE=$(jq -r .$KEY ./serve/contract_addresses.json)
   export TF_VAR_$KEY=$VALUE
 done

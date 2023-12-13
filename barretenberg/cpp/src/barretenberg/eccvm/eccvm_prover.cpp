@@ -2,7 +2,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/ref_array.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -183,7 +183,7 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
-    lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
+    logderivative_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitment_key->commit(key->lookup_inverses));
     prover_polynomials.lookup_inverses = key->lookup_inverses;
@@ -345,31 +345,34 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     transcript->send_to_verifier("Translation:hack_evaluation", hack.evaluate(evaluation_challenge_x));
 
     // Get another challenge for batching the univariate claims
-    FF batching_challenge = transcript->get_challenge("Translation:batching_challenge");
+    FF ipa_batching_challenge = transcript->get_challenge("Translation:ipa_batching_challenge");
 
     // Collect the polynomials and evaluations to be batched
     RefArray univariate_polynomials{ key->transcript_op, key->transcript_Px, key->transcript_Py,
                                      key->transcript_z1, key->transcript_z2, hack };
     std::array<FF, univariate_polynomials.size()> univariate_evaluations;
 
-    // Constuct the batched polynomial and batched evaluation
+    // Construct the batched polynomial and batched evaluation
     Polynomial batched_univariate{ key->circuit_size };
     FF batched_evaluation{ 0 };
     auto batching_scalar = FF(1);
     for (auto [polynomial, eval] : zip_view(univariate_polynomials, univariate_evaluations)) {
         batched_univariate.add_scaled(polynomial, batching_scalar);
         batched_evaluation += eval * batching_scalar;
-        batching_scalar *= batching_challenge;
+        batching_scalar *= ipa_batching_challenge;
     }
 
     // Compute a proof for the batched univariate opening
     PCS::compute_opening_proof(
         commitment_key, { evaluation_challenge_x, batched_evaluation }, batched_univariate, transcript);
+
+    // Get another challenge for batching the univariate claims
+    translation_batching_challenge_v = transcript->get_challenge("Translation:batching_challenge");
 }
 
 template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::export_proof()
 {
-    proof.proof_data = transcript->proof_data;
+    proof.proof_data = transcript->export_proof();
     return proof;
 }
 

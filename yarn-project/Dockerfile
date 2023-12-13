@@ -6,15 +6,13 @@
 # Any subsequent build steps needed to support downstream containers should be done in those containers build files.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base as builder
 
-RUN apk add bash perl
-
 # Copy in the entire workspace.
 COPY . .
 
-RUN yarn workspace @aztec/foundation build && \
-  yarn workspace @aztec/noir-compiler build && \
-  yarn workspace @aztec/noir-contracts noir:build:all && \
-  yarn workspace @aztec/noir-protocol-circuits noir:build && \
-  yarn tsc -b
+RUN yarn workspace @aztec/foundation build
+RUN yarn workspace @aztec/noir-compiler build
+RUN yarn workspace @aztec/noir-contracts noir:build:all
+RUN yarn workspace @aztec/noir-protocol-circuits noir:build
+RUN yarn tsc -b
 
 ENTRYPOINT ["yarn"]
