@@ -11,6 +11,8 @@ echo "Last successfully published commit: $CONTENT_HASH"
 # Check if image hash has alredy been deployed.
 if check_rebuild "cache-$CONTENT_HASH-$DEPLOY_TAG-deployed" $REPOSITORY; then
   echo "No changes detected, no contract deploy necessary."
+  # Set global variable for redeployment of contracts
+  echo export CONTRACTS_DEPLOYED=0 >>$BASH_ENV
   exit 0
 fi
 
@@ -36,3 +38,6 @@ deploy_terraform l1-contracts ./terraform
 
 # Tag the image as deployed.
 retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+
+# Set global variable for redeployment of contracts
+echo export CONTRACTS_DEPLOYED=1 >>$BASH_ENV
