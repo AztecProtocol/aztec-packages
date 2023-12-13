@@ -15,7 +15,8 @@ using Row = proof_system::AvmMiniFullRow<FF>;
 
 namespace proof_system {
 
-enum class AvmMemoryTag { u0 = 0, u8 = 1, u16 = 2, u32 = 3, u64 = 4, u128 = 5, ff = 6 };
+enum class IntermRegister : uint32_t { ia = 0, ib = 1, ic = 2 };
+enum class AvmMemoryTag : uint32_t { u0 = 0, u8 = 1, u16 = 2, u32 = 3, u64 = 4, u128 = 5, ff = 6 };
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
@@ -82,11 +83,7 @@ class AvmMiniTraceBuilder {
     static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
     void insertInMemTrace(
         uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, bool m_rw);
-    void loadAInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void loadBInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void loadCInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void storeAInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void storeBInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void storeCInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag);
+    void loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
+    void storeInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
 };
 } // namespace proof_system

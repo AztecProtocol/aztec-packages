@@ -85,87 +85,62 @@ void AvmMiniTraceBuilder::insertInMemTrace(
 }
 
 // Memory operations need to be performed before the addition of the corresponding row in
-// MainTrace, otherwise the m_clk value will be wrong. This applies to : loadAInMemTrace, loadBInMemTrace,
-// loadCInMemTrace, storeAInMemTrace, storeBInMemTrace, storeCInMemTrace
+// MainTrace, otherwise the m_clk value will be wrong. This applies to loadInMemTrace and
+// storeInMemTrace.
+
 /**
  * @brief Add a memory trace entry corresponding to a memory load into the intermediate
- *        register Ia.
+ *        passed register.
  *
+ * @param intermReg The intermediate register
  * @param addr The memory address
  * @param val The value to be loaded
  * @param m_in_tag The memory tag of the instruction
  */
-void AvmMiniTraceBuilder::loadAInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
+void AvmMiniTraceBuilder::loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag)
 {
-    // TODO: Check that m_in_tag is compatible to that at addr.
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_A, addr, val, m_in_tag, false);
-}
+    uint32_t sub_clk = 0;
+    switch (intermReg) {
+    case IntermRegister::ia:
+        sub_clk = SUB_CLK_LOAD_A;
+        break;
+    case IntermRegister::ib:
+        sub_clk = SUB_CLK_LOAD_B;
+        break;
+    case IntermRegister::ic:
+        sub_clk = SUB_CLK_LOAD_C;
+        break;
+    }
 
-/**
- * @brief Add a memory trace entry corresponding to a memory load into the intermediate
- *        register Ib.
- *
- * @param addr The memory address
- * @param val The value to be loaded
- * @param m_in_tag The memory tag of the instruction
- */
-void AvmMiniTraceBuilder::loadBInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
-{
     // TODO: Check that m_in_tag is compatible to that at addr.
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_B, addr, val, m_in_tag, false);
-}
-
-/**
- * @brief Add a memory trace entry corresponding to a memory load into the intermediate
- *        register Ic.
- *
- * @param addr The memory address
- * @param val The value to be loaded
- * @param m_in_tag The memory tag of the instruction
- */
-void AvmMiniTraceBuilder::loadCInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
-{
-    // TODO: Check that m_in_tag is compatible to that at addr.
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_LOAD_C, addr, val, m_in_tag, false);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, false);
 }
 
 /**
  * @brief Add a memory trace entry corresponding to a memory store from the intermediate
- *        register Ia.
+ *        register.
  *
+ * @param intermReg The intermediate register
  * @param addr The memory address
  * @param val The value to be stored
  * @param m_in_tag The memory tag of the instruction
  */
-void AvmMiniTraceBuilder::storeAInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
+void AvmMiniTraceBuilder::storeInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag)
 {
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_A, addr, val, m_in_tag, true);
-}
+    uint32_t sub_clk = 0;
+    switch (intermReg) {
+    case IntermRegister::ia:
+        sub_clk = SUB_CLK_STORE_A;
+        break;
+    case IntermRegister::ib:
+        sub_clk = SUB_CLK_STORE_B;
+        break;
+    case IntermRegister::ic:
+        sub_clk = SUB_CLK_STORE_C;
+        break;
+    }
 
-/**
- * @brief Add a memory trace entry corresponding to a memory store from the intermediate
- *        register Ib.
- *
- * @param addr The memory address
- * @param val The value to be stored
- * @param m_in_tag The memory tag of the instruction
- */
-void AvmMiniTraceBuilder::storeBInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
-{
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_B, addr, val, m_in_tag, true);
-}
-
-/**
- * @brief Add a memory trace entry corresponding to a memory store from the intermediate
- *        register Ic.
- *
- * @param addr The memory address
- * @param val The value to be stored
- * @param m_in_tag The memory tag of the instruction
- */
-void AvmMiniTraceBuilder::storeCInMemTrace(uint32_t addr, FF val, AvmMemoryTag m_in_tag)
-{
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), SUB_CLK_STORE_C, addr, val, m_in_tag, true);
+    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, true);
 }
 
 /** TODO: Implement for non finite field types
@@ -185,16 +160,12 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memory.at(dstOffset) = c;
     memoryTag.at(dstOffset) = inTag;
 
+    // Loading into Ia, Ib and storing into Ic
+    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
+
     auto clk = mainTrace.size();
-
-    // Loading into Ia
-    loadAInMemTrace(aOffset, a, inTag);
-
-    // Loading into Ib
-    loadBInMemTrace(bOffset, b, inTag);
-
-    // Storing from Ic
-    storeCInMemTrace(dstOffset, c, inTag);
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -229,16 +200,12 @@ void AvmMiniTraceBuilder::sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memory.at(dstOffset) = c;
     memoryTag.at(dstOffset) = inTag;
 
+    // Loading into Ia, Ib and storing into Ic
+    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
+
     auto clk = mainTrace.size();
-
-    // Loading into Ia
-    loadAInMemTrace(aOffset, a, inTag);
-
-    // Loading into Ib
-    loadBInMemTrace(bOffset, b, inTag);
-
-    // Storing from Ic
-    storeCInMemTrace(dstOffset, c, inTag);
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -273,16 +240,12 @@ void AvmMiniTraceBuilder::mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memory.at(dstOffset) = c;
     memoryTag.at(dstOffset) = inTag;
 
+    // Loading into Ia, Ib and storing into Ic
+    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
+
     auto clk = mainTrace.size();
-
-    // Loading into Ia
-    loadAInMemTrace(aOffset, a, inTag);
-
-    // Loading into Ib
-    loadBInMemTrace(bOffset, b, inTag);
-
-    // Storing from Ic
-    storeCInMemTrace(dstOffset, c, inTag);
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -331,16 +294,12 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memory.at(dstOffset) = c;
     memoryTag.at(dstOffset) = inTag;
 
+    // Loading into Ia, Ib and storing into Ic
+    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
+
     auto clk = mainTrace.size();
-
-    // Loading into Ia
-    loadAInMemTrace(aOffset, a, inTag);
-
-    // Loading into Ib
-    loadBInMemTrace(bOffset, b, inTag);
-
-    // Storing from Ic
-    storeCInMemTrace(dstOffset, c, inTag);
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -410,7 +369,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
         // Storing from Ia
         memory.at(mem_idx_a) = ia;
         memoryTag.at(mem_idx_a) = AvmMemoryTag::ff;
-        storeAInMemTrace(mem_idx_a, ia, AvmMemoryTag::ff);
+        storeInMemTrace(IntermRegister::ia, mem_idx_a, ia, AvmMemoryTag::ff);
 
         if (copySize - pos > 1) {
             ib = callDataMem.at(cdOffset + pos + 1);
@@ -421,7 +380,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
             // Storing from Ib
             memory.at(mem_idx_b) = ib;
             memoryTag.at(mem_idx_b) = AvmMemoryTag::ff;
-            storeBInMemTrace(mem_idx_b, ib, AvmMemoryTag::ff);
+            storeInMemTrace(IntermRegister::ib, mem_idx_b, ib, AvmMemoryTag::ff);
         }
 
         if (copySize - pos > 2) {
@@ -433,7 +392,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
             // Storing from Ic
             memory.at(mem_idx_c) = ic;
             memoryTag.at(mem_idx_c) = AvmMemoryTag::ff;
-            storeCInMemTrace(mem_idx_c, ic, AvmMemoryTag::ff);
+            storeInMemTrace(IntermRegister::ic, mem_idx_c, ic, AvmMemoryTag::ff);
         }
 
         mainTrace.push_back(Row{
@@ -500,7 +459,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
 
         // Loading from Ia
         returnMem.push_back(ia);
-        loadAInMemTrace(mem_idx_a, ia, AvmMemoryTag::ff);
+        loadInMemTrace(IntermRegister::ia, mem_idx_a, ia, AvmMemoryTag::ff);
 
         if (retSize - pos > 1) {
             mem_op_b = 1;
@@ -509,7 +468,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
 
             // Loading from Ib
             returnMem.push_back(ib);
-            loadBInMemTrace(mem_idx_b, ib, AvmMemoryTag::ff);
+            loadInMemTrace(IntermRegister::ib, mem_idx_b, ib, AvmMemoryTag::ff);
         }
 
         if (retSize - pos > 2) {
@@ -519,7 +478,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
 
             // Loading from Ic
             returnMem.push_back(ic);
-            loadCInMemTrace(mem_idx_c, ic, AvmMemoryTag::ff);
+            loadInMemTrace(IntermRegister::ic, mem_idx_c, ic, AvmMemoryTag::ff);
         }
 
         mainTrace.push_back(Row{
