@@ -105,7 +105,7 @@ contract EcdsaAccount {
         serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]
     ) -> [Field; 4] {
         assert(storage_slot == 1);
-        let _address = AztecAddress::from_field(contract_address); // Workaround before we update compute_note_hash_and_nullifier compiler check
+        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(EcdsaPublicKeyNoteInterface, note_header, serialized_note)
     }
