@@ -24,7 +24,7 @@ contract Lending {
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
             TypeSerializationInterface,
-            address_serialization::{AddressSerializationMethods, ADDRESS_SERIALIZED_LEN},
+            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
         },
     };
     use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerializationMethods};

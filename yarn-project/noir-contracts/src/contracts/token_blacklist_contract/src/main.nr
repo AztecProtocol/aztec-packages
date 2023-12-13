@@ -30,7 +30,7 @@ contract TokenBlacklist {
         types::type_serialization::{
             field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
             bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-            address_serialization::{AddressSerializationMethods, ADDRESS_SERIALIZED_LEN},
+            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
         },
         selector::compute_selector,
     };
@@ -56,13 +56,13 @@ contract TokenBlacklist {
     // docs:end:interface
 
     struct Storage {
-        admin: PublicState<AztecAddress, ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
         balances: BalancesMap,
         total_supply: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
         pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
         public_balances: Map<PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
         slow_update: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
-        public_slow_update: PublicState<AztecAddress, ADDRESS_SERIALIZED_LEN>,
+        public_slow_update: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
     }
 
     impl Storage {

@@ -6,13 +6,13 @@ use dep::protocol_types::{
     },
 };
 
-global ADDRESS_SERIALIZED_LEN: Field = 1;
+global AZTEC_ADDRESS_SERIALIZED_LEN: Field = 1;
 
-fn deserialize(fields: [Field; ADDRESS_SERIALIZED_LEN]) -> AztecAddress {
+fn deserialize(fields: [Field; AZTEC_ADDRESS_SERIALIZED_LEN]) -> AztecAddress {
     AztecAddress::from_field(fields[0])
 }
 
-fn serialize(value: AztecAddress) -> [Field; ADDRESS_SERIALIZED_LEN] {
+fn serialize(value: AztecAddress) -> [Field; AZTEC_ADDRESS_SERIALIZED_LEN] {
     [value.to_field()]
 }
 

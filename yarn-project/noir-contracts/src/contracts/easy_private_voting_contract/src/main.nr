@@ -11,14 +11,14 @@ contract EasyPrivateVoting {
         state_vars::{ map::Map, public_state::PublicState,}, 
         types::type_serialization::{ // serialization methods for using booleans and aztec addresses
             bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-            address_serialization::{AddressSerializationMethods, ADDRESS_SERIALIZED_LEN},
+            address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
             field_serialization::{ FieldSerializationMethods, FIELD_SERIALIZED_LEN},
         }, 
     };
     // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
-        admin: PublicState<AztecAddress, ADDRESS_SERIALIZED_LEN>, // admin can end vote
+        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>, // admin can end vote
         tally: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>, // we will store candidate as key and number of votes as value
         voteEnded: PublicState<bool, BOOL_SERIALIZED_LEN>, // voteEnded is boolean
     }
