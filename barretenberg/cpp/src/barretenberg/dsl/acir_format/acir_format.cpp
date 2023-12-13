@@ -108,17 +108,19 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     }
 
     // Add recursion constraints
-    for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
-        auto& constraint = constraint_system.recursion_constraints[i];
-        create_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+    if constexpr (!IsGoblinBuilder<Builder>) {
+        for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
+            auto& constraint = constraint_system.recursion_constraints[i];
+            create_recursion_constraints(builder, constraint, has_valid_witness_assignments);
 
-        // make sure the verification key records the public input indices of the final recursion output
-        // (N.B. up to the ACIR description to make sure that the final output aggregation object wires are public
-        // inputs!)
-        if (i == constraint_system.recursion_constraints.size() - 1) {
-            std::vector<uint32_t> proof_output_witness_indices(constraint.output_aggregation_object.begin(),
-                                                               constraint.output_aggregation_object.end());
-            builder.set_recursive_proof(proof_output_witness_indices);
+            // make sure the verification key records the public input indices of the final recursion output
+            // (N.B. up to the ACIR description to make sure that the final output aggregation object wires are public
+            // inputs!)
+            if (i == constraint_system.recursion_constraints.size() - 1) {
+                std::vector<uint32_t> proof_output_witness_indices(constraint.output_aggregation_object.begin(),
+                                                                   constraint.output_aggregation_object.end());
+                builder.set_recursive_proof(proof_output_witness_indices);
+            }
         }
     }
     // WORKTODO(NEW_CONSTRAINTS): add new constraint types here
@@ -165,6 +167,9 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
 
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
                                                                  size_t size_hint);
+template void create_circuit_with_witness<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                     acir_format const& constraint_system,
+                                                                     WitnessVector const& witness);
 // WORKTODO: maybe not needed?
 // template GoblinUltraCircuitBuilder create_circuit<GoblinUltraCircuitBuilder>(const acir_format& constraint_system,
 //                                                                              size_t size_hint);
