@@ -1,12 +1,14 @@
-use dep::protocol_types::constants::{
-    PUBLIC_DATA_TREE_HEIGHT,
-    GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+use dep::protocol_types::{
+    constants::{
+        PUBLIC_DATA_TREE_HEIGHT,
+        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    },
+    hash::pedersen_hash,
 };
 use dep::std::merkle::compute_merkle_root;
 
 use crate::{
     context::PrivateContext,
-    hash::pedersen_hash,
     oracle::get_public_data_witness::{
         get_public_data_witness,
         PublicDataWitness,
@@ -27,7 +29,7 @@ pub fn prove_public_value_inclusion(
 
     // 2) Compute the leaf slot by siloing the storage slot with our own address
     let public_value_leaf_slot = pedersen_hash(
-        [context.this_address(), storage_slot],
+        [context.this_address().to_field(), storage_slot],
         GENERATOR_INDEX__PUBLIC_LEAF_INDEX
     );
 
@@ -46,10 +48,9 @@ pub fn prove_public_value_inclusion(
 
     // 5) Prove that the leaf we validated is in the public data tree
     assert(
-        block_header.public_data_tree_root == compute_merkle_root(preimage.hash(), witness.index, witness.path),
-        "Proving public value inclusion failed"
+        block_header.public_data_tree_root
+        == compute_merkle_root(preimage.hash(), witness.index, witness.path), "Proving public value inclusion failed"
     );
-
     // --> Now we have traversed the trees all the way up to archive root and that way verified that a specific
     // `value` was really set in a given contract storage slot at block `block_number` in public data tree.
 }

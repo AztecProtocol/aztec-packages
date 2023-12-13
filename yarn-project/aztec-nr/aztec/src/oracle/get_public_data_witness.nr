@@ -1,6 +1,6 @@
 use dep::protocol_types::constants::PUBLIC_DATA_TREE_HEIGHT;
+use dep::protocol_types::hash::pedersen_hash;
 use crate::utils::arr_copy_slice;
-use crate::hash::pedersen_hash;
 
 global LEAF_PREIMAGE_LENGTH: Field = 4;
 // TODO: move this to constants_gen.nr so that it gets computed as INDEX_LENGTH + LEAF_DATA_LENGTH + PUBLIC_DATA_TREE_HEIGHT

@@ -409,7 +409,7 @@ impl BaseRollupInputs {
         for i in 0..KERNELS_PER_BASE_ROLLUP {
             // Rebuild the block hash
             let block_header = self.kernel_data[i].public_inputs.constants.block_header;
-            let previous_block_hash = block_header.block.hash();
+            let previous_block_hash = block_header.block_hash();
 
             let previous_block_hash_witness = self.archive_root_membership_witnesses[i];
 
@@ -671,7 +671,7 @@ mod tests {
         abis::public_data_update_request::PublicDataUpdateRequest,
         abis::previous_kernel_data::PreviousKernelData,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
-        address::{Address, EthAddress},
+        address::{AztecAddress, EthAddress},
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
     };
@@ -825,7 +825,7 @@ mod tests {
             });
 
             inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
-                builder.block_header.block.hash()
+                builder.block_header.block_hash()
             });
 
             inputs
@@ -1150,7 +1150,7 @@ mod tests {
     #[test]
     unconstrained fn contract_leaf_inserted() {
         let new_contract = NewContractData {
-            contract_address: Address::from_field(1),
+            contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
             function_tree_root: 3
         };
@@ -1181,7 +1181,7 @@ mod tests {
     #[test]
     unconstrained fn contract_leaf_inserted_in_non_empty_snapshot_tree() {
         let new_contract = NewContractData {
-            contract_address: Address::from_field(1),
+            contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
             function_tree_root: 3
         };
