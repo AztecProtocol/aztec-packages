@@ -119,7 +119,6 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
-
     // WORKTODO(NEW_CONSTRAINTS): add new constraint types here
     // WORKTODO(NEW_CONSTRAINTS): this gets called twice? understand why.
 }

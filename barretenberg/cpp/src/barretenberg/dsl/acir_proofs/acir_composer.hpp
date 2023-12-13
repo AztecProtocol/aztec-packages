@@ -50,7 +50,7 @@ class AcirComposer {
 
   private:
     acir_format::Builder builder_;
-    Goblin goblin; // WORKTODO
+    Goblin goblin;
     size_t size_hint_;
     size_t exact_circuit_size_;
     size_t total_circuit_size_;
