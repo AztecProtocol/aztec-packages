@@ -194,4 +194,12 @@ export class SimulatorOracle implements DBOracle {
   getBlockHeader(): Promise<BlockHeader> {
     return Promise.resolve(this.db.getBlockHeader());
   }
+
+  /**
+   * Fetches the current block number.
+   * @returns The block number.
+   */
+  public async getBlockNumber(): Promise<number> {
+    return await this.stateInfoProvider.getBlockNumber();
+  }
 }
