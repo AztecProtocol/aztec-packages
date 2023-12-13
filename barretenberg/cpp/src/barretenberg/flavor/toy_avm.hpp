@@ -218,7 +218,7 @@ class ToyAVM {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except only all move construction/assignment
+        // Define all operations as default, except move construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
         ProverPolynomials(const ProverPolynomials& o) = delete;
