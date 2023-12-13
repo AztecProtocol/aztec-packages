@@ -112,6 +112,36 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
+export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string, isRecursive: boolean) {
+  /* eslint-disable camelcase */
+  const acir_test = path.basename(process.cwd());
+
+  const { api, acirComposer, circuitSize, subgroupSize } = await init(bytecodePath, crsPath);
+  try {
+    debug(`creating proof...`);
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+
+    const pkTimer = new Timer();
+    await api.acirInitProvingKey(acirComposer, bytecode);
+    writeBenchmark('pk_construction_time', pkTimer.ms(), { acir_test, threads });
+    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
+    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
+
+    const proofTimer = new Timer();
+    const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
+    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
+
+    debug(`verifying...`);
+    const verified = await api.acirVerifyProof(acirComposer, proof, isRecursive);
+    debug(`verified: ${verified}`);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
 export async function prove(
   bytecodePath: string,
   witnessPath: string,
