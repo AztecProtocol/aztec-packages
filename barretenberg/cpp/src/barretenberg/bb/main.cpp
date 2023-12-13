@@ -453,8 +453,10 @@ int main(int argc, char* argv[])
             acvm_info(output_path);
             return 0;
         }
-
         if (command == "prove_and_verify") {
+            return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
         }
         if (command == "prove") {
