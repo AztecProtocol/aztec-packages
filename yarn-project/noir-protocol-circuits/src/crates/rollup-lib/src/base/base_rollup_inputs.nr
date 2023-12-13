@@ -38,7 +38,6 @@ use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
 
-
 struct BaseRollupInputs {
     kernel_data: [PreviousKernelData; KERNELS_PER_BASE_ROLLUP],
     start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot,
@@ -518,7 +517,7 @@ fn validate_public_data_reads(
     tree_root: Field,
     public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
     public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
+    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]
 ) {
     for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
         let read = public_data_reads[i];
@@ -530,9 +529,8 @@ fn validate_public_data_reads(
 
         let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
         let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
-        let is_in_range = is_less_than_slot & (
-            is_next_greater_than | 
-            ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
+        let is_in_range = is_less_than_slot
+            & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
         if (!read.is_empty()) {
             assert(!is_low_empty, "public data read is not empty but low preimage is empty");
@@ -690,12 +688,11 @@ mod tests {
     }
 
     global MAX_NEW_NULLIFIERS_PER_TEST = 4;
+    global MAX_PUBLIC_DATA_WRITES_PER_TEST = 2;
+    global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
 
     fn sort_high_to_low<N, T>(values: [T; N], is_less_than: fn(T, T) -> bool) -> [SortedTuple<T>; N] {
-        let mut sorted_tuples = [SortedTuple {
-            value: values[0],
-            original_index: 0,
-        }; N];
+        let mut sorted_tuples = [SortedTuple { value: values[0], original_index: 0 }; N];
 
         for i in 0..N {
             sorted_tuples[i] = SortedTuple {
@@ -703,17 +700,16 @@ mod tests {
                 original_index: i as u32,
             };
         }
-        
+
         sorted_tuples.sort_via(|a: SortedTuple<T>, b: SortedTuple<T>| is_less_than(b.value, a.value))
     }
 
-
     fn update_public_data_tree_single_kernel<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
-        public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>, 
-        kernel_data: &mut PreviousKernelData, 
+        public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
+        kernel_data: &mut PreviousKernelData,
         snapshot: AppendOnlyTreeSnapshot,
         public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
-        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
+        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
     ) -> (
         [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
         [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
@@ -733,8 +729,8 @@ mod tests {
         let mut public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
         let mut public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
         let mut new_subtree: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        
-        for i in 0..2 {
+
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
             if i < (public_data_writes.len() as u64) {
                 let (_, leaf): (u64, PublicDataTreeLeaf) = public_data_writes.get_unchecked(i as Field);
 
@@ -746,11 +742,12 @@ mod tests {
             }
         }
         let mut sorted_write_tuples = sort_high_to_low(
-            public_data_writes.storage, |(_, leaf_a): (u64, PublicDataTreeLeaf),(_,leaf_b):(u64, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
+            public_data_writes.storage,
+            |(_, leaf_a): (u64, PublicDataTreeLeaf),(_,leaf_b):(u64, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
         );
 
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if (i as u32) < 2 {
+            if (i as u64) < MAX_PUBLIC_DATA_WRITES_PER_TEST {
                 let (low_leaf_index, leaf): (u64, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
 
                 sorted_public_data_writes[i] = leaf;
@@ -760,7 +757,7 @@ mod tests {
                     let low_leaf = pre_existing_public_data[low_leaf_index];
                     if low_leaf.slot == leaf.slot {
                         pre_existing_public_data[low_leaf_index].value = leaf.value;
-                    }else {
+                    } else {
                         new_subtree[sorted_write_tuples[i].original_index] = PublicDataTreeLeafPreimage {
                             slot: leaf.slot,
                             value: leaf.value,
@@ -780,7 +777,10 @@ mod tests {
                         sibling_path: public_data_tree.get_sibling_path(low_leaf_index as Field)
                     };
 
-                    public_data_tree.update_leaf(low_leaf_index, pre_existing_public_data[low_leaf_index].hash());
+                    public_data_tree.update_leaf(
+                        low_leaf_index,
+                        pre_existing_public_data[low_leaf_index].hash()
+                    );
                 }
             } else {
                 sorted_public_data_writes[i] = PublicDataTreeLeaf::default();
@@ -789,17 +789,9 @@ mod tests {
         }
 
         subtree_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(public_data_tree.get_sibling_path(snapshot.next_available_leaf_index as Field), [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]);
-        
+
         (
-            subtree_path,
-            sorted_public_data_writes,
-            sorted_public_data_writes_indexes,
-            low_public_data_writes_preimages,
-            low_public_data_writes_witnesses,
-            public_data_reads_preimages,
-            public_data_reads_witnesses,
-            pre_existing_public_data,
-            new_subtree,
+            subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, public_data_reads_preimages, public_data_reads_witnesses, pre_existing_public_data, new_subtree
         )
     }
 
@@ -810,8 +802,8 @@ mod tests {
         pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
-        public_data_reads: [BoundedVec<u64, 2>; KERNELS_PER_BASE_ROLLUP],
-        public_data_writes: [BoundedVec<(u64, PublicDataTreeLeaf), 2>; KERNELS_PER_BASE_ROLLUP],
+        public_data_reads: [BoundedVec<u64, MAX_PUBLIC_DATA_READS_PER_TEST>; KERNELS_PER_BASE_ROLLUP],
+        public_data_writes: [BoundedVec<(u64, PublicDataTreeLeaf), MAX_PUBLIC_DATA_WRITES_PER_TEST>; KERNELS_PER_BASE_ROLLUP],
         new_nullifiers: BoundedVec<NullifierInsertion, MAX_NEW_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
     }
@@ -1297,10 +1289,7 @@ mod tests {
             next_index : 0,
         };
 
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 0,
-            value: 1,
-        });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 0, value: 1 });
 
         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
         tree_nullifiers[0] = NullifierLeafPreimage {
@@ -1316,18 +1305,22 @@ mod tests {
         };
 
         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
-            [0; NULLIFIER_TREE_HEIGHT], 
-            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+            [0; NULLIFIER_TREE_HEIGHT],
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
         );
 
         let output = builder.execute();
 
-        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+        assert(
+            output.end_nullifier_tree_snapshot.eq(
+                AppendOnlyTreeSnapshot {
             root: end_nullifier_tree.get_root(),
-            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-        }));
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32
+        }
+            )
+        );
     }
 
     #[test]
@@ -1345,15 +1338,9 @@ mod tests {
             next_index : 0,
         };
 
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 1,
-            value: 8,
-        });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
         for i in 1..builder.new_nullifiers.max_len() {
-            builder.new_nullifiers.push(NullifierInsertion {
-                existing_index: 1,
-                value: (8 + i) as Field,
-            });
+            builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: (8 + i) as Field });
         }
 
         let output = builder.execute();
@@ -1383,16 +1370,20 @@ mod tests {
         };
 
         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
-            [0; NULLIFIER_TREE_HEIGHT], 
-            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()),
+            [0; NULLIFIER_TREE_HEIGHT],
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1],
             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
         );
 
-        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+        assert(
+            output.end_nullifier_tree_snapshot.eq(
+                AppendOnlyTreeSnapshot {
             root: end_nullifier_tree.get_root(),
-            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-        }));
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32
+        }
+            )
+        );
     }
 
     #[test(should_fail_with = "Invalid low leaf")]
@@ -1410,14 +1401,8 @@ mod tests {
             next_index : 0,
         };
 
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 1,
-            value: 8,
-        });
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 1,
-            value: 8,
-        });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
 
         builder.fails();
     }
@@ -1437,14 +1422,8 @@ mod tests {
             next_index : 0,
         };
 
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 1,
-            value: 8,
-        });
-        builder.new_nullifiers.push(NullifierInsertion {
-            existing_index: 1,
-            value: 8,
-        });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
+        builder.new_nullifiers.push(NullifierInsertion { existing_index: 1, value: 8 });
 
         builder.fails();
     }
@@ -1529,20 +1508,12 @@ mod tests {
         };
 
         let mut first_kernel_writes = builder.public_data_writes[0];
-        first_kernel_writes.push((0, PublicDataTreeLeaf {
-            slot: 27,
-            value: 29
-        }));
+        first_kernel_writes.push((0, PublicDataTreeLeaf { slot: 27, value: 29 }));
         builder.public_data_writes[0] = first_kernel_writes;
 
         let outputs = builder.execute();
 
-        let updated_leaf = PublicDataTreeLeafPreimage {
-            slot: 27,
-            value: 29,
-            next_slot: 0,
-            next_index: 0,
-        };
+        let updated_leaf = PublicDataTreeLeafPreimage { slot: 27, value: 29, next_slot: 0, next_index: 0 };
 
         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
             [updated_leaf.hash(), 0],
@@ -1582,15 +1553,12 @@ mod tests {
             next_slot: 0,
             next_index: 0,
         };
-        
+
         let mut first_kernel_reads = builder.public_data_reads[0];
         let mut first_kernel_writes = builder.public_data_writes[0];
 
         first_kernel_reads.push(0);
-        first_kernel_writes.push((0, PublicDataTreeLeaf {
-            slot: 25,
-            value: 60
-        }));
+        first_kernel_writes.push((0, PublicDataTreeLeaf { slot: 25, value: 60 }));
 
         builder.public_data_reads[0] = first_kernel_reads;
         builder.public_data_writes[0] = first_kernel_writes;
@@ -1599,15 +1567,10 @@ mod tests {
         let mut second_kernel_writes = builder.public_data_writes[1];
 
         second_kernel_reads.push(4);
-        second_kernel_writes.push((0, PublicDataTreeLeaf {
-            slot: 20,
-            value: 90
-        }));
-
+        second_kernel_writes.push((0, PublicDataTreeLeaf { slot: 20, value: 90 }));
 
         builder.public_data_reads[1] = second_kernel_reads;
         builder.public_data_writes[1] = second_kernel_writes;
-
 
         let outputs = builder.execute();
 
