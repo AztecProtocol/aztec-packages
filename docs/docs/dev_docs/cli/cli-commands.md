@@ -15,7 +15,7 @@ The CLI will be installed automatically via Docker by running the command to ins
 
 :::info
 
-The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm are deprecated in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
+The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
 
 <Tabs>
   <TabItem value="yarn" label="yarn" default>
