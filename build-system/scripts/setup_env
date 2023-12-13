@@ -46,7 +46,7 @@ if should_deploy; then
       TEMP=${COMMIT_TAG%.*}
       # Strips the 'vX.Y.ZZZ-' from the front of the commit tag, leaving the e.g. 'testnet'.
       DEPLOY_ENV=${TEMP##*-}
-    elif [ ! "$DRY_RUN" -eq 1 ]; then
+    elif [ ! "$DRY_DEPLOY" -eq 1 ]; then
       DEPLOY_ENV=prod
     fi
   else
