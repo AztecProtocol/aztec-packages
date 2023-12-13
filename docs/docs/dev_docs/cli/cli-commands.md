@@ -49,7 +49,6 @@ This command does a few things to manage updates:
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
 
-The sandbox must be running for the update command to work.
 
 :::info
 
