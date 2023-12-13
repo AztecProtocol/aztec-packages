@@ -62,6 +62,7 @@ class Goblin {
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
