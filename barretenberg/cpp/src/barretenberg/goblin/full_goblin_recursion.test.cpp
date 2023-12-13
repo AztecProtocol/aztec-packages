@@ -53,7 +53,7 @@ TEST_F(GoblinRecursionTests, Pseudo)
 
     Goblin::Proof proof = goblin.prove();
     // Verify the final ultra proof
-    UltraVerifier ultra_verifier{ kernel_input.verification_key };
+    GoblinUltraVerifier ultra_verifier{ kernel_input.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_input.proof);
     // Verify the goblin proof (eccvm, translator, merge)
     bool verified = goblin.verify(proof);
