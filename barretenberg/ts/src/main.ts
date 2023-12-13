@@ -112,7 +112,12 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string, isRecursive: boolean) {
+export async function proveAndVerifyGoblin(
+  bytecodePath: string,
+  witnessPath: string,
+  crsPath: string,
+  isRecursive: boolean,
+) {
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
