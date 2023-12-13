@@ -626,720 +626,1030 @@ fn test_u256_greater_than() {
     assert(full_field_greater_than(0 - 1, 0));
 }
 
-// mod tests {
-//     use crate::{
-//         base::base_rollup_inputs::{
-//             CALL_DATA_HASH_FULL_FIELDS,
-//             CALL_DATA_HASH_LOG_FIELDS,
-//             NOTE_HASH_SUBTREE_WIDTH, 
-//             NUM_CONTRACT_LEAVES, 
-//             BaseRollupInputs,
-//             full_field_less_than,
-//         },
-//         merkle_tree::{calculate_subtree, calculate_empty_tree_root},
-//         abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-//         abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-//         abis::nullifier_leaf_preimage::NullifierLeafPreimage,
-//         abis::constant_rollup_data::ConstantRollupData,
-//         tests::merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
-//         components,
-//     };
-//     use dep::types::constants::{
-//         CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-//         CONTRACT_TREE_HEIGHT,
-//         CONTRACT_SUBTREE_HEIGHT,
-//         ARCHIVE_HEIGHT,
-//         KERNELS_PER_BASE_ROLLUP,
-//         MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-//         MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
-//         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
-//         NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-//         NOTE_HASH_TREE_HEIGHT,
-//         NOTE_HASH_SUBTREE_HEIGHT,
-//         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-//         NULLIFIER_TREE_HEIGHT,
-//         NULLIFIER_SUBTREE_HEIGHT,
-//         PUBLIC_DATA_TREE_HEIGHT,
-//         NUM_FIELDS_PER_SHA256,
-//     };
-//     use dep::types::{
-//         abis::membership_witness::ArchiveRootMembershipWitness,
-//         abis::membership_witness::NullifierMembershipWitness,
-//         abis::new_contract_data::NewContractData,
-//         abis::public_data_read::PublicDataRead,
-//         abis::public_data_update_request::PublicDataUpdateRequest,
-//         abis::previous_kernel_data::PreviousKernelData,
-//         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
-//         address::{Address, EthAddress},
-//         utils::bounded_vec::BoundedVec,
-//         utils::uint256::U256,
-//     };
-//     use dep::std::option::Option;
+mod tests {
+    use crate::{
+        base::base_rollup_inputs::{
+            CALL_DATA_HASH_FULL_FIELDS,
+            CALL_DATA_HASH_LOG_FIELDS,
+            NOTE_HASH_SUBTREE_WIDTH, 
+            NUM_CONTRACT_LEAVES, 
+            BaseRollupInputs,
+            full_field_less_than,
+        },
+        merkle_tree::{calculate_subtree, calculate_empty_tree_root},
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+        abis::nullifier_leaf_preimage::NullifierLeafPreimage,
+        abis::public_data_tree_leaf::{PublicDataTreeLeafPreimage, PublicDataTreeLeaf},
+        abis::constant_rollup_data::ConstantRollupData,
+        tests::merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
+        components,
+    };
+    use dep::types::constants::{
+        CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
+        CONTRACT_TREE_HEIGHT,
+        CONTRACT_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT,
+        KERNELS_PER_BASE_ROLLUP,
+        MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+        MAX_PUBLIC_DATA_READS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+        NOTE_HASH_TREE_HEIGHT,
+        NOTE_HASH_SUBTREE_HEIGHT,
+        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+        NULLIFIER_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+        NUM_FIELDS_PER_SHA256,
+    };
+    use dep::types::{
+        abis::membership_witness::ArchiveRootMembershipWitness,
+        abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness},
+        abis::new_contract_data::NewContractData,
+        abis::public_data_read::PublicDataRead,
+        abis::public_data_update_request::PublicDataUpdateRequest,
+        abis::previous_kernel_data::PreviousKernelData,
+        tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
+        address::{Address, EthAddress},
+        utils::bounded_vec::BoundedVec,
+        utils::uint256::U256,
+    };
+    use dep::std::option::Option;
 
-//     struct NullifierInsertion {
-//         existing_index: u64,
-//         value: Field,
-//     }
+    struct NullifierInsertion {
+        existing_index: u64,
+        value: Field,
+    }
 
+    struct SortedTuple<T> {
+        value: T,
+        original_index: u32,
+    }
 
-//     struct SortedNullifierTuple {
-//         value: Field,
-//         original_index: u32,
-//     }
+    global MAX_NEW_NULLIFIERS_PER_TEST = 4;
 
-//     global MAX_NEW_NULLIFIERS_PER_TEST = 4;
+    fn sort_high_to_low<N, T>(values: [T; N], is_less_than: fn(T, T) -> bool) -> [SortedTuple<T>; N] {
+        let mut sorted_tuples = [SortedTuple {
+            value: values[0],
+            original_index: 0,
+        }; N];
 
-//     struct BaseRollupInputsBuilder {
-//         kernel_data: [PreviousKernelDataBuilder; KERNELS_PER_BASE_ROLLUP],
-//         pre_existing_notes: [Field; NOTE_HASH_SUBTREE_WIDTH],
-//         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
-//         pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
-//         pre_existing_public_data: [Field; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP],
-//         pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
-//         public_data_reads: BoundedVec<u64, 2>,
-//         public_data_writes: BoundedVec<(u64, Field), 2>,
-//         new_nullifiers: BoundedVec<NullifierInsertion, MAX_NEW_NULLIFIERS_PER_TEST>,
-//         constants: ConstantRollupData,
-//     }
-
-//     fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
-//         compute_zero_hashes(size)[N - 1]
-//     }
-
-//     impl BaseRollupInputsBuilder {
-//         fn new() -> Self {
-//             let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
-//             inputs.constants.global_variables.chain_id = 1;
-//             inputs.constants.global_variables.version = 0;
-
-//             inputs.kernel_data = inputs.kernel_data.map(|_| {
-//                 let mut builder = PreviousKernelDataBuilder::new();
-//                 let _nullifier = builder.end.new_nullifiers.pop();
-//                 builder.is_public()
-//             });
-
-//             inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
-//                 builder.block_header.block.hash()
-//             });
-
-//             inputs
-//         }
-
-//         fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(path: [Field; FULL_HEIGHT], mut sibling_path: [Field; SIBLING_PATH_LENGTH]) -> [Field; SIBLING_PATH_LENGTH] {
-//             let subtree_height = FULL_HEIGHT - SIBLING_PATH_LENGTH;
-//             for i in subtree_height..FULL_HEIGHT {
-//                 sibling_path[i - subtree_height] = path[i];
-//             }
-//             sibling_path
-//         }
-
-//         fn update_nullifier_tree_with_new_leaves(
-//             mut self, 
-//             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>, 
-//             kernel_data: &mut [PreviousKernelData; KERNELS_PER_BASE_ROLLUP], 
-//             start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
-//         ) -> (
-//             [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP], 
-//             [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
-//             [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
-//             [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
-//         ) {
-//             let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
-//             let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
-
-//             let mut sorted_new_nullifier_tuples = [SortedNullifierTuple {
-//                 value: 0,
-//                 original_index: 0,
-//             }; MAX_NEW_NULLIFIERS_PER_TEST];
+        for i in 0..N {
+            sorted_tuples[i] = SortedTuple {
+                value: values[i],
+                original_index: i as u32,
+            };
+        }
+        
+        sorted_tuples.sort_via(|a: SortedTuple<T>, b: SortedTuple<T>| is_less_than(b.value, a.value))
+    }
 
 
-//             for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-//                 sorted_new_nullifier_tuples[i] = SortedNullifierTuple {
-//                     value: self.new_nullifiers.get_unchecked(i).value,
-//                     original_index: i as u32,
-//                 };
-//             }
-//             sorted_new_nullifier_tuples = sorted_new_nullifier_tuples.sort_via(|a: SortedNullifierTuple, b: SortedNullifierTuple| {full_field_less_than(b.value, a.value)});
+    fn update_public_data_tree_single_kernel<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
+        public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>, 
+        kernel_data: &mut PreviousKernelData, 
+        snapshot: AppendOnlyTreeSnapshot,
+        public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
+        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
+    ) -> (
+        [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
+        [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
+        [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
+        [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
+        [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    ) {
+        let mut subtree_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH] = dep::std::unsafe::zeroed();
+        let mut sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut new_subtree: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        
+        for i in 0..2 {
+            if i < (public_data_writes.len() as u64) {
+                let (_, leaf): (u64, PublicDataTreeLeaf) = public_data_writes.get_unchecked(i as Field);
 
-//             let mut sorted_new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
-//             let mut sorted_new_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+                kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
+                    leaf_slot : leaf.slot,
+                    old_value : 0,
+                    new_value : leaf.value,
+                };
+            }
+        }
+        let mut sorted_write_tuples = sort_high_to_low(
+            public_data_writes.storage, |(_, leaf_a): (u64, PublicDataTreeLeaf),(_,leaf_b):(u64, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
+        );
 
-//             for i in 0..MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP {
-//                 if (i as u32) < (MAX_NEW_NULLIFIERS_PER_TEST as u32) {
-//                     sorted_new_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
-//                     sorted_new_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
-//                 } else {
-//                     sorted_new_nullifiers[i] = 0;
-//                     sorted_new_nullifiers_indexes[i] = i as u32;
-//                 }
-//             }
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            if (i as u32) < 2 {
+                let (low_leaf_index, leaf): (u64, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
 
-//             let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
+                sorted_public_data_writes[i] = leaf;
+                sorted_public_data_writes_indexes[i] = sorted_write_tuples[i].original_index;
 
-//             for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-//                 if (i as u64) < (self.new_nullifiers.len() as u64) {
-//                     let sorted_tuple = sorted_new_nullifier_tuples[i];
-//                     let new_nullifier = sorted_tuple.value;
-//                     let original_index = sorted_tuple.original_index;
+                if !leaf.is_empty() {
+                    let low_leaf = pre_existing_public_data[low_leaf_index];
+                    if low_leaf.slot == leaf.slot {
+                        pre_existing_public_data[low_leaf_index].value = leaf.value;
+                    }else {
+                        new_subtree[sorted_write_tuples[i].original_index] = PublicDataTreeLeafPreimage {
+                            slot: leaf.slot,
+                            value: leaf.value,
+                            next_slot: low_leaf.next_slot,
+                            next_index: low_leaf.next_index,
+                        };
+                        pre_existing_public_data[low_leaf_index] = PublicDataTreeLeafPreimage {
+                            slot: low_leaf.slot,
+                            value: low_leaf.value,
+                            next_slot: leaf.slot,
+                            next_index: (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as u32)+(i as u32)
+                        };
+                    }
+                    low_public_data_writes_preimages[i] = low_leaf;
+                    low_public_data_writes_witnesses[i] = PublicDataMembershipWitness {
+                        leaf_index: low_leaf_index as Field,
+                        sibling_path: public_data_tree.get_sibling_path(low_leaf_index as Field)
+                    };
 
-//                     let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
+                    public_data_tree.update_leaf(low_leaf_index, pre_existing_public_data[low_leaf_index].hash());
+                }
+            } else {
+                sorted_public_data_writes[i] = PublicDataTreeLeaf::default();
+                sorted_public_data_writes_indexes[i] = i as u32;
+            }
+        }
 
-//                     kernel_data[0].public_inputs.end.new_nullifiers[original_index] = new_nullifier;
+        subtree_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(public_data_tree.get_sibling_path(snapshot.next_available_leaf_index as Field), [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]);
+        
+        (
+            subtree_path,
+            sorted_public_data_writes,
+            sorted_public_data_writes_indexes,
+            low_public_data_writes_preimages,
+            low_public_data_writes_witnesses,
+            public_data_reads_preimages,
+            public_data_reads_witnesses,
+            pre_existing_public_data,
+            new_subtree,
+        )
+    }
 
-//                     let mut low_preimage = pre_existing_nullifiers[low_index];
-//                     low_nullifier_leaf_preimages[i] = low_preimage;
-//                     low_nullifier_membership_witness[i] = NullifierMembershipWitness {
-//                         leaf_index: low_index as Field,
-//                         sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
-//                     };
+    struct BaseRollupInputsBuilder {
+        kernel_data: [PreviousKernelDataBuilder; KERNELS_PER_BASE_ROLLUP],
+        pre_existing_notes: [Field; NOTE_HASH_SUBTREE_WIDTH],
+        pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+        pre_existing_contracts: [Field; NUM_CONTRACT_LEAVES],
+        pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        pre_existing_blocks: [Field; KERNELS_PER_BASE_ROLLUP],
+        public_data_reads: [BoundedVec<u64, 2>; KERNELS_PER_BASE_ROLLUP],
+        public_data_writes: [BoundedVec<(u64, PublicDataTreeLeaf), 2>; KERNELS_PER_BASE_ROLLUP],
+        new_nullifiers: BoundedVec<NullifierInsertion, MAX_NEW_NULLIFIERS_PER_TEST>,
+        constants: ConstantRollupData,
+    }
 
-//                     low_preimage.next_value = new_nullifier;
-//                     low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
-//                     pre_existing_nullifiers[low_index] = low_preimage;
+    fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
+        compute_zero_hashes(size)[N - 1]
+    }
 
-//                     nullifier_tree.update_leaf(low_index, low_preimage.hash());
-//                 }
-//             }
+    impl BaseRollupInputsBuilder {
+        fn new() -> Self {
+            let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
+            inputs.constants.global_variables.chain_id = 1;
+            inputs.constants.global_variables.version = 0;
 
-//             (low_nullifier_leaf_preimages, low_nullifier_membership_witness, sorted_new_nullifiers, sorted_new_nullifiers_indexes)
-//         } 
+            inputs.kernel_data = inputs.kernel_data.map(|_| {
+                let mut builder = PreviousKernelDataBuilder::new();
+                let _nullifier = builder.end.new_nullifiers.pop();
+                builder.is_public()
+            });
 
-//         fn build_inputs(mut self) -> BaseRollupInputs {
-//             let mut kernel_data = self.kernel_data.map(|builder: PreviousKernelDataBuilder|{
-//                 builder.finish()
-//             });
+            inputs.pre_existing_blocks = inputs.kernel_data.map(|builder: PreviousKernelDataBuilder|{
+                builder.block_header.block.hash()
+            });
 
-//             let start_note_hash_tree = NonEmptyMerkleTree::new(self.pre_existing_notes, [0; NOTE_HASH_TREE_HEIGHT], [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT], [0; NOTE_HASH_SUBTREE_HEIGHT]);
-//             let start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
-//                 root: start_note_hash_tree.get_root(),
-//                 next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32,
-//             };
-//             let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
+            inputs
+        }
 
-//             let mut start_nullifier_tree = NonEmptyMerkleTree::new(
-//                 self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
-//                 [0; NULLIFIER_TREE_HEIGHT], 
-//                 [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], 
-//                 [0; NULLIFIER_SUBTREE_HEIGHT]
-//             );
+        fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(path: [Field; FULL_HEIGHT], mut sibling_path: [Field; SIBLING_PATH_LENGTH]) -> [Field; SIBLING_PATH_LENGTH] {
+            let subtree_height = FULL_HEIGHT - SIBLING_PATH_LENGTH;
+            for i in subtree_height..FULL_HEIGHT {
+                sibling_path[i - subtree_height] = path[i];
+            }
+            sibling_path
+        }
 
-//             let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
-//                 root: start_nullifier_tree.get_root(),
-//                 next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
-//             };
+        fn update_nullifier_tree_with_new_leaves(
+            mut self, 
+            nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>, 
+            kernel_data: &mut [PreviousKernelData; KERNELS_PER_BASE_ROLLUP], 
+            start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
+        ) -> (
+            [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP], 
+            [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+            [Field; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+            [u32; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP],
+        ) {
+            let mut low_nullifier_leaf_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
 
-//             let start_contract_tree = NonEmptyMerkleTree::new(self.pre_existing_contracts, [0; CONTRACT_TREE_HEIGHT], [0; CONTRACT_TREE_HEIGHT - 1], [0; 1]);
-//             let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
-//                 root: start_contract_tree.get_root(),
-//                 next_available_leaf_index: start_contract_tree.get_next_available_index() as u32,
-//             };
-//             let new_contracts_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()), [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]);
+            let sorted_new_nullifier_tuples = sort_high_to_low(self.new_nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value), full_field_less_than);
 
-//             let mut start_public_data_tree = NonEmptyMerkleTree::new(self.pre_existing_public_data, [0; PUBLIC_DATA_TREE_HEIGHT], [0; PUBLIC_DATA_TREE_HEIGHT - 5], [0; 5]);
-//             let start_public_data_tree_root = start_public_data_tree.get_root();
+            let mut sorted_new_nullifiers = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
+            let mut sorted_new_nullifiers_indexes = [0; MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP];
 
-//             let start_archive = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; ARCHIVE_HEIGHT], [0; ARCHIVE_HEIGHT - 1], [0; 1]);
-//             let archive_snapshot = AppendOnlyTreeSnapshot {
-//                 root: start_archive.get_root(),
-//                 next_available_leaf_index: start_archive.get_next_available_index() as u32,
-//             };
+            for i in 0..MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP {
+                if (i as u32) < (MAX_NEW_NULLIFIERS_PER_TEST as u32) {
+                    sorted_new_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
+                    sorted_new_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
+                } else {
+                    sorted_new_nullifiers[i] = 0;
+                    sorted_new_nullifiers_indexes[i] = i as u32;
+                }
+            }
 
-//             self.constants.archive_snapshot = archive_snapshot;
+            let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
 
-//             let mut new_public_data_reads_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
+                if (i as u64) < (self.new_nullifiers.len() as u64) {
+                    let sorted_tuple = sorted_new_nullifier_tuples[i];
+                    let new_nullifier = sorted_tuple.value;
+                    let original_index = sorted_tuple.original_index;
 
-//             for i in 0..self.public_data_reads.max_len() {
-//                 if (i as u64) < (self.public_data_reads.len() as u64) {
-//                     let index = self.public_data_reads.get_unchecked(i);
-//                     let value = self.pre_existing_public_data[index];
-//                     kernel_data[0].public_inputs.end.public_data_reads[i] = PublicDataRead {
-//                         leaf_index: index as Field,
-//                         value: value,
-//                     };
-//                     new_public_data_reads_sibling_paths[i] = start_public_data_tree.get_sibling_path(index as Field);
-//                 }
-//             }
+                    let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
 
-//             let mut new_public_data_update_requests_sibling_paths: [[Field; PUBLIC_DATA_TREE_HEIGHT]; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+                    kernel_data[0].public_inputs.end.new_nullifiers[original_index] = new_nullifier;
 
-//             for i in 0..self.public_data_writes.max_len() {
-//                 if (i as u64) < (self.public_data_writes.len() as u64) {
-//                     let write = self.public_data_writes.get_unchecked(i);
-//                     let index = write.0;
-//                     let new_value = write.1;
-//                     let old_value = self.pre_existing_public_data[index];
-//                     kernel_data[0].public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
-//                         leaf_index : index as Field,
-//                         old_value,
-//                         new_value,
-//                     };
-//                     new_public_data_update_requests_sibling_paths[i] = start_public_data_tree.get_sibling_path(index as Field);
-//                     start_public_data_tree.update_leaf(index, new_value);
-//                 }
-//             }
+                    let mut low_preimage = pre_existing_nullifiers[low_index];
+                    low_nullifier_leaf_preimages[i] = low_preimage;
+                    low_nullifier_membership_witness[i] = NullifierMembershipWitness {
+                        leaf_index: low_index as Field,
+                        sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
+                    };
 
-//             let (
-//                 low_nullifier_leaf_preimages, 
-//                 low_nullifier_membership_witness,
-//                 sorted_new_nullifiers,
-//                 sorted_new_nullifiers_indexes
-//             ) = self.update_nullifier_tree_with_new_leaves(&mut start_nullifier_tree, &mut kernel_data, start_nullifier_tree_snapshot);
+                    low_preimage.next_value = new_nullifier;
+                    low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
+                    pre_existing_nullifiers[low_index] = low_preimage;
+
+                    nullifier_tree.update_leaf(low_index, low_preimage.hash());
+                }
+            }
+
+            (low_nullifier_leaf_preimages, low_nullifier_membership_witness, sorted_new_nullifiers, sorted_new_nullifiers_indexes)
+        }
+        
+        fn update_public_data_tree_with_new_leaves(
+            mut self, 
+            initial_public_data_tree: &mut NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>, 
+            kernel_data: &mut [PreviousKernelData; KERNELS_PER_BASE_ROLLUP], 
+            start_public_data_tree_snapshot: AppendOnlyTreeSnapshot
+        ) -> (
+            [[Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]; KERNELS_PER_BASE_ROLLUP], // Subtrees paths
+            [[PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // sorted_public_data_writes
+            [[u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // sorted_public_data_writes_indexes
+            [[PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // low_public_data_writes_preimages
+            [[PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // low_public_data_writes_witnesses
+            [[PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // public_data_reads_preimages
+            [[PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]; KERNELS_PER_BASE_ROLLUP], // public_data_reads_witnesses
+        ) {
+            let mut subtree_paths: [[Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut sorted_public_data_writes: [[PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut sorted_public_data_writes_indexes: [[u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut low_public_data_writes_preimages: [[PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut low_public_data_writes_witnesses: [[PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut public_data_reads_preimages: [[PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+            let mut public_data_reads_witnesses: [[PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]; KERNELS_PER_BASE_ROLLUP] = dep::std::unsafe::zeroed();
+
+            // First kernel
+            let mut first_kernel_data = kernel_data[0];
+            let (
+                first_kernel_subtree_path,
+                first_kernel_sorted_public_data_writes,
+                first_kernel_sorted_public_data_writes_indexes,
+                first_kernel_low_public_data_writes_preimages,
+                first_kernel_low_public_data_writes_witnesses,
+                first_kernel_public_data_reads_preimages,
+                first_kernel_public_data_reads_witnesses,
+                first_kernel_pre_existing_public_data,
+                first_kernel_new_subtree
+            ) = update_public_data_tree_single_kernel(
+                initial_public_data_tree, 
+                &mut first_kernel_data, 
+                start_public_data_tree_snapshot,
+                self.public_data_writes[0],
+                self.pre_existing_public_data,
+            );
+
+            subtree_paths[0] = first_kernel_subtree_path;
+            sorted_public_data_writes[0] = first_kernel_sorted_public_data_writes;
+            sorted_public_data_writes_indexes[0] = first_kernel_sorted_public_data_writes_indexes;
+            low_public_data_writes_preimages[0] = first_kernel_low_public_data_writes_preimages;
+            low_public_data_writes_witnesses[0] = first_kernel_low_public_data_writes_witnesses;
+            public_data_reads_preimages[0] = first_kernel_public_data_reads_preimages;
+            public_data_reads_witnesses[0] = first_kernel_public_data_reads_witnesses;
+            self.pre_existing_public_data = first_kernel_pre_existing_public_data;
+            kernel_data[0] = first_kernel_data;
+
+
+            // Second kernel
+            let mut middle_public_data = [PublicDataTreeLeafPreimage::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX*2];
+            for i in 0..middle_public_data.len() {
+                if (i as u64) < (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as u64) {
+                    middle_public_data[i] = self.pre_existing_public_data[i];
+                }else{
+                    middle_public_data[i] = first_kernel_new_subtree[i-MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+                }
+            }
+
+            let mut middle_public_data_tree = NonEmptyMerkleTree::new(
+                middle_public_data.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
+                [0; PUBLIC_DATA_TREE_HEIGHT], 
+                [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT - 1], 
+                [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1]
+            );
+            let middle_public_data_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: middle_public_data_tree.get_root(),
+                next_available_leaf_index: middle_public_data_tree.get_next_available_index() as u32,
+            };
+
+
+            let mut second_kernel_data = kernel_data[1];
+            let (
+                second_kernel_subtree_path,
+                second_kernel_sorted_public_data_writes,
+                second_kernel_sorted_public_data_writes_indexes,
+                second_kernel_low_public_data_writes_preimages,
+                second_kernel_low_public_data_writes_witnesses,
+                second_kernel_public_data_reads_preimages,
+                second_kernel_public_data_reads_witnesses,
+                second_kernel_pre_existing_public_data,
+                second_kernel_new_subtree
+            ) = update_public_data_tree_single_kernel(
+                &mut middle_public_data_tree, 
+                &mut second_kernel_data, 
+                middle_public_data_tree_snapshot,
+                self.public_data_writes[1],
+                middle_public_data,
+            );
+
+            subtree_paths[1] = second_kernel_subtree_path;
+            sorted_public_data_writes[1] = second_kernel_sorted_public_data_writes;
+            sorted_public_data_writes_indexes[1] = second_kernel_sorted_public_data_writes_indexes;
+            low_public_data_writes_preimages[1] = second_kernel_low_public_data_writes_preimages;
+            low_public_data_writes_witnesses[1] = second_kernel_low_public_data_writes_witnesses;
+            public_data_reads_preimages[1] = second_kernel_public_data_reads_preimages;
+            public_data_reads_witnesses[1] = second_kernel_public_data_reads_witnesses;
+            kernel_data[1] = second_kernel_data;
+
+            (
+                subtree_paths,
+                sorted_public_data_writes,
+                sorted_public_data_writes_indexes,
+                low_public_data_writes_preimages,
+                low_public_data_writes_witnesses,
+                public_data_reads_preimages,
+                public_data_reads_witnesses,
+            )
+        }
+
+        fn build_inputs(mut self) -> BaseRollupInputs {
+            let mut kernel_data = self.kernel_data.map(|builder: PreviousKernelDataBuilder|{
+                builder.finish()
+            });
+
+            let start_note_hash_tree = NonEmptyMerkleTree::new(self.pre_existing_notes, [0; NOTE_HASH_TREE_HEIGHT], [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT], [0; NOTE_HASH_SUBTREE_HEIGHT]);
+            let start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_note_hash_tree.get_root(),
+                next_available_leaf_index: start_note_hash_tree.get_next_available_index() as u32,
+            };
+            let new_commitments_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_note_hash_tree.get_sibling_path(self.pre_existing_notes.len()), [0; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH]);
+
+            let mut start_nullifier_tree = NonEmptyMerkleTree::new(
+                self.pre_existing_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+                [0; NULLIFIER_TREE_HEIGHT], 
+                [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT], 
+                [0; NULLIFIER_SUBTREE_HEIGHT]
+            );
+
+            let start_nullifier_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_nullifier_tree.get_root(),
+                next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32,
+            };
+
+            let start_contract_tree = NonEmptyMerkleTree::new(self.pre_existing_contracts, [0; CONTRACT_TREE_HEIGHT], [0; CONTRACT_TREE_HEIGHT - 1], [0; 1]);
+            let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_contract_tree.get_root(),
+                next_available_leaf_index: start_contract_tree.get_next_available_index() as u32,
+            };
+            let new_contracts_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()), [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]);
+
+            let mut start_public_data_tree = NonEmptyMerkleTree::new(
+                self.pre_existing_public_data.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
+                [0; PUBLIC_DATA_TREE_HEIGHT], 
+                [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT], 
+                [0; PUBLIC_DATA_SUBTREE_HEIGHT]
+            );
+            let start_public_data_tree_snapshot = AppendOnlyTreeSnapshot {
+                root: start_public_data_tree.get_root(),
+                next_available_leaf_index: start_public_data_tree.get_next_available_index() as u32,
+            };
+
+            let start_archive = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; ARCHIVE_HEIGHT], [0; ARCHIVE_HEIGHT - 1], [0; 1]);
+            let archive_snapshot = AppendOnlyTreeSnapshot {
+                root: start_archive.get_root(),
+                next_available_leaf_index: start_archive.get_next_available_index() as u32,
+            };
+
+            self.constants.archive_snapshot = archive_snapshot;
+
+            let (
+                low_nullifier_leaf_preimages, 
+                low_nullifier_membership_witness,
+                sorted_new_nullifiers,
+                sorted_new_nullifiers_indexes
+            ) = self.update_nullifier_tree_with_new_leaves(&mut start_nullifier_tree, &mut kernel_data, start_nullifier_tree_snapshot);
             
-//             let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
-
-//             BaseRollupInputs {
-//                 kernel_data: kernel_data,
-//                 start_note_hash_tree_snapshot,
-//                 start_nullifier_tree_snapshot,
-//                 start_contract_tree_snapshot,
-//                 start_public_data_tree_root,
-//                 archive_snapshot,
-
-//                 sorted_new_nullifiers,
-//                 sorted_new_nullifiers_indexes,
-
-//                 low_nullifier_leaf_preimages,
-//                 low_nullifier_membership_witness,
-
-//                 new_commitments_subtree_sibling_path, 
-//                 new_nullifiers_subtree_sibling_path, 
-//                 new_contracts_subtree_sibling_path, 
-//                 new_public_data_update_requests_sibling_paths,  
-//                 new_public_data_reads_sibling_paths,  
-
-//                 archive_root_membership_witnesses: [
-//                     ArchiveRootMembershipWitness {
-//                         leaf_index: 0,
-//                         sibling_path: start_archive.get_sibling_path(0)
-//                     },
-//                     ArchiveRootMembershipWitness {
-//                         leaf_index: 1,
-//                         sibling_path: start_archive.get_sibling_path(1)
-//                     },
-//                 ],
-
-//                 constants: self.constants,
-//             }
-//         }
-
-//         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-//             self.build_inputs().base_rollup_circuit()
-//         }
-
-//         fn succeeds(self) {
-//             let _ = self.execute();
-//         }
-
-//         fn fails(self) {
-//             let _ = self.execute();
-//         }
-//     }
-
-//     #[test]
-//     unconstrained fn no_new_contract_leaves() {
-//         let outputs = BaseRollupInputsBuilder::new().execute();
-//         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
-//         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 4 };
-//         assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
-//         assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
-//     }
-
-//     #[test]
-//     unconstrained fn contract_leaf_inserted() {
-//         let new_contract = NewContractData {
-//             contract_address: Address::from_field(1),
-//             portal_contract_address: EthAddress::from_field(2),
-//             function_tree_root: 3
-//         };
-
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         let mut new_contracts = builder.kernel_data[0].end.new_contracts;
-//         new_contracts.push(new_contract);
-//         builder.kernel_data[0].end.new_contracts = new_contracts;
-
-//         let mut expected_contracts_tree = NonEmptyMerkleTree::new(
-//             [0; 4],
-//             [0; CONTRACT_TREE_HEIGHT],
-//             [0; CONTRACT_TREE_HEIGHT - 2],
-//             [0; 2]
-//         );
-
-//         let outputs = builder.execute();
-
-//         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-//         assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
-
-//         expected_contracts_tree.update_leaf(2, new_contract.hash());
-//         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
-//         assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
-//     }
-
-//     #[test]
-//     unconstrained fn contract_leaf_inserted_in_non_empty_snapshot_tree() {
-//         let new_contract = NewContractData {
-//             contract_address: Address::from_field(1),
-//             portal_contract_address: EthAddress::from_field(2),
-//             function_tree_root: 3
-//         };
-
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_contracts = [1,2];
-
-//         let mut new_contracts = builder.kernel_data[0].end.new_contracts;
-//         new_contracts.push(new_contract);
-//         builder.kernel_data[0].end.new_contracts = new_contracts;
-
-//         let mut expected_contracts_tree = NonEmptyMerkleTree::new(
-//             [1, 2, 0, 0],
-//             [0; CONTRACT_TREE_HEIGHT],
-//             [0; CONTRACT_TREE_HEIGHT - 2],
-//             [0; 2]
-//         );
-
-//         let outputs = builder.execute();
-
-//         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-//         assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
-
-//         expected_contracts_tree.update_leaf(2, new_contract.hash());
-//         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
-//         assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
-//     }
-
-//     #[test]
-//     unconstrained fn new_commitments_tree() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         let new_commitments = [27, 28, 29, 30, 31, 32];
-//         let mut new_commitments_vec = builder.kernel_data[0].end.new_commitments;
-
-//         for i in 0..new_commitments.len() {
-//             new_commitments_vec.push(new_commitments[i]);
-//         }
-
-//         builder.kernel_data[0].end.new_commitments = new_commitments_vec;
-
-//         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
-//             [0; NOTE_HASH_SUBTREE_WIDTH * 2],
-//             [0; NOTE_HASH_TREE_HEIGHT],
-//             [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
-//             [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
-//         );
-
-//         let outputs = builder.execute();
-
-//         let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH };
-//         assert(outputs.start_note_hash_tree_snapshot.eq(expected_start_note_hash_tree_snapshot));
-
-//         for i in 0..new_commitments.len() {
-//             expected_commitments_tree.update_leaf(
-//                 (i as u64) + (NOTE_HASH_SUBTREE_WIDTH as u64),
-//                 new_commitments[i]
-//             );
-//         }
-
-//         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH * 2 };
-//         assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
-//     }
-
-//     #[test]
-//     unconstrained fn new_nullifier_tree_empty() {
-//         /**
-//         * DESCRIPTION
-//         */
-
-//         // This test checks for insertions of all 0 values
-//         // In this special case we will not need to provide sibling paths to check insertion of the nullifier values
-//         // This is because 0 values are not actually inserted into the tree, rather the inserted subtree is left
-//         // empty to begin with.
-
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         builder.succeeds();
-//     }
-
-//     #[test]
-//     unconstrained fn nullifier_insertion_test() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 0,
-//             value: 1,
-//         });
-
-//         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
-//         tree_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 1,
-//             next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-//         };
-//         tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
-//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = NullifierLeafPreimage {
-//             leaf_value : 1,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-
-//         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-//             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
-//             [0; NULLIFIER_TREE_HEIGHT], 
-//             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
-//             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
-//         );
-
-//         let output = builder.execute();
-
-//         assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
-//             root: end_nullifier_tree.get_root(),
-//             next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-//         }));
-//     }
-
-//     #[test]
-//     unconstrained fn new_nullifier_tree_all_larger() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 1,
-//             value: 8,
-//         });
-//         for i in 1..builder.new_nullifiers.max_len() {
-//             builder.new_nullifiers.push(NullifierInsertion {
-//                 existing_index: 1,
-//                 value: (8 + i) as Field,
-//             });
-//         }
-
-//         let output = builder.execute();
-
-//         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
-//         tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
-
-//         tree_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 8,
-//             next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-//         };
-
-//         let last_index = builder.new_nullifiers.max_len() - 1;
-//         for i in 0..last_index {
-//             tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i] = NullifierLeafPreimage {
-//                 leaf_value : (8 + i) as Field,
-//                 next_value : (8 + i + 1) as Field,
-//                 next_index : (MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i) as u32 + 1,
-//             };
-//         }
-
-//         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP+last_index] = NullifierLeafPreimage {
-//             leaf_value : (8 + last_index) as Field,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         let mut end_nullifier_tree = NonEmptyMerkleTree::new(
-//             tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
-//             [0; NULLIFIER_TREE_HEIGHT], 
-//             [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
-//             [0; NULLIFIER_SUBTREE_HEIGHT + 1]
-//         );
-
-//         assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
-//             root: end_nullifier_tree.get_root(),
-//             next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
-//         }));
-//     }
-
-//     #[test(should_fail_with = "Invalid low leaf")]
-//     unconstrained fn new_nullifier_tree_double_spend() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 1,
-//             value: 8,
-//         });
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 1,
-//             value: 8,
-//         });
-
-//         builder.fails();
-//     }
-
-//     #[test(should_fail_with = "Invalid low leaf")]
-//     unconstrained fn new_nullifier_tree_double_spend_same_batch() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-//             leaf_value : 0,
-//             next_value : 7,
-//             next_index : 1,
-//         };
-//         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-//             leaf_value : 7,
-//             next_value : 0,
-//             next_index : 0,
-//         };
-
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 1,
-//             value: 8,
-//         });
-//         builder.new_nullifiers.push(NullifierInsertion {
-//             existing_index: 1,
-//             value: 8,
-//         });
-
-//         builder.fails();
-//     }
-
-//     #[test]
-//     unconstrained fn empty_block_calldata_hash() {
-//         let outputs = BaseRollupInputsBuilder::new().execute();
-
-//         let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
-//         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-//         let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
-//         for i in 0..NUM_FIELDS_PER_SHA256 {
-//             assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
-//         }
-//     }
-
-//     #[test(should_fail_with = "membership check failed")]
-//     unconstrained fn compute_membership_archive_negative() {
-//         let mut inputs = BaseRollupInputsBuilder::new().build_inputs();
-
-//         inputs.archive_root_membership_witnesses[0].sibling_path[0] = 27;
-
-//         let _output = inputs.base_rollup_circuit();
-//     }
-
-//     #[test]
-//     unconstrained fn constants_dont_change() {
-//         let inputs = BaseRollupInputsBuilder::new().build_inputs();
-//         let outputs = inputs.base_rollup_circuit();
-
-//         assert(inputs.constants.eq(outputs.constants));
-//     }
-
-//     #[test(should_fail_with = "kernel chain_id does not match the rollup chain_id")]
-//     unconstrained fn constants_dont_match_kernels_chain_id() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-//         builder.constants.global_variables.chain_id = 3;
-//         builder.fails();
-//     }
-
-//     #[test(should_fail_with = "kernel version does not match the rollup version")]
-//     unconstrained fn constants_dont_match_kernels_version() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-//         builder.constants.global_variables.version = 3;
-//         builder.fails();
-//     }
-
-//     #[test]
-//     unconstrained fn subtree_height_is_0() {
-//         let outputs = BaseRollupInputsBuilder::new().execute();
-
-//         assert_eq(outputs.rollup_subtree_height, 0);
-//     }
-
-//     #[test]
-//     unconstrained fn single_public_state_read() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_public_data[0] = 27;
-//         builder.public_data_reads.push(0);
-
-//         builder.succeeds();
-//     }
-
-//     #[test]
-//     unconstrained fn single_public_state_write() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_public_data[0] = 27;
-//         builder.public_data_writes.push((0, 28));
-
-//         let outputs = builder.execute();
-
-//         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
-//             [28, 0],
-//             [0; PUBLIC_DATA_TREE_HEIGHT],
-//             [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-//             [0; 1]
-//         );
-
-//         assert_eq(outputs.end_public_data_tree_root, expected_public_data_tree.get_root());
-//     }
-
-//     #[test]
-//     unconstrained fn multiple_public_state_read_writes() {
-//         let mut builder = BaseRollupInputsBuilder::new();
-
-//         builder.pre_existing_public_data[0] = 27;
-//         builder.pre_existing_public_data[1] = 28;
-//         builder.pre_existing_public_data[2] = 29;
-//         builder.pre_existing_public_data[3] = 30;
-
-//         builder.public_data_reads.push(0);
-//         builder.public_data_writes.push((0, 60));
-//         builder.public_data_writes.push((2, 61));
-//         builder.public_data_reads.push(3);
-
-//         let outputs = builder.execute();
-
-//         let mut expected_public_data_tree = NonEmptyMerkleTree::new(
-//             [60, 28, 61, 30],
-//             [0; PUBLIC_DATA_TREE_HEIGHT],
-//             [0; PUBLIC_DATA_TREE_HEIGHT - 2],
-//             [0; 2]
-//         );
-
-//         assert_eq(outputs.end_public_data_tree_root, expected_public_data_tree.get_root());
-//     }
-// }
+            let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
+
+            let (
+                public_data_writes_subtree_sibling_paths,
+                sorted_public_data_writes,
+                sorted_public_data_writes_indexes,
+                low_public_data_writes_preimages,
+                low_public_data_writes_witnesses,
+                public_data_reads_preimages,
+                public_data_reads_witnesses
+            ) = self.update_public_data_tree_with_new_leaves(&mut start_public_data_tree, &mut kernel_data, start_public_data_tree_snapshot);
+            
+
+            BaseRollupInputs {
+                kernel_data: kernel_data,
+                start_note_hash_tree_snapshot,
+                start_nullifier_tree_snapshot,
+                start_contract_tree_snapshot,
+                start_public_data_tree_snapshot,
+                archive_snapshot,
+
+                sorted_new_nullifiers,
+                sorted_new_nullifiers_indexes,
+
+                low_nullifier_leaf_preimages,
+                low_nullifier_membership_witness,
+
+                new_commitments_subtree_sibling_path, 
+                new_nullifiers_subtree_sibling_path, 
+                public_data_writes_subtree_sibling_paths,
+                new_contracts_subtree_sibling_path, 
+
+                sorted_public_data_writes,
+                sorted_public_data_writes_indexes,
+                low_public_data_writes_preimages,
+                low_public_data_writes_witnesses,
+                
+                public_data_reads_preimages,
+                public_data_reads_witnesses,
+                
+
+                archive_root_membership_witnesses: [
+                    ArchiveRootMembershipWitness {
+                        leaf_index: 0,
+                        sibling_path: start_archive.get_sibling_path(0)
+                    },
+                    ArchiveRootMembershipWitness {
+                        leaf_index: 1,
+                        sibling_path: start_archive.get_sibling_path(1)
+                    },
+                ],
+
+                constants: self.constants,
+            }
+        }
+
+        fn execute(self) -> BaseOrMergeRollupPublicInputs {
+            self.build_inputs().base_rollup_circuit()
+        }
+
+        fn succeeds(self) {
+            let _ = self.execute();
+        }
+
+        fn fails(self) {
+            let _ = self.execute();
+        }
+    }
+
+    #[test]
+    unconstrained fn no_new_contract_leaves() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 4 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    unconstrained fn contract_leaf_inserted() {
+        let new_contract = NewContractData {
+            contract_address: Address::from_field(1),
+            portal_contract_address: EthAddress::from_field(2),
+            function_tree_root: 3
+        };
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        let mut new_contracts = builder.kernel_data[0].end.new_contracts;
+        new_contracts.push(new_contract);
+        builder.kernel_data[0].end.new_contracts = new_contracts;
+
+        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
+            [0; 4],
+            [0; CONTRACT_TREE_HEIGHT],
+            [0; CONTRACT_TREE_HEIGHT - 2],
+            [0; 2]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+
+        expected_contracts_tree.update_leaf(2, new_contract.hash());
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    unconstrained fn contract_leaf_inserted_in_non_empty_snapshot_tree() {
+        let new_contract = NewContractData {
+            contract_address: Address::from_field(1),
+            portal_contract_address: EthAddress::from_field(2),
+            function_tree_root: 3
+        };
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_contracts = [1,2];
+
+        let mut new_contracts = builder.kernel_data[0].end.new_contracts;
+        new_contracts.push(new_contract);
+        builder.kernel_data[0].end.new_contracts = new_contracts;
+
+        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
+            [1, 2, 0, 0],
+            [0; CONTRACT_TREE_HEIGHT],
+            [0; CONTRACT_TREE_HEIGHT - 2],
+            [0; 2]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
+        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+
+        expected_contracts_tree.update_leaf(2, new_contract.hash());
+        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 4 };
+        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+    }
+
+    #[test]
+    unconstrained fn new_commitments_tree() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        let new_commitments = [27, 28, 29, 30, 31, 32];
+        let mut new_commitments_vec = builder.kernel_data[0].end.new_commitments;
+
+        for i in 0..new_commitments.len() {
+            new_commitments_vec.push(new_commitments[i]);
+        }
+
+        builder.kernel_data[0].end.new_commitments = new_commitments_vec;
+
+        let mut expected_commitments_tree = NonEmptyMerkleTree::new(
+            [0; NOTE_HASH_SUBTREE_WIDTH * 2],
+            [0; NOTE_HASH_TREE_HEIGHT],
+            [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
+            [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
+        );
+
+        let outputs = builder.execute();
+
+        let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH };
+        assert(outputs.start_note_hash_tree_snapshot.eq(expected_start_note_hash_tree_snapshot));
+
+        for i in 0..new_commitments.len() {
+            expected_commitments_tree.update_leaf(
+                (i as u64) + (NOTE_HASH_SUBTREE_WIDTH as u64),
+                new_commitments[i]
+            );
+        }
+
+        let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_commitments_tree.get_root(), next_available_leaf_index: NOTE_HASH_SUBTREE_WIDTH * 2 };
+        assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
+    }
+
+    #[test]
+    unconstrained fn new_nullifier_tree_empty() {
+        /**
+        * DESCRIPTION
+        */
+
+        // This test checks for insertions of all 0 values
+        // In this special case we will not need to provide sibling paths to check insertion of the nullifier values
+        // This is because 0 values are not actually inserted into the tree, rather the inserted subtree is left
+        // empty to begin with.
+
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.succeeds();
+    }
+
+    #[test]
+    unconstrained fn nullifier_insertion_test() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 0,
+            value: 1,
+        });
+
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        tree_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 1,
+            next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        };
+        tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
+        tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP] = NullifierLeafPreimage {
+            leaf_value : 1,
+            next_value : 7,
+            next_index : 1,
+        };
+
+        let mut end_nullifier_tree = NonEmptyMerkleTree::new(
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+            [0; NULLIFIER_TREE_HEIGHT], 
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+        );
+
+        let output = builder.execute();
+
+        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+            root: end_nullifier_tree.get_root(),
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        }));
+    }
+
+    #[test]
+    unconstrained fn new_nullifier_tree_all_larger() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 1,
+            value: 8,
+        });
+        for i in 1..builder.new_nullifiers.max_len() {
+            builder.new_nullifiers.push(NullifierInsertion {
+                existing_index: 1,
+                value: (8 + i) as Field,
+            });
+        }
+
+        let output = builder.execute();
+
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP * 2];
+        tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
+
+        tree_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 8,
+            next_index : MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        };
+
+        let last_index = builder.new_nullifiers.max_len() - 1;
+        for i in 0..last_index {
+            tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i] = NullifierLeafPreimage {
+                leaf_value : (8 + i) as Field,
+                next_value : (8 + i + 1) as Field,
+                next_index : (MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP + i) as u32 + 1,
+            };
+        }
+
+        tree_nullifiers[MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP+last_index] = NullifierLeafPreimage {
+            leaf_value : (8 + last_index) as Field,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        let mut end_nullifier_tree = NonEmptyMerkleTree::new(
+            tree_nullifiers.map(|preimage: NullifierLeafPreimage| preimage.hash()), 
+            [0; NULLIFIER_TREE_HEIGHT], 
+            [0; NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT - 1], 
+            [0; NULLIFIER_SUBTREE_HEIGHT + 1]
+        );
+
+        assert(output.end_nullifier_tree_snapshot.eq(AppendOnlyTreeSnapshot {
+            root: end_nullifier_tree.get_root(),
+            next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP as u32,
+        }));
+    }
+
+    #[test(should_fail_with = "Invalid low leaf")]
+    unconstrained fn new_nullifier_tree_double_spend() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 1,
+            value: 8,
+        });
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 1,
+            value: 8,
+        });
+
+        builder.fails();
+    }
+
+    #[test(should_fail_with = "Invalid low leaf")]
+    unconstrained fn new_nullifier_tree_double_spend_same_batch() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
+            leaf_value : 0,
+            next_value : 7,
+            next_index : 1,
+        };
+        builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
+            leaf_value : 7,
+            next_value : 0,
+            next_index : 0,
+        };
+
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 1,
+            value: 8,
+        });
+        builder.new_nullifiers.push(NullifierInsertion {
+            existing_index: 1,
+            value: 8,
+        });
+
+        builder.fails();
+    }
+
+    #[test]
+    unconstrained fn empty_block_calldata_hash() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        for i in 0..NUM_FIELDS_PER_SHA256 {
+            assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
+        }
+    }
+
+    #[test(should_fail_with = "membership check failed")]
+    unconstrained fn compute_membership_archive_negative() {
+        let mut inputs = BaseRollupInputsBuilder::new().build_inputs();
+
+        inputs.archive_root_membership_witnesses[0].sibling_path[0] = 27;
+
+        let _output = inputs.base_rollup_circuit();
+    }
+
+    #[test]
+    unconstrained fn constants_dont_change() {
+        let inputs = BaseRollupInputsBuilder::new().build_inputs();
+        let outputs = inputs.base_rollup_circuit();
+
+        assert(inputs.constants.eq(outputs.constants));
+    }
+
+    #[test(should_fail_with = "kernel chain_id does not match the rollup chain_id")]
+    unconstrained fn constants_dont_match_kernels_chain_id() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.chain_id = 3;
+        builder.fails();
+    }
+
+    #[test(should_fail_with = "kernel version does not match the rollup version")]
+    unconstrained fn constants_dont_match_kernels_version() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.version = 3;
+        builder.fails();
+    }
+
+    #[test]
+    unconstrained fn subtree_height_is_0() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        assert_eq(outputs.rollup_subtree_height, 0);
+    }
+
+    #[test]
+    unconstrained fn single_public_state_read() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: 27,
+            value: 28,
+            next_slot: 0,
+            next_index: 0,
+        };
+
+        let mut first_kernel_reads = builder.public_data_reads[0];
+        first_kernel_reads.push(0);
+        builder.public_data_reads[0] = first_kernel_reads;
+
+        builder.succeeds();
+    }
+
+    #[test]
+    unconstrained fn single_public_state_write() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: 27,
+            value: 28,
+            next_slot: 0,
+            next_index: 0,
+        };
+
+        let mut first_kernel_writes = builder.public_data_writes[0];
+        first_kernel_writes.push((0, PublicDataTreeLeaf {
+            slot: 27,
+            value: 29
+        }));
+        builder.public_data_writes[0] = first_kernel_writes;
+
+        let outputs = builder.execute();
+
+        let updated_leaf = PublicDataTreeLeafPreimage {
+            slot: 27,
+            value: 29,
+            next_slot: 0,
+            next_index: 0,
+        };
+
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            [updated_leaf.hash(), 0],
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
+            [0; 1]
+        );
+
+        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+    }
+
+    #[test]
+    unconstrained fn multiple_public_state_read_writes() {
+        let mut builder = BaseRollupInputsBuilder::new();
+
+        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+            slot: 20,
+            value: 40,
+            next_slot: 28,
+            next_index: 1,
+        };
+        builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
+            slot: 28,
+            value: 41,
+            next_slot: 29,
+            next_index: 2,
+        };
+        builder.pre_existing_public_data[2] = PublicDataTreeLeafPreimage {
+            slot: 29,
+            value: 42,
+            next_slot: 30,
+            next_index: 3,
+        };
+        builder.pre_existing_public_data[3] = PublicDataTreeLeafPreimage {
+            slot: 30,
+            value: 43,
+            next_slot: 0,
+            next_index: 0,
+        };
+        
+        let mut first_kernel_reads = builder.public_data_reads[0];
+        let mut first_kernel_writes = builder.public_data_writes[0];
+
+        first_kernel_reads.push(0);
+        first_kernel_writes.push((0, PublicDataTreeLeaf {
+            slot: 25,
+            value: 60
+        }));
+
+        builder.public_data_reads[0] = first_kernel_reads;
+        builder.public_data_writes[0] = first_kernel_writes;
+
+        let mut second_kernel_reads = builder.public_data_reads[1];
+        let mut second_kernel_writes = builder.public_data_writes[1];
+
+        second_kernel_reads.push(4);
+        second_kernel_writes.push((0, PublicDataTreeLeaf {
+            slot: 20,
+            value: 90
+        }));
+
+
+        builder.public_data_reads[1] = second_kernel_reads;
+        builder.public_data_writes[1] = second_kernel_writes;
+
+
+        let outputs = builder.execute();
+
+        let mut public_data_leaves = [0; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2];
+        public_data_leaves[0] = PublicDataTreeLeafPreimage {
+            slot: 20,
+            value: 90,
+            next_slot: 25,
+            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as u32,
+        }.hash();
+        public_data_leaves[1] = PublicDataTreeLeafPreimage {
+            slot: 28,
+            value: 41,
+            next_slot: 29,
+            next_index: 2,
+        }.hash();
+        public_data_leaves[2] = PublicDataTreeLeafPreimage {
+            slot: 29,
+            value: 42,
+            next_slot: 30,
+            next_index: 3,
+        }.hash();
+        public_data_leaves[3] = PublicDataTreeLeafPreimage {
+            slot: 30,
+            value: 43,
+            next_slot: 0,
+            next_index: 0,
+        }.hash();
+        public_data_leaves[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = PublicDataTreeLeafPreimage {
+            slot: 25,
+            value: 60,
+            next_slot: 28,
+            next_index: 1,
+        }.hash();
+
+        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
+            public_data_leaves,
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT - 1],
+            [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1]
+        );
+
+        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+    }
+}
