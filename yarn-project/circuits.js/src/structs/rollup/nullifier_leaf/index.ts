@@ -97,7 +97,7 @@ export class NullifierLeaf implements IndexedTreeLeaf {
     return this.nullifier.isZero();
   }
 
-  updateTo(_another: NullifierLeaf): void {
+  updateTo(_another: NullifierLeaf): NullifierLeaf {
     throw new Error('Nullifiers are create only');
   }
 

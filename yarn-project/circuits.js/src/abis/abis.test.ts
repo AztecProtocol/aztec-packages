@@ -165,7 +165,7 @@ describe('abis', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes public data tree index', () => {
+  it('computes public data tree leaf slot', () => {
     const contractAddress = makeAztecAddress();
     const value = new Fr(3n);
     const res = computePublicDataTreeLeafSlot(contractAddress, value);

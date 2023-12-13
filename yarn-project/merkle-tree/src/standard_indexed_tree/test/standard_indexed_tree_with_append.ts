@@ -50,8 +50,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
     const currentSize = this.getNumLeaves(true);
 
     if (isUpdate) {
-      const newLowLeaf = lowLeafPreimage.asLeaf();
-      newLowLeaf.updateTo(newLeaf);
+      const newLowLeaf = lowLeafPreimage.asLeaf().updateTo(newLeaf);
       const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
         newLowLeaf,
         lowLeafPreimage.getNextKey(),

@@ -17,8 +17,9 @@ export interface IndexedTreeLeaf {
   /**
    * Updates the leaf with the data of another leaf.
    * @param another - The leaf to update to.
+   * @returns The updated leaf.
    */
-  updateTo(another: IndexedTreeLeaf): void;
+  updateTo(another: IndexedTreeLeaf): IndexedTreeLeaf;
 }
 
 /**

@@ -3,9 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
-// TODO
-
-/* eslint-disable */
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
@@ -51,10 +48,8 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
@@ -70,6 +65,7 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
+  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -86,6 +82,8 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicKernelInputs,
   RETURN_VALUES_LENGTH,
@@ -887,77 +885,153 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
   return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
 }
 
-// /**
-//  * Makes arbitrary base rollup inputs.
-//  * @param seed - The seed to use for generating the base rollup inputs.
-//  * @returns A base rollup inputs.
-//  */
-// export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
-//   const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
+/**
+ * Makes arbitrary public data tree leaves.
+ * @param seed - The seed to use for generating the public data tree leaf.
+ * @returns A public data tree leaf.
+ */
+export function makePublicDataTreeLeaf(seed = 0): PublicDataTreeLeaf {
+  return new PublicDataTreeLeaf(new Fr(seed), new Fr(seed + 1));
+}
 
-//   const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
-//   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
-//   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
-//   const startPublicDataTreeRoot = fr(seed + 0x400);
-//   const startArchiveSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+/**
+ * Makes arbitrary public data tree leaf preimages.
+ * @param seed - The seed to use for generating the public data tree leaf preimage.
+ * @returns A public data tree leaf preimage.
+ */
+export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPreimage {
+  return new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3));
+}
 
-//   const lowNullifierLeafPreimages = makeTuple(
-//     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-//     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
-//     seed + 0x1000,
-//   );
+/**
+ * Makes arbitrary base rollup inputs.
+ * @param seed - The seed to use for generating the base rollup inputs.
+ * @returns A base rollup inputs.
+ */
+export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
+  const kernelData = makeTuple(KERNELS_PER_BASE_ROLLUP, x => makePreviousKernelData(seed + (x + 1) * 0x100));
 
-//   const lowNullifierMembershipWitness = makeTuple(
-//     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-//     x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
-//     seed + 0x2000,
-//   );
+  const startNoteHashTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x100);
+  const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
+  const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
+  const startPublicDataTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x400);
+  const startArchiveSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
-//   const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
-//   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
-//   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
+  const lowNullifierLeafPreimages = makeTuple(
+    MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    seed + 0x1000,
+  );
 
-//   const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
-//   const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
+  const lowNullifierMembershipWitness = makeTuple(
+    MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
+    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
+    seed + 0x2000,
+  );
 
-//   const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
-//     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
-//     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-//     seed + 0x8000,
-//   );
+  const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x3000);
+  const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
+  const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
-//   const newPublicDataReadsSiblingPaths = makeTuple(
-//     MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
-//     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-//     seed + 0x8000,
-//   );
+  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
+  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
 
-//   const archiveRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-//     makeMembershipWitness(ARCHIVE_HEIGHT, seed + x * 0x1000 + 0x9000),
-//   );
+  const sortedPublicDataWrites = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataTreeLeaf, seed + 0x8000 + i * 0x100);
+    },
+    0,
+  );
+  const sortedPublicDataWritesIndexes = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    () => makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, 0),
+    0,
+  );
 
-//   const constants = makeConstantBaseRollupData(0x100);
+  const lowPublicDataWritesPreimages = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        makePublicDataTreeLeafPreimage,
+        seed + 0x8200 + i * 0x100,
+      );
+    },
+    0,
+  );
 
-//   return BaseRollupInputs.from({
-//     kernelData,
-//     lowNullifierMembershipWitness,
-//     startNoteHashTreeSnapshot,
-//     startNullifierTreeSnapshot,
-//     startContractTreeSnapshot,
-//     startPublicDataTreeRoot,
-//     archiveSnapshot: startArchiveSnapshot,
-//     sortedNewNullifiers,
-//     sortednewNullifiersIndexes,
-//     lowNullifierLeafPreimages,
-//     newCommitmentsSubtreeSiblingPath,
-//     newNullifiersSubtreeSiblingPath,
-//     newContractsSubtreeSiblingPath,
-//     newPublicDataUpdateRequestsSiblingPaths,
-//     newPublicDataReadsSiblingPaths,
-//     archiveRootMembershipWitnesses,
-//     constants,
-//   });
-// }
+  const lowPublicDataWritesMembershipWitnesses = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
+        seed + 0x8400 + i * 0x100,
+      );
+    },
+    0,
+  );
+
+  const publicDataWritesSubtreeSiblingPaths = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8600 + i * 0x100);
+    },
+    0,
+  );
+
+  const publicDataReadsPreimages = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataTreeLeafPreimage, seed + 0x8800 + i * 0x100);
+    },
+    0,
+  );
+
+  const publicDataReadsMembershipWitnesses = makeTuple(
+    KERNELS_PER_BASE_ROLLUP,
+    i => {
+      return makeTuple(
+        MAX_PUBLIC_DATA_READS_PER_TX,
+        i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
+        seed + 0x8a00 + i * 0x100,
+      );
+    },
+    0,
+  );
+
+  const archiveRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
+    makeMembershipWitness(ARCHIVE_HEIGHT, seed + x * 0x1000 + 0x9000),
+  );
+
+  const constants = makeConstantBaseRollupData(0x100);
+
+  return BaseRollupInputs.from({
+    kernelData,
+    lowNullifierMembershipWitness,
+    startNoteHashTreeSnapshot,
+    startNullifierTreeSnapshot,
+    startContractTreeSnapshot,
+    startPublicDataTreeSnapshot,
+    archiveSnapshot: startArchiveSnapshot,
+    sortedNewNullifiers,
+    sortednewNullifiersIndexes,
+    lowNullifierLeafPreimages,
+    newCommitmentsSubtreeSiblingPath,
+    newNullifiersSubtreeSiblingPath,
+    newContractsSubtreeSiblingPath,
+    sortedPublicDataWrites,
+    sortedPublicDataWritesIndexes,
+    lowPublicDataWritesPreimages,
+    lowPublicDataWritesMembershipWitnesses,
+    publicDataWritesSubtreeSiblingPaths,
+    publicDataReadsPreimages,
+    publicDataReadsMembershipWitnesses,
+    archiveRootMembershipWitnesses,
+    constants,
+  });
+}
 
 /**
  * TODO: Since the max value check is currently disabled this function is pointless. Should it be removed?

@@ -116,8 +116,11 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
     return this.slot.isZero() && this.value.isZero();
   }
 
-  updateTo(another: PublicDataTreeLeaf): void {
-    this.value = another.value;
+  updateTo(another: PublicDataTreeLeaf): PublicDataTreeLeaf {
+    if (!this.slot.equals(another.slot)) {
+      throw new Error('Invalid update: slots do not match');
+    }
+    return new PublicDataTreeLeaf(this.slot, another.value);
   }
 
   static buildDummy(key: bigint): PublicDataTreeLeaf {
