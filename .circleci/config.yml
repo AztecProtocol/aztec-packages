@@ -966,9 +966,10 @@ jobs:
             should_deploy 0 || exit 0
             export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
             export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
-            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
             export TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY=$SEQ_1_PUBLISHER_PRIVATE_KEY
             export TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY=$SEQ_2_PUBLISHER_PRIVATE_KEY
+            export TF_VAR_NODE_1_PRIVATE_KEY=$NODE_1_PRIVATE_KEY
+            export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
             # Check if l1-contracts have changed.
             if $CONTRACTS_DEPLOYED -eq 1; then
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node aws_efs_file_system.node_data_store
@@ -979,6 +980,7 @@ jobs:
           name: "Deploy Aztec Faucet to AWS"
           command: |
             should_deploy 0 || exit 0
+            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
             deploy_terraform_services yarn-project/aztec-faucet aztec-sandbox
 
 # Repeatable config for defining the workflow below.
