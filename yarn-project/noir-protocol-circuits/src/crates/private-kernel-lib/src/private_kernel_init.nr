@@ -133,7 +133,7 @@ mod tests {
             private_kernel::private_call_data::PrivateCallData,
             side_effect::{SideEffect, SideEffectLinkedToNoteHash},
         },
-        address::Address,
+        address::AztecAddress,
         hash::{
             compute_constructor_hash,
             compute_logs_hash,
@@ -351,7 +351,7 @@ mod tests {
     fn contract_deployment_incorrect_contract_address_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.tx_request.origin = random_address;
         builder.private_call.contract_address = random_address;
@@ -363,7 +363,7 @@ mod tests {
     fn contract_deployment_contract_address_mismatch_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.private_call.contract_address = random_address;
 
@@ -433,7 +433,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set the storage_contract_address to a random scalar.
-        builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(356);
 
         builder.failed();
     }

@@ -12,7 +12,7 @@ use dep::types::{
         previous_kernel_data::PreviousKernelData,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    address::{Address, EthAddress},
+    address::{AztecAddress, EthAddress},
     contrakt::deployment_data::ContractDeploymentData,
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
