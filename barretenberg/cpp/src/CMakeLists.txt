@@ -166,8 +166,8 @@ if(WASM)
         $<TARGET_OBJECTS:crypto_sha256_objects>
         $<TARGET_OBJECTS:dsl_objects>
         $<TARGET_OBJECTS:ecc_objects>
-        $<TARGET_OBJECTS:eccvm_objects>
         $<TARGET_OBJECTS:examples_objects>
+        $<TARGET_OBJECTS:honk_objects>
         $<TARGET_OBJECTS:numeric_objects>
         $<TARGET_OBJECTS:plonk_objects>
         $<TARGET_OBJECTS:polynomials_objects>
@@ -184,7 +184,6 @@ if(WASM)
         $<TARGET_OBJECTS:stdlib_schnorr_objects>
         $<TARGET_OBJECTS:stdlib_sha256_objects>
         $<TARGET_OBJECTS:transcript_objects>
-        $<TARGET_OBJECTS:translator_vm_objects>
         $<TARGET_OBJECTS:wasi_objects>
     )
 

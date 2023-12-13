@@ -58,7 +58,8 @@ class Goblin {
     using Fq = barretenberg::fq;
 
     using Transcript = proof_system::honk::BaseTranscript;
-    // WORKTODO: until we revert this, can't build all
+    // WORKTODO: until we revert this, can't build some other targets where GUH is hard-coded
+    // (ultimately some opqueue is needed)
     using GoblinUltraComposer = proof_system::honk::UltraComposer;
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
@@ -82,11 +83,6 @@ class Goblin {
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
-
-    Goblin(const std::shared_ptr<GUHProvingKey>& proving_key,
-           const std::shared_ptr<GUHVerificationKey>& verification_key)
-        : composer(proving_key, verification_key)
-    {}
 
     Goblin() = default;
 

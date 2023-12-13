@@ -24,13 +24,13 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     if (builder_.get_num_gates() > 1) {
         return;
     }
-    vinfo("create_circuit: building circuit...");
+    vinfo("building circuit...");
     builder_ = acir_format::create_circuit(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
     size_hint_ = circuit_subgroup_size_;
-    vinfo("create_circuit: gates: ", builder_.get_total_circuit_size());
+    vinfo("gates: ", builder_.get_total_circuit_size());
 }
 
 std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
@@ -136,7 +136,6 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
 
 bool AcirComposer::verify_goblin_proof(std::vector<uint8_t> const& proof)
 {
-
     return goblin.verify_proof({ proof });
 }
 

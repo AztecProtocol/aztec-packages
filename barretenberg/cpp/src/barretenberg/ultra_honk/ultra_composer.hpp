@@ -24,7 +24,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using Instance = ProverInstance;
-    // using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
@@ -40,8 +39,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
     std::shared_ptr<CRSFactory> crs_factory_;
-    // std::shared_ptr<CRSFactory> crs_factory_ = barretenberg::srs::get_crs_factory();
-    // std::shared_ptr<CRSFactory> crs_factory_ = std::make_shared<CRSFactory>();
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
@@ -49,11 +46,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
-    {}
-
-    // WORKTODO(KEY_TYPES)
-    UltraComposer_([[maybe_unused]] std::shared_ptr<ProvingKey> proving_key,
-                   [[maybe_unused]] std::shared_ptr<VerificationKey> verification_key)
     {}
 
     UltraComposer_(UltraComposer_&& other) noexcept = default;
