@@ -227,7 +227,6 @@ class ExampleLookupBasedRangeConstraintSettings {
         static_assert(write_index < WRITE_TERMS);
 
         using View = typename Accumulator::View;
-        info("Write value: ", View(in.lookup_range_table_entries));
         return Accumulator(View(in.lookup_range_table_entries) + params.gamma);
     }
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
