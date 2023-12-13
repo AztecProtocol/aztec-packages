@@ -25,7 +25,7 @@
 namespace acir_format {
 
 using Builder = proof_system::UltraCircuitBuilder;
-// using GoblinBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
+using GoblinBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
 using Composer = plonk::UltraComposer;
 
 using Prover =
