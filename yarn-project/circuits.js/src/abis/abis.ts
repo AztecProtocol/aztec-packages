@@ -28,6 +28,8 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   TxContext,
   TxRequest,
   VerificationKey,
@@ -529,9 +531,18 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),
     ...input.returnValues.map(fr => fr.toBuffer()),
-    ...input.readRequests.map(fr => fr.toBuffer()),
-    ...input.newCommitments.map(fr => fr.toBuffer()),
-    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.readRequests
+      .map(se => se.toFieldArray())
+      .flat()
+      .map(fr => fr.toBuffer()),
+    ...input.newCommitments
+      .map(se => se.toFieldArray())
+      .flat()
+      .map(fr => fr.toBuffer()),
+    ...input.newNullifiers
+      .map(selinked => selinked.toFieldArray())
+      .flat()
+      .map(fr => fr.toBuffer()),
     ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
     ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
@@ -593,6 +604,22 @@ function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateReq
 function computeContractStorageReadsHash(input: ContractStorageRead) {
   return pedersenHash([input.storageSlot.toBuffer(), input.currentValue.toBuffer()], GeneratorIndex.PUBLIC_DATA_READ);
 }
+/**
+ *
+ */
+function computeCommitmentsHash(input: SideEffect) {
+  return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
+}
+
+/**
+ *
+ */
+function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
+  return pedersenHash(
+    [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
+    GeneratorIndex.SIDE_EFFECT,
+  );
+}
 
 /**
  *
@@ -605,8 +632,8 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
     ...input.contractStorageReads.map(computeContractStorageReadsHash),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
-    ...input.newCommitments.map(fr => fr.toBuffer()),
-    ...input.newNullifiers.map(fr => fr.toBuffer()),
+    ...input.newCommitments.map(computeCommitmentsHash),
+    ...input.newNullifiers.map(computeNullifierHash),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.unencryptedLogPreimagesLength.toBuffer(),

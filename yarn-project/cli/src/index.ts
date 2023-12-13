@@ -1,4 +1,3 @@
-import { initAztecJs } from '@aztec/aztec.js/init';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { addNoirCompilerCommanderActions } from '@aztec/noir-compiler/cli';
@@ -22,7 +21,7 @@ import {
   parsePublicKey,
   parseSaltFromHexString,
   parseTxHash,
-} from './utils.js';
+} from './parse_args.js';
 
 /**
  * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
@@ -62,8 +61,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       .env('PRIVATE_KEY')
       .argParser(parsePrivateKey)
       .makeOptionMandatory(mandatory);
-
-  program.hook('preAction', initAztecJs);
 
   program
     .command('deploy-l1-contracts')
@@ -486,11 +483,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Updates Nodejs and Noir dependencies')
     .argument('[projectPath]', 'Path to the project directory', process.cwd())
     .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
-    .option('--sandbox-version <semver>', 'The sandbox version to update to. Defaults to latest', 'latest')
+    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
     .addOption(pxeOption)
     .action(async (projectPath: string, options) => {
       const { update } = await import('./update/update.js');
-      await update(projectPath, options.contract, options.rpcUrl, options.sandboxVersion, log, debugLogger);
+      const { contract, aztecVersion, rpcUrl } = options;
+      await update(projectPath, contract, rpcUrl, aztecVersion, log);
     });
 
   addNoirCompilerCommanderActions(program, log);

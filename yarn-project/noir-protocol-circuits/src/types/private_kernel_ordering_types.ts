@@ -9,6 +9,17 @@ export type u32 = string;
 
 export interface AggregationObject {}
 
+export interface SideEffect {
+  value: Field;
+  counter: Field;
+}
+
+export interface SideEffectLinkedToNoteHash {
+  value: Field;
+  note_hash: Field;
+  counter: Field;
+}
+
 export interface Address {
   inner: Field;
 }
@@ -22,6 +33,8 @@ export interface CallRequest {
   hash: Field;
   caller_contract_address: Address;
   caller_context: CallerContext;
+  start_side_effect_counter: Field;
+  end_side_effect_counter: Field;
 }
 
 export interface EthAddress {
@@ -69,9 +82,9 @@ export interface PublicDataRead {
 
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
-  read_requests: FixedLengthArray<Field, 128>;
-  new_commitments: FixedLengthArray<Field, 64>;
-  new_nullifiers: FixedLengthArray<Field, 64>;
+  read_requests: FixedLengthArray<SideEffect, 128>;
+  new_commitments: FixedLengthArray<SideEffect, 64>;
+  new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
@@ -154,8 +167,8 @@ export interface PrivateKernelInputsOrdering {
 
 export interface FinalAccumulatedData {
   aggregation_object: AggregationObject;
-  new_commitments: FixedLengthArray<Field, 64>;
-  new_nullifiers: FixedLengthArray<Field, 64>;
+  new_commitments: FixedLengthArray<SideEffect, 64>;
+  new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;

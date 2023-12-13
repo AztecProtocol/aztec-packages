@@ -242,13 +242,15 @@ mod tests {
         let currentVal = [previous[2].value + 1, previous[2].value + 2];
         let siloed = currentVal.map(|c| silo_nullifier(contract_address, c));
 
-        let current = [SideEffectLinkedToNoteHash{
+        let current = [SideEffectLinkedToNoteHash {
             value: siloed[0],
             note_hash: 0,
-            counter: 3}, SideEffectLinkedToNoteHash{
+            counter: 3,
+            }, SideEffectLinkedToNoteHash {
                 value: siloed[1],
                 note_hash: 0,
-                counter: 4},] 
+                counter: 4},
+        ];
         builder.public_call.public_inputs.new_nullifiers.push_array(current);
         // There are 3 nullifiers in the previous kernel. The first one is the tx nullifier.
         let new_nullifiers = [previous[0], previous[1], previous[2], current[0], current[1]];

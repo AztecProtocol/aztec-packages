@@ -176,7 +176,7 @@ impl BaseRollupInputs {
 
             for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
                 // TODO(Maddiaa): batch insert
-                commitment_tree_leaves[i * MAX_NEW_COMMITMENTS_PER_TX + j] =  new_commitments[j];
+                commitment_tree_leaves[i * MAX_NEW_COMMITMENTS_PER_TX + j] =  new_commitments[j].value;
             }
         }
 
@@ -188,7 +188,7 @@ impl BaseRollupInputs {
 
         for i in 0..2 {
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j];
+                new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = self.kernel_data[i].public_inputs.end.new_nullifiers[j].value;
             }
         };
 
@@ -310,12 +310,12 @@ impl BaseRollupInputs {
             let mut offset = 0;
 
             for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
-                calldata_hash_inputs[offset + i * MAX_NEW_COMMITMENTS_PER_TX + j] = new_commitments[j];
+                calldata_hash_inputs[offset + i * MAX_NEW_COMMITMENTS_PER_TX + j] = new_commitments[j].value;
             }
             offset += MAX_NEW_COMMITMENTS_PER_TX * 2;
 
             for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-                calldata_hash_inputs[offset + i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers[j];
+                calldata_hash_inputs[offset + i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers[j].value;
             }
             offset += MAX_NEW_NULLIFIERS_PER_TX * 2;
 
@@ -563,6 +563,7 @@ mod tests {
         abis::public_data_read::PublicDataRead,
         abis::public_data_update_request::PublicDataUpdateRequest,
         abis::previous_kernel_data::PreviousKernelData,
+        abis::side_effect::SideEffect,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{Address, EthAddress},
         utils::bounded_vec::BoundedVec,
@@ -678,7 +679,7 @@ mod tests {
 
                     let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
 
-                    kernel_data[0].public_inputs.end.new_nullifiers[original_index] = new_nullifier;
+                    kernel_data[0].public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     low_nullifier_leaf_preimages[i] = low_preimage;
@@ -910,7 +911,10 @@ mod tests {
         let mut new_commitments_vec = builder.kernel_data[0].end.new_commitments;
 
         for i in 0..new_commitments.len() {
-            new_commitments_vec.push(new_commitments[i]);
+            new_commitments_vec.push(SideEffect{
+                value: new_commitments[i],
+                counter: 0,
+                });
         }
 
         builder.kernel_data[0].end.new_commitments = new_commitments_vec;

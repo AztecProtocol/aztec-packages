@@ -386,6 +386,7 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
     is_contract_deployment: callContext.isContractDeployment,
+    start_side_effect_counter: mapFieldToNoir(callContext.startSideEffectCounter),
   };
 }
 
@@ -438,6 +439,8 @@ export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir 
     hash: mapFieldToNoir(callRequest.hash),
     caller_contract_address: mapAztecAddressToNoir(callRequest.callerContractAddress),
     caller_context: mapCallerContextToNoir(callRequest.callerContext),
+    start_side_effect_counter: mapFieldToNoir(callRequest.startSideEffectCounter),
+    end_side_effect_counter: mapFieldToNoir(callRequest.endSideEffectCounter),
   };
 }
 

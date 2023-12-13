@@ -94,7 +94,13 @@ export class CallRequest {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.hash, this.callerContractAddress, this.callerContext);
+    return serializeToBuffer(
+      this.hash,
+      this.callerContractAddress,
+      this.callerContext,
+      this.startSideEffectCounter,
+      this.endSideEffectCounter,
+    );
   }
 
   /**
@@ -108,8 +114,8 @@ export class CallRequest {
       Fr.fromBuffer(reader),
       reader.readObject(AztecAddress),
       reader.readObject(CallerContext),
-      new Fr(0),
-      new Fr(0),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
