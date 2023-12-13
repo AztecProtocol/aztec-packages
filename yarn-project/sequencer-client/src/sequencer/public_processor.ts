@@ -217,7 +217,7 @@ export class PublicProcessor {
       this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
-    // TODO: This should be done in a public kernel reset circuit
+    // TODO(#3675): This should be done in a public kernel circuit
     this.removeRedundantPublicDataWrites(kernelOutput);
 
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];

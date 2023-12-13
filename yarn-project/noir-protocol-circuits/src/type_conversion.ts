@@ -1324,7 +1324,7 @@ export function mapNullifierMembershipWitnessToNoir(
 }
 
 /**
- *
+ * Maps a membership witness of the public data tree to noir.
  */
 export function mapPublicDataMembershipWitnessToNoir(
   membershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
@@ -1350,7 +1350,7 @@ export function mapArchiveRootMembershipWitnessToNoir(
 }
 
 /**
- *
+ * Maps a leaf of the public data tree to noir.
  */
 export function mapPublicDataTreeLeafToNoir(leaf: PublicDataTreeLeaf): PublicDataTreeLeafNoir {
   return {
@@ -1360,7 +1360,7 @@ export function mapPublicDataTreeLeafToNoir(leaf: PublicDataTreeLeaf): PublicDat
 }
 
 /**
- *
+ * Maps a leaf preimage of the public data tree to noir.
  */
 export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimageNoir {
   return {

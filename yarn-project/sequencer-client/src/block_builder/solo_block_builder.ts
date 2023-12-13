@@ -581,7 +581,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        // TODO remove oldValue from update requests, it's not needed
+        // TODO(#3675) remove oldValue from update requests
         tx.data.end.publicDataUpdateRequests.map(updateRequest => {
           return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
         }),
@@ -701,7 +701,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newCommitments);
 
-    // TODO explain this
+    // The public data tree will be updated serially, first with the left TX and then with the right TX.
+    // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
+    // All reads that refer to writes in the same tx are transient and can be simplified out.
     const leftPublicDataReadsInfo = await this.getPublicDataReadsInfo(left);
     const leftPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(left);
 
