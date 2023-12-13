@@ -33,11 +33,16 @@ for KEY in ROLLUP_CONTRACT_ADDRESS REGISTRY_CONTRACT_ADDRESS INBOX_CONTRACT_ADDR
   export TF_VAR_$KEY=$VALUE
 done
 
-# Write TF state variables
-deploy_terraform l1-contracts ./terraform
+if [ -n "${DRY_DEPLOY:-}" ]; then
+  echo "DRY_DEPLOY: deploy_terraform l1-contracts ./terraform"
+  echo "DRY_DEPLOY: tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed"
+else
+  # Write TF state variables
+  deploy_terraform l1-contracts ./terraform
 
-# Tag the image as deployed.
-retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+  # Tag the image as deployed.
+  retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+fi
 
 # Set global variable for redeployment of contracts
 echo export CONTRACTS_DEPLOYED=1 >>$BASH_ENV
