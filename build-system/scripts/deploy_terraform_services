@@ -2,30 +2,31 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-REPOSITORY=$1
-SERVICES=${2:-$REPOSITORY}
-TO_TAINT=${3:-}
+TF_DIR=$1
+CHECK_REBUILD_REPOSITORY=$2
+SERVICE_NAMES=${3:-$CHECK_REBUILD_REPOSITORY}
+TO_TAINT=${4:-}
 
-cd $(query_manifest projectDir $REPOSITORY)
+cd $TF_DIR
 
 # Bail out if nothing changed.
-CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
+CONTENT_HASH=$(calculate_content_hash $CHECK_REBUILD_REPOSITORY)
 echo "Last successfully deployed commit: $CONTENT_HASH"
-if check_rebuild cache-$CONTENT_HASH-$DEPLOY_TAG-deployed $REPOSITORY; then
+if check_rebuild cache-$CONTENT_HASH-$DEPLOY_TAG-deployed $CHECK_REBUILD_REPOSITORY; then
   echo "No changes detected, skipping deployment."
   exit 0
 fi
 
-deploy_terraform $REPOSITORY ./terraform/ "$TO_TAINT"
+deploy_terraform $TF_DIR ./terraform/ "$TO_TAINT"
 
 # Restart services.
-for SERVICE in $SERVICES; do
-  deploy_service $DEPLOY_TAG-$SERVICE
+for SERVICE in $SERVICE_NAMES; do
+  deploy_service $SERVICE
 done
 
 # Tag the image as deployed.
 if [ "$DRY_DEPLOY" -eq 1 ]; then
-  echo "DRY_DEPLOY: tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed"
+  echo "DRY_DEPLOY: tag_remote_image $CHECK_REBUILD_REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed"
 else
-  retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+  retry tag_remote_image $CHECK_REBUILD_REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
 fi
