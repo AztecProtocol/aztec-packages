@@ -17,7 +17,7 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
-void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
+template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
     // WORKTODO: this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
     // sizes below never get set and that eventually causes too few srs points to be extracted
@@ -25,7 +25,7 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
         return;
     }
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_);
+    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
