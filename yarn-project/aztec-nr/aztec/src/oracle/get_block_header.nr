@@ -1,8 +1,10 @@
 use dep::std::merkle::compute_merkle_root;
-use dep::protocol_types::constants::BLOCK_HEADER_LENGTH;
+use dep::protocol_types::{
+    abis::block_header::BlockHeader,
+    constants::BLOCK_HEADER_LENGTH,
+};
 
 use crate::{
-    abi::BlockHeader,
     context::PrivateContext,
     oracle::get_membership_witness::get_archive_membership_witness,
 };
