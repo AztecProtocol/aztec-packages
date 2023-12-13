@@ -15,6 +15,7 @@ class Goblin {
     using HonkProof = proof_system::plonk::proof;
     // WORKTODO(NEW_CONSTRAINTS)
     using GUHFlavor = proof_system::honk::flavor::Ultra;
+    // using GUHFlavor = proof_system::honk::flavor::GoblinUltra; // GUHFLAG
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
@@ -61,9 +62,11 @@ class Goblin {
     // WORKTODO: until we revert this, can't build some other targets where GUH is hard-coded
     // (ultimately some opqueue is needed)
     using GoblinUltraComposer = proof_system::honk::UltraComposer;
+    // using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer; // GUHFLAG
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    // using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
     using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;

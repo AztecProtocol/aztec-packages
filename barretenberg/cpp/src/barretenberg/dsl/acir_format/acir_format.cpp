@@ -1,10 +1,11 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/dsl/acir_format/pedersen.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 
 namespace acir_format {
 
-void read_witness(Builder& builder, WitnessVector const& witness)
+template <typename Builder> void read_witness(Builder& builder, WitnessVector const& witness)
 {
     builder.variables[0] = 0; // WORKTODO: what's this? is this the constant 0 hacked in?
     // WORKTODO: is the structure demonstrated in this loop the reason to populate the builder constraints twice?
@@ -14,7 +15,7 @@ void read_witness(Builder& builder, WitnessVector const& witness)
     }
 }
 
-void add_public_vars(Builder& builder, acir_format const& constraint_system)
+template <typename Builder> void add_public_vars(Builder& builder, acir_format const& constraint_system)
 {
     for (size_t i = 1; i < constraint_system.varnum; ++i) {
         // If the index is in the public inputs vector, then we add it as a public input
@@ -30,6 +31,7 @@ void add_public_vars(Builder& builder, acir_format const& constraint_system)
     }
 }
 
+template <typename Builder>
 void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
@@ -133,7 +135,7 @@ void create_circuit(Builder& builder, acir_format const& constraint_system)
     build_constraints(builder, constraint_system, false);
 }
 
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint)
+template <typename Builder> Builder create_circuit(const acir_format& constraint_system, size_t size_hint)
 {
     Builder builder(size_hint);
     create_circuit(builder, constraint_system);
@@ -149,6 +151,7 @@ Builder create_circuit_with_witness(acir_format const& constraint_system,
     return builder;
 }
 
+template <typename Builder>
 void create_circuit_with_witness(Builder& builder, acir_format const& constraint_system, WitnessVector const& witness)
 {
     if (constraint_system.public_inputs.size() > constraint_system.varnum) {
@@ -159,5 +162,8 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
     read_witness(builder, witness);
     build_constraints(builder, constraint_system, true);
 }
+
+template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
+                                                                 size_t size_hint);
 
 } // namespace acir_format
