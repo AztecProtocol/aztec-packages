@@ -9,7 +9,7 @@ use crate::{
         note_interface::NoteInterface,
     },
     oracle::get_membership_witness::{
-        get_membership_witness,
+        get_note_hash_membership_witness,
         MembershipWitness,
     },
 };
@@ -23,9 +23,8 @@ pub fn prove_note_commitment_inclusion(
     let block_header = context.get_block_header(block_number);
 
     // 2) Get the membership witness of the note in the note hash tree
-    let note_hash_tree_id = 2; // TODO(#3443)
     let witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> =
-        get_membership_witness(block_number, note_hash_tree_id, note_commitment);
+        get_note_hash_membership_witness(block_number, note_commitment);
 
     // 3) Prove that the commitment is in the note hash tree
     assert(

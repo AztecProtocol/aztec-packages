@@ -8,7 +8,7 @@ use crate::{
     abi::BlockHeader,
     context::PrivateContext,
     oracle::get_membership_witness::{
-        get_membership_witness,
+        get_archive_membership_witness,
         MembershipWitness,
     },
 };
@@ -45,8 +45,7 @@ pub fn get_block_header(block_number: u32, context: PrivateContext) -> BlockHead
     let block_hash = block_header.block_hash();
 
     // 5) Get the membership witness of the block in the archive
-    let archive_id = 5; // TODO(#3443)
-    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_membership_witness(block_header_block_number, archive_id, block_hash);
+    let witness: MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> = get_archive_membership_witness(block_header_block_number, block_hash);
 
     // 6) Check that the block is in the archive (i.e. the witness is valid)
     assert(context.block_header.archive_root == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed");
