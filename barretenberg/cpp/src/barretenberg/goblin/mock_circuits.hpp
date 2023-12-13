@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
