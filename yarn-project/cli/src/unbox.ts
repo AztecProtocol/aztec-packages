@@ -231,7 +231,11 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
   // Check and replace "workspace^" pins in dependencies, which are monorepo yarn workspace references
   if (packageData.dependencies) {
     for (const [key, value] of Object.entries(packageData.dependencies)) {
-      if (value === 'workspace:^') {
+      const packageVersion: string = value as string;
+      if (packageVersion === 'workspace:^') {
+        packageData.dependencies[key] = `^${packageVersion}`;
+      } else if (packageVersion.startsWith('portal:')) {
+        // portal: dependency used in monorepo when we moved boxes out of the workspace
         packageData.dependencies[key] = `^${packageVersion}`;
       }
     }
