@@ -5,9 +5,9 @@ sidebar_position: 99
 
 ## Overview
 
-Together with the [validating light node](./../contracts/index.md) the rollup circuits is was must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
+Together with the [validating light node](./../contracts/index.md) the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
 
-To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure  allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
+To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
 
 The tree structure is outlined below, but the general idea is that we have a tree where all the leaves are transactions (kernel proofs) and through $\log n$ steps we can then "compress" them down to just a single root proof. Note that we have three (3) different types of "merger" circuits, namely:
 - The base rollup
@@ -338,7 +338,7 @@ To ensure that state is made available, we could rely on the full block body as 
 
 To check that this body is published a node can reconstruct the `ContentHash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](./../contracts/index.md), we can define "available" at the level of this node, e.g., if the validating light node can reconstruct the commitment then it is available.
 
-Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full three. We can do so by building merkle trees of partial "commitments" that are then finished at the root. Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly include the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be known to the contract directly and not just proven available. This is not a concern when using calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).
+Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full tree. We can do so by building merkle trees of partial "commitments" that are then finished at the root. Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly include the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be known to the contract directly and not just proven available. This is not a concern when using calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).
 
 ```mermaid
 graph BT

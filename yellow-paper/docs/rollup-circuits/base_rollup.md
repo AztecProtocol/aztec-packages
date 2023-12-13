@@ -3,7 +3,7 @@ title: Base Rollup
 sidebar_position: 2
 ---
 
-The base circuit is the most complex of the rollup circuits, as it have to deal with the kernels and perform the state updates and transaction validation. While this makes the data structures complex to follow, the goal of the circuit is fairly straight forward: 
+The base circuit is the most complex of the rollup circuits, as it has to deal with the kernels and perform the state updates and transaction validation. While this makes the data structures complex to follow, the goal of the circuit is fairly straight forward: 
 
 Take `BaseRollupInputs` as an input value, and transform it to `BaseOrMergeRollupPublicInputs` as an output value while making sure that the validity conditions are met.
 

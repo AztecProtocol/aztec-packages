@@ -3,7 +3,7 @@ title: Merge Rollup
 sidebar_position: 3
 ---
 
-The Merge rollup circuit is our in-between circuit, it don't need to perform any state updates, but mainly check the consistency of its inputs.
+The Merge rollup circuit is our in-between circuit, it doesn't need to perform any state updates, but mainly check the consistency of its inputs.
 
 ```mermaid
 graph LR

@@ -3,7 +3,7 @@ title: Root Rollup
 sidebar_position: 4
 ---
 
-The root rollup circuit is our top circuit, it apply the state changes passed through its children and the cross-chain messages. It is the one that will communicate with the [validating light node](./../contracts/index.md). 
+The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. It is the one that will communicate with the [validating light node](./../contracts/index.md). 
 
 :::info Squishers
 This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.

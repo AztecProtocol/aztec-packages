@@ -15,7 +15,7 @@ The purpose of the L1 contracts are simple:
 
 ## Overview
 
-When presented with a new `ProvenBlock` and its proof, an Aztec node can be convinced of its validity if the proof passes and the `Header.last_archive` matches the `archive` of the node. The `archive` used as public input is the archive after the new header is inserted (see [root rollup](./../rollup-circuits/root_rollup.md)).
+When presented with a new `ProvenBlock` and its proof, an Aztec node can be convinced of its validity if the proof passes and the `Header.last_archive` matches the `archive` of the node (archive here represents a root of [archive tree](../state/archive.md)). The `archive` used as public input is the archive after the new header is inserted (see [root rollup](./../rollup-circuits/root_rollup.md)).
 
 ```python
 def process(block: ProvenBlock, archive: Fr, proof: Proof):
@@ -100,7 +100,7 @@ class StateTransitioner:
         assert self.validate_header(header)
         assert self.verifier.verify(proof, header, archive)
         assert self.registry.inbox.consume(l1_to_l2_msgs)
-        assert self.registry.outbox.insert(l2_to_l1_msgs
+        assert self.registry.outbox.insert(l2_to_l1_msgs)
         self.archive = archive
 
     def body_available(
@@ -132,11 +132,11 @@ class StateTransitioner:
 
 
 ### Availability Oracle
-The state transitioner should be connected to a oracle which addresses the availability condition. 
+The state transitioner should be connected to an oracle which addresses the availability condition. 
 
-For the case of a rollup, this "oracle" will be deriving the `TxsHash` from calldata and blobs, while it for a validium should be connected to a bridge that it can use to verify that the data is available on the other chain. 
+For the case of a rollup, this "oracle" will be deriving the `TxsHash` from calldata and blobs. For a validium it should be connected to a bridge that it can use to verify that the data is available on the other chain. 
 
-For a generic DA that publishes data commitments to Ethereum, the oracle could be a snark proof that open the data commitment from the bridge and computes the `TxsHash` from it. 
+For a generic DA that publishes data commitments to Ethereum, the oracle could be a snark proof that opens the data commitment from the bridge and computes the `TxsHash` from it.
 
 By having the availability oracle be independent from state progression we can even do multi-transaction blocks, e.g., use multiple transactions or commitments from other DA layers to construct the `TxsHash` for a large block. 
 
@@ -158,7 +158,7 @@ While we logically have 4 boxes, we practically only require 3 of those. The L2 
 
 ### Portals
 
-When deploying a contract on L2, it is possible to specify its "portal" address. This is an immutable variable, that can be used to constrain who the L2 contract expect messages from, and who it sends to.
+When deploying a contract on L2, it is possible to specify its "portal" address. This is an immutable variable, that can be used to constrain who the L2 contract expects messages from, and who it sends messages to.
 
 ### Messages
 
@@ -432,7 +432,7 @@ As should be clear from above, the L2 inbox doesn't need to exist for itself, it
 :::warning Comment for discussion
 In the current paradigm, any messages that are sent from the L2 contract to L1 MUST be sent to the portal address. This was to get around the access control issue of private execution and is enforced in the kernel. It practically gives us a 1:M relationship between L1 and L2, where one L1 contract can be specified as the portal for many L2, and communicate with all of them, but each L2 can only communicate with a single L1 contract.
 
-Note that while we are letting the inbox populate more values that what we did for the L1 inbox. This is more an opinionated decision than a purely technical one. Plainly speaking, we don't need to restrict the recipient of the message to a single address. We could let the contract itself figure it out. As long as the portal address exists, it CAN be used to constrain it like this.
+Note that while we are letting the inbox populate more values than what we did for the L1 inbox. This is more an opinionated decision than a purely technical one. Plainly speaking, we don't need to restrict the recipient of the message to a single address. We could let the contract itself figure it out. As long as the portal address exists, it CAN be used to constrain it like this.
 
 We could let the contract itself populate the `L1Actor` like we did for L1, but we decided to let the kernel do it instead, since access control can be quite tedious to get right in private execution. By having the `portal` contract that is specified at the time of deployment, we can insert this value and ensure that it is controlled by the contract.
 If we have a better alternative for access control this could be changed to be more similar to the L1 inbox, which gives better flexibility.
