@@ -48,6 +48,8 @@ if should_deploy; then
       DEPLOY_ENV=${TEMP##*-}
     elif [ ! "$DRY_DEPLOY" -eq 1 ]; then
       DEPLOY_ENV=prod
+    else
+      DEPLOY_ENV=dev
     fi
   else
     # If we're on master, this is our devnet.
