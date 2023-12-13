@@ -460,7 +460,41 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *  nextIdx   4       2       3       7       5       1       0       6
    *  nextVal   2      10      15      19       3       5       0      20
    *
-   * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
+   * For leaves that allow updating the process is exactly the same. When a leaf is inserted that is already present,
+   * the low leaf will be the leaf that is being updated, and it'll get updated and an empty leaf will be inserted instead.
+   * For example:
+   *
+   * Initial state:
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       0       0       0        0       0       0       0
+   *  value     0       0       0       0        0       0       0       0
+   *  nextIdx   0       0       0       0        0       0       0       0
+   *  nextSlot  0       0       0       0        0       0       0       0.
+   *
+   *
+   *  Add new value 30:5:
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       30      0       0        0       0       0       0
+   *  value     0       5       0       0        0       0       0       0
+   *  nextIdx   1       0       0       0        0       0       0       0
+   *  nextSlot  30      0       0       0        0       0       0       0.
+   *
+   *
+   *  Update the value of 30 to 10 (insert 30:10):
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       30      0       0        0       0       0       0
+   *  value     0       10      0       0        0       0       0       0
+   *  nextIdx   1       0       0       0        0       0       0       0
+   *  nextSlot  30      0       0       0        0       0       0       0.
+   *
+   *  The low leaf is 30, so we update it to 10, and insert an empty leaf at index 2.
+   *
    * @param leaves - Values to insert into the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
