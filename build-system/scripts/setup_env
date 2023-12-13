@@ -34,7 +34,7 @@ echo "PULL_REQUEST=$PULL_REQUEST"
 # If the user has requested to perform a "dry deploy", we set the commit tag to fake version, and set DRY_DEPLOY to 1.
 if [[ "$COMMIT_MESSAGE" == *"[ci dry-deploy]"* ]]; then
   COMMIT_TAG=v999.999.999
-  DRY_DEPLOY=1
+  export DRY_DEPLOY=1
 fi
 
 if should_deploy; then
