@@ -58,6 +58,7 @@ class Goblin {
     using Fq = barretenberg::fq;
 
     using Transcript = proof_system::honk::BaseTranscript;
+    // WORKTODO: until we revert this, can't build all
     using GoblinUltraComposer = proof_system::honk::UltraComposer;
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
