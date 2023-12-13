@@ -18,6 +18,14 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
     }
   }
 
+  private appendEmptyLeaf() {
+    const newSize = (this.cachedSize ?? this.size) + 1n;
+    if (newSize - 1n > this.maxIndex) {
+      throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+    }
+    this.cachedSize = newSize;
+  }
+
   /**
    * Appends the given leaf to the tree.
    * @param leaf - The leaf to append.
@@ -28,11 +36,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
 
     // Special case when appending zero
     if (newLeaf.getKey() === 0n) {
-      const newSize = (this.cachedSize ?? this.size) + 1n;
-      if (newSize - 1n > this.maxIndex) {
-        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
-      }
-      this.cachedSize = newSize;
+      this.appendEmptyLeaf();
       return;
     }
 
@@ -55,7 +59,7 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
       );
 
       await this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
-      await this.updateLeaf(this.leafPreimageFactory.empty(), currentSize);
+      this.appendEmptyLeaf();
     } else {
       const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
         newLeaf,
