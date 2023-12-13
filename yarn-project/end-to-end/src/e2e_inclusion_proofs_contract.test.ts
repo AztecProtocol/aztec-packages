@@ -1,4 +1,4 @@
-import { AccountWallet, AztecAddress, CompleteAddress, Fr, PXE } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, CompleteAddress, Fr, INITIAL_L2_BLOCK_NUM, PXE } from '@aztec/aztec.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -131,8 +131,8 @@ describe('e2e_inclusion_proofs_contract', () => {
   });
 
   it('public value existence failure case', async () => {
-    // Choose random block number between deployment and current block number to test archival node
-    const blockNumber = await getRandomBlockNumberSinceDeployment();
+    // Choose random block number between first block and current block number to test archival node
+    const blockNumber = await getRandomBlockNumber();
 
     const randomPublicValue = Fr.random();
     await expect(
@@ -150,8 +150,8 @@ describe('e2e_inclusion_proofs_contract', () => {
   });
 
   it('nullifier existence failure case', async () => {
-    // Choose random block number between deployment and current block number to test archival node
-    const blockNumber = await getRandomBlockNumberSinceDeployment();
+    // Choose random block number between first block and current block number to test archival node
+    const blockNumber = await getRandomBlockNumber();
     const randomNullifier = Fr.random();
 
     await expect(
@@ -162,5 +162,10 @@ describe('e2e_inclusion_proofs_contract', () => {
   const getRandomBlockNumberSinceDeployment = async () => {
     const currentBlockNumber = await pxe.getBlockNumber();
     return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - deploymentBlockNumber));
+  };
+
+  const getRandomBlockNumber = async () => {
+    const currentBlockNumber = await pxe.getBlockNumber();
+    return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - INITIAL_L2_BLOCK_NUM));
   };
 });
