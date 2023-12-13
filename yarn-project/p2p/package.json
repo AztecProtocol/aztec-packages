@@ -29,8 +29,7 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src",
-    "workerThreads": true
+    "rootDir": "./src"
   },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
