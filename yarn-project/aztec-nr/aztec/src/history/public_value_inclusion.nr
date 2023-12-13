@@ -1,8 +1,5 @@
 use dep::protocol_types::{
-    constants::{
-        PUBLIC_DATA_TREE_HEIGHT,
-        GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
-    },
+    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
     hash::pedersen_hash,
 };
 use dep::std::merkle::compute_merkle_root;
