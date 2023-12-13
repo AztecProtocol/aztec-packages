@@ -87,9 +87,7 @@ contract RollupTest is DecoderTest {
     rollup.process(bytes(""), block_);
   }
 
-  // Skipping this because the block is invalid after I changed the format.
-  // TODO update the block
-  function __testMixBlock() public {
+  function testMixBlock() public {
     (,, bytes32 endStateHash,, bytes32[] memory l2ToL1Msgs, bytes32[] memory l1ToL2Msgs) =
       helper.decode(block_mixed_1);
 
