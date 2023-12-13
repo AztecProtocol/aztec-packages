@@ -125,7 +125,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     // WORKTODO(NEW_CONSTRAINTS): this gets called twice? understand why.
 }
 
-void create_circuit(Builder& builder, acir_format const& constraint_system)
+template <typename Builder> void create_circuit(Builder& builder, acir_format const& constraint_system)
 {
     if (constraint_system.public_inputs.size() > constraint_system.varnum) {
         info("create_circuit: too many public inputs!");
@@ -165,5 +165,8 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
 
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
                                                                  size_t size_hint);
+// WORKTODO: maybe not needed?
+// template GoblinUltraCircuitBuilder create_circuit<GoblinUltraCircuitBuilder>(const acir_format& constraint_system,
+//                                                                              size_t size_hint);
 
 } // namespace acir_format
