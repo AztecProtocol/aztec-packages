@@ -945,7 +945,7 @@ jobs:
           name: "Deploy mainnet fork"
           command: |
             should_deploy || exit 0
-            deploy_terraform_services iac/mainnet-fork mainnet-fork
+            deploy_terraform_services iac/mainnet-fork
       - run:
           name: "Deploy L1 contracts to mainnet fork"
           working_directory: l1-contracts
@@ -959,7 +959,7 @@ jobs:
             # Export variables for Terraform.
             export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
             export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
-            deploy_terraform_services yarn-project/p2p-bootstrap aztec-sandbox aztec-bootstrap
+            deploy_terraform_services yarn-project/p2p-bootstrap aztec-sandbox
       - run:
           name: "Deploy Aztec Nodes to AWS"
           command: |
@@ -973,13 +973,13 @@ jobs:
             if $CONTRACTS_DEPLOYED -eq 1; then
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node aws_efs_file_system.node_data_store
             else
-              deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node
+              deploy_terraform_services yarn-project/aztec-node aztec-sandbox
             fi
       - run:
           name: "Deploy Aztec Faucet to AWS"
           command: |
             should_deploy 0 || exit 0
-            deploy_terraform_services aztec-faucet "$DEPLOY_TAG-faucet"
+            deploy_terraform_services yarn-project/aztec-faucet aztec-sandbox
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults

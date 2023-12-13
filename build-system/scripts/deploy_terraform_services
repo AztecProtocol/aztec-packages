@@ -2,12 +2,15 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-TF_DIR=$1
-CHECK_REBUILD_REPOSITORY=$2
-SERVICE_NAMES=${3:-$CHECK_REBUILD_REPOSITORY}
+PROJECT_DIR=$1
+PROJECT_NAME=$(basename $PROJECT_DIR)
+CHECK_REBUILD_REPOSITORY=${2:-$PROJECT_NAME}
+SERVICE_NAMES=${3:-$PROJECT_NAME}
 TO_TAINT=${4:-}
 
-cd $TF_DIR
+cd $PROJECT_DIR
+
+# Extract the repository name from the terraform directory.
 
 # Bail out if nothing changed.
 CONTENT_HASH=$(calculate_content_hash $CHECK_REBUILD_REPOSITORY)
@@ -17,7 +20,7 @@ if check_rebuild cache-$CONTENT_HASH-$DEPLOY_TAG-deployed $CHECK_REBUILD_REPOSIT
   exit 0
 fi
 
-deploy_terraform $TF_DIR ./terraform/ "$TO_TAINT"
+deploy_terraform $PROJECT_NAME ./terraform/ "$TO_TAINT"
 
 # Restart services.
 for SERVICE in $SERVICE_NAMES; do
