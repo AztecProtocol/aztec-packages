@@ -49,7 +49,7 @@ void AcirComposer::init_and_finalize_builder(acir_format::acir_format& constrain
     create_circuit(constraint_system);
     // WORKTODO: static execution if this doesn't change composer state
     // finalize the circuit
-    goblin.composer.create_instance(builder_);
+    goblin.composer.create_instance(goblin_builder_);
 }
 
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
@@ -89,9 +89,9 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 std::vector<uint8_t> AcirComposer::create_goblin_proof(acir_format::acir_format& constraint_system,
                                                        acir_format::WitnessVector& witness)
 {
-    builder_ = Goblin::Builder(size_hint_);
-    create_circuit_with_witness(builder_, constraint_system, witness);
-    return goblin.construct_proof(builder_);
+    goblin_builder_ = Goblin::Builder(size_hint_);
+    create_circuit_with_witness(goblin_builder_, constraint_system, witness);
+    return goblin.construct_proof(goblin_builder_);
 }
 
 std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()
