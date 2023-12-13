@@ -13,17 +13,11 @@ namespace acir_proofs {
  */
 class AcirComposer {
   public:
-    using Flavor = proof_system::honk::flavor::Ultra;
-    // WORKTODO: it would be nice if we could just flip the flavor
-    // using Flavor = plonk::flavor::Ultra;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     void create_circuit(acir_format::acir_format& constraint_system);
 
-    std::shared_ptr<ProvingKey> init_proving_key(acir_format::acir_format& constraint_system);
+    std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
 
     void init_and_finalize_builder(acir_format::acir_format& constraint_system);
 
@@ -36,9 +30,10 @@ class AcirComposer {
 
     void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
-    std::shared_ptr<VerificationKey> init_verification_key();
+    std::shared_ptr<proof_system::plonk::verification_key> init_verification_key();
 
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
+
     bool verify_goblin_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
@@ -55,16 +50,13 @@ class AcirComposer {
 
   private:
     acir_format::Builder builder_;
-    Goblin goblin;
+    Goblin goblin; // WORKTODO
     size_t size_hint_;
     size_t exact_circuit_size_;
     size_t total_circuit_size_;
     size_t circuit_subgroup_size_;
-    std::shared_ptr<acir_format::Composer::ProverInstance> prover_instance_; // WORKTODO: keys needed?
-    // std::shared_ptr<acir_format::Composer::VerifierInstance> verifier_instance_; // WORKTODO: keys needed?
-    std::shared_ptr<ProvingKey> proving_key_;
-    std::shared_ptr<VerificationKey> verification_key_;
-
+    std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
+    std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
     bool verbose_ = true;
 
     template <typename... Args> inline void vinfo(Args... args)
