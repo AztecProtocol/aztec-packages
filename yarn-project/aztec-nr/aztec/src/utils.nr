@@ -32,3 +32,28 @@ pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
 pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     dep::std::eddsa::lt_bytes32(rhs, lhs)
 }
+
+// TODO: Replace these with something smart.
+pub fn arr_copy_slice_in_struct_dumb2<T, U, N, M>(
+    src: [T; N],
+    mut dst: [U; M],
+    deserialise: fn([T; 2]) -> U,
+    offset: Field,
+) -> [U; M] {
+    for i in 0..dst.len() {
+        dst[i] = deserialise([src[offset + 2 * i], src[offset + 2 * i + 1]]);
+    }
+    dst
+}
+
+pub fn arr_copy_slice_in_struct_dumb3<T, U, N, M>(
+    src: [T; N],
+    mut dst: [U; M],
+    deserialise: fn([T; 3]) -> U,
+    offset: Field,
+) -> [U; M] {
+    for i in 0..dst.len() {
+        dst[i] = deserialise([src[offset + 2 * i], src[offset + 2 * i + 1], src[offset + 2 * i + 2]]);
+    }
+    dst
+}

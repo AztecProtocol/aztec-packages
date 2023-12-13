@@ -76,7 +76,7 @@ impl<Note, N> Set<Note, N> {
     pub fn remove(self, note: Note) {
         let context = self.context.private.unwrap();
         let note_hash = compute_note_hash_for_read_or_nullify(self.note_interface, note);
-        let has_been_read = context.read_requests.any(|r| r == note_hash);
+        let has_been_read = context.read_requests.any(|r: SideEffect| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note(

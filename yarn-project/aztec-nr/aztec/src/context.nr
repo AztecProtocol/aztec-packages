@@ -8,6 +8,7 @@ use dep::protocol_types::{
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         call_stack_item::PrivateCallStackItem,
         call_stack_item::PublicCallStackItem,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{
         AztecAddress,
@@ -23,7 +24,6 @@ use dep::protocol_types::{
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-        MAX_PENDING_READ_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
@@ -51,7 +51,7 @@ use crate::types::{
     vec::BoundedVec,
 };
 
-use crate::utils::arr_copy_slice;
+use crate::utils::{arr_copy_slice, arr_copy_slice_in_struct_dumb2, arr_copy_slice_in_struct_dumb3};
 
 use crate::oracle::{
     arguments,
@@ -68,14 +68,15 @@ use dep::std::option::Option;
 struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
+    side_effect_counter: Field,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
     nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
@@ -94,14 +95,17 @@ impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
             inputs: inputs,
+            // starts at 1 because all private calls have txhash nullifier as 0th nullifier
+            // and therefore 0th sideeffect. increment this for each side effect in this context
+            side_effect_counter: 1,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            read_requests: BoundedVec::new(0),
+            read_requests: BoundedVec::new(SideEffect::zero()),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::zero()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::zero()),
             nullified_commitments: BoundedVec::new(0),
 
             block_header: inputs.block_header,
@@ -175,22 +179,38 @@ impl PrivateContext {
     }
 
     pub fn push_read_request(&mut self, read_request: Field) {
-        self.read_requests.push(read_request);
+        let side_effect = SideEffect {
+            value: read_request,
+            counter: self.side_effect_counter
+        };
+        self.read_requests.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            counter: self.side_effect_counter
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     // We never push a zero nullified_commitment as zero is used to indicate the end
     // of a field array in private kernel. This routine transparently replaces a
     // zero value into the special placeholder: EMPTY_NULLIFIED_COMMITMENT.
     pub fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
         let mut non_zero_nullified = nullified_commitment;
         if (non_zero_nullified == 0) {
             non_zero_nullified = EMPTY_NULLIFIED_COMMITMENT;
         }
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: non_zero_nullified,
+            counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
         self.nullified_commitments.push(non_zero_nullified);
     }
 
@@ -279,45 +299,46 @@ impl PrivateContext {
                     is_delegate_call : fields[9] as bool,
                     is_static_call : fields[10] as bool,
                     is_contract_deployment: fields[11] as bool,
+                    start_side_effect_counter: fields[12],
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
-                args_hash: fields[12],
-                return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 13),
-                read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 17),
-                new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 49),
-                new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 65),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 81),
-                private_call_stack: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 97),
-                public_call_stack: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 101),
-                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 105),
-                encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 107),
-                unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 109),
-                encrypted_log_preimages_length: fields[111],
-                unencrypted_log_preimages_length: fields[112],
+                args_hash: fields[13],
+                return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 14), // +1
+                read_requests: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL], SideEffect::deserialise, 18),
+                new_commitments: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL], SideEffect::deserialise, 82),
+                new_nullifiers:  new_nullifiers: arr_copy_slice_in_struct_dumb3(fields, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL], SideEffectLinkedToNoteHash::deserialise, 114),
+                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 162),
+                private_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 178),
+                public_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 190),
+                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 202),
+                encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 206),
+                unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 208),
+                encrypted_log_preimages_length: fields[210],
+                unencrypted_log_preimages_length: fields[211],
                 block_header: BlockHeader{
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[113],
-                    nullifier_tree_root : fields[114],
-                    contract_tree_root : fields[115],
-                    l1_to_l2_messages_tree_root : fields[116],
-                    archive_root : fields[117],
-                    public_data_tree_root: fields[118],
-                    global_variables_hash: fields[119],
+                    note_hash_tree_root : fields[212],
+                    nullifier_tree_root : fields[213],
+                    contract_tree_root : fields[214],
+                    l1_to_l2_messages_tree_root : fields[215],
+                    archive_root : fields[216],
+                    public_data_tree_root: fields[217],
+                    global_variables_hash: fields[218],
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point {
-                      x: fields[120], 
-                      y: fields[121]
+                      x: fields[219], 
+                      y: fields[220]
                     },
-                    constructor_vk_hash : fields[122],
-                    function_tree_root : fields[123],
-                    contract_address_salt : fields[124],
-                    portal_contract_address : fields[125],
+                    constructor_vk_hash : fields[221],
+                    function_tree_root : fields[222],
+                    contract_address_salt : fields[223],
+                    portal_contract_address : fields[224],
                 },
-                chain_id: fields[126],
-                version: fields[127],
+                chain_id: fields[225],
+                version: fields[226],
             },
-            is_execution_request: fields[128] as bool,
+            is_execution_request: fields[227] as bool,
         };
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
@@ -388,14 +409,15 @@ impl PrivateContext {
                     is_delegate_call : fields[9] as bool,
                     is_static_call : fields[10] as bool,
                     is_contract_deployment: fields[11] as bool,
+                    start_side_effect_counter: fields[12],
                 },
-                args_hash: fields[12],
+                args_hash: fields[13],
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
+                new_commitments: [SideEffect::zero(); MAX_NEW_COMMITMENTS_PER_CALL],
+                new_nullifiers: [SideEffectLinkedToNoteHash::zero(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
@@ -426,6 +448,7 @@ impl PrivateContext {
 
 struct PublicContext {
     inputs: PublicContextInputs,
+    side_effect_counter: Field,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -434,8 +457,8 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
@@ -452,6 +475,7 @@ impl PublicContext {
         let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs: inputs,
+            side_effect_counter: 0, // no initial nullifier in new public context.  increment on every side effect
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
@@ -460,8 +484,8 @@ impl PublicContext {
             contract_storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::zero()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::zero()),
 
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
@@ -536,11 +560,22 @@ impl PublicContext {
     }
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: EMPTY_NULLIFIED_COMMITMENT, // cannot nullify pending notes in public context
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn message_portal(&mut self, content: Field) {
