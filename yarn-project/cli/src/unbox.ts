@@ -232,9 +232,7 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
   if (packageData.dependencies) {
     for (const [key, value] of Object.entries(packageData.dependencies)) {
       const packageVersion: string = value as string;
-      if (packageVersion === 'workspace:^') {
-        packageData.dependencies[key] = `^${packageVersion}`;
-      } else if (packageVersion.startsWith('portal:')) {
+      if (packageVersion.startsWith('portal:')) {
         // portal: dependency used in monorepo when we moved boxes out of the workspace
         packageData.dependencies[key] = `^${packageVersion}`;
       }
