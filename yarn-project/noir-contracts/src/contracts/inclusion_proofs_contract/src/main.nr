@@ -19,6 +19,9 @@ contract InclusionProofs {
         },
         
         history::{
+            contract_inclusion::{
+                prove_contract_inclusion,
+            },
             note_inclusion::{
                 prove_note_commitment_inclusion,
                 prove_note_inclusion,
@@ -175,6 +178,21 @@ contract InclusionProofs {
         block_number: u32, // The block at which we'll prove that the public value exists
     ) {
         prove_public_value_inclusion(public_value, storage.public_value.storage_slot, block_number, context);
+    }
+
+    // Proves that the contract address, portal address and function tree root form a valid contract preimage of a leaf
+    // which exists at block `block_number`.
+    // Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
+    //       way verify that a contract at a given address is what it expects. Then it could store in an internal map
+    //       of contracts (similarily to what Uniswap Factory does with pool contracts).
+    #[aztec(private)]
+    fn test_contract_inclusion_proof(
+        contract_address: Address,
+        portal_contract_address: EthAddress,
+        function_tree_root: Field,
+        block_number: u32, // The block at which we'll prove that the public value exists
+    ) {
+        prove_contract_inclusion(contract_address, portal_contract_address, function_tree_root, block_number, context);
     }
 
     // Computes note hash and nullifier.

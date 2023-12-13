@@ -1,5 +1,6 @@
 use dep::protocol_types::{
     abis::new_contract_data::NewContractData as ContractLeafPreimage,
+    address::{Address, EthAddress},
     constants::CONTRACT_TREE_HEIGHT,
 };
 use dep::std::merkle::compute_merkle_root;
@@ -17,7 +18,7 @@ pub fn prove_contract_inclusion(
     contract_address: Address,
     portal_contract_address: EthAddress,
     function_tree_root: Field,
-    block_number: u32, // The block at which we'll prove that the note exists
+    block_number: u32, // The block at which we'll prove that the contract exists
     context: PrivateContext
 ) {
     // 1) Get block header from oracle and ensure that the block is included in the archive.
@@ -38,10 +39,10 @@ pub fn prove_contract_inclusion(
     let witness: MembershipWitness<CONTRACT_TREE_HEIGHT, CONTRACT_TREE_HEIGHT + 1> =
         get_membership_witness(block_number, contract_tree_id, contract_leaf);
 
-    // 3) Prove that the leaf is in the contract tree
+    // 5) Prove that the leaf is in the contract tree
     assert(
         block_header.contract_tree_root == compute_merkle_root(contract_leaf, witness.index, witness.path),
-        "Proving note inclusion failed"
+        "Proving contract inclusion failed"
     );
 
     // --> Now we have traversed the trees all the way up to archive root.
