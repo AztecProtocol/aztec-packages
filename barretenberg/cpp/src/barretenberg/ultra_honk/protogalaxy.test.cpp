@@ -329,8 +329,17 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
     auto folding_verifier = composer.create_folding_verifier();
 
     auto proof = folding_prover.fold_instances();
+    auto next_accumulator = proof.accumulator;
+    auto storage = proof.storage;
     auto res = folding_verifier.verify_folding_proof(proof.folding_data);
     EXPECT_EQ(res, true);
+    info("folding done");
+
+    auto decider_prover = composer.create_decider_prover(next_accumulator);
+    auto decider_verifier = composer.create_decider_verifier(next_accumulator);
+    auto decision = decider_prover.construct_proof();
+    auto verified = decider_verifier.verify_proof(decision);
+    EXPECT_EQ(verified, true);
 }
 
 } // namespace protogalaxy_tests

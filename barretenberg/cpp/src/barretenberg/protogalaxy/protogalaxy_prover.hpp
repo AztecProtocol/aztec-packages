@@ -442,7 +442,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new accumulator
      */
-    std::shared_ptr<Instance> compute_next_accumulator(
+    std::pair<std::shared_ptr<Instance>, AllPolynomials> compute_next_accumulator(
         ProverInstances& instances,
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
         const FF& challenge,

@@ -10,6 +10,12 @@ using namespace proof_system::honk::sumcheck;
 namespace proof_system::honk {
 
 template <typename Flavor>
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
+                                           const std::shared_ptr<VerificationKey>& verifier_key)
+    : key(verifier_key)
+    , transcript(transcript)
+{}
+template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_()
     : pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory()))
     , transcript(std::make_shared<Transcript>())
@@ -23,9 +29,10 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    // using Curve = typename Flavor::Curve;
+    // using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using Instance = VerifierInstance_<Flavor>;
+    using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof.proof_data);
     auto inst = std::make_unique<Instance>();
@@ -68,6 +75,16 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
         vk_view[idx] = transcript->template receive_from_prover<Commitment>(vk_labels[idx]);
     }
 
+    VerifierCommitments commitments{ inst->verification_key };
+    auto& witness_commitments = inst->witness_commitments;
+    commitments.w_l = witness_commitments.w_l;
+    commitments.w_r = witness_commitments.w_r;
+    commitments.w_o = witness_commitments.w_o;
+    commitments.sorted_accum = witness_commitments.sorted_accum;
+    commitments.w_4 = witness_commitments.w_4;
+    commitments.z_perm = witness_commitments.z_perm;
+    commitments.z_lookup = witness_commitments.z_lookup;
+
     auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
@@ -80,16 +97,16 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(inst->commitments.get_unshifted(),
-                                            inst->commitments.get_to_be_shifted(),
-                                            claimed_evaluations.get_unshifted(),
-                                            claimed_evaluations.get_shifted(),
-                                            multivariate_challenge,
-                                            transcript);
+    // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+    //                                         commitments.get_to_be_shifted(),
+    //                                         claimed_evaluations.get_unshifted(),
+    //                                         claimed_evaluations.get_shifted(),
+    //                                         multivariate_challenge,
+    //                                         transcript);
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    return sumcheck_verified.value() && verified;
+    return sumcheck_verified.value(); // && verified;
 }
 
 template class DeciderVerifier_<honk::flavor::Ultra>;

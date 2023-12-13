@@ -165,14 +165,16 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     auto combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
 
     FoldingResult<Flavor> res;
-    res.accumulator =
+    auto [next_accumulator, storage] =
         compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript->proof_data;
-
+    res.accumulator = next_accumulator;
+    res.storage = storage;
     return res;
 }
 template <class ProverInstances>
-std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
+std::pair<std::shared_ptr<typename ProverInstances::Instance>, typename ProverInstances::Flavor::AllPolynomials>
+ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
     Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
     const FF& challenge,
@@ -187,6 +189,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
     auto next_accumulator = std::make_shared<Instance>();
+    next_accumulator->instance_size = instances[0]->instance_size;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
@@ -299,7 +302,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     }
     next_accumulator->verification_key = acc_vk;
 
-    return next_accumulator;
+    return std::pair(next_accumulator, std::move(storage));
 }
 
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

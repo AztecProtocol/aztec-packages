@@ -109,10 +109,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    info("here");
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
-    info("out of sumcheck");
     // Execute ZeroMorph multilinear PCS evaluation verifier
     auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
                                             commitments.get_to_be_shifted(),

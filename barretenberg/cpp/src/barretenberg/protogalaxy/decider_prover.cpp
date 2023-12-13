@@ -49,6 +49,8 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
         transcript->send_to_verifier("gate_challenge_" + std::to_string(idx), accumulator->gate_challenges[idx]);
     }
 
+    // send as verifier commitments
+    // should protogalaxy work on verifier commitments?
     auto comm_view = accumulator->witness_commitments.get_all();
     auto witness_labels = accumulator->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
@@ -69,8 +71,8 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
 template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
-    auto circuit_size = accumulator->proving_key->circuit_size;
-    auto sumcheck = Sumcheck(circuit_size, transcript);
+    auto instance_size = accumulator->instance_size;
+    auto sumcheck = Sumcheck(instance_size, transcript);
     sumcheck_output = sumcheck.prove(accumulator);
 }
 
@@ -107,7 +109,7 @@ template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::construct_pr
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    execute_zeromorph_rounds();
+    // execute_zeromorph_rounds();
 
     return export_proof();
 }

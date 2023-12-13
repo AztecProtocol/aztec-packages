@@ -15,6 +15,8 @@ template <typename Flavor> class DeciderVerifier_ {
 
   public:
     explicit DeciderVerifier_();
+    explicit DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
+                              const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
 
     bool verify_proof(const plonk::proof& proof);
 

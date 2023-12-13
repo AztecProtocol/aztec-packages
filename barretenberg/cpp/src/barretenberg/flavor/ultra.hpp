@@ -386,6 +386,11 @@ class Ultra {
         };
     };
 
+    /**
+     * @brief A container encapsulating all the commitments that the verifier receives (to precomputed polynomials and
+     * witness polynomials).
+     *
+     */
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)

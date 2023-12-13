@@ -97,6 +97,27 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared
     return output_state;
 }
 
+template <UltraFlavor Flavor>
+DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<Instance>& accumulator,
+                                                                     const std::shared_ptr<Transcript>& transcript)
+{
+    DeciderProver_<Flavor> output_state(accumulator, commitment_key, transcript);
+
+    return output_state;
+}
+
+template <UltraFlavor Flavor>
+DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const std::shared_ptr<Instance>& accumulator,
+                                                                         const std::shared_ptr<Transcript>& transcript)
+{
+    auto& verification_key = accumulator->verification_key;
+    DeciderVerifier_<Flavor> output_state(transcript, verification_key);
+    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
+    output_state.pcs_verification_key = std::move(pcs_verification_key);
+
+    return output_state;
+}
+
 template class UltraComposer_<honk::flavor::Ultra>;
 template class UltraComposer_<honk::flavor::GoblinUltra>;
 } // namespace proof_system::honk
