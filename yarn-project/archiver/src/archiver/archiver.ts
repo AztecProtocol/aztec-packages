@@ -197,19 +197,20 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
 
     // TODO (#717): optimize this - there could be messages in confirmed that are also in pending.
     // Or messages in pending that are also cancelled in the same block. No need to modify storage for them.
-    
+
     if (retrievedPendingL1ToL2Messages.retrievedData.length) {
       // Store l1 to l2 messages
       this.log(`Adding ${retrievedPendingL1ToL2Messages.retrievedData.length} pending l1 to l2 messages to store`);
       await this.store.addPendingL1ToL2Messages(retrievedPendingL1ToL2Messages.retrievedData);
     }
-    
+
     if (retrievedCancelledL1ToL2Messages.retrievedData.length) {
       // remove cancelled messages from the pending message store:
-      this.log(`Removing ${retrievedCancelledL1ToL2Messages.retrievedData.length} pending l1 to l2 messages from store where messages were cancelled`);
+      this.log(
+        `Removing ${retrievedCancelledL1ToL2Messages.retrievedData.length} pending l1 to l2 messages from store where messages were cancelled`,
+      );
       await this.store.cancelPendingL1ToL2Messages(retrievedCancelledL1ToL2Messages.retrievedData);
     }
-
 
     // ********** Events that are processed per block **********
 
