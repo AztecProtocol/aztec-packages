@@ -102,9 +102,10 @@ async function downloadContractAndBoxFromGithub(
   // small string conversion, in the ABI the contract name looks like PrivateToken
   // but in the repository it looks like private_token
 
-  log(`Downloading @aztec/boxes/${contractName}/ to ${outputPath}...`);
+  log(`Downloading @aztec-protocol/boxes/${contractName}/ to ${outputPath}...`);
   // Step 1: Fetch the monorepo ZIP from GitHub, matching the CLI version
   const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/${tag}.zip`;
+  log(`Downloading from ${url}`);
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
 
