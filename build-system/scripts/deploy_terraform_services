@@ -24,4 +24,8 @@ for SERVICE in $SERVICES; do
 done
 
 # Tag the image as deployed.
-retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+if [ "$DRY_DEPLOY" -eq 1 ]; then
+  echo "DRY_DEPLOY: tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed"
+else
+  retry tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$DEPLOY_TAG-deployed
+fi
