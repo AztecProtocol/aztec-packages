@@ -370,6 +370,21 @@
     "isAsync": false
   },
   {
+    "functionName": "srs_init_grumpkin_srs",
+    "inArgs": [
+      {
+        "name": "points_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "num_points",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [],
+    "isAsync": false
+  },
+  {
     "functionName": "examples_simple_create_and_verify_proof",
     "inArgs": [],
     "outArgs": [
@@ -644,10 +659,6 @@
       {
         "name": "proof_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "is_recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
