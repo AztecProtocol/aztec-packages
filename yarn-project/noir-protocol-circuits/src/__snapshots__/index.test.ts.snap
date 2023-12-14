@@ -21263,7 +21263,7 @@ KernelCircuitPublicInputs {
     ],
     "publicDataReads": [
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21346,7 +21346,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21429,7 +21429,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21512,7 +21512,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21595,7 +21595,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21678,7 +21678,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21761,7 +21761,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21844,7 +21844,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -21927,7 +21927,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22010,7 +22010,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22093,7 +22093,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22176,7 +22176,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22259,7 +22259,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22342,7 +22342,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22425,7 +22425,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22508,7 +22508,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22593,7 +22593,7 @@ KernelCircuitPublicInputs {
     ],
     "publicDataUpdateRequests": [
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22716,7 +22716,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22839,7 +22839,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -22962,7 +22962,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23085,7 +23085,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23208,7 +23208,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23331,7 +23331,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23454,7 +23454,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23577,7 +23577,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23700,7 +23700,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23823,7 +23823,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -23946,7 +23946,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -24069,7 +24069,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -24192,7 +24192,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -24315,7 +24315,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -24438,7 +24438,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52255,7 +52255,7 @@ KernelCircuitPublicInputs {
     ],
     "publicDataReads": [
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52338,7 +52338,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52421,7 +52421,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52504,7 +52504,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52587,7 +52587,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52670,7 +52670,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52753,7 +52753,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52836,7 +52836,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -52919,7 +52919,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53002,7 +53002,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53085,7 +53085,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53168,7 +53168,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53251,7 +53251,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53334,7 +53334,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53417,7 +53417,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53500,7 +53500,7 @@ KernelCircuitPublicInputs {
         },
       },
       PublicDataRead {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53585,7 +53585,7 @@ KernelCircuitPublicInputs {
     ],
     "publicDataUpdateRequests": [
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53708,7 +53708,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53831,7 +53831,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -53954,7 +53954,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54077,7 +54077,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54200,7 +54200,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54323,7 +54323,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54446,7 +54446,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54569,7 +54569,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54692,7 +54692,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54815,7 +54815,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -54938,7 +54938,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -55061,7 +55061,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -55184,7 +55184,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -55307,7 +55307,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
@@ -55430,7 +55430,7 @@ KernelCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
       PublicDataUpdateRequest {
-        "leafIndex": Fr {
+        "leafSlot": Fr {
           "asBigInt": 0n,
           "asBuffer": {
             "data": [
