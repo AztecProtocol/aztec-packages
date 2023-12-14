@@ -35,7 +35,6 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
 WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
                                           uint8_t const* constraint_system_buf,
                                           uint8_t const* witness_buf,
-                                          bool const* is_recursive,
                                           uint8_t** out);
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);

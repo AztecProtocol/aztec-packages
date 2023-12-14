@@ -127,9 +127,6 @@ export async function proveAndVerifyGoblin(
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    const pkTimer = new Timer();
-    await api.acirInitProvingKey(acirComposer, bytecode);
-    writeBenchmark('pk_construction_time', pkTimer.ms(), { acir_test, threads });
     writeBenchmark('gate_count', circuitSize, { acir_test, threads });
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
@@ -344,6 +341,18 @@ program
   .action(async ({ bytecodePath, witnessPath, recursive, crsPath }) => {
     handleGlobalOptions();
     const result = await proveAndVerify(bytecodePath, witnessPath, crsPath, recursive);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('prove_and_verify_goblin')
+  .description('Generate a proof and verify it. Process exits with success or failure code.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .option('-r, --recursive', 'prove and verify using recursive prover and verifier', false)
+  .action(async ({ bytecodePath, witnessPath, recursive, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyGoblin(bytecodePath, witnessPath, crsPath, recursive);
     process.exit(result ? 0 : 1);
   });
 

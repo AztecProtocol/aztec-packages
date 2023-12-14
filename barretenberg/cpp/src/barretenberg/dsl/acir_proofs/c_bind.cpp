@@ -53,7 +53,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_create_proof_goblin(in_ptr acir_composer_ptr,
+WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
                                           uint8_t const* acir_vec,
                                           uint8_t const* witness_vec,
                                           uint8_t** out)

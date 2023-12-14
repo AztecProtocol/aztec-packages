@@ -241,7 +241,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                 size_t combined_hash = 0;
 
                 // C++ does not have a standard way to hash values, so we use the
-                // common algorithm that boot uses.
+                // common algorithm that boost uses.
                 // You can search for 'cpp hash_combine' to find more information.
                 // Here is one reference:
                 // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
