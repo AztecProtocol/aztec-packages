@@ -62,8 +62,8 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, circuit_outpu
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    circuit_outputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_zero(), SideEffect::zero());
-    circuit_outputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_zero(), SideEffectLinkedToNoteHash::zero());
+    circuit_outputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_empty(), SideEffect::zero());
+    circuit_outputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_empty(), SideEffectLinkedToNoteHash::zero());
 
     circuit_outputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
     circuit_outputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
@@ -85,10 +85,10 @@ fn perform_static_call_checks(public_call: PublicCallData){
     let public_inputs = public_call.call_stack_item.public_inputs;
     if public_inputs.call_context.is_static_call {
         // No state changes are allowed for static calls:
-        let new_commitments_length = struct_array_length(public_inputs.new_commitments, |r: SideEffect| r.is_zero());
+        let new_commitments_length = struct_array_length(public_inputs.new_commitments, |r: SideEffect| r.is_empty());
         assert(new_commitments_length == 0, "new_commitments must be empty for static calls");
 
-        let new_nullifiers_length = struct_array_length(public_inputs.new_nullifiers, |r: SideEffectLinkedToNoteHash| r.is_zero());
+        let new_nullifiers_length = struct_array_length(public_inputs.new_nullifiers, |r: SideEffectLinkedToNoteHash| r.is_empty());
         assert(new_nullifiers_length == 0, "new_nullifiers must be empty for static calls");
 
         let update_requests_length = struct_array_length(public_inputs.contract_storage_update_requests, |r: StorageUpdateRequest| r.is_empty());

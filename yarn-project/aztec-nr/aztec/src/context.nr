@@ -181,7 +181,7 @@ impl PrivateContext {
     pub fn push_read_request(&mut self, read_request: Field) {
         let side_effect = SideEffect {
             value: read_request,
-            counter: self.side_effect_counter
+            counter: self.side_effect_counter,
         };
         self.read_requests.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -190,7 +190,7 @@ impl PrivateContext {
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect {
             value: note_hash,
-            counter: self.side_effect_counter
+            counter: self.side_effect_counter,
         };
         self.new_commitments.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -207,7 +207,7 @@ impl PrivateContext {
         let side_effect = SideEffectLinkedToNoteHash {
             value: nullifier,
             note_hash: non_zero_nullified,
-            counter: self.side_effect_counter
+            counter: self.side_effect_counter,
         };
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -280,7 +280,7 @@ impl PrivateContext {
         let fields = call_private_function_internal(
             contract_address,
             function_selector, 
-            args_hash
+            args_hash,
         );
         let item = PrivateCallStackItem {
             contract_address: AztecAddress::from_field(fields[0]),

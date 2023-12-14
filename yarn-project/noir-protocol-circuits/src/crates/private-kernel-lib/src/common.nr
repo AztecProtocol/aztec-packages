@@ -54,9 +54,9 @@ pub fn validate_arrays(app_public_inputs : PrivateCircuitPublicInputs) {
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
     
     validate_array(app_public_inputs.return_values);
-    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.is_zero());
-    validate_struct_array(app_public_inputs.new_commitments, |c: SideEffect| c.is_zero());
-    validate_struct_array(app_public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero());
+    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.is_empty());
+    validate_struct_array(app_public_inputs.new_commitments, |c: SideEffect| c.is_empty());
+    validate_struct_array(app_public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_empty());
     validate_array(app_public_inputs.nullified_commitments);
     validate_array(app_public_inputs.private_call_stack_hashes);
     validate_array(app_public_inputs.public_call_stack_hashes);
@@ -109,10 +109,10 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_zero(), SideEffect::zero());
+    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_empty(), SideEffect::zero());
 
-    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_zero(), SideEffect::zero());
-    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_zero(), SideEffectLinkedToNoteHash::zero());
+    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_empty(), SideEffect::zero());
+    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_empty(), SideEffectLinkedToNoteHash::zero());
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
     public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
@@ -134,8 +134,8 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     let is_static_call = public_inputs.call_context.is_static_call;
     if is_static_call {
         // No state changes are allowed for static calls:
-        assert(is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.is_zero()), "new_commitments must be empty for static calls");
-        assert(is_empty_struct_array(public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_zero()), "new_nullifiers must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.is_empty()), "new_commitments must be empty for static calls");
+        assert(is_empty_struct_array(public_inputs.new_nullifiers, |n: SideEffectLinkedToNoteHash| n.is_empty()), "new_nullifiers must be empty for static calls");
     }
 }
 

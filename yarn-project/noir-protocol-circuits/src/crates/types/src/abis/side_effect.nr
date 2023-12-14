@@ -7,18 +7,26 @@ struct SideEffect{
 }
 
 impl SideEffect {
+    fn serialize(self) -> [Field; 2] {
+        [self.value, self.counter]
+    }
+
+    fn deserialise(values: [Field; 2]) -> Self {
+        Self {
+            value: values[0],
+            counter: values[1],
+        }
+    }
     pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator([
-            self.value,
-            self.counter,
-        ], GENERATOR_INDEX__SIDE_EFFECT)
+        dep::std::hash::pedersen_hash_with_separator(
+            self.serialize() , GENERATOR_INDEX__SIDE_EFFECT)
     }
 
-    pub fn assert_is_zero(self){
-        assert(self.is_zero());
+    pub fn assert_is_empty(self){
+        assert(self.is_empty());
     }
 
-    pub fn is_zero(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.value == 0)
         & (self.counter == 0)
     }
@@ -28,15 +36,11 @@ impl SideEffect {
         & (self.counter == side_effect.counter)
     }
 
-    pub fn zero() -> SideEffect {
+    pub fn empty() -> SideEffect {
         SideEffect {
             value: 0,
             counter: 0,
         }
-    }
-
-    pub fn to_field_array(self) -> [Field; 2] {
-        [self.value, self.counter]
     }
 }
 
@@ -47,19 +51,29 @@ struct SideEffectLinkedToNoteHash{
 }
 
 impl SideEffectLinkedToNoteHash{
+    pub fn serialize(self) -> [Field; 3] {
+        [self.value, self.note_hash, self.counter]
+    }
+
+    pub fn deserialise(values: [Field; 3]) -> Self {
+        Self {
+            value: values[0],
+            note_hash: values[1],
+            counter: values[2],
+        }
+    }
+
     pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator([
-            self.value,
-            self.note_hash,
-            self.counter,
-        ], GENERATOR_INDEX__SIDE_EFFECT)
+        dep::std::hash::pedersen_hash_with_separator(
+            self.serialize(),
+        GENERATOR_INDEX__SIDE_EFFECT)
     }
 
-    pub fn assert_is_zero(self){
-        assert(self.is_zero());
+    pub fn assert_is_empty(self){
+        assert(self.is_empty());
     }
 
-    pub fn is_zero(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.value == 0)
         &  (self.note_hash == 0)
         & (self.counter == 0)
@@ -71,16 +85,12 @@ impl SideEffectLinkedToNoteHash{
             & (self.counter == side_effect.counter)
     }
 
-    pub fn zero() -> SideEffectLinkedToNoteHash {
+    pub fn empty() -> SideEffectLinkedToNoteHash {
         SideEffectLinkedToNoteHash {
             value: 0,
             note_hash: 0,
             counter: 0,
         }
-    }
-
-    pub fn to_field_array(self) -> [Field; 3] {
-        [self.value, self.note_hash, self.counter]
     }
 }
 

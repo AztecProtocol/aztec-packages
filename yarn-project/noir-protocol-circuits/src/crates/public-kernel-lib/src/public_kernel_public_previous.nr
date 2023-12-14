@@ -195,7 +195,7 @@ mod tests {
 
 
         let public_inputs = builder.execute();
-        assert(struct_array_eq(public_inputs.end.new_commitments, new_commitments,|a: SideEffect, b: SideEffect| a.eq(b), |a: SideEffect| a.is_zero()));
+        assert(struct_array_eq(public_inputs.end.new_commitments, new_commitments,|a: SideEffect, b: SideEffect| a.eq(b), |a: SideEffect| a.is_empty()));
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod tests {
         let new_nullifiers = [previous[0], previous[1], previous[2], current[0], current[1]];
 
         let public_inputs = builder.execute();
-        assert(struct_array_eq(public_inputs.end.new_nullifiers, new_nullifiers,|a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_zero()));
+        assert(struct_array_eq(public_inputs.end.new_nullifiers, new_nullifiers,|a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b), |a: SideEffectLinkedToNoteHash| a.is_empty()));
     }
 
     #[test]
