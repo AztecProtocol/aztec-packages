@@ -3,12 +3,10 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  FunctionSelector,
   INITIAL_L2_BLOCK_NUM,
   PXE,
+  computeContractFunctionTreeRoot,
 } from '@aztec/aztec.js';
-import { generateFunctionLeaves } from '@aztec/circuits.js';
-import { computeFunctionTreeRoot } from '@aztec/circuits.js/abis';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -212,12 +210,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
   const getContractFunctionTreeRoot = () => {
     if (!contractFunctionTreeRoot) {
-      const functions = contract.artifact.functions.map(f => ({
-        ...f,
-        selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      }));
-      const functionLeaves = generateFunctionLeaves(functions);
-      contractFunctionTreeRoot = computeFunctionTreeRoot(functionLeaves);
+      contractFunctionTreeRoot = computeContractFunctionTreeRoot(contract.artifact);
     }
     return contractFunctionTreeRoot;
   };
