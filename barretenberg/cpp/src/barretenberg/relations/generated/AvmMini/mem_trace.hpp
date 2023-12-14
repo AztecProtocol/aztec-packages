@@ -7,20 +7,26 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Mem_traceRow {
-    FF memTrace_m_last{};
-    FF memTrace_m_rw{};
-    FF memTrace_m_val{};
-    FF memTrace_m_one_min_inv{};
-    FF memTrace_m_in_tag{};
-    FF memTrace_m_addr_shift{};
-    FF memTrace_m_lastAccess{};
-    FF memTrace_m_tag{};
-    FF memTrace_m_tag_err{};
-    FF memTrace_m_rw_shift{};
     FF memTrace_m_val_shift{};
+    FF memTrace_m_one_min_inv{};
+    FF memTrace_m_rw_shift{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_in_tag{};
+    FF memTrace_m_rw{};
+    FF memTrace_m_tag{};
     FF memTrace_m_tag_shift{};
     FF memTrace_m_addr{};
+    FF memTrace_m_lastAccess{};
+    FF memTrace_m_val{};
+    FF memTrace_m_last{};
+    FF memTrace_m_tag_err{};
 };
+
+inline std::string get_relation_label_mem_trace(int index)
+{
+    switch (index) {}
+    return std::to_string(index);
+}
 
 template <typename FF_> class mem_traceImpl {
   public:
@@ -39,7 +45,7 @@ template <typename FF_> class mem_traceImpl {
 
         // Contribution 0
         {
-            DECLARE_VIEWS(0);
+            AvmMini_DECLARE_VIEWS(0);
 
             auto tmp = (memTrace_m_lastAccess * (-memTrace_m_lastAccess + FF(1)));
             tmp *= scaling_factor;
@@ -47,7 +53,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 1
         {
-            DECLARE_VIEWS(1);
+            AvmMini_DECLARE_VIEWS(1);
 
             auto tmp = (memTrace_m_last * (-memTrace_m_last + FF(1)));
             tmp *= scaling_factor;
@@ -55,7 +61,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 2
         {
-            DECLARE_VIEWS(2);
+            AvmMini_DECLARE_VIEWS(2);
 
             auto tmp = (memTrace_m_rw * (-memTrace_m_rw + FF(1)));
             tmp *= scaling_factor;
@@ -63,7 +69,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 3
         {
-            DECLARE_VIEWS(3);
+            AvmMini_DECLARE_VIEWS(3);
 
             auto tmp = (memTrace_m_tag_err * (-memTrace_m_tag_err + FF(1)));
             tmp *= scaling_factor;
@@ -71,7 +77,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 4
         {
-            DECLARE_VIEWS(4);
+            AvmMini_DECLARE_VIEWS(4);
 
             auto tmp = ((-memTrace_m_lastAccess + FF(1)) * (memTrace_m_addr_shift - memTrace_m_addr));
             tmp *= scaling_factor;
@@ -79,7 +85,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 5
         {
-            DECLARE_VIEWS(5);
+            AvmMini_DECLARE_VIEWS(5);
 
             auto tmp = (((-memTrace_m_lastAccess + FF(1)) * (-memTrace_m_rw_shift + FF(1))) *
                         (memTrace_m_val_shift - memTrace_m_val));
@@ -88,7 +94,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 6
         {
-            DECLARE_VIEWS(6);
+            AvmMini_DECLARE_VIEWS(6);
 
             auto tmp = (((-memTrace_m_lastAccess + FF(1)) * (-memTrace_m_rw_shift + FF(1))) *
                         (memTrace_m_tag_shift - memTrace_m_tag));
@@ -97,7 +103,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 7
         {
-            DECLARE_VIEWS(7);
+            AvmMini_DECLARE_VIEWS(7);
 
             auto tmp = ((memTrace_m_lastAccess * (-memTrace_m_rw_shift + FF(1))) * memTrace_m_val_shift);
             tmp *= scaling_factor;
@@ -105,7 +111,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 8
         {
-            DECLARE_VIEWS(8);
+            AvmMini_DECLARE_VIEWS(8);
 
             auto tmp =
                 (((memTrace_m_in_tag - memTrace_m_tag) * (-memTrace_m_one_min_inv + FF(1))) - memTrace_m_tag_err);
@@ -114,7 +120,7 @@ template <typename FF_> class mem_traceImpl {
         }
         // Contribution 9
         {
-            DECLARE_VIEWS(9);
+            AvmMini_DECLARE_VIEWS(9);
 
             auto tmp = ((-memTrace_m_tag_err + FF(1)) * memTrace_m_one_min_inv);
             tmp *= scaling_factor;

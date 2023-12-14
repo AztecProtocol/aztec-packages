@@ -7,6 +7,8 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
+#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -40,7 +42,7 @@ class AvmMiniFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 38;
 
-    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
+    using Relations = std::tuple<AvmMini_vm::mem_trace<FF>, AvmMini_vm::avm_mini<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -182,9 +184,9 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_addr_shift,
-                              memTrace_m_rw_shift,
                               memTrace_m_val_shift,
+                              memTrace_m_rw_shift,
+                              memTrace_m_addr_shift,
                               memTrace_m_tag_shift)
 
         RefVector<DataType> get_wires()
@@ -223,9 +225,9 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_addr_shift,
-                     memTrace_m_rw_shift,
                      memTrace_m_val_shift,
+                     memTrace_m_rw_shift,
+                     memTrace_m_addr_shift,
                      memTrace_m_tag_shift };
         };
         RefVector<DataType> get_unshifted()
@@ -267,11 +269,11 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_addr, memTrace_m_rw, memTrace_m_val, memTrace_m_tag };
+            return { memTrace_m_val, memTrace_m_rw, memTrace_m_addr, memTrace_m_tag };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_addr_shift, memTrace_m_rw_shift, memTrace_m_val_shift, memTrace_m_tag_shift };
+            return { memTrace_m_val_shift, memTrace_m_rw_shift, memTrace_m_addr_shift, memTrace_m_tag_shift };
         };
     };
 
@@ -553,4 +555,6 @@ class AvmMiniFlavor {
 };
 
 } // namespace flavor
+
+namespace sumcheck {}
 } // namespace proof_system::honk
