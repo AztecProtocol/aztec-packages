@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import { acvmInfoJson } from './info.js';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
+import { GrumpkinCrs } from './crs/node/index.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -69,6 +70,30 @@ async function init(bytecodePath: string, crsPath: string) {
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
+// TODO(AD): deduplicate this?
+async function initGoblin(bytecodePath: string, crsPath: string) {
+  const api = await Barretenberg.new(threads);
+
+  const circuitSize = await getGates(bytecodePath, api);
+  const subgroupSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
+  if (subgroupSize > MAX_CIRCUIT_SIZE) {
+    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
+  }
+
+  // Plus 1 needed! (Move +1 into Crs?)
+  const crs = await GrumpkinCrs.new(subgroupSize + 1, crsPath);
+  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
+  await api.commonInitSlabAllocator(subgroupSize);
+
+  // TODO use CRS class to load this, just assuming file exists right now.
+  // Eventually we want to download from internet if not around.
+  readFileSync(crsPath + '/g1.dat');
+  await api.srsInitGrumpkinSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
+
+  const acirComposer = await api.acirNewAcirComposer(subgroupSize);
+  return { api, acirComposer, circuitSize, subgroupSize };
+}
+
 async function initLite() {
   const api = await Barretenberg.new(1);
 
@@ -116,7 +141,7 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
-  const { api, acirComposer, circuitSize, subgroupSize } = await init(bytecodePath, crsPath);
+  const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
