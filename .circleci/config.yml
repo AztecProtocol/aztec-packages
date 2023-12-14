@@ -971,7 +971,8 @@ jobs:
             export TF_VAR_NODE_1_PRIVATE_KEY=$NODE_1_PRIVATE_KEY
             export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
             # Check if l1-contracts have changed
-            if $CONTRACTS_DEPLOYED -eq 1; then
+            if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
+              echo "Contracts have changed, deploying node terraforms with tainted EFS"
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node aws_efs_file_system.node_data_store
             else
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox
