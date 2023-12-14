@@ -1,5 +1,7 @@
 ---
+title: Specification
 sidebar_position: 1
+description: Specification of address format in the protocol, default privacy keys format and derivation, and nullifier derivation.
 ---
 
 $$
@@ -83,8 +85,6 @@ $$
 
 
 $$
-
-# Proposal: Aztec Keys
 
 ## Requirements for Keys
 
