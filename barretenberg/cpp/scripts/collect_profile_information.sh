@@ -6,7 +6,7 @@ PRESET=${1:-xray}
 # pass "" to run and 1 to reuse old results
 ONLY_PROCESS=${2:-}
 # pass the executable name from build/bin
-EXECUTABLE=${3:-ultra_honk_rounds_bench}
+EXECUTABLE=${3:-goblin_bench}
 # by default run the executable, but we can provide an alt command e.g. use taskset and benchmark flags
 COMMAND=${4:-./bin/$EXECUTABLE}
 
