@@ -184,10 +184,10 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_val_shift,
+                              memTrace_m_tag_shift,
                               memTrace_m_rw_shift,
-                              memTrace_m_addr_shift,
-                              memTrace_m_tag_shift)
+                              memTrace_m_val_shift,
+                              memTrace_m_addr_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -225,10 +225,10 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_val_shift,
+                     memTrace_m_tag_shift,
                      memTrace_m_rw_shift,
-                     memTrace_m_addr_shift,
-                     memTrace_m_tag_shift };
+                     memTrace_m_val_shift,
+                     memTrace_m_addr_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -269,11 +269,11 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_rw, memTrace_m_addr, memTrace_m_tag };
+            return { memTrace_m_tag, memTrace_m_rw, memTrace_m_val, memTrace_m_addr };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_val_shift, memTrace_m_rw_shift, memTrace_m_addr_shift, memTrace_m_tag_shift };
+            return { memTrace_m_tag_shift, memTrace_m_rw_shift, memTrace_m_val_shift, memTrace_m_addr_shift };
         };
     };
 

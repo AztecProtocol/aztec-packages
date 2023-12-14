@@ -7,19 +7,19 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Mem_traceRow {
-    FF memTrace_m_val_shift{};
-    FF memTrace_m_one_min_inv{};
-    FF memTrace_m_rw_shift{};
-    FF memTrace_m_addr_shift{};
-    FF memTrace_m_in_tag{};
-    FF memTrace_m_rw{};
-    FF memTrace_m_tag{};
     FF memTrace_m_tag_shift{};
-    FF memTrace_m_addr{};
-    FF memTrace_m_lastAccess{};
-    FF memTrace_m_val{};
+    FF memTrace_m_in_tag{};
     FF memTrace_m_last{};
+    FF memTrace_m_rw_shift{};
+    FF memTrace_m_tag{};
+    FF memTrace_m_one_min_inv{};
+    FF memTrace_m_val_shift{};
+    FF memTrace_m_rw{};
     FF memTrace_m_tag_err{};
+    FF memTrace_m_lastAccess{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_addr{};
+    FF memTrace_m_val{};
 };
 
 inline std::string get_relation_label_mem_trace(int index)

@@ -14,6 +14,15 @@
 #include <string>
 #include <vector>
 
+#define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
+    try {                                                                                                              \
+        code;                                                                                                          \
+        FAIL() << "An exception was expected";                                                                         \
+    } catch (const std::exception& e) {                                                                                \
+        std::string message = e.what();                                                                                \
+        EXPECT_TRUE(message.find(expectedMessage) != std::string::npos);                                               \
+    }
+
 using namespace proof_system;
 
 namespace tests_avm {
@@ -332,14 +341,12 @@ TEST_F(AvmMiniArithmeticNegativeTests, additionFF)
 
     //                             Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4, AvmMemoryTag::ff); // [37,4,11,0,41,0,....]
-    trace_builder.returnOP(0, 5);
     auto trace = trace_builder.finalize();
 
     auto selectRow = [](Row r) { return r.avmMini_sel_op_add == FF(1); };
     mutateIcInTrace(trace, std::move(selectRow), FF(40));
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_ADDITION_FF");
 }
 
 // Test on basic incorrect subtraction over finite field type.
@@ -349,14 +356,12 @@ TEST_F(AvmMiniArithmeticNegativeTests, subtractionFF)
 
     //                             Memory layout:    [8,4,17,0,0,0,....]
     trace_builder.sub(2, 0, 1, AvmMemoryTag::ff); // [8,9,17,0,0,0....]
-    trace_builder.returnOP(0, 3);
     auto trace = trace_builder.finalize();
 
     auto selectRow = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
     mutateIcInTrace(trace, std::move(selectRow), FF(-9));
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_SUBTRACTION_FF");
 }
 
 // Test on basic incorrect multiplication over finite field type.
@@ -366,14 +371,12 @@ TEST_F(AvmMiniArithmeticNegativeTests, multiplicationFF)
 
     //                             Memory layout:    [5,0,20,0,0,0,....]
     trace_builder.mul(2, 0, 1, AvmMemoryTag::ff); // [5,100,20,0,0,0....]
-    trace_builder.returnOP(0, 3);
     auto trace = trace_builder.finalize();
 
     auto selectRow = [](Row r) { return r.avmMini_sel_op_mul == FF(1); };
     mutateIcInTrace(trace, std::move(selectRow), FF(1000));
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_MULTIPLICATION_FF");
 }
 
 // Test on basic incorrect division over finite field type.
@@ -383,14 +386,12 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionFF)
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::ff); // [15,315,21,0,0,0....]
-    trace_builder.returnOP(0, 3);
     auto trace = trace_builder.finalize();
 
     auto selectRow = [](Row r) { return r.avmMini_sel_op_div == FF(1); };
     mutateIcInTrace(trace, std::move(selectRow), FF(0));
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_DIVISION_FF");
 }
 
 // Test where division is not by zero but an operation error is wrongly raised
@@ -401,17 +402,23 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionNoZeroButErrorFF)
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::ff); // [15,315,21,0,0,0....]
-    trace_builder.returnOP(0, 3);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the division selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == FF(1); });
 
-    // Activate the operator error
-    row->avmMini_op_err = FF(1);
+    size_t const index = static_cast<size_t>(row - trace.begin());
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    // Activate the operator error
+    trace[index].avmMini_op_err = FF(1);
+
+    auto trace2 = trace;
+
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_DIVISION_ZERO_ERR1");
+
+    // Even more malicious, one makes the first relation passes by setting the inverse to zero.
+    trace2[index].avmMini_inv = FF(0);
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace2)), "SUBOP_DIVISION_ZERO_ERR2");
 }
 
 // Test with division by zero occurs and no error is raised (remove error flag)
@@ -429,8 +436,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionByZeroNoErrorFF)
     // Remove the operator error flag
     row->avmMini_op_err = FF(0);
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_DIVISION_ZERO_ERR1");
 }
 
 // Test that error flag cannot be raised for a non-relevant operation such as
@@ -450,8 +456,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
     // Activate the operator error
     row->avmMini_op_err = FF(1);
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 
     trace_builder.reset();
 
@@ -468,8 +473,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
     // Activate the operator error
     row->avmMini_op_err = FF(1);
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 
     trace_builder.reset();
 
@@ -486,8 +490,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
     // Activate the operator error
     row->avmMini_op_err = FF(1);
 
-    // TODO: check that the expected sub-relation failed
-    EXPECT_ANY_THROW(validateTraceProof(std::move(trace)));
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
 }
 
 } // namespace tests_avm

@@ -7,19 +7,19 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
+    FF avmMini_ib{};
+    FF avmMini_sel_op_div{};
+    FF avmMini_sel_op_add{};
     FF avmMini_inv{};
+    FF avmMini_ia{};
+    FF avmMini_mem_op_c{};
+    FF avmMini_sel_op_sub{};
     FF avmMini_mem_op_b{};
     FF avmMini_rwb{};
-    FF avmMini_ia{};
-    FF avmMini_sel_op_mul{};
-    FF avmMini_sel_op_add{};
     FF avmMini_tag_err{};
-    FF avmMini_sel_op_div{};
-    FF avmMini_mem_op_c{};
     FF avmMini_mem_op_a{};
-    FF avmMini_sel_op_sub{};
     FF avmMini_rwc{};
-    FF avmMini_ib{};
+    FF avmMini_sel_op_mul{};
     FF avmMini_rwa{};
     FF avmMini_ic{};
     FF avmMini_op_err{};
@@ -27,7 +27,28 @@ template <typename FF> struct Avm_miniRow {
 
 inline std::string get_relation_label_avm_mini(int index)
 {
-    switch (index) {}
+    switch (index) {
+    case 17:
+        return "SUBOP_MULTIPLICATION_FF";
+
+    case 19:
+        return "SUBOP_DIVISION_ZERO_ERR1";
+
+    case 15:
+        return "SUBOP_ADDITION_FF";
+
+    case 21:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 16:
+        return "SUBOP_SUBTRACTION_FF";
+
+    case 18:
+        return "SUBOP_DIVISION_FF";
+
+    case 20:
+        return "SUBOP_DIVISION_ZERO_ERR2";
+    }
     return std::to_string(index);
 }
 
