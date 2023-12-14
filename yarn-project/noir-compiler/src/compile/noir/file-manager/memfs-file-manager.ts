@@ -9,30 +9,32 @@ import { FileManager } from './file-manager.js';
  * @param dataDir - where to store files
  */
 export function createMemFSFileManager(memFS: IFs = fs, dataDir = '/'): FileManager {
-  const readdirSyncRecursive = (dir: string): string[] => {
-    const contents = memFS.readdirSync(dir);
+  const readdirRecursive = async (dir: string): Promise<string[]> => {
+    const contents = await memFS.promises.readdir(dir);
     let files: string[] = [];
-    contents.forEach(handle => {
-      if ((handle as IDirent).isFile()) {
+    for (let handle in contents) {
+      if ((handle as unknown as IDirent).isFile()) {
         files.push(handle.toString());
       } else {
-        files = files.concat(readdirSyncRecursive(handle.toString()));
+        files = files.concat(await readdirRecursive(handle.toString()));
       }
-    });
+    }
     return files;
   };
   return new FileManager(
     {
       existsSync: memFS.existsSync.bind(memFS),
-      mkdirSync: memFS.mkdirSync.bind(memFS),
-      writeFileSync: memFS.writeFileSync.bind(memFS),
-      renameSync: memFS.renameSync.bind(memFS),
-      readFileSync: memFS.readFileSync.bind(memFS),
-      readdirSync: (dir: string, options?: { recursive: boolean }) => {
+      mkdir: async (dir: string, options?: { recursive: boolean }) => {
+        await memFS.promises.mkdir(dir, options);
+      },
+      writeFile: memFS.promises.writeFile.bind(memFS),
+      rename: memFS.promises.rename.bind(memFS),
+      readFile: memFS.promises.readFile.bind(memFS),
+      readdir: async (dir: string, options?: { recursive: boolean }) => {
         if (options?.recursive) {
-          return readdirSyncRecursive(dir);
+          return readdirRecursive(dir);
         }
-        return memFS.readdirSync(dir).map(handles => handles.toString());
+        return (await memFS.promises.readdir(dir)).map(handles => handles.toString());
       },
     },
     dataDir,

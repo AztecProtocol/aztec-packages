@@ -84,17 +84,19 @@ export class NoirPackage {
   /**
    * Gets this package's sources.
    */
-  public getSources(fm: FileManager, alias?: string): Array<{ path: string; source: string }> {
-    const handles = fm.readdirSync(this.#srcPath, { recursive: true, encoding: 'utf-8' });
-    return handles
-      .filter(handle => SOURCE_EXTENSIONS.find(ext => handle.endsWith(ext)))
-      .map(file => {
-        const suffix = file.replace(this.#srcPath, '');
-        return {
-          path: this.getType() === 'lib' ? `${alias ? alias : this.#config.package.name}${suffix}` : file,
-          source: fm.readFileSync(file, 'utf-8').toString(),
-        };
-      });
+  public async getSources(fm: FileManager, alias?: string): Promise<Array<{ path: string; source: string }>> {
+    const handles = await fm.readdir(this.#srcPath, { recursive: true, encoding: 'utf-8' });
+    return Promise.all(
+      handles
+        .filter(handle => SOURCE_EXTENSIONS.find(ext => handle.endsWith(ext)))
+        .map(async file => {
+          const suffix = file.replace(this.#srcPath, '');
+          return {
+            path: this.getType() === 'lib' ? `${alias ? alias : this.#config.package.name}${suffix}` : file,
+            source: (await fm.readFile(file, 'utf-8')).toString(),
+          };
+        }),
+    );
   }
 
   /**
@@ -103,8 +105,8 @@ export class NoirPackage {
    * @param fm - A file manager to use.
    * @returns The Noir package at the given location
    */
-  public static open(path: string, fm: FileManager): NoirPackage {
-    const fileContents = fm.readFileSync(join(path, CONFIG_FILE_NAME), 'utf-8');
+  public static async open(path: string, fm: FileManager): Promise<NoirPackage> {
+    const fileContents = await fm.readFile(join(path, CONFIG_FILE_NAME), 'utf-8');
     const config = parseNoirPackageConfig(parse(fileContents));
 
     return new NoirPackage(path, join(path, 'src'), config);

@@ -265,17 +265,6 @@ jobs:
           yarn workspace @noir-lang/noir_js build
           yarn workspace @noir-lang/noir_js test
 
-  test-source-resolver:
-    name: source-resolver
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install Yarn dependencies
-        uses: ./.github/actions/setup
-
   test-noir-wasm:
     needs: [build-noir-wasm, build-nargo]
     name: noir_wasm
@@ -421,7 +410,6 @@ jobs:
       - test-noirc-abi
       - test-noir-js-backend-barretenberg
       - test-noir-js
-      - test-source-resolver
       - test-noir-wasm
       - test-noir-codegen
       - test-integration

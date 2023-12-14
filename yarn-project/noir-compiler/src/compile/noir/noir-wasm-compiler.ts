@@ -47,12 +47,12 @@ export class NoirWasmContractCompiler {
    * @param projectPath - The path to the project
    * @param opts - Compilation options
    */
-  public static new(fileManager: FileManager, projectPath: string, opts: NoirWasmCompileOptions) {
+  public static async new(fileManager: FileManager, projectPath: string, opts: NoirWasmCompileOptions) {
     if (!isAbsolute(projectPath)) {
       throw new Error('projectPath must be an absolute path');
     }
 
-    const noirPackage = NoirPackage.open(projectPath, fileManager);
+    const noirPackage = await NoirPackage.open(projectPath, fileManager);
 
     const dependencyManager = new NoirDependencyManager(
       [
@@ -110,15 +110,19 @@ export class NoirWasmContractCompiler {
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
       };
-      const packageSources = this.#package.getSources(this.#fm);
-      const librarySources = this.#dependencyManager
-        .getLibraries()
-        .flatMap(([alias, library]) => library.package.getSources(this.#fm, alias));
+      const packageSources = await this.#package.getSources(this.#fm);
+      const librarySources = (
+        await Promise.all(
+          this.#dependencyManager
+            .getLibraries()
+            .map(async ([alias, library]) => await library.package.getSources(this.#fm, alias)),
+        )
+      ).flat();
       const sourceMap: PathToFileSourceMap = new PathToFileSourceMap();
       [...packageSources, ...librarySources].forEach(sourceFile => {
         sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
-      const result = compile(entrypoint, isContract, deps, sourceMap);
+      const result = await compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('program' in result)) {
         throw new Error('No program found in compilation result');
@@ -158,15 +162,19 @@ export class NoirWasmContractCompiler {
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
       };
-      const packageSources = this.#package.getSources(this.#fm);
-      const librarySources = this.#dependencyManager
-        .getLibraries()
-        .flatMap(([alias, library]) => library.package.getSources(this.#fm, alias));
+      const packageSources = await this.#package.getSources(this.#fm);
+      const librarySources = (
+        await Promise.all(
+          this.#dependencyManager
+            .getLibraries()
+            .map(async ([alias, library]) => await library.package.getSources(this.#fm, alias)),
+        )
+      ).flat();
       const sourceMap: PathToFileSourceMap = new PathToFileSourceMap();
       [...packageSources, ...librarySources].forEach(sourceFile => {
         sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
-      const result = compile(entrypoint, isContract, deps, sourceMap);
+      const result = await compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('contract' in result)) {
         throw new Error('No contract found in compilation result');
@@ -183,19 +191,19 @@ export class NoirWasmContractCompiler {
     }
   }
 
-  #resolveFile = (path: string) => {
+  #resolveFile = async (path: string) => {
     try {
       const libFile = this.#dependencyManager.findFile(path);
-      return this.#fm.readFileSync(libFile ?? path, 'utf-8');
+      return this.#fm.readFile(libFile ?? path, 'utf-8');
     } catch (err) {
       return '';
     }
   };
 
-  #processCompileError(err: CompileError): void {
+  async #processCompileError(err: CompileError): Promise<void> {
     for (const diag of err.diagnostics) {
       this.#log(`  ${diag.message}`);
-      const contents = this.#resolveFile(diag.file);
+      const contents = await this.#resolveFile(diag.file);
       const lines = contents.split('\n');
       const lineOffsets = lines.reduce<number[]>((accum, _, idx) => {
         if (idx === 0) {

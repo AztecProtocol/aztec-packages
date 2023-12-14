@@ -1,6 +1,7 @@
 import { ContractArtifact } from '@aztec/foundation/abi';
 
-import * as fs from 'node:fs';
+import { existsSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import { join, resolve } from 'path';
 
 import { CompileOpts, NargoContractCompiler } from './compile/nargo.js';
@@ -36,13 +37,25 @@ export async function compileUsingNargo(projectPath: string, opts: CompileOpts =
  * @param opts - Compiler options.
  * @returns Compiled artifacts.
  */
+
 export async function compileUsingNoirWasm(
   projectPath: string,
   opts: NoirWasmCompileOptions,
 ): Promise<(ContractArtifact | ProgramArtifact)[]> {
   const cacheRoot = process.env.XDG_CACHE_HOME ?? join(process.env.HOME ?? '', '.cache');
-  const fileManager = new FileManager(fs, join(cacheRoot, 'aztec-noir-compiler'));
-  const compiler = NoirWasmContractCompiler.new(fileManager, resolve(projectPath), opts);
+  const fileManager = new FileManager(
+    {
+      ...fs,
+      ...{
+        existsSync,
+        mkdir: async (dir: string, opts?: { recursive: boolean }) => {
+          await fs.mkdir(dir, opts);
+        },
+      },
+    },
+    join(cacheRoot, 'aztec-noir-compiler'),
+  );
+  const compiler = await NoirWasmContractCompiler.new(fileManager, resolve(projectPath), opts);
   const artifacts = await compiler.compile();
   return artifacts.map(artifact => {
     return generateArtifact(artifact);
