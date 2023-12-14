@@ -187,7 +187,7 @@ export class PublicDataRead {
     /**
      * Index of the leaf in the public data tree.
      */
-    public readonly leafIndex: Fr,
+    public readonly leafSlot: Fr,
     /**
      * Returned value from the public data tree.
      */
@@ -212,7 +212,7 @@ export class PublicDataRead {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.leafIndex, this.value);
+    return serializeToBuffer(this.leafSlot, this.value);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -225,7 +225,7 @@ export class PublicDataRead {
   }
 
   toFriendlyJSON() {
-    return `Leaf=${this.leafIndex.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
+    return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
   }
 }
 
@@ -237,7 +237,7 @@ export class PublicDataUpdateRequest {
     /**
      * Index of the leaf in the public data tree which is to be updated.
      */
-    public readonly leafIndex: Fr,
+    public readonly leafSlot: Fr,
     /**
      * Old value of the leaf.
      */
@@ -270,7 +270,7 @@ export class PublicDataUpdateRequest {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.leafIndex, this.oldValue, this.newValue);
+    return serializeToBuffer(this.leafSlot, this.oldValue, this.newValue);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -283,7 +283,7 @@ export class PublicDataUpdateRequest {
   }
 
   toFriendlyJSON() {
-    return `Leaf=${this.leafIndex.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
+    return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
   }
 }
 

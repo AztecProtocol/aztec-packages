@@ -10,7 +10,7 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeIndex, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
 import { FunctionL2Logs } from '@aztec/types';
 
 /**
@@ -113,7 +113,7 @@ export function collectPublicDataUpdateRequests(execResult: PublicExecutionResul
  */
 function contractStorageReadToPublicDataRead(read: ContractStorageRead, contractAddress: AztecAddress): PublicDataRead {
   return new PublicDataRead(
-    computePublicDataTreeIndex(contractAddress, read.storageSlot),
+    computePublicDataTreeLeafSlot(contractAddress, read.storageSlot),
     computePublicDataTreeValue(read.currentValue),
     read.sideEffectCounter!,
   );
@@ -130,7 +130,7 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
   contractAddress: AztecAddress,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
-    computePublicDataTreeIndex(contractAddress, update.storageSlot),
+    computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
     computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
