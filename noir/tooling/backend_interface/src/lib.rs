@@ -169,7 +169,6 @@ impl BackendOpcodeSupport {
                 "blake2s".to_string(),
                 "pedersen".to_string(),
                 "pedersen_hash".to_string(),
-                "hash_to_field_128_security".to_string(),
                 "ecdsa_secp256k1".to_string(),
                 "fixed_base_scalar_mul".to_string(),
                 "and".to_string(),
