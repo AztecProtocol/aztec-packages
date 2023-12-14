@@ -1,6 +1,9 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::protocol_types::address::AztecAddress;
+    use dep::protocol_types::address::{
+        AztecAddress,
+        EthAddress,
+    };
     use dep::aztec::{
         state_vars::{
             map::Map,
@@ -187,7 +190,7 @@ contract InclusionProofs {
     //       of contracts (similarily to what Uniswap Factory does with pool contracts).
     #[aztec(private)]
     fn test_contract_inclusion_proof(
-        contract_address: Address,
+        contract_address: AztecAddress,
         portal_contract_address: EthAddress,
         function_tree_root: Field,
         block_number: u32, // The block at which we'll prove that the public value exists

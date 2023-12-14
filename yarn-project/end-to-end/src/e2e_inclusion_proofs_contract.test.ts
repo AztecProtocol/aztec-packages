@@ -1,4 +1,6 @@
 import { AccountWallet, AztecAddress, CompleteAddress, Fr, INITIAL_L2_BLOCK_NUM, PXE } from '@aztec/aztec.js';
+import { FunctionSelector, generateFunctionLeaves } from '@aztec/circuits.js';
+import { computeFunctionTreeRoot } from '@aztec/circuits.js/abis';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -157,6 +159,26 @@ describe('e2e_inclusion_proofs_contract', () => {
     await expect(
       contract.methods.test_nullifier_inclusion_proof(randomNullifier, blockNumber).send().wait(),
     ).rejects.toThrow(/Low nullifier witness not found for nullifier 0x[0-9a-fA-F]+ at block/);
+  });
+
+  it('proves existence of a contract', async () => {
+    // Choose random block number between first block and current block number to test archival node
+    const blockNumber = await getRandomBlockNumberSinceDeployment();
+
+    const contractAddress = contract.address;
+    const portalContractAddress = contract.portalContract;
+
+    const functions = contract.artifact.functions.map(f => ({
+      ...f,
+      selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+    }));
+    const functionLeaves = generateFunctionLeaves(functions);
+    const functionTreeRoot = computeFunctionTreeRoot(functionLeaves);
+
+    await contract.methods
+      .test_contract_inclusion_proof(contractAddress, portalContractAddress, functionTreeRoot, blockNumber)
+      .send()
+      .wait();
   });
 
   const getRandomBlockNumberSinceDeployment = async () => {
