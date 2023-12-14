@@ -79,9 +79,24 @@ void AvmMiniTraceBuilder::insertInMemTrace(
         .m_sub_clk = m_sub_clk,
         .m_addr = m_addr,
         .m_val = m_val,
+        .m_tag = m_in_tag,
         .m_in_tag = m_in_tag,
         .m_rw = m_rw,
     });
+}
+
+void AvmMiniTraceBuilder::loadMismatchTagInMemTrace(
+    uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, AvmMemoryTag m_tag)
+{
+    FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
+    memTrace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
+                                            .m_sub_clk = m_sub_clk,
+                                            .m_addr = m_addr,
+                                            .m_val = m_val,
+                                            .m_tag = m_tag,
+                                            .m_in_tag = m_in_tag,
+                                            .m_tag_err = true,
+                                            .m_one_min_inv = one_min_inv });
 }
 
 // Memory operations need to be performed before the addition of the corresponding row in
@@ -97,7 +112,7 @@ void AvmMiniTraceBuilder::insertInMemTrace(
  * @param val The value to be loaded
  * @param m_in_tag The memory tag of the instruction
  */
-void AvmMiniTraceBuilder::loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag)
+bool AvmMiniTraceBuilder::loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag)
 {
     uint32_t sub_clk = 0;
     switch (intermReg) {
@@ -112,8 +127,15 @@ void AvmMiniTraceBuilder::loadInMemTrace(IntermRegister intermReg, uint32_t addr
         break;
     }
 
-    // TODO: Check that m_in_tag is compatible to that at addr.
-    insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, false);
+    auto m_tag = memoryTag.at(addr);
+    if (m_tag == m_in_tag) {
+        insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, false);
+        return true;
+    }
+
+    // Handle memory tag inconsistency
+    loadMismatchTagInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, m_tag);
+    return false;
 }
 
 /**
@@ -161,8 +183,8 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memoryTag.at(dstOffset) = inTag;
 
     // Loading into Ia, Ib and storing into Ic
-    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
-    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    bool tagMatch = loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    tagMatch = loadInMemTrace(IntermRegister::ib, bOffset, b, inTag) && tagMatch;
     storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
 
     auto clk = mainTrace.size();
@@ -170,9 +192,11 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_sel_op_add = FF(1),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
+        .avmMini_in_tag = FF(static_cast<uint32_t>(inTag)),
+        .avmMini_tag_err = FF(static_cast<uint32_t>(!tagMatch)),
+        .avmMini_ia = tagMatch ? a : FF(0),
+        .avmMini_ib = tagMatch ? b : FF(0),
+        .avmMini_ic = tagMatch ? c : FF(0),
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -201,8 +225,8 @@ void AvmMiniTraceBuilder::sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memoryTag.at(dstOffset) = inTag;
 
     // Loading into Ia, Ib and storing into Ic
-    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
-    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    bool tagMatch = loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    tagMatch = loadInMemTrace(IntermRegister::ib, bOffset, b, inTag) && tagMatch;
     storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
 
     auto clk = mainTrace.size();
@@ -210,9 +234,11 @@ void AvmMiniTraceBuilder::sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_sel_op_sub = FF(1),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
+        .avmMini_in_tag = FF(static_cast<uint32_t>(inTag)),
+        .avmMini_tag_err = FF(static_cast<uint32_t>(!tagMatch)),
+        .avmMini_ia = tagMatch ? a : FF(0),
+        .avmMini_ib = tagMatch ? b : FF(0),
+        .avmMini_ic = tagMatch ? c : FF(0),
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -241,8 +267,8 @@ void AvmMiniTraceBuilder::mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memoryTag.at(dstOffset) = inTag;
 
     // Loading into Ia, Ib and storing into Ic
-    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
-    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    bool tagMatch = loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    tagMatch = loadInMemTrace(IntermRegister::ib, bOffset, b, inTag) && tagMatch;
     storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
 
     auto clk = mainTrace.size();
@@ -250,9 +276,11 @@ void AvmMiniTraceBuilder::mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_sel_op_mul = FF(1),
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
+        .avmMini_in_tag = FF(static_cast<uint32_t>(inTag)),
+        .avmMini_tag_err = FF(static_cast<uint32_t>(!tagMatch)),
+        .avmMini_ia = tagMatch ? a : FF(0),
+        .avmMini_ib = tagMatch ? b : FF(0),
+        .avmMini_ic = tagMatch ? c : FF(0),
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -295,8 +323,8 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     memoryTag.at(dstOffset) = inTag;
 
     // Loading into Ia, Ib and storing into Ic
-    loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
-    loadInMemTrace(IntermRegister::ib, bOffset, b, inTag);
+    bool tagMatch = loadInMemTrace(IntermRegister::ia, aOffset, a, inTag);
+    tagMatch = loadInMemTrace(IntermRegister::ib, bOffset, b, inTag) && tagMatch;
     storeInMemTrace(IntermRegister::ic, dstOffset, c, inTag);
 
     auto clk = mainTrace.size();
@@ -304,11 +332,13 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_sel_op_div = FF(1),
-        .avmMini_op_err = error,
-        .avmMini_inv = inv,
-        .avmMini_ia = a,
-        .avmMini_ib = b,
-        .avmMini_ic = c,
+        .avmMini_in_tag = FF(static_cast<uint32_t>(inTag)),
+        .avmMini_op_err = tagMatch ? error : FF(1),
+        .avmMini_tag_err = FF(static_cast<uint32_t>(!tagMatch)),
+        .avmMini_inv = tagMatch ? inv : FF(1),
+        .avmMini_ia = tagMatch ? a : FF(0),
+        .avmMini_ib = tagMatch ? b : FF(0),
+        .avmMini_ic = tagMatch ? c : FF(0),
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -397,6 +427,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
 
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
+            .avmMini_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::ff)),
             .avmMini_ia = ia,
             .avmMini_ib = ib,
             .avmMini_ic = ic,
@@ -483,6 +514,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
 
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
+            .avmMini_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::ff)),
             .avmMini_ia = ia,
             .avmMini_ib = ib,
             .avmMini_ic = ic,
@@ -552,6 +584,10 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         dest.memTrace_m_addr = FF(src.m_addr);
         dest.memTrace_m_val = src.m_val;
         dest.memTrace_m_rw = FF(static_cast<uint32_t>(src.m_rw));
+        dest.memTrace_m_in_tag = FF(static_cast<uint32_t>(src.m_in_tag));
+        dest.memTrace_m_tag = FF(static_cast<uint32_t>(src.m_tag));
+        dest.memTrace_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
+        dest.memTrace_m_one_min_inv = src.m_one_min_inv;
 
         if (i + 1 < memTraceSize) {
             auto const& next = memTrace.at(i + 1);

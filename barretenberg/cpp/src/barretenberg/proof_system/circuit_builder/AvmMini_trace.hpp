@@ -69,9 +69,12 @@ class AvmMiniTraceBuilder {
         uint32_t m_clk;
         uint32_t m_sub_clk;
         uint32_t m_addr;
-        FF m_val;
+        FF m_val{};
+        AvmMemoryTag m_tag;
         AvmMemoryTag m_in_tag;
         bool m_rw;
+        bool m_tag_err;
+        FF m_one_min_inv{};
     };
 
     std::vector<Row> mainTrace;
@@ -83,7 +86,9 @@ class AvmMiniTraceBuilder {
     static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
     void insertInMemTrace(
         uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, bool m_rw);
-    void loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
+    void loadMismatchTagInMemTrace(
+        uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, AvmMemoryTag m_tag);
+    bool loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
     void storeInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
 };
 } // namespace proof_system
