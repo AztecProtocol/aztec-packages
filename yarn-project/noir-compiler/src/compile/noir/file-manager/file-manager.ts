@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, join } from 'path';
+import path, { dirname, isAbsolute, join } from 'path';
 
 /**
  * A file system interface that matches the node fs module.
@@ -20,6 +20,8 @@ export interface FileSystem {
   readFileSync: (path: string, encoding?: 'utf-8') => Uint8Array | string;
   /** Renames a file */
   renameSync: (oldPath: string, newPath: string) => void;
+  /** Reads a directory */
+  readdirSync: (path: string, options?: { encoding: BufferEncoding | null; recursive: boolean }) => string[];
 }
 
 /**
@@ -125,5 +127,11 @@ export class FileManager {
 
   #getPath(name: string) {
     return isAbsolute(name) ? name : join(this.#dataDir, name);
+  }
+
+  public readdirSync(dir: string, options?: { recursive: boolean; encoding: BufferEncoding | null }) {
+    const dirPath = this.#getPath(dir);
+    const files = this.#fs.readdirSync(dirPath, options);
+    return files.map(file => path.join(dirPath, file));
   }
 }

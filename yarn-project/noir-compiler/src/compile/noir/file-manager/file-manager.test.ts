@@ -22,6 +22,7 @@ const nodeFM = (): { fm: FileManager; teardown: () => void } => {
     writeFileSync: fs.writeFileSync,
     readFileSync: fs.readFileSync,
     renameSync: fs.renameSync,
+    readdirSync: fs.readdirSync,
   };
 
   const dir = fs.mkdtempSync(join(tmpdir(), 'noir-compiler-test'));

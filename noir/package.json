@@ -27,7 +27,6 @@
     "install:noirc_abi_wasm": "yarn workspace @noir-lang/noirc_abi run install:from:nix",
     "install:from:nix": "yarn install:acvm_js && yarn install:noir_wasm && yarn install:noirc_abi_wasm",
     "build:types": "yarn workspace @noir-lang/types run build",
-    "build:source-resolver": "yarn workspace @noir-lang/source-resolver run build",
     "build:backend_barretenberg": "yarn workspace @noir-lang/backend_barretenberg run build",
     "build:noir_js": "yarn workspace @noir-lang/noir_js run build",
     "build:js:only": "yarn build:types && yarn build:source-resolver && yarn build:backend_barretenberg && yarn build:noir_js",

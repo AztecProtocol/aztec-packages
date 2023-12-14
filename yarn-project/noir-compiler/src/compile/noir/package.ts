@@ -1,11 +1,12 @@
 import { NoirDependencyConfig, NoirPackageConfig, parseNoirPackageConfig } from '@aztec/foundation/noir';
 
 import { parse } from '@ltd/j-toml';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { FileManager } from './file-manager/file-manager.js';
 
 const CONFIG_FILE_NAME = 'Nargo.toml';
+const SOURCE_EXTENSIONS = ['.nr'];
 
 /**
  * A Noir package.
@@ -62,7 +63,6 @@ export class NoirPackage {
       default:
         throw new Error(`Unknown package type: ${this.getType()}`);
     }
-
     // TODO check that `src` exists
     return join(this.#srcPath, entrypoint);
   }
@@ -79,6 +79,22 @@ export class NoirPackage {
    */
   public getDependencies(): Record<string, NoirDependencyConfig> {
     return this.#config.dependencies;
+  }
+
+  /**
+   * Gets this package's sources.
+   */
+  public getSources(fm: FileManager, alias?: string): Array<{ path: string; source: string }> {
+    const handles = fm.readdirSync(this.#srcPath, { recursive: true, encoding: 'utf-8' });
+    return handles
+      .filter(handle => SOURCE_EXTENSIONS.find(ext => handle.endsWith(ext)))
+      .map(file => {
+        const suffix = file.replace(this.#srcPath, '');
+        return {
+          path: this.getType() === 'lib' ? `${alias ? alias : this.#config.package.name}${suffix}` : file,
+          source: fm.readFileSync(file, 'utf-8').toString(),
+        };
+      });
   }
 
   /**

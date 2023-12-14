@@ -1,6 +1,6 @@
 import { LogFn, createDebugLogger } from '@aztec/foundation/log';
 
-import { CompileError, compile } from '@noir-lang/noir_wasm';
+import { CompileError, PathToFileSourceMap, compile } from '@noir-lang/noir_wasm';
 import { isAbsolute } from 'node:path';
 
 import { NoirCompilationResult, NoirProgramCompilationArtifacts } from '../../noir_artifact.js';
@@ -8,7 +8,6 @@ import { NoirDependencyManager } from './dependencies/dependency-manager.js';
 import { GithubDependencyResolver as GithubCodeArchiveDependencyResolver } from './dependencies/github-dependency-resolver.js';
 import { LocalDependencyResolver } from './dependencies/local-dependency-resolver.js';
 import { FileManager } from './file-manager/file-manager.js';
-import { initializeResolver } from './noir-source-resolver.shim.cjs';
 import { NoirPackage } from './package.js';
 
 /** Compilation options */
@@ -101,16 +100,25 @@ export class NoirWasmContractCompiler {
     await this.#dependencyManager.resolveDependencies();
     this.#debugLog(`Dependencies: ${this.#dependencyManager.getPackageNames().join(', ')}`);
 
-    initializeResolver(this.#resolveFile);
-
     try {
       const isContract: boolean = false;
-      const result = compile(this.#package.getEntryPointPath(), isContract, {
+
+      const entrypoint = this.#package.getEntryPointPath();
+      const deps = {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
+      };
+      const packageSources = this.#package.getSources(this.#fm);
+      const librarySources = this.#dependencyManager
+        .getLibraries()
+        .flatMap(([alias, library]) => library.package.getSources(this.#fm, alias));
+      const sourceMap: PathToFileSourceMap = new PathToFileSourceMap();
+      [...packageSources, ...librarySources].forEach(sourceFile => {
+        sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
+      const result = compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('program' in result)) {
         throw new Error('No program found in compilation result');
@@ -140,16 +148,25 @@ export class NoirWasmContractCompiler {
     await this.#dependencyManager.resolveDependencies();
     this.#debugLog(`Dependencies: ${this.#dependencyManager.getPackageNames().join(', ')}`);
 
-    initializeResolver(this.#resolveFile);
-
     try {
       const isContract: boolean = true;
-      const result = compile(this.#package.getEntryPointPath(), isContract, {
+
+      const entrypoint = this.#package.getEntryPointPath();
+      const deps = {
         /* eslint-disable camelcase */
         root_dependencies: this.#dependencyManager.getEntrypointDependencies(),
         library_dependencies: this.#dependencyManager.getLibraryDependencies(),
         /* eslint-enable camelcase */
+      };
+      const packageSources = this.#package.getSources(this.#fm);
+      const librarySources = this.#dependencyManager
+        .getLibraries()
+        .flatMap(([alias, library]) => library.package.getSources(this.#fm, alias));
+      const sourceMap: PathToFileSourceMap = new PathToFileSourceMap();
+      [...packageSources, ...librarySources].forEach(sourceFile => {
+        sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
+      const result = compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('contract' in result)) {
         throw new Error('No contract found in compilation result');

@@ -578,7 +578,6 @@ __metadata:
     "@jest/globals": ^29.5.0
     "@ltd/j-toml": ^1.38.0
     "@noir-lang/noir_wasm": "portal:../../noir/packages/noir_wasm"
-    "@noir-lang/source-resolver": "portal:../../noir/packages/source-resolver"
     "@types/fs-extra": ^11.0.1
     "@types/jest": ^29.5.0
     "@types/lodash.camelcase": ^4.3.7
@@ -3640,20 +3639,12 @@ __metadata:
 "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  peerDependencies:
-    "@noir-lang/source-resolver": 0.19.4
   languageName: node
   linkType: soft
 
 "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/source-resolver@portal:../noir/compiler/source-resolver::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   languageName: node
   linkType: soft
 

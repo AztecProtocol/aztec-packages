@@ -3506,8 +3506,6 @@ __metadata:
     "@web/test-runner": ^0.15.3
     "@web/test-runner-playwright": ^0.10.0
     mocha: ^10.2.0
-  peerDependencies:
-    "@noir-lang/source-resolver": "workspace:*"
   languageName: unknown
   linkType: soft
 
@@ -3540,7 +3538,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@noir-lang/source-resolver@workspace:*, @noir-lang/source-resolver@workspace:compiler/source-resolver":
+"@noir-lang/source-resolver@workspace:compiler/source-resolver":
   version: 0.0.0-use.local
   resolution: "@noir-lang/source-resolver@workspace:compiler/source-resolver"
   dependencies:
@@ -10788,7 +10786,6 @@ __metadata:
     "@noir-lang/backend_barretenberg": "workspace:*"
     "@noir-lang/noir_js": "workspace:*"
     "@noir-lang/noir_wasm": "workspace:*"
-    "@noir-lang/source-resolver": "workspace:*"
     "@nomicfoundation/hardhat-chai-matchers": ^2.0.0
     "@nomicfoundation/hardhat-ethers": ^3.0.0
     "@web/dev-server-esbuild": ^0.3.6

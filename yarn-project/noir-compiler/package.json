@@ -28,28 +28,11 @@
   "inherits": [
     "../package.common.json"
   ],
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
-    },
-    "moduleFileExtensions": [
-      "js",
-      "ts",
-      "cts"
-    ],
-    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src",
-    "transform": {
-      "^.+\\.cts$": "ts-jest"
-    }
-  },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@ltd/j-toml": "^1.38.0",
     "@noir-lang/noir_wasm": "portal:../../noir/packages/noir_wasm",
-    "@noir-lang/source-resolver": "portal:../../noir/packages/source-resolver",
     "base64-js": "^1.5.1",
     "commander": "^9.0.0",
     "fs-extra": "^11.1.1",

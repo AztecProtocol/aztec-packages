@@ -34,6 +34,10 @@ export class NoirDependencyManager {
     return this.#dependencies.get('') ?? [];
   }
 
+  public getLibraries() {
+    return Array.from(this.#libraries.entries());
+  }
+
   /**
    * A map of library dependencies
    */
