@@ -54,6 +54,7 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
     auto comm_view = accumulator->witness_commitments.get_all();
     auto witness_labels = accumulator->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
+        info(comm_view[idx]);
         transcript->send_to_verifier(witness_labels[idx], comm_view[idx]);
     }
 
@@ -109,7 +110,7 @@ template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::construct_pr
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    // execute_zeromorph_rounds();
+    execute_zeromorph_rounds();
 
     return export_proof();
 }

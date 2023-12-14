@@ -68,6 +68,10 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     DeciderProver_<Flavor> create_decider_prover(
         const std::shared_ptr<Instance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    DeciderProver_<Flavor> create_decider_prover(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<CommitmentKey>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderVerifier_<Flavor> create_decider_verifier(
         const std::shared_ptr<Instance>&,

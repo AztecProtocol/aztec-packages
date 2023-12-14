@@ -29,8 +29,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    // using Curve = typename Flavor::Curve;
-    // using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using Instance = VerifierInstance_<Flavor>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
@@ -66,6 +66,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     auto witness_labels = inst->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
         comm_view[idx] = transcript->template receive_from_prover<Commitment>(witness_labels[idx]);
+        info(comm_view[idx]);
     }
 
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
@@ -84,8 +85,9 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     commitments.w_4 = witness_commitments.w_4;
     commitments.z_perm = witness_commitments.z_perm;
     commitments.z_lookup = witness_commitments.z_lookup;
+    info(commitments.z_lookup);
 
-    auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript, inst->target_sum);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(inst->relation_parameters, inst->alpha, inst->gate_challenges);
@@ -95,18 +97,19 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
         return false;
     }
 
+    info("here");
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-    // auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
-    //                                         commitments.get_to_be_shifted(),
-    //                                         claimed_evaluations.get_unshifted(),
-    //                                         claimed_evaluations.get_shifted(),
-    //                                         multivariate_challenge,
-    //                                         transcript);
+    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+                                            commitments.get_to_be_shifted(),
+                                            claimed_evaluations.get_unshifted(),
+                                            claimed_evaluations.get_shifted(),
+                                            multivariate_challenge,
+                                            transcript);
 
-    // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-
-    return sumcheck_verified.value(); // && verified;
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    info(verified);
+    return sumcheck_verified.value() && verified;
 }
 
 template class DeciderVerifier_<honk::flavor::Ultra>;

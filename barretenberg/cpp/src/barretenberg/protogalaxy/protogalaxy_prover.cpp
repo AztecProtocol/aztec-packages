@@ -169,7 +169,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
         compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript->proof_data;
     res.accumulator = next_accumulator;
-    res.storage = storage;
+    res.storage = std::move(storage);
     return res;
 }
 template <class ProverInstances>
@@ -190,6 +190,7 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
 
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->instance_size = instances[0]->instance_size;
+    next_accumulator->log_instance_size = instances[0]->log_instance_size;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
@@ -222,13 +223,17 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     auto acc_poly_views = acc_prover_polynomials.get_all();
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         auto inst_poly_views = instances[inst_idx]->prover_polynomials.get_all();
+        info(inst_poly_views[0][1]);
         for (auto [acc_poly_view, inst_poly_view] : zip_view(acc_poly_views, inst_poly_views)) {
             for (size_t poly_idx = 0; poly_idx < inst_poly_view.size(); poly_idx++) {
-                (acc_poly_view)[poly_idx] += (inst_poly_view)[poly_idx] * lagranges[inst_idx];
+                acc_poly_view[poly_idx] += inst_poly_view[poly_idx] * lagranges[inst_idx];
             }
         }
     }
     next_accumulator->prover_polynomials = acc_prover_polynomials;
+    info("look at this");
+    info(next_accumulator->prover_polynomials.get_all()[0][0]);
+    info(next_accumulator->prover_polynomials.get_all()[0][1]);
 
     // Fold the witness commtiments and send them to the verifier
     auto witness_labels = next_accumulator->commitment_labels.get_witness();
