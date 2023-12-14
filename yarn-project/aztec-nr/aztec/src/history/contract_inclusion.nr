@@ -9,6 +9,11 @@ use crate::{
     oracle::get_membership_witness::get_contract_membership_witness,
 };
 
+// Proves that the contract address, portal address and function tree root form a valid contract preimage of a leaf
+// which exists at block `block_number`.
+// Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
+//       way verify that a contract at a given address is what it expects. Then it could store it in an internal
+//       map of contracts (like what Uniswap Factory does with pool contracts - it stores them in a mapping).
 pub fn prove_contract_inclusion(
     contract_address: AztecAddress,
     portal_contract_address: EthAddress,

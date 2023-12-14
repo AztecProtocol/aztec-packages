@@ -186,8 +186,8 @@ contract InclusionProofs {
     // Proves that the contract address, portal address and function tree root form a valid contract preimage of a leaf
     // which exists at block `block_number`.
     // Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
-    //       way verify that a contract at a given address is what it expects. Then it could store in an internal map
-    //       of contracts (similarily to what Uniswap Factory does with pool contracts).
+    //       way verify that a contract at a given address is what it expects. Then it could store it in an internal
+    //       map of contracts (like what Uniswap Factory does with pool contracts - it stores them in a mapping).
     #[aztec(private)]
     fn test_contract_inclusion_proof(
         contract_address: AztecAddress,

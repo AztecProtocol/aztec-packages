@@ -1,5 +1,13 @@
-import { AccountWallet, AztecAddress, CompleteAddress, Fr, INITIAL_L2_BLOCK_NUM, PXE } from '@aztec/aztec.js';
-import { FunctionSelector, generateFunctionLeaves } from '@aztec/circuits.js';
+import {
+  AccountWallet,
+  AztecAddress,
+  CompleteAddress,
+  Fr,
+  FunctionSelector,
+  INITIAL_L2_BLOCK_NUM,
+  PXE,
+} from '@aztec/aztec.js';
+import { generateFunctionLeaves } from '@aztec/circuits.js';
 import { computeFunctionTreeRoot } from '@aztec/circuits.js/abis';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
@@ -23,6 +31,7 @@ describe('e2e_inclusion_proofs_contract', () => {
   let contract: InclusionProofsContract;
   let deploymentBlockNumber: number;
   const publicValue = 236n;
+  let contractFunctionTreeRoot: Fr;
 
   beforeAll(async () => {
     ({ pxe, teardown, wallets, accounts } = await setup(1));
@@ -167,18 +176,28 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     const contractAddress = contract.address;
     const portalContractAddress = contract.portalContract;
-
-    const functions = contract.artifact.functions.map(f => ({
-      ...f,
-      selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-    }));
-    const functionLeaves = generateFunctionLeaves(functions);
-    const functionTreeRoot = computeFunctionTreeRoot(functionLeaves);
+    const functionTreeRoot = getContractFunctionTreeRoot();
 
     await contract.methods
       .test_contract_inclusion_proof(contractAddress, portalContractAddress, functionTreeRoot, blockNumber)
       .send()
       .wait();
+  });
+
+  it('contract existence failure case', async () => {
+    // This should fail because we choose a block number before the contract was deployed
+    const blockNumber = deploymentBlockNumber - 1;
+
+    const contractAddress = contract.address;
+    const portalContractAddress = contract.portalContract;
+    const functionTreeRoot = getContractFunctionTreeRoot();
+
+    await expect(
+      contract.methods
+        .test_contract_inclusion_proof(contractAddress, portalContractAddress, functionTreeRoot, blockNumber)
+        .send()
+        .wait(),
+    ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in CONTRACT_TREE/);
   });
 
   const getRandomBlockNumberSinceDeployment = async () => {
@@ -189,5 +208,17 @@ describe('e2e_inclusion_proofs_contract', () => {
   const getRandomBlockNumber = async () => {
     const currentBlockNumber = await pxe.getBlockNumber();
     return deploymentBlockNumber + Math.floor(Math.random() * (currentBlockNumber - INITIAL_L2_BLOCK_NUM));
+  };
+
+  const getContractFunctionTreeRoot = () => {
+    if (!contractFunctionTreeRoot) {
+      const functions = contract.artifact.functions.map(f => ({
+        ...f,
+        selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+      }));
+      const functionLeaves = generateFunctionLeaves(functions);
+      contractFunctionTreeRoot = computeFunctionTreeRoot(functionLeaves);
+    }
+    return contractFunctionTreeRoot;
   };
 });
