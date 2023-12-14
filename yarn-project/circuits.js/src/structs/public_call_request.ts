@@ -42,7 +42,7 @@ export class PublicCallRequest {
     /**
      * Optional side effect counter tracking position of this event in tx execution.
      */
-    public sideEffectCounter?: number,
+    public sideEffectCounter: number,
   ) {}
 
   /**
@@ -50,7 +50,13 @@ export class PublicCallRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.functionData, this.callContext, new Vector(this.args));
+    return serializeToBuffer(
+      this.contractAddress,
+      this.functionData,
+      this.callContext,
+      new Vector(this.args),
+      this.sideEffectCounter,
+    );
   }
 
   /**
@@ -65,6 +71,7 @@ export class PublicCallRequest {
       FunctionData.fromBuffer(reader),
       CallContext.fromBuffer(reader),
       reader.readVector(Fr),
+      reader.readNumber(),
     );
   }
 

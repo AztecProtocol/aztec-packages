@@ -78,7 +78,8 @@ export class CallContext {
       this.msgSender.isZero() &&
       this.storageContractAddress.isZero() &&
       this.portalContractAddress.isZero() &&
-      this.functionSelector.isEmpty()
+      this.functionSelector.isEmpty() &&
+      this.startSideEffectCounter.isZero()
     );
   }
 
@@ -122,7 +123,7 @@ export class CallContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
-      new Fr(reader.readNumber()),
+      reader.readObject(Fr),
     );
   }
 
@@ -134,7 +135,8 @@ export class CallContext {
       callContext.functionSelector.equals(this.functionSelector) &&
       callContext.isDelegateCall === this.isDelegateCall &&
       callContext.isStaticCall === this.isStaticCall &&
-      callContext.isContractDeployment === this.isContractDeployment
+      callContext.isContractDeployment === this.isContractDeployment &&
+      callContext.startSideEffectCounter === this.startSideEffectCounter
     );
   }
 }
