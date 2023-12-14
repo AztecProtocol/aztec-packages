@@ -25,6 +25,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 // polynomials is zero, which is required for them to be shiftable.
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_all_polys_are_non_zero()
 {
+    info("GoblinUltraCircuitBuilder: add gates to ensure nonzero.");
     // Most polynomials are handled via the conventional Ultra method
     UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
 

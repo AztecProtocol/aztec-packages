@@ -130,25 +130,18 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           [[maybe_unused]] bool recursive)
 {
     // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
+    info("Construct constraint_system.");
     auto constraint_system = get_constraint_system(bytecodePath);
+    info("get_witness.");
     auto witness = get_witness(witnessPath);
 
     init_reference_strings();
 
-    Timer pk_timer;
-    // Function used to construct pk, now just populate builder and finalize circuit.
+    info("create_goblin_proof.");
     acir_proofs::AcirComposer acir_composer;
-    acir_composer.init_and_finalize_builder(constraint_system);
-    write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
-    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
-    write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
-
-    Timer proof_timer;
     auto proof = acir_composer.create_goblin_proof(constraint_system, witness);
-    write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
-    Timer vk_timer;
-
+    info("verify_goblin_proof.");
     auto verified = acir_composer.verify_goblin_proof(proof);
 
     vinfo("verified: ", verified);

@@ -43,15 +43,6 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
     return proving_key_;
 }
 
-void AcirComposer::init_and_finalize_builder(acir_format::acir_format& constraint_system)
-{
-    // populate the builder
-    create_circuit(constraint_system);
-    // WORKTODO: static execution if this doesn't change composer state
-    // finalize the circuit
-    goblin.composer.create_instance(goblin_builder_);
-}
-
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
                                                 acir_format::WitnessVector& witness,
                                                 bool is_recursive)

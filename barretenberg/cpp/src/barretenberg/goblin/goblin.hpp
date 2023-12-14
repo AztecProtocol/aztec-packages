@@ -5,6 +5,7 @@
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/debug_utility.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
@@ -13,9 +14,13 @@ namespace barretenberg {
 
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
+
     // WORKTODO(NEW_CONSTRAINTS)
-    // using GUHFlavor = proof_system::honk::flavor::Ultra;
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra; // GUHFLAG
+    using GUHFlavor = proof_system::honk::flavor::Ultra;
+    using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    // using GUHFlavor = proof_system::honk::flavor::GoblinUltra; // GUHFLAG
+    // using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
+
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
@@ -61,12 +66,9 @@ class Goblin {
     using Transcript = proof_system::honk::BaseTranscript;
     // WORKTODO: until we revert this, can't build some other targets where GUH is hard-coded
     // (ultimately some opqueue is needed)
-    // using GoblinUltraComposer = proof_system::honk::UltraComposer;
-    using GoblinUltraComposer = proof_system::honk::GoblinUltraComposer; // GUHFLAG
+    using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
     // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
-    // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
     using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
@@ -81,8 +83,6 @@ class Goblin {
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 
     HonkProof merge_proof;
-
-    GoblinUltraComposer composer;
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
@@ -112,11 +112,50 @@ class Goblin {
             [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
         }
 
+        // bool circuit_checked = circuit_builder.check_circuit();
+        // info("circuit checked = ", circuit_checked);
+
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
+        debug_utility::inspect_instance(instance);
+
+        for (size_t i = 0; i < 3; ++i) {
+            info("q_arith = ", instance->prover_polynomials.q_arith[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("q_m = ", instance->prover_polynomials.q_m[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("q_l = ", instance->prover_polynomials.q_l[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("q_r = ", instance->prover_polynomials.q_r[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("q_c = ", instance->prover_polynomials.q_c[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("w_l = ", instance->prover_polynomials.w_l[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("w_r = ", instance->prover_polynomials.w_r[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("w_o = ", instance->prover_polynomials.w_o[i]);
+        }
+        for (size_t i = 0; i < 3; ++i) {
+            info("w_4 = ", instance->prover_polynomials.w_4[i]);
+        }
+
+        {
+            info("Trying to verify ultra proof right away.");
+            GoblinUltraVerifier verifier{ instance->verification_key }; // WORKTODO This needs the vk
+            bool verified = verifier.verify_proof(ultra_proof);
+            info("                           verified GUH proof; result: ", verified);
+        }
 
         // WORKTODO(MERGE_VERIFIER)
         // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
