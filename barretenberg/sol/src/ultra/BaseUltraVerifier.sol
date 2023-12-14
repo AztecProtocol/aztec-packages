@@ -768,36 +768,39 @@ abstract contract BaseUltraVerifier {
                  * t2 = (W2 + gamma + beta * sigma_3_eval) * (W3 + gamma + beta * sigma_4_eval)
                  * result -= (alpha_base * z_omega_eval * t1 * t2)
                  */
+                let w1_eval := mload(W1_EVAL_LOC)
+                let w2_eval := mload(W2_EVAL_LOC)
+                let w3_eval := mload(W3_EVAL_LOC)
+                let w4_eval := mload(W4_EVAL_LOC)
+
                 let t1 :=
                     mulmod(
-                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(ID1_EVAL_LOC), p)),
-                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(ID2_EVAL_LOC), p)),
+                        add(add(w1_eval, gamma), mulmod(beta, mload(ID1_EVAL_LOC), p)),
+                        add(add(w2_eval, gamma), mulmod(beta, mload(ID2_EVAL_LOC), p)),
                         p
                     )
                 let t2 :=
                     mulmod(
-                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(ID3_EVAL_LOC), p)),
-                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(ID4_EVAL_LOC), p)),
+                        add(add(w3_eval, gamma), mulmod(beta, mload(ID3_EVAL_LOC), p)),
+                        add(add(w4_eval, gamma), mulmod(beta, mload(ID4_EVAL_LOC), p)),
                         p
                     )
                 let result := mulmod(mload(C_ALPHA_BASE_LOC), mulmod(mload(Z_EVAL_LOC), mulmod(t1, t2, p), p), p)
                 t1 :=
                     mulmod(
-                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA1_EVAL_LOC), p)),
-                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA2_EVAL_LOC), p)),
+                        add(add(w1_eval, gamma), mulmod(beta, mload(SIGMA1_EVAL_LOC), p)),
+                        add(add(w2_eval, gamma), mulmod(beta, mload(SIGMA2_EVAL_LOC), p)),
                         p
                     )
                 t2 :=
                     mulmod(
-                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA3_EVAL_LOC), p)),
-                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA4_EVAL_LOC), p)),
+                        add(add(w3_eval, gamma), mulmod(beta, mload(SIGMA3_EVAL_LOC), p)),
+                        add(add(w4_eval, gamma), mulmod(beta, mload(SIGMA4_EVAL_LOC), p)),
                         p
                     )
-                result :=
-                    add(
-                        result,
-                        sub(p, mulmod(mload(C_ALPHA_BASE_LOC), mulmod(mload(Z_OMEGA_EVAL_LOC), mulmod(t1, t2, p), p), p))
-                    )
+                let c_alpha_base := mload(C_ALPHA_BASE_LOC)
+                let z_omega_eval := mload(Z_OMEGA_EVAL_LOC)
+                result := add(result, sub(p, mulmod(c_alpha_base, mulmod(z_omega_eval, mulmod(t1, t2, p), p), p)))
 
                 /**
                  * alpha_base *= alpha
@@ -806,27 +809,28 @@ abstract contract BaseUltraVerifier {
                  * result += alpha_base . (L_1(ʓ)(Z(ʓ) - 1))
                  * alpha_Base *= alpha
                  */
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
+                let c_alpha := mload(C_ALPHA_LOC)
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, c_alpha, p))
+                c_alpha_base := mload(C_ALPHA_BASE_LOC)
                 result :=
                     add(
                         result,
                         mulmod(
-                            mload(C_ALPHA_BASE_LOC),
-                            mulmod(mload(L_END_LOC), add(mload(Z_OMEGA_EVAL_LOC), sub(p, mload(PUBLIC_INPUT_DELTA_LOC))), p),
+                            c_alpha_base,
+                            mulmod(mload(L_END_LOC), add(z_omega_eval, sub(p, mload(PUBLIC_INPUT_DELTA_LOC))), p),
                             p
                         )
                     )
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, c_alpha, p))
+                c_alpha_base := mload(C_ALPHA_BASE_LOC)
                 mstore(
                     PERMUTATION_IDENTITY,
                     add(
                         result,
-                        mulmod(
-                            mload(C_ALPHA_BASE_LOC), mulmod(mload(L_START_LOC), add(mload(Z_EVAL_LOC), sub(p, 1)), p), p
-                        )
+                        mulmod(c_alpha_base, mulmod(mload(L_START_LOC), add(mload(Z_EVAL_LOC), sub(p, 1)), p), p)
                     )
                 )
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, c_alpha, p))
             }
 
             /**
@@ -842,22 +846,23 @@ abstract contract BaseUltraVerifier {
                  * f *= η
                  * f += (w1(z) + q2.w1(zω))
                  */
-                let f := mulmod(mload(C_ETA_LOC), mload(Q3_EVAL_LOC), p)
+                let c_eta := mload(C_ETA_LOC)
+                let c_eta_cube := mload(C_ETA_CUBE_LOC)
+                let c_eta_sqr := mload(C_ETA_SQR_LOC)
+
+                let f := mulmod(c_eta, mload(Q3_EVAL_LOC), p)
                 f := add(f, add(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_OMEGA_EVAL_LOC), p)))
-                f := mulmod(f, mload(C_ETA_LOC), p)
+                f := mulmod(f, c_eta, p)
                 f := add(f, add(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p)))
-                f := mulmod(f, mload(C_ETA_LOC), p)
+                f := mulmod(f, c_eta, p)
                 f := add(f, add(mload(W1_EVAL_LOC), mulmod(mload(Q2_EVAL_LOC), mload(W1_OMEGA_EVAL_LOC), p)))
 
                 // t(z) = table4(z).η³ + table3(z).η² + table2(z).η + table1(z)
                 let t :=
                     add(
                         add(
-                            add(
-                                mulmod(mload(TABLE4_EVAL_LOC), mload(C_ETA_CUBE_LOC), p),
-                                mulmod(mload(TABLE3_EVAL_LOC), mload(C_ETA_SQR_LOC), p)
-                            ),
-                            mulmod(mload(TABLE2_EVAL_LOC), mload(C_ETA_LOC), p)
+                            add(mulmod(mload(TABLE4_EVAL_LOC), c_eta_cube, p), mulmod(mload(TABLE3_EVAL_LOC), c_eta_sqr, p)),
+                            mulmod(mload(TABLE2_EVAL_LOC), c_eta, p)
                         ),
                         mload(TABLE1_EVAL_LOC)
                     )
@@ -867,10 +872,10 @@ abstract contract BaseUltraVerifier {
                     add(
                         add(
                             add(
-                                mulmod(mload(TABLE4_OMEGA_EVAL_LOC), mload(C_ETA_CUBE_LOC), p),
-                                mulmod(mload(TABLE3_OMEGA_EVAL_LOC), mload(C_ETA_SQR_LOC), p)
+                                mulmod(mload(TABLE4_OMEGA_EVAL_LOC), c_eta_cube, p),
+                                mulmod(mload(TABLE3_OMEGA_EVAL_LOC), c_eta_sqr, p)
                             ),
-                            mulmod(mload(TABLE2_OMEGA_EVAL_LOC), mload(C_ETA_LOC), p)
+                            mulmod(mload(TABLE2_OMEGA_EVAL_LOC), c_eta, p)
                         ),
                         mload(TABLE1_OMEGA_EVAL_LOC)
                     )
@@ -887,11 +892,13 @@ abstract contract BaseUltraVerifier {
                  * numerator *= z_lookup(z)
                  * numerator -= temp0
                  */
-                let gamma_beta_constant := mulmod(mload(C_GAMMA_LOC), add(mload(C_BETA_LOC), 1), p)
-                let numerator := add(mulmod(f, mload(TABLE_TYPE_EVAL_LOC), p), mload(C_GAMMA_LOC))
-                let temp0 := addmod(add(t, mulmod(t_omega, mload(C_BETA_LOC), p)), gamma_beta_constant, p)
+                let c_beta := mload(C_BETA_LOC)
+                let c_gamma := mload(C_GAMMA_LOC)
+                let gamma_beta_constant := mulmod(c_gamma, add(c_beta, 1), p)
+                let numerator := add(mulmod(f, mload(TABLE_TYPE_EVAL_LOC), p), c_gamma)
+                let temp0 := addmod(add(t, mulmod(t_omega, c_beta, p)), gamma_beta_constant, p)
                 numerator := mulmod(numerator, temp0, p)
-                numerator := mulmod(numerator, add(mload(C_BETA_LOC), 1), p)
+                numerator := mulmod(numerator, add(c_beta, 1), p)
                 temp0 := mulmod(mload(C_ALPHA_LOC), mload(L_START_LOC), p)
                 numerator := add(numerator, temp0)
                 numerator := mulmod(numerator, mload(Z_LOOKUP_EVAL_LOC), p)
@@ -909,16 +916,16 @@ abstract contract BaseUltraVerifier {
                  * alpha_base *= alpha^3
                  */
                 let denominator :=
-                    add(add(mload(S_EVAL_LOC), mulmod(mload(S_OMEGA_EVAL_LOC), mload(C_BETA_LOC), p)), gamma_beta_constant)
+                    add(add(mload(S_EVAL_LOC), mulmod(mload(S_OMEGA_EVAL_LOC), c_beta, p)), gamma_beta_constant)
                 let temp1 := mulmod(mload(C_ALPHA_SQR_LOC), mload(L_END_LOC), p)
                 denominator := add(denominator, sub(p, temp1))
                 denominator := mulmod(denominator, mload(Z_LOOKUP_OMEGA_EVAL_LOC), p)
                 denominator := addmod(denominator, mulmod(temp1, mload(PLOOKUP_DELTA_LOC), p), p)
-
-                mstore(PLOOKUP_IDENTITY, mulmod(add(numerator, sub(p, denominator)), mload(C_ALPHA_BASE_LOC), p))
+                let c_alpha_base := mload(C_ALPHA_BASE_LOC)
+                mstore(PLOOKUP_IDENTITY, mulmod(add(numerator, sub(p, denominator)), c_alpha_base, p))
 
                 // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, mload(C_ALPHA_CUBE_LOC), p))
             }
 
             /**
@@ -960,21 +967,21 @@ abstract contract BaseUltraVerifier {
                  * the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith - 3) at
                  * product.
                  */
+                let w1_eval := mload(W1_EVAL_LOC)
+                let w2_eval := mload(W2_EVAL_LOC)
+                let w4_eval := mload(W4_EVAL_LOC)
 
-                let w1q1 := mulmod(mload(W1_EVAL_LOC), mload(Q1_EVAL_LOC), p)
-                let w2q2 := mulmod(mload(W2_EVAL_LOC), mload(Q2_EVAL_LOC), p)
+                let w1q1 := mulmod(w1_eval, mload(Q1_EVAL_LOC), p)
+                let w2q2 := mulmod(w2_eval, mload(Q2_EVAL_LOC), p)
                 let w3q3 := mulmod(mload(W3_EVAL_LOC), mload(Q3_EVAL_LOC), p)
-                let w4q3 := mulmod(mload(W4_EVAL_LOC), mload(Q4_EVAL_LOC), p)
+                let w4q3 := mulmod(w4_eval, mload(Q4_EVAL_LOC), p)
 
                 // @todo - Add a explicit test that hits QARITH == 3
                 // w1w2qm := (w_1 . w_2 . q_m . (QARITH_EVAL_LOC - 3)) / 2
+                let qarith := mload(QARITH_EVAL_LOC)
                 let w1w2qm :=
                     mulmod(
-                        mulmod(
-                            mulmod(mulmod(mload(W1_EVAL_LOC), mload(W2_EVAL_LOC), p), mload(QM_EVAL_LOC), p),
-                            add(mload(QARITH_EVAL_LOC), sub(p, 3)),
-                            p
-                        ),
+                        mulmod(mulmod(mulmod(w1_eval, w2_eval, p), mload(QM_EVAL_LOC), p), add(qarith, sub(p, 3)), p),
                         NEGATIVE_INVERSE_OF_2_MODULO_P,
                         p
                     )
@@ -990,11 +997,8 @@ abstract contract BaseUltraVerifier {
                     mulmod(
                         mload(C_ALPHA_LOC),
                         mulmod(
-                            add(mload(QARITH_EVAL_LOC), sub(p, 2)),
-                            add(
-                                mload(QM_EVAL_LOC),
-                                add(sub(p, mload(W1_OMEGA_EVAL_LOC)), add(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC)))
-                            ),
+                            add(qarith, sub(p, 2)),
+                            add(mload(QM_EVAL_LOC), add(sub(p, mload(W1_OMEGA_EVAL_LOC)), add(w1_eval, w4_eval))),
                             p
                         ),
                         p
@@ -1003,16 +1007,17 @@ abstract contract BaseUltraVerifier {
                 // if q_arith == 2 OR q_arith == 3 we add the 4th wire of the NEXT gate into the arithmetic identity
                 // N.B. if q_arith > 2, this wire value will be scaled by (q_arith - 1) relative to the other gate wires!
                 // alpha_base * q_arith * (identity + (q_arith - 1) * (w_4_omega + extra_small_addition_gate_identity))
+                let c_alpha_base := mload(C_ALPHA_BASE_LOC)
                 mstore(
                     ARITHMETIC_IDENTITY,
                     mulmod(
-                        mload(C_ALPHA_BASE_LOC),
+                        c_alpha_base,
                         mulmod(
-                            mload(QARITH_EVAL_LOC),
+                            qarith,
                             add(
                                 identity,
                                 mulmod(
-                                    add(mload(QARITH_EVAL_LOC), sub(p, 1)),
+                                    add(qarith, sub(p, 1)),
                                     add(mload(W4_OMEGA_EVAL_LOC), extra_small_addition_gate_identity),
                                     p
                                 )
@@ -1024,7 +1029,7 @@ abstract contract BaseUltraVerifier {
                 )
 
                 // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_SQR_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, mload(C_ALPHA_SQR_LOC), p))
             }
 
             /**
@@ -1051,17 +1056,21 @@ abstract contract BaseUltraVerifier {
                  */
                 let minus_two := sub(p, 2)
                 let minus_three := sub(p, 3)
-                let d1 := addmod(mload(W2_EVAL_LOC), sub(p, mload(W1_EVAL_LOC)), p)
-                let d2 := addmod(mload(W3_EVAL_LOC), sub(p, mload(W2_EVAL_LOC)), p)
-                let d3 := addmod(mload(W4_EVAL_LOC), sub(p, mload(W3_EVAL_LOC)), p)
-                let d4 := addmod(mload(W1_OMEGA_EVAL_LOC), sub(p, mload(W4_EVAL_LOC)), p)
+                let w2_eval := mload(W2_EVAL_LOC)
+                let w3_eval := mload(W3_EVAL_LOC)
+                let w4_eval := mload(W4_EVAL_LOC)
+                let d1 := addmod(w2_eval, sub(p, mload(W1_EVAL_LOC)), p)
+                let d2 := addmod(w3_eval, sub(p, w2_eval), p)
+                let d3 := addmod(w4_eval, sub(p, w3_eval), p)
+                let d4 := addmod(mload(W1_OMEGA_EVAL_LOC), sub(p, w4_eval), p)
+                let c_alpha_base := mload(C_ALPHA_BASE_LOC)
 
                 let range_accumulator :=
                     mulmod(
                         mulmod(
                             mulmod(addmod(mulmod(d1, d1, p), sub(p, d1), p), add(d1, minus_two), p), add(d1, minus_three), p
                         ),
-                        mload(C_ALPHA_BASE_LOC),
+                        c_alpha_base,
                         p
                     )
                 range_accumulator :=
@@ -1073,7 +1082,7 @@ abstract contract BaseUltraVerifier {
                                 add(d2, minus_three),
                                 p
                             ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p),
+                            mulmod(c_alpha_base, mload(C_ALPHA_LOC), p),
                             p
                         )
                     )
@@ -1086,7 +1095,7 @@ abstract contract BaseUltraVerifier {
                                 add(d3, minus_three),
                                 p
                             ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_SQR_LOC), p),
+                            mulmod(c_alpha_base, mload(C_ALPHA_SQR_LOC), p),
                             p
                         )
                     )
@@ -1099,7 +1108,7 @@ abstract contract BaseUltraVerifier {
                                 add(d4, minus_three),
                                 p
                             ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p),
+                            mulmod(c_alpha_base, mload(C_ALPHA_CUBE_LOC), p),
                             p
                         )
                     )
@@ -1108,7 +1117,7 @@ abstract contract BaseUltraVerifier {
                 mstore(SORT_IDENTITY, range_accumulator)
 
                 // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_QUAD_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, mload(C_ALPHA_QUAD_LOC), p))
             }
 
             /**
@@ -1129,31 +1138,29 @@ abstract contract BaseUltraVerifier {
                  * sign_term *= q_sign
                  */
                 // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-                let x_diff := addmod(mload(X2_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p)
-                let y2_sqr := mulmod(mload(Y2_EVAL_LOC), mload(Y2_EVAL_LOC), p)
-                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                let y1y2 := mulmod(mulmod(mload(Y1_EVAL_LOC), mload(Y2_EVAL_LOC), p), mload(QSIGN_LOC), p)
+                let y1_eval := mload(Y1_EVAL_LOC)
+                let y2_eval := mload(Y2_EVAL_LOC)
+                let x1_eval := mload(X1_EVAL_LOC)
+                let x3_eval := mload(X3_EVAL_LOC)
+
+                let x_diff := addmod(mload(X2_EVAL_LOC), sub(p, x1_eval), p)
+                let y2_sqr := mulmod(y2_eval, y2_eval, p)
+                let y1_sqr := mulmod(y1_eval, y1_eval, p)
+                let y1y2 := mulmod(mulmod(y1_eval, y2_eval, p), mload(QSIGN_LOC), p)
 
                 let x_add_identity :=
                     add(
-                        mulmod(
-                            add(mload(X3_EVAL_LOC), add(mload(X2_EVAL_LOC), mload(X1_EVAL_LOC))),
-                            mulmod(x_diff, x_diff, p),
-                            p
-                        ),
+                        mulmod(add(x3_eval, add(mload(X2_EVAL_LOC), x1_eval)), mulmod(x_diff, x_diff, p), p),
                         add(sub(p, addmod(y2_sqr, y1_sqr, p)), add(y1y2, y1y2))
                     )
                 x_add_identity :=
                     mulmod(mulmod(x_add_identity, add(1, sub(p, mload(QM_EVAL_LOC))), p), mload(C_ALPHA_BASE_LOC), p)
 
                 // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-                let y1_plus_y3 := add(mload(Y1_EVAL_LOC), mload(Y3_EVAL_LOC))
-                let y_diff := add(mulmod(mload(Y2_EVAL_LOC), mload(QSIGN_LOC), p), sub(p, mload(Y1_EVAL_LOC)))
+                let y1_plus_y3 := add(y1_eval, mload(Y3_EVAL_LOC))
+                let y_diff := add(mulmod(y2_eval, mload(QSIGN_LOC), p), sub(p, y1_eval))
                 let y_add_identity :=
-                    add(
-                        mulmod(y1_plus_y3, x_diff, p),
-                        mulmod(add(mload(X3_EVAL_LOC), sub(p, mload(X1_EVAL_LOC))), y_diff, p)
-                    )
+                    add(mulmod(y1_plus_y3, x_diff, p), mulmod(add(x3_eval, sub(p, x1_eval)), y_diff, p))
                 y_add_identity :=
                     mulmod(
                         mulmod(y_add_identity, add(1, sub(p, mload(QM_EVAL_LOC))), p),
@@ -1179,33 +1186,29 @@ abstract contract BaseUltraVerifier {
                  * y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
                  */
                 // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-                let x1_sqr := mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p)
-                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                let x_pow_4 := mulmod(add(y1_sqr, GRUMPKIN_CURVE_B_PARAMETER_NEGATED), mload(X1_EVAL_LOC), p)
+                let y1_eval := mload(Y1_EVAL_LOC)
+                let x1_eval := mload(X1_EVAL_LOC)
+
+                let x1_sqr := mulmod(x1_eval, x1_eval, p)
+                let y1_sqr := mulmod(y1_eval, y1_eval, p)
+                let x_pow_4 := mulmod(add(y1_sqr, GRUMPKIN_CURVE_B_PARAMETER_NEGATED), x1_eval, p)
                 let y1_sqr_mul_4 := mulmod(y1_sqr, 4, p)
                 let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
                 let x1_sqr_mul_3 := mulmod(x1_sqr, 3, p)
                 let x_double_identity :=
-                    add(
-                        mulmod(add(mload(X3_EVAL_LOC), add(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC))), y1_sqr_mul_4, p),
-                        sub(p, x1_pow_4_mul_9)
-                    )
+                    add(mulmod(add(mload(X3_EVAL_LOC), add(x1_eval, x1_eval)), y1_sqr_mul_4, p), sub(p, x1_pow_4_mul_9))
                 // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
                 let y_double_identity :=
                     add(
-                        mulmod(x1_sqr_mul_3, add(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC))), p),
-                        sub(
-                            p,
-                            mulmod(
-                                add(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC)), add(mload(Y1_EVAL_LOC), mload(Y3_EVAL_LOC)), p
-                            )
-                        )
+                        mulmod(x1_sqr_mul_3, add(x1_eval, sub(p, mload(X3_EVAL_LOC))), p),
+                        sub(p, mulmod(add(y1_eval, y1_eval), add(y1_eval, mload(Y3_EVAL_LOC)), p))
                     )
-                x_double_identity := mulmod(x_double_identity, mload(C_ALPHA_BASE_LOC), p)
-                y_double_identity :=
-                    mulmod(y_double_identity, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p), p)
-                x_double_identity := mulmod(x_double_identity, mload(QM_EVAL_LOC), p)
-                y_double_identity := mulmod(y_double_identity, mload(QM_EVAL_LOC), p)
+                let qm_eval_loc := mload(QM_EVAL_LOC)
+                let c_alpha_base := mload(C_ALPHA_BASE_LOC)
+                x_double_identity := mulmod(x_double_identity, c_alpha_base, p)
+                y_double_identity := mulmod(y_double_identity, mulmod(c_alpha_base, mload(C_ALPHA_LOC), p), p)
+                x_double_identity := mulmod(x_double_identity, qm_eval_loc, p)
+                y_double_identity := mulmod(y_double_identity, qm_eval_loc, p)
                 // ELLIPTIC_IDENTITY += (x_double_identity + y_double_identity) * Q_DOUBLE_EVAL
                 mstore(
                     ELLIPTIC_IDENTITY,
@@ -1217,7 +1220,7 @@ abstract contract BaseUltraVerifier {
                 )
 
                 // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_QUAD_LOC), p))
+                mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, mload(C_ALPHA_QUAD_LOC), p))
             }
 
             /**
@@ -1244,40 +1247,31 @@ abstract contract BaseUltraVerifier {
                      * non_native_field_gate_3 = (limb_subproduct + w_4 - (w_3_omega + w_4_omega)) * q_m
                      * non_native_field_identity = (non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3) * q_2
                      */
+                    let w1_eval := mload(W1_EVAL_LOC)
+                    let w2_eval := mload(W2_EVAL_LOC)
+                    let w3_eval := mload(W3_EVAL_LOC)
+                    let w4_eval := mload(W4_EVAL_LOC)
 
-                    let limb_subproduct :=
-                        add(
-                            mulmod(mload(W1_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p),
-                            mulmod(mload(W1_OMEGA_EVAL_LOC), mload(W2_EVAL_LOC), p)
-                        )
+                    let w1_omega_eval := mload(W1_OMEGA_EVAL_LOC)
+                    let w2_omega_eval := mload(W2_OMEGA_EVAL_LOC)
+                    let w3_omega_eval := mload(W3_OMEGA_EVAL_LOC)
+                    let w4_omega_eval := mload(W4_OMEGA_EVAL_LOC)
+
+                    let limb_subproduct := add(mulmod(w1_eval, w2_omega_eval, p), mulmod(w1_omega_eval, w2_eval, p))
 
                     let non_native_field_gate_2 :=
-                        add(
-                            add(
-                                mulmod(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC), p),
-                                mulmod(mload(W2_EVAL_LOC), mload(W3_EVAL_LOC), p)
-                            ),
-                            sub(p, mload(W3_OMEGA_EVAL_LOC))
-                        )
+                        add(add(mulmod(w1_eval, w4_eval, p), mulmod(w2_eval, w3_eval, p)), sub(p, w3_omega_eval))
                     non_native_field_gate_2 := mulmod(non_native_field_gate_2, LIMB_SIZE, p)
-                    non_native_field_gate_2 := add(non_native_field_gate_2, sub(p, mload(W4_OMEGA_EVAL_LOC)))
+                    non_native_field_gate_2 := add(non_native_field_gate_2, sub(p, w4_omega_eval))
                     non_native_field_gate_2 := add(non_native_field_gate_2, limb_subproduct)
                     non_native_field_gate_2 := mulmod(non_native_field_gate_2, mload(Q4_EVAL_LOC), p)
                     limb_subproduct := mulmod(limb_subproduct, LIMB_SIZE, p)
-                    limb_subproduct :=
-                        add(limb_subproduct, mulmod(mload(W1_OMEGA_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p))
+                    limb_subproduct := add(limb_subproduct, mulmod(w1_omega_eval, w2_omega_eval, p))
                     let non_native_field_gate_1 :=
-                        mulmod(
-                            add(limb_subproduct, sub(p, addmod(mload(W3_EVAL_LOC), mload(W4_EVAL_LOC), p))),
-                            mload(Q3_EVAL_LOC),
-                            p
-                        )
+                        mulmod(add(limb_subproduct, sub(p, addmod(w3_eval, w4_eval, p))), mload(Q3_EVAL_LOC), p)
                     let non_native_field_gate_3 :=
                         mulmod(
-                            add(
-                                add(limb_subproduct, mload(W4_EVAL_LOC)),
-                                sub(p, addmod(mload(W3_OMEGA_EVAL_LOC), mload(W4_OMEGA_EVAL_LOC), p))
-                            ),
+                            add(add(limb_subproduct, w4_eval), sub(p, addmod(w3_omega_eval, w4_omega_eval, p))),
                             mload(QM_EVAL_LOC),
                             p
                         )
@@ -1448,16 +1442,17 @@ abstract contract BaseUltraVerifier {
                         let access_check := mulmod(access_type, add(access_type, sub(p, 1)), p)
                         let next_gate_access_type_is_boolean :=
                             mulmod(next_gate_access_type, add(next_gate_access_type, sub(p, 1)), p)
+                        let c_alpha := mload(C_ALPHA_LOC)
                         let RAM_cci :=
                             mulmod(
                                 adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation,
-                                mload(C_ALPHA_LOC),
+                                c_alpha,
                                 p
                             )
                         RAM_cci := add(RAM_cci, index_is_monotonically_increasing)
-                        RAM_cci := mulmod(RAM_cci, mload(C_ALPHA_LOC), p)
+                        RAM_cci := mulmod(RAM_cci, c_alpha, p)
                         RAM_cci := add(RAM_cci, next_gate_access_type_is_boolean)
-                        RAM_cci := mulmod(RAM_cci, mload(C_ALPHA_LOC), p)
+                        RAM_cci := mulmod(RAM_cci, c_alpha, p)
                         RAM_cci := addmod(RAM_cci, access_check, p)
 
                         mstore(AUX_RAM_CONSISTENCY_EVALUATION, RAM_cci)
