@@ -109,10 +109,10 @@ pub fn initialize_end_values(previous_kernel : PreviousKernelData, public_inputs
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_empty(), SideEffect::zero());
+    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_empty(), SideEffect::empty());
 
-    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_empty(), SideEffect::zero());
-    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_empty(), SideEffectLinkedToNoteHash::zero());
+    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_empty(), SideEffect::empty());
+    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_empty(), SideEffectLinkedToNoteHash::empty());
     public_inputs.end.nullified_commitments = array_to_bounded_vec(start.nullified_commitments);
 
     public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
@@ -180,7 +180,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
-    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(SideEffect::zero());
+    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new(SideEffect::empty());
     for i in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i].value;
         let witness = read_request_membership_witnesses[i];
@@ -196,7 +196,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     //
     // nullifiers
-    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
+    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i].value;
         if new_nullifier != 0 {
@@ -210,7 +210,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     public_inputs.end.new_nullifiers.push_vec(siloed_new_nullifiers);
 
     // commitments
-    let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::zero());
+    let mut siloed_new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL> = BoundedVec::new(SideEffect::empty());
     for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
         let new_commitment = new_commitments[i].value;
         if new_commitment != 0 {

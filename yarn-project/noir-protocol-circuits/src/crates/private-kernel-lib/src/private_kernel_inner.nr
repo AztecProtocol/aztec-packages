@@ -553,7 +553,7 @@ mod tests {
             });
 
         // Mock the previous new commitments to be full, therefore no more commitments can be added.
-        let mut full_new_commitments = [SideEffect::zero(); MAX_NEW_COMMITMENTS_PER_TX];
+        let mut full_new_commitments = [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_TX];
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             full_new_commitments[i] = SideEffect {
                 value: i + 1,
@@ -797,7 +797,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
 
         builder.failed();
     }

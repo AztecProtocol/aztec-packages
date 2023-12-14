@@ -20,7 +20,6 @@ export interface SideEffectLinkedToNoteHash {
   counter: Field;
 }
 
-
 export interface AztecAddress {
   inner: Field;
 }

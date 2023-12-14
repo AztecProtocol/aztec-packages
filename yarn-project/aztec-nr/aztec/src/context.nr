@@ -102,10 +102,10 @@ impl PrivateContext {
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            read_requests: BoundedVec::new(SideEffect::zero()),
+            read_requests: BoundedVec::new(SideEffect::empty()),
 
-            new_commitments: BoundedVec::new(SideEffect::zero()),
-            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::zero()),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
             nullified_commitments: BoundedVec::new(0),
 
             block_header: inputs.block_header,
@@ -416,8 +416,8 @@ impl PrivateContext {
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [SideEffect::zero(); MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [SideEffectLinkedToNoteHash::zero(); MAX_NEW_NULLIFIERS_PER_CALL],
+                new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
+                new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
@@ -484,8 +484,8 @@ impl PublicContext {
             contract_storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
 
-            new_commitments: BoundedVec::new(SideEffect::zero()),
-            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::zero()),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
 
             new_l2_to_l1_msgs: BoundedVec::new(0),
 

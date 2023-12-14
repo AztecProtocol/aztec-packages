@@ -67,13 +67,13 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.return_values);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
-            fields.push_array(self.read_requests[i].to_field_array());
+            fields.push_array(self.read_requests[i].serialize());
         }
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
-            fields.push_array(self.new_commitments[i].to_field_array());
+            fields.push_array(self.new_commitments[i].serialize());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
-            fields.push_array(self.new_nullifiers[i].to_field_array());
+            fields.push_array(self.new_nullifiers[i].serialize());
         }
         fields.push_array(self.nullified_commitments);
         fields.push_array(self.private_call_stack_hashes);
@@ -100,13 +100,13 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.return_values);
 
         for i in 0..MAX_READ_REQUESTS_PER_CALL{
-            fields.push_array(self.read_requests[i].to_field_array());
+            fields.push_array(self.read_requests[i].serialize());
         }
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
-            fields.push_array(self.new_commitments[i].to_field_array());
+            fields.push_array(self.new_commitments[i].serialize());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
-            fields.push_array(self.new_nullifiers[i].to_field_array());
+            fields.push_array(self.new_nullifiers[i].serialize());
         }
         fields.push_array(self.private_call_stack_hashes);
         fields.push_array(self.public_call_stack_hashes);

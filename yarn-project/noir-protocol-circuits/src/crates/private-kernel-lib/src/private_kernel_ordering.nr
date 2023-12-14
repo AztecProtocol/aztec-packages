@@ -60,7 +60,7 @@ impl PrivateKernelInputsOrdering {
         }
 
         // Empty out read requests after matching them to commitments
-        public_inputs.end.read_requests = BoundedVec::new(SideEffect::zero());
+        public_inputs.end.read_requests = BoundedVec::new(SideEffect::empty());
     }
 
     fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -86,15 +86,15 @@ impl PrivateKernelInputsOrdering {
                 // match found!
                 // squash both the nullifier and the commitment
                 // (set to 0 here and then rearrange array after loop)
-                new_commitments[hint_pos] = SideEffect::zero();
-                new_nullifiers[n_idx as u64] = SideEffectLinkedToNoteHash::zero();
+                new_commitments[hint_pos] = SideEffect::empty();
+                new_nullifiers[n_idx as u64] = SideEffectLinkedToNoteHash::empty();
             }
             // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded
             // to public inputs (used later by base rollup circuit)
         }
         // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
 
-        let mut new_commitments_vec = BoundedVec::new(SideEffect::zero());
+        let mut new_commitments_vec = BoundedVec::new(SideEffect::empty());
 
         for c_idx in 0..MAX_NEW_COMMITMENTS_PER_TX {
             if new_commitments[c_idx].value != 0 {
@@ -104,7 +104,7 @@ impl PrivateKernelInputsOrdering {
 
         public_inputs.end.new_commitments = new_commitments_vec;
 
-        let mut new_nullifiers_vec = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
+        let mut new_nullifiers_vec = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
 
         for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
             if new_nullifiers[n_idx].value != 0 {
@@ -428,7 +428,7 @@ mod tests {
     fn zero_0th_nullifier_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::zero());
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
 
         builder.failed();
     }
