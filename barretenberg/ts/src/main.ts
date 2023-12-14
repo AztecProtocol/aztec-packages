@@ -70,28 +70,16 @@ async function init(bytecodePath: string, crsPath: string) {
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
-// TODO(AD): deduplicate this?
 async function initGoblin(bytecodePath: string, crsPath: string) {
-  const api = await Barretenberg.new(threads);
-
-  const circuitSize = await getGates(bytecodePath, api);
-  const subgroupSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
-  if (subgroupSize > MAX_CIRCUIT_SIZE) {
-    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
-  }
+  const initData = await init(bytecodePath, crsPath);
+  const { api, subgroupSize } = initData;
 
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await GrumpkinCrs.new(subgroupSize + 1, crsPath);
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  await api.commonInitSlabAllocator(subgroupSize);
+  // Need both grumpkin and bn254 SRS's currently
+  const grumpkinCrs = await GrumpkinCrs.new(subgroupSize + 1, crsPath);
+  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
 
-  // TODO use CRS class to load this, just assuming file exists right now.
-  // Eventually we want to download from internet if not around.
-  readFileSync(crsPath + '/g1.dat');
-  await api.srsInitGrumpkinSrs(new RawBuffer(crs.getG1Data()), crs.numPoints);
-
-  const acirComposer = await api.acirNewAcirComposer(subgroupSize);
-  return { api, acirComposer, circuitSize, subgroupSize };
+  return initData;
 }
 
 async function initLite() {

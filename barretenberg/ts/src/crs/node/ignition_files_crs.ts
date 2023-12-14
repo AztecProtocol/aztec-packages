@@ -17,6 +17,7 @@ function getCurrentDir() {
  * The path to our SRS object, assuming that we are in barretenberg/ts folder.
  */
 export const SRS_DEV_PATH = getCurrentDir() + '/../../../cpp/srs_db/ignition/monomial';
+export const GRUMPKIN_SRS_DEV_PATH = getCurrentDir() + '/../../../cpp/srs_db/grumpkin/monomial';
 
 /**
  * Downloader for CRS from a local file (for Node).

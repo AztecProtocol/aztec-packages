@@ -1,5 +1,5 @@
 import { NetCrs } from '../net_crs.js';
-import { IgnitionFilesCrs } from './ignition_files_crs.js';
+import { GRUMPKIN_SRS_DEV_PATH, IgnitionFilesCrs } from './ignition_files_crs.js';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { readFile } from 'fs/promises';
 import createDebug from 'debug';
@@ -62,7 +62,7 @@ export class GrumpkinCrs {
   constructor(public readonly numPoints: number, public readonly path: string) {}
 
   static async new(numPoints: number, crsPath = './crs') {
-    const crs = new Crs(numPoints, crsPath);
+    const crs = new GrumpkinCrs(numPoints, crsPath);
     await crs.init();
     return crs;
   }
@@ -76,7 +76,7 @@ export class GrumpkinCrs {
     }
 
     // TODO(AD): implement NetCrs for Grumpkin once uploaded.
-    const crs = new IgnitionFilesCrs(this.numPoints);
+    const crs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
     debug(`loading igntion file crs of size: ${this.numPoints}`);
     await crs.init();
     writeFileSync(this.path + '/size', this.numPoints.toString());
