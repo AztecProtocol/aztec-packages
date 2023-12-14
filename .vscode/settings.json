@@ -169,8 +169,6 @@
   "testMate.cpp.test.workingDirectory": "${workspaceFolder}/circuits/cpp/build",
   // Filter all binaries that are not tests
   "testMate.cpp.test.executables": "${workspaceFolder}/circuits/cpp/build/bin/*{test,Test,TEST}*",
-  "jest.jestCommandLine": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest)",
-  "jest.rootPath": "yarn-project/noir-compiler"
   // End C++/Circuits settings
   ///////////////////////////////////////
 }
