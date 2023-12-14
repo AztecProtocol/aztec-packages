@@ -6,9 +6,6 @@ pragma solidity >=0.8.4;
  * @title Ultra Plonk proof verification contract
  * @dev Top level Plonk proof verification contract, which allows Plonk proof to be verified
  */
-/**
- * 449252 without any changes
- */
 abstract contract BaseUltraVerifier {
     // VERIFICATION KEY MEMORY LOCATIONS
     uint256 internal constant N_LOC = 0x380;
