@@ -427,15 +427,15 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                              x_challenge,
                                                                              concatenation_groups_batched);
 
-        // info("pi_polynomial");
-        // // Compute batched degree-check and ZM-identity quotient polynomial pi
-        // auto pi_polynomial =
-        //     compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
+        info("pi_polynomial");
+        // Compute batched degree-check and ZM-identity quotient polynomial pi
+        auto pi_polynomial =
+            compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
 
-        // info("pi_commitment");
-        // // Compute and send proof commitment pi
-        // auto pi_commitment = commitment_key->commit(pi_polynomial);
-        // transcript->send_to_verifier("ZM:PI", pi_commitment);
+        info("pi_commitment");
+        // Compute and send proof commitment pi
+        auto pi_commitment = commitment_key->commit(pi_polynomial);
+        transcript->send_to_verifier("ZM:PI", pi_commitment);
     }
 };
 

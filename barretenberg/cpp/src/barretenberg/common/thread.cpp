@@ -70,19 +70,19 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    // #ifdef NO_MULTITHREADING
+#ifdef NO_MULTITHREADING
     for (size_t i = 0; i < num_iterations; ++i) {
         func(i);
     }
-    // #else
-    // #ifndef NO_OMP_MULTITHREADING
-    //     parallel_for_omp(num_iterations, func);
-    // #else
-    //     // parallel_for_spawning(num_iterations, func);
-    //     // parallel_for_moody(num_iterations, func);
-    //     // parallel_for_atomic_pool(num_iterations, func);
-    //     parallel_for_mutex_pool(num_iterations, func);
-    //     // parallel_for_queued(num_iterations, func);
-    // #endif
-    // #endif
+#else
+#ifndef NO_OMP_MULTITHREADING
+    parallel_for_omp(num_iterations, func);
+#else
+    // parallel_for_spawning(num_iterations, func);
+    // parallel_for_moody(num_iterations, func);
+    // parallel_for_atomic_pool(num_iterations, func);
+    parallel_for_mutex_pool(num_iterations, func);
+    // parallel_for_queued(num_iterations, func);
+#endif
+#endif
 }
