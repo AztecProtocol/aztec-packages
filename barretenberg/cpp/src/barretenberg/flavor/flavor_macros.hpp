@@ -59,7 +59,7 @@ template <typename T, typename... BaseClass> auto _concatenate_base_class_get_la
     DEFINE_REF_VIEW(__VA_ARGS__)                                                                                       \
     std::vector<std::string> get_labels() const                                                                        \
     {                                                                                                                  \
-        return std::split_and_trim(#__VA_ARGS__, ',');                                                                 \
+        return barretenberg::detail::split_and_trim(#__VA_ARGS__, ',');                                                \
     }                                                                                                                  \
     constexpr std::size_t size() const                                                                                 \
     {                                                                                                                  \

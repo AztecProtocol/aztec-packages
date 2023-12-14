@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/794) namespace this once convenient
 /**
  * @brief Concatenates multiple std::vector objects into a single std::vector.
  *
