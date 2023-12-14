@@ -95,8 +95,13 @@ impl PublicCircuitPublicInputs{
             fields.push_array(self.contract_storage_reads[i].serialize());
         }
         fields.push_array(self.public_call_stack_hashes);
-        fields.push_array(self.new_commitments);
-        fields.push_array(self.new_nullifiers);
+
+        for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
+            fields.push_array(self.new_commitments[i].to_field_array());
+        }
+        for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
+            fields.push_array(self.new_nullifiers[i].to_field_array());
+        }
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);

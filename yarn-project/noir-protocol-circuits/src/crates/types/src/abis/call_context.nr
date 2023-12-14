@@ -20,7 +20,7 @@ struct CallContext {
     is_static_call : bool,
     is_contract_deployment : bool,
 
-    start_side_effect_counter : Field,  // maybe an int?
+    start_side_effect_counter : Field,
 }
 // docs:end:call-context
 
@@ -63,6 +63,6 @@ impl CallContext {
             & (call_context.is_delegate_call == self.is_delegate_call)
             & (call_context.is_static_call == self.is_static_call)
             & (call_context.is_contract_deployment == self.is_contract_deployment)
-            & (call_context.start_side_effect_counter== self.start_side_effect_counter)
+            & (call_context.start_side_effect_counter == self.start_side_effect_counter)
     }
 }

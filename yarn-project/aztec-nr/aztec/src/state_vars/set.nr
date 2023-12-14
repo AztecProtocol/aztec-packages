@@ -1,6 +1,9 @@
 use dep::std::option::Option;
 use crate::abi::PublicContextInputs;
-use dep::protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL};
+use dep::protocol_types::{
+    constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
+    abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+};
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, create_note_hash_from_public, destroy_note},
