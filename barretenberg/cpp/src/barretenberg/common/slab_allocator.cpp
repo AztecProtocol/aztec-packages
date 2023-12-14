@@ -135,6 +135,9 @@ void SlabAllocator::init(size_t circuit_size_hint)
 
 std::shared_ptr<void> SlabAllocator::get(size_t req_size)
 {
+    if (req_size > 1000000) {
+        info("REQ_SIZE", req_size);
+    }
 #ifndef NO_MULTITHREADING
     std::unique_lock<std::mutex> lock(memory_store_mutex);
 #endif
