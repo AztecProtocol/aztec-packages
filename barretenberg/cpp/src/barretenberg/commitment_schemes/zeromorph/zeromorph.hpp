@@ -290,6 +290,7 @@ template <typename Curve> class ZeroMorphProver_ {
         auto batched_quotient = zeta_x;
         batched_quotient.add_scaled(Z_x, z_challenge);
 
+        info("@@!!");
         // TODO(#742): To complete the degree check, we need to commit to (q_{\zeta} + z*q_Z)*X^{N_max - N - 1}.
         // Verification then requires a pairing check similar to the standard KZG check but with [1]_2 replaced by
         // [X^{N_max - N -1}]_2. Two issues: A) we do not have an SRS with these G2 elements (so need to generate a fake
@@ -407,13 +408,16 @@ template <typename Curve> class ZeroMorphProver_ {
         auto q_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("ZM:C_q", q_commitment);
 
+        info("Get challenges x and z");
         // Get challenges x and z
         auto [x_challenge, z_challenge] = challenges_to_field_elements<FF>(transcript->get_challenges("ZM:x", "ZM:z"));
 
+        info("zeta_x");
         // Compute degree check polynomial \zeta partially evaluated at x
         auto zeta_x =
             compute_partially_evaluated_degree_check_polynomial(batched_quotient, quotients, y_challenge, x_challenge);
 
+        info("Z_x");
         // Compute ZeroMorph identity polynomial Z partially evaluated at x
         auto Z_x = compute_partially_evaluated_zeromorph_identity_polynomial(f_batched,
                                                                              g_batched,
@@ -423,13 +427,15 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                              x_challenge,
                                                                              concatenation_groups_batched);
 
-        // Compute batched degree-check and ZM-identity quotient polynomial pi
-        auto pi_polynomial =
-            compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
+        // info("pi_polynomial");
+        // // Compute batched degree-check and ZM-identity quotient polynomial pi
+        // auto pi_polynomial =
+        //     compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
 
-        // Compute and send proof commitment pi
-        auto pi_commitment = commitment_key->commit(pi_polynomial);
-        transcript->send_to_verifier("ZM:PI", pi_commitment);
+        // info("pi_commitment");
+        // // Compute and send proof commitment pi
+        // auto pi_commitment = commitment_key->commit(pi_polynomial);
+        // transcript->send_to_verifier("ZM:PI", pi_commitment);
     }
 };
 
