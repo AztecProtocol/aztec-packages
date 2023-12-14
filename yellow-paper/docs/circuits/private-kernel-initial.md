@@ -6,7 +6,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 ## Requirements
 
-In the **initial** kernel iteration, the process involves taking a transaction request and private call data, verifying their integrity, and preparing the necessary data for subsequent circuits to operate. This step is particularly beneficial due to its separation from the [inner private kernel circuit](./private_kernel_inner.md), as the first call lacks a "previous kernel" to process. Additionally, it executes tasks that are pertinent to a transaction and need only occur once.
+In the **initial** kernel iteration, the process involves taking a transaction request and private call data, verifying their integrity, and preparing the necessary data for subsequent circuits to operate. This step is particularly beneficial due to its separation from the [inner private kernel circuit](./private-kernel-inner.md), as the first call lacks a "previous kernel" to process. Additionally, it executes tasks that are pertinent to a transaction and need only occur once.
 
 ### Key Responsibilities Specific to this Circuit:
 
@@ -154,7 +154,7 @@ For the note hash contexts, it also verifies that each is associated with a null
 - Greater than zero: if the note is nullified in the same transaction.
   - This value must be greater than the counter of the note hash.
 
-> Nullifier counters are used in the [reset private kernel circuit](./private_kernel_reset.md#verifying-read-requests) to ensure a read happens **before** a transient note is nullified.
+> Nullifier counters are used in the [reset private kernel circuit](./private-kernel-reset.md#verifying-read-requests) to ensure a read happens **before** a transient note is nullified.
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
@@ -207,7 +207,7 @@ It also includes hints that aid in the verifications carried out in this circuit
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [inner private kernel circuit](./private_kernel_inner.md) and the [reset private kernel circuit](./private_kernel_reset.md).
+The structure of this public inputs aligns with that of the [inner private kernel circuit](./private-kernel-inner.md) and the [reset private kernel circuit](./private-kernel-reset.md).
 
 ### Constant Data
 

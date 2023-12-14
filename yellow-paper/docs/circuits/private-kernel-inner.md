@@ -16,9 +16,9 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [Initial private kernel proof](./private_kernel_initial.md)
+- [Initial private kernel proof](./private-kernel-initial.md)
 - Inner private kernel proof.
-- [Reset private kernel proof](./private_kernel_reset.md).
+- [Reset private kernel proof](./private-kernel-reset.md).
 
 The previous proof and the proof for the current function call are verified using recursion.
 
@@ -181,7 +181,7 @@ For the newly added note hashes from app circuits' public inputs, this circuit a
 - Greater than zero: if the note is nullified in the same transaction.
   - This value must be greater than the counter of the note hash.
 
-> Nullifier counters are used in the [reset private kernel circuit](./private_kernel_reset.md) to ensure a read happens **before** a transient note is nullified.
+> Nullifier counters are used in the [reset private kernel circuit](./private-kernel-reset.md) to ensure a read happens **before** a transient note is nullified.
 
 > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
@@ -201,9 +201,9 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It must be one of the following:
-  - [Initial private kernel circuit](./private_kernel_initial.md).
+  - [Initial private kernel circuit](./private-kernel-initial.md).
   - Inner private kernel circuit.
-  - [Reset private kernel circuit](./private_kernel_reset.md).
+  - [Reset private kernel circuit](./private-kernel-reset.md).
 - Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
@@ -229,7 +229,7 @@ It also includes hints that aid in the verifications carried out in this circuit
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [initial private kernel circuit](./private_kernel_initial.md) and the [reset private kernel circuit](./private_kernel_reset.md).
+The structure of this public inputs aligns with that of the [initial private kernel circuit](./private-kernel-initial.md) and the [reset private kernel circuit](./private-kernel-reset.md).
 
 ### Constant Data
 

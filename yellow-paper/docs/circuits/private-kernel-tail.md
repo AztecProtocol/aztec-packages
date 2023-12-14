@@ -16,9 +16,9 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [Initial private kernel proof](./private_kernel_initial.md).
-- [Inner private kernel proof](./private_kernel_inner.md).
-- [Reset private kernel proof](./private_kernel_reset.md).
+- [Initial private kernel proof](./private-kernel-initial.md).
+- [Inner private kernel proof](./private-kernel-inner.md).
+- [Reset private kernel proof](./private-kernel-reset.md).
 
 An inner iteration may be omitted when there's only a single private function call for the transaction. And a reset iteration can be skipped if there are no read requests and transient nullifiers in the public inputs from the last initial or inner iteration.
 
@@ -33,7 +33,7 @@ The following must be empty to ensure a comprehensive final reset:
 - The nullified note hash associated with each nullifier.
 - Read requests.
 
-> A [reset iteration](./private_kernel_reset.md) should ideally precede this step. Although it doesn't have to be executed immediately before the tail circuit, as long as it effectively clears the specified values.
+> A [reset iteration](./private-kernel-reset.md) should ideally precede this step. Although it doesn't have to be executed immediately before the tail circuit, as long as it effectively clears the specified values.
 
 ### Responsibilities for Processing the Final Outputs:
 
@@ -118,9 +118,9 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It could be one of the following:
-  - [Initial private kernel circuit](./private_kernel_initial.md).
-  - [Inner private kernel circuit](./private_kernel_inner.md).
-  - [Reset private kernel circuit](./private_kernel_reset.md).
+  - [Initial private kernel circuit](./private-kernel-initial.md).
+  - [Inner private kernel circuit](./private-kernel-inner.md).
+  - [Reset private kernel circuit](./private-kernel-reset.md).
 - Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
@@ -133,7 +133,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [iterative public kernel circuit](./public_kernel_iterative.md) and the [tail public kernel circuit](./public_kernel_tail.md).
+The structure of this public inputs aligns with that of the [iterative public kernel circuit](./public-kernel-iterative.md) and the [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 

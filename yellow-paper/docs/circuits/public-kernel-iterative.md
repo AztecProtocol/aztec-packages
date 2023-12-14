@@ -16,7 +16,7 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [tail private kernel proof](./private_kernel_tail.md).
+- [tail private kernel proof](./private-kernel-tail.md).
 - Iterative public kernel proof.
 
 ### Responsibilities for Processing the Public Function Call:
@@ -180,7 +180,7 @@ For the newly added update requests from app circuits' public inputs, this circu
 - Greater than zero: if the slot is updated later in the same transaction.
   - It pertains to a subsequent update request altering the same slot. Therefor, the counter value must be greater than the counter of the update request.
 
-> Override counters are used in the [tail public kernel circuit](./public_kernel_tail.md) to ensure a read happens **before** the value is changed in a later update.
+> Override counters are used in the [tail public kernel circuit](./public-kernel-tail.md) to ensure a read happens **before** the value is changed in a later update.
 
 > Zero serves as an indicator for an unchanged update, as this value can never act as the counter of an update request. It corresponds to the _counter_start_ of the first function call.
 
@@ -200,7 +200,7 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It could be one of the following:
-  - [Tail private kernel circuit](./private_kernel_tail.md).
+  - [Tail private kernel circuit](./private-kernel-tail.md).
   - Iterative public kernel circuit.
 - Public inputs of the proof.
 - Verification key of the kernel circuit.
@@ -226,7 +226,7 @@ It also includes hints that aid in the verifications carried out in this circuit
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private_kernel_tail.md) and the [tail public kernel circuit](./public_kernel_tail.md).
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md) and the [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 

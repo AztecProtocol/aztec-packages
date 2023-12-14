@@ -18,8 +18,8 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [Initial private kernel proof](./private_kernel_initial.md).
-- [Inner private kernel proof](./private_kernel_inner.md).
+- [Initial private kernel proof](./private-kernel-initial.md).
+- [Inner private kernel proof](./private-kernel-inner.md).
 
 ### Responsibilities for Verifying and Resetting Data:
 
@@ -65,7 +65,7 @@ For each nullifier associated with a non-zero nullified note hash:
 3. The note hash must equal the nullified note hash associated with the nullifier.
 4. The contract address of the note hash must equal the contract address of the nullifier.
 5. The nullifier counter of the note hash must equal the counter of the nullifier.
-   - The nullifier counter is assured to be greater than the counter of the note hash when propagated from the [initial](./private_kernel_initial.md#verifying-the-accumulated-data) or [inner](./private_kernel_inner.md#verifying-the-accumulated-data) private kernel circuits.
+   - The nullifier counter is assured to be greater than the counter of the note hash when propagated from the [initial](./private-kernel-initial.md#verifying-the-accumulated-data) or [inner](./private-kernel-inner.md#verifying-the-accumulated-data) private kernel circuits.
 6. Sets both the note hash and the nullifier to zero.
 
 > It is imperative to set the note hash and nullifier to zeros before processing the next nullifier. This precaution prevents two nullifiers from nullifying the same note. By clearing the values, the second nullifier will identify its corresponding note hash as having a zero value, and will fail to compare its nullified note hash with a zero hash.
@@ -103,8 +103,8 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It must be one of the following:
-  - [Initial private kernel circuit](./private_kernel_initial.md).
-  - [Inner private kernel circuit](./private_kernel_inner.md).
+  - [Initial private kernel circuit](./private-kernel-initial.md).
+  - [Inner private kernel circuit](./private-kernel-inner.md).
 - Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
@@ -119,7 +119,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [initial private kernel circuit](./private_kernel_initial.md) and the [inner private kernel circuit](./private_kernel_inner.md).
+The structure of this public inputs aligns with that of the [initial private kernel circuit](./private-kernel-initial.md) and the [inner private kernel circuit](./private-kernel-inner.md).
 
 ### Constant Data
 

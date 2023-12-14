@@ -16,7 +16,7 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can only be:
 
-- [Iterative public kernel proof](./public_kernel_iterative.md).
+- [Iterative public kernel proof](./public-kernel-iterative.md).
 
 #### Ensuring the previous iteration is the last.
 
@@ -238,7 +238,7 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It must be:
-  - [Iterative public kernel circuit](./public_kernel_iterative.md).
+  - [Iterative public kernel circuit](./public-kernel-iterative.md).
 - Public inputs of the proof.
 - Verification key of the circuit.
 - Membership witness for the verification key.
@@ -265,7 +265,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private_kernel_tail.md) and the [iterative public kernel circuit](./public_kernel_iterative.md).
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md) and the [iterative public kernel circuit](./public-kernel-iterative.md).
 
 ### Accumulated Data
 
