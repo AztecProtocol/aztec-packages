@@ -79,7 +79,7 @@ library Constants {
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 190;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant EMPTY_NULLIFIED_COMMITMENT = 1000000;
-  uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 161;
+  uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 228;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 87;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 192;
   uint256 internal constant COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP = 4096;
