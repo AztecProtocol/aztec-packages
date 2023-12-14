@@ -7,11 +7,11 @@ struct SideEffect{
 }
 
 impl SideEffect {
-    fn serialize(self) -> [Field; 2] {
+    pub fn serialize(self) -> [Field; 2] {
         [self.value, self.counter]
     }
 
-    fn deserialise(values: [Field; 2]) -> Self {
+    pub fn deserialise(values: [Field; 2]) -> Self {
         Self {
             value: values[0],
             counter: values[1],

@@ -2,7 +2,7 @@ use crate::hash::poseidon;
 use crate::ec::consts::te::baby_jubjub;
 use crate::ec::tecurve::affine::Point as TEPoint;
 // Returns true if x is less than y
-fn lt_bytes32(x: Field, y: Field) -> bool {
+pub fn lt_bytes32(x: Field, y: Field) -> bool {
     let x_bytes = x.to_le_bytes(32);
     let y_bytes = y.to_le_bytes(32);
     let mut x_is_lt = false;

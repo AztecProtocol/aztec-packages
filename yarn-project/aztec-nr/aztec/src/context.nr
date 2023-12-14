@@ -306,7 +306,7 @@ impl PrivateContext {
                 return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 14), // +1
                 read_requests: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL], SideEffect::deserialise, 18),
                 new_commitments: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL], SideEffect::deserialise, 82),
-                new_nullifiers:  new_nullifiers: arr_copy_slice_in_struct_dumb3(fields, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL], SideEffectLinkedToNoteHash::deserialise, 114),
+                new_nullifiers: arr_copy_slice_in_struct_dumb3(fields, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL], SideEffectLinkedToNoteHash::deserialise, 114),
                 nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 162),
                 private_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 178),
                 public_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 190),
@@ -333,7 +333,7 @@ impl PrivateContext {
                     constructor_vk_hash : fields[221],
                     function_tree_root : fields[222],
                     contract_address_salt : fields[223],
-                    portal_contract_address : fields[224],
+                    portal_contract_address : EthAddress::from_field(fields[224]),
                 },
                 chain_id: fields[225],
                 version: fields[226],
@@ -562,7 +562,7 @@ impl PublicContext {
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect {
             value: note_hash,
-            side_effect_counter: self.side_effect_counter
+            counter: self.side_effect_counter
         };
         self.new_commitments.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -572,7 +572,7 @@ impl PublicContext {
         let side_effect = SideEffectLinkedToNoteHash {
             value: nullifier,
             note_hash: EMPTY_NULLIFIED_COMMITMENT, // cannot nullify pending notes in public context
-            side_effect_counter: self.side_effect_counter
+            counter: self.side_effect_counter
         };
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
