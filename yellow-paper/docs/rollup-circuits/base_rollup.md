@@ -308,14 +308,4 @@ def kernel_checks(
     kernel.public_inputs.end.l2_to_l1_messages
   )
   return (tx_hash, contracts, kernel.public_inputs.end.end_public_data_root)
-
-def handle_public_state(
-  kernel: KernelData, 
-  public_data_tree: Snapshot, 
-  state_diff_hints: StateDiffHints
-):
-  # Here there should be logic to handle the public state changes. 
-  # The logic should ensure causal ordering, e.g.,
-  # When reading a value, it must return the last value written
-
 ```
