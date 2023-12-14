@@ -13,7 +13,7 @@ std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> grump
 namespace barretenberg::srs {
 
 // Initializes the crs using the memory buffers
-void init_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
+void init_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element g2_point)
 {
     crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
 }
