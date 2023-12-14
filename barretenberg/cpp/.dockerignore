@@ -17,6 +17,6 @@
 
 # Needed scripts.
 !scripts/install-wasi-sdk.sh
-!scripts/strip-wasm.sh
+!scripts/strip-wasm-if-release.sh
 !./.clang-format
 !./format.sh

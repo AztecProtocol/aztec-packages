@@ -6,7 +6,7 @@ if [ -z "$SKIP_CPP_BUILD" ]; then
   cd ../cpp
   cmake --preset wasm-threads && cmake --build --preset wasm-threads
   cmake --preset wasm && cmake --build --preset wasm
-  ./scripts/strip-wasm.sh
+  ./scripts/strip-wasm-if-release.sh
   cd ../ts
 fi
 
