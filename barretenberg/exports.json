@@ -538,10 +538,6 @@
       {
         "name": "witness_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "is_recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -639,7 +635,7 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_verify_proof_goblin",
+    "functionName": "acir_verify_goblin_proof",
     "inArgs": [
       {
         "name": "acir_composer_ptr",

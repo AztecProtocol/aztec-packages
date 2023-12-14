@@ -50,10 +50,7 @@ WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
                                    bool const* is_recursive,
                                    bool* result);
 
-WASM_EXPORT void acir_verify_proof_goblin(in_ptr acir_composer_ptr,
-                                          uint8_t const* proof_buf,
-                                          bool const* is_recursive,
-                                          bool* result);
+WASM_EXPORT void acir_verify_goblin_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
 

@@ -349,9 +349,8 @@ export class BarretenbergApi {
     acirComposerPtr: Ptr,
     constraintSystemBuf: Uint8Array,
     witnessBuf: Uint8Array,
-    isRecursive: boolean,
   ): Promise<Uint8Array> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf, isRecursive].map(serializeBufferable);
+    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_create_goblin_proof',
@@ -422,11 +421,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyProofGoblin(acirComposerPtr: Ptr, proofBuf: Uint8Array, isRecursive: boolean): Promise<boolean> {
-    const inArgs = [acirComposerPtr, proofBuf, isRecursive].map(serializeBufferable);
+  async acirVerifyGoblinProof(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_verify_proof_goblin',
+      'acir_verify_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -807,13 +806,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirCreateGoblinProof(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    witnessBuf: Uint8Array,
-    isRecursive: boolean,
-  ): Uint8Array {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf, isRecursive].map(serializeBufferable);
+  acirCreateGoblinProof(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
+    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_create_goblin_proof',
@@ -884,11 +878,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirVerifyProofGoblin(acirComposerPtr: Ptr, proofBuf: Uint8Array, isRecursive: boolean): boolean {
+  acirVerifyGoblinProof(acirComposerPtr: Ptr, proofBuf: Uint8Array, isRecursive: boolean): boolean {
     const inArgs = [acirComposerPtr, proofBuf, isRecursive].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_verify_proof_goblin',
+      'acir_verify_goblin_proof',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
