@@ -7,6 +7,16 @@ namespace avmMini(256);
     pol constant clk(i) { i };
     pol constant first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                      // only in first element of shifted polynomials.
+
+    //===== CONTROL FLOW ==========================================================
+    // Program counter
+    pol commit pc; 
+    // Return Pointer
+    pol commit ret_ptr;
+    
+    pol commit sel_jump;
+    pol commit sel_ret;
+
     
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -109,3 +119,28 @@ namespace avmMini(256);
     // (ib * inv - 1 + op_div_err) = 0 && op_err * (1 - inv) = 0 
     // This works in combination with op_div_err * (sel_op_div - 1) = 0;
     // Drawback is the need to paralllelize the latter.
+
+
+    //===== JUMP_RETURN ========================================================
+    // The program counter in the next row should be equal to the value loaded from the ia register
+    // This implies that a load from memory must occur at the same time
+    // Imply that we must load the jump selector into mema
+    sel_jump * (ret_ptr' - (ret_ptr + 1)) = 0; // we increment our jump selector
+    sel_jump * (ret_ptr - mem_idx_a) = 0;
+    sel_jump * (rwa - 1) = 0; // it must be a write
+    sel_jump * (mem_op_a - 1) = 0;
+    sel_jump * (pc' - ia) = 0;
+    
+    // We must load the memory pointer to be the ret_ptr 
+    sel_ret * (ret_ptr' - (ret_ptr - 1)) = 0; // We decrement out jump selector
+    sel_ret * (ret_ptr - mem_idx_a) = 0;
+    sel_ret * (pc' - ia) = 0;
+    sel_ret * rwa = 0;
+    sel_ret * (mem_op_a - 1) = 0;
+
+    // Program counter must increment if not jumping or returning
+    (1 - sel_jump) * (1- sel_ret) * (pc' - (pc + 1)) = 0;
+
+
+    // TODO: we want to set an initial number for the reserved memory of the jump pointer
+

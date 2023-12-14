@@ -7,29 +7,42 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_sel_op_div{};
-    FF avmMini_ia{};
     FF avmMini_rwa{};
-    FF avmMini_sel_op_sub{};
+    FF avmMini_ret_ptr_shift{};
+    FF avmMini_pc{};
+    FF avmMini_sel_jump{};
     FF avmMini_rwb{};
-    FF avmMini_ic{};
     FF avmMini_inv{};
-    FF avmMini_sel_op_add{};
-    FF avmMini_op_err{};
-    FF avmMini_sel_op_mul{};
-    FF avmMini_rwc{};
+    FF avmMini_sel_op_sub{};
+    FF avmMini_ia{};
     FF avmMini_ib{};
-    FF avmMini_mem_op_b{};
+    FF avmMini_pc_shift{};
     FF avmMini_mem_op_a{};
+    FF avmMini_sel_op_div{};
+    FF avmMini_sel_op_mul{};
+    FF avmMini_mem_idx_a{};
+    FF avmMini_rwc{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_mem_op_b{};
+    FF avmMini_op_err{};
+    FF avmMini_ic{};
+    FF avmMini_sel_ret{};
     FF avmMini_mem_op_c{};
+    FF avmMini_ret_ptr{};
 };
+
+inline std::string get_relation_label_avm_mini(int index)
+{
+    switch (index) {}
+    return std::to_string(index);
+}
 
 template <typename FF_> class avm_miniImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3,
+    static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -182,6 +195,95 @@ template <typename FF_> class avm_miniImpl {
             auto tmp = (avmMini_op_err * (avmMini_sel_op_div - FF(1)));
             tmp *= scaling_factor;
             std::get<17>(evals) += tmp;
+        }
+        // Contribution 18
+        {
+            AvmMini_DECLARE_VIEWS(18);
+
+            auto tmp = (avmMini_sel_jump * (avmMini_ret_ptr_shift - (avmMini_ret_ptr + FF(1))));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += tmp;
+        }
+        // Contribution 19
+        {
+            AvmMini_DECLARE_VIEWS(19);
+
+            auto tmp = (avmMini_sel_jump * (avmMini_ret_ptr - avmMini_mem_idx_a));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += tmp;
+        }
+        // Contribution 20
+        {
+            AvmMini_DECLARE_VIEWS(20);
+
+            auto tmp = (avmMini_sel_jump * (avmMini_rwa - FF(1)));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += tmp;
+        }
+        // Contribution 21
+        {
+            AvmMini_DECLARE_VIEWS(21);
+
+            auto tmp = (avmMini_sel_jump * (avmMini_mem_op_a - FF(1)));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += tmp;
+        }
+        // Contribution 22
+        {
+            AvmMini_DECLARE_VIEWS(22);
+
+            auto tmp = (avmMini_sel_jump * (avmMini_pc_shift - avmMini_ia));
+            tmp *= scaling_factor;
+            std::get<22>(evals) += tmp;
+        }
+        // Contribution 23
+        {
+            AvmMini_DECLARE_VIEWS(23);
+
+            auto tmp = (avmMini_sel_ret * (avmMini_ret_ptr_shift - (avmMini_ret_ptr - FF(1))));
+            tmp *= scaling_factor;
+            std::get<23>(evals) += tmp;
+        }
+        // Contribution 24
+        {
+            AvmMini_DECLARE_VIEWS(24);
+
+            auto tmp = (avmMini_sel_ret * (avmMini_ret_ptr - avmMini_mem_idx_a));
+            tmp *= scaling_factor;
+            std::get<24>(evals) += tmp;
+        }
+        // Contribution 25
+        {
+            AvmMini_DECLARE_VIEWS(25);
+
+            auto tmp = (avmMini_sel_ret * (avmMini_pc_shift - avmMini_ia));
+            tmp *= scaling_factor;
+            std::get<25>(evals) += tmp;
+        }
+        // Contribution 26
+        {
+            AvmMini_DECLARE_VIEWS(26);
+
+            auto tmp = (avmMini_sel_ret * avmMini_rwa);
+            tmp *= scaling_factor;
+            std::get<26>(evals) += tmp;
+        }
+        // Contribution 27
+        {
+            AvmMini_DECLARE_VIEWS(27);
+
+            auto tmp = (avmMini_sel_ret * (avmMini_mem_op_a - FF(1)));
+            tmp *= scaling_factor;
+            std::get<27>(evals) += tmp;
+        }
+        // Contribution 28
+        {
+            AvmMini_DECLARE_VIEWS(28);
+
+            auto tmp = (((-avmMini_sel_jump + FF(1)) * (-avmMini_sel_ret + FF(1))) *
+                        (avmMini_pc_shift - (avmMini_pc + FF(1))));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += tmp;
         }
     }
 };

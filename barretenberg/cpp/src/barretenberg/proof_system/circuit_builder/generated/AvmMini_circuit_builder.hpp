@@ -27,6 +27,10 @@ template <typename FF> struct AvmMiniFullRow {
     FF memTrace_m_val{};
     FF memTrace_m_lastAccess{};
     FF memTrace_m_rw{};
+    FF avmMini_pc{};
+    FF avmMini_ret_ptr{};
+    FF avmMini_sel_jump{};
+    FF avmMini_sel_ret{};
     FF avmMini_sel_op_add{};
     FF avmMini_sel_op_sub{};
     FF avmMini_sel_op_mul{};
@@ -46,9 +50,11 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
+    FF memTrace_m_val_shift{};
     FF memTrace_m_rw_shift{};
     FF memTrace_m_addr_shift{};
-    FF memTrace_m_val_shift{};
+    FF avmMini_ret_ptr_shift{};
+    FF avmMini_pc_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -61,8 +67,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using AllPolynomials = Flavor::AllPolynomials;
 
-    static constexpr size_t num_fixed_columns = 30;
-    static constexpr size_t num_polys = 27;
+    static constexpr size_t num_fixed_columns = 36;
+    static constexpr size_t num_polys = 31;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -86,6 +92,10 @@ class AvmMiniCircuitBuilder {
             polys.memTrace_m_val[i] = rows[i].memTrace_m_val;
             polys.memTrace_m_lastAccess[i] = rows[i].memTrace_m_lastAccess;
             polys.memTrace_m_rw[i] = rows[i].memTrace_m_rw;
+            polys.avmMini_pc[i] = rows[i].avmMini_pc;
+            polys.avmMini_ret_ptr[i] = rows[i].avmMini_ret_ptr;
+            polys.avmMini_sel_jump[i] = rows[i].avmMini_sel_jump;
+            polys.avmMini_sel_ret[i] = rows[i].avmMini_sel_ret;
             polys.avmMini_sel_op_add[i] = rows[i].avmMini_sel_op_add;
             polys.avmMini_sel_op_sub[i] = rows[i].avmMini_sel_op_sub;
             polys.avmMini_sel_op_mul[i] = rows[i].avmMini_sel_op_mul;
@@ -107,9 +117,11 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
+        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
         polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
-        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
+        polys.avmMini_ret_ptr_shift = Polynomial(polys.avmMini_ret_ptr.shifted());
+        polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
 
         return polys;
     }
@@ -120,7 +132,8 @@ class AvmMiniCircuitBuilder {
         auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
-        const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
+        const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
+                                                              std::string (*debug_label)(int)) {
             typename Relation::SumcheckArrayOfValuesOverSubrelations result;
             for (auto& r : result) {
                 r = 0;
@@ -133,8 +146,9 @@ class AvmMiniCircuitBuilder {
                 bool x = true;
                 for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
                     if (result[j] != 0) {
+                        std::string row_name = debug_label(static_cast<int>(j));
                         throw_or_abort(
-                            format("Relation ", relation_name, ", subrelation index ", j, " failed at row ", i));
+                            format("Relation ", relation_name, ", subrelation index ", row_name, " failed at row ", i));
                         x = false;
                     }
                 }
@@ -145,10 +159,12 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
-        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>("mem_trace")) {
+        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
+                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
             return false;
         }
-        if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini")) {
+        if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini",
+                                                                             AvmMini_vm::get_relation_label_avm_mini)) {
             return false;
         }
 
