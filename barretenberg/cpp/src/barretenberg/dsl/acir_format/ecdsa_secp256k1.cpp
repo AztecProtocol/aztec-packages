@@ -6,7 +6,7 @@ namespace acir_format {
 using namespace proof_system::plonk;
 
 template <typename Builder>
-crypto::ecdsa::signature ecdsa_convert_signature(Builder& builder, std::vector<uint32_t> signature)
+crypto::ecdsa::signature ecdsa_convert_signature(Builder& builder, const std::vector<uint32_t>& signature)
 {
 
     crypto::ecdsa::signature signature_cr;
@@ -65,7 +65,7 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affi
 // notice that this function truncates each field_element to a byte
 template <typename Builder>
 proof_system::plonk::stdlib::byte_array<Builder> ecdsa_vector_of_bytes_to_byte_array(
-    Builder& builder, std::vector<uint32_t> vector_of_bytes)
+    Builder& builder, const std::vector<uint32_t>& vector_of_bytes)
 {
     using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
     using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
@@ -100,7 +100,7 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
     using bool_ct = proof_system::plonk::stdlib::bool_t<Builder>;
     using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
 
-    if (has_valid_witness_assignments == false) {
+    if (!has_valid_witness_assignments) {
         dummy_ecdsa_constraint(builder, input);
     }
 
