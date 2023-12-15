@@ -972,7 +972,7 @@ jobs:
             export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
             # Check if l1-contracts have changed
             if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
-              echo "Contracts have changed, taint nodes to force redeploy."
+              echo "Contracts have changed, taint nodes to force redeploy.."
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]"
             else
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox
