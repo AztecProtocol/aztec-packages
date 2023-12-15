@@ -1,6 +1,7 @@
+use dep::protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL};
+use dep::protocol_types::address::AztecAddress;
 use dep::aztec::{
     context::{PrivateContext, PublicContext, Context},
-    constants_gen::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
     note::{
         note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,
@@ -50,7 +51,6 @@ fn test_to_from_field() {
     assert(card.to_field() == field);
 }
 
-
 struct CardNote {
     card: Card,
     note: ValueNote,
@@ -60,7 +60,7 @@ impl CardNote {
     fn new(
         strength: u16,
         points: u16,
-        owner: Field,
+        owner: AztecAddress,
     ) -> Self {
         let card = Card {
             strength,
@@ -69,7 +69,7 @@ impl CardNote {
         CardNote::from_card(card, owner)
     }
 
-    pub fn from_card(card: Card, owner: Field) -> CardNote {
+    pub fn from_card(card: Card, owner: AztecAddress) -> CardNote {
         CardNote {
             card,
             note: ValueNote::new(card.to_field(), owner),
@@ -96,22 +96,20 @@ pub fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], d
     for i in 0..notes.len() {
         let note = notes[i];
         if note.is_some() {
-            let card_note = CardNote::from_note(
-                note.unwrap_unchecked()
-            );
+            let card_note = CardNote::from_note(note.unwrap_unchecked());
             for j in 0..N {
-                if !found[j] & (card_note.card.strength == desired_cards[j].strength) & (card_note.card.points == desired_cards[j].points) {
+                if !found[j]
+                    & (card_note.card.strength == desired_cards[j].strength)
+                    & (card_note.card.points == desired_cards[j].points) {
                     selected[i] = note;
                     found[j] = true;
                 }
             }
         }
-       
     }
 
     selected
 }
-
 
 impl Deck {
     pub fn new(
@@ -128,7 +126,7 @@ impl Deck {
         }
     }
 
-    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote]{
+    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote]{
         let context = self.set.context.private.unwrap();
 
         let mut inserted_cards = [];
@@ -141,7 +139,7 @@ impl Deck {
         inserted_cards
     }
 
-    pub fn get_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote; N] {
+    pub fn get_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote; N] {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let maybe_notes = self.set.get_notes(options);
         let mut found_cards = [Option::none(); N];
@@ -152,7 +150,7 @@ impl Deck {
                 );
                 // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
                 // spending someone else's notes).
-                assert(card_note.note.owner == owner);
+                assert(card_note.note.owner.eq(owner));
 
                 for j in 0..cards.len() {
                     if found_cards[j].is_none() & (cards[j].strength == card_note.card.strength) & (cards[j].points == card_note.card.points) {
@@ -168,7 +166,7 @@ impl Deck {
         })
     }
 
-    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
+    pub fn remove_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) {
         let card_notes = self.get_cards(cards, owner);
         for card_note in card_notes {
             self.set.remove(card_note.note);
@@ -191,12 +189,9 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-pub fn get_pack_cards(
-    seed: Field,
-    owner_address: Field
-) -> [Card; PACK_CARDS] {
+pub fn get_pack_cards(seed: Field, owner: AztecAddress) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = get_secret_key(owner_address);
+    let secret = get_secret_key(owner);
     let mix = secret.high + secret.low + seed;
     let random_bytes = std::hash::sha256(mix.to_le_bytes(32));
 
@@ -215,7 +210,8 @@ pub fn get_pack_cards(
 }
 
 pub fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
-    cards.fold(0, |acc, card: Card| {
+    cards.fold(0,
+        |acc, card: Card| {
         acc + card.strength as Field
     })
 }

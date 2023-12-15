@@ -1,8 +1,11 @@
-import { CompleteAddress, FieldsOf } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, FieldsOf } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
-import { TxHash, TxReceipt } from '@aztec/types';
+import { PXE, TxHash, TxReceipt } from '@aztec/types';
 
-import { AztecAddress, Contract, ContractBase, PXE, SentTx, WaitOpts, Wallet } from '../index.js';
+import { Contract } from '../contract/contract.js';
+import { ContractBase } from '../contract/contract_base.js';
+import { SentTx, WaitOpts } from '../contract/sent_tx.js';
+import { Wallet } from '../wallet/index.js';
 
 /** Options related to waiting for a deployment tx. */
 export type DeployedWaitOpts = WaitOpts & {
@@ -57,8 +60,12 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   protected getContractInstance(wallet?: Wallet, address?: AztecAddress): Promise<TContract> {
     const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
     const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
-    if (!contractWallet) throw new Error(`A wallet is required for creating a contract instance`);
-    if (!address) throw new Error(`Contract address is missing from transaction receipt`);
+    if (!contractWallet) {
+      throw new Error(`A wallet is required for creating a contract instance`);
+    }
+    if (!address) {
+      throw new Error(`Contract address is missing from transaction receipt`);
+    }
     return Contract.at(address, this.artifact, contractWallet) as Promise<TContract>;
   }
 }

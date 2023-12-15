@@ -72,7 +72,9 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
   const findInLogs = (regex: RegExp) => {
     for (const log of logs) {
       const match = regex.exec(log);
-      if (match) return match;
+      if (match) {
+        return match;
+      }
     }
   };
 
@@ -80,7 +82,9 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
     const matches = [];
     for (const log of logs) {
       const match = regex.exec(log);
-      if (match) matches.push(match);
+      if (match) {
+        matches.push(match);
+      }
     }
     return matches;
   };
@@ -99,9 +103,11 @@ ChildContractArtifact
 CounterContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
+EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
 ImportTestContractArtifact
+InclusionProofsContractArtifact
 LendingContractArtifact
 ParentContractArtifact
 PendingCommitmentsContractArtifact
@@ -109,8 +115,10 @@ PriceFeedContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
+SlowTreeContractArtifact
 StatefulTestContractArtifact
 TestContractArtifact
+TokenBlacklistContractArtifact
 TokenBridgeContractArtifact
 TokenContractArtifact
 UniswapContractArtifact

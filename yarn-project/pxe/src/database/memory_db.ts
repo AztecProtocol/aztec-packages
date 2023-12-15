@@ -1,12 +1,12 @@
-import { CompleteAddress, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { MerkleTreeId, NoteFilter } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
-import { Database } from './database.js';
 import { NoteDao } from './note_dao.js';
+import { PxeDatabase } from './pxe_database.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -14,12 +14,15 @@ import { NoteDao } from './note_dao.js';
  * The class offers methods to add, fetch, and remove transaction records and auxiliary data based on various filters such as transaction hash, address, and storage slot.
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
-export class MemoryDB extends MemoryContractDatabase implements Database {
+export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
   private notesTable: NoteDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private addresses: CompleteAddress[] = [];
   private authWitnesses: Record<string, Fr[]> = {};
+  // A capsule is a "blob" of data that is passed to the contract through an oracle.
+  // We are using a stack to keep track of the capsules that are passed to the contract.
+  private capsuleStack: Fr[][] = [];
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
@@ -40,13 +43,22 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
    * @param messageHash - The message hash.
    * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
-  public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+  public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
-  public addNote(note: NoteDao) {
+  public addNote(note: NoteDao): Promise<void> {
     this.notesTable.push(note);
     return Promise.resolve();
+  }
+
+  public addCapsule(capsule: Fr[]): Promise<void> {
+    this.capsuleStack.push(capsule);
+    return Promise.resolve();
+  }
+
+  public popCapsule(): Promise<Fr[] | undefined> {
+    return Promise.resolve(this.capsuleStack.pop());
   }
 
   public addNotes(notes: NoteDao[]) {
@@ -95,40 +107,45 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
 
   public getTreeRoots(): Record<MerkleTreeId, Fr> {
     const roots = this.treeRoots;
-    if (!roots) throw new Error(`Tree roots not set in memory database`);
+    if (!roots) {
+      throw new Error(`Tree roots not set in memory database`);
+    }
     return roots;
   }
 
-  public setTreeRoots(roots: Record<MerkleTreeId, Fr>) {
+  private setTreeRoots(roots: Record<MerkleTreeId, Fr>) {
     this.treeRoots = roots;
-    return Promise.resolve();
   }
 
-  public getHistoricBlockData(): HistoricBlockData {
+  public getBlockHeader(): BlockHeader {
     const roots = this.getTreeRoots();
-    if (!this.globalVariablesHash) throw new Error(`Global variables hash not set in memory database`);
-    return new HistoricBlockData(
+    if (!this.globalVariablesHash) {
+      throw new Error(`Global variables hash not set in memory database`);
+    }
+    return new BlockHeader(
       roots[MerkleTreeId.NOTE_HASH_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],
       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      roots[MerkleTreeId.BLOCKS_TREE],
+      roots[MerkleTreeId.ARCHIVE],
       Fr.ZERO, // todo: private kernel vk tree root
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       this.globalVariablesHash,
     );
   }
 
-  public async setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void> {
-    this.globalVariablesHash = historicBlockData.globalVariablesHash;
-    await this.setTreeRoots({
-      [MerkleTreeId.NOTE_HASH_TREE]: historicBlockData.noteHashTreeRoot,
-      [MerkleTreeId.NULLIFIER_TREE]: historicBlockData.nullifierTreeRoot,
-      [MerkleTreeId.CONTRACT_TREE]: historicBlockData.contractTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: historicBlockData.l1ToL2MessagesTreeRoot,
-      [MerkleTreeId.BLOCKS_TREE]: historicBlockData.blocksTreeRoot,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: historicBlockData.publicDataTreeRoot,
+  public setBlockHeader(blockHeader: BlockHeader): Promise<void> {
+    this.globalVariablesHash = blockHeader.globalVariablesHash;
+    this.setTreeRoots({
+      [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot,
+      [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockHeader.l1ToL2MessagesTreeRoot,
+      [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot,
     });
+
+    return Promise.resolve();
   }
 
   public addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
@@ -138,8 +155,10 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
         return Promise.resolve(false);
       }
 
-      throw new Error(
-        `Complete address with aztec address ${completeAddress.address.toString()} but different public key or partial key already exists in memory database`,
+      return Promise.reject(
+        new Error(
+          `Complete address with aztec address ${completeAddress.address.toString()} but different public key or partial key already exists in memory database`,
+        ),
       );
     }
     this.addresses.push(completeAddress);

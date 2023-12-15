@@ -9,8 +9,23 @@ using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::honk {
 template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transcript,
+                                       const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
+    , transcript(transcript)
+{}
+
+/**
+ * @brief Construct an UltraVerifier directly from a verification key
+ *
+ * @tparam Flavor
+ * @param verifier_key
+ */
+template <typename Flavor>
+UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
+    : key(verifier_key)
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory()))
+    , transcript(std::make_shared<Transcript>())
 {}
 
 template <typename Flavor>
@@ -42,15 +57,15 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     proof_system::RelationParameters<FF> relation_parameters;
 
-    transcript = BaseTranscript<FF>{ proof.proof_data };
+    transcript = std::make_shared<Transcript>(proof.proof_data);
 
-    auto commitments = VerifierCommitments(key, transcript);
-    auto commitment_labels = CommitmentLabels();
+    VerifierCommitments commitments{ key };
+    CommitmentLabels commitment_labels;
 
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
-    const auto public_input_size = transcript.template receive_from_prover<uint32_t>("public_input_size");
-    const auto pub_inputs_offset = transcript.template receive_from_prover<uint32_t>("pub_inputs_offset");
+    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
+    const auto pub_inputs_offset = transcript->template receive_from_prover<uint32_t>("pub_inputs_offset");
 
     if (circuit_size != key->circuit_size) {
         return false;
@@ -61,37 +76,46 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < public_input_size; ++i) {
-        auto public_input_i = transcript.template receive_from_prover<FF>("public_input_" + std::to_string(i));
+        auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
 
     // Get commitments to first three wire polynomials
-    commitments.w_l = transcript.template receive_from_prover<Commitment>(commitment_labels.w_l);
-    commitments.w_r = transcript.template receive_from_prover<Commitment>(commitment_labels.w_r);
-    commitments.w_o = transcript.template receive_from_prover<Commitment>(commitment_labels.w_o);
+    commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
+    commitments.w_r = transcript->template receive_from_prover<Commitment>(commitment_labels.w_r);
+    commitments.w_o = transcript->template receive_from_prover<Commitment>(commitment_labels.w_o);
 
-    // If Goblin, get commitments to ECC op wire polynomials
+    // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
         commitments.ecc_op_wire_1 =
-            transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_1);
+            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_1);
         commitments.ecc_op_wire_2 =
-            transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_2);
+            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_2);
         commitments.ecc_op_wire_3 =
-            transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_3);
+            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_3);
         commitments.ecc_op_wire_4 =
-            transcript.template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_4);
+            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_4);
+        commitments.calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.calldata);
+        commitments.calldata_read_counts =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    auto eta = transcript.get_challenge("eta");
+    FF eta = transcript->get_challenge("eta");
     relation_parameters.eta = eta;
 
     // Get commitments to sorted list accumulator and fourth wire
-    commitments.sorted_accum = transcript.template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
-    commitments.w_4 = transcript.template receive_from_prover<Commitment>(commitment_labels.w_4);
+    commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
+    commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
 
     // Get permutation challenges
-    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto [beta, gamma] = challenges_to_field_elements<FF>(transcript->get_challenges("beta", "gamma"));
+
+    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        commitments.lookup_inverses =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+    }
 
     const FF public_input_delta =
         compute_public_input_delta<Flavor>(public_inputs, beta, gamma, circuit_size, pub_inputs_offset);
@@ -103,14 +127,14 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Get commitment to permutation and lookup grand products
-    commitments.z_perm = transcript.template receive_from_prover<Commitment>(commitment_labels.z_perm);
-    commitments.z_lookup = transcript.template receive_from_prover<Commitment>(commitment_labels.z_lookup);
+    commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
+    commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-
+    FF alpha = transcript->get_challenge("alpha");
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, transcript);
+        sumcheck.verify(relation_parameters, alpha, transcript);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
@@ -119,7 +143,12 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(commitments, claimed_evaluations, multivariate_challenge, transcript);
+    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+                                            commitments.get_to_be_shifted(),
+                                            claimed_evaluations.get_unshifted(),
+                                            claimed_evaluations.get_shifted(),
+                                            multivariate_challenge,
+                                            transcript);
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 

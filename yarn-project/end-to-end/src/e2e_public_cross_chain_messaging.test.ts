@@ -59,7 +59,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
@@ -88,7 +88,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitMessageHash(
+    const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );
@@ -104,7 +104,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
 
-    expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
+    expect(await outbox.read.contains([entryKey.toString()])).toBeFalsy();
   }, 120_000);
   // docs:end:e2e_public_cross_chain
 
@@ -115,7 +115,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
@@ -148,7 +148,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount + unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
-  }, 60_000);
+  }, 90_000);
 
   it("Bridge can't withdraw my funds if I don't give approval", async () => {
     const mintAmountToOwner = 100n;
@@ -163,11 +163,11 @@ describe('e2e_public_cross_chain_messaging', () => {
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
     ).rejects.toThrowError('Assertion failed: Message not authorized by account');
-  });
+  }, 60_000);
 
   it("can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
-    const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
+    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
@@ -185,5 +185,5 @@ describe('e2e_public_cross_chain_messaging', () => {
         .methods.claim_private(secretHash, bridgeAmount, ethAccount, messageKey, secret)
         .simulate(),
     ).rejects.toThrowError("Cannot satisfy constraint 'l1_to_l2_message_data.message.content == content");
-  });
+  }, 60_000);
 });

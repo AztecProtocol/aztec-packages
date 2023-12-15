@@ -1,4 +1,4 @@
-use crate::address::{Address, EthAddress};
+use crate::address::{AztecAddress, EthAddress};
 use crate::mocked::VerificationKey;
 use crate::point::Point;
 use crate::abis::function_selector::FunctionSelector;
@@ -8,12 +8,69 @@ use crate::abis::function_data::FunctionData;
 use crate::utils::uint128::U128;
 use crate::utils::uint256::U256;
 use crate::utils::bounded_vec::BoundedVec;
-
-use dep::aztec::{
-    constants_gen,
-    constants_gen::{CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
-    hash::sha256_to_field,
+use crate::constants::{
+        ARGS_HASH_CHUNK_COUNT,
+        ARGS_HASH_CHUNK_LENGTH,
+        CONTRACT_TREE_HEIGHT, 
+        FUNCTION_TREE_HEIGHT, 
+        NOTE_HASH_TREE_HEIGHT,
+        GENERATOR_INDEX__SILOED_COMMITMENT,
+        GENERATOR_INDEX__OUTER_NULLIFIER,
+        GENERATOR_INDEX__VK,
+        GENERATOR_INDEX__CONSTRUCTOR,
+        GENERATOR_INDEX__PARTIAL_ADDRESS,
+        GENERATOR_INDEX__CONTRACT_ADDRESS,
+        GENERATOR_INDEX__COMMITMENT_NONCE,
+        GENERATOR_INDEX__UNIQUE_COMMITMENT,
+        GENERATOR_INDEX__FUNCTION_ARGS,
 };
+
+use dep::std::hash::{pedersen_hash_with_separator, sha256};
+
+pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+    let sha256_hashed = sha256(bytes_to_hash);
+
+    // Convert it to a field element
+    let mut v = 1;
+    let mut high = 0 as Field;
+    let mut low = 0 as Field;
+
+    for i in 0..16 {
+        high = high + (sha256_hashed[15 - i] as Field) * v;
+        low = low + (sha256_hashed[16 + 15 - i] as Field) * v;
+        v = v * 256;
+    }
+
+    // Abuse that a % p + b % p = (a + b) % p and that low < p
+    let hash_in_a_field = low + high * v;
+
+    hash_in_a_field
+}
+
+pub fn hash_args<N>(args: [Field; N]) -> Field {
+    if args.len() == 0 {
+        0
+    } else {
+        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
+        for i in 0..ARGS_HASH_CHUNK_COUNT {
+            let mut chunk_hash = 0;
+            let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
+            if start_chunk_index < (args.len() as u32) {
+                let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
+                for j in 0..ARGS_HASH_CHUNK_LENGTH {
+                    let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
+                    if item_index < (args.len() as u32) {
+                        chunk_args[j] = args[item_index];
+                    }
+                }
+                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
+            }
+            chunks_hashes[i] = chunk_hash;
+        }
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
+    }
+}
+
 
 // Checks that `value` is a member of a merkle tree with root `root` at position `index`
 // The witness being the `sibling_path`
@@ -37,12 +94,12 @@ pub fn root_from_sibling_path<N>(leaf : Field, leaf_index : Field, sibling_path 
     let indices = leaf_index.to_le_bits(N);
 
     for i in 0..N {
-        // indices[i]; // This line will fail.
-        if indices[i] == 1 {
-            node = merkle_hash(sibling_path[i], node);
+        let (hash_left, hash_right) = if indices[i] == 1 {
+            (sibling_path[i], node)
         } else {
-            node = merkle_hash(node, sibling_path[i]);
-        }
+            (node, sibling_path[i])
+        };
+        node = merkle_hash(hash_left, hash_right);
     }
     node
 }
@@ -71,7 +128,7 @@ pub fn function_tree_root_from_siblings(selector : FunctionSelector, is_internal
 }
 
 // Calculate the contract tree root from the sibling path and leaf preimage.
-pub fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract_address : Address, portal_contract_address : EthAddress, contract_leaf_index : Field,contract_leaf_sibling_path : [Field; CONTRACT_TREE_HEIGHT]) -> Field {
+pub fn contract_tree_root_from_siblings(function_tree_root : Field, storage_contract_address : AztecAddress, portal_contract_address : EthAddress, contract_leaf_index : Field,contract_leaf_sibling_path : [Field; CONTRACT_TREE_HEIGHT]) -> Field {
     //TODO(Kev): if we use shorthand syntax here, we get an error as expected,
     // since variable name is `storage_contract_address` but the span is incorrect.
     let contract_leaf_preimage = ContractLeafPreimage { contract_address: storage_contract_address,
@@ -90,38 +147,38 @@ pub fn read_request_root_from_siblings(read_request : Field, leaf_index : Field,
     root_from_sibling_path(read_request, leaf_index, sibling_path)
 }
 
-pub fn silo_commitment(address : Address, inner_commitment : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+pub fn silo_commitment(address : AztecAddress, inner_commitment : Field) -> Field {
+    pedersen_hash([
         address.to_field(),
         inner_commitment,
-    ], constants_gen::GENERATOR_INDEX__SILOED_COMMITMENT)
+    ], GENERATOR_INDEX__SILOED_COMMITMENT)
 }
 
-pub fn silo_nullifier(address : Address, nullifier : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+pub fn silo_nullifier(address : AztecAddress, nullifier : Field) -> Field {
+    pedersen_hash([
         address.to_field(),
         nullifier,
-    ], constants_gen::GENERATOR_INDEX__OUTER_NULLIFIER)
+    ], GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
 fn merkle_hash(left : Field, right : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([left, right], 0)
+    pedersen_hash([left, right], 0)
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(_vk : VerificationKey) -> Field {
     // Original cpp code
     // stdlib::recursion::verification_key<CT::bn254>::compress_native(private_call.vk, GeneratorIndex::VK);
     // The above cpp method is only ever called on verification key, so it has been special cased here
-    let _hash_index = constants_gen::GENERATOR_INDEX__VK;
+    let _hash_index = GENERATOR_INDEX__VK;
     0
 }
 
 // TODO CPP uses blake2s for this
-pub fn compute_new_contract_address_hash(new_contract_address : Address) -> Field {
+pub fn compute_new_contract_address_hash(new_contract_address : AztecAddress) -> Field {
     dep::std::hash::pedersen_hash([new_contract_address.to_field()])
 }
 
-pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
+pub fn compute_l2_to_l1_hash(contract_address : AztecAddress, rollup_version_id: Field, portal_contract_address : EthAddress, chain_id : Field, content : Field) -> Field {
     let mut bytes: BoundedVec<u8, 160> = BoundedVec::new(0);
 
     let inputs = [contract_address.to_field(), rollup_version_id, portal_contract_address.to_field(), chain_id, content];
@@ -139,11 +196,11 @@ pub fn compute_l2_to_l1_hash(contract_address : Address, rollup_version_id: Fiel
 pub fn compute_constructor_hash(function_data : FunctionData, args_hash : Field, constructor_vk_hash : Field) -> Field {
     let function_data_hash = function_data.hash();
 
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         function_data_hash,
         args_hash,
         constructor_vk_hash
-    ], constants_gen::GENERATOR_INDEX__CONSTRUCTOR)
+    ], GENERATOR_INDEX__CONSTRUCTOR)
 }
 
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
@@ -160,7 +217,7 @@ global NUM_FIELDS_PER_SHA256 : Field = 2;
 // Returning a Field would be desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
 //
-fn accumulate_sha256(input : [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn accumulate_sha256(input : [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -194,37 +251,37 @@ pub fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Fiel
 }
 
 pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         // TODO why the zeroes?
         0,
         0,
         contract_address_salt,
         function_tree_root,
         constructor_hash
-    ],constants_gen::GENERATOR_INDEX__PARTIAL_ADDRESS)
+    ], GENERATOR_INDEX__PARTIAL_ADDRESS)
 }
 
-pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> Address {
-    let field = dep::std::hash::pedersen_hash_with_separator([
+pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> AztecAddress {
+    let field = pedersen_hash([
         point.x,
         point.y,
         partial_address
-    ],constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS);
-    Address::from_field(field)
+    ], GENERATOR_INDEX__CONTRACT_ADDRESS);
+    AztecAddress::from_field(field)
 }
 
 pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         first_nullifier,
         commitment_index
-    ], constants_gen::GENERATOR_INDEX__COMMITMENT_NONCE)
+    ], GENERATOR_INDEX__COMMITMENT_NONCE)
 }
 
 pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) -> Field {
-    dep::std::hash::pedersen_hash_with_separator([
+    pedersen_hash([
         nonce,
         siloed_commitment
-    ], constants_gen::GENERATOR_INDEX__UNIQUE_COMMITMENT)
+    ], GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
 pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [Field; N]) -> [Field; N] {
@@ -237,4 +294,8 @@ pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commi
         }
     }
     unique_siloed_commitments
+}
+
+pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+    dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }

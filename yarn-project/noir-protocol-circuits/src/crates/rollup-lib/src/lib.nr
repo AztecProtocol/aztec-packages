@@ -14,3 +14,7 @@ mod components;
 mod hash;
 
 mod merkle_tree;
+
+mod tests;
+
+mod indexed_tree;

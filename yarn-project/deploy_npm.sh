@@ -1,13 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-extract_repo yarn-project /usr/src project
+if [ -z "$COMMIT_TAG" ]; then
+  echo "No commit tag, not deploying to npm."
+  exit 0
+fi
+
+extract_repo yarn-project-prod /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc
-# also copy npcrc into the l1-contracts directory
-cp .npmrc ../l1-contracts
 
 # This is to be used with the 'canary' tag for testing, and then 'latest' for making it public
 DIST_TAG=${1:-"latest"}
@@ -20,8 +23,14 @@ function deploy_package() {
   VERSION=$(extract_tag_version $REPOSITORY false)
   echo "Deploying $REPOSITORY $VERSION $DIST_TAG"
 
-  if [ -n "$DIST_TAG" ]; then
+  # If the commit tag itself has a dist-tag (e.g. v2.1.0-testnet.123), extract the dist-tag.
+  TAG=$(echo "$VERSION" | grep -oP ".*-\K(.*)(?=\.\d+)" || true)
+  TAG_ARG=""
+  if [ -n "$TAG" ]; then
+    TAG_ARG="--tag $TAG"
+  else
     TAG_ARG="--tag $DIST_TAG"
+    TAG=$DIST_TAG
   fi
 
   PUBLISHED_VERSION=$(npm show . version ${TAG_ARG:-} 2>/dev/null) || true
@@ -29,7 +38,7 @@ function deploy_package() {
 
   # Check if there is already a published package equal to given version, assume this is a re-run of a deploy
   if [ "$VERSION" == "$PUBLISHED_VERSION" ]; then
-    echo "Tagged ${DIST_TAG:+ $DIST_TAG}version $VERSION is equal to published ${DIST_TAG:+ $DIST_TAG}version $PUBLISHED_VERSION."
+    echo "Tagged $TAG version $VERSION is equal to published $TAG version $PUBLISHED_VERSION."
     echo "Skipping publish."
     exit 0
   fi
@@ -52,27 +61,24 @@ function deploy_package() {
   fi
 
   # Publish
-  if [ -n "${COMMIT_TAG:-}" ]; then
+  if [ "$DRY_DEPLOY" -eq 1 ]; then
+    npm publish --dry-run $TAG_ARG --access public
+  else
     # Check if version exists
     if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
       # Tag the existing version
-      npm dist-tag add $PACKAGE_NAME@$VERSION $DIST_TAG
+      npm dist-tag add $PACKAGE_NAME@$VERSION $TAG
     else
-      # Publish new verison
+      # Publish new version
       npm publish $TAG_ARG --access public
     fi
-  else
-    npm publish --dry-run $TAG_ARG --access public
   fi
 
-  # Back to root
-  if [ "$REPOSITORY" == "../l1-contracts" ]; then
-    cd ../yarn-project
-  else
-    cd ..
-  fi
+  # Return to root
+  cd ..
 }
 
+# New packages here should be added after the last package that they depend on
 deploy_package foundation
 deploy_package circuits.js
 deploy_package types
@@ -83,6 +89,7 @@ deploy_package noir-compiler
 deploy_package noir-contracts
 deploy_package cli
 deploy_package merkle-tree
+deploy_package noir-protocol-circuits
 deploy_package acir-simulator
 deploy_package key-store
 deploy_package pxe
@@ -92,4 +99,3 @@ deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
 deploy_package aztec-sandbox
-deploy_package ../l1-contracts

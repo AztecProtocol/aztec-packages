@@ -153,12 +153,12 @@ It may be useful to view coverage information from within vscode. The `./scripts
 > **WARNING:** to debug in WASM (to use the `-g` option to `wasmtime`) you will unfortunately need to revert to `wasmtime` version `1.0.0` until [this bug](https://github.com/bytecodealliance/wasmtime/issues/3999) is fixed. To install that version, remove the `~/.wasmtime` directory and run `curl https://wasmtime.dev/install.sh -sSf | bash /dev/stdin --version v1.0.0`
 
 1. Make sure you have the recommended plugins installed
-   - Open the command pallete (`Ctrl+Shift+P`)
+   - Open the command palette (`Ctrl+Shift+P`)
      - `Cmd+Shift+P` on Macs
    - Type and select "Extensions: Show Recommended Extensions"
    - Install any plugins shown not already installed
 1. Configure CMake for whichever preset you'd like to use
-   - Open the command pallete (`Ctrl+Shift+P`)
+   - Open the command palette (`Ctrl+Shift+P`)
    - Type and select "CMake: Select Configure Preset"
    - Choose a debug preset such as:
      - "Debugging build with Clang-16"
@@ -171,7 +171,7 @@ It may be useful to view coverage information from within vscode. The `./scripts
    - "Launch native"
    - "Launch in WASM"
 1. Select the test executable to debug
-   - Open the command pallete (`Ctrl+Shift+P`)
+   - Open the command palette (`Ctrl+Shift+P`)
    - Type and select "CMake: Set Debug Target"
    - Select executable to debug like `aztec3_circuits_abis_tests`
 1. Check output for progress
@@ -195,7 +195,7 @@ The core Aztec 3 C++ code lives in `cpp/src/aztec3/`, and is split into the foll
   - `apps`: infrastructure and early prototypes for application circuits ([more here](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/apps))
   - `abis`: types, interfaces, and cbinds for representing/constructing outputs of application circuits that will be fed into kernel circuits ([more here](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/abis))
   - `kernel`: kernel circuits, their interfaces, and their tests
-  - `rollup`: rollup circuits, their interfaces, and thier tests
+  - `rollup`: rollup circuits, their interfaces and tests
   - `recursion`: types and examples for aggregation of recursive proof objects
   - `mock`: mock circuits
 - `oracle`: used to fetch external information (like private data notes) and inject them as inputs into the circuit during execution of circuit logic ([more here](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/oracle))
@@ -215,7 +215,7 @@ See pseudocode in [this diagram](https://miro.com/app/board/uXjVPlafJWM=/) and t
 
 ## Public Kernel Circuit
 
-The public kernel circuit performs many of the functions of the private kernel circuit but for public functions. Public functions differ from public functions in that they they are exeucted by the sequencer and can modify the public state tree. Like private functions, public functions can include calls to other public functions and these calls are validated within the circuit.
+The public kernel circuit performs many of the functions of the private kernel circuit but for public functions. Public functions differ from public functions in that they they are executed by the sequencer and can modify the public state tree. Like private functions, public functions can include calls to other public functions and these calls are validated within the circuit.
 
 The public kernel circuit in Aztec 3 is implemented in [`circuit/kernel/public`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/kernel/publlic) directory. The input and output interface of the private kernel circuit is written in [`circuits/abis/public_kernel`](https://github.com/AztecProtocol/aztec3-packages/tree/master/circuits/cpp/src/aztec3/circuits/abis/public_kernel).
 

@@ -1,20 +1,10 @@
-import { IWasmModule } from '@aztec/foundation/wasm';
-
-import { CircuitsWasm } from '../../../index.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 /**
  * Secp256k1 elliptic curve operations.
  */
 export class Secp256k1 {
-  /**
-   * Creates a new Secp256k1 instance.
-   * @returns New Secp256k1 instance.
-   */
-  public static async new() {
-    return new this(await CircuitsWasm.get());
-  }
-
-  constructor(private wasm: IWasmModule) {}
+  private wasm = BarretenbergSync.getSingleton().getWasm();
 
   // prettier-ignore
   static generator = Buffer.from([

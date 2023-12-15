@@ -25,18 +25,18 @@ class SchnorrHardcodedKeyAccountContract extends BaseAccountContract {
     super(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentArgs(): Promise<any[]> {
+  getDeploymentArgs(): any[] {
     // This contract does not require any arguments in its constructor.
-    return Promise.resolve([]);
+    return [];
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {
     const privateKey = this.privateKey;
     return {
-      async createAuthWitness(message: Fr): Promise<AuthWitness> {
-        const signer = await Schnorr.new();
+      createAuthWitness(message: Fr): Promise<AuthWitness> {
+        const signer = new Schnorr();
         const signature = signer.constructSignature(message.toBuffer(), privateKey);
-        return new AuthWitness(message, [...signature.toBuffer()]);
+        return Promise.resolve(new AuthWitness(message, [...signature.toBuffer()]));
       },
     };
   }
@@ -67,7 +67,7 @@ describe('guides/writing_an_account_contract', () => {
     logger(`Deployed token contract at ${token.address}`);
 
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+    const secretHash = computeMessageSecretHash(secret);
 
     const mintAmount = 50n;
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();

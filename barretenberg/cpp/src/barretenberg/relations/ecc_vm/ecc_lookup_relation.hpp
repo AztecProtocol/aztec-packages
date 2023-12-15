@@ -9,7 +9,7 @@
 
 namespace proof_system::honk::sumcheck {
 
-template <typename FF_> class ECCVMLookupRelationBase {
+template <typename FF_> class ECCVMLookupRelationImpl {
   public:
     using FF = FF_;
     static constexpr size_t READ_TERMS = 4;
@@ -24,11 +24,20 @@ template <typename FF_> class ECCVMLookupRelationBase {
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
-    template <typename AllValues> static bool lookup_exists_at_row(const AllValues& row)
+    template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
 
     {
         return (row.msm_add == 1) || (row.msm_skew == 1) || (row.precompute_select == 1);
     }
+
+    /**
+     * @brief Get the inverse lookup polynomial
+     *
+     * @tparam AllEntities
+     * @param in
+     * @return auto&
+     */
+    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
 
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
@@ -38,6 +47,20 @@ template <typename FF_> class ECCVMLookupRelationBase {
         const auto row_has_write = View(in.precompute_select);
         const auto row_has_read = View(in.msm_add) + View(in.msm_skew);
         return row_has_write + row_has_read - (row_has_write * row_has_read);
+    }
+
+    template <typename Accumulator, size_t index, typename AllEntities>
+    static Accumulator lookup_read_counts(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+
+        if constexpr (index == 0) {
+            return Accumulator(View(in.lookup_read_counts_0));
+        }
+        if constexpr (index == 1) {
+            return Accumulator(View(in.lookup_read_counts_1));
+        }
+        return Accumulator(1);
     }
 
     template <typename Accumulator, size_t read_index, typename AllEntities>
@@ -137,7 +160,7 @@ template <typename FF_> class ECCVMLookupRelationBase {
         const auto positive_slice_value = -(precompute_round) + 15;
         const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
 
-        // todo optimise this?
+        // todo optimize this?
         if constexpr (write_index == 0) {
             return positive_term; // degree 1
         }
@@ -222,6 +245,6 @@ template <typename FF_> class ECCVMLookupRelationBase {
                            const FF& scaling_factor);
 };
 
-template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationBase<FF>>;
+template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationImpl<FF>>;
 
 } // namespace proof_system::honk::sumcheck

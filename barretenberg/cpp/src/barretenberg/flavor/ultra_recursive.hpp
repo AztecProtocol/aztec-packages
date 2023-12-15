@@ -2,13 +2,13 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -17,6 +17,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -53,6 +54,7 @@ template <typename BuilderType> class UltraRecursive_ {
     using Commitment = typename Curve::Element;
     using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
+    using NativeVerificationKey = flavor::Ultra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
@@ -66,7 +68,7 @@ template <typename BuilderType> class UltraRecursive_ {
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
@@ -89,71 +91,68 @@ template <typename BuilderType> class UltraRecursive_ {
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
   private:
-    template <typename DataType, typename HandleType>
+    template <typename DataType>
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+    class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        DataType& q_m = std::get<0>(this->_data);
-        DataType& q_c = std::get<1>(this->_data);
-        DataType& q_l = std::get<2>(this->_data);
-        DataType& q_r = std::get<3>(this->_data);
-        DataType& q_o = std::get<4>(this->_data);
-        DataType& q_4 = std::get<5>(this->_data);
-        DataType& q_arith = std::get<6>(this->_data);
-        DataType& q_sort = std::get<7>(this->_data);
-        DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_aux = std::get<9>(this->_data);
-        DataType& q_lookup = std::get<10>(this->_data);
-        DataType& sigma_1 = std::get<11>(this->_data);
-        DataType& sigma_2 = std::get<12>(this->_data);
-        DataType& sigma_3 = std::get<13>(this->_data);
-        DataType& sigma_4 = std::get<14>(this->_data);
-        DataType& id_1 = std::get<15>(this->_data);
-        DataType& id_2 = std::get<16>(this->_data);
-        DataType& id_3 = std::get<17>(this->_data);
-        DataType& id_4 = std::get<18>(this->_data);
-        DataType& table_1 = std::get<19>(this->_data);
-        DataType& table_2 = std::get<20>(this->_data);
-        DataType& table_3 = std::get<21>(this->_data);
-        DataType& table_4 = std::get<22>(this->_data);
-        DataType& lagrange_first = std::get<23>(this->_data);
-        DataType& lagrange_last = std::get<24>(this->_data);
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_m,            // column 0
+                              q_c,            // column 1
+                              q_l,            // column 2
+                              q_r,            // column 3
+                              q_o,            // column 4
+                              q_4,            // column 5
+                              q_arith,        // column 6
+                              q_sort,         // column 7
+                              q_elliptic,     // column 8
+                              q_aux,          // column 9
+                              q_lookup,       // column 10
+                              sigma_1,        // column 11
+                              sigma_2,        // column 12
+                              sigma_3,        // column 13
+                              sigma_4,        // column 14
+                              id_1,           // column 15
+                              id_2,           // column 16
+                              id_3,           // column 17
+                              id_4,           // column 18
+                              table_1,        // column 19
+                              table_2,        // column 20
+                              table_3,        // column 21
+                              table_4,        // column 22
+                              lagrange_first, // column 23
+                              lagrange_last); // column 24
 
-        std::vector<HandleType> get_selectors() override
+        RefVector<DataType> get_selectors()
         {
             return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
         };
-        std::vector<HandleType> get_sigma_polynomials() override { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        std::vector<HandleType> get_id_polynomials() override { return { id_1, id_2, id_3, id_4 }; };
+        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
 
-        std::vector<HandleType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
     };
 
     /**
      * @brief Container for all witness polynomials used/constructed by the prover.
      * @details Shifts are not included here since they do not occupy their own memory.
      */
-    template <typename DataType, typename HandleType>
-    class WitnessEntities : public WitnessEntities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
+    template <typename DataType> class WitnessEntities {
       public:
-        DataType& w_l = std::get<0>(this->_data);
-        DataType& w_r = std::get<1>(this->_data);
-        DataType& w_o = std::get<2>(this->_data);
-        DataType& w_4 = std::get<3>(this->_data);
-        DataType& sorted_1 = std::get<4>(this->_data);
-        DataType& sorted_2 = std::get<5>(this->_data);
-        DataType& sorted_3 = std::get<6>(this->_data);
-        DataType& sorted_4 = std::get<7>(this->_data);
-        DataType& sorted_accum = std::get<8>(this->_data);
-        DataType& z_perm = std::get<9>(this->_data);
-        DataType& z_lookup = std::get<10>(this->_data);
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l,          // column 0
+                              w_r,          // column 1
+                              w_o,          // column 2
+                              w_4,          // column 3
+                              sorted_accum, // column 4
+                              z_perm,       // column 5
+                              z_lookup      // column 6
 
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
-        // The sorted concatenations of table and witness data needed for plookup.
-        std::vector<HandleType> get_sorted_polynomials() { return { sorted_1, sorted_2, sorted_3, sorted_4 }; };
+        );
+
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
     };
 
     /**
@@ -165,56 +164,57 @@ template <typename BuilderType> class UltraRecursive_ {
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    template <typename DataType, typename HandleType>
-    class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
+    template <typename DataType> class AllEntities {
       public:
-        DataType& q_c = std::get<0>(this->_data);
-        DataType& q_l = std::get<1>(this->_data);
-        DataType& q_r = std::get<2>(this->_data);
-        DataType& q_o = std::get<3>(this->_data);
-        DataType& q_4 = std::get<4>(this->_data);
-        DataType& q_m = std::get<5>(this->_data);
-        DataType& q_arith = std::get<6>(this->_data);
-        DataType& q_sort = std::get<7>(this->_data);
-        DataType& q_elliptic = std::get<8>(this->_data);
-        DataType& q_aux = std::get<9>(this->_data);
-        DataType& q_lookup = std::get<10>(this->_data);
-        DataType& sigma_1 = std::get<11>(this->_data);
-        DataType& sigma_2 = std::get<12>(this->_data);
-        DataType& sigma_3 = std::get<13>(this->_data);
-        DataType& sigma_4 = std::get<14>(this->_data);
-        DataType& id_1 = std::get<15>(this->_data);
-        DataType& id_2 = std::get<16>(this->_data);
-        DataType& id_3 = std::get<17>(this->_data);
-        DataType& id_4 = std::get<18>(this->_data);
-        DataType& table_1 = std::get<19>(this->_data);
-        DataType& table_2 = std::get<20>(this->_data);
-        DataType& table_3 = std::get<21>(this->_data);
-        DataType& table_4 = std::get<22>(this->_data);
-        DataType& lagrange_first = std::get<23>(this->_data);
-        DataType& lagrange_last = std::get<24>(this->_data);
-        DataType& w_l = std::get<25>(this->_data);
-        DataType& w_r = std::get<26>(this->_data);
-        DataType& w_o = std::get<27>(this->_data);
-        DataType& w_4 = std::get<28>(this->_data);
-        DataType& sorted_accum = std::get<29>(this->_data);
-        DataType& z_perm = std::get<30>(this->_data);
-        DataType& z_lookup = std::get<31>(this->_data);
-        DataType& table_1_shift = std::get<32>(this->_data);
-        DataType& table_2_shift = std::get<33>(this->_data);
-        DataType& table_3_shift = std::get<34>(this->_data);
-        DataType& table_4_shift = std::get<35>(this->_data);
-        DataType& w_l_shift = std::get<36>(this->_data);
-        DataType& w_r_shift = std::get<37>(this->_data);
-        DataType& w_o_shift = std::get<38>(this->_data);
-        DataType& w_4_shift = std::get<39>(this->_data);
-        DataType& sorted_accum_shift = std::get<40>(this->_data);
-        DataType& z_perm_shift = std::get<41>(this->_data);
-        DataType& z_lookup_shift = std::get<42>(this->_data);
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              q_c,                // column 0
+                              q_l,                // column 1
+                              q_r,                // column 2
+                              q_o,                // column 3
+                              q_4,                // column 4
+                              q_m,                // column 5
+                              q_arith,            // column 6
+                              q_sort,             // column 7
+                              q_elliptic,         // column 8
+                              q_aux,              // column 9
+                              q_lookup,           // column 10
+                              sigma_1,            // column 11
+                              sigma_2,            // column 12
+                              sigma_3,            // column 13
+                              sigma_4,            // column 14
+                              id_1,               // column 15
+                              id_2,               // column 16
+                              id_3,               // column 17
+                              id_4,               // column 18
+                              table_1,            // column 19
+                              table_2,            // column 20
+                              table_3,            // column 21
+                              table_4,            // column 22
+                              lagrange_first,     // column 23
+                              lagrange_last,      // column 24
+                              w_l,                // column 25
+                              w_r,                // column 26
+                              w_o,                // column 27
+                              w_4,                // column 28
+                              sorted_accum,       // column 29
+                              z_perm,             // column 30
+                              z_lookup,           // column 31
+                              table_1_shift,      // column 32
+                              table_2_shift,      // column 33
+                              table_3_shift,      // column 34
+                              table_4_shift,      // column 35
+                              w_l_shift,          // column 36
+                              w_r_shift,          // column 37
+                              w_o_shift,          // column 38
+                              w_4_shift,          // column 39
+                              sorted_accum_shift, // column 40
+                              z_perm_shift,       // column 41
+                              z_lookup_shift      // column 42
+        );
 
-        std::vector<HandleType> get_wires() override { return { w_l, w_r, w_o, w_4 }; };
+        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
-        std::vector<HandleType> get_unshifted() override
+        RefVector<DataType> get_unshifted()
         {
             return { q_c,           q_l,   q_r,      q_o,     q_4,     q_m,          q_arith, q_sort,
                      q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
@@ -223,40 +223,15 @@ template <typename BuilderType> class UltraRecursive_ {
 
             };
         };
-        std::vector<HandleType> get_to_be_shifted() override
+        RefVector<DataType> get_to_be_shifted()
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
         };
-        std::vector<HandleType> get_shifted() override
+        RefVector<DataType> get_shifted()
         {
             return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
                      w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
-
-        AllEntities() = default;
-
-        AllEntities(const AllEntities& other)
-            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
-
-        AllEntities(AllEntities&& other)
-            : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
-
-        AllEntities& operator=(const AllEntities& other)
-        {
-            if (this == &other) {
-                return *this;
-            }
-            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-            return *this;
-        }
-
-        AllEntities& operator=(AllEntities&& other)
-        {
-            AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
-            return *this;
-        }
-
-        ~AllEntities() = default;
     };
 
   public:
@@ -268,7 +243,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
@@ -276,9 +251,8 @@ template <typename BuilderType> class UltraRecursive_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-        VerificationKey(CircuitBuilder* builder, auto native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size,
-                                                                                  native_key->num_public_inputs)
+        VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+            : VerificationKey_<PrecomputedEntities<Commitment>>(native_key->circuit_size, native_key->num_public_inputs)
         {
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
@@ -312,9 +286,9 @@ template <typename BuilderType> class UltraRecursive_ {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    class AllValues : public AllEntities<FF, FF> {
+    class AllValues : public AllEntities<FF> {
       public:
-        using Base = AllEntities<FF, FF>;
+        using Base = AllEntities<FF>;
         using Base::Base;
         AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
@@ -325,7 +299,7 @@ template <typename BuilderType> class UltraRecursive_ {
      * has, however, been useful during debugging to have these labels available.
      *
      */
-    class CommitmentLabels : public AllEntities<std::string, std::string> {
+    class CommitmentLabels : public AllEntities<std::string> {
       public:
         CommitmentLabels()
         {
@@ -366,9 +340,9 @@ template <typename BuilderType> class UltraRecursive_ {
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
+    class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
@@ -398,127 +372,7 @@ template <typename BuilderType> class UltraRecursive_ {
         }
     };
 
-    /**
-     * @brief Derived class that defines proof structure for UltraRecursive proofs, as well as supporting functions.
-     *
-     */
-    class Transcript : public BaseTranscript<FF> {
-      public:
-        // Transcript objects defined as public member variables for easy access and modification
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment sorted_accum_comm;
-        Commitment w_4_comm;
-        Commitment z_perm_comm;
-        Commitment z_lookup_comm;
-        std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> zm_cq_comms;
-        Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
-
-        Transcript() = default;
-
-        // Used by verifier to initialize the transcript
-        Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript<FF>(proof)
-        {}
-
-        static Transcript prover_init_empty()
-        {
-            Transcript transcript;
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript.send_to_verifier("Init", init);
-            return transcript;
-        };
-
-        static Transcript verifier_init_empty(const Transcript& transcript)
-        {
-            Transcript verifier_transcript{ transcript.proof_data };
-            [[maybe_unused]] auto _ = verifier_transcript.template receive_from_prover<uint32_t>("Init");
-            return verifier_transcript;
-        };
-
-        /**
-         * @brief Takes a FULL UltraRecursive proof and deserializes it into the public member variables that compose
-         * the structure. Must be called in order to access the structure of the proof.
-         *
-         */
-        void deserialize_full_transcript() override
-        {
-            // take current proof and put them into the struct
-            size_t num_bytes_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            size_t log_n = numeric::get_msb(circuit_size);
-
-            public_input_size = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            w_l_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                sumcheck_univariates.push_back(
-                    deserialize_from_buffer<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                        BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                BaseTranscript<FF>::proof_data, num_bytes_read);
-            for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(
-                    deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read));
-            }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(BaseTranscript<FF>::proof_data, num_bytes_read);
-        }
-        /**
-         * @brief Serializes the structure variables into a FULL UltraRecursive proof. Should be called only if
-         * deserialize_full_transcript() was called and some transcript variable was modified.
-         *
-         */
-        void serialize_full_transcript() override
-        {
-            size_t old_proof_length = BaseTranscript<FF>::proof_data.size();
-            BaseTranscript<FF>::proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            size_t log_n = numeric::get_msb(circuit_size);
-            serialize_to_buffer(circuit_size, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(public_input_size, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(pub_inputs_offset, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(w_l_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_r_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_o_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(sorted_accum_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(w_4_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(z_perm_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(z_lookup_comm, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(sumcheck_evaluations, BaseTranscript<FF>::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
-                serialize_to_buffer(zm_cq_comms[i], BaseTranscript<FF>::proof_data);
-            }
-            serialize_to_buffer(zm_cq_comm, BaseTranscript<FF>::proof_data);
-            serialize_to_buffer(zm_pi_comm, BaseTranscript<FF>::proof_data);
-
-            // sanity check to make sure we generate the same length of proof as before.
-            ASSERT(BaseTranscript<FF>::proof_data.size() == old_proof_length);
-        }
-    };
+    using Transcript = proof_system::plonk::stdlib::recursion::honk::Transcript<CircuitBuilder>;
 };
 
 } // namespace proof_system::honk::flavor

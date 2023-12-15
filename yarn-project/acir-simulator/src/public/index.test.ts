@@ -1,14 +1,7 @@
-import {
-  CallContext,
-  CircuitsWasm,
-  FunctionData,
-  GlobalVariables,
-  HistoricBlockData,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
+import { BlockHeader, CallContext, FunctionData, GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -31,24 +24,19 @@ import { PublicExecutor } from './executor.js';
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('ACIR public execution simulator', () => {
-  let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockData: HistoricBlockData;
-
-  beforeAll(async () => {
-    circuitsWasm = await CircuitsWasm.get();
-  });
+  let blockHeader: BlockHeader;
 
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockData = HistoricBlockData.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
+    blockHeader = BlockHeader.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHeader);
   }, 10000);
 
   describe('Token contract', () => {
@@ -92,9 +80,7 @@ describe('ACIR public execution simulator', () => {
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         const result = await executor.simulate(execution, GlobalVariables.empty());
 
-        expect(result.returnValues[0]).toEqual(new Fr(1n));
-
-        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
+        const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField());
         const totalSupplyStorageSlot = new Fr(4n);
 
         const expectedBalance = new Fr(previousBalance.value + mintAmount);
@@ -116,7 +102,7 @@ describe('ACIR public execution simulator', () => {
         ]);
 
         const mintersStorageSlot = new Fr(2n);
-        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField(), circuitsWasm);
+        const isMinterStorageSlot = computeSlotForMapping(mintersStorageSlot, msgSender.toField());
         // Note: There is only 1 storage read (for the isMinter value) because the other 2 reads get overwritten by
         // the updates
         expect(result.contractStorageReads).toEqual([
@@ -157,8 +143,8 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField(), circuitsWasm);
-        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
+        recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient.toField());
+        senderStorageSlot = computeSlotForMapping(new Fr(6n), Fr.fromBuffer(sender.toBuffer()));
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(transferArtifact.bytecode, 'base64'));
 
@@ -187,8 +173,6 @@ describe('ACIR public execution simulator', () => {
 
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
-
-        expect(result.returnValues[0]).toEqual(new Fr(1n));
 
         expect(result.contractStorageUpdateRequests).toEqual([
           {
@@ -297,14 +281,12 @@ describe('ACIR public execution simulator', () => {
     let functionData: FunctionData;
     let amount: Fr;
     let params: Fr[];
-    let wasm: CircuitsWasm;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       contractAddress = AztecAddress.random();
       functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
       amount = new Fr(1);
       params = [amount, new Fr(1)];
-      wasm = await CircuitsWasm.get();
     });
 
     it('Should be able to create a commitment from the public context', async () => {
@@ -334,9 +316,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNoteHash = pedersenHashInputs(wasm, [amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHashInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      const expectedInnerNoteHash = pedersenHash([storageSlot.toBuffer(), expectedNoteHash]);
       expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
@@ -364,10 +346,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(
-        wasm,
-        params.map(a => a.toBuffer()),
-      );
+      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
       expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
 
@@ -381,7 +360,7 @@ describe('ACIR public execution simulator', () => {
       const secret = new Fr(1n);
       const recipient = AztecAddress.random();
 
-      const preimage = await buildL1ToL2Message(
+      const preimage = buildL1ToL2Message(
         getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
         [recipient.toField(), new Fr(bridgedAmount), canceller.toField()],
         contractAddress,
@@ -401,7 +380,7 @@ describe('ACIR public execution simulator', () => {
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
-        portalContractAddress: EthAddress.random(),
+        portalContractAddress: preimage.sender.sender,
         functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
@@ -421,7 +400,14 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, GlobalVariables.empty());
+
+      const gv = new GlobalVariables(
+        new Fr(preimage.sender.chainId),
+        new Fr(preimage.recipient.version),
+        Fr.ZERO,
+        Fr.ZERO,
+      );
+      const result = await executor.simulate(execution, gv);
 
       expect(result.newNullifiers.length).toEqual(1);
     });
@@ -451,10 +437,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHashInputs(
-        wasm,
-        params.map(a => a.toBuffer()),
-      );
+      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
       expect(result.newNullifiers[0].toBuffer()).toEqual(expectedNewMessageValue);
     });
   });

@@ -4,7 +4,11 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./stats": "./dest/stats/index.js"
+    "./stats": "./dest/stats/index.js",
+    "./jest": "./dest/jest/index.js",
+    "./interfaces": "./dest/interfaces/index.js",
+    "./log_id": "./dest/logs/log_id.js",
+    "./tx_hash": "./dest/tx/tx_hash.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -18,7 +22,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -44,7 +48,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.isequal": "^4.5.6",

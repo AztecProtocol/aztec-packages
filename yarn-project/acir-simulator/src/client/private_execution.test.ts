@@ -1,12 +1,11 @@
 import {
+  BlockHeader,
   CallContext,
-  CircuitsWasm,
   CompleteAddress,
   ContractDeploymentData,
   EMPTY_NULLIFIED_COMMITMENT,
   FieldsOf,
   FunctionData,
-  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
@@ -15,17 +14,16 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 import {
-  computeCallStackItemHash,
   computeCommitmentNonce,
   computeSecretMessageHash,
   computeVarArgsHash,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
-import { pedersenHashInputs } from '@aztec/circuits.js/barretenberg';
 import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -57,11 +55,10 @@ jest.setTimeout(60_000);
 const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
-  let circuitsWasm: CircuitsWasm;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
-  let blockData = HistoricBlockData.empty();
+  let blockHeader = BlockHeader.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -87,7 +84,7 @@ describe('Private Execution test suite', () => {
     contractDeploymentData: ContractDeploymentData.empty(),
   };
 
-  const runSimulator = async ({
+  const runSimulator = ({
     artifact,
     args = [],
     msgSender = AztecAddress.ZERO,
@@ -102,7 +99,7 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = await PackedArguments.fromArgs(encodeArguments(artifact, args), circuitsWasm);
+    const packedArguments = PackedArguments.fromArgs(encodeArguments(artifact, args));
     const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
@@ -128,35 +125,28 @@ describe('Private Execution test suite', () => {
     }
     if (!trees[name]) {
       const db = levelup(createMemDown());
-      const pedersen = new Pedersen(circuitsWasm);
+      const pedersen = new Pedersen();
       trees[name] = await newTree(StandardTree, db, pedersen, name, treeHeights[name]);
     }
     await trees[name].appendLeaves(leaves.map(l => l.toBuffer()));
 
     // Update root.
     const newRoot = trees[name].getRoot(false);
-    const prevRoots = blockData.toBuffer();
+    const prevRoots = blockHeader.toBuffer();
     const rootIndex = name === 'noteHash' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    blockData = HistoricBlockData.fromBuffer(newRoots);
+    blockHeader = BlockHeader.fromBuffer(newRoots);
 
     return trees[name];
   };
 
-  const hashFields = (data: Fr[]) =>
-    Fr.fromBuffer(
-      pedersenHashInputs(
-        circuitsWasm,
-        data.map(f => f.toBuffer()),
-      ),
-    );
+  const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHash(data.map(f => f.toBuffer())));
 
-  beforeAll(async () => {
-    circuitsWasm = await CircuitsWasm.get();
+  beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
-    ownerCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-    recipientCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(recipientPk, Fr.random());
+    ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+    recipientCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(recipientPk, Fr.random());
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -165,11 +155,15 @@ describe('Private Execution test suite', () => {
   beforeEach(() => {
     oracle = mock<DBOracle>();
     oracle.getSecretKey.mockImplementation((contractAddress: AztecAddress, pubKey: PublicKey) => {
-      if (pubKey.equals(ownerCompleteAddress.publicKey)) return Promise.resolve(ownerPk);
-      if (pubKey.equals(recipientCompleteAddress.publicKey)) return Promise.resolve(recipientPk);
+      if (pubKey.equals(ownerCompleteAddress.publicKey)) {
+        return Promise.resolve(ownerPk);
+      }
+      if (pubKey.equals(recipientCompleteAddress.publicKey)) {
+        return Promise.resolve(recipientPk);
+      }
       throw new Error(`Unknown address ${pubKey}`);
     });
-    oracle.getHistoricBlockData.mockResolvedValue(blockData);
+    oracle.getBlockHeader.mockResolvedValue(blockHeader);
 
     acirSimulator = new AcirSimulator(oracle);
   });
@@ -202,7 +196,7 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = Math.floor(Math.random()); // mock index in TX's final newNoteHashes array
-      const nonce = computeCommitmentNonce(circuitsWasm, mockFirstNullifier, noteHashIndex);
+      const nonce = computeCommitmentNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), owner.toField(), Fr.random()]);
       const innerNoteHash = hashFields(note.items);
       return {
@@ -218,8 +212,12 @@ describe('Private Execution test suite', () => {
 
     beforeEach(() => {
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
-        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
+        if (address.equals(owner)) {
+          return Promise.resolve(ownerCompleteAddress);
+        }
+        if (address.equals(recipient)) {
+          return Promise.resolve(recipientCompleteAddress);
+        }
         throw new Error(`Unknown address ${address}`);
       });
 
@@ -235,7 +233,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
@@ -253,7 +251,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
@@ -268,8 +266,8 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
-      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
+      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField());
 
       const notes = [buildNote(60n, owner, storageSlot), buildNote(80n, owner, storageSlot)];
       oracle.getNotes.mockResolvedValue(notes);
@@ -315,7 +313,7 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
 
       const notes = [buildNote(balance, owner, storageSlot)];
       oracle.getNotes.mockResolvedValue(notes);
@@ -372,9 +370,8 @@ describe('Private Execution test suite', () => {
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
-      const wasm = await CircuitsWasm.get();
-      const expectedCallStackItemHash = computeCallStackItemHash(wasm, result.nestedExecutions[0].callStackItem);
-      expect(result.callStackItem.publicInputs.privateCallStack[0]).toEqual(expectedCallStackItemHash);
+      const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
+      expect(result.callStackItem.publicInputs.privateCallStackHashes[0]).toEqual(expectedCallStackItemHash);
     });
   });
 
@@ -383,7 +380,7 @@ describe('Private Execution test suite', () => {
     let argsHash: Fr;
     let testCodeGenArtifact: FunctionArtifact;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       // These args should match the ones hardcoded in importer contract
       // eslint-disable-next-line camelcase
       const dummyNote = { amount: 1, secret_hash: 2 };
@@ -392,7 +389,7 @@ describe('Private Execution test suite', () => {
       args = [1, true, 1, [1, 2], dummyNote, deepStruct];
       testCodeGenArtifact = getFunctionArtifact(TestContractArtifact, 'test_code_gen');
       const serializedArgs = encodeArguments(testCodeGenArtifact, args);
-      argsHash = await computeVarArgsHash(await CircuitsWasm.get(), serializedArgs);
+      argsHash = computeVarArgsHash(serializedArgs);
     });
 
     it('test function should be directly callable', async () => {
@@ -430,7 +427,9 @@ describe('Private Execution test suite', () => {
 
     beforeEach(() => {
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
+        if (address.equals(recipient)) {
+          return Promise.resolve(recipientCompleteAddress);
+        }
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -442,7 +441,7 @@ describe('Private Execution test suite', () => {
       const secretForL1ToL2MessageConsumption = new Fr(1n);
       const secretHashForRedeemingNotes = new Fr(2n);
       const canceller = EthAddress.random();
-      const preimage = await buildL1ToL2Message(
+      const preimage = buildL1ToL2Message(
         getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
         [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
         contractAddress,
@@ -468,7 +467,13 @@ describe('Private Execution test suite', () => {
         messageKey,
         secretForL1ToL2MessageConsumption,
       ];
-      const result = await runSimulator({ contractAddress, artifact, args });
+      const result = await runSimulator({
+        contractAddress,
+        artifact,
+        args,
+        portalContractAddress: preimage.sender.sender,
+        txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+      });
 
       // Check a nullifier has been inserted
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
@@ -479,14 +484,13 @@ describe('Private Execution test suite', () => {
       const amount = 100n;
       const artifact = getFunctionArtifact(TokenContractArtifact, 'redeem_shield');
 
-      const wasm = await CircuitsWasm.get();
       const secret = new Fr(1n);
-      const secretHash = computeSecretMessageHash(wasm, secret);
+      const secretHash = computeSecretMessageHash(secret);
       const note = new Note([new Fr(amount), secretHash]);
       const noteHash = hashFields(note.items);
       const storageSlot = new Fr(5);
       const innerNoteHash = hashFields([storageSlot, noteHash]);
-      const siloedNoteHash = siloCommitment(wasm, contractAddress, innerNoteHash);
+      const siloedNoteHash = siloCommitment(contractAddress, innerNoteHash);
       oracle.getNotes.mockResolvedValue([
         {
           contractAddress,
@@ -558,21 +562,20 @@ describe('Private Execution test suite', () => {
         sideEffectCounter: 0,
       });
 
-      const publicCallRequestHash = computeCallStackItemHash(
-        await CircuitsWasm.get(),
-        await publicCallRequest.toPublicCallStackItem(),
-      );
+      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);
-      expect(result.callStackItem.publicInputs.publicCallStack[0]).toEqual(publicCallRequestHash);
+      expect(result.callStackItem.publicInputs.publicCallStackHashes[0]).toEqual(publicCallRequestHash);
     });
   });
 
   describe('pending commitments contract', () => {
     beforeEach(() => {
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(owner)) {
+          return Promise.resolve(ownerCompleteAddress);
+        }
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -606,7 +609,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
+      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -614,7 +617,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
       const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note);
       expect(commitment).toEqual(innerNoteHash);
 
@@ -677,7 +680,7 @@ describe('Private Execution test suite', () => {
 
       expect(execInsert.newNotes).toHaveLength(1);
       const noteAndSlot = execInsert.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
+      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -687,7 +690,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
       const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note);
       expect(commitment).toEqual(innerNoteHash);
 
@@ -725,7 +728,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
+      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField()));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -733,7 +736,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField());
       expect(commitment).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, noteAndSlot.note),
       );
@@ -759,7 +762,7 @@ describe('Private Execution test suite', () => {
       artifact.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
-      const completeAddress = await CompleteAddress.random();
+      const completeAddress = CompleteAddress.random();
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKey;
 

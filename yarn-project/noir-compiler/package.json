@@ -22,7 +22,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -45,10 +45,11 @@
     }
   },
   "dependencies": {
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@ltd/j-toml": "^1.38.0",
-    "@noir-lang/noir_wasm": "0.18.0-6ca33a2.aztec",
-    "@noir-lang/source-resolver": "0.18.0-6ca33a2.aztec",
+    "@noir-lang/noir_wasm": "portal:../../noir/packages/noir_wasm",
+    "@noir-lang/source-resolver": "portal:../../noir/packages/source-resolver",
     "base64-js": "^1.5.1",
     "commander": "^9.0.0",
     "fs-extra": "^11.1.1",
@@ -65,7 +66,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/fs-extra": "^11.0.1",
     "@types/jest": "^29.5.0",
     "@types/lodash.camelcase": "^4.3.7",

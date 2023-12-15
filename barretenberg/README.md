@@ -46,12 +46,13 @@ Ignores proving key construction.
 - Ninja (used by the presets as the default generator)
 - clang >= 16 or gcc >= 10
 - clang-format
+- libstdc++ >= 12
 - libomp (if multithreading is required. Multithreading can be disabled using the compiler flag `-DMULTITHREADING 0`)
 
 To install on Ubuntu, run:
 
 ```
-sudo apt-get install cmake clang clang-format ninja-build
+sudo apt-get install cmake clang clang-format ninja-build libstdc++-12-dev
 ```
 
 ### Installing openMP (Linux)
@@ -207,7 +208,7 @@ Fuzzing build turns off building tests and benchmarks, since they are incompatib
 
 To turn on address sanitizer add `-DADDRESS_SANITIZER=ON`. Note that address sanitizer can be used to explore crashes.
 Sometimes you might have to specify the address of llvm-symbolizer. You have to do it with `export ASAN_SYMBOLIZER_PATH=<PATH_TO_SYMBOLIZER>`.
-For undefined behaviour sanitizer `-DUNDEFINED_BEHAVIOUR_SANITIZER=ON`.
+For undefined behavior sanitizer `-DUNDEFINED_BEHAVIOUR_SANITIZER=ON`.
 Note that the fuzzer can be orders of magnitude slower with ASan (2-3x slower) or UBSan on, so it is best to run a non-sanitized build first, minimize the testcase and then run it for a bit of time with sanitizers.
 
 ### Test coverage build

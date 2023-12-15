@@ -3,21 +3,18 @@
 
 set -eux
 
+# The following accounts and pks must match the ones exposed by the sandbox.
+
 # docs:start:declare-accounts
-ALICE="0x16efad912187aa8ef0dcc6ef4f3743ab327b06465d4d229943f2fe3f88b06ad9"
-BOB="0x17f5e66bfe7dafc76434268bcb3968a8bc207b476aeed78d1e4a2f02aad45842"
+ALICE="0x26fc40ccf8622e4ac4bb1132762cb3917933b1b556155b1964bbbfdd3071ff5c"
+BOB="0x2a0f32c34c5b948a7f9766f0c1aad70a86c0ee649f56208e936be4324d49b0b9"
 ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
 # docs:end:declare-accounts
 
 # docs:start:deploy
-aztec-cli deploy \
-  TokenContractArtifact \
-  --salt 0 \
-  --args $ALICE
-
-aztec-cli check-deploy --contract-address 0x0ed3aaa22d69559ee368b32fbafb24b49b103c0a07bd834fd519c8157553ec1f
-
-CONTRACT="0x0ed3aaa22d69559ee368b32fbafb24b49b103c0a07bd834fd519c8157553ec1f"
+CONTRACT=$(aztec-cli deploy TokenContractArtifact --salt 0 --args $ALICE --json | jq -r '.address')
+echo "Deployed contract at $CONTRACT"
+aztec-cli check-deploy --contract-address $CONTRACT
 # docs:end:deploy
 
 # docs:start:mint-private

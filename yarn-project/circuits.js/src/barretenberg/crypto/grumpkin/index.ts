@@ -1,21 +1,11 @@
-import { Fr, Point } from '@aztec/foundation/fields';
-import { IWasmModule } from '@aztec/foundation/wasm';
-
-import { CircuitsWasm, GrumpkinScalar } from '../../../index.js';
+import { BarretenbergSync } from '@aztec/bb.js';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 /**
  * Grumpkin elliptic curve operations.
  */
 export class Grumpkin {
-  /**
-   * Creates a new Grumpkin instance.
-   * @returns New Grumpkin instance.
-   */
-  public static async new() {
-    return new this(await CircuitsWasm.get());
-  }
-
-  constructor(private wasm: IWasmModule) {}
+  private wasm = BarretenbergSync.getSingleton().getWasm();
 
   // prettier-ignore
   static generator = Point.fromBuffer(Buffer.from([

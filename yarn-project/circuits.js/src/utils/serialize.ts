@@ -97,12 +97,14 @@ export function uint8ArrayToNum(array: Uint8Array): number {
 }
 
 /**
- * Serializes booleans in structs for calling into wasm.
+ * Serializes a boolean to a buffer.
  * @param value - Value to serialize.
  * @returns The serialized boolean.
  */
-export function boolToBuffer(value: boolean): Buffer {
-  return Buffer.from([value ? 1 : 0]);
+export function boolToBuffer(value: boolean, bufferSize = 1): Buffer {
+  const buf = Buffer.alloc(bufferSize);
+  buf.writeUInt8(value ? 1 : 0, bufferSize - 1);
+  return buf;
 }
 
 /**
@@ -158,7 +160,7 @@ function isSerializableToBuffer32(obj: object): obj is {
 }
 
 /**
- * Serializes a list of objects contiguously for calling into wasm.
+ * Serializes a list of objects contiguously.
  * @param objs - Objects to serialize.
  * @returns A buffer list with the concatenation of all fields.
  */
@@ -166,7 +168,6 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
   let ret: Buffer[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {
-      // Note: These must match the length of the C++ structs
       ret = [...ret, ...serializeToBufferArray(...obj)];
     } else if (Buffer.isBuffer(obj)) {
       ret.push(obj);
@@ -188,7 +189,7 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
 }
 
 /**
- * Serializes a list of objects contiguously for calling into wasm.
+ * Serializes a list of objects contiguously.
  * @param objs - Objects to serialize.
  * @returns A single buffer with the concatenation of all fields.
  */

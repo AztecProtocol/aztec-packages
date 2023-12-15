@@ -16,7 +16,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
   },
@@ -29,7 +29,8 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "workerThreads": true
   },
   "dependencies": {
     "@aztec/acir-simulator": "workspace:^",
@@ -37,6 +38,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-protocol-circuits": "workspace:^",
     "@aztec/types": "workspace:^",
@@ -51,7 +53,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.omit": "^4.5.7",
     "@types/lodash.partition": "^4.6.0",

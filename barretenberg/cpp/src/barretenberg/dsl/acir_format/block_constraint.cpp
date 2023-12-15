@@ -34,7 +34,7 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             ASSERT(op.access_type == 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            // For a ROM table, constant read should be optimised out:
+            // For a ROM table, constant read should be optimized out:
             // The rom_table won't work with a constant read because the table may not be initialized
             ASSERT(op.index.q_l != 0);
             // We create a new witness w to avoid issues with non-valid witness assignements:
@@ -54,9 +54,13 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
         for (auto& op : constraint.trace) {
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            if (has_valid_witness_assignments == false) {
-                index = field_ct::from_witness(&builder, 0);
-            }
+
+            // We create a new witness w to avoid issues with non-valid witness assignements.
+            // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
+            fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
+            // Create new witness and ensure equal to index.
+            field_ct::from_witness(&builder, index_value).assert_equal(index);
+
             if (op.access_type == 0) {
                 value.assert_equal(table.read(index));
             } else {

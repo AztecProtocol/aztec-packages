@@ -16,7 +16,7 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 
 - Gather metrics about everything, to guide future decisions.
 
-## Standardisation efforts
+## Standardization efforts
 
 - Recommended Aztec smart contract coding patterns
 - Access Control (whitelists/blacklists) - probably needs the Slow Updates tree (or something similar).
@@ -119,7 +119,9 @@ CI takes up a significant amount of time. It gets its own section here, so we re
 
 ## Slow Updates tree?
 
-We _need_ a way to read mutable public data from a private function.
+We _need_ a way to read mutable public data from a private function. 
+
+Note: we just published the [Slow Updates Tree](../../concepts/foundation/communication/public_private_calls/slow_updates_tree.md).
 
 ## Contract classes and instances?
 
@@ -230,7 +232,7 @@ An investigation into how formal verification techniques might improve the secur
 
 ## Hashes
 
-- An improved, standardised Pedersen hash in barretenberg.
+- An improved, standardized Pedersen hash in barretenberg.
 - Poseidon hashing in barretenberg.
 
 ## Tree epochs

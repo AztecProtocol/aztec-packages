@@ -11,7 +11,7 @@ import { identifyService } from 'libp2p/identify';
 import { format } from 'util';
 
 import { P2PConfig } from '../config.js';
-import { createLibP2PPeerId } from '../index.js';
+import { createLibP2PPeerId } from '../service/index.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -31,7 +31,9 @@ export class BootstrapNode {
       config;
     const peerId = await createLibP2PPeerId(peerIdPrivateKey);
     this.logger(
-      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${announcePort}`,
+      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${
+        announcePort ?? tcpListenPort
+      }`,
     );
 
     const opts: Libp2pOptions<ServiceMap> = {

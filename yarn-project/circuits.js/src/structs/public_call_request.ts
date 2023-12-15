@@ -1,11 +1,13 @@
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { computeVarArgsHash } from '../abis/abis.js';
-import { CircuitsWasm, FieldsOf } from '../index.js';
+import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { CallerContext } from './call_request.js';
 import {
   AztecAddress,
   CallContext,
+  CallRequest,
   Fr,
   FunctionData,
   PublicCallStackItem,
@@ -25,10 +27,12 @@ export class PublicCallRequest {
     public contractAddress: AztecAddress,
     /**
      * Data identifying the function being called.
+     * TODO(#3417): Remove this since the only useful data is the function selector, which is already part of the call context.
      */
     public functionData: FunctionData,
     /**
      * Context of the public call.
+     * TODO(#3417): Check if all fields of CallContext are actually needed.
      */
     public callContext: CallContext,
     /**
@@ -92,18 +96,31 @@ export class PublicCallRequest {
    * Creates a new PublicCallStackItem by populating with zeroes all fields related to result in the public circuit output.
    * @returns A PublicCallStackItem instance with the same contract address, function data, call context, and args.
    */
-  async toPublicCallStackItem(): Promise<PublicCallStackItem> {
+  toPublicCallStackItem() {
     const publicInputs = PublicCircuitPublicInputs.empty();
     publicInputs.callContext = this.callContext;
-    publicInputs.argsHash = await this.getArgsHash();
+    publicInputs.argsHash = this.getArgsHash();
     return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  toCallRequest() {
+    const item = this.toPublicCallStackItem();
+    const callerContractAddress = this.callContext.msgSender;
+    const callerContext = this.callContext.isDelegateCall
+      ? new CallerContext(this.callContext.msgSender, this.callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(item.hash(), callerContractAddress, callerContext);
   }
 
   /**
    * Returns the hash of the arguments for this request.
    * @returns Hash of the arguments for this request.
    */
-  async getArgsHash() {
-    return computeVarArgsHash(await CircuitsWasm.get(), this.args);
+  getArgsHash() {
+    return computeVarArgsHash(this.args);
   }
 }

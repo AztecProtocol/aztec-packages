@@ -1,9 +1,7 @@
 #pragma once
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/thread_utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -87,14 +85,12 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
-                      /* const */ ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                      const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx)
     {
-        size_t univariate_idx = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/391) zip
-        for (auto& poly : multivariates) {
-            auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
-            extended_edges[univariate_idx] = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            ++univariate_idx;
+        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+            auto edge = barretenberg::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
         }
     }
 
@@ -127,13 +123,13 @@ template <typename Flavor> class SumcheckProverRound {
             barretenberg::thread_utils::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
         size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
-        // Constuct univariate accumulator containers; one per thread
+        // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
 
-        // Constuct extended edge containers; one per thread
+        // Construct extended edge containers; one per thread
         std::vector<ExtendedEdges> extended_edges;
         extended_edges.resize(num_threads);
 
@@ -165,8 +161,64 @@ template <typename Flavor> class SumcheckProverRound {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return Utils::template batch_over_relations<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+        return batch_over_relations<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
             univariate_accumulators, alpha, pow_univariate);
+    }
+
+    /**
+     * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_SUBRELATIONS-1}) and a challenge α,
+     * return t_0 + αt_1 + ... + α^{NUM_SUBRELATIONS-1}t_{NUM_SUBRELATIONS-1}).
+     */
+    template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
+    static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
+                                                   const FF& challenge,
+                                                   const barretenberg::PowUnivariate<FF>& pow_univariate)
+    {
+        auto running_challenge = FF(1);
+        Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
+
+        auto result = ExtendedUnivariate(0);
+        extend_and_batch_univariates(univariate_accumulators, result, pow_univariate);
+
+        // Reset all univariate accumulators to 0 before beginning accumulation in the next round
+        Utils::zero_univariates(univariate_accumulators);
+        return result;
+    }
+
+    /**
+     * @brief Extend Univariates to specified size then sum them
+     *
+     * @tparam extended_size Size after extension
+     * @param tuple A tuple of tuples of Univariates
+     * @param result A Univariate of length extended_size
+     * @param pow_univariate Power polynomial univariate
+     */
+    template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
+    static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
+                                             ExtendedUnivariate& result,
+                                             const barretenberg::PowUnivariate<FF>& pow_univariate)
+    {
+        ExtendedUnivariate extended_random_polynomial;
+        // Random poly R(X) = (1-X) + X.zeta_pow
+        auto random_polynomial = barretenberg::Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
+        extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
+
+        auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+            auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
+
+            using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+            const bool is_subrelation_linearly_independent =
+                proof_system::subrelation_is_linearly_independent<Relation, subrelation_idx>();
+            // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
+            // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
+            // verifier, we additionally need a univariate contribution from the pow polynomial.
+            if (!is_subrelation_linearly_independent) {
+                result += extended;
+            } else {
+                result += extended * extended_random_polynomial;
+            }
+        };
+        Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
     }
 
   private:

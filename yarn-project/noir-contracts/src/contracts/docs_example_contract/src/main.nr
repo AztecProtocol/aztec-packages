@@ -4,6 +4,10 @@ mod options;
 mod types;
 
 contract DocsExample {
+    use dep::protocol_types::{
+        address::AztecAddress,
+        abis::function_selector::FunctionSelector,
+    };
     use dep::std::option::Option;
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
@@ -50,7 +54,7 @@ contract DocsExample {
     // docs:start:state_vars-Set
     // docs:start:state_vars-MapSingleton
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 // highlight-next-line:state_vars-PublicState
                 locked: PublicState::new(context, 1, BoolSerializationMethods),
@@ -91,15 +95,11 @@ contract DocsExample {
     global GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR = 11111111;
 
     #[aztec(private)]
-    fn constructor(
-        min_points: u8,
-        max_points: u8,
-        legendary_card_secret: Field,
-    ) {
-        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(0));
+    fn constructor(min_points: u8, max_points: u8, legendary_card_secret: Field) {
+        let mut game_rules = RulesNote::new(min_points, max_points, Option::some(AztecAddress::zero()));
         actions::init_game_rules(storage.game_rules, &mut game_rules);
 
-        let mut legendary_card = CardNote::new(0, legendary_card_secret, 0);
+        let mut legendary_card = CardNote::new(0, legendary_card_secret, AztecAddress::zero());
         actions::init_legendary_card(storage.legendary_card, &mut legendary_card);
     }
 
@@ -107,7 +107,7 @@ contract DocsExample {
     #[aztec(public)]
     fn lock() {
         // highlight-next-line:storage-init
-        
+
         storage.locked.write(true);
     }
     // docs:end:storage-init
@@ -115,39 +115,31 @@ contract DocsExample {
     // docs:start:functions-OpenFunction
     #[aztec(public)]
     fn unlock() {
-        
         actions::unlock(storage.locked);
     }
     // docs:end:functions-OpenFunction
 
     #[aztec(public)]
-    fn replace_queen(
-        account: Field,
-        points: u8,
-    ) {
-        
-
+    fn replace_queen(account: AztecAddress, points: u8) {
         let new_queen = Queen { account, points };
-        
+
         assert(actions::can_replace_queen(storage.queen, new_queen));
-        
+
         actions::replace_queen(storage.queen, new_queen);
     }
 
     // docs:start:state_vars-PublicStateWriteBeforeCall
     #[aztec(public)]
     fn replace_queen_unsafe() {
-        
-
         let account = context.msg_sender();
         let points = actions::get_total_points(storage.cards, account, 0);
 
         let current_queen = storage.queen.read();
-        assert(account != current_queen.account);
+        assert(!account.eq(current_queen.account));
         assert(points > current_queen.points);
 
-        AccountContractInterface::at(account).send_rewards(current_queen.points);
-        
+        AccountContractInterface::at(account.to_field()).send_rewards(current_queen.points);
+
         let new_queen = Queen { account, points };
         storage.queen.write(new_queen);
     }
@@ -156,22 +148,15 @@ contract DocsExample {
     // docs:start:functions-SecretFunction
     #[aztec(private)]
     fn add_common_cards(secrets: [Field; 4]) {
-        
-
         for i in 0..secrets.len() as u8 {
-            let mut card = CardNote::new(0, secrets[i], 0);
+            let mut card = CardNote::new(0, secrets[i], AztecAddress::zero());
             actions::add_new_card(storage.cards, &mut card);
         }
     }
     // docs:end:functions-SecretFunction
 
     #[aztec(private)]
-    fn update_legendary_card(
-        new_points: u8,
-        new_secret: Field,
-    ) {
-        
-
+    fn update_legendary_card(new_points: u8, new_secret: Field) {
         let owner = inputs.call_context.msg_sender;
         let mut updated_card = CardNote::new(new_points, new_secret, owner);
 
@@ -182,39 +167,28 @@ contract DocsExample {
 
     #[aztec(private)]
     fn become_queen() {
-        
-
         let legendary_card = actions::get_legendary_card(storage.legendary_card);
 
         let owner = legendary_card.owner;
-        let result = context.call_private_function(
-            inputs.call_context.storage_contract_address, 
-            GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR,
-            [owner, 0]
-        );
+        let result = context.call_private_function(inputs.call_context.storage_contract_address,
+            FunctionSelector::from_field(GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR),
+            [owner.to_field(), 0]);
         let total_points = legendary_card.points + result[0] as u8;
 
-        context.call_public_function(
-            inputs.call_context.storage_contract_address, 
-            REPLACE_QUEEN_FUNCTION_SELECTOR,
-            [owner, total_points as Field]
-        );
+        context.call_public_function(inputs.call_context.storage_contract_address,
+            FunctionSelector::from_field(REPLACE_QUEEN_FUNCTION_SELECTOR),
+            [owner.to_field(), total_points as Field]);
     }
 
     #[aztec(private)]
-    fn get_points_of_common_cards(
-        account: Field,
-        offset: u32,
-    ) {
-        
-
+    fn get_points_of_common_cards(account: AztecAddress, offset: u32) {
         let mut total_points = 0;
         let options = create_account_card_getter_options(account, offset);
         let cards = actions::get_cards(storage.cards, options);
         for i in 0..cards.len() {
             if (cards[i].is_some()) {
                 let card = cards[i].unwrap_unchecked();
-                assert(card.owner == account);
+                assert(card.owner.eq(account));
                 total_points += card.points;
             }
         }
@@ -222,13 +196,11 @@ contract DocsExample {
         context.return_values.push(total_points as Field);
     }
 
-    // docs:start:functions-UncontrainedFunction
-    unconstrained fn get_total_points(account: Field) -> u8 {
-        
+    // docs:start:functions-UnconstrainedFunction
+    unconstrained fn get_total_points(account: AztecAddress) -> u8 {
         actions::get_total_points(storage.cards, account, 0)
     }
-    // docs:end:functions-UncontrainedFunction
-
+    // docs:end:functions-UnconstrainedFunction
 
     /// Macro equivalence section
     use dep::aztec::abi;
@@ -243,7 +215,6 @@ contract DocsExample {
     }
     // docs:end:simple_macro_example
 
-
     // docs:start:simple_macro_example_expanded
     fn simple_macro_example_expanded(
         // ************************************************************
@@ -255,9 +226,7 @@ contract DocsExample {
 
         // Our original inputs!
         a: Field,
-        b: Field
-        
-        // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
+        b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
         // input to our kernel! 
         // docs:start:context-example-return
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -297,15 +266,11 @@ contract DocsExample {
     }
     // docs:end:simple_macro_example_expanded
 
-
     // Cross chain messaging section
     // Demonstrates a cross chain message 
     // docs:start:l1_to_l2_cross_chain_message 
     #[aztec(private)]
-    fn send_to_l1() {
-
-
-    }
+    fn send_to_l1() {}
     // docs:end:l1_to_l2_cross_chain_message  
 
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented

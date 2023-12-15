@@ -65,7 +65,7 @@ Tl;dr: app developers should think about the _timing_ of user transactions, and 
 
 ### Function Fingerprints and Tx Fingerprints
 
-A 'Function Fingerprint' is any data which is exposed by a function to the outside world. A 'Tx Fingerprint' is any data which is exposed by a tx to the outside world. We're interested in minimising leakages of information from private txs. The leakiness of a Tx Fingerprint depends on the leakiness of its consituent functions' Function Fingerprints _and_ on the appearance of the tx's Tx Fingerprint as a whole. For a private function (and by extension, for a private tx), the following information _could_ be leaked (depending on the function, of course):
+A 'Function Fingerprint' is any data which is exposed by a function to the outside world. A 'Tx Fingerprint' is any data which is exposed by a tx to the outside world. We're interested in minimizing leakages of information from private txs. The leakiness of a Tx Fingerprint depends on the leakiness of its constituent functions' Function Fingerprints _and_ on the appearance of the tx's Tx Fingerprint as a whole. For a private function (and by extension, for a private tx), the following information _could_ be leaked (depending on the function, of course):
 
 - All calls to public functions.
   - The contract address of the private function (if it calls an internal public function).
@@ -87,7 +87,7 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
 
 > Note: the calldata submitted to L1 is [encoded](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Decoder.sol) in such a way that all categories of data are packed together, when submitted. E.g. all commitments from all txs in a block are arranged as contiguous bytes of calldata. But that _doesn't_ mean the data from a particular tx is garbled in with all other txs' calldata: the distinct Tx Fingerprint of each tx can is publicly visible when a tx is submitted to the L2 tx pool.
 
-#### Standardising Fingerprints
+#### Standardizing Fingerprints
 
 If each private function were to have a unique Fingerprint, then all private functions would be distinguishable from each-other, and all of the efforts of the Aztec protocol to enable 'private function execution' would have been pointless. Standards need to be developed, to encourage smart contract developers to adhere to a restricted set of Tx Fingerprints. For example, a standard might propose that the number of new commitments, nullifiers, logs, etc. must always be equal, and must always equal a power of two. Such a standard would effectively group private functions/txs into 'privacy sets', where all functions/txs in a particular 'privacy set' would look indistinguishable from each-other, when executed.
 
@@ -97,7 +97,7 @@ It's not just the broadcasting of transactions to the network that can leak data
 
 Ethereum has a notion of a 'full node' which keeps-up with the blockchain and stores the full chain state. Many users don't wish to run full nodes, so rely on 3rd-party 'full-node-as-a-service' infrastructure providers, who service blockchain queries from their users.
 
-This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are; about their historic network activity; or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
+This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are; about their historical network activity; or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
 
 App developers should be aware of this avenue for private data leakage. **Whenever an app requests information from a node, the entity running that node is unlikely be your user!**
 
@@ -105,9 +105,9 @@ App developers should be aware of this avenue for private data leakage. **Whenev
 
 ##### Querying for up-to-date note sibling paths
 
-To read a private state is to read a note from the note hash tree. To read a note is to prove existence of that note in the note hash tree. And to prove existence is to re-compute the root of the note hash tree using the leaf value, the leaf index, and the sibling path of that leaf. This computed root is then exposed to the world, as a way of saying "This note exists", or more precisely "This note has existed at least since this historic snapshot time".
+To read a private state is to read a note from the note hash tree. To read a note is to prove existence of that note in the note hash tree. And to prove existence is to re-compute the root of the note hash tree using the leaf value, the leaf index, and the sibling path of that leaf. This computed root is then exposed to the world, as a way of saying "This note exists", or more precisely "This note has existed at least since this historical snapshot time".
 
-If an old historic snapshot is used, then that old historic root will be exposed, and this leaks some information about the nature of your transaction: it leaks that your note was created before the snapshot date. It shrinks the 'privacy set' of the transaction to a smaller window of time than the entire history of the network.
+If an old historical snapshot is used, then that old historical root will be exposed, and this leaks some information about the nature of your transaction: it leaks that your note was created before the snapshot date. It shrinks the 'privacy set' of the transaction to a smaller window of time than the entire history of the network.
 
 So for maximal privacy, it's in a user's best interest to read from the very-latest snapshot of the data tree.
 

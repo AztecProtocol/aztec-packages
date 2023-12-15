@@ -1,4 +1,4 @@
-import { CircuitsWasm, FieldsOf, Fr, Vector } from '@aztec/circuits.js';
+import { FieldsOf, Fr, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 
@@ -25,8 +25,8 @@ export class PackedArguments {
     return new PackedArguments(...PackedArguments.getFields(fields));
   }
 
-  static async fromArgs(args: Fr[], wasm?: CircuitsWasm) {
-    return new PackedArguments(args, await computeVarArgsHash(wasm ?? (await CircuitsWasm.get()), args));
+  static fromArgs(args: Fr[]) {
+    return new PackedArguments(args, computeVarArgsHash(args));
   }
 
   toBuffer() {
@@ -35,6 +35,6 @@ export class PackedArguments {
 
   static fromBuffer(buffer: Buffer | BufferReader): PackedArguments {
     const reader = BufferReader.asReader(buffer);
-    return new PackedArguments(reader.readVector(Fr), reader.readFr());
+    return new PackedArguments(reader.readVector(Fr), Fr.fromBuffer(reader));
   }
 }

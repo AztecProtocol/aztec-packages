@@ -1,4 +1,4 @@
-import { CircuitsWasm, ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
+import { ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
 import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 
@@ -8,12 +8,11 @@ import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
  * Returns a Promise that resolves to a Buffer containing the hash of the verification key.
  *
  * @param vk - The hex-encoded string representing the verification key.
- * @param wasm - An instance of CircuitsWasm class used for hashing.
  * @returns A Promise resolving to a Buffer containing the hash of the verification key.
  */
-export function hashVKStr(vk: string, wasm: CircuitsWasm) {
+export function hashVKStr(vk: string) {
   // TODO - check consistent encoding
-  return hashVK(wasm, Buffer.from(vk, 'hex'));
+  return hashVK(Buffer.from(vk, 'hex'));
 }
 
 /**
@@ -61,10 +60,9 @@ export function isConstrained({
  * Each function leaf is computed from its selector, privacy flag, hashed verification key, and hashed bytecode.
  *
  * @param functions - Array of ContractFunctionDao objects representing the functions in a contract.
- * @param wasm - CircuitsWasm instance used for hashing and computations.
  * @returns An array of Fr instances representing the generated function leaves.
  */
-export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: CircuitsWasm) {
+export function generateFunctionLeaves(functions: ContractFunctionDao[]) {
   const targetFunctions = functions.filter(isConstrained);
   const result: Fr[] = [];
   for (let i = 0; i < targetFunctions.length; i++) {
@@ -88,7 +86,7 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[], wasm: C
       Fr.fromBuffer(vkHash),
       Fr.fromBuffer(acirHash),
     );
-    const fnLeaf = computeFunctionLeaf(wasm, fnLeafPreimage);
+    const fnLeaf = computeFunctionLeaf(fnLeafPreimage);
     result.push(fnLeaf);
   }
   return result;

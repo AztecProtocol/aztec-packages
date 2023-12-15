@@ -17,6 +17,7 @@ contract DifferentialFuzzer is TestBase {
         Invalid,
         Blake,
         Add2,
+        Ecdsa,
         Recursive
     }
 
@@ -63,12 +64,14 @@ contract DifferentialFuzzer is TestBase {
             return "add2";
         } else if (circuitFlavour == CircuitFlavour.Recursive) {
             return "recursive";
+        } else if (circuitFlavour == CircuitFlavour.Ecdsa) {
+            return "ecdsa";
         } else {
             revert("Invalid circuit flavour");
         }
     }
 
-    // Encode inputs as a comma seperated string for the ffi call
+    // Encode inputs as a comma separated string for the ffi call
     function get_inputs() internal view returns (string memory input_params) {
         input_params = "";
         if (inputs.length > 0) {

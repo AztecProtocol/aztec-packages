@@ -1,4 +1,4 @@
-import { GlobalVariables, HistoricBlockData } from '@aztec/circuits.js';
+import { BlockHeader, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractPublicCircuitPublicInputs } from '../acvm/index.js';
@@ -81,7 +81,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockData: HistoricBlockData,
+    private readonly blockHeader: BlockHeader,
   ) {}
 
   /**
@@ -93,17 +93,19 @@ export class PublicExecutor {
   public async simulate(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
     const selector = execution.functionData.selector;
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
-    if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress}:${selector}`);
+    if (!acir) {
+      throw new Error(`Bytecode not found for ${execution.contractAddress}:${selector}`);
+    }
 
     // Functions can request to pack arguments before calling other functions.
     // We use this cache to hold the packed arguments.
-    const packedArgs = await PackedArgsCache.create([]);
+    const packedArgs = PackedArgsCache.create([]);
 
     const sideEffectCounter = new SideEffectCounter();
 
     const context = new PublicExecutionContext(
       execution,
-      this.blockData,
+      this.blockHeader,
       globalVariables,
       packedArgs,
       sideEffectCounter,

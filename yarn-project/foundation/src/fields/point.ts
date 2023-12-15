@@ -72,8 +72,8 @@ export class Point {
    */
   toBigInts() {
     return {
-      x: this.x.value,
-      y: this.y.value,
+      x: this.x.toBigInt(),
+      y: this.y.toBigInt(),
     };
   }
 
@@ -120,6 +120,10 @@ export class Point {
   equals(rhs: Point) {
     return this.x.equals(rhs.x) && this.y.equals(rhs.y);
   }
+
+  isZero() {
+    return this.x.isZero() && this.y.isZero();
+  }
 }
 
 /**
@@ -128,7 +132,9 @@ export class Point {
  * @returns Whether it looks like a point.
  */
 export function isPoint(obj: object): obj is Point {
-  if (!obj) return false;
+  if (!obj) {
+    return false;
+  }
   const point = obj as Point;
   return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
 }

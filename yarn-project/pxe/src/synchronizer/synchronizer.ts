@@ -1,11 +1,11 @@
-import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, L2BlockL2Logs, LogType } from '@aztec/types';
 import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
 
-import { Database } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
@@ -25,7 +25,7 @@ export class Synchronizer {
   private log: DebugLogger;
   private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
-  constructor(private node: AztecNode, private db: Database, logSuffix = '') {
+  constructor(private node: AztecNode, private db: PxeDatabase, logSuffix = '') {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_synchronizer_${logSuffix}` : 'aztec:pxe_synchronizer');
   }
 
@@ -39,7 +39,9 @@ export class Synchronizer {
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
   public async start(from = INITIAL_L2_BLOCK_NUM, limit = 1, retryInterval = 1000) {
-    if (this.running) return;
+    if (this.running) {
+      return;
+    }
     this.running = true;
 
     if (from < this.synchedToBlock + 1) {
@@ -66,13 +68,10 @@ export class Synchronizer {
   }
 
   protected async initialSync() {
-    const [blockNumber, historicBlockData] = await Promise.all([
-      this.node.getBlockNumber(),
-      this.node.getHistoricBlockData(),
-    ]);
+    const [blockNumber, blockHeader] = await Promise.all([this.node.getBlockNumber(), this.node.getBlockHeader()]);
     this.initialSyncBlockNumber = blockNumber;
     this.synchedToBlock = this.initialSyncBlockNumber;
-    await this.db.setHistoricBlockData(historicBlockData);
+    await this.db.setBlockHeader(blockHeader);
   }
 
   protected async work(limit = 1, retryInterval = 1000): Promise<void> {
@@ -197,22 +196,23 @@ export class Synchronizer {
 
   private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockNumber) return;
+    if (block.number < this.initialSyncBlockNumber) {
+      return;
+    }
 
-    const wasm = await CircuitsWasm.get();
-    const globalsHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
-    const blockData = new HistoricBlockData(
+    const globalsHash = computeGlobalsHash(latestBlock.block.globalVariables);
+    const blockHeader = new BlockHeader(
       block.endNoteHashTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,
       block.endL1ToL2MessagesTreeSnapshot.root,
-      block.endHistoricBlocksTreeSnapshot.root,
+      block.endArchiveSnapshot.root,
       Fr.ZERO, // todo: private kernel vk tree root
       block.endPublicDataTreeRoot,
       globalsHash,
     );
 
-    await this.db.setHistoricBlockData(blockData);
+    await this.db.setBlockHeader(blockHeader);
   }
 
   /**
@@ -242,7 +242,9 @@ export class Synchronizer {
   public addAccount(publicKey: PublicKey, keyStore: KeyStore, startingBlock: number) {
     const predicate = (x: NoteProcessor) => x.publicKey.equals(publicKey);
     const processor = this.noteProcessors.find(predicate) ?? this.noteProcessorsToCatchUp.find(predicate);
-    if (processor) return;
+    if (processor) {
+      return;
+    }
 
     this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node, startingBlock));
   }

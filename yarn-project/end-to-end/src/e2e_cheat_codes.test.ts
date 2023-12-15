@@ -207,9 +207,10 @@ describe('e2e_cheat_codes', () => {
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
       const secret = Fr.random();
-      const secretHash = await computeMessageSecretHash(secret);
+      const secretHash = computeMessageSecretHash(secret);
       const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
+      // docs:start:pxe_add_note
       const note = new Note([new Fr(mintAmount), secretHash]);
       const pendingShieldStorageSlot = new Fr(5n);
       const extendedNote = new ExtendedNote(
@@ -220,6 +221,7 @@ describe('e2e_cheat_codes', () => {
         receipt.txHash,
       );
       await pxe.addNote(extendedNote);
+      // docs:end:pxe_add_note
 
       // check if note was added to pending shield:
       const notes = await cc.aztec.loadPrivate(admin.address, token.address, pendingShieldStorageSlot);

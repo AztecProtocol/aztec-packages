@@ -6,7 +6,9 @@ namespace proof_system::honk {
 
 template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
   public:
+    static_assert(NUM_ > 0, "Must have at least one prover instance");
     using Flavor = Flavor_;
+    using FoldingParameters = typename Flavor::FoldingParameters;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     using Instance = ProverInstance_<Flavor>;
@@ -14,10 +16,13 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-
+    using AlphaType = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
     ArrayType _data;
     RelationParameters relation_parameters;
+    AlphaType alpha;
+    std::vector<FF> next_gate_challenges;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
@@ -32,33 +37,52 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     };
 
     /**
-     * @brief  For a prover polynomial label and a fixed row index, construct a uninvariate from the corresponding value
+     * @brief For a fixed row index and each polynomial, construct univariates from the corresponding value
      * from each instance.
      *
-     * @example if the prover polynomia index is 1 and the row index is 2, and there are 4 instances visually we have
+     * @example if the row index is 2, and there are 4 instances visually we have
      *
      *           Instance 0       Instance 1       Instance 2       Instance 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
      *           *   *            *   *            *   *            *   *
      *           *   *            *   *            *   *            *   *
-     *           *   a            *   b            *   c            *   d
+     *           a_1 a_2 a_3 ...  b_1 b_2 b_3 ...  c_1 c_2 c_3 ...  d_1 d_2 d_3 ...
      *           *   *            *   *            *   *            *   *
      *
-     * and the function returns the univariate {a, b, c, d}
+     * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
      *
-     * @param entity_idx A fixed column position in several execution traces.
-     * @param row_idx A fixed row position in several execution
-     * @return Univariate<FF, NUM> The univariate whose extensions will be used to construct the combiner.
+     * @param row_idx A fixed row position in several execution traces
+     * @return The univariates whose extensions will be used to construct the combiner.
      */
-    Univariate<FF, NUM> row_to_univariate(const size_t prover_polynomial_idx, const size_t row_idx) const
+    std::vector<Univariate<FF, NUM>> row_to_univariates(size_t row_idx) const
     {
-        Univariate<FF, NUM> result;
+        auto insts_prover_polynomials_views = get_polynomials_views();
+        std::vector<Univariate<FF, NUM>> results;
+        // Set the size corresponding to the number of rows in the execution trace
+        results.resize(insts_prover_polynomials_views[0].size());
         size_t instance_idx = 0;
-        for (auto& instance : _data) {
-            result.evaluations[instance_idx] = instance->prover_polynomials._data[prover_polynomial_idx][row_idx];
+        // Iterate over the prover polynomials' views corresponding to each instance
+        for (auto& get_all : insts_prover_polynomials_views) {
+            // Iterate over all columns in the trace execution of an instance and extract their value at row_idx.
+            for (auto [result, poly_ptr] : zip_view(results, get_all)) {
+                result.evaluations[instance_idx] = (poly_ptr)[row_idx];
+            }
             instance_idx++;
         }
-        return result;
+        return results;
+    }
+
+  private:
+    // Returns a vector containing pointer views to the prover polynomials corresponding to each instance.
+    auto get_polynomials_views() const
+    {
+        // As a practical measure, get the first instance's view to deduce the vector type
+        std::vector get_alls{ _data[0]->prover_polynomials.get_all() };
+        // complete the views, starting from the second item
+        for (size_t i = 1; i < NUM; i++) {
+            get_alls.push_back(_data[i]->prover_polynomials.get_all());
+        }
+        return get_alls;
     }
 };
 
@@ -70,18 +94,15 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
 
   public:
     static constexpr size_t NUM = NUM_;
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     ArrayType _data;
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    VerifierInstances_(std::vector<std::shared_ptr<VerificationKey>> vks)
+
+    VerifierInstances_()
     {
-        ASSERT(vks.size() == NUM);
-        for (size_t idx = 0; idx < vks.size(); idx++) {
-            Instance inst;
-            inst.verification_key = std::move(vks[idx]);
-            _data[idx] = std::make_unique<Instance>(inst);
-        }
+        std::generate(_data.begin(), _data.end(), []() { return std::make_unique<Instance>(); });
     };
 };
 } // namespace proof_system::honk

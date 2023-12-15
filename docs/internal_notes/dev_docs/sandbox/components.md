@@ -239,14 +239,14 @@ Implements:
 
 Implementation notes for this milestone:
 
-Closest analogous component in AC is the `WorldStateDb` in bb.js. We can configure the backing store (probably leveldb) to be an in-memory only store. We don't need persistence, we will rebuild the tree at startup. This will ensure we have appropriate sync-from-zero behaviour.
+Closest analogous component in AC is the `WorldStateDb` in bb.js. We can configure the backing store (probably leveldb) to be an in-memory only store. We don't need persistence, we will rebuild the tree at startup. This will ensure we have appropriate sync-from-zero behavior.
 
 Responsibilities:
 
 - "Persists" the various merkle trees (configurable).
   - For this milestone 1.1, we'll need the following trees:
     - Contract Tree
-    - Contract Tree Roots Tree (the tree whose leaves are the roots of historic rollups' contract trees)
+    - Contract Tree Roots Tree (the tree whose leaves are the roots of historical rollups' contract trees)
     - Nullifier Tree (so that the contract address can never be re-registered in a future deployment)
       - Note: Suyash has implemented C++ for the 'new' kind of nullifier tree.
 - Provides methods for updating the trees with commit, rollback semantics.
@@ -279,7 +279,7 @@ Implements:
 Responsibilities:
 
 - Pulls data in from whatever sources are needed, to fully describe a rollup e.g.
-  - L1 calldata (`provessRollup` and `offchainData` for this milestone.)
+  - L1 calldata (`provesRollup` and `offchainData` for this milestone.)
   - ETH blobs (not before they are released).
   - Other sources that have archived historical ETH blobs (not before they are released).
 - Combines these sources of data to describe a `Rollup`.

@@ -43,10 +43,10 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit_constructor)
     // Note: the remaining NUM_RESERVED_GATES indices are padded with zeros within `compute_witness_base` (called
     // next).
     for (size_t i = filled_gates; i < total_num_gates; ++i) {
-        circuit_constructor.w_l.emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_r.emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_o.emplace_back(circuit_constructor.zero_idx);
-        circuit_constructor.w_4.emplace_back(circuit_constructor.zero_idx);
+        circuit_constructor.w_l().emplace_back(circuit_constructor.zero_idx);
+        circuit_constructor.w_r().emplace_back(circuit_constructor.zero_idx);
+        circuit_constructor.w_o().emplace_back(circuit_constructor.zero_idx);
+        circuit_constructor.w_4().emplace_back(circuit_constructor.zero_idx);
     }
 
     auto wire_polynomial_evaluations = construct_wire_polynomials_base<Flavor>(circuit_constructor, subgroup_size);
@@ -120,7 +120,7 @@ void UltraComposer::compute_witness(CircuitBuilder& circuit_constructor)
         }
     }
 
-    // Initialise the `s_randomness` positions in the s polynomials with 0.
+    // Initialize the `s_randomness` positions in the s polynomials with 0.
     // These will be the positions where we will be adding random scalars to add zero knowledge
     // to plookup (search for `Blinding` in plonk/proof_system/widgets/random_widgets/plookup_widget_impl.hpp
     // ProverPlookupWidget::compute_sorted_list_polynomial())
@@ -414,7 +414,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
         }
     }
 
-    // Initialise the last `s_randomness` positions in table polynomials with 0. We don't need to actually randomise
+    // Initialize the last `s_randomness` positions in table polynomials with 0. We don't need to actually randomize
     // the table polynomials.
     for (size_t i = 0; i < s_randomness; ++i) {
         poly_q_table_column_1[offset] = 0;

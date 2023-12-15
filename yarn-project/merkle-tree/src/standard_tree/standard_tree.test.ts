@@ -1,6 +1,4 @@
-import { CircuitsWasm } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { IWasmModule } from '@aztec/foundation/wasm';
 import { Hasher } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
@@ -26,12 +24,10 @@ treeTestSuite('StandardTree', createDb, createFromName);
 standardBasedTreeTestSuite('StandardTree', createDb);
 
 describe('StandardTree_batchAppend', () => {
-  let wasm: IWasmModule;
   let pedersen: PedersenWithCounter;
 
-  beforeAll(async () => {
-    wasm = await CircuitsWasm.get();
-    pedersen = new PedersenWithCounter(wasm);
+  beforeAll(() => {
+    pedersen = new PedersenWithCounter();
   });
 
   afterEach(() => {
@@ -72,5 +68,21 @@ describe('StandardTree_batchAppend', () => {
     const root = pedersen.hash(level1Node0, level1Node1);
 
     expect(tree.getRoot(true)).toEqual(root);
+  });
+
+  it('should be able to find indexes of leaves', async () => {
+    const db = levelup(createMemDown());
+    const tree = await createDb(db, pedersen, 'test', 3);
+    const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+
+    await tree.appendLeaves([values[0]]);
+
+    expect(await tree.findLeafIndex(values[0], true)).toBeDefined();
+    expect(await tree.findLeafIndex(values[0], false)).toBe(undefined);
+    expect(await tree.findLeafIndex(values[1], true)).toBe(undefined);
+
+    await tree.commit();
+
+    expect(await tree.findLeafIndex(values[0], false)).toBeDefined();
   });
 });

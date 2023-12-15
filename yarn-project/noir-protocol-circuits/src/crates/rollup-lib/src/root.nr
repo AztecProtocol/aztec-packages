@@ -4,7 +4,7 @@ mod root_rollup_public_inputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::utils::uint256::U256;
-use dep::aztec::constants_gen::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
+use dep::types::constants::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
 use crate::{components, hash::compute_block_hash_with_globals};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 
@@ -37,7 +37,7 @@ impl RootRollupInputs {
         );
 
         // Build the block hash for this iteration from the tree roots and global variables
-        // Then insert the block into the historic blocks tree
+        // Then insert the block into the archive tree
         let block_hash = compute_block_hash_with_globals(left.constants.global_variables,
                                                       right.end_note_hash_tree_snapshot.root,
                                                       right.end_nullifier_tree_snapshot.root,
@@ -45,10 +45,10 @@ impl RootRollupInputs {
                                                       new_l1_to_l2_messages_tree_snapshot.root,
                                                       right.end_public_data_tree_root);
 
-        // Update the historic blocks tree
-        let end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-            self.start_historic_blocks_tree_snapshot,
-            self.new_historic_blocks_tree_sibling_path,
+        // Update the archive
+        let end_archive_snapshot = components::insert_subtree_to_snapshot_tree(
+            self.start_archive_snapshot,
+            self.new_archive_sibling_path,
             0,
             block_hash,
             0
@@ -72,19 +72,10 @@ impl RootRollupInputs {
             end_public_data_tree_root : right.end_public_data_tree_root,
             start_l1_to_l2_messages_tree_snapshot : self.start_l1_to_l2_messages_tree_snapshot,
             end_l1_to_l2_messages_tree_snapshot : new_l1_to_l2_messages_tree_snapshot,
-            start_historic_blocks_tree_snapshot : self.start_historic_blocks_tree_snapshot,
-            end_historic_blocks_tree_snapshot : end_historic_blocks_tree_snapshot,
+            start_archive_snapshot : self.start_archive_snapshot,
+            end_archive_snapshot : end_archive_snapshot,
             calldata_hash : components::compute_calldata_hash(self.previous_rollup_data),
             l1_to_l2_messages_hash : compute_messages_hash(self.new_l1_to_l2_messages),
-
-            // The cpp code was just not initializing these, so they would be zeroed out
-            // TODO(Lasse/Jean): add explanation for this. 
-            end_tree_of_historic_contract_tree_roots_snapshot : zeroed_out_snapshot,
-            end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot : zeroed_out_snapshot,
-            end_tree_of_historic_note_hash_tree_roots_snapshot : zeroed_out_snapshot,
-            start_tree_of_historic_contract_tree_roots_snapshot : zeroed_out_snapshot,
-            start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot : zeroed_out_snapshot,
-            start_tree_of_historic_note_hash_tree_roots_snapshot : zeroed_out_snapshot,
         }
     }
 }
@@ -134,4 +125,74 @@ fn test_message_input_flattened_length() {
     // slice version of compute_messages_hash is the same as the array version.
     // which uses the NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES global.
     assert(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * 32 == NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES);
+}
+
+
+mod tests {
+    use crate::{
+        root::{
+            root_rollup_inputs::RootRollupInputs,
+            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES,
+        },
+        tests::root_rollup_inputs::default_root_rollup_inputs,
+    };
+    use dep::types::utils::uint128::U128;
+    use dep::types::utils::uint256::U256;
+    use dep::types::hash::accumulate_sha256;
+
+
+    #[test]
+    fn check_block_hashes_empty_blocks(){
+        let expected_messages_hash = U256::from_bytes32(dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES])).to_u128_limbs();
+
+        let expected_calldata_hash = accumulate_sha256([
+            U128::from_field(0),
+            U128::from_field(1),
+            U128::from_field(2),
+            U128::from_field(3)
+        ]);
+
+        let inputs = default_root_rollup_inputs();
+        let outputs = inputs.root_rollup_circuit();
+    
+        // check calldata hash
+        assert_eq(outputs.calldata_hash, expected_calldata_hash);
+        // Check messages hash
+        assert_eq(outputs.l1_to_l2_messages_hash, expected_messages_hash);
+    }
+
+    #[test]
+    fn start_and_end_snapshots(){
+        let inputs = default_root_rollup_inputs();
+        let outputs = inputs.root_rollup_circuit();
+        
+        assert(
+            outputs.start_note_hash_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot)
+        );
+        assert(
+            outputs.end_note_hash_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot)
+        );
+
+        assert(
+            outputs.start_nullifier_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_nullifier_tree_snapshot)
+        );
+        assert(
+            outputs.end_nullifier_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot)
+        );
+
+        assert(
+            outputs.start_contract_tree_snapshot.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_contract_tree_snapshot)
+        );
+        assert(
+            outputs.end_contract_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot)
+        );
+
+        assert_eq(
+            outputs.start_public_data_tree_root, inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_public_data_tree_root
+        );
+        assert_eq(
+            outputs.end_public_data_tree_root, inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_public_data_tree_root
+        );
+    }
+
 }

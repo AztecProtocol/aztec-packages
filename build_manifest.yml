@@ -1,3 +1,52 @@
+noir:
+  buildDir: noir
+  rebuildPatterns:
+    - ^noir/Dockerfile
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/backend_interface
+    - ^noir/tooling/bb_abstraction_leaks
+    - ^noir/tooling/debugger
+    - ^noir/tooling/lsp
+    - ^noir/tooling/nargo
+    - ^noir/tooling/nargo_cli
+    - ^noir/tooling/nargo_toml
+    - ^noir/tooling/nargo_fmt
+    - ^noir/tooling/noirc_abi
+  multiarch: host
+
+noir-packages:
+  buildDir: noir
+  dockerfile: Dockerfile.packages
+  rebuildPatterns:
+    - ^noir/Dockerfile.packages
+    - ^noir/.yarn
+    - ^noir/.yarnrc.yml
+    - ^noir/package.json
+    - ^noir/yarn.lock
+    - ^noir/acvm-repo
+    - ^noir/compiler
+    - ^noir/aztec_macros
+    - ^noir/noir_stdlib
+    - ^noir/tooling/noir_codegen
+    - ^noir/tooling/noir_js
+    - ^noir/tooling/noir_js_backend_barretenberg
+    - ^noir/tooling/noir_js_types
+    - ^noir/tooling/noirc_abi
+    - ^noir/tooling/noirc_abi_wasm
+
+noir-acir-tests:
+  buildDir: noir/test_programs
+  # Awkward. Maybe change dockerfile paths to be absolute.
+  dockerfile: ../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  rebuildPatterns:
+    - ^noir/test_programs
+    - ^barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  dependencies:
+    - noir
+
 barretenberg-x86_64-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
@@ -38,47 +87,22 @@ barretenberg-acir-tests-bb:
   dockerfile: Dockerfile.bb
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
+    - noir-acir-tests
+
+barretenberg-acir-tests-bb-sol:
+  buildDir: barretenberg/acir_tests
+  dockerfile: Dockerfile.bb.sol
+  dependencies:
+    - barretenberg-x86_64-linux-clang-assert
+    - barretenberg-x86_64-linux-clang-sol
+    - noir-acir-tests
 
 barretenberg-acir-tests-bb.js:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb.js
   dependencies:
     - bb.js
-
-circuits-wasm-linux-clang:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-wasm-linux-clang
-
-circuits-wasm-linux-clang-assert:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.wasm-linux-clang-assert
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-wasm-linux-clang
-
-circuits-x86_64-linux-clang-tidy:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-tidy
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
-
-circuits-x86_64-linux-clang:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
-
-circuits-x86_64-linux-clang-assert:
-  buildDir: circuits/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-assert
-  rebuildPatterns: .rebuild_patterns
-  dependencies:
-    - barretenberg-x86_64-linux-clang
+    - noir-acir-tests
 
 l1-contracts:
   buildDir: l1-contracts
@@ -90,71 +114,77 @@ yarn-project-base:
     - ^yarn-project/yarn-project-base/
     - ^yarn-project/yarn.lock
   dependencies:
-    - circuits-wasm-linux-clang
     - l1-contracts
+    - bb.js
+    - noir
+    - noir-packages
 
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
-    - ^yarn-project/Dockerfile
+    - ^yarn-project/Dockerfile$
   dependencies:
     - yarn-project-base
+
+yarn-project-prod:
+  buildDir: yarn-project
+  dockerfile: Dockerfile.prod
+  rebuildPatterns:
+    - ^yarn-project/Dockerfile.prod
+  dependencies:
+    - yarn-project
+  multiarch: buildx
 
 aztec-sandbox:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-sandbox
   dependencies:
-    - yarn-project
+    - yarn-project-prod
+  multiarch: buildx
 
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
   dependencies:
-    - yarn-project
+    - yarn-project-prod
+
+aztec-node:
+  buildDir: yarn-project
+  projectDir: yarn-project/aztec-node
+  dependencies:
+    - yarn-project-prod
+
+p2p-bootstrap:
+  buildDir: yarn-project
+  projectDir: yarn-project/p2p-bootstrap
+  dependencies:
+    - yarn-project-prod
 
 cli:
   buildDir: yarn-project
   projectDir: yarn-project/cli
   dependencies:
-    - yarn-project
-
-pxe:
-  buildDir: yarn-project
-  projectDir: yarn-project/pxe
-  dependencies:
-    - yarn-project
+    - yarn-project-prod
+  multiarch: buildx
 
 boxes-blank-react:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/blank-react
+  buildDir: boxes
+  projectDir: boxes/blank-react
   dependencies:
     - aztec-sandbox
 
 boxes-blank:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/blank
+  buildDir: boxes
+  projectDir: boxes/blank
   dependencies:
     - aztec-sandbox
 
 boxes-token:
-  buildDir: yarn-project
-  projectDir: yarn-project/boxes/token
+  buildDir: boxes
+  projectDir: boxes/token
   dependencies:
     - aztec-sandbox
-
-canary-build:
-  buildDir: yarn-project
-  projectDir: yarn-project/canary
-  dockerfile: Dockerfile.build
-  dependencies:
-    - yarn-project
-
-canary:
-  buildDir: yarn-project
-  projectDir: yarn-project/canary
-  dependencies:
-    - yarn-project
 
 end-to-end:
   buildDir: yarn-project
@@ -163,18 +193,6 @@ end-to-end:
     - yarn-project
   runDependencies:
     - aztec-sandbox
-
-aztec-node:
-  buildDir: yarn-project
-  projectDir: yarn-project/aztec-node
-  dependencies:
-    - yarn-project
-
-p2p-bootstrap:
-  buildDir: yarn-project
-  projectDir: yarn-project/p2p-bootstrap
-  dependencies:
-    - yarn-project
 
 mainnet-fork:
   buildDir: iac/mainnet-fork
@@ -186,9 +204,15 @@ docs:
   rebuildPatterns:
     - ^docs/
     - ^.*.cpp$
+    - ^.*.hpp$
     - ^.*.ts$
     - ^.release-please-manifest.json$
     - ^.*/noir-version.json$
     - ^.*.nr$
   dependencies:
     - yarn-project
+
+yellow-paper:
+  buildDir: yellow-paper
+  rebuildPatterns:
+    - ^yellow-paper/

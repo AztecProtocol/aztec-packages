@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail;
 
@@ -13,10 +13,10 @@ build() {
   echo "Compiling $CONTRACT_NAME..."
   rm -rf ${CONTRACT_FOLDER}/target
 
-  node --no-warnings "$COMPILER" contract "$CONTRACT_FOLDER"
+  node --no-warnings "$COMPILER" compile "$CONTRACT_FOLDER"
 }
 
 export -f build
 
 # run 4 builds at a time
-echo "$@" | xargs -n 1 -P 4 bash -c 'build "$0"'
+echo "$@" | xargs -n 1 -P $(nproc) bash -c 'build "$0"'

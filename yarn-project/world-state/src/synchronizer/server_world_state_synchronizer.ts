@@ -8,6 +8,7 @@ import { LevelUp } from 'levelup';
 
 import { HandleL2BlockResult, MerkleTreeOperations, MerkleTrees } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { MerkleTreeSnapshotOperationsFacade } from '../merkle-tree/merkle_tree_snapshot_operations_facade.js';
 import { WorldStateConfig } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchronizer } from './world_state_synchronizer.js';
 
@@ -50,6 +51,10 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
 
   public getCommitted(): MerkleTreeOperations {
     return new MerkleTreeOperationsFacade(this.merkleTreeDb, false);
+  }
+
+  public getSnapshot(blockNumber: number): MerkleTreeOperations {
+    return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
   }
 
   public static async new(
@@ -130,16 +135,16 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   /**
    * Forces an immediate sync
    * @param minBlockNumber - The minimum block number that we must sync to
-   * @returns A promise that resolves once the sync has completed.
+   * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(minBlockNumber?: number): Promise<void> {
+  public async syncImmediate(minBlockNumber?: number): Promise<number> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running, unable to perform sync`);
     }
     // If we have been given a block number to sync to and we have reached that number
     // then return.
     if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
-      return;
+      return this.currentL2BlockNum;
     }
     const blockToSyncTo = minBlockNumber === undefined ? 'latest' : `${minBlockNumber}`;
     this.log(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
@@ -148,7 +153,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     while (true) {
       // Check the block number again
       if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
-        return;
+        return this.currentL2BlockNum;
       }
       // Poll for more blocks
       const numBlocks = await this.l2BlockDownloader.pollImmediate();
@@ -164,7 +169,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
           `Unable to sync to block number ${minBlockNumber}, currently synced to block ${this.currentL2BlockNum}`,
         );
       }
-      return;
+      return this.currentL2BlockNum;
     }
   }
 

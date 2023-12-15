@@ -53,9 +53,9 @@ describe('e2e_escrow_contract', () => {
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowPrivateKey = GrumpkinScalar.random();
-    escrowPublicKey = await generatePublicKey(escrowPrivateKey);
+    escrowPublicKey = generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
-    const deployInfo = await getContractDeploymentInfo(EscrowContractArtifact, [owner], salt, escrowPublicKey);
+    const deployInfo = getContractDeploymentInfo(EscrowContractArtifact, [owner], salt, escrowPublicKey);
     await pxe.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
 
     escrowContract = await EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner)
@@ -68,7 +68,7 @@ describe('e2e_escrow_contract', () => {
 
     const mintAmount = 100n;
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+    const secretHash = computeMessageSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);
@@ -115,7 +115,7 @@ describe('e2e_escrow_contract', () => {
     logger(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+    const secretHash = computeMessageSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
     expect(receipt.status).toEqual(TxStatus.MINED);

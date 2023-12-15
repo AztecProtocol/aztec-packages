@@ -1,0 +1,5 @@
+{
+  "extends": ".",
+  "references": [{ "path": "../../aztec.js" }],
+  "exclude": ["src/**/*.test.ts"]
+}

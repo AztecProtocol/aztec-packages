@@ -1,14 +1,15 @@
 use crate::abis::complete_address::CompleteAddress;
 use crate::point::Point;
 use crate::transaction::request::TxRequest;
-use crate::address::{Address, EthAddress};
+use crate::address::{AztecAddress, EthAddress};
 use crate::transaction::context::TxContext;
 use crate::abis::function_data::FunctionData;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::contrakt::deployment_data::ContractDeploymentData;
 use crate::abis::function_selector::FunctionSelector;
-use crate::hash::compute_l2_to_l1_hash;
-use dep::aztec::hash::sha256_to_field;
+use crate::hash::{compute_l2_to_l1_hash, sha256_to_field};
+use crate::abis::call_stack_item::PublicCallStackItem;
+use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 
 #[test]
 fn compute_complete_address() {
@@ -32,7 +33,7 @@ fn compute_complete_address() {
 #[test]
 fn compute_tx_request_hash() {
     let tx_request = TxRequest {
-        origin : Address::from_field(1),
+        origin : AztecAddress::from_field(1),
         args_hash : 3,
         tx_context : TxContext {
             is_fee_payment_tx : false,
@@ -61,11 +62,11 @@ fn compute_tx_request_hash() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-   let hash_result = compute_l2_to_l1_hash(Address::from_field(0), 0, EthAddress::from_field(0), 0, 0);
+   let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, EthAddress::from_field(0), 0, 0);
    assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
 
     // Non-zero case
-    let hash_result = compute_l2_to_l1_hash(Address::from_field(1), 2, EthAddress::from_field(3), 4, 5);
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, EthAddress::from_field(3), 4, 5);
     assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
 }
 
@@ -96,4 +97,50 @@ fn compute_function_leaf() {
     };
 
     assert_eq(leaf.hash(), 0x1ad8ece7f40e63d011ae47c6ce6cdaf31d632a23f5cf35bbeaaf69c8302afdbc);
+}
+
+#[test]
+fn compute_call_stack_item_request() {
+    let contract_address = AztecAddress::from_field(1);
+    let function_data = FunctionData {
+        selector: FunctionSelector::from_u32(2),
+        is_internal: false,
+        is_private: false,
+        is_constructor: false,
+    };
+
+    let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    public_inputs.new_commitments[0] = 1;
+
+    let call_stack_item = PublicCallStackItem {
+        contract_address,
+        public_inputs,
+        is_execution_request: true,
+        function_data,
+    };
+
+    assert_eq(call_stack_item.hash(), 0x1d51d7758d792c9cd6edd8e8ec5f1f9fb1f974abc1af6bb4cf9f2328ef306c96);
+}
+
+#[test]
+fn compute_call_stack_item() {
+    let contract_address = AztecAddress::from_field(1);
+    let function_data = FunctionData {
+        selector: FunctionSelector::from_u32(2),
+        is_internal: false,
+        is_private: false,
+        is_constructor: false,
+    };
+
+    let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    public_inputs.new_commitments[0] = 1;
+
+    let call_stack_item = PublicCallStackItem {
+        contract_address,
+        public_inputs,
+        is_execution_request: false,
+        function_data,
+    };
+
+    assert_eq(call_stack_item.hash(), 0x0a370c67b66e30901470c11a199764a914fc0fcfbc737ed03153079b2765813a);
 }

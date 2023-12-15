@@ -3,13 +3,12 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace proof_system::honk {
 /**
- * @brief  An Instance is normally constructed from a finalised circuit and it's role is to compute all the polynomials
+ * @brief  An Instance is normally constructed from a finalized circuit and it's role is to compute all the polynomials
  * involved in creating a proof and, if requested, the verification key.
  * In case of folded Instance, this will be created from the FoldingResult, the aggregated work from the folding prover
  * and verifier. More specifically, a folded instance will be constructed from the complete set of folded polynomials
@@ -27,13 +26,18 @@ template <class Flavor> class ProverInstance_ {
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
-    std::shared_ptr<CommitmentKey> commitment_key;
 
     ProverPolynomials prover_polynomials;
+    WitnessCommitments witness_commitments;
+    CommitmentLabels commitment_labels;
+
+    std::array<Polynomial, 4> sorted_polynomials;
 
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
@@ -42,10 +46,14 @@ template <class Flavor> class ProverInstance_ {
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
     // instances
     size_t pub_inputs_offset = 0;
+    FF alpha;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
     FoldingParameters folding_parameters;
+    bool is_accumulator = false;
+    size_t instance_size;
+    size_t log_instance_size;
 
     ProverInstance_(Circuit& circuit)
     {
@@ -54,22 +62,17 @@ template <class Flavor> class ProverInstance_ {
         compute_witness(circuit);
     }
 
-    ProverInstance_(FoldingResult<Flavor> result)
-        : verification_key(std::move(result.verification_key))
-        , prover_polynomials(result.folded_prover_polynomials)
-        , public_inputs(result.folded_public_inputs)
-        , folding_parameters(result.folding_parameters){};
-
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    std::shared_ptr<VerificationKey> compute_verification_key();
-
-    void initialise_prover_polynomials();
+    void initialize_prover_polynomials();
 
     void compute_sorted_accumulator_polynomials(FF);
 
     void compute_sorted_list_accumulator(FF);
+
+    void compute_logderivative_inverse(FF, FF)
+        requires IsGoblinFlavor<Flavor>;
 
     void compute_grand_product_polynomials(FF, FF);
 
@@ -92,6 +95,9 @@ template <class Flavor> class ProverInstance_ {
     void compute_witness(Circuit&);
 
     void construct_ecc_op_wire_polynomials(auto&);
+
+    void construct_databus_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 

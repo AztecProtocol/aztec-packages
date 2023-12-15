@@ -1,5 +1,6 @@
+import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -11,11 +12,11 @@ import {
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
-} from '../cbind/constants.gen.js';
+} from '../constants.gen.js';
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { BlockHeader } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -59,11 +60,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Private call stack at the current kernel iteration.
      */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallStackHashes: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallStackHashes: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
@@ -89,9 +90,9 @@ export class PrivateCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Historic roots of the data trees, used to calculate the block hash the user is proving against.
+     * Historical roots of the data trees, used to calculate the block hash the user is proving against.
      */
-    public historicBlockData: HistoricBlockData,
+    public blockHeader: BlockHeader,
     /**
      * Deployment data of contracts being deployed in this kernel iteration.
      */
@@ -105,6 +106,7 @@ export class PrivateCircuitPublicInputs {
      */
     public version: Fr,
   ) {}
+
   /**
    * Create PrivateCircuitPublicInputs from a fields dictionary.
    * @param fields - The dictionary.
@@ -112,6 +114,36 @@ export class PrivateCircuitPublicInputs {
    */
   static from(fields: FieldsOf<PrivateCircuitPublicInputs>): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(...PrivateCircuitPublicInputs.getFields(fields));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateCircuitPublicInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateCircuitPublicInputs(
+      reader.readObject(CallContext),
+      reader.readObject(Fr),
+      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readArray(MAX_READ_REQUESTS_PER_CALL, Fr),
+      reader.readArray(MAX_PENDING_READ_REQUESTS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(BlockHeader),
+      reader.readObject(ContractDeploymentData),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+    );
   }
 
   /**
@@ -135,12 +167,38 @@ export class PrivateCircuitPublicInputs {
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Fr.ZERO,
-      HistoricBlockData.empty(),
+      BlockHeader.empty(),
       ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
     );
   }
+
+  isEmpty() {
+    const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
+    return (
+      this.callContext.isEmpty() &&
+      this.argsHash.isZero() &&
+      isFrArrayEmpty(this.returnValues) &&
+      isFrArrayEmpty(this.readRequests) &&
+      isFrArrayEmpty(this.pendingReadRequests) &&
+      isFrArrayEmpty(this.newCommitments) &&
+      isFrArrayEmpty(this.newNullifiers) &&
+      isFrArrayEmpty(this.nullifiedCommitments) &&
+      isFrArrayEmpty(this.privateCallStackHashes) &&
+      isFrArrayEmpty(this.publicCallStackHashes) &&
+      isFrArrayEmpty(this.newL2ToL1Msgs) &&
+      isFrArrayEmpty(this.encryptedLogsHash) &&
+      isFrArrayEmpty(this.unencryptedLogsHash) &&
+      this.encryptedLogPreimagesLength.isZero() &&
+      this.unencryptedLogPreimagesLength.isZero() &&
+      this.blockHeader.isEmpty() &&
+      this.contractDeploymentData.isEmpty() &&
+      this.chainId.isZero() &&
+      this.version.isZero()
+    );
+  }
+
   /**
    * Serialize into a field array. Low-level utility.
    * @param fields - Object with fields.
@@ -148,7 +206,6 @@ export class PrivateCircuitPublicInputs {
    */
   static getFields(fields: FieldsOf<PrivateCircuitPublicInputs>) {
     return [
-      // NOTE: Must have same order as CPP.
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
@@ -157,14 +214,14 @@ export class PrivateCircuitPublicInputs {
       fields.newCommitments,
       fields.newNullifiers,
       fields.nullifiedCommitments,
-      fields.privateCallStack,
-      fields.publicCallStack,
+      fields.privateCallStackHashes,
+      fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
-      fields.historicBlockData,
+      fields.blockHeader,
       fields.contractDeploymentData,
       fields.chainId,
       fields.version,

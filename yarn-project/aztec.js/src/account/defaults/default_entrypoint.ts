@@ -19,10 +19,10 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
-    const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
+    const { payload, packedArguments: callsPackedArguments } = buildPayload(executions);
     const abi = this.getEntrypointAbi();
-    const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, [payload]));
-    const message = Fr.fromBuffer(await hashPayload(payload));
+    const packedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload]));
+    const message = Fr.fromBuffer(hashPayload(payload));
     const authWitness = await this.auth.createAuthWitness(message);
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
@@ -66,13 +66,33 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                       {
                         name: 'function_selector',
                         type: {
-                          kind: 'field',
+                          kind: 'struct',
+                          path: 'aztec::protocol_types::abis::function_selector::FunctionSelector',
+                          fields: [
+                            {
+                              name: 'inner',
+                              type: {
+                                kind: 'integer',
+                                sign: 'unsigned',
+                                width: 32,
+                              },
+                            },
+                          ],
                         },
                       },
                       {
                         name: 'target_address',
                         type: {
-                          kind: 'field',
+                          kind: 'struct',
+                          path: 'aztec::protocol_types::address::AztecAddress',
+                          fields: [
+                            {
+                              name: 'inner',
+                              type: {
+                                kind: 'field',
+                              },
+                            },
+                          ],
                         },
                       },
                       {

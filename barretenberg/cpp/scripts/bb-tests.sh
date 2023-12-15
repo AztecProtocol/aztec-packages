@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script runs all test suites that have not been broken out into their own jobs for parallelisation.
 # Might be better to list exclusions here rather than inclusions as risky to maintain.
 set -eu
@@ -35,7 +35,9 @@ TESTS=(
   srs_tests
   sumcheck_tests
   transcript_tests
+  translator_vm_tests
   ultra_honk_tests
+  vm_tests
 )
 TESTS_STR="${TESTS[@]}"
 

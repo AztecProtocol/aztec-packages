@@ -8,7 +8,15 @@ export interface NoirFunctionAbi {
   /** The parameters of the function. */
   parameters: ABIParameter[];
   /** The witness indices of the parameters. Indexed by parameter name. */
-  param_witnesses: Record<string, number[]>;
+  param_witnesses: {
+    /** input */
+    input: {
+      /** start */
+      start: number;
+      /** end */
+      end: number;
+    }[];
+  };
   /** The return type of the function. */
   return_type: ABIType;
   /** The witness indices of the return type. */
@@ -54,7 +62,7 @@ export interface NoirCompiledContract {
  */
 export interface NoirCompiledCircuit {
   /** The hash of the circuit. */
-  hash: number;
+  hash?: number;
   /** Compilation backend. */
   backend: string;
   /**
@@ -63,6 +71,40 @@ export interface NoirCompiledCircuit {
   abi: NoirFunctionAbi;
   /** The bytecode of the circuit in base64. */
   bytecode: string;
+}
+
+/**
+ * Defines artifact of a contract.
+ */
+export interface ProgramArtifact {
+  /**
+   * version of noir used to compile
+   */
+  noir_version?: string;
+  /**
+   * the name of the project, read from Nargo.toml
+   */
+  name?: string;
+  /**
+   * The hash of the contract.
+   */
+  hash?: number;
+
+  /**
+   * The compilation backend of the artifact.
+   */
+  backend: string;
+
+  /**
+   * The abi of the program.
+   */
+  abi: any; // TODO: type
+
+  /**
+   * The debug metadata of the contract.
+   * It's used to include the relevant source code section when a constraint is not met during simulation.
+   */
+  debug?: NoirDebugMetadata;
 }
 
 /**
@@ -82,13 +124,56 @@ export interface NoirDebugMetadata {
 /**
  * The compilation artifacts of a given contract.
  */
-export interface NoirCompilationArtifacts {
+export interface NoirContractCompilationArtifacts {
   /**
    * The compiled contract.
    */
   contract: NoirCompiledContract;
+
   /**
    * The artifact that contains the debug metadata about the contract.
    */
   debug?: NoirDebugMetadata;
+}
+
+/**
+ * The compilation artifacts of a given program.
+ */
+export interface NoirProgramCompilationArtifacts {
+  /**
+   * not part of the compilation output, injected later
+   */
+  name: string;
+  /**
+   * The compiled contract.
+   */
+  program: NoirCompiledCircuit;
+
+  /**
+   * The artifact that contains the debug metadata about the contract.
+   */
+  debug?: NoirDebugMetadata;
+}
+
+/**
+ * output of Noir Wasm compilation, can be for a contract or lib/binary
+ */
+export type NoirCompilationResult = NoirContractCompilationArtifacts | NoirProgramCompilationArtifacts;
+
+/**
+ * Check if it has Contract unique property
+ */
+export function isNoirContractCompilationArtifacts(
+  artifact: NoirCompilationResult,
+): artifact is NoirContractCompilationArtifacts {
+  return (artifact as NoirContractCompilationArtifacts).contract !== undefined;
+}
+
+/**
+ * Check if it has Contract unique property
+ */
+export function isNoirProgramCompilationArtifacts(
+  artifact: NoirCompilationResult,
+): artifact is NoirProgramCompilationArtifacts {
+  return (artifact as NoirProgramCompilationArtifacts).program !== undefined;
 }

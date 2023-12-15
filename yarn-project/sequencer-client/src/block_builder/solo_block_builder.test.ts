@@ -1,7 +1,6 @@
 import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
-  CircuitsWasm,
   Fr,
   GlobalVariables,
   KernelCircuitPublicInputs,
@@ -55,12 +54,12 @@ import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import {
   ProcessedTx,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getHistoricBlockData } from '../sequencer/utils.js';
+import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
-import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
+import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -80,18 +79,12 @@ describe('sequencer/solo_block_builder', () => {
   let rootRollupOutput: RootRollupPublicInputs;
   let mockL1ToL2Messages: Fr[];
 
-  let wasm: CircuitsWasm;
-
   let globalVariables: GlobalVariables;
 
   const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
-
-  beforeAll(async () => {
-    wasm = await CircuitsWasm.get();
-  });
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -122,13 +115,13 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb);
-    return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
+    const historicalTreeRoots = await getBlockHeader(builderDb);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
+    const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
     for (const [tree, leaves] of [
       [MerkleTreeId.NOTE_HASH_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
@@ -150,9 +143,8 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
-  const updateHistoricBlocksTree = async () => {
+  const updateArchive = async () => {
     const blockHash = computeBlockHashWithGlobals(
-      wasm,
       globalVariables,
       rootRollupOutput.endNoteHashTreeSnapshot.root,
       rootRollupOutput.endNullifierTreeSnapshot.root,
@@ -160,7 +152,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
       rootRollupOutput.endPublicDataTreeRoot,
     );
-    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -170,7 +162,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.blockData = await getHistoricBlockData(expectsDb);
+    kernelOutput.constants.blockHeader = await getBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -212,14 +204,14 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    await updateHistoricBlocksTree();
-    rootRollupOutput.endHistoricBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
+    await updateArchive();
+    rootRollupOutput.endArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     const txs = [...txsLeft, ...txsRight];
 
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
     const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(wasm, cd));
+    const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
@@ -243,8 +235,8 @@ describe('sequencer/solo_block_builder', () => {
       endPublicDataTreeRoot: rootRollupOutput.endPublicDataTreeRoot,
       startL1ToL2MessagesTreeSnapshot: rootRollupOutput.startL1ToL2MessagesTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
-      startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
-      endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
+      startArchiveSnapshot: rootRollupOutput.startArchiveSnapshot,
+      endArchiveSnapshot: rootRollupOutput.endArchiveSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,
@@ -292,7 +284,7 @@ describe('sequencer/solo_block_builder', () => {
 
   describe('circuits simulator', () => {
     beforeEach(() => {
-      const simulator = new WasmRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator();
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
@@ -306,7 +298,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.blockData = await getHistoricBlockData(builderDb);
+      kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -356,7 +348,7 @@ describe('sequencer/solo_block_builder', () => {
         expect(contractTreeAfter.root).toEqual(expectedContractTreeAfter);
         expect(contractTreeAfter.size).toEqual(BigInt(totalCount));
       },
-      30000,
+      60000,
     );
 
     it('builds an empty L2 block', async () => {
@@ -371,6 +363,8 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
+    // TODO(Alvaro) This test is horribly slow since it creates strictly increasing nullifiers, the worst case scenario for the simulated base rollup
+    // With the current implementation.
     it('builds a mixed L2 block', async () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const txs = await Promise.all([
@@ -384,11 +378,11 @@ describe('sequencer/solo_block_builder', () => {
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
       expect(l2Block.number).toEqual(blockNumber);
-    }, 40_000);
+    }, 200_000);
 
     // This test specifically tests nullifier values which previously caused e2e_private_token test to fail
     it('e2e_private_token edge case regression test on nullifier values', async () => {
-      const simulator = new WasmRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator();
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
       // update the starting tree
@@ -417,7 +411,7 @@ describe('sequencer/solo_block_builder', () => {
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
-    }, 10000);
+    }, 20000);
   });
 
   // describe("Input guard tests", () => {

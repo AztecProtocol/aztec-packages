@@ -9,7 +9,7 @@ This section contains a list of errors you may encounter when using Aztec Sandbo
 
 ## Circuit Errors
 
-**To prevent bloating this doc, here is a list of some of the common errors. Feel free to have a look at [circuit_errors.hpp](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/src/aztec3/utils/circuit_errors.hpp) for a list of all possible circuit errors.**
+**To prevent bloating this doc, here is a list of some of the common errors.**
 
 ### Kernel Circuits
 
@@ -62,7 +62,7 @@ Confirms that the TxRequest (user's intent) matches the private call being execu
 
 #### 2018 - PRIVATE_KERNEL\_\_READ_REQUEST_NOTE_HASH_TREE_ROOT_MISMATCH
 
-Given a read request and provided witness, we check that the merkle root obtained from the witness' sibling path and it's leaf is similar to the historic state root we want to read against. This is a sanity check to ensure we are reading from the right state.
+Given a read request and provided witness, we check that the merkle root obtained from the witness' sibling path and it's leaf is similar to the historical state root we want to read against. This is a sanity check to ensure we are reading from the right state.
 For a non transient read, we fetch the merkle root from the membership witnesses and the leaf index
 
 #### 2019 - PRIVATE_KERNEL\_\_TRANSIENT_READ_REQUEST_NO_MATCH
@@ -74,7 +74,7 @@ This error happens when you try to read a pending commitment that doesn't exist.
 #### 2021 - PRIVATE_KERNEL\_\_UNRESOLVED_NON_TRANSIENT_READ_REQUEST
 
 For a transient read request we skip merkle membership checks since pending commitments aren't inserted into the note hash tree yet.
-But for non transient reads, we do a merkle membership check. Redas are done at the kernel circuit. So this checks that there are no already unresolved reads from a previous kernel iteration (other than non transient ones).
+But for non transient reads, we do a merkle membership check. Reads are done at the kernel circuit. So this checks that there are no already unresolved reads from a previous kernel iteration (other than non transient ones).
 
 #### 3001 - PUBLIC_KERNEL\_\_UNSUPPORTED_OP
 
@@ -86,7 +86,7 @@ Calling a private Aztec.nr function in a public kernel is not allowed.
 
 #### 3005 - PUBLIC_KERNEL\_\_NON_EMPTY_PRIVATE_CALL_STACK
 
-Public functions are executed after all the private functions are (see [private-public execution](../../concepts/foundation/communication/public_private_calls.md)). As such, private call stack must be empty when executing in the public kernel.
+Public functions are executed after all the private functions are (see [private-public execution](../../concepts/foundation/communication/public_private_calls/main.md)). As such, private call stack must be empty when executing in the public kernel.
 
 #### 3011 - PUBLIC_KERNEL\_\_CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH
 
@@ -160,15 +160,15 @@ Circuits work by having a fixed size array. As such, we have limits on how many 
 - too many transient read requests in one tx
 - too many transient read request membership witnesses in one tx
 
-You can have a look at our current constants/limitations in [constants.hpp](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/src/aztec3/constants.hpp)
+You can have a look at our current constants/limitations in [constants.nr](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-protocol-circuits/src/crates/types/src/constants.nr)
 
 #### 7008 - MEMBERSHIP_CHECK_FAILED
 
-Users may create a proof against a historic state in Aztec. The rollup circuits performs a merkle membership check to ensure this state existed at some point. If the historic state doesn't exist, you get this error. Some examples when you may hit this error are:
+Users may create a proof against a historical state in Aztec. The rollup circuits performs a merkle membership check to ensure this state existed at some point. If the historical state doesn't exist, you get this error. Some examples when you may hit this error are:
 
-- using invalid historic note hash tree state (aka historic commitments tree)
-- using invalid historic contracts data tree state
-- using invalid historic L1 to L2 message data tree state
+- using invalid historical note hash tree state (aka historical commitments tree)
+- using invalid historical contracts data tree state
+- using invalid historical L1 to L2 message data tree state
 - inserting a subtree into the greater tree
   - we make a smaller merkle tree of all the new commitments/nullifiers etc that were created in a transaction or in a rollup and add it to the bigger state tree. Before inserting, we do a merkle membership check to ensure that the index to insert at is indeed an empty subtree (otherwise we would be overwriting state). This can happen when `next_available_leaf_index` in the state tree's snapshot is wrong (it is fetched by the sequencer from the archiver). The error message should reveal which tree is causing this issue
   - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../concepts/advanced/data_structures/indexed_merkle_tree.md). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
@@ -177,7 +177,7 @@ Users may create a proof against a historic state in Aztec. The rollup circuits 
 
 ## Archiver Errors
 
-- "L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for sequencer to pick it up and the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing an arbitary transaction on L2 (eg send DAI to yourself). This would give the sequencer a transaction to process and as a side effect it would look for any pending messages it should include.
+- "L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for sequencer to pick it up and the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing an arbitrary transaction on L2 (eg send DAI to yourself). This would give the sequencer a transaction to process and as a side effect it would look for any pending messages it should include.
 
 - "Unable to remove message: L1 to L2 Message with key ${messageKeyBigInt} not found in store" - happens when trying to confirm a non-existent pending message or cancelling such a message. Perhaps the sequencer has already confirmed the message?
 
@@ -189,9 +189,9 @@ Users may create a proof against a historic state in Aztec. The rollup circuits 
 
 - "${treeName} tree root mismatch" - like with calldata mismatch, it validates that the root of the tree matches the output of the circuit simulation. The tree name could be Public data tree, Note Hash Tree, Contract tree, Nullifier tree or the L1ToL2Message tree,
 
-- "${treeName} tree next available leaf index mismatch" - validating a tree's root is not enough. It also checks that the `next_avaliable_leaf_index` is as expected. This is the next index we can insert new values into. Note that for the public data tree, this test is skipped since as it is a sparse tree unlike the others.
+- "${treeName} tree next available leaf index mismatch" - validating a tree's root is not enough. It also checks that the `next_available_leaf_index` is as expected. This is the next index we can insert new values into. Note that for the public data tree, this test is skipped since as it is a sparse tree unlike the others.
 
-- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../concepts/foundation/communication/public_private_calls.md)). This error says there are too many public functions requested.
+- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../concepts/foundation/communication/public_private_calls/main.md)). This error says there are too many public functions requested.
 
 - "Array size exceeds target length" - happens if you add more items than allowed by the constants set due to our circuit limitations (eg sending too many L2 to L1 messages or creating a function that exceeds the call stack length or returns more values than what Aztec.nr functions allow)
 

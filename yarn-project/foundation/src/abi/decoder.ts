@@ -1,5 +1,5 @@
-import { ABIParameter, ABIType, ABIVariable, FunctionArtifact } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '../fields/index.js';
+import { ABIParameter, type ABIType, ABIVariable, FunctionArtifact } from './abi.js';
 
 /**
  * The type of our decoded ABI.
@@ -21,12 +21,12 @@ class ReturnValuesDecoder {
   private decodeReturn(abiType: ABIType): DecodedReturn {
     switch (abiType.kind) {
       case 'field':
-        return this.getNextField().value;
+        return this.getNextField().toBigInt();
       case 'integer':
         if (abiType.sign === 'signed') {
           throw new Error('Unsupported type: signed integer');
         }
-        return this.getNextField().value;
+        return this.getNextField().toBigInt();
       case 'boolean':
         return !this.getNextField().isZero();
       case 'array': {

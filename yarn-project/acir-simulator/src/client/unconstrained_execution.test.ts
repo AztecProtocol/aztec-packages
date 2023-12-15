@@ -1,4 +1,4 @@
-import { CompleteAddress, FunctionData, HistoricBlockData } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
@@ -28,12 +28,14 @@ describe('Unconstrained Execution test suite', () => {
       return new Note([new Fr(amount), owner.toField(), Fr.random()]);
     };
 
-    beforeEach(async () => {
-      const ownerCompleteAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
+    beforeEach(() => {
+      const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
       owner = ownerCompleteAddress.address;
 
       oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(owner)) {
+          return Promise.resolve(ownerCompleteAddress);
+        }
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -44,7 +46,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      oracle.getHistoricBlockData.mockResolvedValue(HistoricBlockData.empty());
+      oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,

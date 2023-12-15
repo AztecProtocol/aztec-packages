@@ -1,8 +1,10 @@
-import { ABIParameter, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { keccak } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import { keccak } from '../crypto/keccak/index.js';
+import { Fr } from '../fields/index.js';
+import { ABIParameter } from './abi.js';
+import { decodeFunctionSignature } from './decoder.js';
 
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
@@ -29,10 +31,11 @@ export class FunctionSelector {
 
   /**
    * Serialize as a buffer.
+   * @param bufferSize - The buffer size.
    * @returns The buffer.
    */
-  toBuffer(): Buffer {
-    return toBufferBE(BigInt(this.value), FunctionSelector.SIZE);
+  toBuffer(bufferSize = FunctionSelector.SIZE): Buffer {
+    return toBufferBE(BigInt(this.value), bufferSize);
   }
 
   /**
@@ -69,7 +72,7 @@ export class FunctionSelector {
    * @returns An Fr instance.
    */
   public toField() {
-    return new Fr(this.value);
+    return new Fr(BigInt(this.value));
   }
 
   /**
@@ -78,7 +81,7 @@ export class FunctionSelector {
    * @returns The function selector.
    */
   static fromField(fr: Fr): FunctionSelector {
-    return new FunctionSelector(Number(fr.value));
+    return new FunctionSelector(Number(fr.toBigInt()));
   }
 
   /**
@@ -87,6 +90,10 @@ export class FunctionSelector {
    * @returns Function selector.
    */
   static fromSignature(signature: string): FunctionSelector {
+    // throw if signature contains whitespace
+    if (/\s/.test(signature)) {
+      throw new Error('Function Signature cannot contain whitespace');
+    }
     return FunctionSelector.fromBuffer(keccak(Buffer.from(signature)).subarray(0, FunctionSelector.SIZE));
   }
 
@@ -115,7 +122,7 @@ export class FunctionSelector {
   static fromString(selector: string) {
     const buf = Buffer.from(selector.replace(/^0x/i, ''), 'hex');
     if (buf.length !== FunctionSelector.SIZE) {
-      throw new Error(`Invalid length ${buf.length}.`);
+      throw new Error(`Invalid FunctionSelector length ${buf.length}.`);
     }
     return FunctionSelector.fromBuffer(buf);
   }

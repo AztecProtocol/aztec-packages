@@ -1,20 +1,22 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash } from '../abis/abis.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
+  ARCHIVE_HEIGHT,
   ARGS_LENGTH,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockHeader,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CONTRACT_TREE_HEIGHT,
   CallContext,
+  CallRequest,
+  CallerContext,
   CircuitType,
-  CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -28,8 +30,6 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
-  HISTORIC_BLOCKS_TREE_HEIGHT,
-  HistoricBlockData,
   KERNELS_PER_BASE_ROLLUP,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -114,13 +114,13 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary combined historic tree roots object from the given seed.
+ * Creates an arbitrary combined historical tree roots object from the given seed.
  * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
- * @param seed - The seed to use for generating the combined historic tree roots.
- * @returns A combined historic tree roots object.
+ * @param seed - The seed to use for generating the combined historical tree roots.
+ * @returns A combined historical tree roots object.
  */
-export function makeHistoricBlockData(seed: number): HistoricBlockData {
-  return new HistoricBlockData(
+export function makeBlockHeader(seed: number): BlockHeader {
+  return new BlockHeader(
     fr(seed),
     fr(seed + 1),
     fr(seed + 2),
@@ -138,7 +138,7 @@ export function makeHistoricBlockData(seed: number): HistoricBlockData {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHistoricBlockData(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeBlockHeader(seed), makeTxContext(seed + 4));
 }
 
 /**
@@ -217,8 +217,8 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -244,8 +244,8 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -340,7 +340,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    makeHistoricBlockData(seed + 0xa00),
+    makeBlockHeader(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -376,7 +376,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
   return new PublicCallRequest(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false, false, false),
-    makeCallContext(seed + 0x2),
+    makeCallContext(seed + 0x2, makeAztecAddress(seed)),
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -434,7 +434,7 @@ export function makeVerificationKey(): VerificationKey {
     101, // arbitrary
     102, // arbitrary
     {
-      A: new G1AffineElement(fr(0x200), fr(0x300)),
+      A: new G1AffineElement(new Fq(0x200), new Fq(0x300)),
     },
     /* recursive proof */ true,
     range(5, 400),
@@ -494,6 +494,24 @@ export function makePrivateKernelInputsInner(seed = 1): PrivateKernelInputsInner
 }
 
 /**
+ * Makes arbitrary call stack item.
+ * @param seed - The seed to use for generating the call stack item.
+ * @returns A call stack item.
+ */
+export function makeCallerContext(seed = 1): CallerContext {
+  return new CallerContext(makeAztecAddress(seed), makeAztecAddress(seed + 0x1));
+}
+
+/**
+ * Makes arbitrary call stack item.
+ * @param seed - The seed to use for generating the call stack item.
+ * @returns A call stack item.
+ */
+export function makeCallRequest(seed = 1): CallRequest {
+  return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2));
+}
+
+/**
  * Makes arbitrary public call stack item.
  * @param seed - The seed to use for generating the public call stack item.
  * @returns A public call stack item.
@@ -515,36 +533,13 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
  * @param seed - The seed to use for generating the public call data.
  * @returns A public call data.
  */
-export async function makePublicCallData(seed = 1, full = false): Promise<PublicCallData> {
+export function makePublicCallData(seed = 1, full = false): PublicCallData {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed, full),
-    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallStackItem, seed + 0x300),
+    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x300),
     makeProof(),
     fr(seed + 1),
     fr(seed + 2),
-  );
-
-  // one kernel circuit call can have several methods in call stack. But all of them should have the same msg.sender - set these correctly in the preimages!
-  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
-    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
-    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.msgSender = isDelegateCall
-      ? publicCallData.callStackItem.publicInputs.callContext.msgSender
-      : publicCallData.callStackItem.contractAddress;
-  }
-
-  // set the storage address for each call on the stack (handle delegatecall case)
-  for (let i = 0; i < publicCallData.publicCallStackPreimages.length; i++) {
-    const isDelegateCall = publicCallData.publicCallStackPreimages[i].publicInputs.callContext.isDelegateCall;
-    publicCallData.publicCallStackPreimages[i].publicInputs.callContext.storageContractAddress = isDelegateCall
-      ? publicCallData.callStackItem.publicInputs.callContext.storageContractAddress
-      : publicCallData.publicCallStackPreimages[i].contractAddress;
-  }
-
-  // publicCallStack should be a hash of the preimages:
-  const wasm = await CircuitsWasm.get();
-  publicCallData.callStackItem.publicInputs.publicCallStack = mapTuple(
-    publicCallData.publicCallStackPreimages,
-    preimage => computeCallStackItemHash(wasm!, preimage),
   );
 
   return publicCallData;
@@ -555,9 +550,9 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
  * @param seed - The seed to use for generating the witnessed public call data.
  * @returns A witnessed public call data.
  */
-export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
+export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
   return new WitnessedPublicCallData(
-    await makePublicCallData(seed),
+    makePublicCallData(seed),
     range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
       makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
     ),
@@ -571,8 +566,8 @@ export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPu
  * @param seed - The seed to use for generating the public kernel inputs.
  * @returns Public kernel inputs.
  */
-export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInputs> {
-  return new PublicKernelInputs(makePreviousKernelData(seed), await makePublicCallData(seed + 0x1000));
+export function makePublicKernelInputs(seed = 1): PublicKernelInputs {
+  return new PublicKernelInputs(makePreviousKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**
@@ -581,20 +576,24 @@ export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInpu
  * @param tweak - An optional function to tweak the output before computing hashes.
  * @returns Public kernel inputs.
  */
-export async function makePublicKernelInputsWithTweak(
+export function makePublicKernelInputsWithTweak(
   seed = 1,
   tweak?: (publicKernelInputs: PublicKernelInputs) => void,
-): Promise<PublicKernelInputs> {
+): PublicKernelInputs {
   const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
-  const publicKernelInputs = new PublicKernelInputs(
-    makePreviousKernelData(seed, kernelCircuitPublicInputs),
-    await makePublicCallData(seed + 0x1000),
-  );
-  if (tweak) tweak(publicKernelInputs);
+  const previousKernel = makePreviousKernelData(seed, kernelCircuitPublicInputs);
+  const publicCall = makePublicCallData(seed + 0x1000);
+  const publicKernelInputs = new PublicKernelInputs(previousKernel, publicCall);
+  if (tweak) {
+    tweak(publicKernelInputs);
+  }
   // Set the call stack item for this circuit iteration at the top of the call stack
-  const wasm = await CircuitsWasm.get();
   publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
-    computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
+    new CallRequest(
+      publicCall.callStackItem.hash(),
+      publicCall.callStackItem.publicInputs.callContext.msgSender,
+      makeCallerContext(seed + 0x100),
+    );
   return publicKernelInputs;
 }
 
@@ -620,7 +619,8 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
-    privateCallStackPreimages: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallStackItem, seed + 0x10),
+    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x10),
+    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
@@ -672,14 +672,14 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
-    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
     encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    historicBlockData: makeHistoricBlockData(seed + 0xd00),
+    blockHeader: makeBlockHeader(seed + 0xd00),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
@@ -726,7 +726,7 @@ export function makeConstantBaseRollupData(
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
   return ConstantRollupData.from({
-    startHistoricBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
+    archiveSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
@@ -840,7 +840,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2400),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
   );
 }
 
@@ -866,16 +866,10 @@ export function makeRootRollupPublicInputs(
     endContractTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startPublicDataTreeRoot: fr((seed += 0x100)),
     endPublicDataTreeRoot: fr((seed += 0x100)),
-    startTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricNoteHashTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endTreeOfHistoricL1ToL2MessagesTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    startHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    startArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    endArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
@@ -902,11 +896,11 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const startNullifierTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x200);
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
-  const startHistoricBlocksTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
+  const startArchiveSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
+    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
     seed + 0x1000,
   );
 
@@ -920,20 +914,23 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const newNullifiersSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x4000);
   const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
 
+  const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, fr, seed + 0x6000);
+  const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP, i => i, seed + 0x7000);
+
   const newPublicDataUpdateRequestsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
   const newPublicDataReadsSiblingPaths = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
     x => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, x),
-    seed + 0x6000,
+    seed + 0x8000,
   );
 
-  const historicBlocksTreeRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
-    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + x * 0x1000 + 0x7000),
+  const archiveRootMembershipWitnesses = makeTuple(KERNELS_PER_BASE_ROLLUP, x =>
+    makeMembershipWitness(ARCHIVE_HEIGHT, seed + x * 0x1000 + 0x9000),
   );
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -945,14 +942,16 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     startNullifierTreeSnapshot,
     startContractTreeSnapshot,
     startPublicDataTreeRoot,
-    startHistoricBlocksTreeSnapshot,
+    archiveSnapshot: startArchiveSnapshot,
+    sortedNewNullifiers,
+    sortednewNullifiersIndexes,
     lowNullifierLeafPreimages,
     newCommitmentsSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
     newPublicDataUpdateRequestsSiblingPaths,
     newPublicDataReadsSiblingPaths,
-    historicBlocksTreeRootMembershipWitnesses,
+    archiveRootMembershipWitnesses,
     constants,
   });
 }

@@ -1,9 +1,9 @@
 import {
+  BlockHeader,
   CallContext,
   ContractDeploymentData,
   FunctionData,
   GlobalVariables,
-  HistoricBlockData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
@@ -12,8 +12,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from './acvm.js';
-import { MessageLoadOracleInputs } from './oracle/index.js';
+import { ACVMField } from './acvm_types.js';
+import { MessageLoadOracleInputs } from './oracle/typed_oracle.js';
 
 /**
  * Adapts the buffer to the field size.
@@ -101,19 +101,19 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
 }
 
 /**
- * Converts a historic block data into ACVM fields.
- * @param historicBlockData - The historic block data object to convert.
+ * Converts a block header into ACVM fields.
+ * @param blockHeader - The block header object to convert.
  * @returns The ACVM fields.
  */
-export function toACVMHistoricBlockData(historicBlockData: HistoricBlockData): ACVMField[] {
+export function toACVMBlockHeader(blockHeader: BlockHeader): ACVMField[] {
   return [
-    toACVMField(historicBlockData.noteHashTreeRoot),
-    toACVMField(historicBlockData.nullifierTreeRoot),
-    toACVMField(historicBlockData.contractTreeRoot),
-    toACVMField(historicBlockData.l1ToL2MessagesTreeRoot),
-    toACVMField(historicBlockData.blocksTreeRoot),
-    toACVMField(historicBlockData.publicDataTreeRoot),
-    toACVMField(historicBlockData.globalVariablesHash),
+    toACVMField(blockHeader.noteHashTreeRoot),
+    toACVMField(blockHeader.nullifierTreeRoot),
+    toACVMField(blockHeader.contractTreeRoot),
+    toACVMField(blockHeader.l1ToL2MessagesTreeRoot),
+    toACVMField(blockHeader.archiveRoot),
+    toACVMField(blockHeader.publicDataTreeRoot),
+    toACVMField(blockHeader.globalVariablesHash),
   ];
 }
 
@@ -147,8 +147,8 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
     ...publicInputs.nullifiedCommitments.map(toACVMField),
-    ...publicInputs.privateCallStack.map(toACVMField),
-    ...publicInputs.publicCallStack.map(toACVMField),
+    ...publicInputs.privateCallStackHashes.map(toACVMField),
+    ...publicInputs.publicCallStackHashes.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
     ...publicInputs.encryptedLogsHash.map(toACVMField),
     ...publicInputs.unencryptedLogsHash.map(toACVMField),
@@ -156,7 +156,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),
 
-    ...toACVMHistoricBlockData(publicInputs.historicBlockData),
+    ...toACVMBlockHeader(publicInputs.blockHeader),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
 
@@ -187,12 +187,12 @@ export function toAcvmCallPrivateStackItem(item: PrivateCallStackItem): ACVMFiel
  * @param item - The public call stack item to serialize to be passed onto Noir.
  * @returns The fields expected by the enqueue_public_function_call_oracle Aztec.nr function.
  */
-export async function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): Promise<ACVMField[]> {
+export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVMField[] {
   return [
     toACVMField(item.contractAddress),
     ...toACVMFunctionData(item.functionData),
     ...toACVMCallContext(item.callContext),
-    toACVMField(await item.getArgsHash()),
+    toACVMField(item.getArgsHash()),
   ];
 }
 

@@ -104,11 +104,11 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     info(full_polynomials.w_l[2]);
     info(full_polynomials.w_l[3]);
 
-    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
-
-    auto output = sumcheck.prove(full_polynomials, {});
+    FF alpha = transcript->get_challenge("alpha");
+    auto output = sumcheck.prove(full_polynomials, {}, alpha);
 
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
@@ -136,23 +136,21 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     FF l_7 = (      u_0) * (      u_1) * (      u_2);
     // clang-format on
     FF hand_computed_value;
-    for (size_t i = 0; i < NUM_POLYNOMIALS; i++) {
+    for (auto [full_poly, partial_eval_poly] :
+         zip_view(full_polynomials.get_all(), sumcheck.partially_evaluated_polynomials.get_all())) {
         // full_polynomials[0][0] = w_l[0], full_polynomials[1][1] = w_r[1], and so on.
-        hand_computed_value = l_0 * full_polynomials[i][0] + l_1 * full_polynomials[i][1] +
-                              l_2 * full_polynomials[i][2] + l_3 * full_polynomials[i][3] +
-                              l_4 * full_polynomials[i][4] + l_5 * full_polynomials[i][5] +
-                              l_6 * full_polynomials[i][6] + l_7 * full_polynomials[i][7];
-        EXPECT_EQ(hand_computed_value, sumcheck.partially_evaluated_polynomials[i][0]);
+        hand_computed_value = l_0 * full_poly[0] + l_1 * full_poly[1] + l_2 * full_poly[2] + l_3 * full_poly[3] +
+                              l_4 * full_poly[4] + l_5 * full_poly[5] + l_6 * full_poly[6] + l_7 * full_poly[7];
+        EXPECT_EQ(hand_computed_value, partial_eval_poly[0]);
     }
 
     // We can also check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating the
     // full polynomials at challenge u via the evaluate_mle() function
     std::vector<FF> u_challenge = { u_0, u_1, u_2 };
-    for (size_t i = 0; i < NUM_POLYNOMIALS; i++) {
-        barretenberg::Polynomial<FF> poly(full_polynomials[i]);
+    for (auto [full_poly, claimed_eval] : zip_view(full_polynomials.get_all(), output.claimed_evaluations.get_all())) {
+        barretenberg::Polynomial<FF> poly(full_poly);
         auto v_expected = poly.evaluate_mle(u_challenge);
-        auto v_result = output.claimed_evaluations[i];
-        EXPECT_EQ(v_expected, v_result);
+        EXPECT_EQ(v_expected, claimed_eval);
     }
 }
 
@@ -169,15 +167,17 @@ TEST_F(SumcheckTests, Prover)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-    auto output = sumcheck.prove(full_polynomials, {});
+    FF alpha = transcript->get_challenge("alpha");
+    auto output = sumcheck.prove(full_polynomials, {}, alpha);
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
     std::vector<FF> expected_values;
-    for (auto& polynomial : full_polynomials) {
+    for (auto& polynomial_ptr : full_polynomials.get_all()) {
+        auto& polynomial = polynomial_ptr;
         // using knowledge of inputs here to derive the evaluation
         FF expected_lo = polynomial[0] * (FF(1) - u_0) + polynomial[1] * u_0;
         expected_lo *= (FF(1) - u_1);
@@ -186,8 +186,8 @@ TEST_F(SumcheckTests, Prover)
         expected_values.emplace_back(expected_lo + expected_hi);
     }
 
-    for (size_t poly_idx = 0; poly_idx < NUM_POLYNOMIALS; poly_idx++) {
-        EXPECT_EQ(output.claimed_evaluations[poly_idx], expected_values[poly_idx]);
+    for (auto [eval, expected] : zip_view(output.claimed_evaluations.get_all(), expected_values)) {
+        eval = expected;
     }
 }
 
@@ -243,17 +243,17 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
             .public_input_delta = FF::one(),
         };
 
-        Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
-
+        auto prover_transcript = Flavor::Transcript::prover_init_empty();
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
+        FF prover_alpha = prover_transcript->get_challenge("alpha");
+        auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha);
 
-        Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
-
-        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_transcript);
+        FF verifier_alpha = verifier_transcript->get_challenge("alpha");
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_transcript);
 
         auto verified = verifier_output.verified.value();
 

@@ -16,6 +16,17 @@ export function boolToByte(b: boolean) {
 }
 
 /**
+ * @param n - The input number to be converted to a big-endian unsigned 16-bit integer Buffer.
+ * @param bufferSize - Optional, the size of the output Buffer (default is 2).
+ * @returns A Buffer containing the big-endian unsigned 16-bit integer representation of the input number.
+ */
+export function numToUInt16BE(n: number, bufferSize = 2) {
+  const buf = Buffer.alloc(bufferSize);
+  buf.writeUInt16BE(n, bufferSize - 2);
+  return buf;
+}
+
+/**
  * Convert a number into a 4-byte little-endian unsigned integer buffer.
  * The input number is serialized as an unsigned 32-bit integer in little-endian byte order,
  * and returned as a Buffer of specified size (defaults to 4).
@@ -260,7 +271,6 @@ export function to2Fields(buf: Buffer): [Fr, Fr] {
     throw new Error('Buffer must be 32 bytes');
   }
 
-  // TS version of https://github.com/AztecProtocol/aztec-packages/blob/e2e3bf1dbeda5199060fb1711200d20414557cd4/circuits/cpp/src/aztec3/circuits/hash.hpp#L330
   // Split the hash into two fields, a high and a low
   const buf1 = Buffer.concat([Buffer.alloc(16), buf.subarray(0, 16)]);
   const buf2 = Buffer.concat([Buffer.alloc(16), buf.subarray(16, 32)]);

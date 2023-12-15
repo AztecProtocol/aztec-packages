@@ -2,36 +2,41 @@
 
 /* eslint-disable */
 
-export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L }
+export type FixedLengthArray<T, L extends number> = L extends 0 ? never[] : T[] & { length: L };
 
 export type Field = string;
 export type u32 = string;
 
-export interface AggregationObject {
-}
+export interface AggregationObject {}
 
-
-export interface Address {
+export interface AztecAddress {
   inner: Field;
 }
 
+export interface CallerContext {
+  msg_sender: AztecAddress;
+  storage_contract_address: AztecAddress;
+}
+
+export interface CallRequest {
+  hash: Field;
+  caller_contract_address: AztecAddress;
+  caller_context: CallerContext;
+}
 
 export interface EthAddress {
   inner: Field;
 }
 
-
 export interface NewContractData {
-  contract_address: Address;
+  contract_address: AztecAddress;
   portal_contract_address: EthAddress;
   function_tree_root: Field;
 }
 
-
 export interface FunctionSelector {
   inner: u32;
 }
-
 
 export interface FunctionData {
   selector: FunctionSelector;
@@ -39,8 +44,6 @@ export interface FunctionData {
   is_private: boolean;
   is_constructor: boolean;
 }
-
-
 
 export interface OptionallyRevealedData {
   call_stack_item_hash: Field;
@@ -53,19 +56,16 @@ export interface OptionallyRevealedData {
   called_from_public_l2: boolean;
 }
 
-
 export interface PublicDataUpdateRequest {
   leaf_index: Field;
   old_value: Field;
   new_value: Field;
 }
 
-
 export interface PublicDataRead {
   leaf_index: Field;
   value: Field;
 }
-
 
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
@@ -74,8 +74,8 @@ export interface CombinedAccumulatedData {
   new_commitments: FixedLengthArray<Field, 64>;
   new_nullifiers: FixedLengthArray<Field, 64>;
   nullified_commitments: FixedLengthArray<Field, 64>;
-  private_call_stack: FixedLengthArray<Field, 8>;
-  public_call_stack: FixedLengthArray<Field, 8>;
+  private_call_stack: FixedLengthArray<CallRequest, 8>;
+  public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
   encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
@@ -87,30 +87,20 @@ export interface CombinedAccumulatedData {
   public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 
-
-export interface Block {
+export interface BlockHeader {
   note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
-  l1_to_l2_data_tree_root: Field;
+  l1_to_l2_messages_tree_root: Field;
+  archive_root: Field;
   public_data_tree_root: Field;
   global_variables_hash: Field;
 }
-
-
-export interface HistoricalBlockData {
-  blocks_tree_root: Field;
-  block: Block;
-  private_kernel_vk_tree_root: Field;
-}
-
 
 export interface Point {
   x: Field;
   y: Field;
 }
-
-
 
 export interface ContractDeploymentData {
   deployer_public_key: Point;
@@ -119,7 +109,6 @@ export interface ContractDeploymentData {
   contract_address_salt: Field;
   portal_contract_address: EthAddress;
 }
-
 
 export interface TxContext {
   is_fee_payment_tx: boolean;
@@ -130,12 +119,10 @@ export interface TxContext {
   version: Field;
 }
 
-
 export interface CombinedConstantData {
-  block_data: HistoricalBlockData;
+  block_header: BlockHeader;
   tx_context: TxContext;
 }
-
 
 export interface KernelCircuitPublicInputs {
   end: CombinedAccumulatedData;
@@ -143,14 +130,9 @@ export interface KernelCircuitPublicInputs {
   is_private: boolean;
 }
 
+export interface Proof {}
 
-export interface Proof {
-}
-
-
-export interface VerificationKey {
-}
-
+export interface VerificationKey {}
 
 export interface PreviousKernelData {
   public_inputs: KernelCircuitPublicInputs;
@@ -160,24 +142,15 @@ export interface PreviousKernelData {
   vk_path: FixedLengthArray<Field, 3>;
 }
 
-
-
-
-
-
-
 export interface CallContext {
-  msg_sender: Address;
-  storage_contract_address: Address;
+  msg_sender: AztecAddress;
+  storage_contract_address: AztecAddress;
   portal_contract_address: EthAddress;
   function_selector: FunctionSelector;
   is_delegate_call: boolean;
   is_static_call: boolean;
   is_contract_deployment: boolean;
 }
-
-
-
 
 export interface PrivateCircuitPublicInputs {
   call_context: CallContext;
@@ -188,42 +161,35 @@ export interface PrivateCircuitPublicInputs {
   new_commitments: FixedLengthArray<Field, 16>;
   new_nullifiers: FixedLengthArray<Field, 16>;
   nullified_commitments: FixedLengthArray<Field, 16>;
-  private_call_stack: FixedLengthArray<Field, 4>;
-  public_call_stack: FixedLengthArray<Field, 4>;
+  private_call_stack_hashes: FixedLengthArray<Field, 4>;
+  public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
   encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
-  historical_block_data: HistoricalBlockData;
+  block_header: BlockHeader;
   contract_deployment_data: ContractDeploymentData;
   chain_id: Field;
   version: Field;
 }
 
-
-
 export interface PrivateCallStackItem {
-  contract_address: Address;
+  contract_address: AztecAddress;
   public_inputs: PrivateCircuitPublicInputs;
   function_data: FunctionData;
   is_execution_request: boolean;
 }
 
-
-
-
 export interface FunctionLeafMembershipWitness {
   leaf_index: Field;
-  sibling_path: FixedLengthArray<Field, 4>;
+  sibling_path: FixedLengthArray<Field, 5>;
 }
-
 
 export interface ContractLeafMembershipWitness {
   leaf_index: Field;
   sibling_path: FixedLengthArray<Field, 16>;
 }
-
 
 export interface ReadRequestMembershipWitness {
   leaf_index: Field;
@@ -232,11 +198,10 @@ export interface ReadRequestMembershipWitness {
   hint_to_commitment: Field;
 }
 
-
-
 export interface PrivateCallData {
   call_stack_item: PrivateCallStackItem;
-  private_call_stack_preimages: FixedLengthArray<PrivateCallStackItem, 4>;
+  private_call_stack: FixedLengthArray<CallRequest, 4>;
+  public_call_stack: FixedLengthArray<CallRequest, 4>;
   proof: Proof;
   vk: VerificationKey;
   function_leaf_membership_witness: FunctionLeafMembershipWitness;
@@ -246,12 +211,10 @@ export interface PrivateCallData {
   acir_hash: Field;
 }
 
-
 export interface PrivateKernelInputsInner {
   previous_kernel: PreviousKernelData;
   private_call: PrivateCallData;
 }
-
 
 export type ReturnType = KernelCircuitPublicInputs;
 

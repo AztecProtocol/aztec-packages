@@ -14,6 +14,17 @@
 
 namespace proof_system {
 
+template <typename FF> struct non_native_field_witnesses {
+    // first 4 array elements = limbs
+    // 5th element = prime basis limb
+    std::array<uint32_t, 5> a;
+    std::array<uint32_t, 5> b;
+    std::array<uint32_t, 5> q;
+    std::array<uint32_t, 5> r;
+    std::array<FF, 5> neg_modulus;
+    FF modulus;
+};
+
 using namespace barretenberg;
 
 template <typename Arithmetization>
@@ -23,7 +34,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
-    static constexpr size_t num_selectors = Arithmetization::num_selectors;
+    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
     std::vector<std::string> selector_names = Arithmetization::selector_names;
 
     static constexpr std::string_view NAME_STRING = "UltraArithmetization";
@@ -44,17 +55,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     static constexpr size_t NUM_RESERVED_GATES = 4;
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
-
-    struct non_native_field_witnesses {
-        // first 4 array elements = limbs
-        // 5th element = prime basis limb
-        std::array<uint32_t, 5> a;
-        std::array<uint32_t, 5> b;
-        std::array<uint32_t, 5> q;
-        std::array<uint32_t, 5> r;
-        std::array<FF, 5> neg_modulus;
-        FF modulus;
-    };
 
     enum AUX_SELECTORS {
         NONE,
@@ -206,18 +206,59 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             return valid;
         }
 
+        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec)
+        {
+            std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
+
+            std::vector<cached_partial_non_native_field_multiplication> uniqueVec;
+
+            for (const auto& item : vec) {
+                if (seen.insert(item).second) {
+                    uniqueVec.push_back(item);
+                }
+            }
+
+            vec.swap(uniqueVec);
+        }
+
         bool operator<(const cached_partial_non_native_field_multiplication& other) const
         {
             if (a < other.a) {
                 return true;
             }
-            if (a == other.a) {
-                if (b < other.b) {
-                    return true;
-                }
+            if (other.a < a) {
+                return false;
             }
-            return false;
+            if (b < other.b) {
+                return true;
+            }
+            return other.b < b;
         }
+
+        struct Hash {
+            size_t operator()(const cached_partial_non_native_field_multiplication& obj) const
+            {
+                size_t combined_hash = 0;
+
+                // C++ does not have a standard way to hash values, so we use the
+                // common algorithm that boot uses.
+                // You can search for 'cpp hash_combine' to find more information.
+                // Here is one reference:
+                // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
+                auto hash_combiner = [](size_t lhs, size_t rhs) {
+                    return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+                };
+
+                for (const auto& elem : obj.a) {
+                    combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
+                }
+                for (const auto& elem : obj.b) {
+                    combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
+                }
+
+                return combined_hash;
+            }
+        };
     };
 
     struct non_native_field_multiplication_cross_terms {
@@ -280,7 +321,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             cached_partial_non_native_field_multiplications;
 
         size_t num_gates;
-        bool circuit_finalised = false;
+        bool circuit_finalized = false;
         /**
          * @brief Stores the state of everything logic-related in the builder.
          *
@@ -303,21 +344,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             stored_state.real_variable_index = builder.real_variable_index;
             stored_state.real_variable_tags = builder.real_variable_tags;
             stored_state.constant_variable_indices = builder.constant_variable_indices;
-            stored_state.w_l = builder.w_l;
-            stored_state.w_r = builder.w_r;
-            stored_state.w_o = builder.w_o;
-            stored_state.w_4 = builder.w_4;
-            stored_state.q_m = builder.q_m;
-            stored_state.q_c = builder.q_c;
-            stored_state.q_1 = builder.q_1;
-            stored_state.q_2 = builder.q_2;
-            stored_state.q_3 = builder.q_3;
-            stored_state.q_4 = builder.q_4;
-            stored_state.q_arith = builder.q_arith;
-            stored_state.q_sort = builder.q_sort;
-            stored_state.q_elliptic = builder.q_elliptic;
-            stored_state.q_aux = builder.q_aux;
-            stored_state.q_lookup_type = builder.q_lookup_type;
+            stored_state.w_l = builder.w_l();
+            stored_state.w_r = builder.w_r();
+            stored_state.w_o = builder.w_o();
+            stored_state.w_4 = builder.w_4();
+            stored_state.q_m = builder.q_m();
+            stored_state.q_c = builder.q_c();
+            stored_state.q_1 = builder.q_1();
+            stored_state.q_2 = builder.q_2();
+            stored_state.q_3 = builder.q_3();
+            stored_state.q_4 = builder.q_4();
+            stored_state.q_arith = builder.q_arith();
+            stored_state.q_sort = builder.q_sort();
+            stored_state.q_elliptic = builder.q_elliptic();
+            stored_state.q_aux = builder.q_aux();
+            stored_state.q_lookup_type = builder.q_lookup_type();
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -327,7 +368,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             stored_state.memory_read_records = builder.memory_read_records;
             stored_state.memory_write_records = builder.memory_write_records;
             stored_state.range_lists = builder.range_lists;
-            stored_state.circuit_finalised = builder.circuit_finalised;
+            stored_state.circuit_finalized = builder.circuit_finalized;
             stored_state.num_gates = builder.num_gates;
             stored_state.cached_partial_non_native_field_multiplications =
                 builder.cached_partial_non_native_field_multiplications;
@@ -364,7 +405,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             stored_state.memory_read_records = builder->memory_read_records;
             stored_state.memory_write_records = builder->memory_write_records;
             stored_state.range_lists = builder->range_lists;
-            stored_state.circuit_finalised = builder->circuit_finalised;
+            stored_state.circuit_finalized = builder->circuit_finalized;
             stored_state.num_gates = builder->num_gates;
             stored_state.cached_partial_non_native_field_multiplications =
                 builder->cached_partial_non_native_field_multiplications;
@@ -399,24 +440,24 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             builder->memory_read_records = memory_read_records;
             builder->memory_write_records = memory_write_records;
             builder->range_lists = range_lists;
-            builder->circuit_finalised = circuit_finalised;
+            builder->circuit_finalized = circuit_finalized;
             builder->num_gates = num_gates;
             builder->cached_partial_non_native_field_multiplications = cached_partial_non_native_field_multiplications;
-            builder->w_l.resize(num_gates);
-            builder->w_r.resize(num_gates);
-            builder->w_o.resize(num_gates);
-            builder->w_4.resize(num_gates);
-            builder->q_m.resize(num_gates);
-            builder->q_c.resize(num_gates);
-            builder->q_1.resize(num_gates);
-            builder->q_2.resize(num_gates);
-            builder->q_3.resize(num_gates);
-            builder->q_4.resize(num_gates);
-            builder->q_arith.resize(num_gates);
-            builder->q_sort.resize(num_gates);
-            builder->q_elliptic.resize(num_gates);
-            builder->q_aux.resize(num_gates);
-            builder->q_lookup_type.resize(num_gates);
+            builder->w_l().resize(num_gates);
+            builder->w_r().resize(num_gates);
+            builder->w_o().resize(num_gates);
+            builder->w_4().resize(num_gates);
+            builder->q_m().resize(num_gates);
+            builder->q_c().resize(num_gates);
+            builder->q_1().resize(num_gates);
+            builder->q_2().resize(num_gates);
+            builder->q_3().resize(num_gates);
+            builder->q_4().resize(num_gates);
+            builder->q_arith().resize(num_gates);
+            builder->q_sort().resize(num_gates);
+            builder->q_elliptic().resize(num_gates);
+            builder->q_aux().resize(num_gates);
+            builder->q_lookup_type().resize(num_gates);
         }
         /**
          * @brief Checks that the circuit state is the same as the stored circuit's one
@@ -448,49 +489,49 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             if (!(constant_variable_indices == builder.constant_variable_indices)) {
                 return false;
             }
-            if (!(w_l == builder.w_l)) {
+            if (!(w_l == builder.w_l())) {
                 return false;
             }
-            if (!(w_r == builder.w_r)) {
+            if (!(w_r == builder.w_r())) {
                 return false;
             }
-            if (!(w_o == builder.w_o)) {
+            if (!(w_o == builder.w_o())) {
                 return false;
             }
-            if (!(w_4 == builder.w_4)) {
+            if (!(w_4 == builder.w_4())) {
                 return false;
             }
-            if (!(q_m == builder.q_m)) {
+            if (!(q_m == builder.q_m())) {
                 return false;
             }
-            if (!(q_c == builder.q_c)) {
+            if (!(q_c == builder.q_c())) {
                 return false;
             }
-            if (!(q_1 == builder.q_1)) {
+            if (!(q_1 == builder.q_1())) {
                 return false;
             }
-            if (!(q_2 == builder.q_2)) {
+            if (!(q_2 == builder.q_2())) {
                 return false;
             }
-            if (!(q_3 == builder.q_3)) {
+            if (!(q_3 == builder.q_3())) {
                 return false;
             }
-            if (!(q_4 == builder.q_4)) {
+            if (!(q_4 == builder.q_4())) {
                 return false;
             }
-            if (!(q_arith == builder.q_arith)) {
+            if (!(q_arith == builder.q_arith())) {
                 return false;
             }
-            if (!(q_sort == builder.q_sort)) {
+            if (!(q_sort == builder.q_sort())) {
                 return false;
             }
-            if (!(q_elliptic == builder.q_elliptic)) {
+            if (!(q_elliptic == builder.q_elliptic())) {
                 return false;
             }
-            if (!(q_aux == builder.q_aux)) {
+            if (!(q_aux == builder.q_aux())) {
                 return false;
             }
-            if (!(q_lookup_type == builder.q_lookup_type)) {
+            if (!(q_lookup_type == builder.q_lookup_type())) {
                 return false;
             }
             if (!(current_tag == builder.current_tag)) {
@@ -521,7 +562,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
             if (!(num_gates == builder.num_gates)) {
                 return false;
             }
-            if (!(circuit_finalised == builder.circuit_finalised)) {
+            if (!(circuit_finalized == builder.circuit_finalized)) {
                 return false;
             }
             return true;
@@ -534,22 +575,39 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
-    WireVector& w_l = std::get<0>(wires);
-    WireVector& w_r = std::get<1>(wires);
-    WireVector& w_o = std::get<2>(wires);
-    WireVector& w_4 = std::get<3>(wires);
+    WireVector& w_l() { return std::get<0>(wires); };
+    WireVector& w_r() { return std::get<1>(wires); };
+    WireVector& w_o() { return std::get<2>(wires); };
+    WireVector& w_4() { return std::get<3>(wires); };
 
-    SelectorVector& q_m = selectors.q_m();
-    SelectorVector& q_c = selectors.q_c();
-    SelectorVector& q_1 = selectors.q_1();
-    SelectorVector& q_2 = selectors.q_2();
-    SelectorVector& q_3 = selectors.q_3();
-    SelectorVector& q_4 = selectors.q_4();
-    SelectorVector& q_arith = selectors.q_arith();
-    SelectorVector& q_sort = selectors.q_sort();
-    SelectorVector& q_elliptic = selectors.q_elliptic();
-    SelectorVector& q_aux = selectors.q_aux();
-    SelectorVector& q_lookup_type = selectors.q_lookup_type();
+    const WireVector& w_l() const { return std::get<0>(wires); };
+    const WireVector& w_r() const { return std::get<1>(wires); };
+    const WireVector& w_o() const { return std::get<2>(wires); };
+    const WireVector& w_4() const { return std::get<3>(wires); };
+
+    SelectorVector& q_m() { return selectors.q_m(); };
+    SelectorVector& q_c() { return selectors.q_c(); };
+    SelectorVector& q_1() { return selectors.q_1(); };
+    SelectorVector& q_2() { return selectors.q_2(); };
+    SelectorVector& q_3() { return selectors.q_3(); };
+    SelectorVector& q_4() { return selectors.q_4(); };
+    SelectorVector& q_arith() { return selectors.q_arith(); };
+    SelectorVector& q_sort() { return selectors.q_sort(); };
+    SelectorVector& q_elliptic() { return selectors.q_elliptic(); };
+    SelectorVector& q_aux() { return selectors.q_aux(); };
+    SelectorVector& q_lookup_type() { return selectors.q_lookup_type(); };
+
+    const SelectorVector& q_c() const { return selectors.q_c(); };
+    const SelectorVector& q_1() const { return selectors.q_1(); };
+    const SelectorVector& q_2() const { return selectors.q_2(); };
+    const SelectorVector& q_3() const { return selectors.q_3(); };
+    const SelectorVector& q_4() const { return selectors.q_4(); };
+    const SelectorVector& q_arith() const { return selectors.q_arith(); };
+    const SelectorVector& q_sort() const { return selectors.q_sort(); };
+    const SelectorVector& q_elliptic() const { return selectors.q_elliptic(); };
+    const SelectorVector& q_aux() const { return selectors.q_aux(); };
+    const SelectorVector& q_lookup_type() const { return selectors.q_lookup_type(); };
+    const SelectorVector& q_m() const { return selectors.q_m(); };
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
@@ -584,21 +642,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
-    bool circuit_finalised = false;
+    bool circuit_finalized = false;
 
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
         selectors.reserve(size_hint);
-        w_l.reserve(size_hint);
-        w_r.reserve(size_hint);
-        w_o.reserve(size_hint);
-        w_4.reserve(size_hint);
+        w_l().reserve(size_hint);
+        w_r().reserve(size_hint);
+        w_o().reserve(size_hint);
+        w_4().reserve(size_hint);
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
-    UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = delete;
+    UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<FF>(std::move(other))
     {
@@ -614,9 +672,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         memory_read_records = other.memory_read_records;
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalised = other.circuit_finalised;
+        circuit_finalized = other.circuit_finalized;
     };
-    UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = delete;
+    UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
@@ -632,10 +690,29 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         memory_read_records = other.memory_read_records;
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
-        circuit_finalised = other.circuit_finalised;
+        circuit_finalized = other.circuit_finalized;
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;
+
+    /**
+     * @brief Debug helper method for ensuring all selectors have the same size
+     * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
+     * selectors will lead to an unsatisfiable circuit. This method provides a mechanism for ensuring that each selector
+     * has been updated as expected. Its logic is only active in debug mode.
+     *
+     */
+    void check_selector_length_consistency()
+    {
+#if NDEBUG
+        // do nothing
+#else
+        size_t nominal_size = selectors.get()[0].size();
+        for (size_t idx = 1; idx < selectors.get().size(); ++idx) {
+            ASSERT(selectors.get()[idx].size() == nominal_size);
+        }
+#endif // NDEBUG
+    }
 
     void finalize_circuit();
 
@@ -667,7 +744,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
              *      circuit!
              *      this range constraint will increase the size of the 'sorted set' of range-constrained integers by 1.
              *      The 'non-sorted set' of range-constrained integers is a subset of the wire indices of all arithmetic
-             *      gates. No arithemtic gate => size imbalance between sorted and non-sorted sets. Checking for this
+             *      gates. No arithmetic gate => size imbalance between sorted and non-sorted sets. Checking for this
              *      and throwing an error would require a refactor of the Composer to catelog all 'orphan' variables not
              *      assigned to gates.
              *
@@ -807,8 +884,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
      */
     size_t get_num_gates() const override
     {
-        // if circuit finalised already added extra gates
-        if (circuit_finalised) {
+        // if circuit finalized already added extra gates
+        if (circuit_finalized) {
             return this->num_gates;
         }
         size_t count = 0;
@@ -946,8 +1023,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_field_witnesses& input, const bool range_constrain_quotient_and_remainder = true);
-    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses& input);
+        const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder = true);
+    std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     typedef std::pair<uint32_t, FF> scaled_witness;
     typedef std::tuple<scaled_witness, scaled_witness, FF> add_simple;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -1049,5 +1126,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     bool check_circuit();
 };
 extern template class UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
+extern template class UltraCircuitBuilder_<arithmetization::UltraHonk<barretenberg::fr>>;
 using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<barretenberg::fr>>;
 } // namespace proof_system

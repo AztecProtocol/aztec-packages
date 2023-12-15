@@ -1,7 +1,11 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
     use dep::std::option::Option;
-
+    use dep::protocol_types::constants::EMPTY_NULLIFIED_COMMITMENT;
+    use dep::protocol_types::address::{
+        AztecAddress,
+        EthAddress,
+    };
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
     // docs:end:unencrypted_import
@@ -24,15 +28,15 @@ contract Test {
         state_vars::immutable_singleton::ImmutableSingleton,
         log::emit_unencrypted_log_from_private,
         types::vec::BoundedVec,
-        constants_gen::EMPTY_NULLIFIED_COMMITMENT,
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
 
-    #[event]
-    struct ExampleEvent {
-        value: Field,
-    }
+    // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3655
+    // #[event]
+    // struct ExampleEvent {
+    //     value: Field,
+    // }
 
     struct Storage {
         example_constant: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
@@ -52,31 +56,27 @@ contract Test {
     // docs:end:empty-constructor
 
     #[aztec(private)]
-    fn get_public_key(
-        address: Field,
-    ) -> [Field; 2]{
+    fn get_public_key(address: AztecAddress) -> [Field; 2] {
         let pub_key = get_public_key_oracle(address);
-        
+
         [pub_key.x, pub_key.y]
     }
 
     // Get the portal contract address through an oracle call
     #[aztec(private)]
-    fn get_portal_contract_address(
-        aztec_address: Field
-    ) -> Field {
+    fn get_portal_contract_address(aztec_address: AztecAddress) -> EthAddress {
         get_portal_address(aztec_address)
     }
 
     // Get the address of the l1 portal for this contract (taken from the input context)
     #[aztec(private)]
-    fn get_this_portal_address() -> Field {
+    fn get_this_portal_address() -> EthAddress {
         context.this_portal_address()
     }
 
     // Get the address of this contract (taken from the input context)
     #[aztec(private)]
-    fn get_this_address() -> Field {
+    fn get_this_address() -> AztecAddress {
         context.this_address()
     }
 
@@ -90,7 +90,7 @@ contract Test {
         a_number: u32,
         an_array: [Field; 2],
         a_struct: DummyNote,
-        a_deep_struct: DeepStruct,
+        a_deep_struct: DeepStruct
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
         args.push(a_field);
@@ -105,7 +105,7 @@ contract Test {
         args.push(a_deep_struct.a_note.secret_hash);
         for note in a_deep_struct.many_notes {
             args.push(note.amount);
-            args.push(note.secret_hash);            
+            args.push(note.secret_hash);
         }
         let args_hash = abi::hash_args(args.storage);
         let mut context = PrivateContext::new(inputs, args_hash);
@@ -115,27 +115,20 @@ contract Test {
 
     // Purely exists for testing
     #[aztec(public)]
-    fn create_l2_to_l1_message_public(
-        amount: Field,
-        secret_hash: Field,
-    ) {
+    fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
-        
+
         // Public oracle call to emit new commitment.
         context.message_portal(note.get_commitment());
-        
     }
 
     // Purely exists for testing
     #[aztec(public)]
-    fn create_nullifier_public(
-        amount: Field,
-        secret_hash: Field,
-    ) {
+    fn create_nullifier_public(amount: Field, secret_hash: Field) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
-        
+
         // Public oracle call to emit new commitment.
         context.push_new_nullifier(note.get_commitment(), EMPTY_NULLIFIED_COMMITMENT);
     }
@@ -154,18 +147,14 @@ contract Test {
 
     // docs:start:is-time-equal
     #[aztec(public)]
-    fn is_time_equal(
-        time: Field,
-    ) -> Field {
+    fn is_time_equal(time: Field) -> Field {
         assert(context.timestamp() == time);
         time
     }
     // docs:end:is-time-equal
 
     #[aztec(public)]
-    fn emit_unencrypted(
-        value: Field
-    ) -> Field {
+    fn emit_unencrypted(value: Field) -> Field {
         // docs:start:emit_unencrypted
         emit_unencrypted_log(&mut context, value);
         // docs:end:emit_unencrypted
@@ -173,25 +162,19 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(
-        to: Field,
-        amount: Field,
-        canceller: Field,
-        msg_key: Field,
-        secret: Field,
-    ) {
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
     }
 
-     #[aztec(private)]
+    #[aztec(private)]
     fn consume_mint_private_message(
-        secret_hash_for_redeeming_minted_notes: Field, 
+        secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        canceller: Field,
+        canceller: EthAddress,
         msg_key: Field,
-        secret_for_L1_to_L2_message_consumption: Field, 
+        secret_for_L1_to_L2_message_consumption: Field
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
@@ -199,9 +182,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn set_constant(
-        value: Field,
-    ) {
+    fn set_constant(value: Field) {
         let mut note = FieldNote::new(value);
         storage.example_constant.initialize(&mut note, Option::none(), false);
     }
@@ -212,9 +193,7 @@ contract Test {
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(
-        kindaSeed: Field
-    ) -> Field {
+    unconstrained fn get_random(kindaSeed: Field) -> Field {
         kindaSeed * rand()
     }
 
@@ -224,14 +203,14 @@ contract Test {
     }
 
     impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> pub Self {
+        fn new(amount: Field, secret_hash: Field) -> Self {
             Self {
                 amount: amount,
                 secret_hash: secret_hash
             }
         }
 
-        fn get_commitment(self) -> pub Field {
+        fn get_commitment(self) -> Field {
             pedersen_hash([self.amount, self.secret_hash],0)
         }
     }
@@ -248,7 +227,8 @@ contract Test {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; FIELD_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, serialized_note)
     }
 }

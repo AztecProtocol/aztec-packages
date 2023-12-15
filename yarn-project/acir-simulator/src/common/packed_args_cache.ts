@@ -1,4 +1,4 @@
-import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { PackedArguments } from '@aztec/types';
 
 /**
@@ -7,10 +7,10 @@ import { PackedArguments } from '@aztec/types';
 export class PackedArgsCache {
   private cache: Map<bigint, Fr[]>;
 
-  constructor(initialArguments: PackedArguments[] = [], private wasm: CircuitsWasm) {
+  constructor(initialArguments: PackedArguments[] = []) {
     this.cache = new Map();
     for (const initialArg of initialArguments) {
-      this.cache.set(initialArg.hash.value, initialArg.args);
+      this.cache.set(initialArg.hash.toBigInt(), initialArg.args);
     }
   }
 
@@ -19,9 +19,8 @@ export class PackedArgsCache {
    * @param initialArguments - The initial arguments to add to the cache.
    * @returns The new packed arguments cache.
    */
-  public static async create(initialArguments: PackedArguments[] = []): Promise<PackedArgsCache> {
-    const wasm = await CircuitsWasm.get();
-    return new PackedArgsCache(initialArguments, wasm);
+  public static create(initialArguments: PackedArguments[] = []) {
+    return new PackedArgsCache(initialArguments);
   }
 
   /**
@@ -30,7 +29,7 @@ export class PackedArgsCache {
    * @returns The unpacked arguments.
    */
   public unpack(hash: Fr): Fr[] {
-    if (hash.equals(Fr.zero())) {
+    if (hash.equals(Fr.ZERO)) {
       return [];
     }
     const packedArgs = this.cache.get(hash.value);
@@ -45,11 +44,11 @@ export class PackedArgsCache {
    * @param args - The arguments to pack.
    * @returns The hash of the packed arguments.
    */
-  public async pack(args: Fr[]): Promise<Fr> {
+  public pack(args: Fr[]) {
     if (args.length === 0) {
-      return Fr.zero();
+      return Fr.ZERO;
     }
-    const packedArguments = await PackedArguments.fromArgs(args, this.wasm);
+    const packedArguments = PackedArguments.fromArgs(args);
     this.cache.set(packedArguments.hash.value, packedArguments.args);
     return packedArguments.hash;
   }

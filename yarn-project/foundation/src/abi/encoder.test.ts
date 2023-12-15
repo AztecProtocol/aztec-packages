@@ -25,7 +25,7 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [field])).toEqual([field]);
   });
 
-  it.each(['AztecAddress', 'EthereumAddress'])('accepts address instance for %s structs', (structType: string) => {
+  it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.SECRET,
@@ -35,7 +35,7 @@ describe('abi/encoder', () => {
           name: 'owner',
           type: {
             kind: 'struct',
-            path: `aztec::types::address::${structType}`,
+            path: `types::address::${structType}`,
             fields: [
               {
                 name: 'address',
@@ -96,7 +96,9 @@ describe('abi/encoder', () => {
       returnTypes: [],
     };
     const args = ['garbage'];
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError('Cannot convert garbage to a BigInt');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
+      `Type 'string' with value 'garbage' passed to BaseField ctor.`,
+    );
   });
 
   it('throws when passing object argument as field', () => {

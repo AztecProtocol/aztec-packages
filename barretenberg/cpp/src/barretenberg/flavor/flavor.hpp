@@ -15,7 +15,7 @@
  * relationships between these. We aim for a more uniform treatment, to enfore identical and informative naming, and to
  * prevent the developer having to think very much about the ordering of protocol entities in disparate places.
  *
- * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compatness, but which feels
+ * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compactness, but which feels
  * needlessly manual and low-level. In the past, this contained even more boolean parameters, making it quite hard to
  * parse. A typical construction is to loop over the polynomial manifest by extracting a globally-defined
  * "FOO_MANIFEST_SIZE" (the use of "manifest" here is distinct from the manifests in the transcript) to loop
@@ -64,6 +64,8 @@
  */
 
 #pragma once
+#include "barretenberg/common/std_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -75,53 +77,15 @@
 namespace proof_system::honk::flavor {
 
 /**
- * @brief Base data class template, a wrapper for std::array, from which every flavor class ultimately derives.
- *
- * @tparam T The underlying data type stored in the array
- * @tparam HandleType The type that will be used to
- * @tparam NUM_ENTITIES The size of the underlying array.
- */
-template <typename DataType, typename HandleType, size_t NUM_ENTITIES> class Entities_ {
-  public:
-    using ArrayType = std::array<DataType, NUM_ENTITIES>;
-    ArrayType _data;
-
-    virtual ~Entities_() = default;
-
-    DataType& operator[](size_t idx) { return _data[idx]; };
-    typename ArrayType::iterator begin() { return _data.begin(); };
-    typename ArrayType::iterator end() { return _data.end(); };
-
-    constexpr size_t size() { return NUM_ENTITIES; };
-};
-
-/**
  * @brief Base class template containing circuit-specifying data.
  *
  */
-template <typename DataType_, typename HandleType, size_t NUM_PRECOMPUTED_ENTITIES>
-class PrecomputedEntities_ : public Entities_<DataType_, HandleType, NUM_PRECOMPUTED_ENTITIES> {
+class PrecomputedEntitiesBase {
   public:
-    using DataType = DataType_;
-
     size_t circuit_size;
     size_t log_circuit_size;
     size_t num_public_inputs;
     CircuitType circuit_type; // TODO(#392)
-
-    virtual std::vector<HandleType> get_selectors() = 0;
-    virtual std::vector<HandleType> get_sigma_polynomials() = 0;
-    virtual std::vector<HandleType> get_id_polynomials() = 0;
-};
-
-/**
- * @brief Base class template containing witness (wires and derived witnesses).
- * @details Shifts are not included here since they do not occupy their own memory.
- */
-template <typename DataType, typename HandleType, size_t NUM_WITNESS_ENTITIES>
-class WitnessEntities_ : public Entities_<DataType, HandleType, NUM_WITNESS_ENTITIES> {
-  public:
-    virtual std::vector<HandleType> get_wires() = 0;
 };
 
 /**
@@ -137,13 +101,11 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
-    typename PrecomputedPolynomials::ArrayType& _precomputed_polynomials = PrecomputedPolynomials::_data;
-    typename WitnessPolynomials::ArrayType& _witness_polynomials = WitnessPolynomials::_data;
-
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
+    auto precomputed_polynomials_get_all() { return PrecomputedPolynomials::get_all(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -152,11 +114,11 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto& poly : _precomputed_polynomials) {
+        for (auto& poly : PrecomputedPolynomials::get_all()) {
             poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto& poly : _witness_polynomials) {
+        for (auto& poly : WitnessPolynomials::get_all()) {
             poly = Polynomial(circuit_size);
         }
     };
@@ -178,27 +140,10 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
     };
 };
 
-/**
- * @brief Base class containing all entities (or handles on these) in one place.
- *
- * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
- */
-template <typename DataType, typename HandleType, size_t NUM_ALL_ENTITIES>
-class AllEntities_ : public Entities_<DataType, DataType, NUM_ALL_ENTITIES> {
-  public:
-    virtual std::vector<HandleType> get_wires() = 0;
-    virtual std::vector<HandleType> get_unshifted() = 0;
-    virtual std::vector<HandleType> get_to_be_shifted() = 0;
-    virtual std::vector<HandleType> get_shifted() = 0;
-
-    // Because of how Gemini is written, is importat to put the polynomials out in this order.
-    std::vector<HandleType> get_unshifted_then_shifted()
-    {
-        std::vector<HandleType> result{ get_unshifted() };
-        std::vector<HandleType> shifted{ get_shifted() };
-        result.insert(result.end(), shifted.begin(), shifted.end());
-        return result;
-    };
+// Because of how Gemini is written, is importat to put the polynomials out in this order.
+auto get_unshifted_then_shifted(const auto& all_entities)
+{
+    return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**
@@ -235,6 +180,20 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
     }
 }
 
+/**
+ * @brief Recursive utility function to find the number of subrelations.
+ *
+ */
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_number_of_subrelations()
+{
+    if constexpr (Index >= std::tuple_size<Tuple>::value) {
+        return 0;
+    } else {
+        constexpr size_t subrelations_in_relation =
+            std::tuple_element_t<Index, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size();
+        return subrelations_in_relation + compute_number_of_subrelations<Tuple, Index + 1>();
+    }
+}
 /**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
@@ -293,7 +252,6 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 namespace proof_system::honk::flavor {
 class Ultra;
 class ECCVM;
-class ECCVMGrumpkin;
 class GoblinUltra;
 template <typename BuilderType> class UltraRecursive_;
 template <typename BuilderType> class GoblinUltraRecursive_;
@@ -335,11 +293,11 @@ concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircui
                                        honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>, 
                                        honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
-template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM, honk::flavor::ECCVMGrumpkin>;
+template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
 
 // clang-format on
 } // namespace proof_system

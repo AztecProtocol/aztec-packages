@@ -8,7 +8,7 @@ The Aztec Sandbox is an environment for local development on the Aztec Network. 
 
 Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
 
-- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This packages is currently in development and much of the functionality is mocked.
+- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups. This package is currently in development and much of the functionality is mocked.
 - [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/pxe) - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - [Aztec.js](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js) - Aztec's client library for interacting with the PXE (think Ethers.js). See the getting started guide [here](../getting_started/aztecjs-getting-started.md).
 
@@ -26,7 +26,7 @@ With the help of Aztec.js you will be able to:
 
 ## What's in the Sandbox?
 
-The sandbox contains a local Ethereum instance running [Anvil](https://book.getfoundry.sh/anvil/), a local instance of the Aztec rollup, an aztec private execution client for handling user transactions and state, and, if using Docker, an [Otterscan](https://github.com/otterscan/otterscan) block explorer for the local Ethereum network.
+The sandbox contains a local Ethereum instance running [Anvil](https://book.getfoundry.sh/anvil/), a local instance of the Aztec rollup and an aztec private execution client for handling user transactions and state.
 
 These provide a self contained environment which deploys Aztec on a local (empty) Ethereum network, creates 3 smart contract wallet accounts on the rollup, and allows transactions to be processed on the local Aztec sequencer.
 

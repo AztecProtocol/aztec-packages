@@ -26,12 +26,12 @@ import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-arti
 import {
   EmptyRollupProver,
   L1Publisher,
+  RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  WasmRollupCircuitSimulator,
-  getHistoricBlockData,
+  getBlockHeader,
   getL1Publisher,
   getVerificationKeys,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/sequencer-client';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -133,7 +133,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(levelup((memdown as any)())).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new WasmRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator();
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
@@ -152,12 +152,8 @@ describe('L1Publisher integration', () => {
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
-      historicTreeRoots,
-      new Fr(chainId),
-      new Fr(config.version),
-    );
+    const blockHeader = await getBlockHeader(builderDb, prevGlobals);
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(blockHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
@@ -166,7 +162,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.blockData = await getHistoricBlockData(builderDb, prevGlobals);
+    kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -192,9 +188,9 @@ describe('L1Publisher integration', () => {
     // Note: using max deadline
     const deadline = 2 ** 32 - 1;
     // getting the 32 byte hex string representation of the content
-    const contentString = content.toString(true);
+    const contentString = content.toString();
     // Using the 0 value for the secretHash.
-    const emptySecretHash = Fr.ZERO.toString(true);
+    const emptySecretHash = Fr.ZERO.toString();
 
     await inbox.write.sendL2Message(
       [
@@ -255,9 +251,9 @@ describe('L1Publisher integration', () => {
       expect(inboxLogs).toHaveLength(l1ToL2Messages.length * (i + 1));
       for (let j = 0; j < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; j++) {
         const event = inboxLogs[j + i * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP].args;
-        expect(event.content).toEqual(l1ToL2Content[j].toString(true));
+        expect(event.content).toEqual(l1ToL2Content[j].toString());
         expect(event.deadline).toEqual(2 ** 32 - 1);
-        expect(event.entryKey).toEqual(l1ToL2Messages[j].toString(true));
+        expect(event.entryKey).toEqual(l1ToL2Messages[j].toString());
         expect(event.fee).toEqual(0n);
         expect(event.recipient).toEqual(recipientAddress.toString());
         expect(event.recipientVersion).toEqual(1n);
@@ -284,13 +280,15 @@ describe('L1Publisher integration', () => {
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([l1ToL2Messages[j].toString(true)])).toBeTruthy();
+        if (l1ToL2Messages[j].isZero()) {
+          continue;
+        }
+        expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
       }
 
       // check that values are not in the outbox
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeFalsy();
+        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeFalsy();
       }
 
       // Useful for sol tests block generation
@@ -341,12 +339,14 @@ describe('L1Publisher integration', () => {
 
       // check that values have been consumed from the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) continue;
-        expect(await inbox.read.contains([l1ToL2Messages[j].toString(true)])).toBeFalsy();
+        if (l1ToL2Messages[j].isZero()) {
+          continue;
+        }
+        expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
       }
       // check that values are inserted into the outbox
       for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeTruthy();
+        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeTruthy();
       }
     }
   }, 360_000);
@@ -418,7 +418,11 @@ describe('L1Publisher integration', () => {
  * Converts a hex string into a buffer. String may be 0x-prefixed or not.
  */
 function hexStringToBuffer(hex: string): Buffer {
-  if (!/^(0x)?[a-fA-F0-9]+$/.test(hex)) throw new Error(`Invalid format for hex string: "${hex}"`);
-  if (hex.length % 2 === 1) throw new Error(`Invalid length for hex string: "${hex}"`);
+  if (!/^(0x)?[a-fA-F0-9]+$/.test(hex)) {
+    throw new Error(`Invalid format for hex string: "${hex}"`);
+  }
+  if (hex.length % 2 === 1) {
+    throw new Error(`Invalid length for hex string: "${hex}"`);
+  }
   return Buffer.from(hex.replace(/^0x/, ''), 'hex');
 }

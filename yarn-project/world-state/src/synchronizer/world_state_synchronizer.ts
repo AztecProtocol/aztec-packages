@@ -48,9 +48,9 @@ export interface WorldStateSynchronizer {
   /**
    * Forces an immediate sync to an optionally provided minimum block number
    * @param minBlockNumber - The minimum block number that we must sync to
-   * @returns A promise that resolves once the sync has completed.
+   * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: number): Promise<void>;
+  syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
    * Returns an instance of MerkleTreeOperations that will include uncommitted data.
@@ -63,4 +63,11 @@ export interface WorldStateSynchronizer {
    * @returns An instance of MerkleTreeOperations that will not include uncommitted data.
    */
   getCommitted(): MerkleTreeOperations;
+
+  /**
+   * Returns a readonly instance of MerkleTreeOperations where the state is as it was at the given block number
+   * @param block - The block number to look at
+   * @returns An instance of MerkleTreeOperations
+   */
+  getSnapshot(block: number): MerkleTreeOperations;
 }

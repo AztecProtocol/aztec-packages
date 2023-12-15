@@ -5,7 +5,8 @@ import { InvalidArgumentError } from 'commander';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
-import { getTxSender, parseSaltFromHexString, stripLeadingHex } from '../utils.js';
+import { parseSaltFromHexString } from '../parse_args.js';
+import { getTxSender, stripLeadingHex } from '../utils.js';
 import { mockContractArtifact } from './mocks.js';
 
 describe('CLI Utils', () => {
@@ -22,9 +23,11 @@ describe('CLI Utils', () => {
     subField1: field.toString(),
     subField2: 'true',
   };
+
   beforeEach(() => {
     client = mock<PXE>();
   });
+
   it('Gets a txSender correctly or throw error', async () => {
     // returns a parsed Aztec Address
     const aztecAddress = AztecAddress.random();
@@ -33,7 +36,7 @@ describe('CLI Utils', () => {
     expect(result).toEqual(aztecAddress);
 
     // returns an address found in the aztec client
-    const completeAddress = await CompleteAddress.random();
+    const completeAddress = CompleteAddress.random();
     client.getRegisteredAccounts.mockResolvedValueOnce([completeAddress]);
     const resultWithoutString = await getTxSender(client);
     expect(client.getRegisteredAccounts).toHaveBeenCalled();
@@ -41,19 +44,11 @@ describe('CLI Utils', () => {
 
     // throws when invalid parameter passed
     const errorAddr = 'foo';
-    await expect(
-      (async () => {
-        await getTxSender(client, errorAddr);
-      })(),
-    ).rejects.toThrow(`Invalid option 'from' passed: ${errorAddr}`);
+    await expect(getTxSender(client, errorAddr)).rejects.toThrow(`Invalid option 'from' passed: ${errorAddr}`);
 
     // Throws error when no string is passed & no accounts found in RPC
     client.getRegisteredAccounts.mockResolvedValueOnce([]);
-    await expect(
-      (async () => {
-        await getTxSender(client);
-      })(),
-    ).rejects.toThrow('No accounts found in PXE instance.');
+    await expect(getTxSender(client)).rejects.toThrow('No accounts found in PXE instance.');
   });
 
   it('Encodes args correctly', () => {

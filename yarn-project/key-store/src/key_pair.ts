@@ -42,7 +42,7 @@ export class ConstantKeyPair implements KeyPair {
     return this.publicKey;
   }
 
-  public getPrivateKey() {
-    return Promise.resolve(this.privateKey);
+  public getPrivateKey(): GrumpkinPrivateKey {
+    return this.privateKey;
   }
 }

@@ -2,19 +2,20 @@ import {
   PublicExecution,
   PublicExecutionResult,
   PublicExecutor,
+  PublicStateDB,
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
+  BlockHeader,
+  CallRequest,
   CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
-  HistoricBlockData,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -37,10 +38,10 @@ import {
   RETURN_VALUES_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeCallStackItemHash, computeVarArgsHash } from '@aztec/circuits.js/abis';
-import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd, padArrayStart } from '@aztec/foundation/collection';
+import { computeVarArgsHash } from '@aztec/circuits.js/abis';
+import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -48,10 +49,10 @@ import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB, getPublicExecutor } from '../simulator/public_executor.js';
-import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
+import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getHistoricBlockData } from './utils.js';
+import { getBlockHeader } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -74,16 +75,20 @@ export class PublicProcessorFactory {
     prevGlobalVariables: GlobalVariables,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockData = await getHistoricBlockData(this.merkleTree, prevGlobalVariables);
+    const blockHeader = await getBlockHeader(this.merkleTree, prevGlobalVariables);
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
+    const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
+    const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
+    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, blockHeader);
     return new PublicProcessor(
       this.merkleTree,
-      getPublicExecutor(this.merkleTree, publicContractsDB, this.l1Tol2MessagesDataSource, blockData),
-      new WasmPublicKernelCircuitSimulator(),
+      publicExecutor,
+      new RealPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       globalVariables,
-      blockData,
+      blockHeader,
       publicContractsDB,
+      worldStatePublicDB,
     );
   }
 }
@@ -99,8 +104,9 @@ export class PublicProcessor {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
-    protected blockData: HistoricBlockData,
+    protected blockHeader: BlockHeader,
     protected publicContractsDB: ContractsDataSourcePublicDB,
+    protected publicStateDB: PublicStateDB,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}
@@ -122,6 +128,8 @@ export class PublicProcessor {
         // add new contracts to the contracts db so that their functions may be found and called
         await this.publicContractsDB.addNewContracts(tx);
         result.push(await this.processTx(tx));
+        // commit the state updates from this transaction
+        await this.publicStateDB.commit();
       } catch (err) {
         this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push({
@@ -130,6 +138,8 @@ export class PublicProcessor {
         });
         // remove contracts on failure
         await this.publicContractsDB.removeNewContracts(tx);
+        // rollback any state updates from this failed transaction
+        await this.publicStateDB.rollback();
       }
     }
 
@@ -142,11 +152,11 @@ export class PublicProcessor {
    */
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
     const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.blockData, chainId, version);
+    return makeEmptyProcessedTx(this.blockHeader, chainId, version);
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
-    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
+    if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
@@ -160,7 +170,9 @@ export class PublicProcessor {
 
   protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
-    if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
+    if (!tx.enqueuedPublicFunctionCalls) {
+      throw new Error(`Missing preimages for enqueued public calls`);
+    }
 
     let kernelOutput = new KernelCircuitPublicInputs(
       CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
@@ -192,16 +204,17 @@ export class PublicProcessor {
           `Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`,
         );
         executionStack.push(...result.nestedExecutions);
-        const preimages = await this.getPublicCallStackPreimages(result);
-        const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
+        const callData = await this.getPublicCallData(result, isExecutionRequest);
 
         [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
 
-        if (!enqueuedExecutionResult) enqueuedExecutionResult = result;
+        if (!enqueuedExecutionResult) {
+          enqueuedExecutionResult = result;
+        }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
-      await this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
+      this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
@@ -246,13 +259,13 @@ export class PublicProcessor {
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    this.blockHeader.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
-    const wasm = await CircuitsWasm.get();
-
-    const publicCallStack = mapTuple(callStackPreimages, item =>
-      item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
+    const publicCallStackHashes = padArrayEnd(
+      callStackPreimages.map(c => c.hash()),
+      Fr.ZERO,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
@@ -262,7 +275,7 @@ export class PublicProcessor {
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
-      argsHash: await computeVarArgsHash(wasm, result.execution.args),
+      argsHash: computeVarArgsHash(result.execution.args),
       newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
@@ -277,10 +290,10 @@ export class PublicProcessor {
         ContractStorageUpdateRequest.empty(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
-      publicCallStack,
+      publicCallStackHashes,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      historicBlockData: this.blockData,
+      blockHeader: this.blockHeader,
     });
   }
 
@@ -293,17 +306,15 @@ export class PublicProcessor {
     );
   }
 
-  protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
+  protected async getPublicCallStackPreimages(result: PublicExecutionResult): Promise<PublicCallStackItem[]> {
     const nested = result.nestedExecutions;
-    const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
-    if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
+    if (nested.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
       throw new Error(
-        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`,
+        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${nested.length})`,
       );
     }
 
-    // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    return await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -321,16 +332,14 @@ export class PublicProcessor {
    * @param isExecutionRequest - Whether the current callstack item should be considered a public fn execution request.
    * @returns A corresponding PublicCallData object.
    */
-  protected async getPublicCallData(
-    result: PublicExecutionResult,
-    preimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    isExecutionRequest = false,
-  ) {
+  protected async getPublicCallData(result: PublicExecutionResult, isExecutionRequest = false) {
     const bytecodeHash = await this.getBytecodeHash(result);
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
+    const publicCallRequests = (await this.getPublicCallStackPreimages(result)).map(c => c.toCallRequest());
+    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
-    return new PublicCallData(callStackItem, preimages, proof, portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, proof, portalContractAddress, bytecodeHash);
   }
 
   // HACK(#1622): this is a hack to fix ordering of public state in the call stack. Since the private kernel
@@ -345,14 +354,10 @@ export class PublicProcessor {
    * @param publicInputs - to be patched here: public inputs to the kernel iteration up to this point
    * @param execResult - result of the top/first execution for this enqueued public call
    */
-  private async patchPublicStorageActionOrdering(
-    publicInputs: KernelCircuitPublicInputs,
-    execResult: PublicExecutionResult,
-  ) {
+  private patchPublicStorageActionOrdering(publicInputs: KernelCircuitPublicInputs, execResult: PublicExecutionResult) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
-    const wasm = await CircuitsWasm.get();
-    const simPublicDataReads = collectPublicDataReads(wasm, execResult);
-    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(wasm, execResult);
+    const simPublicDataReads = collectPublicDataReads(execResult);
+    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
 
     const { publicDataReads, publicDataUpdateRequests } = publicInputs.end; // from kernel
 

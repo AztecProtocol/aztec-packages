@@ -105,7 +105,17 @@ const sidebars = {
             id: "concepts/foundation/communication/main",
           },
           items: [
-            "concepts/foundation/communication/public_private_calls",
+            {
+              label: "Public <> Private Communication",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "concepts/foundation/communication/public_private_calls/main",
+              },
+              items: [
+                "concepts/foundation/communication/public_private_calls/slow_updates_tree"
+              ]
+            },
             "concepts/foundation/communication/cross_chain_calls",
           ],
         },
@@ -208,6 +218,7 @@ const sidebars = {
       },
       items: [
         "dev_docs/getting_started/quickstart",
+        "dev_docs/getting_started/core-concepts",
         "dev_docs/getting_started/aztecjs-getting-started",
         "dev_docs/getting_started/aztecnr-getting-started",
       ],
@@ -222,6 +233,8 @@ const sidebars = {
       },
       items: [
         "dev_docs/tutorials/writing_token_contract",
+        "dev_docs/tutorials/writing_private_voting_contract",
+
         {
           label: "Writing a DApp",
           type: "category",
@@ -317,6 +330,7 @@ const sidebars = {
             },
             "dev_docs/contracts/syntax/events",
             "dev_docs/contracts/syntax/functions",
+            "dev_docs/contracts/syntax/slow_updates_tree",
             "dev_docs/contracts/syntax/context",
             "dev_docs/contracts/syntax/globals",
           ],
@@ -347,10 +361,10 @@ const sidebars = {
             {
               label: "Common Patterns",
               type: "category",
-              //       link: {
-              //         type: "doc",
-              //         id: "dev_docs/contracts/resources/common_patterns/main",
-              //       },
+                    link: {
+                      type: "doc",
+                      id: "dev_docs/contracts/resources/common_patterns/main",
+                    },
               items: [
                 "dev_docs/contracts/resources/common_patterns/authwit",
                 //         "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",

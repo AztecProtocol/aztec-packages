@@ -20,7 +20,7 @@ In Aztec there are multiple different types of visibility that can be applied to
 
 ### Data Visibility
 
-Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls.md).
+Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private). Functions with public data visibility are executed by the sequencer, and functions with private data visibility are executed by the user. For more information on why this is the case, see [communication](../../../concepts/foundation/communication/public_private_calls/main.md).
 
 In the following sections, we are going to see how these two "types" co-exists and interact.
 
@@ -213,7 +213,7 @@ Calling a public function from another public function is quite similar to what 
 
 ### Private -> Public
 
-As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../concepts/foundation/communication/public_private_calls.md).
+As discussed above, private function execution and calls take place on the user's device, while public function execution and calls take place on a sequencer, in two different places at two different times, it is natural to question how we can achieve composability between the two. The solution is asynchronicity. Further reading can be found in the foundational concepts [here](../../../concepts/foundation/communication/public_private_calls/main.md).
 
 Private function execution takes place on the users device, where it keeps track of any public function calls that have been made. Whenever private execution completes, and a kernel proof is produced, the transaction sent to the network will include all of the public calls that were dispatched.
 When the sequencer receives the messages, it will take over and execute the public parts of the transaction.
@@ -286,10 +286,10 @@ The kernel can then check that all of the values passed to each circuit in a fun
 **Returning the context to the kernel.**
 #include_code context-example-return /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
-Just as the kernel passes information into the the app circuits, the application must return information about the executed app back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
+Just as the kernel passes information into the app circuits, the application must return information about the executed app back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`.
 
 > _Why is it called the `PrivateCircuitPublicInputs`_  
-> It is commonly asked why the return values of a function in a circuit are labelled as the `Public Inputs`. Common intuition from other programming paradigms suggests that the return values and public inputs should be distinct.  
+> It is commonly asked why the return values of a function in a circuit are labeled as the `Public Inputs`. Common intuition from other programming paradigms suggests that the return values and public inputs should be distinct.  
 > However; In the eyes of the circuit, anything that is publicly viewable (or checkable) is a public input. Hence in this case, the return values are also public inputs.
 
 This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the actual return values of the function!

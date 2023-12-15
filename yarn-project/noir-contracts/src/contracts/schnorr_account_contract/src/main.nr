@@ -6,6 +6,8 @@ contract SchnorrAccount {
     use dep::std;
     use dep::std::option::Option;
 
+    use dep::protocol_types::address::AztecAddress;
+
     use dep::aztec::{
         context::{PrivateContext, Context},
         note::{ note_header::NoteHeader, utils as note_utils },
@@ -27,7 +29,7 @@ contract SchnorrAccount {
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage_init
                 signing_public_key: ImmutableSingleton::new(context, 1, PublicKeyNoteMethods),
@@ -40,10 +42,7 @@ contract SchnorrAccount {
 
     // Constructs the contract
     #[aztec(private)]
-    fn constructor(
-        signing_pub_key_x: pub Field,
-        signing_pub_key_y: pub Field,
-    ) {
+    fn constructor(signing_pub_key_x: pub Field, signing_pub_key_y: pub Field) {
         let this = context.this_address();
         // docs:start:initialize
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
@@ -51,6 +50,7 @@ contract SchnorrAccount {
         // docs:end:initialize
     }
 
+    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     fn entrypoint(payload: pub EntrypointPayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
@@ -86,10 +86,15 @@ contract SchnorrAccount {
         // Load auth witness
         let witness: [Field; 64] = get_auth_witness(message_hash);
         let mut signature: [u8; 64] = [0; 64];
-        for i in 0..64 { signature[i] = witness[i] as u8; }
+        for i in 0..64 {
+            signature[i] = witness[i] as u8;
+        }
 
         // Verify signature of the payload bytes
-        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, message_hash.to_be_bytes(32));
+        let verification = std::schnorr::verify_signature(public_key.x,
+            public_key.y,
+            signature,
+            message_hash.to_be_bytes(32));
         assert(verification == true);
         // docs:end:entrypoint
         true
@@ -98,9 +103,15 @@ contract SchnorrAccount {
     // Computes notes hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
+    ) -> [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(PublicKeyNoteMethods, note_header, serialized_note)
     }
 }

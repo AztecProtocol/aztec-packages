@@ -1,7 +1,6 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
-  CompleteAddress,
   ContractData,
   ExtendedContractData,
   ExtendedNote,
@@ -41,6 +40,13 @@ export interface PXE {
    * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
+
+  /**
+   * Adding a capsule to the capsule dispenser.
+   * @param capsule - An array of field elements representing the capsule.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
+   */
+  addCapsule(capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.

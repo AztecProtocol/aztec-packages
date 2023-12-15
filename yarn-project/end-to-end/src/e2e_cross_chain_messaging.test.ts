@@ -59,9 +59,9 @@ describe('e2e_cross_chain_messaging', () => {
     const bridgeAmount = 100n;
 
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
     const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
@@ -96,14 +96,17 @@ describe('e2e_cross_chain_messaging', () => {
     // time to withdraw the funds again!
     logger('Withdrawing funds from L2');
 
+    // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = await computeAuthWitMessageHash(
+    const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn(ownerAddress, withdrawAmount, nonce).request(),
     );
-    await user1Wallet.createAuthWitness(burnMessageHash);
+    const witness = await user1Wallet.createAuthWitness(burnMessageHash);
+    await user1Wallet.addAuthWitness(witness);
+    // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
     const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
@@ -115,7 +118,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
 
-    expect(await outbox.read.contains([entryKey.toString(true)])).toBeFalsy();
+    expect(await outbox.read.contains([entryKey.toString()])).toBeFalsy();
   }, 120_000);
   // docs:end:e2e_private_cross_chain
 
@@ -124,9 +127,9 @@ describe('e2e_cross_chain_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
     const [secretForRedeemingMintedNotes, secretHashForRedeemingMintedNotes] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
@@ -190,7 +193,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const expectedBurnMessageHash = await computeAuthWitMessageHash(
+    const expectedBurnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
       l2Token.methods.burn(user1Wallet.getAddress(), withdrawAmount, nonce).request(),
     );
@@ -210,7 +213,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     // 2. Deposit tokens to the TokenPortal privately
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
-      await crossChainTestHarness.generateClaimSecret();
+      crossChainTestHarness.generateClaimSecret();
 
     const messageKey = await crossChainTestHarness.sendTokensToPortalPrivate(
       Fr.random(),

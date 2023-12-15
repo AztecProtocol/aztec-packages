@@ -1,8 +1,8 @@
 #include "common.hpp"
 #include "init.hpp"
 
+#include "aztec3/circuits/abis/block_header.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -20,13 +20,13 @@ using aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::is_array_empty;
 
 
-void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
+void initialize_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
 {
     // Define the constants data.
     auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
     auto const constants = CombinedConstantData<NT>{
-        .block_data = private_call_public_inputs.historic_block_data,
+        .block_header = private_call_public_inputs.block_header,
         .tx_context = private_inputs.tx_request.tx_context,
     };
 
@@ -155,7 +155,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuit
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(private_inputs, public_inputs);
+    initialize_end_values(private_inputs, public_inputs);
 
     validate_inputs(builder, private_inputs);
 
@@ -167,7 +167,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuit
 
     common_validate_read_requests(
         builder,
-        public_inputs.constants.block_data.note_hash_tree_root,
+        public_inputs.constants.block_header.note_hash_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 

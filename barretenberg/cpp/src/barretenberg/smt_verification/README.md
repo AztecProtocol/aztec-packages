@@ -3,7 +3,7 @@
 As for now it's required to build cvc5 library manually.
 
 <!-- 
-- navigate yourself into barratenberg/cpp/src/cvc5 directory
+- navigate yourself into barretenberg/cpp/src/cvc5 directory
 - run `./configure.sh production --auto-download --cocoa --cryptominisat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix="./tmp-lib"`
 - `cd build && make -j4`
 - `make install` 
@@ -71,7 +71,7 @@ To store it on the disk just do
     
     `FFTerm` - the symbolic value that simulates finite field elements. 
 
-    `FFTerm` - the symbolic value that simulates integer elements which behave like finite field ones. Usefull, when you want to create range constraints or perform operations like XOR.
+    `FFTerm` - the symbolic value that simulates integer elements which behave like finite field ones. Useful, when you want to create range constraints or perform operations like XOR.
     
     `Bool` - simulates the boolean values and mostly will be used only to simulate complex `if` statements if needed.
 	
