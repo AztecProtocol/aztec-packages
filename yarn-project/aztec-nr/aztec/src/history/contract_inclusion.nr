@@ -13,14 +13,14 @@ use crate::{
     oracle::get_membership_witness::get_contract_membership_witness,
 };
 
-// Proves that the contract address, portal address and function tree root form a valid contract preimage of a leaf
-// which exists at block `block_number`.
+// Proves that a contract exists at block `block_number` and returns its address.
 // Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
 //       way verify that a contract at a given address is what it expects. Then it could store it in an internal
 //       map of contracts (like what Uniswap Factory does with pool contracts - it stores them in a mapping).
 //       By passing in the construct hash the factory can also verify that the contract was constructed with the
-//       correct constructor arguments. Typically the factory would store the expect construct hash and assert that
-//       it is what it expects.
+//       correct constructor arguments. Typically the factory would store the expected construct hash and assert that
+//       it is what it expects. The constructor param check is the reason of why we pass in the preimage of contract's
+//       aztec address instead of just the address.
 pub fn prove_contract_inclusion(
     deployer_public_key: Point,
     contract_address_salt: Field,
