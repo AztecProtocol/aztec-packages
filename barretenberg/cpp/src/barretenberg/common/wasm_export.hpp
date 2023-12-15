@@ -10,7 +10,7 @@
 
 #ifdef __wasm__
 // Allow linker to not link this
-#define WASM_IMPORT extern "C" __attribute__((weak))
+#define WASM_IMPORT extern "C" __attribute__((import_module("env")))
 #else
 #define WASM_IMPORT extern "C"
 #endif
