@@ -99,12 +99,12 @@ contract EasyPrivateVoting {
     }
     // docs:end:end_vote
     // docs:start:get_vote
-    unconstrained fn get_vote(candidate: Field) -> Field {
+    unconstrained fn get_vote(candidate: Field) -> pub Field {
         storage.tally.at(candidate).read()
     }
     // docs:end:get_vote
     // docs:start:compute_note_hash_and_nullifier
-     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
+     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> pub [Field; 4] {
         [0, 0, 0, 0]
     }
     // docs:end:compute_note_hash_and_nullifier

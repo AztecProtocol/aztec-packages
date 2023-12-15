@@ -293,11 +293,11 @@ contract Lending {
         storage.static_debt.at(owner.to_field()).write(debt_returns.static_debt as Field);
     }
 
-    unconstrained fn get_asset(assetId: Field) -> Asset {
+    unconstrained fn get_asset(assetId: Field) -> pub Asset {
         storage.assets.at(assetId).read()
     }
 
-    unconstrained fn get_position(owner: AztecAddress) -> Position {
+    unconstrained fn get_position(owner: AztecAddress) -> pub Position {
         let collateral = storage.collateral.at(owner.to_field()).read();
         let static_debt = storage.static_debt.at(owner.to_field()).read();
         let asset = storage.assets.at(0).read();
@@ -305,12 +305,12 @@ contract Lending {
         Position { collateral, static_debt, debt }
     }
 
-    unconstrained fn get_assets() -> [AztecAddress; 2] {
+    unconstrained fn get_assets() -> pub [AztecAddress; 2] {
         [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> pub [Field; 4] {
         [0, 0, 0, 0]
     }
 }

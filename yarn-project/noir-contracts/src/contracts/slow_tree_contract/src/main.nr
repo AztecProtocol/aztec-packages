@@ -147,15 +147,15 @@ contract SlowTree {
         storage.trees.at(caller).update_unsafe_at(index, new_value, new_root);
     }
     // docs:end:_update
-    unconstrained fn un_read_leaf_at(address: AztecAddress, key: Field) -> Leaf {
+    unconstrained fn un_read_leaf_at(address: AztecAddress, key: Field) -> pub Leaf {
         storage.trees.at(address.to_field()).read_leaf_at(key)
     }
 
-    unconstrained fn un_read_root(address: AztecAddress) -> Leaf {
+    unconstrained fn un_read_root(address: AztecAddress) -> pub Leaf {
         storage.trees.at(address.to_field()).read_root()
     }
 
-    unconstrained fn compute_note_hash_and_nullifier(_contract_address: Field, _nonce: Field, _storage_slot: Field, _serialized_note: [Field; 4]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(_contract_address: Field, _nonce: Field, _storage_slot: Field, _serialized_note: [Field; 4]) -> pub [Field; 4] {
         [0x0d, 0x0e, 0x0a, 0x0d]
     }
 }

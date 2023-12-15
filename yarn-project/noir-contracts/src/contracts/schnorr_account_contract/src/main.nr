@@ -108,7 +108,7 @@ contract SchnorrAccount {
         nonce: Field,
         storage_slot: Field,
         serialized_note: [Field; PUBLIC_KEY_NOTE_LEN]
-    ) -> [Field; 4] {
+    ) -> pub [Field; 4] {
         assert(storage_slot == 1);
         let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
         let note_header = NoteHeader::new(_address, nonce, storage_slot);
