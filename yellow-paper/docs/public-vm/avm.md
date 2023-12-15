@@ -111,3 +111,52 @@ MessageCallResults {
     output: [] | undefined,
 }
 ```
+
+### Context initialization for initial call
+This section outlines AVM context initialization specifically for a **public execution request's initial message call** (_i.e._ not a nested message call). Context initialization for nested message calls will be explained in a later section.
+
+When AVM execution is initiated for a public execution request, the AVM context is initialized as follows:
+```
+context = AVMContext {
+    environment: INITIAL_EXECUTION_ENVIRONMENT,
+    machineState: INITIAL_MACHINE_STATE,
+    accruedSubstate: empty,
+    worldState: <latest world state>,
+    results: INITIAL_MESSAGE_CALL_RESULTS,
+}
+```
+> Note: Since world state persists between transactions, the latest state is injected into a new AVM context.
+
+Given a `PublicCallRequest` and its parent `TxRequest`, these above-listed "`INITIAL_*`" entries are defined as follows:
+```
+INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
+    address: PublicCallRequest.contractAddress,
+    storageAddress: PublicCallRequest.CallContext.storageContractAddress,
+    origin: TxRequest.origin,
+    l1GasPrice: TxRequest.l1GasPrice,
+    l2GasPrice: TxRequest.l2GasPrice,
+    calldata: PublicCallRequest.args,
+    sender: PublicCallRequest.CallContext.msgSender,
+    portal: PublicCallRequest.CallContext.portalContractAddress,
+    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
+    blockHeader: <latest block header>,
+    globalVariables: <latest global variable values>
+    messageCallDepth: 0,
+    isStaticCall: PublicCallRequest.CallContext.isStaticCall,
+    isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
+}
+
+INITIAL_MACHINE_STATE = MachineState {
+    l1GasLeft: TxRequest.l1GasLimit,
+    l2GasLeft: TxRequest.l2GasLimit,
+    pc: 0,
+    memory: uninitialized,
+}
+
+INITIAL_MESSAGE_CALL_RESULTS = MessageCallResults {
+    reverted: false,
+    output: undefined,
+}
+```
+
+> Note: unlike memory in the Ethereum Virtual Machine, uninitialized memory in the AVM is not readable! A memory cell must be written (and therefore [type-tagged](./state-model#types-and-tagged-memory)) before it can be read.
