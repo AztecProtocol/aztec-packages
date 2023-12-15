@@ -162,3 +162,15 @@ INITIAL_MESSAGE_CALL_RESULTS = MessageCallResults {
 ```
 
 > Note: unlike memory in the Ethereum Virtual Machine, uninitialized memory in the AVM is not readable! A memory cell must be written (and therefore [type-tagged](./state-model#types-and-tagged-memory)) before it can be read.
+
+## Execution
+With an initialized context (and initial program counter of 0), the AVM can begin execution of a message call starting with the very first instruction in its bytecode.
+
+### Program Counter and Control Flow
+The program counter (machine state's `pc`) determines which instruction to execute (`environment.bytecode[pc]`)Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
+
+Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`, `INTERNALRETURN`) modify the program counter based on inputs.
+
+> Note: program counter will never be assigned to value from memory. Jump destinations can only be constants from the contract bytecode.
+
+### Gas limits and tracking
