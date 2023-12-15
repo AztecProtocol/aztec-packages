@@ -46,6 +46,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/starter-kits as starter-kits
 
 FROM node:18.19.0
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
@@ -58,6 +59,8 @@ COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
 # Copy in noir packages
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
+# Copy in starter kits
+COPY --from=starter-kits /usr/src/boxes /usr/src/boxes
 
 # TODO: FIX: For some reason the source-resolver package needs to be in compiler dir or we get errors like:
 #              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'

@@ -98,11 +98,11 @@ The Sandbox runs on `localhost:8080` by default. With the `SANDBOX_URL`, we set 
 
 `index.ts` imports from [`@aztec/aztec.js`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec.js). It also imports the `BlankContractAbi`, which is generated from the contract defined in `./src/contracts/src/main.nr`.
 
-#include_code imports boxes/blank/src/index.ts typescript
+#include_code imports starter-kits/blank/src/index.ts typescript
 
 ### Deployment
 
-#include_code deploy boxes/blank/src/index.ts typescript
+#include_code deploy starter-kits/blank/src/index.ts typescript
 
 To deploy, it gets one of the pre-initialized wallets that comes with the Sandbox with `getSandboxAccountsWallets`. Using that wallet, the contract ABI, optional salt (used to deterministically calculate the contract address, like [CREATE2 in Ethereum](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)), and the PXE, we can create a contract deployment transaction and send it to the sandbox network. The constructor defined in the Blank contract doesn't take any arguments, so we pass an empty array.
 
@@ -110,7 +110,7 @@ With the web interface running, open your browser dev tools console, click the "
 
 ### Interaction
 
-#include_code interact boxes/blank/src/index.ts typescript
+#include_code interact starter-kits/blank/src/index.ts typescript
 
 Once a contract is deployed, you can interact with it by clicking the "Interact" button. This will call the `getPublicKey` function on the `Blank` contract. For this call we need to pass the contract, the contract abi, the name of the function to call, the arguments for the function, the PXE and the wallet from which to make the transaction, see `callContractFunction`.
 
@@ -124,6 +124,6 @@ You can modify the source contracts and regenerate the artifacts by running
 yarn compile
 ```
 
-This will generate a [contract artifact](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/boxes/blank/src/artifacts/Blank.json) and TypeScript class for the [Aztec smart contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/boxes/blank/src/contracts/src/main.nr), which the frontend uses to generate the UI.
+This will generate a [contract artifact](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/starter-kits/blank/src/artifacts/Blank.json) and TypeScript class for the [Aztec smart contract](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/starter-kits/blank/src/contracts/src/main.nr), which the frontend uses to generate the UI.
 
 After compiling, you can re-deploy the updated noir smart contract from the web UI. The function interaction forms are generated from parsing the contract artifact, so they should update automatically after you recompile.

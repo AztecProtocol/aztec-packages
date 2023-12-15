@@ -170,19 +170,19 @@ cli:
 
 boxes-blank-react:
   buildDir: boxes
-  projectDir: boxes/blank-react
+  projectDir: starter-kits/blank-react
   dependencies:
     - aztec-sandbox
 
 boxes-blank:
   buildDir: boxes
-  projectDir: boxes/blank
+  projectDir: starter-kits/blank
   dependencies:
     - aztec-sandbox
 
 boxes-token:
   buildDir: boxes
-  projectDir: boxes/token
+  projectDir: starter-kits/token
   dependencies:
     - aztec-sandbox
 
@@ -216,3 +216,7 @@ yellow-paper:
   buildDir: yellow-paper
   rebuildPatterns:
     - ^yellow-paper/
+
+# TODO: rename boxes starter-kits
+starter-kits:
+  buildDir: starter-kits
