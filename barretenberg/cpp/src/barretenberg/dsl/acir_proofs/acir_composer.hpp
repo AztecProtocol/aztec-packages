@@ -15,7 +15,7 @@ class AcirComposer {
   public:
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
-    void create_circuit(acir_format::acir_format& constraint_system);
+    template <typename Builder = UltraCircuitBuilder> void create_circuit(acir_format::acir_format& constraint_system);
 
     std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
 
@@ -50,6 +50,7 @@ class AcirComposer {
 
   private:
     acir_format::Builder builder_;
+    acir_format::GoblinBuilder goblin_builder_;
     Goblin goblin;
     size_t size_hint_;
     size_t exact_circuit_size_;

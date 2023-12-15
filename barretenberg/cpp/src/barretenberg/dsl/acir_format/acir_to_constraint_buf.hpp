@@ -265,6 +265,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
     acir_format af;
+    // WORKTODO(ZEROINDEX): this +1 seems to be accounting for the const 0 at the first index in variables
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });

@@ -17,7 +17,7 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
-void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
+template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
     // WORKTODO: this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
     // sizes below never get set and that eventually causes too few srs points to be extracted
@@ -25,7 +25,7 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
         return;
     }
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_);
+    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
@@ -41,15 +41,6 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
     vinfo("computing proving key...");
     proving_key_ = composer.compute_proving_key(builder_);
     return proving_key_;
-}
-
-void AcirComposer::init_and_finalize_builder(acir_format::acir_format& constraint_system)
-{
-    // populate the builder
-    create_circuit(constraint_system);
-    // WORKTODO: static execution if this doesn't change composer state
-    // finalize the circuit
-    goblin.composer.create_instance(builder_);
 }
 
 std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
@@ -89,9 +80,9 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 std::vector<uint8_t> AcirComposer::create_goblin_proof(acir_format::acir_format& constraint_system,
                                                        acir_format::WitnessVector& witness)
 {
-    builder_ = Goblin::Builder(size_hint_);
-    create_circuit_with_witness(builder_, constraint_system, witness);
-    return goblin.construct_proof(builder_);
+    goblin_builder_ = Goblin::Builder(size_hint_);
+    create_circuit_with_witness(goblin_builder_, constraint_system, witness);
+    return goblin.construct_proof(goblin_builder_);
 }
 
 std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()

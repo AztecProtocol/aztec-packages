@@ -77,6 +77,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     {
         // Set indices to constants corresponding to Goblin ECC op codes
         null_op_idx = this->zero_idx;
+        // WORKTODO: turning these off for debug
         add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
         mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
