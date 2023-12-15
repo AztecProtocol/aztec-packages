@@ -79,7 +79,7 @@ async function initGoblin(bytecodePath: string, crsPath: string) {
 
   // Plus 1 needed! (Move +1 into Crs?)
   // Need both grumpkin and bn254 SRS's currently
-  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath + '/monomials');
   await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
 
   return initData;
