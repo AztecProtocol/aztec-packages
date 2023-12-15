@@ -141,6 +141,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         info("Sumcheck failed.");
         return false;
     }
+    info("Sumcheck succeeded.");
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.

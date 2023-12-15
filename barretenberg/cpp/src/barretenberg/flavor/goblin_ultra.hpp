@@ -51,17 +51,17 @@ class GoblinUltra {
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in GoblinUltraRecursive.
-    template <typename FF> using Relations_ = std::tuple<proof_system::UltraArithmeticRelation<FF>>;
-    // using Relations_ = std::tuple<proof_system::UltraArithmeticRelation<FF>,
-    //                               proof_system::UltraPermutationRelation<FF>,
-    //                               proof_system::LookupRelation<FF>,
-    //                               proof_system::GenPermSortRelation<FF>,
-    //                               proof_system::EllipticRelation<FF>,
-    //                               proof_system::AuxiliaryRelation<FF>,
-    //                               proof_system::EccOpQueueRelation<FF>,
-    //                               proof_system::DatabusLookupRelation<FF>,
-    //                               proof_system::Poseidon2ExternalRelation<FF>,
-    //                               proof_system::Poseidon2InternalRelation<FF>>;
+    template <typename FF>
+    using Relations_ = std::tuple<proof_system::UltraArithmeticRelation<FF>,
+                                  proof_system::UltraPermutationRelation<FF>,
+                                  proof_system::LookupRelation<FF>,
+                                  proof_system::GenPermSortRelation<FF>,
+                                  proof_system::EllipticRelation<FF>,
+                                  proof_system::AuxiliaryRelation<FF>,
+                                  proof_system::EccOpQueueRelation<FF>,
+                                  proof_system::DatabusLookupRelation<FF>,
+                                  proof_system::Poseidon2ExternalRelation<FF>,
+                                  proof_system::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
     using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;

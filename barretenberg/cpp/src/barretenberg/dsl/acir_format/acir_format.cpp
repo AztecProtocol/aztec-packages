@@ -10,10 +10,14 @@ void construct_variables_and_public_inputs(Builder& builder,
                                            WitnessVector const& witness,
                                            acir_format const& constraint_system)
 {
+    // info("construct_variables_and_public_inputs");
+    // info("builder.variables.size() = ", builder.variables.size());
+    // info("builder.public_inputs.size() = ", builder.public_inputs.size());
     // WORKTODO(ZEROINDEX): When the noir PR removing the +1 goes in, this correction goes away
+    const uint32_t CORRECTION = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {
-        corrected_public_inputs.emplace_back(index - 1);
+        corrected_public_inputs.emplace_back(index - CORRECTION);
     }
 
     for (size_t idx = 0; idx < witness.size(); ++idx) {
@@ -24,6 +28,9 @@ void construct_variables_and_public_inputs(Builder& builder,
             builder.add_variable(witness[idx]);
         }
     }
+    // info("builder.variables.size() = ", builder.variables.size());
+    // info("builder.public_inputs.size() = ", builder.public_inputs.size());
+    // info("builder.public_inputs.[0] = ", builder.public_inputs[0]);
 }
 
 template <typename Builder> void read_witness(Builder& builder, WitnessVector const& witness)
