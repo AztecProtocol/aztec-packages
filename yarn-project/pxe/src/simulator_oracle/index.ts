@@ -10,7 +10,14 @@ import {
   PublicKey,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, L2Block, MerkleTreeId, NullifierMembershipWitness, StateInfoProvider } from '@aztec/types';
+import {
+  KeyStore,
+  L2Block,
+  MerkleTreeId,
+  NullifierMembershipWitness,
+  PublicDataWitness,
+  StateInfoProvider,
+} from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
@@ -143,14 +150,16 @@ export class SimulatorOracle implements DBOracle {
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     // @todo Doing a nasty workaround here because of https://github.com/AztecProtocol/aztec-packages/issues/3414
     switch (treeId) {
+      case MerkleTreeId.CONTRACT_TREE:
+        return (await this.stateInfoProvider.getContractSiblingPath(blockNumber, leafIndex)).toFieldArray();
       case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.stateInfoProvider.getNullifierTreeSiblingPath(blockNumber, leafIndex)).toFieldArray();
+        return (await this.stateInfoProvider.getNullifierSiblingPath(blockNumber, leafIndex)).toFieldArray();
       case MerkleTreeId.NOTE_HASH_TREE:
         return (await this.stateInfoProvider.getNoteHashSiblingPath(blockNumber, leafIndex)).toFieldArray();
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        return (await this.stateInfoProvider.getPublicDataSiblingPath(blockNumber, leafIndex)).toFieldArray();
       case MerkleTreeId.ARCHIVE:
         return (await this.stateInfoProvider.getArchiveSiblingPath(blockNumber, leafIndex)).toFieldArray();
-      case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.stateInfoProvider.getPublicDataTreeSiblingPath(blockNumber, leafIndex)).toFieldArray();
       default:
         throw new Error('Not implemented');
     }
@@ -172,6 +181,10 @@ export class SimulatorOracle implements DBOracle {
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
     return await this.stateInfoProvider.getBlock(blockNumber);
+  }
+
+  public async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return await this.stateInfoProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
   }
 
   /**
