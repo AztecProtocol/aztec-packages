@@ -2,7 +2,6 @@ use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
 
 struct SideEffect{
     value: Field,
-    // counter is called "side_effect_counter" in david's PR
     counter: Field,
 }
 
@@ -20,10 +19,6 @@ impl SideEffect {
     pub fn hash(self) -> Field {
         dep::std::hash::pedersen_hash_with_separator(
             self.serialize() , GENERATOR_INDEX__SIDE_EFFECT)
-    }
-
-    pub fn assert_is_empty(self){
-        assert(self.is_empty());
     }
 
     pub fn is_empty(self) -> bool {
@@ -67,10 +62,6 @@ impl SideEffectLinkedToNoteHash{
         dep::std::hash::pedersen_hash_with_separator(
             self.serialize(),
         GENERATOR_INDEX__SIDE_EFFECT)
-    }
-
-    pub fn assert_is_empty(self){
-        assert(self.is_empty());
     }
 
     pub fn is_empty(self) -> bool {

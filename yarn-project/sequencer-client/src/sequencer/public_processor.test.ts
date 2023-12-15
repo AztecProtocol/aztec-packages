@@ -38,6 +38,7 @@ import {
 } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
+import { log } from 'console';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
@@ -178,6 +179,7 @@ describe('public_processor', () => {
       });
 
       const [processed, failed] = await processor.process([tx]);
+      log(failed);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);

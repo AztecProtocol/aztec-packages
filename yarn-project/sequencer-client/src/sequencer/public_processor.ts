@@ -164,6 +164,8 @@ export class PublicProcessor {
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
+      this.log('calling makeProcessedTx with 3 args');
+      this.log(`${(await makeProcessedTx(tx, publicKernelOutput, publicKernelProof)).data.end.newCommitments}`);
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
     } else {
       return makeProcessedTx(tx);
@@ -209,6 +211,7 @@ export class PublicProcessor {
         const callData = await this.getPublicCallData(result, isExecutionRequest);
 
         [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
+        this.log('kernel circuit run without error');
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
@@ -231,7 +234,9 @@ export class PublicProcessor {
     previousProof: Proof,
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(callData, previousOutput, previousProof);
+    this.log(`output: ${output}`);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
+    this.log(`proof: ${proof}`);
     return [output, proof];
   }
 
