@@ -82,6 +82,25 @@ std::vector<uint8_t> AcirComposer::create_goblin_proof(acir_format::acir_format&
 {
     goblin_builder_ = Goblin::Builder(size_hint_);
     create_circuit_with_witness(goblin_builder_, constraint_system, witness);
+    acir_format::apply_wire_index_offset(goblin_builder_);
+
+    // for (auto& wire : goblin_builder_.wires) {
+    //     info();
+    //     for (unsigned int idx : wire) {
+    //         info("wire val = ", goblin_builder_.variables[idx]);
+    //     }
+    // }
+
+    // info();
+    // for (auto& val : goblin_builder_.variables) {
+    //     info("variable = ", val);
+    // }
+
+    // info();
+    // for (auto& idx : goblin_builder_.public_inputs) {
+    //     info("public input = ", goblin_builder_.variables[idx]);
+    // }
+
     return goblin.construct_proof(goblin_builder_);
 }
 

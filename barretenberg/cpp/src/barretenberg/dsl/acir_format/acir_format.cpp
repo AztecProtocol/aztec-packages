@@ -14,10 +14,10 @@ void construct_variables_and_public_inputs(Builder& builder,
     // info("builder.variables.size() = ", builder.variables.size());
     // info("builder.public_inputs.size() = ", builder.public_inputs.size());
     // WORKTODO(ZEROINDEX): When the noir PR removing the +1 goes in, this correction goes away
-    const uint32_t CORRECTION = 1;
+    const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {
-        corrected_public_inputs.emplace_back(index - CORRECTION);
+        corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
     }
 
     for (size_t idx = 0; idx < witness.size(); ++idx) {
@@ -203,10 +203,27 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
     build_constraints(builder, constraint_system, true);
 }
 
+template <typename Builder> void apply_wire_index_offset(Builder& builder)
+{
+    // For now, noir has a hard coded witness index offset = 1. Once this is removed, this
+    const size_t pre_applied_noir_offset = 1;
+    size_t offset = builder.num_vars_added_in_constructor - pre_applied_noir_offset;
+    info("Applying offset = ", offset);
+
+    // starting at the offset-th index, increment all wire index values by offset
+    for (auto& wire : builder.wires) {
+        for (size_t idx = offset; idx < wire.size(); ++idx) {
+            wire[idx] += offset;
+        }
+    }
+}
+
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
                                                                  size_t size_hint);
 template void create_circuit_with_witness<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
                                                                      acir_format const& constraint_system,
                                                                      WitnessVector const& witness);
+template void apply_wire_index_offset<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder);
+template void apply_wire_index_offset<UltraCircuitBuilder>(UltraCircuitBuilder& builder);
 
 } // namespace acir_format

@@ -88,4 +88,6 @@ Builder create_circuit_with_witness(const acir_format& constraint_system,
 template <typename Builder>
 void create_circuit_with_witness(Builder& builder, const acir_format& constraint_system, WitnessVector const& witness);
 
+template <typename Builder> void apply_wire_index_offset(Builder& builder);
+
 } // namespace acir_format
