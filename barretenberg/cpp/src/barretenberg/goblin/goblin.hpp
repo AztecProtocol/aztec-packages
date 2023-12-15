@@ -16,10 +16,10 @@ class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
     // WORKTODO(NEW_CONSTRAINTS)
-    using GUHFlavor = proof_system::honk::flavor::Ultra;
-    using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
-    // using GUHFlavor = proof_system::honk::flavor::GoblinUltra; // GUHFLAG
-    // using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
+    // using GUHFlavor = proof_system::honk::flavor::Ultra;
+    // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
+    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
 
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
@@ -121,34 +121,6 @@ class Goblin {
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
         debug_utility::inspect_instance(instance);
-
-        for (size_t i = 0; i < 3; ++i) {
-            info("q_arith = ", instance->prover_polynomials.q_arith[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("q_m = ", instance->prover_polynomials.q_m[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("q_l = ", instance->prover_polynomials.q_l[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("q_r = ", instance->prover_polynomials.q_r[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("q_c = ", instance->prover_polynomials.q_c[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("w_l = ", instance->prover_polynomials.w_l[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("w_r = ", instance->prover_polynomials.w_r[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("w_o = ", instance->prover_polynomials.w_o[i]);
-        }
-        for (size_t i = 0; i < 3; ++i) {
-            info("w_4 = ", instance->prover_polynomials.w_4[i]);
-        }
 
         {
             info("Trying to verify ultra proof right away.");
