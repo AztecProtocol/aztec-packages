@@ -21,7 +21,13 @@ export interface FileSystem {
   /** Renames a file */
   rename: (oldPath: string, newPath: string) => Promise<void>;
   /** Reads a directory */
-  readdir: (path: string, options?: { encoding: BufferEncoding | null; recursive: boolean }) => Promise<string[]>;
+  readdir: (
+    path: string,
+    options?: {
+      /** Traverse child directories recursively */
+      recursive: boolean;
+    },
+  ) => Promise<string[]>;
 }
 
 /**
@@ -129,7 +135,20 @@ export class FileManager {
     return isAbsolute(name) ? name : join(this.#dataDir, name);
   }
 
-  public async readdir(dir: string, options?: { recursive: boolean; encoding: BufferEncoding | null }) {
+  /**
+   * Reads a file from the filesystem
+   * @param dir - File to read
+   * @param options - Readdir options
+   */
+  public async readdir(
+    dir: string,
+    options?: {
+      /**
+       * Traverse child directories recursively
+       */
+      recursive: boolean;
+    },
+  ) {
     const dirPath = this.#getPath(dir);
     const files = await this.#fs.readdir(dirPath, options);
     return files.map(file => path.join(dirPath, file));

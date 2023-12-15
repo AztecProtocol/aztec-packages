@@ -37,7 +37,6 @@ export async function compileUsingNargo(projectPath: string, opts: CompileOpts =
  * @param opts - Compiler options.
  * @returns Compiled artifacts.
  */
-
 export async function compileUsingNoirWasm(
   projectPath: string,
   opts: NoirWasmCompileOptions,
@@ -48,7 +47,15 @@ export async function compileUsingNoirWasm(
       ...fs,
       ...{
         existsSync,
-        mkdir: async (dir: string, opts?: { recursive: boolean }) => {
+        mkdir: async (
+          dir: string,
+          opts?: {
+            /**
+             * Traverse child directories
+             */
+            recursive: boolean;
+          },
+        ) => {
           await fs.mkdir(dir, opts);
         },
       },

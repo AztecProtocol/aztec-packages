@@ -122,7 +122,7 @@ export class NoirWasmContractCompiler {
       [...packageSources, ...librarySources].forEach(sourceFile => {
         sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
-      const result = await compile(entrypoint, isContract, deps, sourceMap);
+      const result = compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('program' in result)) {
         throw new Error('No program found in compilation result');
@@ -131,7 +131,7 @@ export class NoirWasmContractCompiler {
       return [{ name: this.#package.getNoirPackageConfig().package.name, ...result }];
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
-        this.#processCompileError(err as CompileError);
+        await this.#processCompileError(err as CompileError);
       }
 
       throw err;
@@ -174,7 +174,7 @@ export class NoirWasmContractCompiler {
       [...packageSources, ...librarySources].forEach(sourceFile => {
         sourceMap.add_source_code(sourceFile.path, sourceFile.source);
       });
-      const result = await compile(entrypoint, isContract, deps, sourceMap);
+      const result = compile(entrypoint, isContract, deps, sourceMap);
 
       if (!('contract' in result)) {
         throw new Error('No contract found in compilation result');
@@ -183,7 +183,7 @@ export class NoirWasmContractCompiler {
       return [result];
     } catch (err) {
       if (err instanceof Error && err.name === 'CompileError') {
-        this.#processCompileError(err as CompileError);
+        await this.#processCompileError(err as CompileError);
         throw new Error('Compilation failed');
       }
 
@@ -191,14 +191,14 @@ export class NoirWasmContractCompiler {
     }
   }
 
-  #resolveFile = async (path: string) => {
+  async #resolveFile(path: string) {
     try {
       const libFile = this.#dependencyManager.findFile(path);
-      return this.#fm.readFile(libFile ?? path, 'utf-8');
+      return await this.#fm.readFile(libFile ?? path, 'utf-8');
     } catch (err) {
       return '';
     }
-  };
+  }
 
   async #processCompileError(err: CompileError): Promise<void> {
     for (const diag of err.diagnostics) {

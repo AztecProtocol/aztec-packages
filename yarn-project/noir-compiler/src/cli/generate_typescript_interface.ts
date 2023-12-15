@@ -1,6 +1,5 @@
 import { LogFn } from '@aztec/foundation/log';
 
-import { mkdirpSync } from 'fs-extra';
 import { mkdir, readFile, readdir, stat, writeFile } from 'fs/promises';
 import path, { resolve } from 'path';
 
@@ -33,7 +32,7 @@ export async function generateTypescriptInterface(
   for (const artifactsDirItem of await readdir(artifactsDir)) {
     const artifactPath = resolve(artifactsDir, artifactsDirItem);
     if ((await stat(artifactPath)).isFile() && artifactPath.endsWith('.json')) {
-      const contract = JSON.parse(await readFile(artifactPath).toString());
+      const contract = JSON.parse((await readFile(artifactPath)).toString());
       if (!isContractArtifact(contract)) {
         continue;
       }

@@ -34,6 +34,9 @@ export class NoirDependencyManager {
     return this.#dependencies.get('') ?? [];
   }
 
+  /**
+   * Get transitive libraries used by the package
+   */
   public getLibraries() {
     return Array.from(this.#libraries.entries());
   }

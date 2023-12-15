@@ -1,12 +1,26 @@
 import { NoirDependencyConfig, NoirPackageConfig, parseNoirPackageConfig } from '@aztec/foundation/noir';
 
 import { parse } from '@ltd/j-toml';
-import { join, sep } from 'node:path';
+import { join } from 'node:path';
 
 import { FileManager } from './file-manager/file-manager.js';
 
 const CONFIG_FILE_NAME = 'Nargo.toml';
 const SOURCE_EXTENSIONS = ['.nr'];
+
+/**
+ * An array of sources for a package
+ */
+type SourceList = Array<{
+  /**
+   * The source path, taking into account modules and aliases. Eg: mylib/mod/mysource.nr
+   */
+  path: string;
+  /**
+   * Resolved source plaintext
+   */
+  source: string;
+}>;
 
 /**
  * A Noir package.
@@ -83,9 +97,11 @@ export class NoirPackage {
 
   /**
    * Gets this package's sources.
+   * @param fm - A file manager to use
+   * @param alias - An alias for the sources, if this package is a dependency
    */
-  public async getSources(fm: FileManager, alias?: string): Promise<Array<{ path: string; source: string }>> {
-    const handles = await fm.readdir(this.#srcPath, { recursive: true, encoding: 'utf-8' });
+  public async getSources(fm: FileManager, alias?: string): Promise<SourceList> {
+    const handles = await fm.readdir(this.#srcPath, { recursive: true });
     return Promise.all(
       handles
         .filter(handle => SOURCE_EXTENSIONS.find(ext => handle.endsWith(ext)))

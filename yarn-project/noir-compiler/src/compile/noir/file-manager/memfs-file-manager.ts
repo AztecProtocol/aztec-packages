@@ -12,7 +12,7 @@ export function createMemFSFileManager(memFS: IFs = fs, dataDir = '/'): FileMana
   const readdirRecursive = async (dir: string): Promise<string[]> => {
     const contents = await memFS.promises.readdir(dir);
     let files: string[] = [];
-    for (let handle in contents) {
+    for (const handle in contents) {
       if ((handle as unknown as IDirent).isFile()) {
         files.push(handle.toString());
       } else {
@@ -24,13 +24,29 @@ export function createMemFSFileManager(memFS: IFs = fs, dataDir = '/'): FileMana
   return new FileManager(
     {
       existsSync: memFS.existsSync.bind(memFS),
-      mkdir: async (dir: string, options?: { recursive: boolean }) => {
+      mkdir: async (
+        dir: string,
+        options?: {
+          /**
+           * Traverse child directories
+           */
+          recursive: boolean;
+        },
+      ) => {
         await memFS.promises.mkdir(dir, options);
       },
       writeFile: memFS.promises.writeFile.bind(memFS),
       rename: memFS.promises.rename.bind(memFS),
       readFile: memFS.promises.readFile.bind(memFS),
-      readdir: async (dir: string, options?: { recursive: boolean }) => {
+      readdir: async (
+        dir: string,
+        options?: {
+          /**
+           * Traverse child directories
+           */
+          recursive: boolean;
+        },
+      ) => {
         if (options?.recursive) {
           return readdirRecursive(dir);
         }
