@@ -164,13 +164,43 @@ INITIAL_MESSAGE_CALL_RESULTS = MessageCallResults {
 > Note: unlike memory in the Ethereum Virtual Machine, uninitialized memory in the AVM is not readable! A memory cell must be written (and therefore [type-tagged](./state-model#types-and-tagged-memory)) before it can be read.
 
 ## Execution
-With an initialized context (and initial program counter of 0), the AVM can begin execution of a message call starting with the very first instruction in its bytecode.
+With an initialized context (and therefore an initial program counter of 0), the AVM can execute a message call starting with the very first instruction in its bytecode.
 
 ### Program Counter and Control Flow
-The program counter (machine state's `pc`) determines which instruction to execute (`environment.bytecode[pc]`)Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
+The program counter (machine state's `pc`) determines which instruction to execute (`instr = environment.bytecode[pc]`). Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`, `INTERNALRETURN`) modify the program counter based on inputs.
 
-> Note: program counter will never be assigned to value from memory. Jump destinations can only be constants from the contract bytecode.
+> Note: program counter will never be assigned to a value from memory. Jump destinations can only be constants from the contract bytecode.
 
 ### Gas limits and tracking
+Each instruction has an associated `l1GasCost` and `l2GasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
+```
+assert machineState.l1GasLeft - instr.l1GasCost > 0
+assert machineState.l2GasLeft - instr.l2GasCost > 0
+```
+
+If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
+```
+machineState.l1GasLeft -= instr.l1GasCost
+machineState.l2GasLeft -= instr.l2GasCost
+```
+
+If either of these assertions _fail_ for an instruction, this triggers an exceptional halt. The gas left is set to 0 and execution reverts.
+```
+machineState.l1GasLeft = 0
+machineState.l2GasLeft = 0
+```
+> Reverting and exceptional halts will be covered in more detail later.
+
+### Gas cost notes and examples
+A instruction's gas cost is loosely derived from its complexity. Execution complexity of some instructions changes based on inputs. Here are some examples and notes:
+- [`JUMP`](./InstructionSet/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost` and `l2GasCost`.
+- The [`SET`](./InstructionSet/#isa-section-set) instruction operates on a different sized constant (based on its `dst-type`). Therefore, this instruction's gas cost increases with the size of its input.
+- Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./InstructionSet/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to memory.
+- The [`CALL`](./InstructionSet/#isa-section-call)/`STATICCALL`/`DELEGATECALL` instruction's gas cost is determined by its `l*Gas` arguments, but any gas unused by the triggered message call is refunded after its completion (more on this later).
+- An instruction with "offset" arguments (like [`ADD`](./InstructionSet/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
+
+> Implementation detail: an instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
+
+> Implementation detail: an instruction's gas cost takes into account the costs of associated downstream computations. So, an instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). An instruction that triggers a nested message call (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's execution and an added execution of the public kernel circuit.
