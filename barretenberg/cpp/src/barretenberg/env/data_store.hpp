@@ -6,7 +6,7 @@
 #include <cstdint>
 
 // Takes a copy of buf and saves it associated with key.
-WASM_IMPORT void set_data(char const* key, uint8_t const* buf, size_t length);
+WASM_IMPORT("set_data") void set_data(char const* key, uint8_t const* buf, size_t length);
 
 // Copies bytes of data associated with key into out_buf.
-WASM_IMPORT void get_data(char const* key, uint8_t* out_buf);
+WASM_IMPORT("get_data") void get_data(char const* key, uint8_t* out_buf);

@@ -3,4 +3,4 @@
 // For a native build, this is provided in this module.
 #include "barretenberg/common/wasm_export.hpp"
 
-WASM_IMPORT void logstr(char const*);
+WASM_IMPORT("logstr") void logstr(char const*);

@@ -2,4 +2,4 @@
 #include "barretenberg/common/wasm_export.hpp"
 #include <cstdint>
 
-WASM_IMPORT uint32_t env_hardware_concurrency();
+WASM_IMPORT("env_hardware_concurrency") uint32_t env_hardware_concurrency();
