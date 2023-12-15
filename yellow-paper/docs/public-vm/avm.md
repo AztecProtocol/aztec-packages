@@ -27,11 +27,11 @@ The **["AVM Instruction Set"](./InstructionSet)** document supplements this one 
 > Note: The Aztec Virtual Machine, while designed with a SNARK implementation in mind, is not strictly tied to any particular implementation and therefore is defined without SNARK or circuit-centric verbiage. That being said, considerations for a SNARK implementation are raised or linked when particularly relevant or helpful.
 
 ## Public contract bytecode
-A contract's public bytecode is series of execution instructions for the AVM. When a message call is made to a contract, the AVM retrieves the corresponding bytecode from the world state (`worldState.contracts[address].bytecode`) and triggers execution of the first instruction (`bytecode[0]`). The world state is described in more detail later.
+A contract's public bytecode is a series of execution instructions for the AVM. When a message call is made to a contract, the AVM retrieves the corresponding bytecode from the world state (`worldState.contracts[address].bytecode`) and triggers execution of the first instruction (`bytecode[0]`). The world state is described in more detail later.
 
 > Note: While a Noir contract may have multiple public functions, they are inlined so that the **entirety of a contract's public code exists in a single bytecode**. Internal calls to Noir functions within the same contract are compiled to simple program-counter changes, as are internal returns. In a manner similar to the Ethereum Virtual Machine, the AVM is not itself aware of function selectors and internal function calls. The Noir compiler may implement these constructs by treating the first word in a message call's calldata as a function selector, and beginning a contract's bytecode with a series of conditional jumps.
 
-> Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to which is particularly relevant for a SNARK implementation of the AVM.
+> Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
 
 ## Execution Context
 :::note REMINDER
@@ -49,7 +49,11 @@ AVMContext {
 }
 ```
 
-The "Execution Environment" is provided by the execution agent and remains constant throughout a message call's execution. A new environment is initialized for any nested message calls.
+The first two entries, "Execution Environment" and "Machine State", share the same lifecycle. They contain information pertaining to a single message call and are initialized prior to the start of a call's execution.
+
+> When a nested message call is made, a new environment and machine state are initialized by the caller. In other words, a nested message call has its own environment and machine state, although their initialization will be partially derived from the caller's context.
+
+The "Execution Environment" is fully specified by a message call's execution agent and remains constant throughout a call's execution.
 ```
 ExecutionEnvironment {
     address,
@@ -60,19 +64,19 @@ ExecutionEnvironment {
     sender,
     portal,
     bytecode: [],
-    blockHeader,
+    blockHeader: BlockHeader,
+    globalVariables: PublicGlobalVariables,
     messageCallDepth,
     isStaticCall,
 }
 ```
-> TODO: what about global variables?
 
-"Machine State" belongs to single message call and is transformed on an instruction-per-instruction basis. A message call's machine state is initialized, alongside its execution environment, prior to the start of its execution:
+"Machine State" is partially specified by the execution agent, and otherwise begins as empty or uninitialized for each message call. This state is transformed on an instruction-per-instruction basis.
 ```
 MachineState {
     l1GasLeft,
     l2GasLeft,
     pc,
-    memory: [],
+    memory: uninitialized,
 }
 ```
