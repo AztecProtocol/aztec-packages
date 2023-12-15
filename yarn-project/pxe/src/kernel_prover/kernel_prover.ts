@@ -186,7 +186,7 @@ export class KernelProver {
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
-    const outputNotes = finalNewCommitments.map(c => newNotes[c.toString()]).filter(c => !!c);
+    const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
   }
