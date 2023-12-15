@@ -97,7 +97,10 @@ contract InclusionProofs {
     fn test_note_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the note exists
-        spare_commitment: Field // This is only used when the note is not found --> used to test the failure case
+        // Value bellow is only used when the note is not found --> used to test the note inclusion failure case (it
+        // allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE because
+        // PXE performs note commitment inclusion check when you add a new note).
+        spare_commitment: Field
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner.to_field());
@@ -124,7 +127,10 @@ contract InclusionProofs {
     fn test_nullifier_non_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
-        spare_nullifier: Field // This is only used when the note is not found --> used to test the failure case
+        // Value bellow is only used when the note is not found --> used to test the nullifier non-inclusion failure
+        // case (it allows me to pass in random value of note nullifier - I cannot add and fetch a random note from PXE
+        // because PXE performs note commitment inclusion check when you add a new note).
+        spare_nullifier: Field
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner.to_field());
