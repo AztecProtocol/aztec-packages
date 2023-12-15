@@ -36,8 +36,8 @@ ACIR bytecode is the compilation target of all regular noir functions, including
 
 The types of opcodes that can appear in ACIR are:
 
-- Arithmetic: They express arithmetic relationships between witness indices. They are the most common opcodes in ACIR.
-- BlackBoxFuncCall: They assign the witnesses of the parameters and the witnesses of the return values of black box functions. These functions are solved by the underlying noir backend.
+- Arithmetic: They can express any degree-2 multivariate relation between witness indices. They are the most common opcodes in ACIR.
+- BlackBoxFuncCall: They assign the witnesses of the parameters and the witnesses of the return values of black box functions. Black box functions are commonly used operations that are treated as a black box, meaning that the underlying backend chooses how to prove them efficiently.
 - Brillig: They assign the witnesses of the parameters and the witnesses of the return values of brillig functions. When an unconstrained function is called from a regular function, the bytecode for the called function gets embedded in a Brillig opcode. The simulator entity is the one responsible for executing the brillig bytecode. The results of the execution of the function are assigned to the witnesses of the return values and they should be constrained to be correct by the ACIR bytecode.
 - MemoryOp: They handle memory operations. When accessing arrays with indices unknown at compile time, the compiler cannot know which witness index is being read. The memory abstraction allows noir to read and write to dynamic positions in arrays in an efficient manner, offloading the responsibility of proving the correct access to the underlying backend.
 
