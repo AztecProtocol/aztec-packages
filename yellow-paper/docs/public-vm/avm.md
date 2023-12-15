@@ -94,6 +94,8 @@ WorldState {
 }
 ```
 
+> Note: the notation `key => value` describes a mapping from `key` to `value`.
+
 > Note: each member of the world state is implemented as an independent merkle tree with different properties.
 
 The "Accrued Substate", as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls or transactions. Similar to world state, if a message call succeeds, its substate is appended to its calling context, but if it fails its substate is dropped by its caller.
