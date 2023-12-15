@@ -40,7 +40,7 @@ docker run \
 
 # Read the file line by line
 while IFS= read -r line; do
-  # Extract the hexadecimal address using cut
+  # Extract the hexadecimal address using awk
   address=$(echo "$line" | awk '{print $NF}')
 
   # Assign the address to the respective variable based on the line content
