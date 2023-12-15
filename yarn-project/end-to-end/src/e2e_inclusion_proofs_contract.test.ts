@@ -9,6 +9,8 @@ import {
   Point,
   getContractDeploymentInfo,
 } from '@aztec/aztec.js';
+import { NewContractData } from '@aztec/circuits.js';
+import { computeContractLeaf } from '@aztec/circuits.js/abis';
 import { InclusionProofsContract } from '@aztec/noir-contracts/types';
 
 import { jest } from '@jest/globals';
@@ -140,7 +142,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       const randomNoteCommitment = Fr.random();
       await expect(
         contract.methods.test_note_inclusion_proof(owner, blockNumber, randomNoteCommitment).send().wait(),
-      ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in NOTE_HASH_TREE/);
+      ).rejects.toThrow(`Leaf value: ${randomNoteCommitment.toString()} not found in NOTE_HASH_TREE`);
     });
   });
 
@@ -180,7 +182,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       await expect(
         contract.methods.test_nullifier_inclusion_proof(randomNullifier, blockNumber).send().wait(),
-      ).rejects.toThrow(/Low nullifier witness not found for nullifier 0x[0-9a-fA-F]+ at block/);
+      ).rejects.toThrow(`Low nullifier witness not found for nullifier ${randomNullifier.toString()} at block`);
     });
   });
 
@@ -229,6 +231,9 @@ describe('e2e_inclusion_proofs_contract', () => {
       // This should fail because we choose a block number before the contract was deployed
       const blockNumber = deploymentBlockNumber - 1;
 
+      const contractData = new NewContractData(contract.address, contract.portalContract, functionTreeRoot);
+      const leaf = computeContractLeaf(contractData);
+
       await expect(
         contract.methods
           .test_contract_inclusion_proof(
@@ -241,7 +246,7 @@ describe('e2e_inclusion_proofs_contract', () => {
           )
           .send()
           .wait(),
-      ).rejects.toThrow(/Leaf value: 0x[0-9a-fA-F]+ not found in CONTRACT_TREE/);
+      ).rejects.toThrow(`Leaf value: ${leaf.toString()} not found in CONTRACT_TREE`);
     });
   });
 
