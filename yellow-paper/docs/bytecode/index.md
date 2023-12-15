@@ -32,13 +32,13 @@ The current implementation of Brillig can be found [in the noir repository](http
 
 # ACIR Bytecode
 
-ACIR bytecode is the compilation target of all regular noir functions, including contract private functions. ACIR expresses relationships between witness indices and has no control flow. Control flow in regular functions is either unrolled (for loops) or flattened (by inlining and adding predicates), resulting in a single function with no control flow.
+ACIR bytecode is the compilation target of all regular noir functions, including contract private functions. ACIR expresses arithmetic circuits and thus has no control flow. Control flow in regular functions is either unrolled (for loops) or flattened (by inlining and adding predicates), resulting in a single function with no control flow to be transformed to ACIR.
 
 The types of opcodes that can appear in ACIR are:
 
 - Arithmetic: They express arithmetic relationships between witness indices. They are the most common opcodes in ACIR.
 - BlackBoxFuncCall: They assign the witnesses of the parameters and the witnesses of the return values of black box functions. These functions are solved by the underlying noir backend.
-- Brillig: They assign the witnesses of the parameters and the witnesses of the return values of brillig functions. When an unconstrained function is called from a regular function, the bytecode for the called function gets embedded in a Brillig opcode. The results of the execution of the function are assigned to the witnesses of the return values and they should be constrained to be correct by the ACIR bytecode.
+- Brillig: They assign the witnesses of the parameters and the witnesses of the return values of brillig functions. When an unconstrained function is called from a regular function, the bytecode for the called function gets embedded in a Brillig opcode. The simulator entity is the one responsible for executing the brillig bytecode. The results of the execution of the function are assigned to the witnesses of the return values and they should be constrained to be correct by the ACIR bytecode.
 - MemoryOp: They handle memory operations. When accessing arrays with indices unknown at compile time, the compiler cannot know which witness index is being read. The memory abstraction allows noir to read and write to dynamic positions in arrays in an efficient manner, offloading the responsibility of proving the correct access to the underlying backend.
 
 # Usage of the bytecode
