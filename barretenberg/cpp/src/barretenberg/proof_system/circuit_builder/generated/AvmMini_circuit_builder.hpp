@@ -28,9 +28,9 @@ template <typename FF> struct AvmMiniFullRow {
     FF memTrace_m_lastAccess{};
     FF memTrace_m_rw{};
     FF avmMini_pc{};
-    FF avmMini_ret_ptr{};
-    FF avmMini_sel_jump{};
-    FF avmMini_sel_ret{};
+    FF avmMini_internal_return_ptr{};
+    FF avmMini_sel_internal_call{};
+    FF avmMini_sel_internal_return{};
     FF avmMini_sel_op_add{};
     FF avmMini_sel_op_sub{};
     FF avmMini_sel_op_mul{};
@@ -50,11 +50,11 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
+    FF memTrace_m_addr_shift{};
     FF memTrace_m_val_shift{};
     FF memTrace_m_rw_shift{};
-    FF memTrace_m_addr_shift{};
-    FF avmMini_ret_ptr_shift{};
     FF avmMini_pc_shift{};
+    FF avmMini_internal_return_ptr_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -93,9 +93,9 @@ class AvmMiniCircuitBuilder {
             polys.memTrace_m_lastAccess[i] = rows[i].memTrace_m_lastAccess;
             polys.memTrace_m_rw[i] = rows[i].memTrace_m_rw;
             polys.avmMini_pc[i] = rows[i].avmMini_pc;
-            polys.avmMini_ret_ptr[i] = rows[i].avmMini_ret_ptr;
-            polys.avmMini_sel_jump[i] = rows[i].avmMini_sel_jump;
-            polys.avmMini_sel_ret[i] = rows[i].avmMini_sel_ret;
+            polys.avmMini_internal_return_ptr[i] = rows[i].avmMini_internal_return_ptr;
+            polys.avmMini_sel_internal_call[i] = rows[i].avmMini_sel_internal_call;
+            polys.avmMini_sel_internal_return[i] = rows[i].avmMini_sel_internal_return;
             polys.avmMini_sel_op_add[i] = rows[i].avmMini_sel_op_add;
             polys.avmMini_sel_op_sub[i] = rows[i].avmMini_sel_op_sub;
             polys.avmMini_sel_op_mul[i] = rows[i].avmMini_sel_op_mul;
@@ -117,11 +117,11 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
+        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
         polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
-        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
-        polys.avmMini_ret_ptr_shift = Polynomial(polys.avmMini_ret_ptr.shifted());
         polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
+        polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
 
         return polys;
     }

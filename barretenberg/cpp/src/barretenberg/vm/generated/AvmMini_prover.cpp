@@ -39,9 +39,9 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.memTrace_m_lastAccess = key->memTrace_m_lastAccess;
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
     prover_polynomials.avmMini_pc = key->avmMini_pc;
-    prover_polynomials.avmMini_ret_ptr = key->avmMini_ret_ptr;
-    prover_polynomials.avmMini_sel_jump = key->avmMini_sel_jump;
-    prover_polynomials.avmMini_sel_ret = key->avmMini_sel_ret;
+    prover_polynomials.avmMini_internal_return_ptr = key->avmMini_internal_return_ptr;
+    prover_polynomials.avmMini_sel_internal_call = key->avmMini_sel_internal_call;
+    prover_polynomials.avmMini_sel_internal_return = key->avmMini_sel_internal_return;
     prover_polynomials.avmMini_sel_op_add = key->avmMini_sel_op_add;
     prover_polynomials.avmMini_sel_op_sub = key->avmMini_sel_op_sub;
     prover_polynomials.avmMini_sel_op_mul = key->avmMini_sel_op_mul;
@@ -62,20 +62,20 @@ AvmMiniProver::AvmMiniProver(std::shared_ptr<Flavor::ProvingKey> input_key,
     prover_polynomials.avmMini_mem_idx_c = key->avmMini_mem_idx_c;
     prover_polynomials.avmMini_last = key->avmMini_last;
 
+    prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
+    prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
+
     prover_polynomials.memTrace_m_val = key->memTrace_m_val;
     prover_polynomials.memTrace_m_val_shift = key->memTrace_m_val.shifted();
 
     prover_polynomials.memTrace_m_rw = key->memTrace_m_rw;
     prover_polynomials.memTrace_m_rw_shift = key->memTrace_m_rw.shifted();
 
-    prover_polynomials.memTrace_m_addr = key->memTrace_m_addr;
-    prover_polynomials.memTrace_m_addr_shift = key->memTrace_m_addr.shifted();
-
-    prover_polynomials.avmMini_ret_ptr = key->avmMini_ret_ptr;
-    prover_polynomials.avmMini_ret_ptr_shift = key->avmMini_ret_ptr.shifted();
-
     prover_polynomials.avmMini_pc = key->avmMini_pc;
     prover_polynomials.avmMini_pc_shift = key->avmMini_pc.shifted();
+
+    prover_polynomials.avmMini_internal_return_ptr = key->avmMini_internal_return_ptr;
+    prover_polynomials.avmMini_internal_return_ptr_shift = key->avmMini_internal_return_ptr.shifted();
 
     // prover_polynomials.lookup_inverses = key->lookup_inverses;
     // key->z_perm = Polynomial(key->circuit_size);

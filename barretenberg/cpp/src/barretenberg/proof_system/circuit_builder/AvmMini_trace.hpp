@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stack>
+
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
@@ -25,6 +27,7 @@ class AvmMiniTraceBuilder {
     // Number of rows
     static const size_t N = 256;
     static const size_t MEM_SIZE = 1024;
+    static const size_t CALLSTACK_OFFSET = 1024; // TODO is this the vibe
 
     static const uint32_t SUB_CLK_LOAD_A = 0;
     static const uint32_t SUB_CLK_LOAD_B = 1;
@@ -53,6 +56,13 @@ class AvmMiniTraceBuilder {
     // Division over finite field with direct memory access.
     void div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset);
 
+    // Jump to a given program counter.
+    // TODO: this program counter MUST be an operand to the OPCODE.
+    void internal_call(uint32_t jmpDest);
+
+    // Return from a jump.
+    void internal_return();
+
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]
     void callDataCopy(uint32_t cdOffset, uint32_t copySize, uint32_t dstOffset, std::vector<FF> const& callDataMem);
@@ -66,6 +76,7 @@ class AvmMiniTraceBuilder {
         uint32_t m_clk;
         uint32_t m_sub_clk;
         uint32_t m_addr;
+
         FF m_val;
         bool m_rw;
     };
@@ -74,6 +85,10 @@ class AvmMiniTraceBuilder {
     std::vector<MemoryTraceEntry> memTrace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
     std::array<FF, MEM_SIZE> ffMemory{};    // Memory table for finite field elements
     // Used for simulation of memory table
+
+    uint32_t pc = 0;
+    uint32_t internal_return_ptr = CALLSTACK_OFFSET;
+    std::stack<uint32_t> internal_call_stack; // TODO: initialize
 
     static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
     void insertInMemTrace(uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, bool m_rw);

@@ -46,6 +46,8 @@ void validateTraceProof(std::vector<Row>&& trace)
     auto circuit_builder = AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
+    log_avmMini_trace(circuit_builder.rows, 10, 13);
+
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     auto composer = honk::AvmMiniComposer();
@@ -121,12 +123,15 @@ void mutateIcInTrace(std::vector<Row>& trace, std::function<bool(Row)>&& selectR
 // Test on basic addition over finite field type.
 TEST_F(AvmMiniArithmeticTests, additionFF)
 {
+    // trace_builder
     trace_builder.callDataCopy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
     //           Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4); // [37,4,11,0,41,0,....]
     trace_builder.returnOP(0, 5);
     auto trace = trace_builder.finalize();
+
+    info("Built circuit with ", trace.size(), " rows");
 
     // Find the first row enabling the addition selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
