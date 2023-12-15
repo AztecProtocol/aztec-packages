@@ -41,19 +41,24 @@ docker run \
 # Read the file line by line
 while IFS= read -r line; do
   # Extract the hexadecimal address using cut
-  address=$(echo "$line" | cut -d ' ' -f 3)
+  address=$(echo "$line" | awk '{print $NF}')
 
   # Assign the address to the respective variable based on the line content
   if [[ $line == *"Rollup Address"* ]]; then
     export TF_VAR_ROLLUP_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_ROLLUP_CONTRACT_ADDRESS=$TF_VAR_ROLLUP_CONTRACT_ADDRESS"
   elif [[ $line == *"Registry Address"* ]]; then
     export TF_VAR_REGISTRY_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_REGISTRY_CONTRACT_ADDRESS=$TF_VAR_REGISTRY_CONTRACT_ADDRESS"
   elif [[ $line == *"Inbox Address:"* ]]; then
     export TF_VAR_INBOX_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$TF_VAR_INBOX_CONTRACT_ADDRESS"
   elif [[ $line == *"Outbox address:"* ]]; then
     export TF_VAR_OUTBOX_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$TF_VAR_OUTBOX_CONTRACT_ADDRESS"
   elif [[ $line == *"Contract Deployment Emitter Address:"* ]]; then
     export TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS=$address
+    echo "TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS=$TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS"
   fi
 done <"$FILE_PATH"
 
