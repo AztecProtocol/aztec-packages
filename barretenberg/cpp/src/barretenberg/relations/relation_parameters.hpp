@@ -46,9 +46,9 @@ template <typename T> struct RelationParameters {
     {
         RelationParameters result;
         result.eta = T::random_element();
+        result.beta = T::random_element();
         result.beta_sqr = result.beta * result.beta;
         result.beta_cube = result.beta_sqr * result.beta;
-        result.beta = T::random_element();
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
         result.lookup_grand_product_delta = T::random_element();

@@ -166,10 +166,29 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             auto running_challenge = FF(1);
             auto output = FF(0);
-            Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+            scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+
             full_honk_evaluations[row] = output;
         }
         return full_honk_evaluations;
+    }
+
+    /**
+     * @brief Scale elements by consecutive powers of the challenge then sum
+     * @param result Batched result
+     */
+    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& current_scalar, FF& result)
+    {
+        auto scale_by_challenge_and_accumulate = [&](auto& element) {
+            for (auto& entry : element) {
+                result += entry * current_scalar;
+                if (current_scalar != challenge) {
+
+                    current_scalar *= challenge;
+                }
+            }
+        };
+        Utils::apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
     }
 
     /**
@@ -236,6 +255,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
                                               const std::vector<FF>& deltas)
     {
+        info("HERE");
+        info(accumulator->alpha);
         auto full_honk_evaluations = compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -300,7 +321,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = common_instance_size / num_threads;   // actual iterations per thread
-
         // Construct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
@@ -318,6 +338,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
+                // No need to initialise extended_univariates to 0, it's assigned to
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
                 FF pow_challenge = pow_betas_star[idx];
@@ -327,7 +348,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
-                    instances.relation_parameters, // these parameters have already been folded
+                    instances.relation_parameters, // these para meters have already been folded
                     pow_challenge);
             }
         });
@@ -444,7 +465,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     std::pair<std::shared_ptr<Instance>, AllPolynomials> compute_next_accumulator(
         ProverInstances& instances,
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
-        const FF& challenge,
+        FF& challenge,
         const FF& compressed_perturbator);
 };
 

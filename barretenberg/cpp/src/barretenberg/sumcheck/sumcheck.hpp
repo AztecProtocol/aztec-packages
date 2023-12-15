@@ -71,10 +71,6 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
     {
-        info("look at this");
-        info(instance->prover_polynomials.get_all()[0][0]);
-        info(instance->prover_polynomials.get_all()[0][1]);
-
         return prove(
             instance->prover_polynomials, instance->relation_parameters, instance->alpha, instance->gate_challenges);
     };

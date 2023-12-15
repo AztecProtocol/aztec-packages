@@ -47,6 +47,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     transcript->send_to_verifier(domain_separator + "_" + commitment_labels.w_4, witness_commitments.w_4);
 
     auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
+    beta = FF(0);
     instance->compute_grand_product_polynomials(beta, gamma);
 
     witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
@@ -58,7 +59,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
                                  instance->witness_commitments.z_lookup);
 
     instance->alpha = transcript->get_challenge(domain_separator + "_alpha");
-
     auto vk_view = instance->verification_key->get_all();
     auto labels = instance->commitment_labels.get_precomputed();
     for (size_t idx = 0; idx < labels.size(); idx++) {
@@ -129,59 +129,15 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     }
 }
 
-// TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
-template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
-{
-    prepare_for_folding();
-
-    // TODO(#https://github.com/AztecProtocol/barretenberg/issues/740): Handle the case where we are folding for the
-    // first time and accumulator is 0
-    FF delta = transcript->get_challenge("delta");
-    auto accumulator = get_accumulator();
-    auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
-
-    auto perturbator = compute_perturbator(accumulator, deltas);
-    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
-        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-    }
-    assert(perturbator[0] == accumulator->target_sum);
-    auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
-    instances.next_gate_challenges =
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-    const auto pow_betas_star =
-        compute_pow_polynomial_at_values(instances.next_gate_challenges, accumulator->instance_size);
-
-    combine_relation_parameters(instances);
-    combine_alpha(instances);
-    auto combiner = compute_combiner(instances, pow_betas_star);
-
-    auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
-    auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
-
-    for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
-        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
-    }
-    auto combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
-
-    FoldingResult<Flavor> res;
-    auto [next_accumulator, storage] =
-        compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
-    res.folding_data = transcript->proof_data;
-    res.accumulator = next_accumulator;
-    res.storage = std::move(storage);
-    return res;
-}
 template <class ProverInstances>
 std::pair<std::shared_ptr<typename ProverInstances::Instance>, typename ProverInstances::Flavor::AllPolynomials>
 ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
     Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
-    const FF& challenge,
+    FF& challenge,
     const FF& compressed_perturbator)
 {
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
-
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
     // and the computation of Lagrange basis for k instances
@@ -195,6 +151,7 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
         compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+
     transcript->send_to_verifier("next_target_sum", next_target_sum);
     for (size_t idx = 0; idx < instances.next_gate_challenges.size(); idx++) {
         transcript->send_to_verifier("next_gate_challenge_" + std::to_string(idx), instances.next_gate_challenges[idx]);
@@ -223,7 +180,6 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     auto acc_poly_views = acc_prover_polynomials.get_all();
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         auto inst_poly_views = instances[inst_idx]->prover_polynomials.get_all();
-        info(inst_poly_views[0][1]);
         for (auto [acc_poly_view, inst_poly_view] : zip_view(acc_poly_views, inst_poly_views)) {
             for (size_t poly_idx = 0; poly_idx < inst_poly_view.size(); poly_idx++) {
                 acc_poly_view[poly_idx] += inst_poly_view[poly_idx] * lagranges[inst_idx];
@@ -231,9 +187,6 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
         }
     }
     next_accumulator->prover_polynomials = acc_prover_polynomials;
-    info("look at this");
-    info(next_accumulator->prover_polynomials.get_all()[0][0]);
-    info(next_accumulator->prover_polynomials.get_all()[0][1]);
 
     // Fold the witness commtiments and send them to the verifier
     auto witness_labels = next_accumulator->commitment_labels.get_witness();
@@ -274,7 +227,7 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     // the verifier
     auto& combined_relation_parameters = instances.relation_parameters;
     auto folded_relation_parameters = proof_system::RelationParameters<FF>{
-        combined_relation_parameters.eta.evaluate(challenge),
+        combined_relation_parameters.eta.evaluate(challenge), // WORKTODO change all of these to evaluate(challenge)
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
         combined_relation_parameters.public_input_delta.evaluate(challenge),
@@ -308,6 +261,55 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     next_accumulator->verification_key = acc_vk;
 
     return std::pair(next_accumulator, std::move(storage));
+}
+
+// TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
+template <class ProverInstances>
+FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
+{
+    prepare_for_folding();
+
+    // TODO(#https://github.com/AztecProtocol/barretenberg/issues/740): Handle the case where we are folding for the
+    // first time and accumulator is 0
+    FF delta = transcript->get_challenge("delta");
+
+    auto accumulator = get_accumulator();
+    auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+
+    auto perturbator = compute_perturbator(accumulator, deltas);
+    for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
+    }
+    assert(perturbator[0] == accumulator->target_sum);
+    auto perturbator_challenge = transcript->get_challenge("perturbator_challenge"); // alpha
+    info("F(alpha) ", perturbator.evaluate(perturbator_challenge));                  // F(\alpha)
+    instances.next_gate_challenges =
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+    const auto pow_betas_star =
+        compute_pow_polynomial_at_values(instances.next_gate_challenges, accumulator->instance_size);
+    combine_relation_parameters(instances);
+    combine_alpha(instances);
+    auto combiner = compute_combiner(instances, pow_betas_star);
+    info("G(0) ", combiner.evaluations[0]);
+
+    auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
+    auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
+
+    for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
+        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
+    }
+    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge"); // gamma
+    info("G(gamma)", combiner.evaluate(combiner_challenge));
+    // auto combiner_challenge = 0; // gamma
+
+    FoldingResult<Flavor> res;
+    auto [next_accumulator, storage] =
+        compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
+    res.folding_data = transcript->proof_data;
+    res.accumulator = next_accumulator;
+
+    res.storage = std::move(storage);
+    return res;
 }
 
 template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;

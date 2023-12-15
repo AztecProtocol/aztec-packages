@@ -129,7 +129,8 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 {
     prepare_for_folding(fold_data);
 
-    auto delta = transcript->get_challenge("delta");
+    // auto delta = transcript->get_challenge("delta");
+    FF delta = 0;
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 

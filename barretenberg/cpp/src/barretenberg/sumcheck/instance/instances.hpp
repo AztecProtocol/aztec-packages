@@ -64,7 +64,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
         for (auto& get_all : insts_prover_polynomials_views) {
             // Iterate over all columns in the trace execution of an instance and extract their value at row_idx.
             for (auto [result, poly_ptr] : zip_view(results, get_all)) {
-                result.evaluations[instance_idx] = (poly_ptr)[row_idx];
+                result.evaluations[instance_idx] = poly_ptr[row_idx];
             }
             instance_idx++;
         }
