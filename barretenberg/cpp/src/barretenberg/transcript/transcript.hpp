@@ -4,8 +4,8 @@
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 
-#define LOG_CHALLENGES
-#define LOG_INTERACTIONS
+// #define LOG_CHALLENGES
+// #define LOG_INTERACTIONS
 
 namespace proof_system::honk {
 

@@ -195,33 +195,26 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
 template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
-    info("execute_preamble_round");
     execute_preamble_round();
 
     // Compute first three wire commitments
-    info("execute_wire_commitments_round");
     execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
-    info("execute_sorted_list_accumulator_round");
     execute_sorted_list_accumulator_round();
 
     // Fiat-Shamir: beta & gamma
-    info("execute_log_derivative_inverse_round");
     execute_log_derivative_inverse_round();
 
     // Compute grand product(s) and commitments.
-    info("execute_grand_product_computation_round");
     execute_grand_product_computation_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
-    info("execute_relation_check_rounds");
     execute_relation_check_rounds();
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    info("execute_zeromorph_rounds");
     execute_zeromorph_rounds();
 
     return export_proof();

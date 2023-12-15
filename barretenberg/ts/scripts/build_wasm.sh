@@ -6,7 +6,7 @@ if [ -z "$SKIP_CPP_BUILD" ]; then
   cd ../cpp
   cmake --preset wasm-threads && cmake --build --preset wasm-threads
   cmake --preset wasm && cmake --build --preset wasm
-  ./scripts/strip-wasm-if-release.sh
+  ./scripts/strip-wasm.sh
   cd ../ts
 fi
 
@@ -18,5 +18,4 @@ fi
 mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg-threads.wasm
-cp ../cpp/build-wasm/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg.wasm
 cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm

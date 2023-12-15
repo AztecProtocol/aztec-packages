@@ -192,8 +192,7 @@
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
-        "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
       "cacheVariables": {
         "CMAKE_SYSROOT": "$env{WASI_SDK_PREFIX}/share/wasi-sysroot",
@@ -223,7 +222,7 @@
       "binaryDir": "build-wasm-threads",
       "environment": {
         "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0+threads",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
         "MULTITHREADING": "ON"

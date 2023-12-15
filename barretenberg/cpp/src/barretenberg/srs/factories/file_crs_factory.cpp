@@ -56,7 +56,6 @@ FileCrsFactory<Curve>::FileCrsFactory(std::string path, size_t initial_degree)
 template <typename Curve>
 std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> FileCrsFactory<Curve>::get_prover_crs(size_t degree)
 {
-    info("degree: ", degree);
     if (degree != degree_ || !prover_crs_) {
         prover_crs_ = std::make_shared<FileProverCrs<Curve>>(degree, path_);
         degree_ = degree;

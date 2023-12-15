@@ -69,16 +69,9 @@ template <class Curve> class CommitmentKey {
     Commitment commit(std::span<const Fr> polynomial)
     {
         const size_t degree = polynomial.size();
-        Fr sum = 0;
-        for (const Fr& f : polynomial) {
-            sum += f;
-        }
-        info("S ", sum);
         ASSERT(degree <= srs->get_monomial_size());
-        Commitment c = barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
+        return barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
-        info("C", c);
-        return c;
     };
 
     barretenberg::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;

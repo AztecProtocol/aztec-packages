@@ -6,7 +6,7 @@ RUN ./scripts/install-wasi-sdk.sh
 COPY . .
 RUN cmake --preset wasm && cmake --build --preset wasm
 RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
-RUN ./scripts/strip-wasm-if-release.sh
+RUN ./scripts/strip-wasm.sh
 
 FROM scratch
 WORKDIR /usr/src/barretenberg/cpp
