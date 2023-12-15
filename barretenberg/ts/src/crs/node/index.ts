@@ -77,7 +77,7 @@ export class GrumpkinCrs {
 
     // TODO(AD): implement NetCrs for Grumpkin once uploaded.
     const crs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
-    debug(`loading igntion file crs of size: ${this.numPoints}`);
+    debug(`loading ignition file crs of size: ${this.numPoints}`);
     await crs.init();
     writeFileSync(this.path + '/size', this.numPoints.toString());
     writeFileSync(this.path + '/g1.dat', crs.getG1Data());

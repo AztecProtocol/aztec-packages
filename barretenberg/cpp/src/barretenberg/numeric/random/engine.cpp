@@ -9,9 +9,13 @@ namespace numeric::random {
 namespace {
 auto generate_random_data()
 {
+    static unsigned int i = 0;
     std::array<unsigned int, 32> random_data;
-    std::random_device source;
-    std::generate(std::begin(random_data), std::end(random_data), std::ref(source));
+    // std::random_device source;
+    // std::generate(std::begin(random_data), std::end(random_data), std::ref(source));
+    for (unsigned int& data : random_data) {
+        data = i++;
+    }
     return random_data;
 }
 } // namespace

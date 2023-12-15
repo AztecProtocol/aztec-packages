@@ -44,11 +44,12 @@ async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
   return { exact, total, subgroup };
 }
 
-async function init(bytecodePath: string, crsPath: string) {
+async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
   const api = await Barretenberg.new(threads);
 
   const circuitSize = await getGates(bytecodePath, api);
-  const subgroupSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
+  // TODO(AD): remove subgroupSizeOverride hack for goblin
+  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
   if (subgroupSize > MAX_CIRCUIT_SIZE) {
     throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
   }
@@ -71,12 +72,14 @@ async function init(bytecodePath: string, crsPath: string) {
 }
 
 async function initGoblin(bytecodePath: string, crsPath: string) {
-  const initData = await init(bytecodePath, crsPath);
-  const { api, subgroupSize } = initData;
+  // TODO(AD): more final solution
+  const hardcodedGrumpkinSubgroupSizeHack = 32768;
+  const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
+  const { api } = initData;
 
   // Plus 1 needed! (Move +1 into Crs?)
   // Need both grumpkin and bn254 SRS's currently
-  const grumpkinCrs = await GrumpkinCrs.new(subgroupSize + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath);
   await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
 
   return initData;
@@ -145,6 +148,7 @@ export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: st
     debug(`verifying...`);
     const verified = await api.acirVerifyGoblinProof(acirComposer, proof);
     debug(`verified: ${verified}`);
+    console.log({ verified });
     return verified;
   } finally {
     await api.destroy();
