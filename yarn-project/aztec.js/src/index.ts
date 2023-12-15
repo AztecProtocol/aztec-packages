@@ -42,7 +42,6 @@ export {
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
-  computeContractFunctionTreeRoot,
 } from './utils/index.js';
 
 export { createPXEClient } from './pxe_client.js';
