@@ -16,10 +16,10 @@ class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
     // WORKTODO(NEW_CONSTRAINTS)
-    // using GUHFlavor = proof_system::honk::flavor::Ultra;
-    // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
+    using GUHFlavor = proof_system::honk::flavor::Ultra;
+    using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    // using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
+    // using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
 
     using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
