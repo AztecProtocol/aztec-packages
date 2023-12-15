@@ -80,6 +80,7 @@ docker run \
   -ti \
   --rm \
   --workdir "$PWD" \
+  --user $(id -u):$(id -g) \
   $DOCKER_HOST_BINDS \
   $DOCKER_ENV \
   $DOCKER_VOLUME \
