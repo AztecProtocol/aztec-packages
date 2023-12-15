@@ -75,7 +75,7 @@ export class GrumpkinCrs {
       return;
     }
 
-    // TODO(AD): implement NetCrs for Grumpkin once uploaded.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/813): implement NetCrs for Grumpkin once SRS is uploaded.
     const crs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
     debug(`loading ignition file crs of size: ${this.numPoints}`);
     await crs.init();

@@ -47,7 +47,8 @@ void init_reference_strings()
     auto g2_data = get_g2_data(CRS_PATH);
     srs::init_crs_factory(g1_data, g2_data);
 
-    // WORKTODO(ADAM) initializing this gloal assumes a directory structure PATH/monomial/transcript00.dat
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/813): initializing this global assumes a directory
+    // structure PATH/monomial/transcript00.dat. We should download this once the Grumpkin SRS is uploaded.
     srs::init_grumpkin_crs_factory(CRS_PATH);
 }
 

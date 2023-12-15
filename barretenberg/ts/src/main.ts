@@ -48,7 +48,7 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   const api = await Barretenberg.new(threads);
 
   const circuitSize = await getGates(bytecodePath, api);
-  // TODO(AD): remove subgroupSizeOverride hack for goblin
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
   if (subgroupSize > MAX_CIRCUIT_SIZE) {
     throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
@@ -72,7 +72,7 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
 }
 
 async function initGoblin(bytecodePath: string, crsPath: string) {
-  // TODO(AD): more final solution
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
   const hardcodedGrumpkinSubgroupSizeHack = 32768;
   const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
   const { api } = initData;

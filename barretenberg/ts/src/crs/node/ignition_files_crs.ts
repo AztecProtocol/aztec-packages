@@ -50,7 +50,7 @@ export class IgnitionFilesCrs {
     const data = await readFile(this.path + '/transcript00.dat');
     this.data = data.subarray(g1Start, g1End);
 
-    // TODO(AD): proper abstraction from Grumpkin which does not have g2
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): proper abstraction from Grumpkin which does not have g2
     if (existsSync(this.path + '/g2.dat')) {
       this.g2Data = await readFile(this.path + '/g2.dat');
     }
