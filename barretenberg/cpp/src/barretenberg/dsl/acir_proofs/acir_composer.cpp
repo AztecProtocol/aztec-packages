@@ -80,7 +80,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 std::vector<uint8_t> AcirComposer::create_goblin_proof(acir_format::acir_format& constraint_system,
                                                        acir_format::WitnessVector& witness)
 {
-    goblin_builder_ = Goblin::Builder(size_hint_);
+    goblin_builder_ = GoblinHack::Builder(size_hint_);
     create_circuit_with_witness(goblin_builder_, constraint_system, witness);
     return goblin.construct_proof(goblin_builder_);
 }

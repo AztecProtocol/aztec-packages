@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 
-#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/goblin_hack.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/encryption/schnorr/schnorr.hpp"
@@ -26,7 +26,7 @@
 namespace acir_format {
 
 using Builder = proof_system::UltraCircuitBuilder;
-using GoblinBuilder = barretenberg::Goblin::Builder;
+using GoblinBuilder = barretenberg::GoblinHack::Builder;
 using Composer = plonk::UltraComposer;
 
 using Prover =
