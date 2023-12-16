@@ -1,5 +1,6 @@
-import { CompleteAddress, EthAddress } from '@aztec/circuits.js';
+import { CompleteAddress } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Represents a deployed contract on the Aztec network.

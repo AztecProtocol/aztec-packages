@@ -12,6 +12,8 @@
 #include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -37,10 +39,10 @@ class GoblinUltra {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 53;
+    static constexpr size_t NUM_ALL_ENTITIES = 55;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 14;
 
@@ -57,7 +59,9 @@ class GoblinUltra {
                                   proof_system::EllipticRelation<FF>,
                                   proof_system::AuxiliaryRelation<FF>,
                                   proof_system::EccOpQueueRelation<FF>,
-                                  proof_system::DatabusLookupRelation<FF>>;
+                                  proof_system::DatabusLookupRelation<FF>,
+                                  proof_system::Poseidon2ExternalRelation<FF>,
+                                  proof_system::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
     using LogDerivLookupRelation = proof_system::DatabusLookupRelation<FF>;
@@ -90,40 +94,56 @@ class GoblinUltra {
       public:
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              q_m,             // column 0
-                              q_c,             // column 1
-                              q_l,             // column 2
-                              q_r,             // column 3
-                              q_o,             // column 4
-                              q_4,             // column 5
-                              q_arith,         // column 6
-                              q_sort,          // column 7
-                              q_elliptic,      // column 8
-                              q_aux,           // column 9
-                              q_lookup,        // column 10
-                              q_busread,       // column 11
-                              sigma_1,         // column 12
-                              sigma_2,         // column 13
-                              sigma_3,         // column 14
-                              sigma_4,         // column 15
-                              id_1,            // column 16
-                              id_2,            // column 17
-                              id_3,            // column 18
-                              id_4,            // column 19
-                              table_1,         // column 20
-                              table_2,         // column 21
-                              table_3,         // column 22
-                              table_4,         // column 23
-                              lagrange_first,  // column 24
-                              lagrange_last,   // column 25
-                              lagrange_ecc_op, // column 26 // indicator poly for ecc op gates
-                              databus_id)      // column 27 // id polynomial, i.e. id_i = i
+                              q_m,                  // column 0
+                              q_c,                  // column 1
+                              q_l,                  // column 2
+                              q_r,                  // column 3
+                              q_o,                  // column 4
+                              q_4,                  // column 5
+                              q_arith,              // column 6
+                              q_sort,               // column 7
+                              q_elliptic,           // column 8
+                              q_aux,                // column 9
+                              q_lookup,             // column 10
+                              q_busread,            // column 11
+                              q_poseidon2_external, // column 12
+                              q_poseidon2_internal, // column 13
+                              sigma_1,              // column 14
+                              sigma_2,              // column 15
+                              sigma_3,              // column 16
+                              sigma_4,              // column 17
+                              id_1,                 // column 18
+                              id_2,                 // column 19
+                              id_3,                 // column 20
+                              id_4,                 // column 21
+                              table_1,              // column 22
+                              table_2,              // column 23
+                              table_3,              // column 24
+                              table_4,              // column 25
+                              lagrange_first,       // column 26
+                              lagrange_last,        // column 27
+                              lagrange_ecc_op,      // column 28 // indicator poly for ecc op gates
+                              databus_id            // column 29 // id polynomial, i.e. id_i = i
+        )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         RefVector<DataType> get_selectors()
         {
-            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup, q_busread };
+            return { q_m,
+                     q_c,
+                     q_l,
+                     q_r,
+                     q_o,
+                     q_4,
+                     q_arith,
+                     q_sort,
+                     q_elliptic,
+                     q_aux,
+                     q_lookup,
+                     q_busread,
+                     q_poseidon2_external,
+                     q_poseidon2_internal };
         };
         RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
         RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
@@ -167,18 +187,13 @@ class GoblinUltra {
     template <typename DataType>
     class WitnessEntities : public WireEntities<DataType>, public DerivedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedEntities<DataType>)
 
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         RefVector<DataType> get_ecc_op_wires()
         {
             return { this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         }
-        // The sorted concatenations of table and witness data needed for plookup.
-        RefVector<DataType> get_sorted_polynomials()
-        {
-            return { this->sorted_1, this->sorted_2, this->sorted_3, this->sorted_4 };
-        };
     };
 
     template <typename DataType> class ShiftedEntities {
@@ -213,9 +228,7 @@ class GoblinUltra {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
-                                WitnessEntities<DataType>::get_all(),
-                                ShiftedEntities<DataType>::get_all())
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         RefVector<DataType> get_wires() { return { this->w_l, this->w_r, this->w_o, this->w_4 }; };
         RefVector<DataType> get_ecc_op_wires()
@@ -225,54 +238,16 @@ class GoblinUltra {
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
-            return { this->q_c,
-                     this->q_l,
-                     this->q_r,
-                     this->q_o,
-                     this->q_4,
-                     this->q_m,
-                     this->q_arith,
-                     this->q_sort,
-                     this->q_elliptic,
-                     this->q_aux,
-                     this->q_lookup,
-                     this->q_busread,
-                     this->sigma_1,
-                     this->sigma_2,
-                     this->sigma_3,
-                     this->sigma_4,
-                     this->id_1,
-                     this->id_2,
-                     this->id_3,
-                     this->id_4,
-                     this->table_1,
-                     this->table_2,
-                     this->table_3,
-                     this->table_4,
-                     this->lagrange_first,
-                     this->lagrange_last,
-                     this->lagrange_ecc_op,
-                     this->databus_id,
-                     this->w_l,
-                     this->w_r,
-                     this->w_o,
-                     this->w_4,
-                     this->sorted_accum,
-                     this->z_perm,
-                     this->z_lookup,
-                     this->ecc_op_wire_1,
-                     this->ecc_op_wire_2,
-                     this->ecc_op_wire_3,
-                     this->ecc_op_wire_4,
-                     this->calldata,
-                     this->calldata_read_counts,
-                     this->lookup_inverses };
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
+
+        RefVector<DataType> get_witness() { return WitnessEntities<DataType>::get_all(); };
         RefVector<DataType> get_to_be_shifted()
         {
             return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
                      this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
         };
+        RefVector<DataType> get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -292,6 +267,11 @@ class GoblinUltra {
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+        };
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
     };
@@ -344,10 +324,17 @@ class GoblinUltra {
     };
 
     /**
-     * @brief A container for the prover polynomials handles; only stores spans.
+     * @brief A container for the prover polynomials handles.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        // Define all operations as default, except move construction/assignment
+        ProverPolynomials() = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
@@ -402,6 +389,8 @@ class GoblinUltra {
             q_aux = "__Q_AUX";
             q_lookup = "__Q_LOOKUP";
             q_busread = "__Q_BUSREAD";
+            q_poseidon2_external = "__Q_POSEIDON2_EXTERNAL";
+            q_poseidon2_internal = "__Q_POSEIDON2_INTERNAL";
             sigma_1 = "__SIGMA_1";
             sigma_2 = "__SIGMA_2";
             sigma_3 = "__SIGMA_3";
@@ -440,6 +429,8 @@ class GoblinUltra {
             this->q_aux = verification_key->q_aux;
             this->q_lookup = verification_key->q_lookup;
             this->q_busread = verification_key->q_busread;
+            this->q_poseidon2_external = verification_key->q_poseidon2_external;
+            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;
             this->sigma_2 = verification_key->sigma_2;
             this->sigma_3 = verification_key->sigma_3;
@@ -462,7 +453,7 @@ class GoblinUltra {
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
     class FoldingParameters {
       public:
-        std::vector<FF> gate_separation_challenges;
+        std::vector<FF> gate_challenges;
         FF target_sum;
     };
 

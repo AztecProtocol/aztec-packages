@@ -1,18 +1,18 @@
-import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import {
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NullifierLeafPreimage,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult, IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
-import { L2Block, LeafData, MerkleTreeId, SiblingPath } from '@aztec/types';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 /**
  * Type alias for the nullifier tree ID.
  */
-export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE;
-
-/**
- * Type alias for the public data tree ID.
- */
-export type PublicTreeId = MerkleTreeId.PUBLIC_DATA_TREE;
+export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE;
 
 /**
  *
@@ -30,6 +30,8 @@ export type PublicTreeId = MerkleTreeId.PUBLIC_DATA_TREE;
  *    more leaves, we can then insert the first block of 1024 leaves into indices 1024:2047.
  */
 export const INITIAL_NULLIFIER_TREE_SIZE = 2 * MAX_NEW_NULLIFIERS_PER_TX;
+
+export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
 /**
  *  Defines tree information.
@@ -73,8 +75,8 @@ export type CurrentTreeRoots = {
   l1Tol2MessagesTreeRoot: Buffer;
   /** Nullifier data tree root. */
   nullifierTreeRoot: Buffer;
-  /** Blocks tree root. */
-  blocksTreeRoot: Buffer;
+  /** Archive root. */
+  archiveRoot: Buffer;
   /** Public data tree root */
   publicDataTreeRoot: Buffer;
 };
@@ -136,23 +138,26 @@ export interface MerkleTreeOperations {
   getPreviousValueIndex(
     treeId: IndexedTreeId,
     value: bigint,
-  ): Promise<{
-    /**
-     * The index of the found leaf.
-     */
-    index: number;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  }>;
+  ): Promise<
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined
+  >;
 
   /**
    * Returns the data at a specific leaf.
    * @param treeId - The tree for which leaf data should be returned.
    * @param index - The index of the leaf required.
    */
-  getLeafData(treeId: IndexedTreeId, index: number): Promise<LeafData | undefined>;
+  getLeafPreimage(treeId: IndexedTreeId, index: bigint): Promise<IndexedTreeLeafPreimage | undefined>;
 
   /**
    * Update the leaf data at the given index.
@@ -160,7 +165,7 @@ export interface MerkleTreeOperations {
    * @param leaf - The updated leaf value.
    * @param index - The index of the leaf to be updated.
    */
-  updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: LeafData | Buffer, index: bigint): Promise<void>;
+  updateLeaf(treeId: IndexedTreeId, leaf: NullifierLeafPreimage | Buffer, index: bigint): Promise<void>;
 
   /**
    * Returns the index containing a leaf value.
@@ -177,11 +182,11 @@ export interface MerkleTreeOperations {
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
 
   /**
-   * Inserts the new block hash into the new block hashes tree.
+   * Inserts the new block hash into the archive.
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param globalVariablesHash - The global variables hash to insert into the block hash.
    */
-  updateBlocksTree(globalVariablesHash: Fr): Promise<void>;
+  updateArchive(globalVariablesHash: Fr): Promise<void>;
 
   /**
    * Updates the latest global variables hash

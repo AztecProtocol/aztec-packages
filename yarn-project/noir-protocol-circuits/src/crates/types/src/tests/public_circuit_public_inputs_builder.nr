@@ -4,7 +4,7 @@ use crate::{
         block_header::BlockHeader,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
-    address::Address,
+    address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
@@ -13,7 +13,7 @@ use crate::{
     tests::fixtures,
     utils::bounded_vec::BoundedVec,
 };
-use dep::aztec::constants_gen::{
+use crate::constants::{
     MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL,
@@ -36,7 +36,7 @@ struct PublicCircuitPublicInputsBuilder {
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
     block_header: BlockHeader,
-    prover_address: Address,
+    prover_address: AztecAddress,
 }
 
 impl PublicCircuitPublicInputsBuilder {

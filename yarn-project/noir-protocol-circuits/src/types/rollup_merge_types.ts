@@ -22,7 +22,7 @@ export interface GlobalVariables {
 }
 
 export interface ConstantRollupData {
-  start_blocks_tree_snapshot: AppendOnlyTreeSnapshot;
+  archive_snapshot: AppendOnlyTreeSnapshot;
   private_kernel_vk_tree_root: Field;
   public_kernel_vk_tree_root: Field;
   base_rollup_vk_hash: Field;
@@ -41,8 +41,8 @@ export interface BaseOrMergeRollupPublicInputs {
   end_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
   start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
   end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_root: Field;
-  end_public_data_tree_root: Field;
+  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
+  end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
   calldata_hash: FixedLengthArray<Field, 2>;
 }
 
