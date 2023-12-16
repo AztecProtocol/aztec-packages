@@ -206,7 +206,20 @@ A instruction's gas cost is loosely derived from its complexity. Execution compl
 > Implementation detail: an instruction's gas cost takes into account the costs of associated downstream computations. So, an instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). An instruction that triggers a nested message call (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's execution and an added execution of the public kernel circuit.
 
 ## Halting
-A message call's execution can end with a **normal halt** or **exceptional halt**. A normal halt occurs when a [`RETURN`](./InstructionSet/#isa-section-return) or [`REVERT`](./InstructionSet/#isa-section-revert) instruction is encountered. An exceptional halt is not explicitly triggered by an instruction but instead occurs when one of the following conditions is met:
+A message call's execution can end with a **normal halt** or **exceptional halt**. A halt ends execution within the current context and returns control flow to the calling context.
+
+### Normal halting
+A normal halt occurs when the VM encounters an explicit halting instruction ([`RETURN`](./InstructionSet/#isa-section-return) or [`REVERT`](./InstructionSet/#isa-section-revert)). Such instructions consume gas normally and optionally initialize some output data before finally halting execution within the current context.
+```
+machineState.l1GasLeft -= instr.l1GasCost
+machineState.l2GasLeft -= instr.l2GasCost
+// results.reverted remains false
+results.output = machineState.memory[instr.retOffset:instr.retOffset+instr.retSize]
+```
+> Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./InstructionSet/#isa-section-return) and [`REVERT`](./InstructionSet/#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
+
+### Exceptional halting
+An exceptional halt is not explicitly triggered by an instruction but instead occurs when one of the following halting conditions is met:
 1. **Insufficient gas**
     ```
     assert machineState.l1GasLeft - instr.l1GasCost > 0
@@ -229,7 +242,7 @@ A message call's execution can end with a **normal halt** or **exceptional halt*
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 
-When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and marked as `reverted` with no output data:
+When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and marked as `reverted` with no output data, and then execution within the current context ends.
 ```
 machineState.l1GasLeft = 0
 machineState.l2GasLeft = 0
