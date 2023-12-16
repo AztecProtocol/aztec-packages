@@ -44,19 +44,19 @@ while IFS= read -r line; do
   address=$(echo "$line" | awk '{print $NF}')
 
   # Assign the address to the respective variable based on the line content
-  if [[ $line == *"Rollup Address"* ]]; then
+  if [[ $line == *"Rollup"* ]]; then
     export TF_VAR_ROLLUP_CONTRACT_ADDRESS=$address
     echo "TF_VAR_ROLLUP_CONTRACT_ADDRESS=$TF_VAR_ROLLUP_CONTRACT_ADDRESS"
-  elif [[ $line == *"Registry Address"* ]]; then
+  elif [[ $line == *"Registry"* ]]; then
     export TF_VAR_REGISTRY_CONTRACT_ADDRESS=$address
     echo "TF_VAR_REGISTRY_CONTRACT_ADDRESS=$TF_VAR_REGISTRY_CONTRACT_ADDRESS"
-  elif [[ $line == *"Inbox Address:"* ]]; then
+  elif [[ $line == *"Inbox"* ]]; then
     export TF_VAR_INBOX_CONTRACT_ADDRESS=$address
     echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$TF_VAR_INBOX_CONTRACT_ADDRESS"
-  elif [[ $line == *"Outbox address:"* ]]; then
+  elif [[ $line == *"Outbox"* ]]; then
     export TF_VAR_OUTBOX_CONTRACT_ADDRESS=$address
     echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$TF_VAR_OUTBOX_CONTRACT_ADDRESS"
-  elif [[ $line == *"Contract Deployment Emitter Address:"* ]]; then
+  elif [[ $line == *"Emitter"* ]]; then
     export TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS=$address
     echo "TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS=$TF_VAR_CONTRACT_DEPLOYMENT_EMITTER_ADDRESS"
   fi
