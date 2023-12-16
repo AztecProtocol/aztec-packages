@@ -16,7 +16,7 @@ ENV VERBOSE=1
 # Run double_verify_proof through bb.js on node to check 512k support.
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/813) this will go away when bb/bb.js download grumpkin
-RUN ../cpp/scripts/download_grumpkin.sh
+RUN ../cpp/srs_db/download_grumpkin.sh
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
 RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
