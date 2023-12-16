@@ -102,6 +102,9 @@ barretenberg-acir-tests-bb.js:
   dockerfile: Dockerfile.bb.js
   dependencies:
     - bb.js
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/813) this will go away when bb/bb.js downloads grumpkin as
+    # we will no longer need this for the grumpkin srs generation
+    - barretenberg-x86_64-linux-clang-assert
     - noir-acir-tests
 
 l1-contracts:
