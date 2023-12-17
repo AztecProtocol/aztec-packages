@@ -1,10 +1,10 @@
 import { AztecAddress, CompleteAddress, FieldsOf } from '@aztec/circuits.js';
 import { PXE, TxHash, TxReceipt } from '@aztec/types';
 
-import { type Contract } from '../contract/contract.js';
-import { ContractBase } from '../contract/contract_base.js';
-import { SentTx, WaitOpts } from '../contract/sent_tx.js';
-import { Wallet } from '../wallet/index.js';
+import { Wallet } from '../account/index.js';
+import { type Contract } from './contract.js';
+import { ContractBase } from './contract_base.js';
+import { SentTx, WaitOpts } from './sent_tx.js';
 
 /** Options related to waiting for a deployment tx. */
 export type DeployedWaitOpts = WaitOpts & {

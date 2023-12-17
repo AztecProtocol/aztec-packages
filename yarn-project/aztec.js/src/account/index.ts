@@ -20,11 +20,12 @@
  * @packageDocumentation
  */
 import { Fr } from '@aztec/circuits.js';
-import { CompleteAddress } from '@aztec/types';
+
+export { CompleteAddress } from '@aztec/types';
 
 export * from './defaults/index.js';
 export { AccountInterface, AuthWitnessProvider } from './interface.js';
-export { CompleteAddress };
+export * from './wallet.js';
 
 /** A contract deployment salt. */
 export type Salt = Fr | number | bigint;

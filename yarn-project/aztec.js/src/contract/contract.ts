@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
 import { PublicKey } from '@aztec/types';
 
-import { Wallet } from '../wallet/index.js';
+import { Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
 

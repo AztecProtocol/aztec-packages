@@ -4,16 +4,10 @@ import { GrumpkinPrivateKey, PXE } from '@aztec/types';
 import { AccountContract, SingleKeyAccountContract } from '../account_contract/index.js';
 import { AccountWallet } from './account_wallet.js';
 
-// import { AccountInterface } from '../account/index.js';
-
-// import { AccountContract, AccountInterface, SingleKeyAccountContract } from '../account/index.js';
-// import { AccountWallet } from './account_wallet.js';
-
-// export * from './base_wallet.js';
-// export * from './account_wallet.js';
-// export * from './signerless_wallet.js';
+export * from './account_wallet.js';
+export * from './signerless_wallet.js';
 export * from './account_wallet_with_private_key.js';
-export * from './wallet.js';
+export * from '../account/wallet.js';
 
 /**
  * Gets a wallet for an already registered account using Schnorr signatures with a single key for encryption and authentication.

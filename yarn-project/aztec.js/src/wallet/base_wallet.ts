@@ -20,7 +20,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { Wallet } from './wallet.js';
+import { Wallet } from '../account/wallet.js';
 
 /**
  * A base class for Wallet implementations

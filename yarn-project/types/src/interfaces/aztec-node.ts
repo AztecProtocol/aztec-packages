@@ -10,23 +10,7 @@ import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '.
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { Tx, TxHash } from '../tx/index.js';
 import { SequencerConfig } from './configs.js';
-import { StateInfoProvider } from './state_provider.js';
-
-// import {
-//   ContractData,
-//   ExtendedContractData,
-//   GetUnencryptedLogsResponse,
-//   L2Block,
-//   L2BlockL2Logs,
-//   L2Tx,
-//   LogFilter,
-//   LogType,
-//   MerkleTreeId,
-//   SequencerConfig,
-//   StateInfoProvider,
-//   Tx,
-//   TxHash,
-// } from '../index.js';
+import { StateInfoProvider } from './state_info_provider.js';
 
 /**
  * The aztec node.

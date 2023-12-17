@@ -1,18 +1,4 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import {
-  AuthWitness,
-  ContractData,
-  ExtendedContractData,
-  ExtendedNote,
-  GetUnencryptedLogsResponse,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-} from '@aztec/types';
 
 import { AuthWitness } from '../auth_witness.js';
 import { ContractData, ExtendedContractData } from '../contract_data.js';
