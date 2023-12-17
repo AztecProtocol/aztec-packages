@@ -13,7 +13,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
 - [Example contracts](./yarn-project/noir-contracts/): Example contracts for the Aztec network, written in Noir.
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
-- [Aztec Starter Kits](./starter-kits/): Example starter projects.
+- [Aztec Boxes](./boxes/): Example starter projects.
 
 ## Issues Board
 

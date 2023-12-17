@@ -1,13 +1,13 @@
-version: '3'
+version: "3"
 services:
   ethereum:
     image: ghcr.io/foundry-rs/foundry:v1.0.0
     command: '"anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337"'
     ports:
-      - '${SANDBOX_ANVIL_PORT:-8545}:8545'
+      - "${SANDBOX_ANVIL_PORT:-8545}:8545"
 
   aztec:
-    image: 'aztecprotocol/aztec-sandbox:${SANDBOX_VERSION:-latest}'
+    image: "aztecprotocol/aztec-sandbox:${SANDBOX_VERSION:-latest}"
 
   boxes-blank:
     build: .
