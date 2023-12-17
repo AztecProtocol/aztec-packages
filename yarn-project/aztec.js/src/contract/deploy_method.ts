@@ -15,6 +15,7 @@ import { BaseContractInteraction, SendMethodOptions } from './base_contract_inte
 import { type Contract } from './contract.js';
 import { ContractBase } from './contract_base.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
+import { Wallet } from '../account/index.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -46,7 +47,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private publicKey: PublicKey,
     protected pxe: PXE,
     private artifact: ContractArtifact,
-    private postDeployCtor: (address: AztecAddress) => Promise<Contract>,
+    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<Contract>,
     private args: any[] = [],
   ) {
     super(pxe);

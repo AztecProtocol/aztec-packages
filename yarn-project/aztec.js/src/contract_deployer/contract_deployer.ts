@@ -24,12 +24,7 @@ export class ContractDeployer {
    * @returns A DeployMethod instance configured with the ABI, PXE, and constructor arguments.
    */
   public deploy(...args: any[]) {
-    const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
-    if (!isWallet(this.pxe)) {
-      throw new Error(`A wallet is required for creating a contract instance`);
-    }
-    const wallet = this.pxe;
-    const postDeployCtor = (address: AztecAddress) => Contract.at(address, this.artifact, wallet);
+    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, this.artifact, wallet);
     return new DeployMethod(this.publicKey ?? Point.ZERO, this.pxe, this.artifact, postDeployCtor, args);
   }
 }

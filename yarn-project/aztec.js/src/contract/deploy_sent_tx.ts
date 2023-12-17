@@ -25,7 +25,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   constructor(
     wallet: PXE | Wallet,
     txHashPromise: Promise<TxHash>,
-    private postDeployCtor: (address: AztecAddress) => Promise<Contract>,
+    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<Contract>,
 
     /**
      * The complete address of the deployed contract
@@ -65,6 +65,6 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
     if (!address) {
       throw new Error(`Contract address is missing from transaction receipt`);
     }
-    return this.postDeployCtor(address) as Promise<TContract>;
+    return this.postDeployCtor(address, contractWallet) as Promise<TContract>;
   }
 }

@@ -43,7 +43,7 @@ export class Contract extends ContractBase {
    * @param args - Arguments for the constructor.
    */
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    const postDeployCtor = (address: AztecAddress) => Contract.at(address, artifact, wallet);
+    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
     return new DeployMethod(Point.ZERO, wallet, artifact, postDeployCtor, args);
   }
 
@@ -55,7 +55,7 @@ export class Contract extends ContractBase {
    * @param args - Arguments for the constructor.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, artifact: ContractArtifact, args: any[]) {
-    const postDeployCtor = (address: AztecAddress) => Contract.at(address, artifact, wallet);
+    const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
     return new DeployMethod(publicKey, wallet, artifact, postDeployCtor, args);
   }
 }
