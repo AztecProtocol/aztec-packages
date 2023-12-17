@@ -442,8 +442,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Test via adhoc script"
-          command: ./boxes/run_tests blank
+          name: "Test"
+          command: cond_spot_run_compose boxes-blank 4
 
   boxes-token:
     machine:
@@ -1109,10 +1109,10 @@ workflows:
       #     requires:
       #       - aztec-sandbox
       #     <<: *defaults
-      # - boxes-blank:
-      #     requires:
-      #       - aztec-sandbox
-      #     <<: *defaults
+      - boxes-blank:
+          requires:
+            - aztec-sandbox
+          <<: *defaults
       # - boxes-token:
       #     requires:
       #       - aztec-sandbox

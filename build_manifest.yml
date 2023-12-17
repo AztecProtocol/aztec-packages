@@ -168,23 +168,24 @@ cli:
     - yarn-project-prod
   multiarch: buildx
 
-boxes-blank-react:
-  buildDir: boxes
-  projectDir: boxes/blank-react
-  dependencies:
-    - aztec-sandbox
+# boxes-blank-react:
+#   buildDir: boxes
+#   projectDir: boxes/blank-react
+#   dependencies:
+#     - aztec-sandbox
 
 boxes-blank:
-  buildDir: boxes
-  projectDir: boxes/blank
+  buildDir: boxes/blank
   dependencies:
+    - yarn-project-prod
+  runDependencies:
     - aztec-sandbox
 
-boxes-token:
-  buildDir: boxes
-  projectDir: boxes/token
-  dependencies:
-    - aztec-sandbox
+# boxes-token:
+#   buildDir: boxes
+#   projectDir: boxes/token
+#   dependencies:
+#     - aztec-sandbox
 
 end-to-end:
   buildDir: yarn-project
@@ -192,6 +193,7 @@ end-to-end:
   dependencies:
     - yarn-project
   runDependencies:
+    - end-to-end
     - aztec-sandbox
 
 mainnet-fork:
@@ -216,6 +218,3 @@ yellow-paper:
   buildDir: yellow-paper
   rebuildPatterns:
     - ^yellow-paper/
-
-boxes:
-  buildDir: boxes
