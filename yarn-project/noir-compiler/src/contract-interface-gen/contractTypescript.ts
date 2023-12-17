@@ -79,14 +79,14 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${input.name}Contract>(Point.ZERO, wallet, ${artifactName}, address => ${contractName}.at(address, wallet), Array.from(arguments).slice(1));
+    return new DeployMethod<${input.name}Contract>(Point.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, ${args}) {
-    return new DeployMethod<${input.name}Contract>(publicKey, wallet, ${artifactName}, address => ${contractName}.at(address, wallet), Array.from(arguments).slice(2));
+    return new DeployMethod<${input.name}Contract>(publicKey, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
   }
   `;
 }

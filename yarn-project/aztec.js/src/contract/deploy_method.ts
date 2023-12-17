@@ -11,11 +11,11 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { PXE, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
 
+import { Wallet } from '../account/index.js';
 import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
 import { ContractBase } from './contract_base.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
-import { Wallet } from '../account/index.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
