@@ -39,7 +39,7 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
     static constexpr int NUM_TO_FOLD = 5;
-    RefVector<T> to_fold = { eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    RefVector<T> get_to_fold() { return { eta, beta, gamma, public_input_delta, lookup_grand_product_delta }; }
 
     static RelationParameters get_random()
     {

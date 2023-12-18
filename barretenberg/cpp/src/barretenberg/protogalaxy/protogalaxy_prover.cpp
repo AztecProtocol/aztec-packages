@@ -253,13 +253,7 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     transcript->send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
     transcript->send_to_verifier("next_lookup_grand_product_delta",
                                  folded_relation_parameters.lookup_grand_product_delta);
-    next_accumulator->relation_parameters = proof_system::RelationParameters<FF>{
-        combined_relation_parameters.eta.evaluate(challenge), // WORKTODO change all of these to evaluate(challenge)
-        combined_relation_parameters.beta.evaluate(challenge),
-        combined_relation_parameters.gamma.evaluate(challenge),
-        combined_relation_parameters.public_input_delta.evaluate(challenge),
-        combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
-    };
+    next_accumulator->relation_parameters = folded_relation_parameters;
 
     // Fold the verification key and send it to the verifier as this is part of ϕ as well
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),

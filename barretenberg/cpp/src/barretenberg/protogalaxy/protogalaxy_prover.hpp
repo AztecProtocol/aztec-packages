@@ -387,7 +387,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      */
     static Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> compute_combiner_quotient(
-        FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
+        const FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
         std::array<FF, ProverInstances::BATCHED_EXTENDED_LENGTH - ProverInstances::NUM> combiner_quotient_evals = {};
 
@@ -416,41 +416,18 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     static void combine_relation_parameters(ProverInstances& instances)
     {
-        // array of parameters to be computed
-        // size_t param_idx = 0;
-        // for (auto& folded_parameter : instances.relation_parameters.to_fold) {
-        //     Univariate<FF, ProverInstances::NUM> tmp(0);
-        //     size_t instance_idx = 0;
-        //     for (auto& instance : instances) {
-        //         tmp.value_at(instance_idx) = instance->relation_parameters.to_fold[param_idx];
-        //         instance_idx++;
-        //     }
-        //     folded_parameter = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-        //     param_idx++;
-        // }
-        Univariate<FF, ProverInstances::NUM> eta_tmp(
-            std::array<FF, 2>{ instances[0]->relation_parameters.eta, instances[1]->relation_parameters.eta });
-        instances.relation_parameters.eta = eta_tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-
-        Univariate<FF, ProverInstances::NUM> beta_tmp(
-            std::array<FF, 2>{ instances[0]->relation_parameters.beta, instances[1]->relation_parameters.beta });
-        instances.relation_parameters.beta = beta_tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-
-        Univariate<FF, ProverInstances::NUM> gamma_tmp(
-            std::array<FF, 2>{ instances[0]->relation_parameters.gamma, instances[1]->relation_parameters.gamma });
-        instances.relation_parameters.gamma = gamma_tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-
-        Univariate<FF, ProverInstances::NUM> public_input_delta_tmp(
-            std::array<FF, 2>{ instances[0]->relation_parameters.public_input_delta,
-                               instances[1]->relation_parameters.public_input_delta });
-        instances.relation_parameters.public_input_delta =
-            public_input_delta_tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-
-        Univariate<FF, ProverInstances::NUM> lookup_grand_product_delta_tmp(
-            std::array<FF, 2>{ instances[0]->relation_parameters.lookup_grand_product_delta,
-                               instances[1]->relation_parameters.lookup_grand_product_delta });
-        instances.relation_parameters.lookup_grand_product_delta =
-            lookup_grand_product_delta_tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+        size_t param_idx = 0;
+        auto to_fold = instances.relation_parameters.get_to_fold();
+        for (auto& folded_parameter : to_fold) {
+            Univariate<FF, ProverInstances::NUM> tmp(0);
+            size_t instance_idx = 0;
+            for (auto& instance : instances) {
+                tmp.value_at(instance_idx) = instance->relation_parameters.get_to_fold()[param_idx];
+                instance_idx++;
+            }
+            folded_parameter = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+            param_idx++;
+        }
     }
 
     /**
