@@ -28,7 +28,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Commitment = typename Flavor::Commitment;
-    using AllPolynomials = typename Flavor::AllPolynomials;
 
     using BaseUnivariate = Univariate<FF, ProverInstances::NUM>;
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -462,7 +461,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new accumulator
      */
-    std::pair<std::shared_ptr<Instance>, AllPolynomials> compute_next_accumulator(
+    std::shared_ptr<Instance> compute_next_accumulator(
         ProverInstances& instances,
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
         FF& challenge,

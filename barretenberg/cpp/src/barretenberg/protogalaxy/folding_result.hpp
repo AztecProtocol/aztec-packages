@@ -11,9 +11,7 @@ namespace proof_system::honk {
  */
 template <class Flavor> struct FoldingResult {
   public:
-    using AllPolynomials = typename Flavor::AllPolynomials;
     std::shared_ptr<ProverInstance_<Flavor>> accumulator;
-    AllPolynomials storage;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/656): turn folding data into a struct
     std::vector<uint8_t> folding_data;
 };

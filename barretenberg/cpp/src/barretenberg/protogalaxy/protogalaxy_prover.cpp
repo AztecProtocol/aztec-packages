@@ -142,8 +142,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 }
 
 template <class ProverInstances>
-std::pair<std::shared_ptr<typename ProverInstances::Instance>, typename ProverInstances::Flavor::AllPolynomials>
-ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
+std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
     Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
     FF& challenge,
@@ -171,34 +170,24 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     next_accumulator->target_sum = next_target_sum;
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
-    // Allocate space, initialised to 0, for the prover polynomials of the next accumulator
-    AllPolynomials storage;
-    for (auto& polynomial : storage.get_all()) {
-        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
-        for (auto& value : polynomial) {
-            value = FF(0);
-        }
-    }
+    // Initialize prover polynomials
     ProverPolynomials acc_prover_polynomials;
-    size_t poly_idx = 0;
-    auto prover_polynomial_pointers = acc_prover_polynomials.get_all();
-    for (auto& polynomial : storage.get_all()) {
-        prover_polynomial_pointers[poly_idx] = polynomial;
-        poly_idx++;
+    for (auto& polynomial : acc_prover_polynomials.get_all()) {
+        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
     }
     // WORKTODO return storage
 
     // Fold the prover polynomials
     auto acc_poly_views = acc_prover_polynomials.get_all();
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-        auto inst_poly_views = instances[inst_idx]->prover_polynomials.get_all();
-        for (auto [acc_poly_view, inst_poly_view] : zip_view(acc_poly_views, inst_poly_views)) {
-            for (size_t poly_idx = 0; poly_idx < inst_poly_view.size(); poly_idx++) {
-                acc_poly_view[poly_idx] += inst_poly_view[poly_idx] * lagranges[inst_idx];
+        for (auto [acc_poly, inst_poly] :
+             zip_view(acc_prover_polynomials.get_all(), instances[inst_idx]->prover_polynomials.get_all())) {
+            for (auto [acc_el, inst_el] : zip_view(acc_poly, inst_poly)) {
+                acc_el += inst_el * lagranges[inst_idx];
             }
         }
     }
-    next_accumulator->prover_polynomials = acc_prover_polynomials;
+    next_accumulator->prover_polynomials = std::move(acc_prover_polynomials);
 
     // Fold the witness commtiments and send them to the verifier
     auto witness_labels = next_accumulator->commitment_labels.get_witness();
@@ -272,7 +261,7 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     }
     next_accumulator->verification_key = acc_vk;
 
-    return std::pair(next_accumulator, std::move(storage));
+    return next_accumulator;
 }
 
 // TODO(#https://github.com/AztecProtocol/barretenberg/issues/689): finalise implementation this function
@@ -313,12 +302,11 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge"); // gamma
 
     FoldingResult<Flavor> res;
-    auto [next_accumulator, storage] =
+    auto next_accumulator =
         compute_next_accumulator(instances, combiner_quotient, combiner_challenge, compressed_perturbator);
     res.folding_data = transcript->proof_data;
     res.accumulator = next_accumulator;
 
-    res.storage = std::move(storage);
     return res;
 }
 

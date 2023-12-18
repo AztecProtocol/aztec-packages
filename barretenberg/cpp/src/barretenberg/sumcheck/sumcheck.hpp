@@ -81,7 +81,7 @@ template <typename Flavor> class SumcheckProver {
      *
      * @details
      */
-    SumcheckOutput<Flavor> prove(ProverPolynomials full_polynomials,
+    SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
                                  const proof_system::RelationParameters<FF>& relation_parameters,
                                  const FF alpha,
                                  const std::vector<FF>& gate_challenges)
