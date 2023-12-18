@@ -14,6 +14,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
       - name: Install noirup
         run: |
           curl -L $INSTALL_URL | bash
@@ -33,11 +34,31 @@ jobs:
 
       - name: Install Barretenberg dependencies
         run: sudo apt update && sudo apt install clang lld cmake libomp-dev
-      - name: ls
-        run: ls -la
+
       - name: Install nargo from source with noirup
         run: noirup $toolchain
         env:
           toolchain: --path ./noir
+          
       - name: Check nargo installation
         run: nargo --version
+
+      - name: Generate gates report
+        working-directory: ./yarn-project/noir-protocol-circuits/src
+        run: |
+          ./gates_report.sh
+          mv gates_report.json ../../../gates_report.json
+      - name: Compare gates reports
+        id: gates_diff
+        uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
+        with:
+          report: gates_report.json
+          summaryQuantile: 0.9 # only display the 10% most significant circuit size diffs in the summary (defaults to 20%)
+
+      - name: Add gates diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.gates_diff.outputs.markdown }}
+          message: ${{ steps.gates_diff.outputs.markdown }}
