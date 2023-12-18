@@ -7,21 +7,13 @@
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
+#include "helpers.test.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
-
-#define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
-    try {                                                                                                              \
-        code;                                                                                                          \
-        FAIL() << "An exception was expected";                                                                         \
-    } catch (const std::exception& e) {                                                                                \
-        std::string message = e.what();                                                                                \
-        EXPECT_TRUE(message.find(expectedMessage) != std::string::npos);                                               \
-    }
 
 using namespace proof_system;
 
@@ -41,67 +33,6 @@ class AvmMiniArithmeticTests : public ::testing::Test {
 };
 
 class AvmMiniArithmeticNegativeTests : public AvmMiniArithmeticTests {};
-
-// We add some helper functions in the anonymous namespace.
-namespace {
-
-/**
- * @brief Helper routine proving and verifying a proof based on the supplied trace
- *
- * @param trace The execution trace
- */
-void validateTraceProof(std::vector<Row>&& trace)
-{
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace));
-
-    EXPECT_TRUE(circuit_builder.check_circuit());
-
-    auto composer = honk::AvmMiniComposer();
-    auto prover = composer.create_prover(circuit_builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_verifier(circuit_builder);
-    bool verified = verifier.verify_proof(proof);
-
-    if (!verified) {
-        log_avmMini_trace(circuit_builder.rows, 0, 10);
-    }
-};
-
-/**
- * @brief Helper routine for the negative tests. It mutates the output value of an operation
- *        located in the Ic intermediate register. The memory trace is adapted consistently.
- *
- * @param trace Execution trace
- * @param selectRow Lambda serving to select the row in trace
- * @param newValue The value that will be written in intermediate register Ic at the selected row.
- */
-void mutateIcInTrace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue)
-{
-    // Find the first row matching the criteria defined by selectRow
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), selectRow);
-
-    // Check that we found one
-    EXPECT_TRUE(row != trace.end());
-
-    // Mutate the correct result in the main trace
-    row->avmMini_ic = newValue;
-
-    // Adapt the memory trace to be consistent with the wrongly computed addition
-    auto const clk = row->avmMini_clk;
-    auto const addr = row->avmMini_mem_idx_c;
-
-    // Find the relevant memory trace entry.
-    auto memRow = std::ranges::find_if(trace.begin(), trace.end(), [clk, addr](Row r) {
-        return r.memTrace_m_clk == clk && r.memTrace_m_addr == addr;
-    });
-
-    EXPECT_TRUE(memRow != trace.end());
-    memRow->memTrace_m_val = newValue;
-};
-
-} // anonymous namespace
 
 /******************************************************************************
  *
@@ -289,6 +220,28 @@ TEST_F(AvmMiniArithmeticTests, divisionByZeroErrorFF)
     validateTraceProof(std::move(trace));
 }
 
+// Test on division of zero by zero over finite field type.
+// We check that the operator error flag is raised.
+TEST_F(AvmMiniArithmeticTests, divisionZeroByZeroErrorFF)
+{
+    //                             Memory layout:    [0,0,0,0,0,0,....]
+    trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [0,0,0,0,0,0....]
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the division selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == FF(1); });
+
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_EQ(row->avmMini_ic, FF(0));
+    EXPECT_EQ(row->avmMini_mem_idx_c, FF(2));
+    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
+    EXPECT_EQ(row->avmMini_rwc, FF(1));
+    EXPECT_EQ(row->avmMini_op_err, FF(1));
+
+    validateTraceProof(std::move(trace));
+}
+
 // Testing an execution of the different arithmetic opcodes over finite field
 // and finishing with a division by zero. The chosen combination is arbitrary.
 // We only test that the proof can be correctly generated and verified.
@@ -411,7 +364,6 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionNoZeroButErrorFF)
 
     // Activate the operator error
     trace[index].avmMini_op_err = FF(1);
-
     auto trace2 = trace;
 
     EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_DIVISION_ZERO_ERR1");
@@ -428,6 +380,22 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionByZeroNoErrorFF)
 
     //                             Memory layout:    [15,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [15,0,0,0,0,0....]
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the division selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == FF(1); });
+
+    // Remove the operator error flag
+    row->avmMini_op_err = FF(0);
+
+    EXPECT_THROW_WITH_MESSAGE(validateTraceProof(std::move(trace)), "SUBOP_DIVISION_FF");
+}
+
+// Test with division of zero by zero occurs and no error is raised (remove error flag)
+TEST_F(AvmMiniArithmeticNegativeTests, divisionZeroByZeroNoErrorFF)
+{
+    //                             Memory layout:    [0,0,0,0,0,0,....]
+    trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [0,0,0,0,0,0....]
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the division selector

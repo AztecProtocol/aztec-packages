@@ -128,7 +128,7 @@ bool AvmMiniTraceBuilder::loadInMemTrace(IntermRegister intermReg, uint32_t addr
     }
 
     auto m_tag = memoryTag.at(addr);
-    if (m_tag == m_in_tag) {
+    if (m_tag == AvmMemoryTag::u0 || m_tag == m_in_tag) {
         insertInMemTrace(static_cast<uint32_t>(mainTrace.size()), sub_clk, addr, val, m_in_tag, false);
         return true;
     }

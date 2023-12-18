@@ -36,6 +36,7 @@ namespace memTrace(256);
 
     // m_lastAccess == 0 ==> m_addr' == m_addr
     // Optimization: We removed the term (1 - avmMini.first)
+    #[MEM_LAST_ACCESS_DELIMITER]
     (1 - m_lastAccess) * (m_addr' - m_addr) = 0;
     
     // We need: m_lastAccess == 1 ==> m_addr' > m_addr
@@ -61,15 +62,18 @@ namespace memTrace(256);
     // Note2: in barretenberg, if a poynomial is shifted, its non-shifted equivalent must be 0 on the first row
     
     // Optimization: We removed the term (1 - avmMini.first) and (1 - m_last)
+    #[MEM_READ_WRITE_VAL_CONSISTENCY]
     (1 - m_lastAccess) * (1 - m_rw') * (m_val' - m_val) = 0;
     
     // m_lastAccess == 0 && m_rw' == 0 ==> m_tag == m_tag'
     // Optimization: We removed the term (1 - avmMini.first) and (1 - m_last)
+    #[MEM_READ_WRITE_TAG_CONSISTENCY]
     (1 - m_lastAccess) * (1 - m_rw') * (m_tag' - m_tag) = 0;
 
     // Constrain that the first load from a given address has value 0. (Consistency of memory initialization.)
     // We do not constrain that the m_tag == 0 as the 0 value is compatible with any memory type.
     // If we set m_lastAccess = 1 on the first row, we can enforce this (should be ok as long as we do not shift m_lastAccess):
+    #[MEM_ZERO_INIT]
     m_lastAccess * (1 - m_rw') * m_val' = 0;
 
     // Memory tag consistency check
@@ -78,7 +82,9 @@ namespace memTrace(256);
     // (m_in_tag - m_tag) when m_tag_err != 0
     // m_one_min_inv is set to 1 - (m_in_tag - m_tag)^(-1) when m_tag_err == 1
     // but must be set to 0 when tags are matching and m_tag_err = 0
+    #[MEM_IN_TAG_CONSISTENCY_1]
     (m_in_tag - m_tag) * (1 - m_one_min_inv) - m_tag_err = 0;
+    #[MEM_IN_TAG_CONSISTENCY_2]
     (1 - m_tag_err) * m_one_min_inv = 0;
 
     // Correctness of above checks

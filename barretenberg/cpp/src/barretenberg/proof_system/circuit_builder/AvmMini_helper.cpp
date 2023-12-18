@@ -28,9 +28,14 @@ void log_avmMini_trace(std::vector<Row> const& trace, size_t beg, size_t end)
         info("m_clk:        ", trace.at(i).memTrace_m_clk);
         info("m_sub_clk:    ", trace.at(i).memTrace_m_sub_clk);
         info("m_val:        ", trace.at(i).memTrace_m_val);
+        info("m_rw:         ", trace.at(i).memTrace_m_rw);
+        info("m_tag:        ", trace.at(i).memTrace_m_tag);
+        info("m_in_tag:     ", trace.at(i).memTrace_m_in_tag);
+        info("m_tag_err:    ", trace.at(i).memTrace_m_tag_err);
+        info("m_one_min_inv:", trace.at(i).memTrace_m_one_min_inv);
+
         info("m_lastAccess: ", trace.at(i).memTrace_m_lastAccess);
         info("m_last:       ", trace.at(i).memTrace_m_last);
-        info("m_rw:         ", trace.at(i).memTrace_m_rw);
         info("m_val_shift:  ", trace.at(i).memTrace_m_val_shift);
 
         info("=======MAIN TRACE===============================================================");
