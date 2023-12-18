@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'path';
 import toml from 'toml';
 
-import { PathToFileSourceMap, compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
+import { compile, init_log_level as compilerLogLevel } from '@noir-lang/noir_wasm';
 import { Noir } from '@noir-lang/noir_js';
 import { BarretenbergBackend, flattenPublicInputs } from '@noir-lang/backend_barretenberg';
 
@@ -31,11 +31,9 @@ test_cases.forEach((testInfo) => {
     const base_relative_path = '../..';
     const test_case = testInfo.case;
 
-    const noirSourcePath = resolve(`${base_relative_path}/${test_case}/src/main.nr`);
-    const sourceMap = new PathToFileSourceMap();
-    sourceMap.add_source_code(noirSourcePath, readFileSync(noirSourcePath, 'utf-8'));
+    const noir_source_path = resolve(`${base_relative_path}/${test_case}/src/main.nr`);
 
-    const compileResult = compile(noirSourcePath, undefined, undefined, sourceMap);
+    const compileResult = compile(noir_source_path);
     if (!('program' in compileResult)) {
       throw new Error('Compilation failed');
     }

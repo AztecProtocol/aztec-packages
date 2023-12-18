@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
-import initNoirWasm, { PathToFileSourceMap, compile } from '@noir-lang/noir_wasm';
+import initNoirWasm, { compile } from '@noir-lang/noir_wasm';
+import { initializeResolver } from '@noir-lang/source-resolver';
 import {
   depsScriptExpectedArtifact,
   depsScriptSourcePath,
@@ -27,11 +28,23 @@ async function getPrecompiledSource(path: string): Promise<any> {
 
 describe('noir wasm', () => {
   describe('can compile script without dependencies', () => {
-    it('matching nargos compilation', async () => {
-      const sourceMap = new PathToFileSourceMap();
-      sourceMap.add_source_code('main.nr', await getFileContent(simpleScriptSourcePath));
+    beforeEach(async () => {
+      const source = await getFileContent(simpleScriptSourcePath);
+      initializeResolver((id: string) => {
+        console.log(`Resolving source ${id}`);
 
-      const wasmCircuit = await compile('main.nr', undefined, undefined, sourceMap);
+        if (typeof source === 'undefined') {
+          throw Error(`Could not resolve source for '${id}'`);
+        } else if (id !== '/main.nr') {
+          throw Error(`Unexpected id: '${id}'`);
+        } else {
+          return source;
+        }
+      });
+    });
+
+    it('matching nargos compilation', async () => {
+      const wasmCircuit = await compile('/main.nr');
       const cliCircuit = await getPrecompiledSource(simpleScriptExpectedArtifact);
 
       if (!('program' in wasmCircuit)) {
@@ -46,29 +59,37 @@ describe('noir wasm', () => {
   });
 
   describe('can compile script with dependencies', () => {
-    it('matching nargos compilation', async () => {
+    beforeEach(async () => {
       const [scriptSource, libASource, libBSource] = await Promise.all([
         getFileContent(depsScriptSourcePath),
         getFileContent(libASourcePath),
         getFileContent(libBSourcePath),
       ]);
 
-      const sourceMap = new PathToFileSourceMap();
-      sourceMap.add_source_code('script/main.nr', scriptSource);
-      sourceMap.add_source_code('lib_a/lib.nr', libASource);
-      sourceMap.add_source_code('lib_b/lib.nr', libBSource);
+      initializeResolver((file: string) => {
+        switch (file) {
+          case '/script/main.nr':
+            return scriptSource;
 
-      const wasmCircuit = await compile(
-        'script/main.nr',
-        false,
-        {
-          root_dependencies: ['lib_a'],
-          library_dependencies: {
-            lib_a: ['lib_b'],
-          },
+          case '/lib_a/lib.nr':
+            return libASource;
+
+          case '/lib_b/lib.nr':
+            return libBSource;
+
+          default:
+            return '';
+        }
+      });
+    });
+
+    it('matching nargos compilation', async () => {
+      const wasmCircuit = await compile('/script/main.nr', false, {
+        root_dependencies: ['lib_a'],
+        library_dependencies: {
+          lib_a: ['lib_b'],
         },
-        sourceMap,
-      );
+      });
 
       if (!('program' in wasmCircuit)) {
         throw Error('Expected program to be present');

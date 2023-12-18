@@ -55,7 +55,8 @@ pub(crate) fn run(
 }
 
 fn check_package(package: &Package, compile_options: &CompileOptions) -> Result<(), CompileError> {
-    let (mut context, crate_id) = prepare_package(package);
+    let (mut context, crate_id) =
+        prepare_package(package, Box::new(|path| std::fs::read_to_string(path)));
     check_crate_and_report_errors(
         &mut context,
         crate_id,
