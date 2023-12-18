@@ -37,7 +37,7 @@ Note: gb = gigabytes (not gigabits, gigibits or gigibytes)
 | metric | how to measure | MVP (10tps) | ideal (100tps) |
 | --- | --- | --- | --- |
 | proof size | total size of a user tx incl. goblin plonk proofs | 32kb | 8kb |
-| prover time | 8 iterations of protogalaxy with 2^17 circuits (web browser) | 1 min | 10 seconds |
+| prover time | A baseline "medium complexity" transaction (in web browser). Full description further down | 1 min | 10 seconds |
 | verifier time | how long does it take the verifier to check a proof (incl. grumpkin IPA MSMs) | 20ms | 1ms |
 | client memory consumption | fold 2^19 circuits into an accumulator an arbitrary number of times | 4gb | 1gb |
 | size of the kernel circuit | number of gates | 2^17 | 2^15 |
@@ -66,8 +66,43 @@ At launch, the throughput won't be this high, but ideally we architect Aztec suc
 
 ### Prover time
 
-The critical UX factor. 1 minute per user tx is on the cusp of workable. The faster we can get this the better our network's value proposition for users and developers
-. The benchmark is a standard "Aztec Connect" defi interaction transaction, as this is a tx with non-trivial complexity but can also be expected to be a common type of transaction. (note: we need to write such a circuit in noir so we can benchmark against it!)
+The critical UX factor. To measure prover time for a transaction, we must first define a baseline transaction we wish to measure and the execution environment of the Prover.
+
+As we build+refine our MPV, we want to avoid optimising the best-case scenario (i.e. the most basic tx type, a token transfer). Instead we want to ensure that transactions of a "moderate" complexity are possible with consuer hardware.
+
+As a north star, we consider a private swap, and transpose it into an Aztec contract.
+
+To perform a private swap, the following must occur:
+
+1. Validate the user's account contract (1 kernel call)
+2. Call a swap contract (1 kernel call)
+3. The swap contract will initiate `transfer` calls on two token contracts (2 kernel calls)
+4. A fee must be paid via our fee abstraction spec (1 kernel call) 
+
+In total we have 5 kernel calls and 5 function calls.
+
+We can further abstract the above by making the following assumption:
+
+1. The kernel circuit is $2^{17}$ constraints
+2. The average number of constraints per function call is $2^{17}$ constraints, but the first function called has $2^{19}$ constraints
+
+Defining the first function to cost $2^{19}$ constraints is a conservative assumption due to the fact that the kernel circuit can support functions that have a max of $2^{19}$ constraints. We want to ensure that our benchmarks (and possible optimisations) capture the "heavy function" case and we don't just optimise for lightweight functions.
+
+#### Summary of what we are measuring to capture Prover time
+
+1. A mock kernel circuit has a size of $2^{17}$ constraints and folds *two* Honk instances into an accumulator (the prev. kernel and the function being called)
+2. The Prover must prove 4 mock function circuit proofs of size $2^{17}$ and one mock function proof of size $2^{19}$
+3. The Prover must iteratively prove 5 mock kernel circuit proofs
+
+#### Execution environment
+
+For the MVP we can assume the user has reasonable hardware. For the purpose we use a 2-year-old macbook with 16gb RAM. The proof must be generated in a web browser
+
+#### Performance targets
+
+For an MVP, we target a 1 minute proof generation time. This is a substantial amount of time to ask a user to wait and we are measuring on good hardware.
+
+In an ideal world, a 10 second proof generation time would be much better for UX.
 
 ### Verifier time
 
