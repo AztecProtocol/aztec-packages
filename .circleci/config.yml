@@ -1072,7 +1072,6 @@ workflows:
       - bb-js-acir-tests:
           requires:
             - bb-js
-            - barretenberg-x86_64-linux-clang-assert
             - noir-acir-tests
           <<: *defaults
 
