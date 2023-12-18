@@ -264,10 +264,8 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto acir_composer = init(constraint_system);
-    // WORKTODO(KEY_TYPES)
-    [[maybe_unused]] auto pk = acir_composer.init_proving_key(constraint_system);
-    std::shared_ptr<proof_system::plonk::proving_key> dummy_pk;
-    auto serialized_pk = to_buffer(*dummy_pk);
+    auto pk = acir_composer.init_proving_key(constraint_system);
+    auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_pk);
