@@ -26,7 +26,8 @@ export class Crs {
       return;
     }
 
-    const crs = IgnitionFilesCrs.defaultExists() ? new IgnitionFilesCrs(this.numPoints) : new NetCrs(this.numPoints);
+    const ignitionCrs = new IgnitionFilesCrs(this.numPoints);
+    const crs = ignitionCrs.pathExists() ? new IgnitionFilesCrs(this.numPoints) : new NetCrs(this.numPoints);
     if (crs instanceof NetCrs) {
       debug(`downloading crs of size: ${this.numPoints}`);
     } else {
@@ -90,12 +91,15 @@ export class GrumpkinCrs {
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/813): implement NetCrs for Grumpkin once SRS is uploaded.
-    // const crs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
-    // const crs = this.downloadG1Data();
+    const ignitionCrs = new IgnitionFilesCrs(this.numPoints, GRUMPKIN_SRS_DEV_PATH);
+    if (ignitionCrs.pathExists()) {
+      await ignitionCrs.init();
+    }
+    const g1Data = ignitionCrs.pathExists() ? ignitionCrs.getG1Data() : await this.downloadG1Data();
     debug(`loading ignition file crs of size: ${this.numPoints}`);
     // await crs.init();
     writeFileSync(this.path + '/grumpkin_size', this.numPoints.toString());
-    writeFileSync(this.path + '/grumpkin_g1.dat', await this.downloadG1Data());
+    writeFileSync(this.path + '/grumpkin_g1.dat', g1Data);
   }
 
   /**

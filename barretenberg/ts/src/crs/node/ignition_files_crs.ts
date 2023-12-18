@@ -34,8 +34,8 @@ export class IgnitionFilesCrs {
     private path = SRS_DEV_PATH,
   ) {}
 
-  static defaultExists() {
-    return existsSync(SRS_DEV_PATH);
+  pathExists() {
+    return existsSync(this.path);
   }
 
   /**
