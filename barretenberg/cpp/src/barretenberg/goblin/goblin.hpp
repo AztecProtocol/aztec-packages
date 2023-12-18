@@ -84,8 +84,9 @@ class Goblin {
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<TranslatorComposer> translator_composer;
-    AccumulationOutput accumulator;
-    Proof proof_; // WORKTODO: hack to avoid parsing out from big byte array
+
+    AccumulationOutput accumulator; // ACIRHACK
+    Proof proof_;                   // ACIRHACK
 
   public:
     /**
@@ -126,7 +127,7 @@ class Goblin {
 
     Proof prove()
     {
-        GoblinTestingUtils::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+        info("Goblin.prove(): op_queue size = ", op_queue->ultra_ops[0].size());
         Proof proof;
 
         proof.merge_proof = std::move(merge_proof);
@@ -143,25 +144,9 @@ class Goblin {
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         proof.translator_proof = translator_prover.construct_proof();
 
-        proof_ = proof;
+        proof_ = proof; // ACIRHACK
         return proof;
     };
-
-    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
-    {
-        info("goblin: construct_proof");
-        accumulate(builder);
-        info("accumulate complete.");
-        std::vector<uint8_t> goblin_proof = prove().to_buffer();
-        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
-
-        const auto insert = [&result](const std::vector<uint8_t>& buf) {
-            result.insert(result.end(), buf.begin(), buf.end());
-        };
-        insert(accumulator.proof.proof_data);
-        insert(goblin_proof);
-        return result;
-    }
 
     bool verify(const Proof& proof) const
     {
@@ -183,6 +168,24 @@ class Goblin {
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 
+    // ACIRHACK
+    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
+    {
+        info("goblin: construct_proof");
+        accumulate(builder);
+        info("accumulate complete.");
+        std::vector<uint8_t> goblin_proof = prove().to_buffer();
+        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
+
+        const auto insert = [&result](const std::vector<uint8_t>& buf) {
+            result.insert(result.end(), buf.begin(), buf.end());
+        };
+        insert(accumulator.proof.proof_data);
+        insert(goblin_proof);
+        return result;
+    }
+
+    // ACIRHACK
     bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
     {
         // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
@@ -197,7 +200,7 @@ class Goblin {
         auto goblin_proof = extract_goblin_proof(proof);
         info("extracted goblin proof");
         verified = verified && verify(goblin_proof);
-        info("verified goblin proo");
+        info("verified goblin proof");
         return verified;
     }
 };
