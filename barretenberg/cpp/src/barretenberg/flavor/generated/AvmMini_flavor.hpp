@@ -179,8 +179,8 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_c,
                               avmMini_last,
                               memTrace_m_val_shift,
-                              memTrace_m_addr_shift,
                               memTrace_m_rw_shift,
+                              memTrace_m_addr_shift,
                               avmMini_pc_shift,
                               avmMini_internal_return_ptr_shift)
 
@@ -219,8 +219,8 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_c,
                      avmMini_last,
                      memTrace_m_val_shift,
-                     memTrace_m_addr_shift,
                      memTrace_m_rw_shift,
+                     memTrace_m_addr_shift,
                      avmMini_pc_shift,
                      avmMini_internal_return_ptr_shift };
         };
@@ -261,13 +261,13 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_rw, avmMini_pc, avmMini_internal_return_ptr };
+            return { memTrace_m_val, memTrace_m_rw, memTrace_m_addr, avmMini_pc, avmMini_internal_return_ptr };
         };
         RefVector<DataType> get_shifted()
         {
             return { memTrace_m_val_shift,
-                     memTrace_m_addr_shift,
                      memTrace_m_rw_shift,
+                     memTrace_m_addr_shift,
                      avmMini_pc_shift,
                      avmMini_internal_return_ptr_shift };
         };
@@ -282,7 +282,7 @@ class AvmMiniFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_rw, avmMini_pc, avmMini_internal_return_ptr };
+            return { memTrace_m_val, memTrace_m_rw, memTrace_m_addr, avmMini_pc, avmMini_internal_return_ptr };
         };
 
         // The plookup wires that store plookup read data.

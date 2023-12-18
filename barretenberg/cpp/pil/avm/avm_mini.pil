@@ -73,6 +73,11 @@ namespace avmMini(256);
     sel_op_sub * (1 - sel_op_sub) = 0;
     sel_op_mul * (1 - sel_op_mul) = 0;
     sel_op_div * (1 - sel_op_div) = 0;
+    sel_op_div * (1 - sel_op_div) = 0;
+
+    sel_internal_call * (1 - sel_internal_call) = 0;
+    sel_internal_return * (1 - sel_internal_return) = 0;
+    sel_halt * (1 - sel_halt) = 0;
 
     op_err * (1 - op_err) = 0;
 
