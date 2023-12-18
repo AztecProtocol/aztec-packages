@@ -36,7 +36,7 @@ Note: gb = gigabytes (not gigabits, gigibits or gigibytes)
 
 | metric | how to measure | MVP (10tps) | ideal (100tps) |
 | --- | --- | --- | --- |
-| proof size | total size of a user tx incl. goblin plonk proofs | 32kb | 8kb |
+| proof size | total size of a user tx incl. goblin plonk proofs | 80kb | 8kb |
 | prover time | A baseline "medium complexity" transaction (in web browser). Full description further down | 1 min | 10 seconds |
 | verifier time | how long does it take the verifier to check a proof (incl. grumpkin IPA MSMs) | 20ms | 1ms |
 | client memory consumption | fold 2^19 circuits into an accumulator an arbitrary number of times | 4gb | 1gb |
@@ -60,9 +60,23 @@ These are very rough estimates that could use further evaluation and validation!
 
 ### Proof size
 
-At a tx throughput of 1,024 tx per second, each Aztec node (not sequencer/prover, just a regular node that is sending transactions) needs to download `1024*proof_size` bytes of data to keep track of the mempool. 32kb proofs = 32MB per second which is on the threshold of practical outside of a datacenter. 8MB per second is much more practical.
+The MVP wishes to target a tx through put of 10 tx per second. 
 
-At launch, the throughput won't be this high, but ideally we architect Aztec such that the network can scale effectively by throwing hardware+resources at bottlenecks (easy to do in a post-decentralisation), without protocol, architecture or tech upgrades ( harder post-decentralisation).
+Each Aztec node (not sequencer/prover, just a regular node that is sending transactions) needs to download `10*proof_size` bytes of data to keep track of the mempool. However, this is the *best case* scenario.
+
+More practically, the data throughput of a p2p network will be less than the bandwidth of participants due to network coordination costs.
+As a rough heuristic, we assume that network bandwidth will be 10% of p2p user bandwidth.
+NOTE: can we find some high-quality information about p2p network throughput relative to the data consumed by p2p node operators?
+
+As a result, the MPV data throughput could scale up to `100 * proof_size` bytes of data per second.
+
+For an MVP we wish to target a maximum bandwidth of 8MB per second (i.e. a good broadband connection). This gives us a network bandwidth of 0.8MB/s.
+
+This sets the proof size limit to 819.2 kb per second per 100 transactions => 82 kilobytes of data per transaction.
+
+As a rough estimate, we can assume the non-proof tx data will be irrelevant compared to 82kb, so we target a proof size of $80$ kilobytes for the MPV.
+
+To support 100 transactions per second we would rquire a proof size of $8$ kilobytes.
 
 ### Prover time
 
