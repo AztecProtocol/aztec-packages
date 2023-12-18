@@ -1,5 +1,5 @@
 // TODO(Kev): This constant is also defined in private-kernel-lib
-use dep::aztec::constants_gen::NUM_FIELDS_PER_SHA256;
+use dep::types::constants::NUM_FIELDS_PER_SHA256;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use dep::types::mocked::AggregationObject;
@@ -26,8 +26,8 @@ struct BaseOrMergeRollupPublicInputs {
     start_contract_tree_snapshot : AppendOnlyTreeSnapshot,
     end_contract_tree_snapshot : AppendOnlyTreeSnapshot,
 
-    start_public_data_tree_root : Field,
-    end_public_data_tree_root : Field,
+    start_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
+    end_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
     
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)

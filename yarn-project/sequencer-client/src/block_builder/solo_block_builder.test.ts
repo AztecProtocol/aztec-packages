@@ -11,7 +11,9 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
+  PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   makeTuple,
@@ -54,12 +56,12 @@ import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import {
   ProcessedTx,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
-import { getHistoricBlockData } from '../sequencer/utils.js';
+import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
-import { WasmRollupCircuitSimulator } from '../simulator/rollup.js';
+import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -115,8 +117,8 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb);
-    return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
+    const historicalTreeRoots = await getBlockHeader(builderDb);
+    return makeEmptyProcessedTxFromHistoricalTreeRoots(historicalTreeRoots, chainId, version);
   };
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
@@ -133,8 +135,14 @@ describe('sequencer/solo_block_builder', () => {
       flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer())),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
-      await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
+    for (const tx of txs) {
+      await expectsDb.batchInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        tx.data.end.publicDataUpdateRequests.map(write => {
+          return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
+        }),
+        PUBLIC_DATA_SUBTREE_HEIGHT,
+      );
     }
   };
 
@@ -143,16 +151,16 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
-  const updateHistoricBlocksTree = async () => {
+  const updateArchive = async () => {
     const blockHash = computeBlockHashWithGlobals(
       globalVariables,
       rootRollupOutput.endNoteHashTreeSnapshot.root,
       rootRollupOutput.endNullifierTreeSnapshot.root,
       rootRollupOutput.endContractTreeSnapshot.root,
       rootRollupOutput.endL1ToL2MessagesTreeSnapshot.root,
-      rootRollupOutput.endPublicDataTreeRoot,
+      rootRollupOutput.endPublicDataTreeSnapshot.root,
     );
-    await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+    await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
 
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
@@ -162,7 +170,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();
-    kernelOutput.constants.blockData = await getHistoricBlockData(expectsDb);
+    kernelOutput.constants.blockHeader = await getBlockHeader(expectsDb);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -183,14 +191,14 @@ describe('sequencer/solo_block_builder', () => {
     baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     baseRollupOutputLeft.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    baseRollupOutputLeft.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
+    baseRollupOutputLeft.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
 
     // Same for the two txs on the right
     await updateExpectedTreesFromTxs(txsRight);
     baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     baseRollupOutputRight.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    baseRollupOutputRight.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
+    baseRollupOutputRight.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
 
     // Update l1 to l2 data tree
     // And update the root trees now to create proper output to the root rollup circuit
@@ -198,14 +206,14 @@ describe('sequencer/solo_block_builder', () => {
     rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     rootRollupOutput.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    rootRollupOutput.endPublicDataTreeRoot = (await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE)).root;
+    rootRollupOutput.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
 
     rootRollupOutput.endL1ToL2MessagesTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    await updateHistoricBlocksTree();
-    rootRollupOutput.endHistoricBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
+    await updateArchive();
+    rootRollupOutput.endArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     const txs = [...txsLeft, ...txsRight];
 
@@ -216,7 +224,7 @@ describe('sequencer/solo_block_builder', () => {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafIndex, t.newValue)),
+      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
@@ -231,12 +239,12 @@ describe('sequencer/solo_block_builder', () => {
       endNullifierTreeSnapshot: rootRollupOutput.endNullifierTreeSnapshot,
       startContractTreeSnapshot: rootRollupOutput.startContractTreeSnapshot,
       endContractTreeSnapshot: rootRollupOutput.endContractTreeSnapshot,
-      startPublicDataTreeRoot: rootRollupOutput.startPublicDataTreeRoot,
-      endPublicDataTreeRoot: rootRollupOutput.endPublicDataTreeRoot,
+      startPublicDataTreeSnapshot: rootRollupOutput.startPublicDataTreeSnapshot,
+      endPublicDataTreeSnapshot: rootRollupOutput.endPublicDataTreeSnapshot,
       startL1ToL2MessagesTreeSnapshot: rootRollupOutput.startL1ToL2MessagesTreeSnapshot,
       endL1ToL2MessagesTreeSnapshot: rootRollupOutput.endL1ToL2MessagesTreeSnapshot,
-      startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
-      endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
+      startArchiveSnapshot: rootRollupOutput.startArchiveSnapshot,
+      endArchiveSnapshot: rootRollupOutput.endArchiveSnapshot,
       newCommitments,
       newNullifiers,
       newContracts,
@@ -284,7 +292,7 @@ describe('sequencer/solo_block_builder', () => {
 
   describe('circuits simulator', () => {
     beforeEach(() => {
-      const simulator = new WasmRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator();
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
@@ -298,7 +306,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.blockData = await getHistoricBlockData(builderDb);
+      kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -363,8 +371,6 @@ describe('sequencer/solo_block_builder', () => {
       expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
-    // TODO(Alvaro) This test is horribly slow since it creates strictly increasing nullifiers, the worst case scenario for the simulated base rollup
-    // With the current implementation.
     it('builds a mixed L2 block', async () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const txs = await Promise.all([
@@ -382,7 +388,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // This test specifically tests nullifier values which previously caused e2e_private_token test to fail
     it('e2e_private_token edge case regression test on nullifier values', async () => {
-      const simulator = new WasmRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator();
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
       // update the starting tree

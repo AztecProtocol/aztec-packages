@@ -33,50 +33,9 @@ barretenberg::Polynomial<FF> random_poly(size_t size)
 ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
 {
     ProverPolynomials full_polynomials;
-    full_polynomials.q_c = input_polynomials[0];
-    full_polynomials.q_l = input_polynomials[1];
-    full_polynomials.q_r = input_polynomials[2];
-    full_polynomials.q_o = input_polynomials[3];
-    full_polynomials.q_4 = input_polynomials[4];
-    full_polynomials.q_m = input_polynomials[5];
-    full_polynomials.q_arith = input_polynomials[6];
-    full_polynomials.q_sort = input_polynomials[7];
-    full_polynomials.q_elliptic = input_polynomials[8];
-    full_polynomials.q_aux = input_polynomials[9];
-    full_polynomials.q_lookup = input_polynomials[10];
-    full_polynomials.sigma_1 = input_polynomials[11];
-    full_polynomials.sigma_2 = input_polynomials[12];
-    full_polynomials.sigma_3 = input_polynomials[13];
-    full_polynomials.sigma_4 = input_polynomials[14];
-    full_polynomials.id_1 = input_polynomials[15];
-    full_polynomials.id_2 = input_polynomials[16];
-    full_polynomials.id_3 = input_polynomials[17];
-    full_polynomials.id_4 = input_polynomials[18];
-    full_polynomials.table_1 = input_polynomials[19];
-    full_polynomials.table_2 = input_polynomials[20];
-    full_polynomials.table_3 = input_polynomials[21];
-    full_polynomials.table_4 = input_polynomials[22];
-    full_polynomials.lagrange_first = input_polynomials[23];
-    full_polynomials.lagrange_last = input_polynomials[24];
-    full_polynomials.w_l = input_polynomials[25];
-    full_polynomials.w_r = input_polynomials[26];
-    full_polynomials.w_o = input_polynomials[27];
-    full_polynomials.w_4 = input_polynomials[28];
-    full_polynomials.sorted_accum = input_polynomials[29];
-    full_polynomials.z_perm = input_polynomials[30];
-    full_polynomials.z_lookup = input_polynomials[31];
-    full_polynomials.table_1_shift = input_polynomials[32];
-    full_polynomials.table_2_shift = input_polynomials[33];
-    full_polynomials.table_3_shift = input_polynomials[34];
-    full_polynomials.table_4_shift = input_polynomials[35];
-    full_polynomials.w_l_shift = input_polynomials[36];
-    full_polynomials.w_r_shift = input_polynomials[37];
-    full_polynomials.w_o_shift = input_polynomials[38];
-    full_polynomials.w_4_shift = input_polynomials[39];
-    full_polynomials.sorted_accum_shift = input_polynomials[40];
-    full_polynomials.z_perm_shift = input_polynomials[41];
-    full_polynomials.z_lookup_shift = input_polynomials[42];
-
+    for (auto [full_poly, input_poly] : zip_view(full_polynomials.get_all(), input_polynomials)) {
+        full_poly = input_poly.share();
+    }
     return full_polynomials;
 }
 
@@ -104,10 +63,10 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     info(full_polynomials.w_l[2]);
     info(full_polynomials.w_l[3]);
 
-    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
-    auto alpha = transcript.get_challenge("alpha");
+    FF alpha = transcript->get_challenge("alpha");
     auto output = sumcheck.prove(full_polynomials, {}, alpha);
 
     FF u_0 = output.challenge[0];
@@ -136,26 +95,21 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     FF l_7 = (      u_0) * (      u_1) * (      u_2);
     // clang-format on
     FF hand_computed_value;
-    auto partially_evaluated_polynomials_array = sumcheck.partially_evaluated_polynomials.pointer_view();
-    size_t i = 0;
-    for (auto* full_polynomial_pointer : full_polynomials.pointer_view()) {
+    for (auto [full_poly, partial_eval_poly] :
+         zip_view(full_polynomials.get_all(), sumcheck.partially_evaluated_polynomials.get_all())) {
         // full_polynomials[0][0] = w_l[0], full_polynomials[1][1] = w_r[1], and so on.
-        hand_computed_value = l_0 * (*full_polynomial_pointer)[0] + l_1 * (*full_polynomial_pointer)[1] +
-                              l_2 * (*full_polynomial_pointer)[2] + l_3 * (*full_polynomial_pointer)[3] +
-                              l_4 * (*full_polynomial_pointer)[4] + l_5 * (*full_polynomial_pointer)[5] +
-                              l_6 * (*full_polynomial_pointer)[6] + l_7 * (*full_polynomial_pointer)[7];
-        EXPECT_EQ(hand_computed_value, (*partially_evaluated_polynomials_array[i])[0]);
-        i++;
+        hand_computed_value = l_0 * full_poly[0] + l_1 * full_poly[1] + l_2 * full_poly[2] + l_3 * full_poly[3] +
+                              l_4 * full_poly[4] + l_5 * full_poly[5] + l_6 * full_poly[6] + l_7 * full_poly[7];
+        EXPECT_EQ(hand_computed_value, partial_eval_poly[0]);
     }
 
     // We can also check the correctness of the multilinear evaluations produced by Sumcheck by directly evaluating the
     // full polynomials at challenge u via the evaluate_mle() function
     std::vector<FF> u_challenge = { u_0, u_1, u_2 };
-    for (auto [full_poly, claimed_eval] :
-         zip_view(full_polynomials.pointer_view(), output.claimed_evaluations.pointer_view())) {
-        barretenberg::Polynomial<FF> poly(*full_poly);
+    for (auto [full_poly, claimed_eval] : zip_view(full_polynomials.get_all(), output.claimed_evaluations.get_all())) {
+        barretenberg::Polynomial<FF> poly(full_poly);
         auto v_expected = poly.evaluate_mle(u_challenge);
-        EXPECT_EQ(v_expected, *claimed_eval);
+        EXPECT_EQ(v_expected, claimed_eval);
     }
 }
 
@@ -172,17 +126,17 @@ TEST_F(SumcheckTests, Prover)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
 
-    Flavor::Transcript transcript = Flavor::Transcript::prover_init_empty();
+    auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-    auto alpha = transcript.get_challenge("alpha");
+    FF alpha = transcript->get_challenge("alpha");
     auto output = sumcheck.prove(full_polynomials, {}, alpha);
     FF u_0 = output.challenge[0];
     FF u_1 = output.challenge[1];
     std::vector<FF> expected_values;
-    for (auto* polynomial_ptr : full_polynomials.pointer_view()) {
-        auto& polynomial = *polynomial_ptr;
+    for (auto& polynomial_ptr : full_polynomials.get_all()) {
+        auto& polynomial = polynomial_ptr;
         // using knowledge of inputs here to derive the evaluation
         FF expected_lo = polynomial[0] * (FF(1) - u_0) + polynomial[1] * u_0;
         expected_lo *= (FF(1) - u_1);
@@ -191,8 +145,8 @@ TEST_F(SumcheckTests, Prover)
         expected_values.emplace_back(expected_lo + expected_hi);
     }
 
-    for (auto [eval, expected] : zip_view(output.claimed_evaluations.pointer_view(), expected_values)) {
-        *eval = expected;
+    for (auto [eval, expected] : zip_view(output.claimed_evaluations.get_all(), expected_values)) {
+        eval = expected;
     }
 }
 
@@ -248,16 +202,16 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
             .public_input_delta = FF::one(),
         };
 
-        Flavor::Transcript prover_transcript = Flavor::Transcript::prover_init_empty();
+        auto prover_transcript = Flavor::Transcript::prover_init_empty();
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        auto prover_alpha = prover_transcript.get_challenge("alpha");
+        FF prover_alpha = prover_transcript->get_challenge("alpha");
         auto output = sumcheck_prover.prove(full_polynomials, {}, prover_alpha);
 
-        Flavor::Transcript verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
-        auto verifier_alpha = verifier_transcript.get_challenge("alpha");
+        FF verifier_alpha = verifier_transcript->get_challenge("alpha");
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_transcript);
 
         auto verified = verifier_output.verified.value();

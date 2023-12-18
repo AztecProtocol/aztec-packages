@@ -103,6 +103,28 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest noir x86_64,arm64
 
+  noir-packages:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-packages 32
+
+  noir-acir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-acir-tests 32
+
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -291,39 +313,6 @@ jobs:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
 
-  circuits-wasm-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build circuits-wasm-linux-clang 32
-
-  circuits-x86_64-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-assert 32
-
-  circuits-x86_64-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test circuits-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 x86_64 scripts/a3-tests -*.skip*
-
   l1-contracts:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -357,7 +346,7 @@ jobs:
           name: Build
           command: build yarn-project | add_timestamps
 
-  yarn-project-formatting:
+  yarn-project-prod:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -365,8 +354,19 @@ jobs:
       - *checkout
       - *setup_env
       - run:
+          name: Build
+          command: build yarn-project-prod | add_timestamps
+
+  yarn-project-formatting:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
           name: Check Formatting
-          command: cond_run_container yarn-project formatting | add_timestamps
+          command: cond_spot_run_container yarn-project 8 formatting | add_timestamps
 
   yarn-project-tests:
     docker:
@@ -379,7 +379,7 @@ jobs:
           name: Test
           command: cond_spot_run_container yarn-project 64 test | add_timestamps
 
-  aztec-sandbox-x86_64:
+  aztec-sandbox:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -390,22 +390,7 @@ jobs:
           name: "Build and test"
           command: build aztec-sandbox
 
-  aztec-sandbox-arm64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: arm.large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-          command: |
-            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build aztec-sandbox
-
-  cli-x86_64:
+  cli:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: large
@@ -415,21 +400,6 @@ jobs:
       - run:
           name: "Build and test"
           command: build cli
-
-  cli-arm64:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: arm.large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          # We need to force not to use docker buildkit because for some reason on arm only, it ends up making a call
-          # out to eu-west2 despite the image being locally tagged, resulting in unauthorized 401. Weird docker bug?
-          command: |
-            echo "export DOCKER_BUILDKIT=" > $BASH_ENV
-            build cli
 
   mainnet-fork:
     machine:
@@ -453,19 +423,6 @@ jobs:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
 
-  ecr-manifest:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Create ECR manifest"
-          command: |
-            create_ecr_manifest aztec-sandbox x86_64,arm64
-            create_ecr_manifest cli x86_64,arm64
-
   boxes-blank-react:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -475,7 +432,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/run_tests blank-react
+          command: ./boxes/run_tests blank-react
 
   boxes-blank:
     machine:
@@ -486,7 +443,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/run_tests blank
+          command: ./boxes/run_tests blank
 
   boxes-token:
     machine:
@@ -497,7 +454,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test via adhoc script"
-          command: ./yarn-project/boxes/run_tests token
+          command: ./boxes/run_tests token
 
   end-to-end:
     machine:
@@ -576,16 +533,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
 
-  e2e-slow-tree:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
+  # TODO(3458): Investigate intermittent failure
+  # e2e-slow-tree:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_slow_tree.test.ts
 
   e2e-sandbox-example:
     docker:
@@ -685,6 +643,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
+
+  e2e-inclusion-proofs-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
 
   e2e-pending-commitments-contract:
     docker:
@@ -896,6 +865,17 @@ jobs:
               echo "Skipping doc deploy (not on master)."
             fi
 
+  yellow-paper:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build yellow paper"
+          command: build yellow-paper
+
   e2e-join:
     docker:
       - image: cimg/base:2023.09
@@ -924,47 +904,85 @@ jobs:
           name: "Assemble benchmark summary from uploaded logs"
           command: ./scripts/ci/assemble_e2e_benchmark.sh
 
-  # Deploy jobs.
-  deploy-mainnet-fork:
+  # Deploy & release jobs.
+  deploy-and-release:
     machine:
       image: ubuntu-2204:2023.07.2
     resource_class: medium
     steps:
       - *checkout
       - *setup_env
+      - run:
+          name: "Release to dockerhub"
+          command: |
+            should_release || exit 0
+            deploy_dockerhub noir
+            deploy_dockerhub aztec-sandbox
+            deploy_dockerhub cli
+            deploy_dockerhub aztec-faucet
+            deploy_dockerhub mainnet-fork
+      - run:
+          name: "Release canary to NPM: yarn-project"
+          command: |
+            should_release || exit 0
+            yarn-project/deploy_npm.sh canary
+      - run:
+          name: "Release latest to NPM: yarn-project"
+          command: |
+            should_release || exit 0
+            yarn-project/deploy_npm.sh latest
+      - run:
+          name: "Release canary to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts canary
+      - run:
+          name: "Release latest to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts latest
       - run:
           name: "Deploy mainnet fork"
           command: |
             should_deploy || exit 0
-            deploy_ecr mainnet-fork
-
-  deploy-npm:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
+            deploy_terraform_services iac/mainnet-fork
       - run:
-          name: "yarn-project"
+          name: "Deploy L1 contracts to mainnet fork"
+          working_directory: l1-contracts
           command: |
             should_deploy || exit 0
-            yarn-project/deploy_npm.sh latest
-
-  deploy-dockerhub:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
+            ./scripts/ci_deploy_contracts.sh
       - run:
-          name: "Deploy to dockerhub"
+          name: "Deploy P2P bootstrap servers to AWS"
           command: |
-            should_deploy || exit 0
-            deploy_dockerhub noir x86_64,arm64
-            deploy_dockerhub aztec-sandbox x86_64,arm64
-            deploy_dockerhub cli x86_64,arm64
+            should_deploy 0 || exit 0
+            # Export variables for Terraform.
+            export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
+            export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
+            deploy_terraform_services yarn-project/p2p-bootstrap aztec-sandbox
+      - run:
+          name: "Deploy Aztec Nodes to AWS"
+          command: |
+            should_deploy 0 || exit 0
+            export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
+            export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
+            export TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY=$SEQ_1_PUBLISHER_PRIVATE_KEY
+            export TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY=$SEQ_2_PUBLISHER_PRIVATE_KEY
+            export TF_VAR_NODE_1_PRIVATE_KEY=$NODE_1_PRIVATE_KEY
+            export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
+            # Check if l1-contracts have changed
+            if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
+              echo "Contracts have changed, taint nodes to force redeploy.."
+              deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]"
+            else
+              deploy_terraform_services yarn-project/aztec-node aztec-sandbox
+            fi
+      - run:
+          name: "Deploy Aztec Faucet to AWS"
+          command: |
+            should_deploy 0 || exit 0
+            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
+            deploy_terraform_services yarn-project/aztec-faucet aztec-sandbox
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -982,6 +1000,11 @@ defaults: &defaults
 defaults_yarn_project: &defaults_yarn_project
   requires:
     - yarn-project
+  <<: *defaults
+
+defaults_yarn_project_prod: &defaults_yarn_project_prod
+  requires:
+    - yarn-project-prod
   <<: *defaults
 
 defaults_deploy: &defaults_deploy
@@ -1013,6 +1036,11 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
+      - noir-packages: *defaults
+      - noir-acir-tests:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
@@ -1031,6 +1059,7 @@ workflows:
       - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
+            - noir-acir-tests
           <<: *defaults
       - bb-js:
           requires:
@@ -1043,80 +1072,66 @@ workflows:
       - bb-js-acir-tests:
           requires:
             - bb-js
-          <<: *defaults
-
-      # Circuits
-      - circuits-wasm-linux-clang:
-          requires:
-            - barretenberg-wasm-linux-clang
-          <<: *defaults
-      - circuits-x86_64-linux-clang-assert:
-          requires:
-            - barretenberg-x86_64-linux-clang
-          <<: *defaults
-      - circuits-x86_64-tests:
-          requires:
-            - circuits-x86_64-linux-clang-assert
+            - noir-acir-tests
           <<: *defaults
 
       - l1-contracts: *defaults
 
       - mainnet-fork: *defaults
 
+      - yellow-paper: *defaults
+
       # Yarn Project
       - yarn-project-base:
           requires:
-            - circuits-wasm-linux-clang
             - l1-contracts
             - bb-js
+            - noir-ecr-manifest
+            - noir-packages
           <<: *defaults
       - yarn-project:
           requires:
             - yarn-project-base
           <<: *defaults
+      - yarn-project-prod: *defaults_yarn_project
       - yarn-project-formatting: *defaults_yarn_project
       - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
       - build-docs: *defaults_yarn_project
-      - aztec-sandbox-x86_64: *defaults_yarn_project
-      - aztec-sandbox-arm64: *defaults_yarn_project
-      - cli-x86_64: *defaults_yarn_project
-      - cli-arm64: *defaults_yarn_project
-      - aztec-faucet: *defaults_yarn_project
-      - ecr-manifest:
-          requires:
-            - aztec-sandbox-x86_64
-            - aztec-sandbox-arm64
-            - cli-x86_64
-            - cli-arm64
-          <<: *defaults
+
+      # Artifacts
+      - aztec-sandbox: *defaults_yarn_project_prod
+      - cli: *defaults_yarn_project_prod
+      - aztec-faucet: *defaults_yarn_project_prod
 
       # Boxes.
-      - boxes-blank-react:
-          requires:
-            - aztec-sandbox-x86_64
-          <<: *defaults
-      - boxes-blank:
-          requires:
-            - aztec-sandbox-x86_64
-          <<: *defaults
-      - boxes-token:
-          requires:
-            - aztec-sandbox-x86_64
-          <<: *defaults
+      # - boxes-blank-react:
+      #     requires:
+      #       - aztec-sandbox
+      #     <<: *defaults
+      # - boxes-blank:
+      #     requires:
+      #       - aztec-sandbox
+      #     <<: *defaults
+      # - boxes-token:
+      #     requires:
+      #       - aztec-sandbox
+      #     <<: *defaults
 
       # End to end tests.
       - e2e-join:
           requires:
             - end-to-end
-            - ecr-manifest
+            - aztec-sandbox
+            - cli
           <<: *defaults
       - e2e-2-pxes: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
       - e2e-blacklist-token-contract: *e2e_test
-      - e2e-slow-tree: *e2e_test
+      # TODO(3458): Investigate intermittent failure
+      # - e2e-slow-tree: *e2e_test
       - e2e-sandbox-example: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1128,6 +1143,7 @@ workflows:
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
+      - e2e-inclusion-proofs-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
@@ -1147,13 +1163,11 @@ workflows:
       - end:
           requires:
             - mainnet-fork
-            - noir-ecr-manifest
             - e2e-2-pxes
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
             - e2e-blacklist-token-contract
-            - e2e-slow-tree
             - e2e-sandbox-example
             - e2e-block-building
             - e2e-nested-contract
@@ -1165,6 +1179,7 @@ workflows:
             - e2e-public-to-private-messaging
             - e2e-account-contracts
             - e2e-escrow-contract
+            - e2e-inclusion-proofs-contract
             - e2e-pending-commitments-contract
             - e2e-ordering
             - uniswap-trade-on-l1-from-l2
@@ -1179,6 +1194,7 @@ workflows:
             - guides-dapp-testing
             - guides-sample-dapp
             - guides-up-quick-start
+            - yellow-paper
           <<: *defaults
 
       # Benchmark jobs.
@@ -1190,7 +1206,5 @@ workflows:
             - bench-process-history
           <<: *defaults
 
-      # Production deployment
-      - deploy-dockerhub: *defaults_deploy
-      - deploy-npm: *defaults_deploy
-      - deploy-mainnet-fork: *defaults_deploy
+      # Production releases.
+      - deploy-and-release: *defaults_deploy

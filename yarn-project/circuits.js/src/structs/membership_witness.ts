@@ -2,7 +2,7 @@ import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
-import { NOTE_HASH_TREE_HEIGHT } from '../cbind/constants.gen.js';
+import { NOTE_HASH_TREE_HEIGHT } from '../constants.gen.js';
 import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
@@ -85,6 +85,22 @@ export class MembershipWitness<N extends number> {
     const leafIndex = toBigIntBE(reader.readBytes(32));
     const siblingPath = reader.readBufferArray() as Tuple<Buffer, N>;
     return this.fromBufferArray(leafIndex, siblingPath);
+  }
+
+  /**
+   * Creates a deserializer object for a MembershipWitness with a given size.
+   * @param size - Expected size of the witness.
+   * @returns A deserializer object.
+   */
+  static deserializer<N extends number>(size: N): { fromBuffer(buffer: Buffer | BufferReader): MembershipWitness<N> } {
+    return {
+      fromBuffer: (buffer: Buffer | BufferReader) => {
+        const reader = BufferReader.asReader(buffer);
+        const leafIndex = toBigIntBE(reader.readBytes(32));
+        const siblingPath = reader.readArray(size, Fr);
+        return new MembershipWitness(size, leafIndex, siblingPath);
+      },
+    };
   }
 
   // import { SiblingPath } from '@aztec/merkle-tree';

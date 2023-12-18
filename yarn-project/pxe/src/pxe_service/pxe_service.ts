@@ -8,6 +8,7 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  CallRequest,
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
@@ -49,12 +50,11 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
-  toContractDao,
 } from '@aztec/types';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -74,7 +74,7 @@ export class PXEService implements PXE {
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
-    private db: Database,
+    private db: PxeDatabase,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
@@ -92,10 +92,25 @@ export class PXEService implements PXE {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    const { l2BlockPollingIntervalMS, l2StartingBlock } = this.config;
-    await this.synchronizer.start(l2StartingBlock, 1, l2BlockPollingIntervalMS);
+    const { l2BlockPollingIntervalMS } = this.config;
+    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
+    await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
+  }
+
+  private async restoreNoteProcessors() {
+    const publicKeys = await this.keyStore.getAccounts();
+    const publicKeysSet = new Set(publicKeys.map(k => k.toString()));
+
+    const registeredAddresses = await this.db.getCompleteAddresses();
+
+    for (const address of registeredAddresses) {
+      if (!publicKeysSet.has(address.publicKey.toString())) {
+        continue;
+      }
+      this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
   }
 
   /**
@@ -127,7 +142,7 @@ export class PXEService implements PXE {
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
-      const pubKey = this.keyStore.addAccount(privKey);
+      const pubKey = await this.keyStore.addAccount(privKey);
       this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
@@ -177,7 +192,7 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.artifact, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
@@ -236,13 +251,13 @@ export class PXEService implements PXE {
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
       const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
-      const index = await this.node.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp);
+      const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, noteHashToLookUp);
       if (index === undefined) {
         throw new Error('Note does not exist.');
       }
 
       const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
-      const nullifierIndex = await this.node.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
+      const nullifierIndex = await this.node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
       if (nullifierIndex !== undefined) {
         throw new Error('The note has been destroyed.');
       }
@@ -448,10 +463,10 @@ export class PXEService implements PXE {
 
   /**
    * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function artifact, portal contract address, and historic tree roots.
+   * This includes the contract address, function artifact, portal contract address, and historical tree roots.
    *
    * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function artifact, portal contract address, and historic tree roots.
+   * @returns An object containing the contract address, function artifact, portal contract address, and historical tree roots.
    */
   async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
@@ -635,28 +650,27 @@ export class PXEService implements PXE {
     publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
-    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().hash();
-    const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
+    const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
     const { publicCallStack } = publicInputs.end;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
-    const areEqual = enqueuedPublicCallsHashes.reduce(
+    const areEqual = enqueuedPublicCallStackItems.reduce(
       (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
       true,
     );
 
     if (!areEqual) {
       throw new Error(
-        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallsHashes
-          .map(h => h.toString())
+        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallStackItems
+          .map(h => h.hash.toString())
           .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
       );
     }
 
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallsHashes,
-      Fr.ZERO,
+      enqueuedPublicCallStackItems,
+      CallRequest.empty(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

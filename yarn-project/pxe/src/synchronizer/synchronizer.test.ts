@@ -1,40 +1,42 @@
-import { CompleteAddress, Fr, GrumpkinScalar, HistoricBlockData } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, EthAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 
-import { Database, MemoryDB } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
+import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
 
 describe('Synchronizer', () => {
   let aztecNode: MockProxy<AztecNode>;
-  let database: Database;
+  let database: PxeDatabase;
   let synchronizer: TestSynchronizer;
   let roots: Record<MerkleTreeId, Fr>;
-  let blockData: HistoricBlockData;
+  let blockHeader: BlockHeader;
 
-  beforeEach(() => {
-    blockData = HistoricBlockData.random();
+  beforeEach(async () => {
+    blockHeader = BlockHeader.random();
     roots = {
-      [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
-      [MerkleTreeId.NOTE_HASH_TREE]: blockData.noteHashTreeRoot,
-      [MerkleTreeId.NULLIFIER_TREE]: blockData.nullifierTreeRoot,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: blockData.publicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockData.l1ToL2MessagesTreeRoot,
-      [MerkleTreeId.BLOCKS_TREE]: blockData.blocksTreeRoot,
+      [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot,
+      [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockHeader.l1ToL2MessagesTreeRoot,
+      [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot,
     };
 
     aztecNode = mock<AztecNode>();
-    database = new MemoryDB();
+    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
     synchronizer = new TestSynchronizer(aztecNode, database);
   });
 
   it('sets tree roots from aztec node on initial sync', async () => {
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+    aztecNode.getBlockHeader.mockResolvedValue(blockHeader);
 
     await synchronizer.initialSync();
 
@@ -55,7 +57,7 @@ describe('Synchronizer', () => {
   it('overrides tree roots from initial sync once current block number is larger', async () => {
     // Initial sync is done on block with height 3
     aztecNode.getBlockNumber.mockResolvedValue(3);
-    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
+    aztecNode.getBlockHeader.mockResolvedValue(blockHeader);
 
     await synchronizer.initialSync();
     const roots0 = database.getTreeRoots();
@@ -102,9 +104,9 @@ describe('Synchronizer', () => {
     aztecNode.getBlockNumber.mockResolvedValueOnce(1);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(new Grumpkin());
+    const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.create(EthAddress.random()));
     const privateKey = GrumpkinScalar.random();
-    keyStore.addAccount(privateKey);
+    await keyStore.addAccount(privateKey);
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
     await database.addCompleteAddress(completeAddress);
 

@@ -1,5 +1,4 @@
 use crate::common;
-use dep::aztec::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 use dep::std::unsafe;
 use dep::types::{
     abis::{
@@ -7,6 +6,7 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
     },
+    constants::EMPTY_NULLIFIED_COMMITMENT,
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
     utils::arrays::is_empty_array,
@@ -21,7 +21,7 @@ struct PrivateKernelInputsInit {
 impl PrivateKernelInputsInit {
     fn initialize_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         public_inputs.constants = CombinedConstantData {
-            block_data: self.private_call.call_stack_item.public_inputs.historical_block_data,
+            block_header: self.private_call.call_stack_item.public_inputs.block_header,
             tx_context: self.tx_request.tx_context,
         };
     }
@@ -43,8 +43,6 @@ impl PrivateKernelInputsInit {
         //
         // Ensure we are calling the correct initial function in the contract
         let entry_point_function_matches = tx_request.function_data.hash() == call_stack_item.function_data.hash();
-        // TODO - Allow special characters in error message.
-        // assert(entry_point_function_matches, "tx_request.function_data must match call_stack_item.function_data");
         assert(entry_point_function_matches, "tx_request function_data must match call_stack_item function_data");
         //
         // Ensure we are passing the correct arguments to the function.
@@ -54,22 +52,16 @@ impl PrivateKernelInputsInit {
 
     fn validate_inputs(self) {
         let call_stack_item = self.private_call.call_stack_item;
+
         let function_data = call_stack_item.function_data;
-
-        let public_inputs = call_stack_item.public_inputs;
-
-        /* TODO(Mike/David): If we are going to have 3 initial calls on the private call stack,
-        * then do we still need the `private_call_stack`
-        * despite no longer needing a full `previous_kernel`
-        */
-
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
         assert(function_data.is_internal == false, "Cannot call an internal function directly");
-        assert(public_inputs.call_context.is_delegate_call == false, "Users cannot make a delegatecall");
-        assert(public_inputs.call_context.is_static_call == false, "Users cannot make a static call");
-        
+
+        let call_context = call_stack_item.public_inputs.call_context;
+        assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
+        assert(call_context.is_static_call == false, "Users cannot make a static call");
         // The below also prevents delegatecall/staticcall in the base case
-        assert(public_inputs.call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
+        assert(call_context.storage_contract_address.eq(call_stack_item.contract_address), "Storage contract address must be that of the called contract");
     }
 
     fn update_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
@@ -87,7 +79,7 @@ impl PrivateKernelInputsInit {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs : KernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs: KernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
         
         self.initialize_end_values(&mut public_inputs);
@@ -98,10 +90,8 @@ impl PrivateKernelInputsInit {
 
         self.validate_this_private_call_against_tx_request();
 
-        common::validate_call_stack(self.private_call);
-
         common::validate_read_requests(
-            public_inputs.constants.block_data.note_hash_tree_root(),
+            public_inputs.constants.block_header.note_hash_tree_root(),
             self.private_call.call_stack_item.public_inputs.read_requests,
             self.private_call.read_request_membership_witnesses
         );
@@ -127,7 +117,7 @@ impl PrivateKernelInputsInit {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
-    use dep::aztec::constants_gen::{
+    use dep::types::constants::{
         MAX_READ_REQUESTS_PER_CALL,
     };
     use dep::types::{
@@ -136,7 +126,7 @@ mod tests {
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             private_kernel::private_call_data::PrivateCallData,
         },
-        address::Address,
+        address::AztecAddress,
         hash::{
             compute_constructor_hash,
             compute_logs_hash,
@@ -303,7 +293,7 @@ mod tests {
     fn input_validation_malformed_arrays_private_call_stack() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.private_call_stack.push_array([0, 9123]);
+        builder.private_call.public_inputs.private_call_stack_hashes.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -312,7 +302,7 @@ mod tests {
     fn input_validation_malformed_arrays_public_call_stack() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.public_call_stack.push_array([0, 9123]);
+        builder.private_call.public_inputs.public_call_stack_hashes.push_array([0, 9123]);
         
         builder.failed();
     }
@@ -326,20 +316,11 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack item hash does not match preimage hash")]
-    fn contract_deployment_call_stack_item_hash_mismatch_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
-
-        builder.private_call.public_inputs.private_call_stack.push(27);
-        
-        builder.failed();
-    }
-
     #[test(should_fail_with="contract address supplied does not match derived address")]
     fn contract_deployment_incorrect_contract_address_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.tx_request.origin = random_address;
         builder.private_call.contract_address = random_address;
@@ -351,7 +332,7 @@ mod tests {
     fn contract_deployment_contract_address_mismatch_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.private_call.contract_address = random_address;
 
@@ -421,7 +402,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set the storage_contract_address to a random scalar.
-        builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(356);
 
         builder.failed();
     }
@@ -437,7 +418,7 @@ mod tests {
         builder.failed();
     }
 
-     #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
+    #[test(should_fail_with="computed_contract_tree_root does not match purported_contract_tree_root")]
     fn private_function_incorrect_contract_leaf_sibling_path_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -470,7 +451,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -483,7 +464,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_leaf_index() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -497,7 +478,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="private data tree root mismatch")]
+    #[test(should_fail_with="note hash tree root mismatch")]
     fn native_read_request_bad_sibling_path() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
@@ -606,7 +587,7 @@ mod tests {
         assert_eq(array_length(public_inputs.end.read_requests), 1);
     }
 
-     #[test]
+    #[test]
     fn native_max_read_requests_all_transient_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 

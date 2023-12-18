@@ -22,8 +22,6 @@ import { CircuitSimulationStats } from '@aztec/types/stats';
 export interface ProofOutput {
   /**
    * The public inputs required for the proof generation process.
-   * Note: C++ side does not define the specific data structure PrivateKernelPublicInputs and therefore
-   * would not generate a binding in circuits.gen.ts.
    */
   publicInputs: KernelCircuitPublicInputs;
   /**
@@ -39,8 +37,6 @@ export interface ProofOutput {
 export interface ProofOutputFinal {
   /**
    * The public inputs required for the proof generation process.
-   * Note: C++ side does not define the specific data structure PrivateKernelPublicInputsFinal and therefore
-   * would not generate a binding in circuits.gen.ts.
    */
   publicInputs: KernelCircuitPublicInputsFinal;
   /**
@@ -89,10 +85,10 @@ export interface ProofCreator {
 
 /**
  * The KernelProofCreator class is responsible for generating siloed commitments and zero-knowledge proofs
- * for private kernel circuit. It leverages Barretenberg and Circuits Wasm libraries
- * to perform cryptographic operations and proof creation. The class provides methods to compute commitments
- * based on the given public inputs and to generate proofs based on signed transaction requests, previous kernel
- * data, private call data, and a flag indicating whether it's the first iteration or not.
+ * for private kernel circuit. It leverages Barretenberg to perform cryptographic operations and proof creation.
+ * The class provides methods to compute commitments based on the given public inputs and to generate proofs based on
+ * signed transaction requests, previous kernel data, private call data, and a flag indicating whether it's the first
+ * iteration or not.
  */
 export class KernelProofCreator implements ProofCreator {
   constructor(private log = createDebugLogger('aztec:kernel_proof_creator')) {}

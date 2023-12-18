@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acir"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir_field",
  "base64",
@@ -23,7 +23,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir",
  "blake2",
@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_js"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acvm",
  "barretenberg_blackbox_solver",
@@ -88,7 +88,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_stdlib"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir",
 ]
@@ -217,7 +217,7 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "arena"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "generational-arena",
 ]
@@ -414,6 +414,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "aztec_macros"
+version = "0.19.4"
+dependencies = [
+ "iter-extended",
+ "noirc_frontend",
+]
+
+[[package]]
 name = "backend-interface"
 version = "0.11.0"
 dependencies = [
@@ -449,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "barretenberg_blackbox_solver"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -573,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir_field",
  "serde",
@@ -581,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -1596,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -1971,7 +1979,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2",
+ "socket2 0.4.9",
  "tokio",
  "tower-service",
  "tracing",
@@ -2158,7 +2166,7 @@ dependencies = [
 
 [[package]]
 name = "iter-extended"
-version = "0.19.3"
+version = "0.19.4"
 
 [[package]]
 name = "itertools"
@@ -2219,9 +2227,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.147"
+version = "0.2.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
+checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
 
 [[package]]
 name = "libm"
@@ -2363,9 +2371,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.8.8"
+version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927a765cd3fc26206e66b296465fa9d3e5ab003e651c1b3c060e7956d96b19d2"
+checksum = "8f3d0b296e374a4e6f3c7b0a1f5a51d748a0d34c85e7dc48fc3fa9a87657fe09"
 dependencies = [
  "libc",
  "wasi",
@@ -2380,7 +2388,7 @@ checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
 name = "nargo"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "codespan-reporting",
@@ -2400,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "nargo_cli"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "assert_cmd",
@@ -2436,6 +2444,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "serde_json",
+ "similar-asserts",
  "tempfile",
  "termcolor",
  "test-binary",
@@ -2448,7 +2457,7 @@ dependencies = [
 
 [[package]]
 name = "nargo_fmt"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "bytecount",
  "noirc_frontend",
@@ -2460,7 +2469,7 @@ dependencies = [
 
 [[package]]
 name = "nargo_toml"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "dirs",
  "fm",
@@ -2509,7 +2518,7 @@ dependencies = [
 
 [[package]]
 name = "noir_debugger"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "codespan-reporting",
@@ -2523,7 +2532,7 @@ dependencies = [
 
 [[package]]
 name = "noir_lsp"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "async-lsp",
@@ -2548,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "noir_wasm"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "build-data",
@@ -2570,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -2587,7 +2596,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi_wasm"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "build-data",
@@ -2604,9 +2613,10 @@ dependencies = [
 
 [[package]]
 name = "noirc_driver"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
+ "aztec_macros",
  "build-data",
  "clap",
  "fm",
@@ -2621,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "chumsky",
@@ -2634,7 +2644,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "fxhash",
@@ -2649,7 +2659,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "arena",
@@ -2671,7 +2681,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "0.19.3"
+version = "0.19.4"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -2857,9 +2867,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c40d25201921e5ff0c862a505c6557ea88568a4e3ace775ab55e93f2f4f9d57"
+checksum = "8afb450f006bf6385ca15ef45d71d2288452bc3683ce2e2cacc0d18e4be60b58"
 
 [[package]]
 name = "pin-utils"
@@ -3951,6 +3961,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
+dependencies = [
+ "libc",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4247,27 +4267,26 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.29.1"
+version = "1.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "532826ff75199d5833b9d2c5fe410f29235e25704ee5f0ef599fb51c21f4a4da"
+checksum = "841d45b238a16291a4e1584e61820b8ae57d696cc5015c459c229ccc6990cc1c"
 dependencies = [
- "autocfg",
  "backtrace",
  "bytes",
  "libc",
  "mio",
  "num_cpus",
  "pin-project-lite",
- "socket2",
+ "socket2 0.5.5",
  "tokio-macros",
  "windows-sys 0.48.0",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
+checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",

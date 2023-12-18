@@ -3,7 +3,6 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
@@ -27,13 +26,18 @@ template <class Flavor> class ProverInstance_ {
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
-    std::shared_ptr<CommitmentKey> commitment_key;
 
     ProverPolynomials prover_polynomials;
+    WitnessCommitments witness_commitments;
+    CommitmentLabels commitment_labels;
+
+    std::array<Polynomial, 4> sorted_polynomials;
 
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
@@ -47,6 +51,9 @@ template <class Flavor> class ProverInstance_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     // non-empty for the accumulated instances
     FoldingParameters folding_parameters;
+    bool is_accumulator = false;
+    size_t instance_size;
+    size_t log_instance_size;
 
     ProverInstance_(Circuit& circuit)
     {
@@ -55,16 +62,8 @@ template <class Flavor> class ProverInstance_ {
         compute_witness(circuit);
     }
 
-    ProverInstance_(FoldingResult<Flavor> result)
-        : verification_key(std::move(result.verification_key))
-        , prover_polynomials(result.folded_prover_polynomials)
-        , public_inputs(result.folded_public_inputs)
-        , folding_parameters(result.folding_parameters){};
-
     ProverInstance_() = default;
     ~ProverInstance_() = default;
-
-    std::shared_ptr<VerificationKey> compute_verification_key();
 
     void initialize_prover_polynomials();
 

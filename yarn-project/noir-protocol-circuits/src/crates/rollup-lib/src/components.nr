@@ -2,7 +2,7 @@ use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInpu
 use dep::types::mocked::AggregationObject;
 use dep::types::hash::{accumulate_sha256, assert_check_membership, root_from_sibling_path};
 use dep::types::utils::uint128::U128;
-use dep::aztec::constants_gen::NUM_FIELDS_PER_SHA256;
+use dep::types::constants::NUM_FIELDS_PER_SHA256;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 
@@ -51,7 +51,7 @@ pub fn assert_prev_rollups_follow_on_from_each_other(left : BaseOrMergeRollupPub
     assert(left.end_note_hash_tree_snapshot.eq(right.start_note_hash_tree_snapshot), "input proofs have different note hash tree snapshots");
     assert(left.end_nullifier_tree_snapshot.eq(right.start_nullifier_tree_snapshot),"input proofs have different nullifier tree snapshots");
     assert(left.end_contract_tree_snapshot.eq(right.start_contract_tree_snapshot), "input proofs have different contract tree snapshots");
-    assert(left.end_public_data_tree_root == right.start_public_data_tree_root, "input proofs have different public data tree snapshots");
+    assert(left.end_public_data_tree_snapshot.eq(right.start_public_data_tree_snapshot), "input proofs have different public data tree snapshots");
 }
 
 /**

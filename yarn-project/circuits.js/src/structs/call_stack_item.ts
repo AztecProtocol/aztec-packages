@@ -1,7 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { BufferReader } from '@aztec/foundation/serialize';
 
-import { computePublicCallStackItemHash } from '../abis/abis.js';
+import { computePrivateCallStackItemHash, computePublicCallStackItemHash } from '../abis/abis.js';
 import { serializeToBuffer } from '../utils/serialize.js';
+import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
@@ -39,6 +41,21 @@ export class PrivateCallStackItem {
   }
 
   /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateCallStackItem {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateCallStackItem(
+      reader.readObject(AztecAddress),
+      reader.readObject(FunctionData),
+      reader.readObject(PrivateCircuitPublicInputs),
+      reader.readBoolean(),
+    );
+  }
+
+  /**
    * Returns a new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    * @returns A new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    */
@@ -49,6 +66,34 @@ export class PrivateCallStackItem {
       PrivateCircuitPublicInputs.empty(),
       false,
     );
+  }
+
+  isEmpty() {
+    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
+  }
+
+  /**
+   * Computes this call stack item hash.
+   * @returns Hash.
+   */
+  public hash() {
+    return computePrivateCallStackItemHash(this);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  public toCallRequest() {
+    if (this.isEmpty()) {
+      return CallRequest.empty();
+    }
+
+    const callContext = this.publicInputs.callContext;
+    const callerContext = callContext.isDelegateCall
+      ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
   }
 }
 
@@ -103,5 +148,21 @@ export class PublicCallStackItem {
    */
   public hash() {
     return computePublicCallStackItemHash(this);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  public toCallRequest() {
+    if (this.isEmpty()) {
+      return CallRequest.empty();
+    }
+
+    const callContext = this.publicInputs.callContext;
+    const callerContext = callContext.isDelegateCall
+      ? new CallerContext(callContext.msgSender, callContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(this.hash(), callContext.msgSender, callerContext);
   }
 }

@@ -20,7 +20,6 @@ import {
 } from '../tests/factories.js';
 import {
   computeBlockHashWithGlobals,
-  computeCallStackItemHash,
   computeCommitmentNonce,
   computeCompleteAddress,
   computeContractAddressFromPartial,
@@ -29,7 +28,9 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeGlobalsHash,
-  computePublicDataTreeIndex,
+  computePrivateCallStackItemHash,
+  computePublicCallStackItemHash,
+  computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretMessageHash,
   computeTxHash,
@@ -42,7 +43,7 @@ import {
   siloNullifier,
 } from './abis.js';
 
-describe('abis wasm bindings', () => {
+describe('abis', () => {
   it('hashes a tx request', () => {
     const txRequest = makeTxRequest();
     const hash = hashTxRequest(txRequest);
@@ -164,10 +165,10 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes public data tree index', () => {
+  it('computes public data tree leaf slot', () => {
     const contractAddress = makeAztecAddress();
     const value = new Fr(3n);
-    const res = computePublicDataTreeIndex(contractAddress, value);
+    const res = computePublicDataTreeLeafSlot(contractAddress, value);
     expect(res).toMatchSnapshot();
   });
 
@@ -209,13 +210,13 @@ describe('abis wasm bindings', () => {
 
   it('compute private call stack item hash', () => {
     const item = makePrivateCallStackItem();
-    const hash = computeCallStackItemHash(item);
+    const hash = computePrivateCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 
   it('compute public call stack item hash', () => {
     const item = makePublicCallStackItem();
-    const hash = computeCallStackItemHash(item);
+    const hash = computePublicCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 

@@ -45,6 +45,7 @@ export class Tx {
     /**
      * Contracts deployed in this tx.
      * Note: Portal address is always set to zero in the tx's new contracts.
+     * TODO(#3417): Check if portal addresses are still always set to zero
      */
     public readonly newContracts: Tuple<ExtendedContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
   ) {
@@ -59,7 +60,7 @@ export class Tx {
     }
 
     const kernelPublicCallStackSize =
-      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isZero());
+      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isEmpty());
     if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
       throw new Error(
         `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected

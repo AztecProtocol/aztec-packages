@@ -26,12 +26,12 @@ import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-arti
 import {
   EmptyRollupProver,
   L1Publisher,
+  RealRollupCircuitSimulator,
   SoloBlockBuilder,
-  WasmRollupCircuitSimulator,
-  getHistoricBlockData,
+  getBlockHeader,
   getL1Publisher,
   getVerificationKeys,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/sequencer-client';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -133,7 +133,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(levelup((memdown as any)())).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new WasmRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator();
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
@@ -152,12 +152,8 @@ describe('L1Publisher integration', () => {
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getHistoricBlockData(builderDb, prevGlobals);
-    const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
-      historicTreeRoots,
-      new Fr(chainId),
-      new Fr(config.version),
-    );
+    const blockHeader = await getBlockHeader(builderDb, prevGlobals);
+    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(blockHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
@@ -166,7 +162,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.blockData = await getHistoricBlockData(builderDb, prevGlobals);
+    kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),

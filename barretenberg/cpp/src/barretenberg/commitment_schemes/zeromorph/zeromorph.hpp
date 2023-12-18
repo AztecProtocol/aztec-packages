@@ -1,6 +1,10 @@
 #pragma once
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+
 namespace proof_system::honk::pcs::zeromorph {
 
 /**
@@ -31,8 +35,8 @@ template <typename Curve> class ZeroMorphProver_ {
     using Commitment = typename Curve::AffineElement;
     using Polynomial = barretenberg::Polynomial<FF>;
 
-    // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place. (Then,
-    // eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
+    // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
+    // (Then, eventually, set it based on the real SRS). For now we set it to be large but more or less arbitrary.
     static const size_t N_max = 1 << 22;
 
   public:
@@ -56,7 +60,7 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param u_challenge Multivariate challenge u = (u_0, ..., u_{d-1})
      * @return std::vector<Polynomial> The quotients q_k
      */
-    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<FF> u_challenge)
+    static std::vector<Polynomial> compute_multilinear_quotients(Polynomial polynomial, std::span<const FF> u_challenge)
     {
         size_t log_N = numeric::get_msb(polynomial.size());
         // The size of the multilinear challenge must equal the log of the polynomial size
@@ -71,12 +75,12 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the coefficients of q_{n-1}
         size_t size_q = 1 << (log_N - 1);
-        Polynomial q = Polynomial(size_q);
+        Polynomial q{ size_q };
         for (size_t l = 0; l < size_q; ++l) {
             q[l] = polynomial[size_q + l] - polynomial[l];
         }
 
-        quotients[log_N - 1] = q;
+        quotients[log_N - 1] = q.share();
 
         std::vector<FF> f_k;
         f_k.resize(size_q);
@@ -91,13 +95,13 @@ template <typename Curve> class ZeroMorphProver_ {
             }
 
             size_q = size_q / 2;
-            q = Polynomial(size_q);
+            q = Polynomial{ size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
                 q[l] = f_k[size_q + l] - f_k[l];
             }
 
-            quotients[log_N - k - 1] = q;
+            quotients[log_N - k - 1] = q.share();
             g = f_k;
         }
 
@@ -203,7 +207,7 @@ template <typename Curve> class ZeroMorphProver_ {
         Polynomial& g_batched,
         std::vector<Polynomial>& quotients,
         FF v_evaluation,
-        std::span<FF> u_challenge,
+        std::span<const FF> u_challenge,
         FF x_challenge,
         std::vector<Polynomial> concatenation_groups_batched = {})
     {
@@ -302,8 +306,8 @@ template <typename Curve> class ZeroMorphProver_ {
     }
 
     /**
-     * @brief Prove a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted polynomials
-     * g_i
+     * @brief Prove a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
+     * polynomials g_i
      *
      * @param f_polynomials Unshifted polynomials
      * @param g_polynomials To-be-shifted polynomials (of which the shifts h_i were evaluated by sumcheck)
@@ -312,22 +316,22 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param commitment_key
      * @param transcript
      */
-    static void prove(const auto& f_polynomials,
-                      const auto& g_polynomials,
-                      auto&& f_evaluations,
-                      auto&& g_shift_evaluations,
-                      auto& multilinear_challenge,
-                      auto& commitment_key,
-                      auto& transcript,
-                      const std::vector<std::span<FF>>& concatenated_polynomials = {},
+    static void prove(const std::vector<Polynomial>& f_polynomials,
+                      const std::vector<Polynomial>& g_polynomials,
+                      const std::vector<FF>& f_evaluations,
+                      const std::vector<FF>& g_shift_evaluations,
+                      const std::vector<FF>& multilinear_challenge,
+                      const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                      const std::shared_ptr<BaseTranscript>& transcript,
+                      const std::vector<Polynomial>& concatenated_polynomials = {},
                       const std::vector<FF>& concatenated_evaluations = {},
-                      const std::vector<std::vector<std::span<FF>>>& concatenation_groups = {})
+                      const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
-        FF rho = transcript.get_challenge("rho");
+        const FF rho = transcript->get_challenge("rho");
 
         // Extract multilinear challenge u and claimed multilinear evaluations from Sumcheck output
-        std::span<FF> u_challenge = multilinear_challenge;
+        std::span<const FF> u_challenge = multilinear_challenge;
         size_t log_N = u_challenge.size();
         size_t N = 1 << log_N;
 
@@ -337,16 +341,16 @@ template <typename Curve> class ZeroMorphProver_ {
         // v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u).
         // Note: g_batched is formed from the to-be-shifted polynomials, but the batched evaluation incorporates the
         // evaluations produced by sumcheck of h_i = g_i_shifted.
-        auto batched_evaluation = FF(0);
+        FF batched_evaluation{ 0 };
         Polynomial f_batched(N); // batched unshifted polynomials
-        FF batching_scalar = FF(1);
+        FF batching_scalar{ 1 };
         for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
             f_batched.add_scaled(f_poly, batching_scalar);
             batched_evaluation += batching_scalar * f_eval;
             batching_scalar *= rho;
         }
 
-        Polynomial g_batched(N); // batched to-be-shifted polynomials
+        Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
@@ -356,7 +360,6 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t num_groups = concatenation_groups.size();
         size_t num_chunks_per_group = concatenation_groups.empty() ? 0 : concatenation_groups[0].size();
         // Concatenated polynomials
-        // std::vector<Polynomial> concatenated_polynomials;
         Polynomial concatenated_batched(N);
 
         // construct concatention_groups_batched
@@ -377,7 +380,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
         // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
-        auto f_polynomial = f_batched;
+        Polynomial f_polynomial = f_batched;
         f_polynomial += g_batched.shifted();
         f_polynomial += concatenated_batched;
 
@@ -390,21 +393,21 @@ template <typename Curve> class ZeroMorphProver_ {
         for (size_t idx = 0; idx < log_N; ++idx) {
             q_k_commitments[idx] = commitment_key->commit(quotients[idx]);
             std::string label = "ZM:C_q_" + std::to_string(idx);
-            transcript.send_to_verifier(label, q_k_commitments[idx]);
+            transcript->send_to_verifier(label, q_k_commitments[idx]);
         }
 
         // Get challenge y
-        auto y_challenge = transcript.get_challenge("ZM:y");
+        FF y_challenge = transcript->get_challenge("ZM:y");
 
         // Compute the batched, lifted-degree quotient \hat{q}
         auto batched_quotient = compute_batched_lifted_degree_quotient(quotients, y_challenge, N);
 
         // Compute and send the commitment C_q = [\hat{q}]
         auto q_commitment = commitment_key->commit(batched_quotient);
-        transcript.send_to_verifier("ZM:C_q", q_commitment);
+        transcript->send_to_verifier("ZM:C_q", q_commitment);
 
         // Get challenges x and z
-        auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
+        auto [x_challenge, z_challenge] = challenges_to_field_elements<FF>(transcript->get_challenges("ZM:x", "ZM:z"));
 
         // Compute degree check polynomial \zeta partially evaluated at x
         auto zeta_x =
@@ -425,7 +428,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute and send proof commitment pi
         auto pi_commitment = commitment_key->commit(pi_polynomial);
-        transcript.send_to_verifier("ZM:PI", pi_commitment);
+        transcript->send_to_verifier("ZM:PI", pi_commitment);
     }
 };
 
@@ -513,14 +516,14 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param concatenation_groups_commitments
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(std::vector<Commitment> f_commitments,
-                                    std::vector<Commitment> g_commitments,
+    static Commitment compute_C_Z_x(const std::vector<Commitment>& f_commitments,
+                                    const std::vector<Commitment>& g_commitments,
                                     std::vector<Commitment>& C_q_k,
                                     FF rho,
                                     FF batched_evaluation,
                                     FF x_challenge,
                                     std::vector<FF> u_challenge,
-                                    const std::vector<std::vector<Commitment>>& concatenation_groups_commitments = {})
+                                    const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
         size_t log_N = C_q_k.size();
         size_t N = 1 << log_N;
@@ -611,7 +614,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @brief Utility for native batch multiplication of group elements
      * @note This is used only for native verification and is not optimized for efficiency
      */
-    static Commitment batch_mul_native(std::vector<Commitment> points, std::vector<FF> scalars)
+    static Commitment batch_mul_native(const std::vector<Commitment>& points, const std::vector<FF>& scalars)
     {
         auto result = points[0] * scalars[0];
         for (size_t idx = 1; idx < scalars.size(); ++idx) {
@@ -621,8 +624,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 
     /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted polynomials
-     * g_i
+     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
+     * polynomials g_i
      *
      * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
      * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
@@ -637,11 +640,11 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto&& shifted_evaluations,
         auto& multivariate_challenge,
         auto& transcript,
-        const std::vector<std::vector<Commitment>>& concatenation_group_commitments = {},
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         const std::vector<FF>& concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
-        FF rho = transcript.get_challenge("rho");
+        FF rho = transcript->get_challenge("rho");
 
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
@@ -663,17 +666,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
         std::vector<Commitment> C_q_k;
         C_q_k.reserve(log_N);
         for (size_t i = 0; i < log_N; ++i) {
-            C_q_k.emplace_back(transcript.template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
+            C_q_k.emplace_back(transcript->template receive_from_prover<Commitment>("ZM:C_q_" + std::to_string(i)));
         }
 
         // Challenge y
-        auto y_challenge = transcript.get_challenge("ZM:y");
+        FF y_challenge = transcript->get_challenge("ZM:y");
 
         // Receive commitment C_{q}
-        auto C_q = transcript.template receive_from_prover<Commitment>("ZM:C_q");
+        auto C_q = transcript->template receive_from_prover<Commitment>("ZM:C_q");
 
         // Challenges x, z
-        auto [x_challenge, z_challenge] = transcript.get_challenges("ZM:x", "ZM:z");
+        auto [x_challenge, z_challenge] = challenges_to_field_elements<FF>(transcript->get_challenges("ZM:x", "ZM:z"));
 
         // Compute commitment C_{\zeta_x}
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
@@ -692,7 +695,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
 
         // Receive proof commitment \pi
-        auto C_pi = transcript.template receive_from_prover<Commitment>("ZM:PI");
+        auto C_pi = transcript->template receive_from_prover<Commitment>("ZM:PI");
 
         // Construct inputs and perform pairing check to verify claimed evaluation
         // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as

@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <typeinfo>
@@ -69,8 +70,8 @@ void compute_permutation_grand_product(const size_t circuit_size,
         for (size_t i = start; i < end; ++i) {
 
             typename Flavor::AllValues evaluations;
-            for (auto [eval, poly] : zip_view(evaluations.pointer_view(), full_polynomials.pointer_view())) {
-                *eval = poly->size() > i ? (*poly)[i] : 0;
+            for (auto [eval, poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
+                eval = poly.size() > i ? poly[i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_permutation_numerator<Accumulator>(evaluations,
                                                                                                   relation_parameters);
@@ -153,13 +154,14 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
         // Assign the grand product polynomial to the relevant std::span member of `full_polynomials` (and its shift)
         // For example, for UltraPermutationRelation, this will be `full_polynomials.z_perm`
         // For example, for LookupRelation, this will be `full_polynomials.z_lookup`
-        std::span<FF>& full_polynomial = PermutationRelation::get_grand_product_polynomial(full_polynomials);
-        auto& key_polynomial = PermutationRelation::get_grand_product_polynomial(*key);
-        full_polynomial = key_polynomial;
+        barretenberg::Polynomial<FF>& full_polynomial =
+            PermutationRelation::get_grand_product_polynomial(full_polynomials);
+        barretenberg::Polynomial<FF>& key_polynomial = PermutationRelation::get_grand_product_polynomial(*key);
+        full_polynomial = key_polynomial.share();
 
         compute_permutation_grand_product<Flavor, PermutationRelation>(
             key->circuit_size, full_polynomials, relation_parameters);
-        std::span<FF>& full_polynomial_shift =
+        barretenberg::Polynomial<FF>& full_polynomial_shift =
             PermutationRelation::get_shifted_grand_product_polynomial(full_polynomials);
         full_polynomial_shift = key_polynomial.shifted();
     });
@@ -184,12 +186,11 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  */
 template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
 {
-    using PolynomialHandle = typename Flavor::PolynomialHandle;
     // Concatenation groups are vectors of polynomials that are concatenated together
-    std::vector<std::vector<PolynomialHandle>> concatenation_groups = proving_key->get_concatenation_groups();
+    auto concatenation_groups = proving_key->get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    std::vector<PolynomialHandle> targets = proving_key->get_concatenated_constraints();
+    auto targets = proving_key->get_concatenated_constraints();
 
     // A function that produces 1 concatenated polynomial
     // TODO(#756): This can be rewritten to use more cores. Currently uses at maximum the number of concatenated
@@ -418,13 +419,13 @@ template <typename Flavor> inline void compute_lagrange_polynomials_for_goblin_t
         lagrange_polynomial_odd_in_minicircuit[i] = 1;
         lagrange_polynomial_even_in_minicircut[i + 1] = 1;
     }
-    proving_key->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit;
+    proving_key->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit.share();
 
-    proving_key->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut;
+    proving_key->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut.share();
     lagrange_polynomial_second[1] = 1;
     lagrange_polynomial_second_to_last_in_minicircuit[Flavor::MINI_CIRCUIT_SIZE - 2] = 1;
-    proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit;
-    proving_key->lagrange_second = lagrange_polynomial_second;
+    proving_key->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit.share();
+    proving_key->lagrange_second = lagrange_polynomial_second.share();
 }
 
 } // namespace proof_system::honk::permutation_library

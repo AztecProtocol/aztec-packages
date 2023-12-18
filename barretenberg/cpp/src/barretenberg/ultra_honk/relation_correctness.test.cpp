@@ -31,15 +31,15 @@ void ensure_non_zero(auto& polynomial)
  * @tparam relation_idx Index into a tuple of provided relations
  * @tparam Flavor
  */
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto polynomials, auto params)
+template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
     using AllValues = typename Flavor::AllValues;
     for (size_t i = 0; i < circuit_size; i++) {
 
         // Extract an array containing all the polynomial evaluations at a given row i
         AllValues evaluations_at_index_i;
-        for (auto [eval, poly] : zip_view(evaluations_at_index_i.pointer_view(), polynomials.pointer_view())) {
-            *eval = (*poly)[i];
+        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
+            eval = poly[i];
         }
 
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
@@ -67,7 +67,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
  * @tparam Flavor
  */
 template <typename Flavor, typename Relation>
-void check_linearly_dependent_relation(auto circuit_size, auto polynomials, auto params)
+void check_linearly_dependent_relation(auto circuit_size, auto& polynomials, auto params)
 {
     using AllValues = typename Flavor::AllValues;
     // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
@@ -81,8 +81,8 @@ void check_linearly_dependent_relation(auto circuit_size, auto polynomials, auto
 
         // Extract an array containing all the polynomial evaluations at a given row i
         AllValues evaluations_at_index_i;
-        for (auto [eval, poly] : zip_view(evaluations_at_index_i.pointer_view(), polynomials.pointer_view())) {
-            *eval = (*poly)[i];
+        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
+            eval = poly[i];
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
@@ -246,8 +246,8 @@ class RelationCorrectnessTests : public ::testing::Test {
  * @details Check that the constraints encoded by the relations are satisfied by the polynomials produced by the
  * Ultra Honk Composer for a real circuit.
  *
- * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for he first few
- * indices
+ * TODO(Kesha): We'll have to update this function once we add zk, since the relation will be incorrect for the first
+ * few indices
  *
  */
 // TODO(luke): Add a gate that sets q_arith = 3 to check secondary arithmetic relation
@@ -292,7 +292,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
 
-    auto prover_polynomials = instance->prover_polynomials;
+    auto& prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
@@ -343,6 +343,8 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     ensure_non_zero(proving_key->q_elliptic);
     ensure_non_zero(proving_key->q_aux);
     ensure_non_zero(proving_key->q_busread);
+    ensure_non_zero(proving_key->q_poseidon2_external);
+    ensure_non_zero(proving_key->q_poseidon2_internal);
 
     ensure_non_zero(proving_key->calldata);
     ensure_non_zero(proving_key->calldata_read_counts);
@@ -350,7 +352,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
-    auto prover_polynomials = instance->prover_polynomials;
+    auto& prover_polynomials = instance->prover_polynomials;
     auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
@@ -388,12 +390,8 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
-    std::vector<Polynomial> polynomial_container;
-    auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
-        Polynomial temporary_polynomial(circuit_size);
-        polynomial_container.push_back(temporary_polynomial);
-        *polynomial_pointer_view[i] = polynomial_container[i];
+    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
+        prover_poly = Polynomial{ circuit_size };
     }
 
     // Fill in lagrange polynomials used in the permutation relation
@@ -483,8 +481,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     // Compute the grand product polynomial
     grand_product_library::compute_grand_product<Flavor, proof_system::GoblinTranslatorPermutationRelation<FF>>(
         circuit_size, prover_polynomials, params);
-    prover_polynomials.z_perm_shift =
-        polynomial_container[90].shifted(); // TODO(https://github.com/AztecProtocol/barretenberg/issues/784)
+    prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     using Relations = typename Flavor::Relations;
 
@@ -508,14 +505,9 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
     proof_system::RelationParameters<FF> params;
 
     ProverPolynomials prover_polynomials;
-    std::vector<Polynomial> polynomial_container;
-
-    auto polynomial_pointer_view = prover_polynomials.pointer_view();
     // Allocate polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
-        Polynomial temporary_polynomial(circuit_size);
-        polynomial_container.push_back(temporary_polynomial);
-        *polynomial_pointer_view[i] = polynomial_container[i];
+    for (Polynomial& polynomial : prover_polynomials.get_all()) {
+        polynomial = Polynomial{ circuit_size };
     }
 
     // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
@@ -559,20 +551,12 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
                   polynomial_pointers[i + 1]->begin());
     });
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/784)
-    enum ORDERED_RANGE_CONSTRAINTS : size_t { C0 = 85, C1, C2, C3, C4 };
-
     // Get shifted polynomials
-    prover_polynomials.ordered_range_constraints_0_shift =
-        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C0].shifted();
-    prover_polynomials.ordered_range_constraints_1_shift =
-        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C1].shifted();
-    prover_polynomials.ordered_range_constraints_2_shift =
-        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C2].shifted();
-    prover_polynomials.ordered_range_constraints_3_shift =
-        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C3].shifted();
-    prover_polynomials.ordered_range_constraints_4_shift =
-        polynomial_container[ORDERED_RANGE_CONSTRAINTS::C4].shifted();
+    prover_polynomials.ordered_range_constraints_0_shift = prover_polynomials.ordered_range_constraints_0.shifted();
+    prover_polynomials.ordered_range_constraints_1_shift = prover_polynomials.ordered_range_constraints_1.shifted();
+    prover_polynomials.ordered_range_constraints_2_shift = prover_polynomials.ordered_range_constraints_2.shifted();
+    prover_polynomials.ordered_range_constraints_3_shift = prover_polynomials.ordered_range_constraints_3.shifted();
+    prover_polynomials.ordered_range_constraints_4_shift = prover_polynomials.ordered_range_constraints_4.shifted();
 
     using Relations = typename Flavor::Relations;
 
@@ -608,16 +592,16 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     ProverPolynomials prover_polynomials;
     // We use polynomial ids to make shifting the polynomials easier
     ProverPolynomialIds prover_polynomial_ids;
-    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
+    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_id_get_all.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *polynomial_id_pointer_view[i] = polynomial_ids[i];
+        polynomial_id_get_all[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -625,19 +609,19 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorExtraRelationsCorrectness)
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
     }
-    // Assign spans to non-shifted prover polynomials
-    auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    // Assign to non-shifted prover polynomials
+    auto polynomial_get_all = prover_polynomials.get_all();
+    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            *polynomial_pointer_view[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
-    // Assign shifted spans to shifted prover polynomials using ids
+    // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        *polynomial_pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange even polynomial
@@ -708,15 +692,15 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     ProverPolynomialIds prover_polynomial_ids;
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
-    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
-    auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
+    auto polynomial_get_all = prover_polynomials.get_all();
+    for (size_t i = 0; i < polynomial_id_get_all.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *polynomial_id_pointer_view[i] = polynomial_ids[i];
+        polynomial_id_get_all[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -725,9 +709,9 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
         shifted_id_set.emplace(id);
     }
     // Assign spans to non-shifted prover polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            *polynomial_pointer_view[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
@@ -735,7 +719,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorDecompositionRelationCorrectnes
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        *polynomial_pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
@@ -1127,15 +1111,15 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     ProverPolynomialIds prover_polynomial_ids;
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
-    auto polynomial_pointer_view = prover_polynomials.pointer_view();
-    auto polynomial_id_pointer_view = prover_polynomial_ids.pointer_view();
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    auto polynomial_get_all = prover_polynomials.get_all();
+    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
+    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
         polynomial_container.push_back(temporary_polynomial);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
-        *polynomial_id_pointer_view[i] = polynomial_ids[i];
+        polynomial_id_get_all[i] = polynomial_ids[i];
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
@@ -1143,18 +1127,18 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorNonNativeRelationCorrectness)
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
     }
-    // Assign spans to non-shifted prover polynomials
-    for (size_t i = 0; i < prover_polynomials.size(); i++) {
+    // Assign to non-shifted prover polynomials
+    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
         if (!shifted_id_set.contains(i)) {
-            *polynomial_pointer_view[i] = polynomial_container[i];
+            polynomial_get_all[i] = polynomial_container[i].share();
         }
     }
 
-    // Assign shifted spans to shifted prover polynomials using ids
+    // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
-        *polynomial_pointer_view[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
+        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
     // Copy values of wires used in the non-native field relation from the circuit builder

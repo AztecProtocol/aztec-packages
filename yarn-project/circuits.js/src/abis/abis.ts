@@ -1,36 +1,38 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import {
-  AztecAddress,
+  FUNCTION_SELECTOR_NUM_BYTES,
+  FUNCTION_TREE_HEIGHT,
+  GeneratorIndex,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
+} from '../constants.gen.js';
+import {
   CallContext,
   CompleteAddress,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FUNCTION_SELECTOR_NUM_BYTES,
-  FUNCTION_TREE_HEIGHT,
-  Fr,
   FunctionData,
   FunctionLeafPreimage,
-  GeneratorIndex,
   GlobalVariables,
   NewContractData,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
-  PublicKey,
   TxContext,
   TxRequest,
   VerificationKey,
-} from '../index.js';
+} from '../structs/index.js';
+import { PublicKey } from '../types/index.js';
 import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
@@ -114,10 +116,18 @@ export function computeFunctionLeaf(fnLeaf: FunctionLeafPreimage): Fr {
   );
 }
 
-// The "zero leaf" of the function tree is the hash of 5 zero fields.
-// TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
-const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
-const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+let functionTreeRootCalculator: MerkleTreeCalculator | undefined;
+/**
+ * The "zero leaf" of the function tree is the hash of 5 zero fields.
+ * TODO: Why can we not just use a zero field as the zero leaf? Complicates things perhaps unnecessarily?
+ */
+function getFunctionTreeRootCalculator() {
+  if (!functionTreeRootCalculator) {
+    const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+    functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
+  }
+  return functionTreeRootCalculator;
+}
 
 /**
  * Computes a function tree from function leaves.
@@ -126,7 +136,9 @@ const functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT
  */
 export function computeFunctionTree(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return functionTreeRootCalculator.computeTree(leaves).map(b => Fr.fromBuffer(b));
+  return getFunctionTreeRootCalculator()
+    .computeTree(leaves)
+    .map(b => Fr.fromBuffer(b));
 }
 
 /**
@@ -136,7 +148,7 @@ export function computeFunctionTree(fnLeaves: Fr[]) {
  */
 export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
   const leaves = fnLeaves.map(fr => fr.toBuffer());
-  return Fr.fromBuffer(functionTreeRootCalculator.computeTreeRoot(leaves));
+  return Fr.fromBuffer(getFunctionTreeRootCalculator().computeTreeRoot(leaves));
 }
 
 /**
@@ -321,6 +333,7 @@ export function computeBlockHash(
  * Computes the globals hash given the globals.
  * @param globals - The global variables to put into the block hash.
  * @returns The globals hash.
+ * TODO: move this to GlobalVariables?
  */
 export function computeGlobalsHash(globals: GlobalVariables): Fr {
   return Fr.fromBuffer(
@@ -353,7 +366,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeIndex(contractAddress: AztecAddress, storageSlot: Fr): Fr {
+export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
   return Fr.fromBuffer(
     pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
   );
@@ -491,21 +504,6 @@ function computeContractDeploymentDataHash(data: ContractDeploymentData): Fr {
 }
 
 /**
- * Computes a call stack item hash.
- * @param callStackItem - The call stack item.
- * @returns The call stack item hash.
- */
-export function computeCallStackItemHash(callStackItem: PrivateCallStackItem | PublicCallStackItem): Fr {
-  if (callStackItem instanceof PrivateCallStackItem) {
-    return computePrivateCallStackItemHash(callStackItem);
-  } else if (callStackItem instanceof PublicCallStackItem) {
-    return computePublicCallStackItemHash(callStackItem);
-  } else {
-    throw new Error(`Unexpected call stack item type`);
-  }
-}
-
-/**
  *
  */
 function computeCallContextHash(input: CallContext) {
@@ -536,20 +534,20 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     ...input.newCommitments.map(fr => fr.toBuffer()),
     ...input.newNullifiers.map(fr => fr.toBuffer()),
     ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
-    ...input.privateCallStack.map(fr => fr.toBuffer()),
-    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
+    ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.encryptedLogPreimagesLength.toBuffer(),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.historicBlockData.noteHashTreeRoot.toBuffer(),
-    input.historicBlockData.nullifierTreeRoot.toBuffer(),
-    input.historicBlockData.contractTreeRoot.toBuffer(),
-    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.historicBlockData.blocksTreeRoot.toBuffer(),
-    input.historicBlockData.publicDataTreeRoot.toBuffer(),
-    input.historicBlockData.globalVariablesHash.toBuffer(),
+    input.blockHeader.noteHashTreeRoot.toBuffer(),
+    input.blockHeader.nullifierTreeRoot.toBuffer(),
+    input.blockHeader.contractTreeRoot.toBuffer(),
+    input.blockHeader.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.blockHeader.archiveRoot.toBuffer(),
+    input.blockHeader.publicDataTreeRoot.toBuffer(),
+    input.blockHeader.globalVariablesHash.toBuffer(),
     computeContractDeploymentDataHash(input.contractDeploymentData).toBuffer(),
     input.chainId.toBuffer(),
     input.version.toBuffer(),
@@ -605,19 +603,19 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     ...input.returnValues.map(fr => fr.toBuffer()),
     ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
     ...input.contractStorageReads.map(computeContractStorageReadsHash),
-    ...input.publicCallStack.map(fr => fr.toBuffer()),
+    ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newCommitments.map(fr => fr.toBuffer()),
     ...input.newNullifiers.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.unencryptedLogPreimagesLength.toBuffer(),
-    input.historicBlockData.noteHashTreeRoot.toBuffer(),
-    input.historicBlockData.nullifierTreeRoot.toBuffer(),
-    input.historicBlockData.contractTreeRoot.toBuffer(),
-    input.historicBlockData.l1ToL2MessagesTreeRoot.toBuffer(),
-    input.historicBlockData.blocksTreeRoot.toBuffer(),
-    input.historicBlockData.publicDataTreeRoot.toBuffer(),
-    input.historicBlockData.globalVariablesHash.toBuffer(),
+    input.blockHeader.noteHashTreeRoot.toBuffer(),
+    input.blockHeader.nullifierTreeRoot.toBuffer(),
+    input.blockHeader.contractTreeRoot.toBuffer(),
+    input.blockHeader.l1ToL2MessagesTreeRoot.toBuffer(),
+    input.blockHeader.archiveRoot.toBuffer(),
+    input.blockHeader.publicDataTreeRoot.toBuffer(),
+    input.blockHeader.globalVariablesHash.toBuffer(),
     input.proverAddress.toBuffer(),
   ];
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {

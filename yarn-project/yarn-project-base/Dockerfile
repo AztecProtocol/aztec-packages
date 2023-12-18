@@ -1,7 +1,7 @@
 # This base Dockerfile is for:
 #  - Caching the workspace dependencies.
 #  - Running workspace checks (package.json inheritance, tsconfig.json project references).
-#  - Bringing in any upstream artifacts such as circuits.wasm and L1 contracts.
+#  - Bringing in any upstream resources such as L1 contract artifacts and bb.js.
 #  - Performing any code generation that doesn't require the workspace code to do so (generate L1 artifacts).
 #
 # When installing workspace dependencies, there are issues with doing this naively:
@@ -33,42 +33,61 @@
 #
 # When we build a downstream docker image, we:
 #  - FROM yarn-project as builder, to get the entire built project.
-#  - Do any project specific work.
-#  - Erase the local cache with a `yarn cache clean`. Files will remain in global cache.
-#  - Do a `yarn workspaces focus --production` to install production dependencies from the global to local cache.
+#  - WORKDIR into the relevant project.
+#  - Do any project specific build work.
+#  - Do a `yarn workspaces focus --production` to install production dependencies from the global.
+#  - Erase the local cache with a `yarn cache clean`.
+#  - Destroy the yarn-project /src folders to save additional space.
 #  - The above can be done with:
-#      RUN yarn cache clean && yarn workspaces focus --production
-#  - Create final slim image by copying /usr/src into a fresh image.
+#      RUN yarn workspaces focus --production && yarn cache clean && rm -rf ../**/src
+#  - Create final slim image by copying needed dirs into a fresh image.
 #
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 
-FROM node:18-alpine
-RUN apk update && apk add --no-cache bash jq curl
+FROM node:18.19.0
+RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Bring in circuits wasms.
-COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin /usr/src/circuits/cpp/build-wasm/bin
-# Copy ignition download script.
-COPY --from=circuits /usr/src/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/barretenberg/cpp/srs_db/download_ignition.sh
 # Copy L1 contracts.
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 # Copy in bb.js
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
+# Copy in nargo
+COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
+# Copy in noir packages
+COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
+
+# TODO: FIX: For some reason the source-resolver package needs to be in compiler dir or we get errors like:
+#              Error: ENOENT: no such file or directory, open '/aztec/lib.nr'
+RUN mkdir /usr/src/noir/compiler && mv /usr/src/noir/packages/source-resolver /usr/src/noir/compiler
+
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+# by initialising the module more than once. So at present I don't see a viable alternative.
+RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 WORKDIR /usr/src/yarn-project
 # The dockerignore file ensures the context only contains package.json and tsconfig.json files.
 COPY . .
 
+# List all included files and hash for debugging.
+RUN echo "Context files: " && find . -type f | sort && \
+    echo -n "Context hash: " && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
+
 # Install packages and rebuild the global cache with hard links.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
 #       Switch to using puppeteer-core then it won't download chrome. For now just erase.
 RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
-  rm -rf /root/.yarn/berry/cache/* && \
-  cd .yarn/cache && \
-  for F in *; do \
-    [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-  done'
+      rm -rf /root/.yarn/berry/cache/* && \
+      cd .yarn/cache && \
+      for F in *; do \
+        [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+      done'
 
 # If everything's worked properly, we should no longer need access to the network.
 RUN echo "enableNetwork: false" >> .yarnrc.yml
@@ -77,4 +96,4 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 RUN yarn prepare:check
 
 # Generate L1 contract TypeScript artifacts.
-RUN cd l1-artifacts && ./scripts/generate-artifacts.sh
+RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts

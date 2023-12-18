@@ -1,5 +1,77 @@
 # Changelog
 
+## [0.16.9](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.8...barretenberg.js-v0.16.9) (2023-12-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.8](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.7...barretenberg.js-v0.16.8) (2023-12-13)
+
+
+### Bug Fixes
+
+* Aztec sandbox compose fixes ([#3634](https://github.com/AztecProtocol/aztec-packages/issues/3634)) ([765a19c](https://github.com/AztecProtocol/aztec-packages/commit/765a19c3aad3a2793a764b970b7cc8a819094da7))
+* Top level init bb.js, but better scoped imports to not incur cost too early ([#3629](https://github.com/AztecProtocol/aztec-packages/issues/3629)) ([cea862d](https://github.com/AztecProtocol/aztec-packages/commit/cea862dd7feec714a34eba6a3cf7a2a174a59a1b))
+
+## [0.16.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.6...barretenberg.js-v0.16.7) (2023-12-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.5...barretenberg.js-v0.16.6) (2023-12-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.4...barretenberg.js-v0.16.5) (2023-12-06)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.3...barretenberg.js-v0.16.4) (2023-12-05)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.2...barretenberg.js-v0.16.3) (2023-12-05)
+
+
+### Miscellaneous
+
+* CLI's startup time was pushing almost 2s. This gets the basic 'help' down to 0.16. ([#3529](https://github.com/AztecProtocol/aztec-packages/issues/3529)) ([396df13](https://github.com/AztecProtocol/aztec-packages/commit/396df13389cdcb8b8b0d5a92a4b3d1c2bffcb7a7))
+
+## [0.16.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.1...barretenberg.js-v0.16.2) (2023-12-05)
+
+
+### Miscellaneous
+
+* Optimise bb.js package size and sandox/cli dockerfiles to unbloat final containers. ([#3462](https://github.com/AztecProtocol/aztec-packages/issues/3462)) ([cb3db5d](https://github.com/AztecProtocol/aztec-packages/commit/cb3db5d0f1f8912f1a97258e5043eb0f69eff551))
+* Pin node version in docker base images and bump nvmrc ([#3537](https://github.com/AztecProtocol/aztec-packages/issues/3537)) ([5d3895a](https://github.com/AztecProtocol/aztec-packages/commit/5d3895aefb7812eb6bd8017baf43533959ad69b4))
+
+## [0.16.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.16.0...barretenberg.js-v0.16.1) (2023-11-28)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.16.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.15.1...barretenberg.js-v0.16.0) (2023-11-27)
+
+
+### Miscellaneous
+
+* Plumbs noir subrepo into yarn-project. ([#3420](https://github.com/AztecProtocol/aztec-packages/issues/3420)) ([63173c4](https://github.com/AztecProtocol/aztec-packages/commit/63173c45db127288bc4b079229239a650fc5d4be))
+
 ## [0.15.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.15.0...barretenberg.js-v0.15.1) (2023-11-21)
 
 

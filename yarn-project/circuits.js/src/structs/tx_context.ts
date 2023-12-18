@@ -49,6 +49,17 @@ export class ContractDeploymentData {
   public static empty(): ContractDeploymentData {
     return new ContractDeploymentData(Point.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO);
   }
+
+  isEmpty() {
+    return (
+      this.deployerPublicKey.isZero() &&
+      this.constructorVkHash.isZero() &&
+      this.functionTreeRoot.isZero() &&
+      this.contractAddressSalt.isZero() &&
+      this.portalContractAddress.isZero()
+    );
+  }
+
   /**
    * Deserializes contract deployment data rom a buffer or reader.
    * @param buffer - Buffer to read from.
@@ -74,6 +85,7 @@ export class TxContext {
   constructor(
     /**
      * Whether this is a fee paying tx. If not other tx in a bundle will pay the fee.
+     * TODO(#3417): Remove fee and rebate payment fields.
      */
     public isFeePaymentTx: boolean,
     /**
@@ -138,6 +150,17 @@ export class TxContext {
 
   static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
     return new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(chainId), new Fr(version));
+  }
+
+  isEmpty(): boolean {
+    return (
+      !this.isFeePaymentTx &&
+      !this.isRebatePaymentTx &&
+      !this.isContractDeploymentTx &&
+      this.contractDeploymentData.isEmpty() &&
+      this.chainId.isZero() &&
+      this.version.isZero()
+    );
   }
 
   /**

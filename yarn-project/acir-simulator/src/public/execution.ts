@@ -8,7 +8,7 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeIndex, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
 import { FunctionL2Logs } from '@aztec/types';
 
 /**
@@ -66,7 +66,6 @@ export function isPublicExecutionResult(
 /**
  * Collect all public storage reads across all nested executions
  * and convert them to PublicDataReads (to match kernel output).
- * @param wasm - A module providing low-level wasm access.
  * @param execResult - The topmost execution result.
  * @returns All public data reads (in execution order).
  */
@@ -112,7 +111,7 @@ export function collectPublicDataUpdateRequests(execResult: PublicExecutionResul
  */
 function contractStorageReadToPublicDataRead(read: ContractStorageRead, contractAddress: AztecAddress): PublicDataRead {
   return new PublicDataRead(
-    computePublicDataTreeIndex(contractAddress, read.storageSlot),
+    computePublicDataTreeLeafSlot(contractAddress, read.storageSlot),
     computePublicDataTreeValue(read.currentValue),
     read.sideEffectCounter!,
   );
@@ -129,7 +128,7 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
   contractAddress: AztecAddress,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
-    computePublicDataTreeIndex(contractAddress, update.storageSlot),
+    computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
     computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
