@@ -19,8 +19,9 @@ void populate_variables_and_public_inputs(Builder& builder,
                                           WitnessVector const& witness,
                                           acir_format const& constraint_system)
 {
-    // WORKTODO: Decrement the indices in constraint_system.public_inputs by one to account for the +1 added by default
-    // to account for a const zero variable in noir. This entire block can be removed once the +1 is removed from noir.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Decrement the indices in
+    // constraint_system.public_inputs by one to account for the +1 added by default to account for a const zero
+    // variable in noir. This entire block can be removed once the +1 is removed from noir.
     const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {
@@ -41,20 +42,23 @@ void populate_variables_and_public_inputs(Builder& builder,
 
 template <typename Builder> void read_witness(Builder& builder, WitnessVector const& witness)
 {
-    builder.variables[0] = 0; // WORKTODO(ZEROINDEX): This the constant 0 hacked in. Bad.
+    builder.variables[0] =
+        0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): This the constant 0 hacked in. Bad.
     for (size_t i = 0; i < witness.size(); ++i) {
-        // WORKTODO(ZEROINDEX): The i+1 accounts for the fact that 0 is added as a constant in variables in the UCB
-        // constructor. "witness" only contains the values that came directly from acir.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The i+1 accounts for the fact that 0 is added
+        // as a constant in variables in the UCB constructor. "witness" only contains the values that came directly from
+        // acir.
         builder.variables[i + 1] = witness[i];
     }
 }
 
-// WORKTODO: this function does two things: 1) emplaces back varnum-many 0s into builder.variables (.. dumb), and
-// (2) populates builder.public_inputs with the correct indices into the variables vector (which at this stage will
-// be populated with zeros). The actual entries of the variables vector are populated in "read_witness"
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/815): This function does two things: 1) emplaces back
+// varnum-many 0s into builder.variables (.. why), and (2) populates builder.public_inputs with the correct indices into
+// the variables vector (which at this stage will be populated with zeros). The actual entries of the variables vector
+// are populated in "read_witness"
 template <typename Builder> void add_public_vars(Builder& builder, acir_format const& constraint_system)
 {
-    // WORKTODO(ZEROINDEX): i = 1 acounting for const 0 in first position?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): i = 1 acounting for const 0 in first position?
     for (size_t i = 1; i < constraint_system.varnum; ++i) {
         // If the index is in the public inputs vector, then we add it as a public input
 
@@ -146,7 +150,8 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     }
 
     // Add recursion constraints
-    // WORKTODO: disable these for UGH for now since we're not yet dealing with proper recursion
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
+    // dealing with proper recursion
     if constexpr (IsGoblinBuilder<Builder>) {
         info("WARNING: this circuit contains recursion_constraints!");
     } else {

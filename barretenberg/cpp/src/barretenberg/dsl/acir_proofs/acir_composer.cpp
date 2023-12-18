@@ -90,7 +90,7 @@ void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_sy
     // Correct for the addition of const variables in the builder constructor
     acir_format::apply_wire_index_offset(goblin_builder_);
 
-    // WORKTODO: Add some arbitrary op gates to ensure the associated polynomials are non-zero
+    // Add some arbitrary op gates to ensure the associated polynomials are non-zero
     GoblinTestingUtils::construct_goblin_ecc_op_circuit(goblin_builder_);
 }
 

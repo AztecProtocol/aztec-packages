@@ -41,7 +41,7 @@ class Goblin {
         TranslationEvaluations translation_evaluations;
         std::vector<uint8_t> to_buffer()
         {
-            // WORKTODO: so much copying and duplication added here and elsewhere
+            // ACIRHACK: so much copying and duplication added here and elsewhere
             std::vector<uint8_t> translation_evaluations_buf = translation_evaluations.to_buffer();
             size_t proof_size = merge_proof.proof_data.size() + eccvm_proof.proof_data.size() +
                                 translator_proof.proof_data.size() + translation_evaluations_buf.size();
@@ -173,8 +173,8 @@ class Goblin {
         auto ultra_proof = prover.construct_proof();
         debug_utility::inspect_instance(instance);
 
-        // WORKTODO(MERGE_VERIFIER)
-        // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
+        // mocking the first set of ecc ops
         // // Construct and store the merge proof to be recursively verified on the next call to accumulate
         // info("create_merge_prover");
         // auto merge_prover = composer.create_merge_prover(op_queue);
@@ -216,7 +216,7 @@ class Goblin {
     // ACIRHACK
     bool verify_for_acir(const Proof& proof) const
     {
-        // // WORKTODO(MERGE)
+        // ACIRHACK
         // MergeVerifier merge_verifier;
         // info("constructed merge_verifier");
         // bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
@@ -254,7 +254,7 @@ class Goblin {
     // ACIRHACK
     bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
     {
-        // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
+        // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
         GoblinUltraVerifier verifier{ accumulator.verification_key };

@@ -71,7 +71,6 @@ acir_proofs::AcirComposer verifier_init()
 
 acir_format::WitnessVector get_witness(std::string const& witness_path)
 {
-    // WORKTODO(NEW_CONSTRAINTS): opqueue data is now being extracted here?
     auto witness_data = get_witness_data(witness_path);
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
@@ -146,7 +145,6 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     init_reference_strings();
 
     info("Construct goblin circuit from constraint system and witness.");
-    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     acir_proofs::AcirComposer acir_composer;
     acir_composer.create_goblin_circuit(constraint_system, witness);
 
