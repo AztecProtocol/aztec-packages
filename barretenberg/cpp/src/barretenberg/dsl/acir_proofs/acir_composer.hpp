@@ -32,8 +32,6 @@ class AcirComposer {
 
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
 
-    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
-
     std::string get_solidity_verifier();
     size_t get_exact_circuit_size() { return exact_circuit_size_; };
     size_t get_total_circuit_size() { return total_circuit_size_; };

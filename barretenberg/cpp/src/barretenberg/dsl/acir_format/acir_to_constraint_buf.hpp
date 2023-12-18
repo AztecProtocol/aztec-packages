@@ -265,6 +265,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
     acir_format af;
+    // WORKTODO(ZEROINDEX): this +1 seems to be accounting for the const 0 at the first index in variables
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
@@ -273,7 +274,6 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                // WORKTODO(NEW_CONSTRAINTS/*  */): special handling here for: goblin (:grimace:); databus (void?).
                 if constexpr (std::is_same_v<T, Circuit::Opcode::Arithmetic>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {
@@ -307,7 +307,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     size_t index = 1;
     for (auto& e : w.value) {
         while (index < e.first.value) {
-            wv.push_back(barretenberg::fr(0));
+            wv.push_back(barretenberg::fr(0)); // WORKTODO(ZEROINDEX)?
             index++;
         }
         wv.push_back(barretenberg::fr(uint256_t(e.second)));

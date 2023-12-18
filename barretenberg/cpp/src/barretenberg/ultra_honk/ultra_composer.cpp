@@ -67,7 +67,6 @@ void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<Prov
 template <UltraFlavor Flavor>
 std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
-    info("create_instance");
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
     auto instance = std::make_shared<Instance>(circuit);
@@ -84,34 +83,6 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
     UltraProver_<Flavor> output_state(instance, commitment_key, transcript);
 
     return output_state;
-}
-
-template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(CircuitBuilder& circuit)
-{
-    auto instance = std::make_shared<Instance>(circuit);
-    UltraProver_<Flavor> result{ instance }; // WORKTODO: will instance survive? also transcript init?
-    return result;
-}
-
-template <UltraFlavor Flavor>
-UltraProver_<Flavor> UltraComposer_<Flavor>::create_ultra_with_keccak_prover(CircuitBuilder& circuit)
-{
-    return create_prover(circuit);
-}
-
-template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier([[maybe_unused]] CircuitBuilder& circuit)
-{
-    UltraVerifier_<Flavor> result{
-        std::make_shared<Transcript>()
-    }; // WORKTODO: will instance survive? also transcript init?
-    return result;
-}
-
-template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_ultra_with_keccak_verifier(CircuitBuilder& circuit)
-{
-    return create_verifier(circuit);
 }
 
 template <UltraFlavor Flavor>
