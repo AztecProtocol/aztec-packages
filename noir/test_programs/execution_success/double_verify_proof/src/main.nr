@@ -14,7 +14,7 @@ fn main(
 ) {
     // Create dummy aggregation object
     // It is no longer needed but we don't want to make a breaking change to the serialization format
-    // just yet. We will it in to be anything as the backend is no longer checking it anyways
+    // just yet. The object can be anything as the backend is no longer checking it anyways.
     let unused_input_aggregation_object = [verification_key[0]];
 
     let _ = std::verify_proof(
