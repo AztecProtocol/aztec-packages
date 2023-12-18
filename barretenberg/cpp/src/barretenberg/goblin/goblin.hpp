@@ -15,11 +15,9 @@ namespace barretenberg {
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
-    // WORKTODO(NEW_CONSTRAINTS)
     using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
 
-    using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
     using FF = GUHFlavor::FF;
@@ -58,14 +56,7 @@ class Goblin {
         }
     };
 
-    using Fr = barretenberg::fr;
-    using Fq = barretenberg::fq;
-
-    using Transcript = proof_system::honk::BaseTranscript;
-    // WORKTODO: until we revert this, can't build some other targets where GUH is hard-coded
-    // (ultimately some opqueue is needed)
     using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
-    // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
@@ -119,13 +110,6 @@ class Goblin {
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
         debug_utility::inspect_instance(instance);
-
-        {
-            info("Trying to verify ultra proof right away.");
-            GoblinUltraVerifier verifier{ instance->verification_key }; // WORKTODO This needs the vk
-            bool verified = verifier.verify_proof(ultra_proof);
-            info("                           verified GUH proof; result: ", verified);
-        }
 
         // WORKTODO(MERGE_VERIFIER)
         // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
@@ -195,8 +179,8 @@ class Goblin {
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
-        //   Ensure translation_evaluations are passed correctly
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
+        // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
 
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
@@ -207,7 +191,7 @@ class Goblin {
         // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
-        GoblinUltraVerifier verifier{ accumulator.verification_key }; // WORKTODO This needs the vk
+        GoblinUltraVerifier verifier{ accumulator.verification_key };
         info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
         info("                           verified GUH proof; result: ", verified);

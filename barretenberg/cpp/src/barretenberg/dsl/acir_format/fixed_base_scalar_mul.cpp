@@ -6,11 +6,8 @@
 
 namespace acir_format {
 
-template <typename Builder> void create_fixed_base_constraint(Builder& builder, const FixedBaseScalarMul& input)
+void create_fixed_base_constraint(Builder& builder, const FixedBaseScalarMul& input)
 {
-    using cycle_group_ct = proof_system::plonk::stdlib::cycle_group<Builder>;
-    using cycle_scalar_ct = typename proof_system::plonk::stdlib::cycle_group<Builder>::cycle_scalar;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
 
     // Computes low * G + high * 2^128 * G
     //
@@ -28,10 +25,5 @@ template <typename Builder> void create_fixed_base_constraint(Builder& builder, 
     builder.assert_equal(result.x.get_witness_index(), input.pub_key_x);
     builder.assert_equal(result.y.get_witness_index(), input.pub_key_y);
 }
-
-template void create_fixed_base_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                const FixedBaseScalarMul& input);
-template void create_fixed_base_constraint<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                      const FixedBaseScalarMul& input);
 
 } // namespace acir_format

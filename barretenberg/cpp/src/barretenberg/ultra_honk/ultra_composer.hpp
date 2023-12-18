@@ -66,10 +66,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraProver_<Flavor> create_prover(const std::shared_ptr<Instance>&,
                                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    UltraProver_<Flavor> create_prover(CircuitBuilder& circuit);
-
-    UltraProver_<Flavor> create_ultra_with_keccak_prover(CircuitBuilder& circuit);
-
     UltraVerifier_<Flavor> create_verifier(
         const std::shared_ptr<Instance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
@@ -120,9 +116,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
         return output_state;
     };
-
-    // WORKTODO: hack
-    static transcript::Manifest create_manifest([[maybe_unused]] size_t num_public_inputs) { return {}; }
 
     /**
      * @brief Compute the verification key of an Instance, produced from a finalised circuit.

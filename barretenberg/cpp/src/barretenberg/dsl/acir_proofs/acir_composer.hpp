@@ -44,12 +44,15 @@ class AcirComposer {
 
     std::vector<barretenberg::fr> serialize_verification_key_into_fields();
 
-    std::shared_ptr<proof_system::ECCOpQueue> get_goblin_op_queue() { return goblin.op_queue; };
+    // Goblin specific methods
+    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
+    std::vector<uint8_t> create_goblin_proof();
+    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
 
   private:
     acir_format::Builder builder_;
     acir_format::GoblinBuilder goblin_builder_;
-    GoblinHack goblin;
+    Goblin goblin;
     size_t size_hint_;
     size_t exact_circuit_size_;
     size_t total_circuit_size_;

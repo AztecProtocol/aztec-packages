@@ -139,17 +139,19 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           const std::string& witnessPath,
                           [[maybe_unused]] bool recursive)
 {
-    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
-    info("Construct constraint_system.");
+    info("Construct constraint_system and witness.");
     auto constraint_system = get_constraint_system(bytecodePath);
-    info("get_witness.");
     auto witness = get_witness(witnessPath);
 
     init_reference_strings();
 
-    info("create_goblin_proof.");
+    info("Construct goblin circuit from constraint system and witness.");
+    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     acir_proofs::AcirComposer acir_composer;
-    auto proof = acir_composer.create_goblin_proof(constraint_system, witness);
+    acir_composer.create_goblin_circuit(constraint_system, witness);
+
+    info("Construct goblin proof.");
+    auto proof = acir_composer.create_goblin_proof();
 
     info("verify_goblin_proof.");
     auto verified = acir_composer.verify_goblin_proof(proof);

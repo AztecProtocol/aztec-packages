@@ -24,6 +24,6 @@ struct HashToFieldConstraint {
     friend bool operator==(HashToFieldConstraint const& lhs, HashToFieldConstraint const& rhs) = default;
 };
 
-template <typename Builder> void create_hash_to_field_constraints(Builder& builder, HashToFieldConstraint constraint);
+void create_hash_to_field_constraints(Builder& builder, HashToFieldConstraint constraint);
 
 } // namespace acir_format

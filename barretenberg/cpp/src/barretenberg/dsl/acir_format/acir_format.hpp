@@ -74,18 +74,16 @@ struct acir_format {
 
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
-template <typename Builder> void read_witness(Builder& builder, std::vector<barretenberg::fr> const& witness);
+void read_witness(Builder& builder, std::vector<barretenberg::fr> const& witness);
 
-template <typename Builder> void create_circuit(Builder& builder, const acir_format& constraint_system);
+void create_circuit(Builder& builder, const acir_format& constraint_system);
 
-template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0);
 
 Builder create_circuit_with_witness(const acir_format& constraint_system,
                                     WitnessVector const& witness,
                                     size_t size_hint = 0);
 
-template <typename Builder>
 void create_circuit_with_witness(Builder& builder, const acir_format& constraint_system, WitnessVector const& witness);
 
 } // namespace acir_format

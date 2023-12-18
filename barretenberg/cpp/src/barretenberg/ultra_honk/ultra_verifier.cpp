@@ -138,7 +138,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("Sumcheck failed.");
+        info("UltraVerifier: Sumcheck failed.");
         return false;
     }
     info("Sumcheck succeeded.");

@@ -45,7 +45,7 @@ async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
 }
 
 async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
-  const api = await Barretenberg.new(threads);
+  const api = await Barretenberg.new({ threads });
 
   const circuitSize = await getGates(bytecodePath, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
@@ -86,7 +86,7 @@ async function initGoblin(bytecodePath: string, crsPath: string) {
 }
 
 async function initLite() {
-  const api = await Barretenberg.new(1);
+  const api = await Barretenberg.new({ threads: 1 });
 
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(1);
@@ -184,7 +184,7 @@ export async function prove(
 }
 
 export async function gateCount(bytecodePath: string) {
-  const api = await Barretenberg.new(1);
+  const api = await Barretenberg.new({ threads: 1 });
   try {
     const numberOfGates = await getGates(bytecodePath, api);
 
