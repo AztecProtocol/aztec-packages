@@ -281,7 +281,7 @@ Note that some conditions are marked as SHOULD, which is not strictly needed for
 - **Message Cancellation**: To remove messages from the L1 inbox:
     - The message MUST exist in the inbox
     - The caller MUST be `sender.actor`
-    - The `deadline`` MUST be in the future, `> block.timestamp`
+    - The `deadline` MUST be in the future, `> block.timestamp`
     - The `fee` SHOULD be refunded to the caller
 - **Moving messages**:
     - Moves MUST be atomic:
@@ -423,16 +423,6 @@ As should be clear from above, the L2 inbox doesn't need to exist for itself, it
     - Modularize the computation such that the state transitioner need not know the exact computation but merely use a separate contract as an oracle.
 - Governance/upgrade contract(s)
     - Relies on the governance/upgrade scheme being more explicitly defined
-- Explore getting rid of the specific 1:M relationship between L1 and L2 at the kernel level.
 - Forced transaction inclusion
     - While we don't have an exact scheme, an outline was made in [hackmd](https://hackmd.io/@aztec-network/S1lRcMkvn?type=view) and the [forum](https://forum.aztec.network/t/forcing-transactions/606)
 
-
-:::warning Comment for discussion
-In the current paradigm, any messages that are sent from the L2 contract to L1 MUST be sent to the portal address. This was to get around the access control issue of private execution and is enforced in the kernel. It practically gives us a 1:M relationship between L1 and L2, where one L1 contract can be specified as the portal for many L2, and communicate with all of them, but each L2 can only communicate with a single L1 contract.
-
-Note that while we are letting the inbox populate more values than what we did for the L1 inbox. This is more an opinionated decision than a purely technical one. Plainly speaking, we don't need to restrict the recipient of the message to a single address. We could let the contract itself figure it out. As long as the portal address exists, it CAN be used to constrain it like this.
-
-We could let the contract itself populate the `L1Actor` like we did for L1, but we decided to let the kernel do it instead, since access control can be quite tedious to get right in private execution. By having the `portal` contract that is specified at the time of deployment, we can insert this value and ensure that it is controlled by the contract.
-If we have a better alternative for access control this could be changed to be more similar to the L1 inbox, which gives better flexibility.
-:::
