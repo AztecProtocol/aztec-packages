@@ -88,7 +88,7 @@ class ToyCircuitBuilder {
             .eccvm_set_permutation_delta = 0,
         };
 
-        auto polys = compute_polynomials();
+        ProverPolynomials polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,

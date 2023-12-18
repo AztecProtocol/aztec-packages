@@ -325,7 +325,6 @@ class AvmMiniFlavor {
             return result;
         }
     };
-
     using RowPolynomials = AllEntities<FF>;
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

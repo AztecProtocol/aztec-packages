@@ -130,8 +130,7 @@ class AvmMiniCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
-
-        auto polys = compute_polynomials();
+        ProverPolynomials polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
