@@ -61,7 +61,12 @@ contract Escrow {
         let _callStackItem = context.call_private_function(token, selector, [this, recipient, amount, 0]);
     }
 
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; ADDRESS_NOTE_LEN]
+    ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         assert(storage_slot == 1);
         note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, serialized_note)

@@ -73,14 +73,19 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
-    unconstrained fn summed_values(owner: Field) -> Field {
+    unconstrained fn summed_values(owner: Field) -> pub Field {
         let owner_balance = storage.notes.at(owner);
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance)
     }
 
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; VALUE_NOTE_LEN]
+    ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }

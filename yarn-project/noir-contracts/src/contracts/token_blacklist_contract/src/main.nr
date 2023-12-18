@@ -364,15 +364,15 @@ contract TokenBlacklist {
 
     /// Unconstrained ///
 
-    unconstrained fn total_supply() -> u120 {
+    unconstrained fn total_supply() -> pub u120 {
         storage.total_supply.read().value
     }
 
-    unconstrained fn balance_of_private(owner: AztecAddress) -> u120 {
+    unconstrained fn balance_of_private(owner: AztecAddress) -> pub u120 {
         storage.balances.at(owner).balance_of().value
     }
 
-    unconstrained fn balance_of_public(owner: AztecAddress) -> u120 {
+    unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner.address).read().value
     }
 
@@ -382,7 +382,7 @@ contract TokenBlacklist {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; TOKEN_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; TOKEN_NOTE_LEN]) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)

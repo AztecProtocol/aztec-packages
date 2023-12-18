@@ -127,9 +127,11 @@ contract CardGame {
         let _added_to_game_deck = game_deck.add_cards(cards, player);
         let selector = compute_selector("on_game_joined(u32,Field,u32)");
         let strength = compute_deck_strength(cards);
-        context.call_public_function(context.this_address(),
+        context.call_public_function(
+            context.this_address(),
             selector,
-            [game as Field, player, strength]);
+            [game as Field, player, strength]
+        );
     }
 
     #[aztec(public)]
@@ -160,9 +162,11 @@ contract CardGame {
 
         let selector = compute_selector("on_card_played(u32,Field,Field)");
         // docs:start:call_public_function
-        context.call_public_function(context.this_address(),
+        context.call_public_function(
+            context.this_address(),
             selector,
-            [game as Field, player, card.to_field()]);
+            [game as Field, player, card.to_field()]
+        );
         // docs:end:call_public_function
     }
 
@@ -189,9 +193,11 @@ contract CardGame {
         let _inserted_cards = collection.add_cards(cards, player);
 
         let selector = compute_selector("on_cards_claimed(u32,Field,Field)");
-        context.call_public_function(context.this_address(),
+        context.call_public_function(
+            context.this_address(),
             selector,
-            [game as Field, player, pedersen_hash(cards_fields, 0)]);
+            [game as Field, player, pedersen_hash(cards_fields, 0)]
+        );
     }
 
     #[aztec(public)]
@@ -210,26 +216,31 @@ contract CardGame {
         game_storage.write(game_data);
     }
 
-    unconstrained fn view_collection_cards(owner: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_collection_cards(owner: Field, offset: u32) -> pub [Option<Card>; MAX_NOTES_PER_PAGE] {
         let collection = storage.collections.at(owner);
 
         collection.view_cards(offset)
     }
 
-    unconstrained fn view_game_cards(game: u32, player: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_game_cards(game: u32, player: Field, offset: u32) -> pub [Option<Card>; MAX_NOTES_PER_PAGE] {
         let game_deck = storage.game_decks.at(game as Field).at(player);
 
         game_deck.view_cards(offset)
     }
 
-    unconstrained fn view_game(game: u32) -> Game {
+    unconstrained fn view_game(game: u32) -> pub Game {
         storage.games.at(game as Field).read()
     }
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; VALUE_NOTE_LEN]
+    ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
