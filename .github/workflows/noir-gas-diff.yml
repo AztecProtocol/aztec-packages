@@ -29,7 +29,8 @@ jobs:
 
       - name: Install Barretenberg dependencies
         run: sudo apt update && sudo apt install clang lld cmake libomp-dev
-
+      - name: ls
+        run: ls -la
       - name: Install nargo from source with noirup
         run: noirup $toolchain
         env:
