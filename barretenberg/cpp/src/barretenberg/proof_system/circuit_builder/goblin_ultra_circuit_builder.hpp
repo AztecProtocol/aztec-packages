@@ -79,7 +79,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     {
         // Set indices to constants corresponding to Goblin ECC op codes
         null_op_idx = this->zero_idx;
-        // WORKTODO: turning these off for debug
         add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
         mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
@@ -106,10 +105,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     size_t get_num_gates() const override
     {
-
         auto num_ultra_gates = UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates();
-        info("get_num_gates: num_ultra_gates = ", num_ultra_gates);
-        info("get_num_gates: num_ecc_op_gates = ", num_ecc_op_gates);
         return num_ultra_gates + num_ecc_op_gates;
     }
 

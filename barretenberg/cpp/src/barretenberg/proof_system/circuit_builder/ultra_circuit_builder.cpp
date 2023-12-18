@@ -61,8 +61,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_non_zero()
 {
-    info("UltraCircuitBuilder: add gates to ensure nonzero.");
-
     // First add a gate to simultaneously ensure first entries of all wires is zero and to add a non
     // zero value to all selectors aside from q_c and q_lookup
     w_l().emplace_back(this->zero_idx);
@@ -112,8 +110,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
         plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
     create_gates_from_plookup_accumulators(
         plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
-
-    info("After add_gates_to_ensure, num_gates = ", this->num_gates);
 }
 
 /**
@@ -2773,19 +2769,6 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
     arithmetic_identity += (w_3_value * q_3_value);
     arithmetic_identity += (w_4_value * q_4_value);
     arithmetic_identity += q_c_value;
-
-    info("arithmetic_identity = ", arithmetic_identity);
-    info("q_arith_value = ", q_arith_value);
-    info("q_1_value = ", q_1_value);
-    info("q_2_value = ", q_2_value);
-    info("q_3_value = ", q_3_value);
-    info("q_4_value = ", q_4_value);
-    info("q_m_value = ", q_m_value);
-    info("q_c_value = ", q_c_value);
-    info("w_1_value = ", w_1_value);
-    info("w_2_value = ", w_2_value);
-    info("w_3_value = ", w_3_value);
-    info("w_4_value = ", w_4_value);
 
     // The additional small addition identity
     FF extra_small_addition_identity = w_1_value + w_4_value - w_1_shifted_value + q_m_value;
