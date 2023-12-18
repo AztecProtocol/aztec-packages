@@ -1,8 +1,5 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"           // WORKTODO
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp" // WORKTODO
-#include "barretenberg/plonk/transcript/manifest.hpp"                            // WORKTODO: hack
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -22,8 +19,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Instance = ProverInstance;
+    using Instance = ProverInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
@@ -66,17 +62,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraProver_<Flavor> create_prover(const std::shared_ptr<Instance>&,
                                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    UltraProver_<Flavor> create_prover(CircuitBuilder& circuit);
-
-    UltraProver_<Flavor> create_ultra_with_keccak_prover(CircuitBuilder& circuit);
-
     UltraVerifier_<Flavor> create_verifier(
         const std::shared_ptr<Instance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
-    UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
-
-    UltraVerifier_<Flavor> create_ultra_with_keccak_verifier(CircuitBuilder& circuit);
 
     /**
      * @brief Create Prover for Goblin ECC op queue merge protocol
@@ -120,9 +108,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
         return output_state;
     };
-
-    // WORKTODO: hack
-    static transcript::Manifest create_manifest([[maybe_unused]] size_t num_public_inputs) { return {}; }
 
     /**
      * @brief Compute the verification key of an Instance, produced from a finalised circuit.

@@ -83,6 +83,5 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 }
 
 template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-template class MergeRecursiveVerifier_<UltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib::recursion::goblin

@@ -28,7 +28,6 @@ void construct_selector_polynomials(const typename Flavor::CircuitBuilder& circu
     // Note 2: If applicable, the ecc op gates are shifted down by 1 to account for a zero row.
     if constexpr (IsGoblinFlavor<Flavor>) {
         const size_t num_ecc_op_gates = circuit_constructor.num_ecc_op_gates;
-        info("Selector construction: num_ecc_op_gates = ", num_ecc_op_gates);
         gate_offset += num_ecc_op_gates;
         const size_t op_gate_offset = zero_row_offset;
         // The op gate selector is simply the indicator on the domain [offset, num_ecc_op_gates + offset - 1]
