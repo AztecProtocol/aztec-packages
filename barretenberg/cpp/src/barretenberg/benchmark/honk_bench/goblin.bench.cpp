@@ -12,7 +12,7 @@ using namespace barretenberg;
 using namespace proof_system;
 
 namespace {
-void goblin_recursion(State& state) noexcept
+void goblin_full(State& state) noexcept
 {
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
@@ -27,7 +27,7 @@ void goblin_recursion(State& state) noexcept
     Goblin::Proof proof;
     for (auto _ : state) {
         // Construct a series of simple Goblin circuits; generate and verify their proofs
-        size_t NUM_CIRCUITS = 2;
+        size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Construct a circuit with logic resembling that of the "kernel circuit"
             GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
@@ -59,7 +59,7 @@ void goblin_accumulate(State& state) noexcept
     Goblin::AccumulationOutput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 2;
+    size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
             // Construct a circuit with logic resembling that of the "kernel circuit"
@@ -85,7 +85,7 @@ void goblin_eccvm_prove(State& state) noexcept
     Goblin::AccumulationOutput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 2;
+    size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Construct a circuit with logic resembling that of the "kernel circuit"
         GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
@@ -113,7 +113,7 @@ void goblin_translator_prove(State& state) noexcept
     Goblin::AccumulationOutput kernel_input = goblin.accumulate(initial_circuit);
 
     // Construct a series of simple Goblin circuits; generate and verify their proofs
-    size_t NUM_CIRCUITS = 2;
+    size_t NUM_CIRCUITS = 1 << static_cast<size_t>(state.range(0));
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Construct a circuit with logic resembling that of the "kernel circuit"
         GoblinUltraCircuitBuilder circuit_builder{ goblin.op_queue };
@@ -131,7 +131,7 @@ void goblin_translator_prove(State& state) noexcept
 
 } // namespace
 
-BENCHMARK(goblin_recursion)->Unit(kMillisecond);
-BENCHMARK(goblin_accumulate)->Unit(kMillisecond);
-BENCHMARK(goblin_eccvm_prove)->Unit(kMillisecond);
-BENCHMARK(goblin_translator_prove)->Unit(kMillisecond);
+BENCHMARK(goblin_full)->Unit(kMillisecond)->DenseRange(0, 7);
+BENCHMARK(goblin_accumulate)->Unit(kMillisecond)->DenseRange(0, 7);
+BENCHMARK(goblin_eccvm_prove)->Unit(kMillisecond)->DenseRange(0, 7);
+BENCHMARK(goblin_translator_prove)->Unit(kMillisecond)->DenseRange(0, 7);
