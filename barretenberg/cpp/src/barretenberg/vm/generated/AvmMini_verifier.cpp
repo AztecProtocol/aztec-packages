@@ -71,6 +71,8 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_internal_call);
     commitments.avmMini_sel_internal_return =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_internal_return);
+    commitments.avmMini_sel_halt =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_halt);
     commitments.avmMini_sel_op_add =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_op_add);
     commitments.avmMini_sel_op_sub =

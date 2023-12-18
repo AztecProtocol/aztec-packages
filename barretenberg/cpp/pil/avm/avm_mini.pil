@@ -16,7 +16,9 @@ namespace avmMini(256);
     
     pol commit sel_internal_call;
     pol commit sel_internal_return;
-
+    
+    // Halt program execution
+    pol commit sel_halt;
     
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -140,7 +142,7 @@ namespace avmMini(256);
 
     // Program counter must increment if not jumping or returning
     #[pc_increment]
-    (1-first) * (sel_internal_call + sel_internal_return + sel_op_add + sel_op_sub + sel_op_div + sel_op_mul) * (pc' - (pc + 1)) = 0;
+    (1-first) * (1- sel_halt) * (sel_internal_call + sel_internal_return + sel_op_add + sel_op_sub + sel_op_div + sel_op_mul) * (pc' - (pc + 1)) = 0;
 
 
     // TODO: we want to set an initial number for the reserved memory of the jump pointer

@@ -29,6 +29,7 @@ void AvmMiniComposer::compute_witness(CircuitConstructor& circuit)
     proving_key->avmMini_internal_return_ptr = polynomials.avmMini_internal_return_ptr;
     proving_key->avmMini_sel_internal_call = polynomials.avmMini_sel_internal_call;
     proving_key->avmMini_sel_internal_return = polynomials.avmMini_sel_internal_return;
+    proving_key->avmMini_sel_halt = polynomials.avmMini_sel_halt;
     proving_key->avmMini_sel_op_add = polynomials.avmMini_sel_op_add;
     proving_key->avmMini_sel_op_sub = polynomials.avmMini_sel_op_sub;
     proving_key->avmMini_sel_op_mul = polynomials.avmMini_sel_op_mul;

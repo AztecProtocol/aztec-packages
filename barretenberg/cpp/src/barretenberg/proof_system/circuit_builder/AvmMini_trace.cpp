@@ -507,7 +507,8 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
 
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
-            .avmMini_pc = FF(pc++),
+            .avmMini_pc = FF(pc),
+            .avmMini_sel_halt = FF(1),
             .avmMini_ia = ia,
             .avmMini_ib = ib,
             .avmMini_ic = ic,
@@ -526,6 +527,18 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
         }
     }
     return returnMem;
+}
+
+// TODO: doc
+void AvmMiniTraceBuilder::halt()
+{
+    auto clk = mainTrace.size();
+
+    mainTrace.push_back(Row{
+        .avmMini_clk = clk,
+        .avmMini_pc = FF(pc),
+        .avmMini_sel_halt = FF(1),
+    });
 }
 
 void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)

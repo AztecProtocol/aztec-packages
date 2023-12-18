@@ -46,8 +46,6 @@ void validateTraceProof(std::vector<Row>&& trace)
     auto circuit_builder = AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    log_avmMini_trace(circuit_builder.rows, 10, 13);
-
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     auto composer = honk::AvmMiniComposer();
@@ -269,6 +267,7 @@ TEST_F(AvmMiniArithmeticTests, divisionByZeroErrorFF)
 
     //           Memory layout:    [15,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2); // [15,0,0,0,0,0....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the division selector
@@ -303,6 +302,7 @@ TEST_F(AvmMiniArithmeticTests, arithmeticFFWithError)
     trace_builder.div(3, 5, 1); // [0,23*136^(-1),45,23,68,136,0,136,136^2,0....]
     trace_builder.div(1, 1, 9); // [0,23*136^(-1),45,23,68,136,0,136,136^2,1,0....]
     trace_builder.div(9, 0, 4); // [0,23*136^(-1),45,23,1/0,136,0,136,136^2,1,0....] Error: division by 0
+    trace_builder.halt();
 
     auto trace = trace_builder.finalize();
     validateTraceProof(std::move(trace));

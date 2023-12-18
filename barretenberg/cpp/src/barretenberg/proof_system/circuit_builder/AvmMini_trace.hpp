@@ -63,6 +63,9 @@ class AvmMiniTraceBuilder {
     // Return from a jump.
     void internal_return();
 
+    // Halt -> stop program execution.
+    void halt();
+
     // CALLDATACOPY opcode with direct memory access, i.e.,
     // M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]
     void callDataCopy(uint32_t cdOffset, uint32_t copySize, uint32_t dstOffset, std::vector<FF> const& callDataMem);
