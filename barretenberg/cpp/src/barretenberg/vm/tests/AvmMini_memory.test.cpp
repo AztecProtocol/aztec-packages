@@ -200,14 +200,14 @@ TEST_F(AvmMiniMemoryTests, mismatchedTagErrorViolation)
     trace_builder.sub(0, 1, 4, AvmMemoryTag::u8);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the addition selector
+    // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == FF(1); });
 
     EXPECT_TRUE(row != trace.end());
 
     auto clk = row->avmMini_clk;
 
-    // Find the memory trace position corresponding to the add sub-operation of register ia.
+    // Find the memory trace position corresponding to the subtraction sub-operation of register ia.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
         return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
     });
@@ -233,7 +233,7 @@ TEST_F(AvmMiniMemoryTests, consistentTagNoErrorViolation)
     trace_builder.div(0, 1, 4, AvmMemoryTag::ff);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the addition selector
+    // Find the first row enabling the division selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_div == FF(1); });
 
     EXPECT_TRUE(row != trace.end());
