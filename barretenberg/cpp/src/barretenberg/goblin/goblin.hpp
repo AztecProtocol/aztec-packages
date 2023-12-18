@@ -15,13 +15,11 @@ namespace barretenberg {
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
-    // WORKTODO(NEW_CONSTRAINTS)
     // using GUHFlavor = proof_system::honk::flavor::Ultra;
     // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
     using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
 
-    using GUHProvingKey = GUHFlavor::ProvingKey;
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
     using FF = GUHFlavor::FF;
@@ -60,14 +58,7 @@ class Goblin {
         }
     };
 
-    using Fr = barretenberg::fr;
-    using Fq = barretenberg::fq;
-
-    using Transcript = proof_system::honk::BaseTranscript;
-    // WORKTODO: until we revert this, can't build some other targets where GUH is hard-coded
-    // (ultimately some opqueue is needed)
     using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
-    // LEFTOFF: create an Instance member
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
     using OpQueue = proof_system::ECCOpQueue;
@@ -86,8 +77,6 @@ class Goblin {
 
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
-
-    Goblin() = default;
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
@@ -111,9 +100,6 @@ class Goblin {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
             [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
         }
-
-        // bool circuit_checked = circuit_builder.check_circuit();
-        // info("circuit checked = ", circuit_checked);
 
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
@@ -190,8 +176,8 @@ class Goblin {
 
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799):
-        //   Ensure translation_evaluations are passed correctly
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
+        // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
 
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;

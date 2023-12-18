@@ -215,8 +215,8 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
 template <typename Builder> void apply_wire_index_offset(Builder& builder)
 {
     // For now, noir has a hard coded witness index offset = 1. Once this is removed, this pre-applied offset goes away
-    const size_t pre_applied_noir_offset = 1;
-    size_t offset = builder.num_vars_added_in_constructor - pre_applied_noir_offset;
+    const uint32_t pre_applied_noir_offset = 1;
+    auto offset = static_cast<uint32_t>(builder.num_vars_added_in_constructor - pre_applied_noir_offset);
     info("Applying offset = ", offset);
 
     // Apply the offset to the indices stored the wires that were generated from acir. (Do not apply the offset to those
