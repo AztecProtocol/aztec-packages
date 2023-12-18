@@ -78,8 +78,9 @@ To perform a private swap, the following must occur:
 2. Call a swap contract (1 kernel call)
 3. The swap contract will initiate `transfer` calls on two token contracts (2 kernel calls)
 4. A fee must be paid via our fee abstraction spec (1 kernel call) 
+5. A final "cleanup" proof is generated that evaluates state reads and processes the queues that have been constructed by previous kernel circuits (1 kernel call + 1 function call; the cleanup proof)
 
-In total we have 5 kernel calls and 5 function calls.
+In total we have 6 kernel calls and 6 function calls.
 
 We can further abstract the above by making the following assumption:
 
@@ -91,8 +92,8 @@ Defining the first function to cost $2^{19}$ constraints is a conservative assum
 #### Summary of what we are measuring to capture Prover time
 
 1. A mock kernel circuit has a size of $2^{17}$ constraints and folds *two* Honk instances into an accumulator (the prev. kernel and the function being called)
-2. The Prover must prove 4 mock function circuit proofs of size $2^{17}$ and one mock function proof of size $2^{19}$
-3. The Prover must iteratively prove 5 mock kernel circuit proofs
+2. The Prover must prove 5 mock function circuit proofs of size $2^{17}$ and one mock function proof of size $2^{19}$
+3. The Prover must iteratively prove 6 mock kernel circuit proofs
 
 #### Execution environment
 
