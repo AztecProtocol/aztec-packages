@@ -28,11 +28,13 @@ void populate_variables_and_public_inputs(Builder& builder,
     }
 
     for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/815) why is this needed?
+        fr value = idx < witness.size() ? witness[idx] : 0;
         if (std::find(corrected_public_inputs.begin(), corrected_public_inputs.end(), idx) !=
             corrected_public_inputs.end()) {
-            builder.add_public_variable(witness[idx]);
+            builder.add_public_variable(value);
         } else {
-            builder.add_variable(witness[idx]);
+            builder.add_variable(value);
         }
     }
 }
