@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  compare_gas_reports:
+  compare_gate_reports:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
