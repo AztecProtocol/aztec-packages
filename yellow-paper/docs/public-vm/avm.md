@@ -86,11 +86,11 @@ MachineState {
 **World state** contains persistable VM state. If a message call succeeds, its world state updates are applied to the calling context (whether that be a parent call's context or the transaction context). If a message call fails, its world state updates are rejected by its caller. When a _transaction_ succeeds, its world state updates persist into future transactions.
 ```
 WorldState {
-    publicStorage: (address, slot) => value,          // read/write
-    noteHashes: (address, index) => noteHash,         // read & append only
-    nullifiers: (address, index) => nullifier,        // read & append only
-    l1l2messageHashes: (address, key) => messageHash, // read only
-    contracts: (address) => bytecode,                 // read only
+    publicStorage: (address, slot) => value,           // read/write
+    noteHashes: (address, index) => noteHash,          // read & append only
+    nullifiers: (address, index) => nullifier,         // read & append only
+    l1l2messageHashes: (address, key) => messageHash,  // read only
+    contracts: (address) => {bytecode, portalAddress}, // read only
 }
 ```
 
@@ -214,7 +214,7 @@ A normal halt occurs when the VM encounters an explicit halting instruction ([`R
 machineState.l1GasLeft -= instr.l1GasCost
 machineState.l2GasLeft -= instr.l2GasCost
 // results.reverted remains false
-results.output = machineState.memory[instr.retOffset:instr.retOffset+instr.retSize]
+results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
 ```
 > Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./InstructionSet/#isa-section-return) and [`REVERT`](./InstructionSet/#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
 
@@ -249,3 +249,58 @@ machineState.l2GasLeft = 0
 results.reverted = true
 // results.output remains undefined
 ```
+
+## Nested calls
+During a message call's execution, an instruction may be encountered that triggers another message call. Such instructions include [`CALL`](./InstructionSet/#isa-section-call), [`STATICCALL`](./InstructionSet/#isa-section-staticcall), and `DELEGATECALL`. This may be referred to as a **nested call** as it is a message call initiated from within another.
+
+
+### Initializing context for nested call
+Initiation of a nested call requires the creation of a new context (or **sub-context**).
+```
+subContext = AVMContext {
+    environment: nestedExecutionEnvironment, // defined below
+    machineState: nestedMachineState,        // defined below
+    worldState: callingContext.worldState,
+    accruedSubstate: empty,
+    results: INITIAL_MESSAGE_CALL_RESULTS,
+}
+```
+While some context members like initialized as empty (as they are for an initial message call), other entries are derived from the calling context or from the message call instruction's arguments (`instr.args`).
+
+The world state is forwarded as-is to the sub-context. Any updates made to the world state before this message call instruction was encountered are carried forward into the sub-context.
+
+The environment and machine state for the new sub-context are initialized as shown below. Here, the `callingContext` refers to the context in which the nested message call instruction was encountered.
+```
+// some assignments reused below
+isStaticCall = instr.opcode == STATICCALL_OP
+isDelegateCall = instr.opcode == DELEGATECALL_OP
+contract = callingContext.worldState.contracts[instr.args.addr]
+
+nestedExecutionEnvironment = ExecutionEnvironment {
+    address: instr.args.addr,
+    storageAddress: isDelegateCall ? callingContext.environment.storageAddress : instr.args.addr,
+    origin: callingContext.origin,
+    l1GasPrice: callingContext.l1GasPrice,
+    l2GasPrice: callingContext.l2GasPrice,
+    calldata: instr.args.calldata,
+    sender: callingContext.address,
+    portal: contract.portal,
+    bytecode: contract.bytecode,
+    blockHeader: callingContext.blockHeader,
+    globalVariables: callingContext.globalVariables,
+    messageCallDepth: callingContext.messageCallDepth + 1,
+    isStaticCall: isStaticCall,
+    isDelegateCall: isDelegateCall,
+}
+
+nestedMachineState = MachineState {
+    l1GasLeft: callingContext.machineState.memory[instr.args.gasOffset],
+    l2GasLeft: callingContext.machineState.memory[instr.args.gasOffset+1],
+    pc: 0,
+    memory: uninitialized,
+}
+```
+> Note: recall that `INITIAL_MESSAGE_CALL_RESULTS` is the same initial value used during context initialization for a public execution request's initial message call.
+> `STATICCALL_OP` and `DELEGATECALL_OP` refer to the 8-bit opcode values for the `STATICCALL` and `DELEGATECALL` instructions respectively.
+
+### Updating the calling context after nested call halts
