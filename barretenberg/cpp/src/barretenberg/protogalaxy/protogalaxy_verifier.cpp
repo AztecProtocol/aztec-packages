@@ -113,7 +113,18 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
     if (inst->is_accumulator) {
         receive_accumulator(inst, domain_separator);
     } else {
+        // This is the first round of folding and we need to generate some gate challenges.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
+        // efficient by avoiding the computation of the perturbator
         receive_and_finalise_instance(inst, domain_separator);
+        inst->target_sum = 0;
+        auto beta = transcript->get_challenge(domain_separator + "_initial_gate_challenge");
+        std::vector<FF> gate_challenges(inst->log_instance_size);
+        gate_challenges[0] = beta;
+        for (size_t i = 1; i < inst->log_instance_size; i++) {
+            gate_challenges[i] = gate_challenges[i - 1].sqr();
+        }
+        inst->gate_challenges = gate_challenges;
     }
     index++;
 
@@ -129,8 +140,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 {
     prepare_for_folding(fold_data);
 
-    // auto delta = transcript->get_challenge("delta");
-    FF delta = 0;
+    auto delta = transcript->get_challenge("delta");
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
@@ -213,9 +223,11 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha");
     verified = verified & (next_alpha == expected_alpha);
+    info(verified);
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
     verified = verified & (next_eta == expected_parameters.eta);
+    info(verified);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
     verified = verified & (next_beta == expected_parameters.beta);

@@ -69,7 +69,9 @@ template <typename Flavor> class RelationUtils {
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
-            current_scalar *= challenge;
+            if (current_scalar != challenge) {
+                current_scalar *= challenge;
+            }
         };
         apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
     }
@@ -163,7 +165,9 @@ template <typename Flavor> class RelationUtils {
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
                 result += entry * current_scalar;
-                current_scalar *= challenge;
+                if (current_scalar != challenge) { // HACK
+                    current_scalar *= challenge;
+                }
             }
         };
         apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);

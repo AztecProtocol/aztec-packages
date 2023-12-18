@@ -47,7 +47,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     transcript->send_to_verifier(domain_separator + "_" + commitment_labels.w_4, witness_commitments.w_4);
 
     auto [beta, gamma] = transcript->get_challenges(domain_separator + "_beta", domain_separator + "_gamma");
-    beta = FF(0);
     instance->compute_grand_product_polynomials(beta, gamma);
 
     witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
@@ -118,8 +117,21 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     if (instance->is_accumulator) {
         send_accumulator(instance, domain_separator);
     } else {
+        // This is the first round of folding and we need to generate some gate challenges.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
+        // efficient by avoiding the computation of the perturbator
         finalise_and_send_instance(instance, domain_separator);
+        instance->target_sum = 0;
+        info("log_instance_size ", instance->log_instance_size);
+        auto beta = transcript->get_challenge(domain_separator + "_initial_gate_challenge");
+        std::vector<FF> gate_challenges(instance->log_instance_size);
+        gate_challenges[0] = beta;
+        for (size_t i = 1; i < instance->log_instance_size; i++) {
+            gate_challenges[i] = gate_challenges[i - 1].sqr();
+        }
+        instance->gate_challenges = gate_challenges;
     }
+
     idx++;
 
     for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
@@ -241,7 +253,13 @@ ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     transcript->send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
     transcript->send_to_verifier("next_lookup_grand_product_delta",
                                  folded_relation_parameters.lookup_grand_product_delta);
-    next_accumulator->relation_parameters = folded_relation_parameters;
+    next_accumulator->relation_parameters = proof_system::RelationParameters<FF>{
+        combined_relation_parameters.eta.evaluate(challenge), // WORKTODO change all of these to evaluate(challenge)
+        combined_relation_parameters.beta.evaluate(challenge),
+        combined_relation_parameters.gamma.evaluate(challenge),
+        combined_relation_parameters.public_input_delta.evaluate(challenge),
+        combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
+    };
 
     // Fold the verification key and send it to the verifier as this is part of ϕ as well
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
@@ -299,8 +317,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
     FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge"); // gamma
-    info("G(gamma)", combiner.evaluate(combiner_challenge));
-    // auto combiner_challenge = 0; // gamma
 
     FoldingResult<Flavor> res;
     auto [next_accumulator, storage] =

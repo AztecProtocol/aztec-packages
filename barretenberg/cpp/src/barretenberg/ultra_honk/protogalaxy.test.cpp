@@ -298,6 +298,86 @@ TEST_F(ProtoGalaxyTests, FoldAlphaShouldBeZero)
     EXPECT_EQ(instances.alpha.evaluate(challenge), FF(0));
 }
 
+TEST_F(ProtoGalaxyTests, FirstIteration)
+{
+    const size_t log_instance_size(4);
+    const size_t instance_size(1 << log_instance_size);
+
+    auto composer = UltraComposer();
+
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
+
+    auto instance_1 = composer.create_instance(builder_1);
+
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
+
+    auto instance_2 = composer.create_instance(builder_2);
+
+    auto commitment_key = composer.commitment_key;
+
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
+    auto folding_verifier = composer.create_folding_verifier();
+
+    auto proof = folding_prover.fold_instances();
+    auto next_accumulator = proof.accumulator;
+    next_accumulator->is_accumulator = true;
+    auto storage = proof.storage;
+    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
+    EXPECT_EQ(res, true);
+    auto next_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
+        next_accumulator->prover_polynomials, next_accumulator->alpha, next_accumulator->relation_parameters);
+    // Construct pow(\vec{betas*}) as in the paper
+    auto next_pow_beta =
+        ProtoGalaxyProver::compute_pow_polynomial_at_values(next_accumulator->gate_challenges, instance_size);
+
+    // Compute the corresponding target sum and create a dummy accumulator
+    auto next_target_sum = FF(0);
+    for (size_t i = 0; i < instance_size; i++) {
+        next_target_sum += next_honk_evals[i] * next_pow_beta[i];
+    }
+    info("e* ", next_target_sum);
+
+    EXPECT_EQ(next_accumulator->target_sum, next_target_sum);
+
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
+    instances = std::vector<std::shared_ptr<Instance>>{ next_accumulator, instance_3 };
+
+    folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
+    folding_verifier = composer.create_folding_verifier();
+
+    proof = folding_prover.fold_instances();
+    auto acc = proof.accumulator;
+    acc->is_accumulator = true;
+
+    storage = proof.storage;
+    res = folding_verifier.verify_folding_proof(proof.folding_data);
+    EXPECT_EQ(res, true);
+
+    next_honk_evals =
+        ProtoGalaxyProver::compute_full_honk_evaluations(acc->prover_polynomials, acc->alpha, acc->relation_parameters);
+    // Construct pow(\vec{betas*}) as in the paper
+    next_pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(acc->gate_challenges, instance_size);
+
+    // Compute the corresponding target sum and create a dummy accumulator
+    next_target_sum = FF(0);
+    for (size_t i = 0; i < instance_size; i++) {
+        next_target_sum += next_honk_evals[i] * next_pow_beta[i];
+    }
+    info("e* ", next_target_sum);
+
+    EXPECT_EQ(acc->target_sum, next_target_sum);
+    auto decider_prover = composer.create_decider_prover(acc, commitment_key);
+    auto decider_verifier = composer.create_decider_verifier(acc);
+    auto decision = decider_prover.construct_proof();
+    auto verified = decider_verifier.verify_proof(decision);
+    EXPECT_EQ(verified, true);
+}
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/807): Have proper full folding testing (both failing and
 // passing) and move creating a test accumulator in a separate function.
 TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
@@ -325,7 +405,6 @@ TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
         poly_views[idx] = random_polynomials[idx];
     }
     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    relation_parameters.beta = FF(0);
 
     auto alpha = FF::random_element();
 
