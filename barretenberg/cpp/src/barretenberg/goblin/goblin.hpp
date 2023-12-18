@@ -15,8 +15,10 @@ namespace barretenberg {
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
+    // using GUHFlavor = proof_system::honk::flavor::Ultra;
+    // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
+    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
+    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
 
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
@@ -76,8 +78,6 @@ class Goblin {
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
 
-    Goblin() = default;
-
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<ECCVMBuilder> eccvm_builder;
@@ -100,9 +100,6 @@ class Goblin {
             RecursiveMergeVerifier merge_verifier{ &circuit_builder };
             [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
         }
-
-        // bool circuit_checked = circuit_builder.check_circuit();
-        // info("circuit checked = ", circuit_checked);
 
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;

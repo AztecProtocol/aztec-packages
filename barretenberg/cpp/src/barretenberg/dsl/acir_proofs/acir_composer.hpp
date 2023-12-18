@@ -23,9 +23,6 @@ class AcirComposer {
                                       acir_format::WitnessVector& witness,
                                       bool is_recursive);
 
-    std::vector<uint8_t> create_goblin_proof(acir_format::acir_format& constraint_system,
-                                             acir_format::WitnessVector& witness);
-
     void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
     std::shared_ptr<proof_system::plonk::verification_key> init_verification_key();
