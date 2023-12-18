@@ -625,6 +625,9 @@ function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
  *
  */
 function computePublicInputsHash(input: PublicCircuitPublicInputs) {
+  console.log(`newcommitments hashes ${input.newCommitments.map(computeCommitmentsHash)}`);
+  console.log(`newnullifier hashes ${input.newNullifiers.map(computeNullifierHash)}`);
+
   const toHash = [
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),

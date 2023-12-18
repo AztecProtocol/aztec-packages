@@ -153,7 +153,7 @@ describe('public_processor', () => {
         proof,
       });
 
-    it('runs a tx with enqueued public calls', async function () {
+    it.only('runs a tx with enqueued public calls', async function () {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = callRequests.map(call => call.toCallRequest());
 

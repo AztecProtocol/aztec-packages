@@ -67,9 +67,11 @@ impl PublicCircuitPublicInputs{
         inputs.push_array(self.public_call_stack_hashes);
 
         for i in 0..MAX_NEW_COMMITMENTS_PER_CALL{
+            std::println(self.new_commitments[i].hash());
             inputs.push(self.new_commitments[i].hash());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
+            std::println(self.new_nullifiers[i].hash());
             inputs.push(self.new_nullifiers[i].hash());
         }
         inputs.push_array(self.new_l2_to_l1_msgs);

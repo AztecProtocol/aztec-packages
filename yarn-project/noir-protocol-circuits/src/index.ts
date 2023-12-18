@@ -173,11 +173,8 @@ export async function executePublicKernelPublicPrevious(
   const params: PublicPrivatePreviousInputType = {
     input: mapPublicKernelInputs(publicKernelPrivateInputs),
   };
-  console.log(`params: ${params}`);
 
   const returnType = await executePublicKernelPublicPreviousWithACVM(params);
-
-  console.log(`returnType: ${returnType}`);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
