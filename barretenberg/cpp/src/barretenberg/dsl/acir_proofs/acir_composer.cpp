@@ -19,7 +19,7 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
 
 template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
-    // WORKTODO: this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
+    // this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
     // sizes below never get set and that eventually causes too few srs points to be extracted
     if (builder_.get_num_gates() > 1) {
         return;
