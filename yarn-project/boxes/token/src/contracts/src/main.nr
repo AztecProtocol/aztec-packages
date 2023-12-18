@@ -347,25 +347,25 @@ contract Token {
     // docs:end:admin
 
     // docs:start:is_minter
-    unconstrained fn is_minter(minter: AztecAddress) -> bool {
+    unconstrained fn is_minter(minter: AztecAddress) -> pub bool {
         storage.minters.at(minter.address).read()
     }
     // docs:end:is_minter
 
     // docs:start:total_supply
-    unconstrained fn total_supply() -> u120 {
+    unconstrained fn total_supply() -> pub u120 {
         storage.total_supply.read().value
     }
     // docs:end:total_supply
 
     // docs:start:balance_of_private
-    unconstrained fn balance_of_private(owner: AztecAddress) -> u120 {
+    unconstrained fn balance_of_private(owner: AztecAddress) -> pub u120 {
         storage.balances.at(owner).balance_of().value
     }
     // docs:end:balance_of_private
 
     // docs:start:balance_of_public
-    unconstrained fn balance_of_public(owner: AztecAddress) -> u120 {
+    unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner.address).read().value
     }
     // docs:end:balance_of_public
@@ -382,7 +382,7 @@ contract Token {
         nonce: Field,
         storage_slot: Field,
         serialized_note: [Field; TOKEN_NOTE_LEN]
-    ) -> [Field; 4] {
+    ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         if (storage_slot == 5) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, serialized_note)
