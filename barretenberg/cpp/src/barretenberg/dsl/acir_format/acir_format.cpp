@@ -27,7 +27,7 @@ void populate_variables_and_public_inputs(Builder& builder,
         corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
     }
 
-    for (size_t idx = 0; idx < witness.size(); ++idx) {
+    for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
         if (std::find(corrected_public_inputs.begin(), corrected_public_inputs.end(), idx) !=
             corrected_public_inputs.end()) {
             builder.add_public_variable(witness[idx]);
