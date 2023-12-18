@@ -22,7 +22,9 @@ This document contains the following sections:
 - [**Execution**](#execution), outlining control flow, gas tracking, halting, and reverting
 - [**Nested calls**](#nested-calls), outlining the initiation of message calls, processing of sub-context results, gas refunds, and world state reverts
 
-The **["AVM Instruction Set"](./InstructionSet)** document supplements this one with the list of all supported instructions and their associated state transition functions.
+Refer to the **["AVM Instruction Set"](./InstructionSet)** for the list of all supported instructions and their associated state transition functions.
+
+For details on the AVM's "tagged" memory model, refer to the **["AVM Memory Model"](./state-model.md)**.
 
 > Note: The Aztec Virtual Machine, while designed with a SNARK implementation in mind, is not strictly tied to any particular implementation and therefore is defined without SNARK or circuit-centric verbiage. That being said, considerations for a SNARK implementation are raised or linked when particularly relevant or helpful.
 
@@ -33,7 +35,7 @@ A contract's public bytecode is a series of execution instructions for the AVM. 
 
 > Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
 
-See our ["Bytecode"](/bytecode) section for more information.
+Refer to ["Bytecode"](/docs/bytecode) for more information.
 
 ## Execution Context
 :::note REMINDER
@@ -171,6 +173,8 @@ With an initialized context (and therefore an initial program counter of 0), the
 The program counter (machine state's `pc`) determines which instruction to execute (`instr = environment.bytecode[pc]`). Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`, `INTERNALRETURN`) modify the program counter based on inputs.
+
+`JUMP`, `JUMPI`, and `INTERNALCALL` assign a new value to program counter from a constant present in the bytecode. These instructions never assign a value from memory to program counter. Before jumping, the `INTERNALCALL` instruction pushes the current program counter to an internal call-stack that is maintained in a reserved region of memory. `INTERNALRETURN` pops a destination from that internal call-stack and jumps there. Thus, jump destinations, can be either constants from the contract bytecode, or destinations popped from the internal call-stack.
 
 ### Gas limits and tracking
 Each instruction has an associated `l1GasCost` and `l2GasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
