@@ -680,20 +680,22 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto [x_challenge, z_challenge] = challenges_to_field_elements<FF>(transcript->get_challenges("ZM:x", "ZM:z"));
 
         // Compute commitment C_{\zeta_x}
-        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
+        // WORKTODO: Make sure only Goblinized operations are available.
+        [[maybe_unused]] auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
-                                         to_be_shifted_commitments,
-                                         C_q_k,
-                                         rho,
-                                         batched_evaluation,
-                                         x_challenge,
-                                         multivariate_challenge,
-                                         concatenation_group_commitments);
+        [[maybe_unused]] Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
+                                                          to_be_shifted_commitments,
+                                                          C_q_k,
+                                                          rho,
+                                                          batched_evaluation,
+                                                          x_challenge,
+                                                          multivariate_challenge,
+                                                          concatenation_group_commitments);
 
         // Compute commitment C_{\zeta,Z}
-        auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+        // auto C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+        [[maybe_unused]] Commitment C_zeta_Z;
 
         // Receive proof commitment \pi
         auto C_pi = transcript->template receive_from_prover<Commitment>("ZM:PI");
@@ -703,7 +705,9 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
         // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
         // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
-        auto P0 = C_zeta_Z + C_pi * x_challenge;
+        // auto P0 = C_zeta_Z + C_pi * x_challenge;
+        Commitment P0;
+
         auto P1 = -C_pi;
 
         return { P0, P1 };
