@@ -80,6 +80,16 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 #include_code use-existing-wallets /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
+### Using debug options
+
+You can use the `debug` option in the `wait` method to get more information about the effects of the transaction. At the time of writing, this includes information about new note hashes added to the private data tree, new nullifiers, public data writes, new L2 to L1 messages, new contract information and newly visible notes.
+
+If a note doesn't appear when you expect it to, check the visible notes returned by the debug options. See the following example for reference on how it's done in the token contract tests.
+
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+
+For debugging and logging in Aztec contracts, see [this page](../debugging/main.md).
+
 ## Assertions
 
 We will now see how to use `aztec.js` to write assertions about transaction statuses, about chain state both public and private, and about logs.
