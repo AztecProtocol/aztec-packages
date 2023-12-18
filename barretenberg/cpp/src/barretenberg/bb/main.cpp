@@ -51,7 +51,7 @@ void init_reference_strings()
     srs::init_grumpkin_crs_factory(CRS_PATH);
 }
 
-acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? maybe rename?
+acir_proofs::AcirComposer init()
 {
     acir_proofs::AcirComposer acir_composer(0, verbose);
     auto g2_data = get_g2_data(CRS_PATH);
@@ -61,7 +61,6 @@ acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? ma
 
 acir_format::WitnessVector get_witness(std::string const& witness_path)
 {
-    // WORKTODO(NEW_CONSTRAINTS): opqueue data is now being extracted here?
     auto witness_data = get_witness_data(witness_path);
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
@@ -129,7 +128,6 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           const std::string& witnessPath,
                           [[maybe_unused]] bool recursive)
 {
-    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     info("Construct constraint_system and witness.");
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -137,6 +135,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     init_reference_strings();
 
     info("Construct goblin circuit from constraint system and witness.");
+    // WORKTODO(NEW_CONSTRAINTS): this needs an opqueue
     acir_proofs::AcirComposer acir_composer;
     acir_composer.create_goblin_circuit(constraint_system, witness);
 
@@ -256,10 +255,8 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto acir_composer = init(constraint_system);
-    // WORKTODO(KEY_TYPES)
-    [[maybe_unused]] auto pk = acir_composer.init_proving_key(constraint_system);
-    std::shared_ptr<proof_system::plonk::proving_key> dummy_pk;
-    auto serialized_pk = to_buffer(*dummy_pk);
+    auto pk = acir_composer.init_proving_key(constraint_system);
+    auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_pk);

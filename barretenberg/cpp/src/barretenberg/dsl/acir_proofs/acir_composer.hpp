@@ -19,23 +19,15 @@ class AcirComposer {
 
     std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
 
-    void init_and_finalize_builder(acir_format::acir_format& constraint_system);
-
     std::vector<uint8_t> create_proof(acir_format::acir_format& constraint_system,
                                       acir_format::WitnessVector& witness,
                                       bool is_recursive);
-
-    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
-
-    std::vector<uint8_t> create_goblin_proof();
 
     void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
     std::shared_ptr<proof_system::plonk::verification_key> init_verification_key();
 
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
-
-    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
     size_t get_exact_circuit_size() { return exact_circuit_size_; };
@@ -47,7 +39,10 @@ class AcirComposer {
 
     std::vector<barretenberg::fr> serialize_verification_key_into_fields();
 
-    std::shared_ptr<proof_system::ECCOpQueue> get_goblin_op_queue() { return goblin.op_queue; };
+    // Goblin specific methods
+    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
+    std::vector<uint8_t> create_goblin_proof();
+    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
 
   private:
     acir_format::Builder builder_;

@@ -5,15 +5,22 @@
 
 namespace acir_format {
 
+/**
+ * @brief Populate variables and public_inputs in builder given witness and constraint_system
+ * @details This method replaces consecutive calls to add_public_vars then read_witness.
+ *
+ * @tparam Builder
+ * @param builder
+ * @param witness
+ * @param constraint_system
+ */
 template <typename Builder>
-void construct_variables_and_public_inputs(Builder& builder,
-                                           WitnessVector const& witness,
-                                           acir_format const& constraint_system)
+void populate_variables_and_public_inputs(Builder& builder,
+                                          WitnessVector const& witness,
+                                          acir_format const& constraint_system)
 {
-    // info("construct_variables_and_public_inputs");
-    // info("builder.variables.size() = ", builder.variables.size());
-    // info("builder.public_inputs.size() = ", builder.public_inputs.size());
-    // WORKTODO(ZEROINDEX): When the noir PR removing the +1 goes in, this correction goes away
+    // WORKTODO: Decrement the indices in constraint_system.public_inputs by one to account for the +1 added by default
+    // to account for a const zero variable in noir. This entire block can be removed once the +1 is removed from noir.
     const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {
@@ -28,18 +35,13 @@ void construct_variables_and_public_inputs(Builder& builder,
             builder.add_variable(witness[idx]);
         }
     }
-    // info("builder.variables.size() = ", builder.variables.size());
-    // info("builder.public_inputs.size() = ", builder.public_inputs.size());
-    // info("builder.public_inputs.[0] = ", builder.public_inputs[0]);
 }
 
 template <typename Builder> void read_witness(Builder& builder, WitnessVector const& witness)
 {
-    builder.variables[0] = 0; // WORKTODO(ZEROINDEX): what's this? is this the constant 0 hacked in?
-    // WORKTODO: is the structure demonstrated in this loop the reason to populate the builder constraints twice?
-    // Prob not, kinda doesn't make sense, big hack to avoid resizing...
+    builder.variables[0] = 0; // WORKTODO(ZEROINDEX): This the constant 0 hacked in. Bad.
     for (size_t i = 0; i < witness.size(); ++i) {
-        // WORKTODO(ZEROINDEX): the i+1 accounts for the fact that 0 is added as a constant in variables in the UCB
+        // WORKTODO(ZEROINDEX): The i+1 accounts for the fact that 0 is added as a constant in variables in the UCB
         // constructor. "witness" only contains the values that came directly from acir.
         builder.variables[i + 1] = witness[i];
     }
@@ -142,25 +144,21 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     }
 
     // Add recursion constraints
-    // WORKTODO: disable these for both UH and UGH for now for consistency
-    // if constexpr (!IsGoblinBuilder<Builder>) {
-    //     for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
-    //         auto& constraint = constraint_system.recursion_constraints[i];
-    //         create_recursion_constraints(builder, constraint, has_valid_witness_assignments);
+    // WORKTODO: disable these for UGH for now since we're not yet dealing with proper recursion
+    if constexpr (!IsGoblinBuilder<Builder>) {
+        for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
+            auto& constraint = constraint_system.recursion_constraints[i];
+            create_recursion_constraints(builder, constraint, has_valid_witness_assignments);
 
-    //         // make sure the verification key records the public input indices of the final recursion output
-    //         // (N.B. up to the ACIR description to make sure that the final output aggregation object wires are
-    //         public
-    //         // inputs!)
-    //         if (i == constraint_system.recursion_constraints.size() - 1) {
-    //             std::vector<uint32_t> proof_output_witness_indices(constraint.output_aggregation_object.begin(),
-    //                                                                constraint.output_aggregation_object.end());
-    //             builder.set_recursive_proof(proof_output_witness_indices);
-    //         }
-    //     }
-    // }
-    // WORKTODO(NEW_CONSTRAINTS): add new constraint types here
-    // WORKTODO(NEW_CONSTRAINTS): this gets called twice? understand why.
+            // make sure the verification key records the public input indices of the final recursion output (N.B. up to
+            // the ACIR description to make sure that the final output aggregation object wires are public inputs!)
+            if (i == constraint_system.recursion_constraints.size() - 1) {
+                std::vector<uint32_t> proof_output_witness_indices(constraint.output_aggregation_object.begin(),
+                                                                   constraint.output_aggregation_object.end());
+                builder.set_recursive_proof(proof_output_witness_indices);
+            }
+        }
+    }
 }
 
 template <typename Builder> void create_circuit(Builder& builder, acir_format const& constraint_system)
@@ -196,9 +194,8 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
         info("create_circuit_with_witness: too many public inputs!");
     }
 
-    // add_public_vars(builder, constraint_system);
-    // read_witness(builder, witness);
-    construct_variables_and_public_inputs(builder, witness, constraint_system);
+    // Populate builder.variables and buider.public_inputs
+    populate_variables_and_public_inputs(builder, witness, constraint_system);
 
     build_constraints(builder, constraint_system, true);
 }
