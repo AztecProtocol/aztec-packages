@@ -122,13 +122,6 @@ class Goblin {
         auto ultra_proof = prover.construct_proof();
         debug_utility::inspect_instance(instance);
 
-        {
-            info("Trying to verify ultra proof right away.");
-            GoblinUltraVerifier verifier{ instance->verification_key }; // WORKTODO This needs the vk
-            bool verified = verifier.verify_proof(ultra_proof);
-            info("                           verified GUH proof; result: ", verified);
-        }
-
         // WORKTODO(MERGE_VERIFIER)
         // WORKTODO: no merge prover for now since we're not mocking the first set of ecc ops
         // // Construct and store the merge proof to be recursively verified on the next call to accumulate
@@ -209,7 +202,7 @@ class Goblin {
         // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
-        GoblinUltraVerifier verifier{ accumulator.verification_key }; // WORKTODO This needs the vk
+        GoblinUltraVerifier verifier{ accumulator.verification_key };
         info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
         info("                           verified GUH proof; result: ", verified);
