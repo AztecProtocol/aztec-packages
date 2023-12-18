@@ -27,7 +27,7 @@ class AvmMiniTraceBuilder {
     // Number of rows
     static const size_t N = 256;
     static const size_t MEM_SIZE = 1024;
-    static const size_t CALLSTACK_OFFSET = 1024; // TODO is this the vibe
+    static const size_t CALLSTACK_OFFSET = 896; // TODO is this the vibe - i assume not
 
     static const uint32_t SUB_CLK_LOAD_A = 0;
     static const uint32_t SUB_CLK_LOAD_B = 1;

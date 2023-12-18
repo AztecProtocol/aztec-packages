@@ -38,7 +38,7 @@ class ToyCircuitBuilder {
 
     // TODO: template
     using Polynomial = Flavor::Polynomial;
-    using AllPolynomials = Flavor::AllPolynomials;
+    using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 9;
     static constexpr size_t num_polys = 8;
@@ -46,10 +46,10 @@ class ToyCircuitBuilder {
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
 
-    AllPolynomials compute_polynomials()
+    ProverPolynomials compute_polynomials()
     {
         const auto num_rows = get_circuit_subgroup_size();
-        AllPolynomials polys;
+        ProverPolynomials polys;
 
         // Allocate mem for each column
         for (auto& poly : polys.get_all()) {
@@ -91,7 +91,8 @@ class ToyCircuitBuilder {
         auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
-        const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
+        const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
+                                                              std::string (*debug_label)(int)) {
             typename Relation::SumcheckArrayOfValuesOverSubrelations result;
             for (auto& r : result) {
                 r = 0;
@@ -104,8 +105,9 @@ class ToyCircuitBuilder {
                 bool x = true;
                 for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
                     if (result[j] != 0) {
+                        std::string row_name = debug_label(static_cast<int>(j));
                         throw_or_abort(
-                            format("Relation ", relation_name, ", subrelation index ", j, " failed at row ", i));
+                            format("Relation ", relation_name, ", subrelation index ", row_name, " failed at row ", i));
                         x = false;
                     }
                 }
@@ -131,14 +133,15 @@ class ToyCircuitBuilder {
             }
             for (auto r : permutation_result) {
                 if (r != 0) {
-                    info("Tuple", permutation_name, "failed.");
+                    info("Tuple ", permutation_name, " failed.");
                     return false;
                 }
             }
             return true;
         };
 
-        if (!evaluate_relation.template operator()<Toy_vm::toy_avm<FF>>("toy_avm")) {
+        if (!evaluate_relation.template operator()<Toy_vm::toy_avm<FF>>("toy_avm",
+                                                                        Toy_vm::get_relation_label_toy_avm)) {
             return false;
         }
 

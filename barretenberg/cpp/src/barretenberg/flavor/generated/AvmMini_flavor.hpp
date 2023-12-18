@@ -42,7 +42,7 @@ class AvmMiniFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 37;
 
-    using Relations = std::tuple<AvmMini_vm::mem_trace<FF>, AvmMini_vm::avm_mini<FF>>;
+    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -178,11 +178,11 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_rw_shift,
-                              memTrace_m_val_shift,
-                              memTrace_m_addr_shift,
                               avmMini_pc_shift,
-                              avmMini_internal_return_ptr_shift)
+                              avmMini_internal_return_ptr_shift,
+                              memTrace_m_rw_shift,
+                              memTrace_m_addr_shift,
+                              memTrace_m_val_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -218,11 +218,11 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_rw_shift,
-                     memTrace_m_val_shift,
-                     memTrace_m_addr_shift,
                      avmMini_pc_shift,
-                     avmMini_internal_return_ptr_shift };
+                     avmMini_internal_return_ptr_shift,
+                     memTrace_m_rw_shift,
+                     memTrace_m_addr_shift,
+                     memTrace_m_val_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -261,15 +261,15 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_rw, memTrace_m_val, memTrace_m_addr, avmMini_pc, avmMini_internal_return_ptr };
+            return { avmMini_pc, avmMini_internal_return_ptr, memTrace_m_rw, memTrace_m_addr, memTrace_m_val };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_rw_shift,
-                     memTrace_m_val_shift,
+            return { avmMini_pc_shift,
+                     avmMini_internal_return_ptr_shift,
+                     memTrace_m_rw_shift,
                      memTrace_m_addr_shift,
-                     avmMini_pc_shift,
-                     avmMini_internal_return_ptr_shift };
+                     memTrace_m_val_shift };
         };
     };
 
@@ -280,13 +280,16 @@ class AvmMiniFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
+        RefVector<DataType> get_to_be_shifted()
+        {
+            return { avmMini_pc, avmMini_internal_return_ptr, memTrace_m_rw, memTrace_m_addr, memTrace_m_val };
+        };
+
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
-
-    using ProverPolynomials = AllEntities<PolynomialHandle>;
 
     using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
@@ -296,13 +299,27 @@ class AvmMiniFlavor {
         using Base::Base;
     };
 
-    class AllPolynomials : public AllEntities<Polynomial> {
+    /**
+     * @brief A container for the prover polynomials handles.
+     */
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->memTrace_m_clk.size(); }
-        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        // Define all operations as default, except move construction/assignment
+        ProverPolynomials() = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return memTrace_m_clk.size(); }
+        /**
+         * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
+         * represents one row in the execution trace.
+         */
+        [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
             }
             return result;

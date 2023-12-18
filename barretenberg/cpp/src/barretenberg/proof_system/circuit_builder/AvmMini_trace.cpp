@@ -186,6 +186,7 @@ void AvmMiniTraceBuilder::add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_op_add = FF(1),
         .avmMini_ia = a,
         .avmMini_ib = b,
@@ -229,6 +230,7 @@ void AvmMiniTraceBuilder::sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_op_sub = FF(1),
         .avmMini_ia = a,
         .avmMini_ib = b,
@@ -272,6 +274,7 @@ void AvmMiniTraceBuilder::mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_op_mul = FF(1),
         .avmMini_ia = a,
         .avmMini_ib = b,
@@ -329,6 +332,7 @@ void AvmMiniTraceBuilder::div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOf
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_op_div = FF(1),
         .avmMini_op_err = error,
         .avmMini_inv = inv,
@@ -421,6 +425,7 @@ void AvmMiniTraceBuilder::callDataCopy(uint32_t cdOffset,
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
             .avmMini_pc = FF(pc++),
+            .avmMini_internal_return_ptr = FF(internal_return_ptr),
             .avmMini_ia = ia,
             .avmMini_ib = ib,
             .avmMini_ic = ic,
@@ -508,6 +513,7 @@ std::vector<FF> AvmMiniTraceBuilder::returnOP(uint32_t retOffset, uint32_t retSi
         mainTrace.push_back(Row{
             .avmMini_clk = clk,
             .avmMini_pc = FF(pc),
+            .avmMini_internal_return_ptr = FF(internal_return_ptr),
             .avmMini_sel_halt = FF(1),
             .avmMini_ia = ia,
             .avmMini_ib = ib,
@@ -534,9 +540,12 @@ void AvmMiniTraceBuilder::halt()
 {
     auto clk = mainTrace.size();
 
+    info("pc at halt: ", pc);
+
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_halt = FF(1),
     });
 }
@@ -547,16 +556,17 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)
 
     // TODO: make sure this is initialized
     internal_call_stack.push(pc);
-    FF a = ffMemory.at(internal_return_ptr);
 
     // We want to write the current pc to the memory location pointed by
     storeAInMemTrace(internal_return_ptr, FF(pc));
 
+    // TODO: we need a better way to insert globals into the trace
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc),
         .avmMini_internal_return_ptr = FF(internal_return_ptr),
-        .avmMini_ia = a,
+        .avmMini_sel_internal_call = FF(1),
+        .avmMini_ia = pc,
         .avmMini_mem_op_a = FF(1),
         .avmMini_rwa = FF(1),
         .avmMini_mem_idx_a = FF(internal_return_ptr),
@@ -580,6 +590,8 @@ void AvmMiniTraceBuilder::internal_return()
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = pc,
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
+        .avmMini_sel_internal_return = FF(1),
         .avmMini_ia = a,
         .avmMini_mem_op_a = FF(1),
         .avmMini_rwa = FF(0),

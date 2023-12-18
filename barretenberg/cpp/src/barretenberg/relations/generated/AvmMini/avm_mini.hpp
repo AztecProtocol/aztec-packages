@@ -7,30 +7,30 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
+    FF avmMini_pc{};
+    FF avmMini_ib{};
+    FF avmMini_pc_shift{};
+    FF avmMini_sel_op_sub{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_mem_idx_a{};
+    FF avmMini_sel_halt{};
+    FF avmMini_mem_op_c{};
+    FF avmMini_rwa{};
+    FF avmMini_op_err{};
+    FF avmMini_ic{};
+    FF avmMini_mem_op_a{};
+    FF avmMini_ia{};
+    FF avmMini_sel_internal_return{};
+    FF avmMini_sel_op_div{};
+    FF avmMini_first{};
+    FF avmMini_internal_return_ptr_shift{};
+    FF avmMini_rwc{};
+    FF avmMini_mem_op_b{};
     FF avmMini_rwb{};
     FF avmMini_internal_return_ptr{};
-    FF avmMini_mem_idx_a{};
-    FF avmMini_pc_shift{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_sel_op_div{};
-    FF avmMini_sel_op_add{};
-    FF avmMini_mem_op_a{};
-    FF avmMini_internal_return_ptr_shift{};
-    FF avmMini_ia{};
-    FF avmMini_ic{};
-    FF avmMini_ib{};
-    FF avmMini_rwa{};
-    FF avmMini_sel_internal_call{};
-    FF avmMini_sel_op_sub{};
-    FF avmMini_sel_op_mul{};
-    FF avmMini_op_err{};
-    FF avmMini_sel_internal_return{};
-    FF avmMini_sel_halt{};
-    FF avmMini_pc{};
-    FF avmMini_mem_op_c{};
-    FF avmMini_first{};
-    FF avmMini_rwc{};
     FF avmMini_inv{};
+    FF avmMini_sel_op_mul{};
+    FF avmMini_sel_internal_call{};
 };
 
 inline std::string get_relation_label_avm_mini(int index)
@@ -38,6 +38,12 @@ inline std::string get_relation_label_avm_mini(int index)
     switch (index) {
     case 28:
         return "pc_increment";
+
+    case 18:
+        return "return_pointer_increment";
+
+    case 23:
+        return "return_pointer_decrement";
     }
     return std::to_string(index);
 }
@@ -47,7 +53,7 @@ template <typename FF_> class avm_miniImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -238,7 +244,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(22);
 
-            auto tmp = (avmMini_sel_internal_call * (avmMini_pc_shift - avmMini_ia));
+            auto tmp = (avmMini_sel_internal_call * (avmMini_pc - avmMini_ia));
             tmp *= scaling_factor;
             std::get<22>(evals) += tmp;
         }

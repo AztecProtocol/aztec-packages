@@ -51,11 +51,11 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF memTrace_m_rw_shift{};
-    FF memTrace_m_val_shift{};
-    FF memTrace_m_addr_shift{};
     FF avmMini_pc_shift{};
     FF avmMini_internal_return_ptr_shift{};
+    FF memTrace_m_rw_shift{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_val_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -66,7 +66,7 @@ class AvmMiniCircuitBuilder {
 
     // TODO: template
     using Polynomial = Flavor::Polynomial;
-    using AllPolynomials = Flavor::AllPolynomials;
+    using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 37;
     static constexpr size_t num_polys = 32;
@@ -74,10 +74,10 @@ class AvmMiniCircuitBuilder {
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
 
-    AllPolynomials compute_polynomials()
+    ProverPolynomials compute_polynomials()
     {
         const auto num_rows = get_circuit_subgroup_size();
-        AllPolynomials polys;
+        ProverPolynomials polys;
 
         // Allocate mem for each column
         for (auto& poly : polys.get_all()) {
@@ -119,11 +119,11 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
-        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
         polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
+        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
 
         return polys;
     }
@@ -161,12 +161,12 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
-        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
-                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
-            return false;
-        }
         if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini",
                                                                              AvmMini_vm::get_relation_label_avm_mini)) {
+            return false;
+        }
+        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
+                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
             return false;
         }
 
