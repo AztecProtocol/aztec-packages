@@ -195,9 +195,12 @@ class ExampleSameWirePermutationSettings {
 
 class ExampleLookupBasedRangeConstraintSettings {
   public:
+    static constexpr size_t READ_TERM_TYPE = 0;
+    static constexpr size_t WRITE_TERM_TYPE = 0;
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
+    static constexpr size_t INVERSE_EXISTS_COMPLEXITY = 2;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -237,8 +240,8 @@ class ExampleLookupBasedRangeConstraintSettings {
             in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
             in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
             in.lookup_is_table_entry,              /* Enables adding second set to the sum */
-            in.range_constrained_column            /* The first set column */
-        );
+            in.range_constrained_column,           /* The first set column */
+            in.lookup_range_table_entries);
     }
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
@@ -248,8 +251,8 @@ class ExampleLookupBasedRangeConstraintSettings {
             in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
             in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
             in.lookup_is_table_entry,              /* Enables adding second set to the sum */
-            in.range_constrained_column            /* The first set column */
-        );
+            in.range_constrained_column,           /* The first set column */
+            in.lookup_range_table_entries);
     }
 };
 
