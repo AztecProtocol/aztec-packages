@@ -33,6 +33,7 @@ struct acir_format {
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<KeccakConstraint> keccak_constraints;
     std::vector<KeccakVarConstraint> keccak_var_constraints;
+    std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<HashToFieldConstraint> hash_to_field_constraints;
@@ -58,6 +59,7 @@ struct acir_format {
                    blake2s_constraints,
                    keccak_constraints,
                    keccak_var_constraints,
+                   keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
                    hash_to_field_constraints,

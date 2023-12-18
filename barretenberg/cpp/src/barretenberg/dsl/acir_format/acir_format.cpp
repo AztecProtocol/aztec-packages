@@ -78,6 +78,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     for (const auto& constraint : constraint_system.keccak_var_constraints) {
         create_keccak_var_constraints(builder, constraint);
     }
+    for (const auto& constraint : constraint_system.keccak_permutations) {
+        create_keccak_permutations(builder, constraint);
+    }
 
     // Add pedersen constraints
     for (const auto& constraint : constraint_system.pedersen_constraints) {

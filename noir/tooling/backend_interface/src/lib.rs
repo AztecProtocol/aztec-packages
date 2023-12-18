@@ -176,6 +176,7 @@ impl BackendOpcodeSupport {
                 "xor".to_string(),
                 "range".to_string(),
                 "keccak256".to_string(),
+                "keccakf1600".to_string(),
                 "recursive_aggregation".to_string(),
                 "ecdsa_secp256r1".to_string(),
             ]),

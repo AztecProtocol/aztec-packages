@@ -68,4 +68,24 @@ void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& 
     }
 }
 
+void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint)
+{
+    // Create the array containing the permuted state
+    std::array<field_ct, proof_system::plonk::stdlib::keccak<Builder>::NUM_KECCAK_LANES> state;
+
+    // Get the witness assignment for each witness index
+    // Write the witness assignment to the byte_array
+    for (size_t i = 0; i < constraint.state.size(); ++i) {
+        info(constraint.state[i]);
+        state[i] = field_ct::from_witness_index(&builder, constraint.state[i]);
+    }
+
+    std::array<field_ct, 25> output_state =
+        proof_system::plonk::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
+
+    for (size_t i = 0; i < output_state.size(); ++i) {
+        builder.assert_equal(output_state[i].normalize().witness_index, constraint.result[i]);
+    }
+}
+
 } // namespace acir_format

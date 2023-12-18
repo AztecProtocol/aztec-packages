@@ -393,6 +393,7 @@ fn simplify_black_box_func(
                 _ => SimplifyResult::None,
             }
         }
+        BlackBoxFunc::Keccakf1600 => SimplifyResult::None,  //TODO
         BlackBoxFunc::HashToField128Security => match dfg.get_array_constant(arguments[0]) {
             Some((input, _)) if array_is_constant(dfg, &input) => {
                 let input_bytes: Vec<u8> = to_u8_vec(dfg, input);

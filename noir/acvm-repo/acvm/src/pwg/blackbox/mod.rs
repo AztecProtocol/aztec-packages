@@ -5,10 +5,10 @@ use acir::{
 };
 use acvm_blackbox_solver::{blake2s, keccak256, sha256};
 
-use self::pedersen::pedersen_hash;
+use self::{hash::keccakf1600, pedersen::pedersen_hash};
 
 use super::{insert_value, OpcodeNotSolvable, OpcodeResolutionError};
-use crate::BlackBoxFunctionSolver;
+use crate::{pwg::witness_to_value, BlackBoxFunctionSolver};
 
 mod fixed_base_scalar_mul;
 mod hash;
@@ -100,6 +100,22 @@ pub(crate) fn solve(
                 keccak256,
                 bb_func.get_black_box_func(),
             )
+        }
+        BlackBoxFuncCall::Keccakf1600 { inputs, outputs } => {
+            let mut state = [0; 25];
+            for (i, input) in inputs.iter().enumerate() {
+                let witness = input.witness;
+                let num_bits = input.num_bits as usize;
+                assert_eq!(num_bits, 64);
+                let witness_assignment = witness_to_value(initial_witness, witness)?;
+                let lane = witness_assignment.try_to_u64();
+                state[i] = lane.unwrap();
+            }
+            keccakf1600(&mut state);
+            for (output_witness, value) in outputs.iter().zip(state.into_iter()) {
+                insert_value(output_witness, FieldElement::from(value as u128), initial_witness)?;
+            }
+            Ok(())
         }
         BlackBoxFuncCall::HashToField128Security { inputs, output } => {
             solve_hash_to_field(initial_witness, inputs, output)

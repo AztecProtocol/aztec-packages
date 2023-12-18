@@ -94,6 +94,10 @@ pub enum BlackBoxFuncCall {
         var_message_size: FunctionInput,
         outputs: Vec<Witness>,
     },
+    Keccakf1600 {
+        inputs: Vec<FunctionInput>,
+        outputs: Vec<Witness>,
+    },
     RecursiveAggregation {
         verification_key: Vec<FunctionInput>,
         proof: Vec<FunctionInput>,
@@ -136,6 +140,7 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
             BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccak256VariableLength { .. } => BlackBoxFunc::Keccak256,
+            BlackBoxFuncCall::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
             BlackBoxFuncCall::RecursiveAggregation { .. } => BlackBoxFunc::RecursiveAggregation,
         }
     }
@@ -149,6 +154,7 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::SHA256 { inputs, .. }
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Keccak256 { inputs, .. }
+            | BlackBoxFuncCall::Keccakf1600 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::PedersenHash { inputs, .. }
             | BlackBoxFuncCall::HashToField128Security { inputs, .. } => inputs.to_vec(),
@@ -239,6 +245,7 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::SHA256 { outputs, .. }
             | BlackBoxFuncCall::Blake2s { outputs, .. }
             | BlackBoxFuncCall::Keccak256 { outputs, .. }
+            | BlackBoxFuncCall::Keccakf1600 { outputs, .. }
             | BlackBoxFuncCall::RecursiveAggregation {
                 output_aggregation_object: outputs, ..
             } => outputs.to_vec(),
