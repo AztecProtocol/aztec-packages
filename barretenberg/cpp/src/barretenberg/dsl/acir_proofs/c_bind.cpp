@@ -62,7 +62,8 @@ WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto proof_data = acir_composer->create_goblin_proof(constraint_system, witness);
+    acir_composer->create_goblin_circuit(constraint_system, witness);
+    auto proof_data = acir_composer->create_goblin_proof();
     *out = to_heap_buffer(proof_data);
 }
 
