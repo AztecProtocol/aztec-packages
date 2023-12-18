@@ -5,7 +5,7 @@
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/debug_utility.hpp"
+#include "barretenberg/proof_system/instance_inspector.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
@@ -15,10 +15,8 @@ namespace barretenberg {
 class Goblin {
     using HonkProof = proof_system::plonk::proof;
 
-    // using GUHFlavor = proof_system::honk::flavor::Ultra;
-    // using GoblinUltraCircuitBuilder = proof_system::UltraCircuitBuilder;
-    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;                 // GUHFLAG
-    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder; // GUHFLAG
+    using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
+    using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
 
     using GUHVerificationKey = GUHFlavor::VerificationKey;
     using Commitment = GUHFlavor::Commitment;
@@ -171,7 +169,7 @@ class Goblin {
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
-        debug_utility::inspect_instance(instance);
+        instance_inspector::inspect_instance(instance);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
         // mocking the first set of ecc ops

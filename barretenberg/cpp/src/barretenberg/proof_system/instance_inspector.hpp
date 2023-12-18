@@ -2,7 +2,7 @@
 
 #include "barretenberg/common/log.hpp"
 
-namespace debug_utility {
+namespace instance_inspector {
 
 // Determine whether a polynomial has at least one non-zero coefficient
 bool is_non_zero(auto& polynomial)
@@ -40,4 +40,4 @@ void inspect_instance(auto& prover_instance)
     info();
 }
 
-} // namespace debug_utility
+} // namespace instance_inspector

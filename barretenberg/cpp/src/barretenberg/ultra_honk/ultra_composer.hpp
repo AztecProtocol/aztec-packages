@@ -1,8 +1,5 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"           // WORKTODO
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp" // WORKTODO
-#include "barretenberg/plonk/transcript/manifest.hpp"                            // WORKTODO: hack
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -42,7 +39,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    // UltraComposer_() = default;
     UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
@@ -57,8 +53,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
-        commitment_key =
-            std::make_shared<CommitmentKey>(circuit_size + 1, barretenberg::srs::get_crs_factory()); // WORKTODO
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size + 1);
         return commitment_key;
     };
 

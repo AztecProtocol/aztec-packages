@@ -56,7 +56,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    size_t num_vars_added_in_constructor; // needed in constructing circuit from acir
+    size_t num_vars_added_in_constructor = 0; // needed in constructing circuit from acir
 
     enum AUX_SELECTORS {
         NONE,
