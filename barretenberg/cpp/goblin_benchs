@@ -1,0 +1,210 @@
+% taskset -c 0-15 ./bin/goblin_bench --benchmark_filter=full                                                                                                                                     31s ~/aztec-packages/barretenberg/cpp/build ad/feat/goblin-bench + mainframe
+2023-12-16T04:39:50+00:00
+Running ./bin/goblin_bench
+Run on (128 X 1770 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x64)
+  L1 Instruction 32 KiB (x64)
+  L2 Unified 512 KiB (x64)
+  L3 Unified 32768 KiB (x8)
+Load Average: 4.59, 2.66, 2.28
+--------------------------------------------------------
+Benchmark              Time             CPU   Iterations
+--------------------------------------------------------
+goblin_full/0       6630 ms         5653 ms            1
+goblin_full/1      12547 ms        11201 ms            1
+goblin_full/2      25051 ms        22983 ms            1
+goblin_full/3      51488 ms        47478 ms            1
+goblin_full/4     106254 ms        99088 ms            1
+goblin_full/5     220602 ms       206708 ms            1
+goblin_full/6     459707 ms       431571 ms            1
+goblin_full/7     958580 ms       902146 ms            1
+
+% taskset -c 0-15 ./bin/goblin_bench --benchmark_filter=eccvm_prove                                                             29m 36s ~/aztec-packages/barretenberg/cpp/build ad/feat/goblin-bench + mainframe
+2023-12-18T03:36:49+00:00
+Running ./bin/goblin_bench
+Run on (128 X 1990.79 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x64)
+  L1 Instruction 32 KiB (x64)
+  L2 Unified 512 KiB (x64)
+  L3 Unified 32768 KiB (x8)
+Load Average: 2.06, 2.48, 3.50
+---------------------------------------------------------------
+Benchmark                     Time             CPU   Iterations
+---------------------------------------------------------------
+goblin_eccvm_prove/0       4956 ms         4775 ms            1
+goblin_eccvm_prove/1      10098 ms         9713 ms            1
+goblin_eccvm_prove/2      20815 ms        20262 ms            1
+goblin_eccvm_prove/3      43392 ms        42473 ms            1
+goblin_eccvm_prove/4      90599 ms        89088 ms            1
+goblin_eccvm_prove/5     189833 ms       187159 ms            1
+goblin_eccvm_prove/6     396758 ms       391906 ms            1
+goblin_eccvm_prove/7     830932 ms       821706 ms            1
+
+% ./bin/goblin_bench --benchmark_filter=translator_prove                                                                                                                                                  ~/aztec-packages/barretenberg/cpp/build ad/feat/goblin-bench + mainframe
+2023-12-18T02:59:46+00:00
+Running ./bin/goblin_bench
+Run on (128 X 1500.45 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x64)
+  L1 Instruction 32 KiB (x64)
+  L2 Unified 512 KiB (x64)
+  L3 Unified 32768 KiB (x8)
+Load Average: 4.78, 3.96, 3.75
+--------------------------------------------------------------------
+Benchmark                          Time             CPU   Iterations
+--------------------------------------------------------------------
+goblin_translator_prove/0        688 ms          541 ms            1
+goblin_translator_prove/1        635 ms          516 ms            1
+goblin_translator_prove/2        684 ms          553 ms            1
+goblin_translator_prove/3        913 ms          754 ms            1
+goblin_translator_prove/4       1383 ms         1085 ms            1
+goblin_translator_prove/5       2384 ms         1865 ms            1
+goblin_translator_prove/6       4550 ms         3224 ms            1
+goblin_translator_prove/7       8890 ms         6262 ms            1
+
+% taskset -c 0-15 ./bin/goblin_bench --benchmark_filter=full                                                                                                                                     31s ~/aztec-packages/barretenberg/cpp/build ad/feat/goblin-bench + mainframe
+2023-12-16T04:39:50+00:00
+Running ./bin/goblin_bench
+Run on (128 X 1770 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x64)
+  L1 Instruction 32 KiB (x64)
+  L2 Unified 512 KiB (x64)
+  L3 Unified 32768 KiB (x8)
+Load Average: 4.59, 2.66, 2.28
+--------------------------------------------------------
+Benchmark              Time             CPU   Iterations
+--------------------------------------------------------
+raw ops in queue:        168
+ultra ops in queue:      336
+ECCVM num_gates:         2919
+ECCVM subgroup size:     4096
+Translator num gates:    337
+Translator circuit size: 32768
+goblin_full/0       6630 ms         5653 ms            1
+raw ops in queue:        363
+ultra ops in queue:      726
+ECCVM num_gates:         6240
+ECCVM subgroup size:     8192
+Translator num gates:    727
+Translator circuit size: 32768
+goblin_full/1      12547 ms        11201 ms            1
+raw ops in queue:        753
+ultra ops in queue:      1506
+ECCVM num_gates:         12882
+ECCVM subgroup size:     16384
+Translator num gates:    1507
+Translator circuit size: 32768
+goblin_full/2      25051 ms        22983 ms            1
+raw ops in queue:        1533
+ultra ops in queue:      3066
+ECCVM num_gates:         26166
+ECCVM subgroup size:     32768
+Translator num gates:    3067
+Translator circuit size: 65536
+sumcheck failed
+goblin_full/3      51488 ms        47478 ms            1
+raw ops in queue:        3093
+ultra ops in queue:      6186
+ECCVM num_gates:         52734
+ECCVM subgroup size:     65536
+Translator num gates:    6187
+Translator circuit size: 131072
+sumcheck failed
+goblin_full/4     106254 ms        99088 ms            1
+raw ops in queue:        6213
+ultra ops in queue:      12426
+ECCVM num_gates:         105870
+ECCVM subgroup size:     131072
+Translator num gates:    12427
+Translator circuit size: 262144
+sumcheck failed
+goblin_full/5     220602 ms       206708 ms            1
+raw ops in queue:        12453
+ultra ops in queue:      24906
+ECCVM num_gates:         212142
+ECCVM subgroup size:     262144
+Translator num gates:    24907
+Translator circuit size: 524288
+sumcheck failed
+goblin_full/6     459707 ms       431571 ms            1
+raw ops in queue:        24933
+ultra ops in queue:      49866
+ECCVM num_gates:         424686
+ECCVM subgroup size:     524288
+Translator num gates:    49867
+Translator circuit size: 1048576
+sumcheck failed
+goblin_full/7     958580 ms       902146 ms            1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------
+Benchmark              Time             CPU   Iterations
+--------------------------------------------------------
+goblin_full/0       6630 ms         5653 ms            1
+goblin_full/1      12547 ms        11201 ms            1
+goblin_full/2      25051 ms        22983 ms            1
+goblin_full/3      51488 ms        47478 ms            1
+goblin_full/4     106254 ms        99088 ms            1
+goblin_full/5     220602 ms       206708 ms            1
+goblin_full/6     459707 ms       431571 ms            1
+goblin_full/7     958580 ms       902146 ms            1
+
+--------------------------------------------------------------
+Benchmark                    Time             CPU   Iterations
+--------------------------------------------------------------
+goblin_accumulate/0        829 ms          518 ms            2
+goblin_accumulate/1       1693 ms         1048 ms            1
+goblin_accumulate/2       3470 ms         2281 ms            1
+goblin_accumulate/3       6968 ms         4625 ms            1
+goblin_accumulate/4      14035 ms         9312 ms            1
+goblin_accumulate/5      28191 ms        18620 ms            1
+goblin_accumulate/6      57001 ms        37471 ms            1
+goblin_accumulate/7     115491 ms        75549 ms            1
+
+---------------------------------------------------------------
+Benchmark                     Time             CPU   Iterations
+---------------------------------------------------------------
+goblin_eccvm_prove/0       4956 ms         4775 ms            1
+goblin_eccvm_prove/1      10098 ms         9713 ms            1
+goblin_eccvm_prove/2      20815 ms        20262 ms            1
+goblin_eccvm_prove/3      43392 ms        42473 ms            1
+goblin_eccvm_prove/4      90599 ms        89088 ms            1
+goblin_eccvm_prove/5     189833 ms       187159 ms            1
+goblin_eccvm_prove/6     396758 ms       391906 ms            1
+goblin_eccvm_prove/7     830932 ms       821706 ms            1
+
+--------------------------------------------------------------------
+Benchmark                          Time             CPU   Iterations
+--------------------------------------------------------------------
+goblin_translator_prove/0        688 ms          541 ms            1
+goblin_translator_prove/1        635 ms          516 ms            1
+goblin_translator_prove/2        684 ms          553 ms            1
+goblin_translator_prove/3        913 ms          754 ms            1
+goblin_translator_prove/4       1383 ms         1085 ms            1
+goblin_translator_prove/5       2384 ms         1865 ms            1
+goblin_translator_prove/6       4550 ms         3224 ms            1
+goblin_translator_prove/7       8890 ms         6262 ms            1
+
