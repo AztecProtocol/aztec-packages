@@ -29,5 +29,5 @@ docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -xe; \
   /usr/src/barretenberg/cpp/srs_db/download_ignition.sh $NUM_TRANSCRIPTS; \
   /usr/src/barretenberg/cpp/srs_db/download_grumpkin.sh; \
-  cd /usr/src/barretenberg/cpp/build; \ 
+  cd /usr/src/barretenberg/cpp/build; \
   for BIN in $TESTS; do ./bin/\$BIN $@; done"

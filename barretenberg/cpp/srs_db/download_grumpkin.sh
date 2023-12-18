@@ -6,7 +6,6 @@ set -eu
 
 # Enter build directory sibling to our script folder.
 cd $(dirname $0)/../build
-ls .
 ./bin/grumpkin_srs_gen 1048576
 mkdir -p ~/.bb-crs
 ln -s ../srs_db/grumpkin/monomial ~/.bb-crs/monomial
