@@ -45,6 +45,10 @@ Let's set up our test suite. We'll make sure the Sandbox is running, create two 
 
 #include_code setup yarn-project/end-to-end/src/sample-dapp/index.test.mjs javascript
 
+:::tip
+Instead of creating new accounts in our test suite, we can use the ones already initialized by the Sandbox upon startup. This can provide a speed boost to your tests setup. However, bear in mind that you may accidentally introduce an interdependency across test suites by reusing the same accounts. Read more [here](../testing.md#using-sandbox-initial-accounts).
+:::
+
 ## Writing our test
 
 Now that we have a working test environment, we can write our first test for exercising the `transfer` function on the token contract. We will use the same `aztec.js` methods we used when building our dapp:
