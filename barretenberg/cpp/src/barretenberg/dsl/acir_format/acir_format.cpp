@@ -27,12 +27,14 @@ void populate_variables_and_public_inputs(Builder& builder,
         corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
     }
 
-    for (size_t idx = 0; idx < witness.size(); ++idx) {
+    for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/815) why is this needed?
+        fr value = idx < witness.size() ? witness[idx] : 0;
         if (std::find(corrected_public_inputs.begin(), corrected_public_inputs.end(), idx) !=
             corrected_public_inputs.end()) {
-            builder.add_public_variable(witness[idx]);
+            builder.add_public_variable(value);
         } else {
-            builder.add_variable(witness[idx]);
+            builder.add_variable(value);
         }
     }
 }
@@ -145,7 +147,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
     // Add recursion constraints
     // WORKTODO: disable these for UGH for now since we're not yet dealing with proper recursion
-    if constexpr (!IsGoblinBuilder<Builder>) {
+    if constexpr (IsGoblinBuilder<Builder>) {
+        info("WARNING: this circuit contains recursion_constraints!");
+    } else {
         for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
             auto& constraint = constraint_system.recursion_constraints[i];
             create_recursion_constraints(builder, constraint, has_valid_witness_assignments);

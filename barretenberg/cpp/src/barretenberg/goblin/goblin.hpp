@@ -84,8 +84,9 @@ class Goblin {
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<TranslatorComposer> translator_composer;
-    AccumulationOutput accumulator;
-    Proof proof_; // WORKTODO: hack to avoid parsing out from big byte array
+
+    AccumulationOutput accumulator; // ACIRHACK
+    Proof proof_;                   // ACIRHACK
 
   public:
     /**
@@ -94,6 +95,70 @@ class Goblin {
      * @param circuit_builder
      */
     AccumulationOutput accumulate(GoblinUltraCircuitBuilder& circuit_builder)
+    {
+        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        if (merge_proof_exists) {
+            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+        }
+
+        // Construct a Honk proof for the main circuit
+        GoblinUltraComposer composer;
+        auto instance = composer.create_instance(circuit_builder);
+        auto prover = composer.create_prover(instance);
+        auto ultra_proof = prover.construct_proof();
+
+        // Construct and store the merge proof to be recursively verified on the next call to accumulate
+        auto merge_prover = composer.create_merge_prover(op_queue);
+        merge_proof = merge_prover.construct_proof();
+
+        if (!merge_proof_exists) {
+            merge_proof_exists = true;
+        }
+
+        return { ultra_proof, instance->verification_key };
+    };
+
+    Proof prove()
+    {
+        Proof proof;
+
+        proof.merge_proof = std::move(merge_proof);
+
+        eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        eccvm_composer = std::make_unique<ECCVMComposer>();
+        auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
+        proof.eccvm_proof = eccvm_prover.construct_proof();
+        proof.translation_evaluations = eccvm_prover.translation_evaluations;
+
+        translator_builder = std::make_unique<TranslatorBuilder>(
+            eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
+        translator_composer = std::make_unique<TranslatorComposer>();
+        auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
+        proof.translator_proof = translator_prover.construct_proof();
+
+        return proof;
+    };
+
+    bool verify(const Proof& proof)
+    {
+        MergeVerifier merge_verifier;
+        bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+
+        auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+
+        auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
+        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
+        // correctly
+        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+
+        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
+    };
+
+    // ACIRHACK
+    AccumulationOutput accumulate_for_acir(GoblinUltraCircuitBuilder& circuit_builder)
     {
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
@@ -124,9 +189,10 @@ class Goblin {
         return accumulator;
     };
 
-    Proof prove()
+    // ACIRHACK
+    Proof prove_for_acir()
     {
-        GoblinTestingUtils::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+        info("Goblin.prove(): op_queue size = ", op_queue->ultra_ops[0].size());
         Proof proof;
 
         proof.merge_proof = std::move(merge_proof);
@@ -143,27 +209,12 @@ class Goblin {
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
         proof.translator_proof = translator_prover.construct_proof();
 
-        proof_ = proof;
+        proof_ = proof; // ACIRHACK
         return proof;
     };
 
-    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
-    {
-        info("goblin: construct_proof");
-        accumulate(builder);
-        info("accumulate complete.");
-        std::vector<uint8_t> goblin_proof = prove().to_buffer();
-        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
-
-        const auto insert = [&result](const std::vector<uint8_t>& buf) {
-            result.insert(result.end(), buf.begin(), buf.end());
-        };
-        insert(accumulator.proof.proof_data);
-        insert(goblin_proof);
-        return result;
-    }
-
-    bool verify(const Proof& proof) const
+    // ACIRHACK
+    bool verify_for_acir(const Proof& proof) const
     {
         // // WORKTODO(MERGE)
         // MergeVerifier merge_verifier;
@@ -183,6 +234,24 @@ class Goblin {
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 
+    // ACIRHACK
+    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
+    {
+        info("goblin: construct_proof");
+        accumulate_for_acir(builder);
+        info("accumulate complete.");
+        std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
+        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
+
+        const auto insert = [&result](const std::vector<uint8_t>& buf) {
+            result.insert(result.end(), buf.begin(), buf.end());
+        };
+        insert(accumulator.proof.proof_data);
+        insert(goblin_proof);
+        return result;
+    }
+
+    // ACIRHACK
     bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
     {
         // WORKTODO: to do this properly, extract the proof correctly or maybe share transcripts.
@@ -196,8 +265,8 @@ class Goblin {
         const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         auto goblin_proof = extract_goblin_proof(proof);
         info("extracted goblin proof");
-        verified = verified && verify(goblin_proof);
-        info("verified goblin proo");
+        verified = verified && verify_for_acir(goblin_proof);
+        info("verified goblin proof");
         return verified;
     }
 };
