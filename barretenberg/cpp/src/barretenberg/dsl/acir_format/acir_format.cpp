@@ -145,7 +145,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
     // Add recursion constraints
     // WORKTODO: disable these for UGH for now since we're not yet dealing with proper recursion
-    if constexpr (!IsGoblinBuilder<Builder>) {
+    if constexpr (IsGoblinBuilder<Builder>) {
+        info("WARNING: this circuit contains recursion_constraints!");
+    } else {
         for (size_t i = 0; i < constraint_system.recursion_constraints.size(); ++i) {
             auto& constraint = constraint_system.recursion_constraints[i];
             create_recursion_constraints(builder, constraint, has_valid_witness_assignments);

@@ -83,6 +83,8 @@ void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_sy
 
     create_circuit_with_witness(goblin_builder_, constraint_system, witness);
 
+    info("after create_circuit_with_witness: num_gates = ", goblin_builder_.num_gates);
+
     // Correct for the addition of const variables in the builder constructor
     acir_format::apply_wire_index_offset(goblin_builder_);
 
