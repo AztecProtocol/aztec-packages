@@ -107,20 +107,16 @@ class Goblin {
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
-        debug_utility::inspect_instance(instance);
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        info("create_merge_prover");
         auto merge_prover = composer.create_merge_prover(op_queue);
-        info("merge_prover.construct_proof()");
         merge_proof = merge_prover.construct_proof();
 
         if (!merge_proof_exists) {
             merge_proof_exists = true;
         }
 
-        accumulator = { ultra_proof, instance->verification_key };
-        return accumulator;
+        return { ultra_proof, instance->verification_key };
     };
 
     Proof prove()
@@ -144,7 +140,7 @@ class Goblin {
         return proof;
     };
 
-    bool verify(const Proof& proof) const
+    bool verify(const Proof& proof)
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
