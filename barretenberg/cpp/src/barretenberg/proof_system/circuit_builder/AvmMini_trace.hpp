@@ -72,8 +72,8 @@ class AvmMiniTraceBuilder {
         FF m_val{};
         AvmMemoryTag m_tag;
         AvmMemoryTag m_in_tag;
-        bool m_rw;
-        bool m_tag_err;
+        bool m_rw = false;
+        bool m_tag_err = false;
         FF m_one_min_inv{};
     };
 
