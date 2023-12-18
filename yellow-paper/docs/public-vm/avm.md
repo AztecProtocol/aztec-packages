@@ -17,10 +17,10 @@ An Aztec transaction may include one or more **public execution requests**. A pu
 > Public execution requests may originate as [`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md) triggered during the transaction's private execution.
 
 This document contains the following sections:
-- **Public contract bytecode** (aka AVM bytecode)
-- **Execution context**, outlining the AVM's environment and state
-- **Execution**, outlining control flow, gas tracking, halting, and reverting
-- **Nested calls**, outlining the initiation of message calls, processing of sub-context results, gas refunds, and world state reverts
+- [**Public contract bytecode**](#public-contract-bytecode) (aka AVM bytecode)
+- [**Execution context**](#execution-context), outlining the AVM's environment and state
+- [**Execution**](#execution), outlining control flow, gas tracking, halting, and reverting
+- [**Nested calls**](#nested-calls), outlining the initiation of message calls, processing of sub-context results, gas refunds, and world state reverts
 
 The **["AVM Instruction Set"](./InstructionSet)** document supplements this one with the list of all supported instructions and their associated state transition functions.
 
@@ -32,6 +32,8 @@ A contract's public bytecode is a series of execution instructions for the AVM. 
 > Note: While a Noir contract may have multiple public functions, they are inlined so that the **entirety of a contract's public code exists in a single bytecode**. Internal calls to Noir functions within the same contract are compiled to simple program-counter changes, as are internal returns. In a manner similar to the Ethereum Virtual Machine, the AVM is not itself aware of function selectors and internal function calls. The Noir compiler may implement these constructs by treating the first word in a message call's calldata as a function selector, and beginning a contract's bytecode with a series of conditional jumps.
 
 > Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
+
+See our ["Bytecode"](/bytecode) section for more information.
 
 ## Execution Context
 :::note REMINDER
@@ -115,8 +117,7 @@ MessageCallResults {
 ```
 
 ### Context initialization for initial call
-This section outlines AVM context initialization specifically for a **public execution request's initial message call** (_i.e._ not a nested message call). Context initialization for nested message calls will be explained in a later section.
-
+This section outlines AVM context initialization specifically for a **public execution request's initial message call** (_i.e._ not a nested message call). Context initialization for nested message calls will be explained [in a later section](#context-initialization-for-a-nested-call).
 When AVM execution is initiated for a public execution request, the AVM context is initialized as follows:
 ```
 context = AVMContext {
@@ -171,14 +172,13 @@ The program counter (machine state's `pc`) determines which instruction to execu
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`, `INTERNALRETURN`) modify the program counter based on inputs.
 
-> Note: program counter will never be assigned to a value from memory. Jump destinations can only be constants from the contract bytecode.
-
 ### Gas limits and tracking
 Each instruction has an associated `l1GasCost` and `l2GasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
 ```
 assert machineState.l1GasLeft - instr.l1GasCost > 0
 assert machineState.l2GasLeft - instr.l2GasCost > 0
 ```
+> Note: many instructions (like arithmetic operations) have 0 `l1GasCost`. Instructions only incur an L1 cost if they modify world state or accrued substate.
 
 If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
 ```
@@ -191,14 +191,14 @@ If either of these assertions _fail_ for an instruction, this triggers an except
 machineState.l1GasLeft = 0
 machineState.l2GasLeft = 0
 ```
-> Reverting and exceptional halts will be covered in more detail later.
+> Reverting and exceptional halts will be covered in more detail [in a later section](#halting).
 
 ### Gas cost notes and examples
-A instruction's gas cost is loosely derived from its complexity. Execution complexity of some instructions changes based on inputs. Here are some examples and notes:
+A instruction's gas cost is loosely derived from its complexity. Execution complexity of some instructions changes based on inputs. Here are some examples and important notes:
 - [`JUMP`](./InstructionSet/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost` and `l2GasCost`.
 - The [`SET`](./InstructionSet/#isa-section-set) instruction operates on a different sized constant (based on its `dst-type`). Therefore, this instruction's gas cost increases with the size of its input.
 - Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./InstructionSet/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to memory.
-- The [`CALL`](./InstructionSet/#isa-section-call)/`STATICCALL`/`DELEGATECALL` instruction's gas cost is determined by its `l*Gas` arguments, but any gas unused by the triggered message call is refunded after its completion (more on this later).
+- The [`CALL`](./InstructionSet/#isa-section-call)/[`STATICCALL`](./InstructionSet/#isa-section-call)/`DELEGATECALL` instruction's gas cost is determined by its `l*Gas` arguments, but any gas unused by the triggered message call is refunded after its completion (more on this later).
 - An instruction with "offset" arguments (like [`ADD`](./InstructionSet/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
 
 > Implementation detail: an instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
@@ -251,10 +251,10 @@ results.reverted = true
 ```
 
 ## Nested calls
-During a message call's execution, an instruction may be encountered that triggers another message call. Such instructions include [`CALL`](./InstructionSet/#isa-section-call), [`STATICCALL`](./InstructionSet/#isa-section-staticcall), and `DELEGATECALL`. This may be referred to as a **nested call** as it is a message call initiated from within another.
+During a message call's execution, an instruction may be encountered that triggers another message call. A message call triggered in this way may be referred to as a **nested call**. The purpose of the [`CALL`](./InstructionSet/#isa-section-call), [`STATICCALL`](./InstructionSet/#isa-section-staticcall), and `DELEGATECALL` instructions is to initiate nested calls.
 
 
-### Initializing context for nested call
+### Context initialization for a nested call
 Initiation of a nested call requires the creation of a new context (or **sub-context**).
 ```
 subContext = AVMContext {
@@ -265,7 +265,7 @@ subContext = AVMContext {
     results: INITIAL_MESSAGE_CALL_RESULTS,
 }
 ```
-While some context members like initialized as empty (as they are for an initial message call), other entries are derived from the calling context or from the message call instruction's arguments (`instr.args`).
+While some context members are initialized as empty (as they are for an initial message call), other entries are derived from the calling context or from the message call instruction's arguments (`instr.args`).
 
 The world state is forwarded as-is to the sub-context. Any updates made to the world state before this message call instruction was encountered are carried forward into the sub-context.
 
@@ -300,7 +300,7 @@ nestedMachineState = MachineState {
     memory: uninitialized,
 }
 ```
-> Note: recall that `INITIAL_MESSAGE_CALL_RESULTS` is the same initial value used during context initialization for a public execution request's initial message call.
+> Note: recall that `INITIAL_MESSAGE_CALL_RESULTS` is the same initial value used during [context initialization for a public execution request's initial message call](#context-initialization-for-initial-call).
 > `STATICCALL_OP` and `DELEGATECALL_OP` refer to the 8-bit opcode values for the `STATICCALL` and `DELEGATECALL` instructions respectively.
 
 ### Updating the calling context after nested call halts
