@@ -24,14 +24,15 @@ classDiagram
 direction TB
 
 class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
+    note_hash_tree: Snapshot
+    nullifier_tree: Snapshot
+    contract_tree: Snapshot
+    public_data_tree: Snapshot
 }
 
 class StateReference {
-    l1ToL2MessageTree: Snapshot
+    l1_to_l2_message_tree: Snapshot
+    partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
 
@@ -45,10 +46,13 @@ class GlobalVariables {
 
 class Header {
     last_archive: Snapshot
+    content_hash: Fr[2]
+    state: StateReference
+    global_variables: GlobalVariables
 }
-Header *.. Body : contentHash
+Header *.. Body : content_hash
 Header *-- StateReference : state
-Header *-- GlobalVariables : globalVariables
+Header *-- GlobalVariables : global_variables
 
 class ContractData {
     leaf: Fr
@@ -67,21 +71,27 @@ class PublicDataWrite {
 }
 
 class TxEffect {
-    noteHashes: List~Fr~
+    note_hashes: List~Fr~
     nullifiers: List~Fr~
-    l2ToL1Msgs: List~Fr~
+    l2_to_l1_msgs: List~Fr~
+    contracts: List~ContractData~
+    public_writes: List~PublicDataWrite~
+    logs: Logs
 }
 TxEffect *-- "m" ContractData: contracts
-TxEffect *-- "m" PublicDataWrite: publicWrites
+TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
 class Body {
-    l1ToL2Messages: List~Fr~
+    l1_to_l2_messages: List~Fr~
+    tx_effects: List~TxEffect~
 }
 Body *-- "m" TxEffect
 
 class ProvenBlock { 
     archive: Snapshot
+    header: Header
+    body: Body
 }
 
 ProvenBlock *-- Header : header
@@ -91,8 +101,9 @@ class ConstantRollupData {
   last_archive: Snapshot
   base_rollup_vk_hash: Fr,
   merge_rollup_vk_hash: Fr,
+  global_variables: GlobalVariables
 }
-ConstantRollupData *-- GlobalVariables : globalVariables
+ConstantRollupData *-- GlobalVariables : global_variables
 
 class BaseOrMergeRollupPublicInputs {
     type: Fr
@@ -100,6 +111,9 @@ class BaseOrMergeRollupPublicInputs {
     aggregation_object: AggregationObject
     txs_hash: Fr[2]
     out_hash: Fr[2]
+    constants: ConstantRollupData
+    start: PartialStateReference
+    end: PartialStateReference
 }
 BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
@@ -107,8 +121,9 @@ BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
 
 class ChildRollupData {
     proof: Proof
+    public_inputs: BaseOrMergeRollupPublicInputs
 }
-ChildRollupData *-- BaseOrMergeRollupPublicInputs: inputs
+ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
 class RootRollupInputs { 
     l1_to_l2_msgs_tree: Snapshot
@@ -116,6 +131,8 @@ class RootRollupInputs {
     l1_to_l2_msgs_sibling_path: List~Fr~
 
     archive_sibling_path: List~Fr~
+    left: ChildRollupData
+    right: ChildRollupData
 }
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
@@ -123,6 +140,7 @@ RootRollupInputs *-- ChildRollupData: right
 class RootRollupPublicInputs {
     aggregation_object: AggregationObject
     archive: Snapshot
+    header: Header
 }
 RootRollupPublicInputs *--Header : header
 ```

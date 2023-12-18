@@ -18,12 +18,11 @@ Below is a subset of the data structures figure from earlier for easy reference.
 classDiagram
 direction TB
 
-
 class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
+    note_hash_tree: Snapshot
+    nullifier_tree: Snapshot
+    contract_tree: Snapshot
+    public_data_tree: Snapshot
 }
 
 class GlobalVariables {
@@ -38,8 +37,9 @@ class ConstantRollupData {
   last_archive: Snapshot
   base_rollup_vk_hash: Fr,
   merge_rollup_vk_hash: Fr,
+  global_variables: GlobalVariables
 }
-ConstantRollupData *-- GlobalVariables : globalVariables
+ConstantRollupData *-- GlobalVariables : global_variables
 
 class BaseOrMergeRollupPublicInputs {
     type: Fr
@@ -47,6 +47,9 @@ class BaseOrMergeRollupPublicInputs {
     aggregation_object: AggregationObject
     txs_hash: Fr[2]
     out_hash: Fr[2]
+    constants: ConstantRollupData
+    start: PartialStateReference
+    end: PartialStateReference
 }
 BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
@@ -54,10 +57,14 @@ BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
 
 class ChildRollupData {
     proof: Proof
+    public_inputs: BaseOrMergeRollupPublicInputs
 }
-ChildRollupData *-- BaseOrMergeRollupPublicInputs: inputs
+ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
-class MergeRollupInputs { }
+class MergeRollupInputs { 
+    left: ChildRollupData
+    right: ChildRollupData
+}
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
 ```
@@ -82,7 +89,7 @@ def MergeRollupCircuit(
         height_in_block_tree=left.inputs.height_in_block_tree + 1,
         aggregation_object=AggregationObject(left.proof, right.proof),
         txs_hash=SHA256(left.inputs.txs_hash | right.inputs.txs_hash),
-        out_hash=SHA256(left.inputs.txs_hash | right.inputs.out_hash),
+        out_hash=SHA256(left.inputs.out_hash | right.inputs.out_hash),
         start=left.inputs.start,
         end=right.inputs.end,
         constants=left.inputs.constants

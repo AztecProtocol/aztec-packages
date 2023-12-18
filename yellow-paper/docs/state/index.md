@@ -11,24 +11,21 @@ Merkle trees are either
 - [append-only](./tree_impls.md#append-only-merkle-trees), for data where we only require inclusion proofs or 
 - [indexed](./tree_impls.md#indexed-merkle-trees) for storing data that requires proofs of non-membership.
 
-:::warning Discussion Point
-We are using Successor merkle trees (also known as indexed) for data where we rely on proofs of non-membership. Do we want to support the same for the `noteHashTree` and the `l1ToL2MessageTree` as well? It is not used by the protocol circuits, but would let users more easily prove statements like "This note doesn't exist" or "This message was not included in the rollup". I'm not sure how useful this would be. But we should maybe consider if there are some use cases for this.
-:::
-
 ```mermaid
 classDiagram
 direction TB
 
 
 class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
+    note_hash_tree: Snapshot
+    nullifier_tree: Snapshot
+    contract_tree: Snapshot
+    public_data_tree: Snapshot
 }
 
 class StateReference {
-    l1ToL2MessageTree: Snapshot
+    l1_to_l2_message_tree: Snapshot
+    partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
 
@@ -42,10 +39,13 @@ class GlobalVariables {
 
 class Header {
     last_archive: Snapshot
+    content_hash: Fr[2]
+    state: StateReference
+    global_variables: GlobalVariables
 }
-Header *.. Body : contentHash
+Header *.. Body : content_hash
 Header *-- StateReference : state
-Header *-- GlobalVariables : globalVariables
+Header *-- GlobalVariables : global_variables
 
 class Logs {
     private: EncryptedLogs
@@ -64,21 +64,26 @@ class ContractData {
 }
 
 class TxEffect {
-    noteHashes: List~Fr~
+    note_hashes: List~Fr~
     nullifiers: List~Fr~
-    l2ToL1Msgs: List~Fr~
+    l2_to_l1_msgs: List~Fr~
+    contracts: List~ContractData~
+    public_writes: List~PublicDataWrite~
+    logs: Logs
 }
 TxEffect *-- "m" ContractData: contracts
-TxEffect *-- "m" PublicDataWrite: publicWrites
+TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
 class Body {
-    l1ToL2Messages: List~Fr~
+    l1_to_l2_messages: List~Fr~
+    tx_effects: List~TxEffect~
 }
 Body *-- "m" TxEffect
 
 class Archive {
   type: AppendOnlyMerkleTree
+  leaves: List~Header~
 }
 Archive *.. "m" Header : leaves
 
@@ -96,6 +101,7 @@ class NewContractData {
 
 class ContractTree {
   type: AppendOnlyMerkleTree
+  leaves: List~NewContractData~
 }
 ContractTree *.. "m" NewContractData : leaves 
 
@@ -108,6 +114,7 @@ class PublicDataPreimage {
 
 class PublicDataTree {
   type: SuccessorMerkleTree
+  leaves: List~PublicDataPreimage~
 }
 PublicDataTree *.. "m" PublicDataPreimage : leaves 
 
@@ -124,16 +131,24 @@ class NullifierPreimage {
 
 class NullifierTree {
   type: SuccessorMerkleTree
+  leaves: List~NullifierPreimage~
 }
 NullifierTree *.. "m" NullifierPreimage : leaves
 
-class State { }
-State *-- L1ToL2MessageTree : l1ToL2MessageTree
+class State { 
+  archive: Archive
+  note_hash_tree: NoteHashTree
+  nullifier_tree: NullifierTree
+  public_data_tree: PublicDataTree
+  contract_tree: ContractTree
+  l1_to_l2_message_tree: L1ToL2MessageTree
+}
+State *-- L1ToL2MessageTree : l1_to_l2_message_tree
 State *-- Archive : archive
-State *-- NoteHashTree : noteHashTree
-State *-- NullifierTree : nullifierTree
-State *-- PublicDataTree : publicDataTree
-State *-- ContractTree : contractTree
+State *-- NoteHashTree : note_hash_tree
+State *-- NullifierTree : nullifier_tree
+State *-- PublicDataTree : public_data_tree
+State *-- ContractTree : contract_tree
 ```
 
 

@@ -14,15 +14,17 @@ Furthermore, since the Headers include a snapshot of the Archive at the time of 
 classDiagram
 direction TB
 
+
 class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
+    note_hash_tree: Snapshot
+    nullifier_tree: Snapshot
+    contract_tree: Snapshot
+    public_data_tree: Snapshot
 }
 
 class StateReference {
-    l1ToL2MessageTree: Snapshot
+    l1_to_l2_message_tree: Snapshot
+    partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
 
@@ -36,10 +38,13 @@ class GlobalVariables {
 
 class Header {
     last_archive: Snapshot
+    content_hash: Fr[2]
+    state: StateReference
+    global_variables: GlobalVariables
 }
-Header *.. Body : contentHash
+Header *.. Body : content_hash
 Header *-- StateReference : state
-Header *-- GlobalVariables : globalVariables
+Header *-- GlobalVariables : global_variables
 
 class Logs {
     private: EncryptedLogs
@@ -58,21 +63,26 @@ class ContractData {
 }
 
 class TxEffect {
-    noteHashes: List~Fr~
+    note_hashes: List~Fr~
     nullifiers: List~Fr~
-    l2ToL1Msgs: List~Fr~
+    l2_to_l1_msgs: List~Fr~
+    contracts: List~ContractData~
+    public_writes: List~PublicDataWrite~
+    logs: Logs
 }
 TxEffect *-- "m" ContractData: contracts
-TxEffect *-- "m" PublicDataWrite: publicWrites
+TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
 class Body {
-    l1ToL2Messages: List~Fr~
+    l1_to_l2_messages: List~Fr~
+    tx_effects: List~TxEffect~
 }
 Body *-- "m" TxEffect
 
 class Archive {
   type: AppendOnlyMerkleTree
+  leaves: List~Header~
 }
 Archive *.. "m" Header : leaves
 ```

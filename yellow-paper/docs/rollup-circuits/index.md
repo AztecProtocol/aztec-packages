@@ -97,16 +97,16 @@ Below is a figure of the data structures thrown around for the block proof creat
 classDiagram
 direction TB
 
-
 class PartialStateReference {
-    noteHashTree: Snapshot
-    nullifierTree: Snapshot
-    contractTree: Snapshot
-    publicDataTree: Snapshot
+    note_hash_tree: Snapshot
+    nullifier_tree: Snapshot
+    contract_tree: Snapshot
+    public_data_tree: Snapshot
 }
 
 class StateReference {
-    l1ToL2MessageTree: Snapshot
+    l1_to_l2_message_tree: Snapshot
+    partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
 
@@ -120,10 +120,13 @@ class GlobalVariables {
 
 class Header {
     last_archive: Snapshot
+    content_hash: Fr[2]
+    state: StateReference
+    global_variables: GlobalVariables
 }
-Header *.. Body : contentHash
+Header *.. Body : content_hash
 Header *-- StateReference : state
-Header *-- GlobalVariables : globalVariables
+Header *-- GlobalVariables : global_variables
 
 class ContractData {
     leaf: Fr
@@ -142,21 +145,27 @@ class PublicDataWrite {
 }
 
 class TxEffect {
-    noteHashes: List~Fr~
+    note_hashes: List~Fr~
     nullifiers: List~Fr~
-    l2ToL1Msgs: List~Fr~
+    l2_to_l1_msgs: List~Fr~
+    contracts: List~ContractData~
+    public_writes: List~PublicDataWrite~
+    logs: Logs
 }
 TxEffect *-- "m" ContractData: contracts
-TxEffect *-- "m" PublicDataWrite: publicWrites
+TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
 class Body {
-    l1ToL2Messages: List~Fr~
+    l1_to_l2_messages: List~Fr~
+    tx_effects: List~TxEffect~
 }
 Body *-- "m" TxEffect
 
 class ProvenBlock { 
     archive: Snapshot
+    header: Header
+    body: Body
 }
 
 ProvenBlock *-- Header : header
@@ -166,8 +175,9 @@ class ConstantRollupData {
   last_archive: Snapshot
   base_rollup_vk_hash: Fr,
   merge_rollup_vk_hash: Fr,
+  global_variables: GlobalVariables
 }
-ConstantRollupData *-- GlobalVariables : globalVariables
+ConstantRollupData *-- GlobalVariables : global_variables
 
 class PublicDataUpdateRequest {
     index: Fr
@@ -195,6 +205,10 @@ class CombinedAccumulatedData {
     nullified_note_hashes: List~Fr~
 
     l2_to_l1_messages: List~Fr~
+    contracts: List~NewContractData~
+    public_update_requests: List~PublicDataUpdateRequest~
+    public_reads: List~PublicDataRead~
+    logs: Logs
 
     private_call_stack: List~CallRequest~
     public_call_stack: List~CallRequest~
@@ -202,8 +216,8 @@ class CombinedAccumulatedData {
     end_public_data_root: Fr
 }
 CombinedAccumulatedData *-- "m" NewContractData: contracts
-CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: publicUpdateRequests
-CombinedAccumulatedData *-- "m" PublicDataRead: publicReads
+CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: public_update_requests
+CombinedAccumulatedData *-- "m" PublicDataRead: public_reads
 CombinedAccumulatedData *-- Logs : logs
 
 class ContractDeploymentData {
@@ -220,23 +234,30 @@ class TxContext {
     is_contract_deployment: bool
     chain_id: Fr
     version: Fr
+    contract_deployment_data: ContractDeploymentData
 }
 TxContext *-- ContractDeploymentData: contract_deployment_data
 
-class CombinedConstantData { }
+class CombinedConstantData { 
+    historical_header: Header
+    tx_context: TxContext
+}
 CombinedConstantData *-- Header : historical_header
 CombinedConstantData *-- TxContext : tx_context
 
 class KernelPublicInputs {
   is_private: bool
+  end: CombinedAccumulatedData
+  constants: CombinedConstantData
 }
 KernelPublicInputs *-- CombinedAccumulatedData : end
 KernelPublicInputs *-- CombinedConstantData : constants
 
 class KernelData {
   proof: Proof
+  public_inputs: KernelPublicInputs
 }
-KernelData *-- KernelPublicInputs : publicInputs
+KernelData *-- KernelPublicInputs : public_inputs
 
 class StateDiffHints {
   nullifier_predecessor_preimages: List~NullifierLeafPreimage~
@@ -251,10 +272,13 @@ class StateDiffHints {
 
 class BaseRollupInputs {
   historical_header_membership_witnesses: List~HeaderMembershipWitness~
+  kernel_data: List~KernelData~
+  partial: PartialStateReference
+  state_diff_hints: StateDiffHints
 }
 BaseRollupInputs *-- "m" KernelData : kernelData
 BaseRollupInputs *-- PartialStateReference : partial
-BaseRollupInputs *-- StateDiffHints : stateDiffHints
+BaseRollupInputs *-- StateDiffHints : state_diff_hints
 BaseRollupInputs *-- ConstantRollupData : constants
 
 class BaseOrMergeRollupPublicInputs {
@@ -263,6 +287,9 @@ class BaseOrMergeRollupPublicInputs {
     aggregation_object: AggregationObject
     txs_hash: Fr[2]
     out_hash: Fr[2]
+    constants: ConstantRollupData
+    start: PartialStateReference
+    end: PartialStateReference
 }
 BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
@@ -270,10 +297,14 @@ BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
 
 class ChildRollupData {
     proof: Proof
+    public_inputs: BaseOrMergeRollupPublicInputs
 }
-ChildRollupData *-- BaseOrMergeRollupPublicInputs: inputs
+ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
-class MergeRollupInputs { }
+class MergeRollupInputs { 
+    left: ChildRollupData
+    right: ChildRollupData
+}
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
 
@@ -283,6 +314,8 @@ class RootRollupInputs {
     l1_to_l2_msgs_sibling_path: List~Fr~
 
     archive_sibling_path: List~Fr~
+    left: ChildRollupData
+    right: ChildRollupData
 }
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
@@ -291,12 +324,17 @@ RootRollupInputs *-- ChildRollupData: right
 class RootRollupPublicInputs {
     aggregation_object: AggregationObject
     archive: Snapshot
+    header: Header
 }
 RootRollupPublicInputs *--Header : header
 ```
 
 :::info CombinedAccumulatedData
 Note that the `CombinedAccumulatedData` contains elements that we won't be using throughout the rollup circuits. However, as the data is used for the kernel proofs (when it is build recursively), we will include it here anyway.
+:::
+
+:::warning TODO  
+Reconsider `ContractDeploymentData` in light of the newer (still being finalised) contract deployment flow  
 :::
 
 Since the diagram can be quite overwhelming, we will go through the different data structures and what they are used for along with the three (3) different rollup circuits.
