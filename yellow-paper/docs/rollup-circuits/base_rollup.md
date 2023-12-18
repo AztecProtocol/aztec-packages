@@ -3,7 +3,7 @@ title: Base Rollup
 sidebar_position: 2
 ---
 
-The base circuit is the most complex of the rollup circuits, as it has to deal with the kernels and perform the state updates and transaction validation. While this makes the data structures complex to follow, the goal of the circuit is fairly straight forward: 
+The base rollup circuit is the most complex of the rollup circuits, as it has to interpret the output data of a kernel proof and perform the state updates and transaction validation. While this makes the data structures complex to follow, the goal of the circuit is fairly straight forward: 
 
 Take `BaseRollupInputs` as an input value, and transform it to `BaseOrMergeRollupPublicInputs` as an output value while making sure that the validity conditions are met.
 
@@ -14,7 +14,7 @@ A[BaseRollupInputs] --> C[BaseRollupCircuit] --> B[BaseOrMergeRollupPublicInputs
 
 ## Overview
 
-Below is a subset of the figure from earlier (granted, not much is removed). The figure shows the data structures related to the Base Rollup circuit.
+Below is a subset of the figure from [earlier](./index.md) (granted, not much is removed). The figure shows the data structures related to the Base Rollup circuit.
 
 ```mermaid
 classDiagram
@@ -219,6 +219,10 @@ BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
 ```
+
+:::warning TODO  
+Fee structs and contract deployment structs will need to be revised, in line with newer ideas.  
+:::
 
 ### Validity Conditions
 

@@ -7,9 +7,9 @@ sidebar_position: 99
 
 Together with the [validating light node](./../contracts/index.md) the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
 
-To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure allows us to keep the workload of the individual proof small, while making it very parallelizable. This works very well for case where we want many actors to be able to participate in the proof generation.
+To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure allows us to keep the workload of each individual proof small, while making it very parallelizable. This works very well for the case where we want many actors to be able to participate in the proof generation.
 
-The tree structure is outlined below, but the general idea is that we have a tree where all the leaves are transactions (kernel proofs) and through $\log n$ steps we can then "compress" them down to just a single root proof. Note that we have three (3) different types of "merger" circuits, namely:
+The tree structure is outlined below, but the general idea is that we have a tree where all the leaves are transactions (kernel proofs) and through $\log(n)$ steps we can then "compress" them down to just a single root proof. Note that we have three (3) different types of "merger" circuits, namely:
 - The base rollup
   - Merges two kernel proofs
 - The merge rollup
@@ -340,19 +340,19 @@ Reconsider `ContractDeploymentData` in light of the newer (still being finalised
 Since the diagram can be quite overwhelming, we will go through the different data structures and what they are used for along with the three (3) different rollup circuits.
 
 ### Higher-level tasks
-Before looking at the circuits individually, it can however be a good idea to recall the reason we had them in the first place. For this, we are especially interested in the tasks that goes across multiple circuits and proofs.
+Before looking at the circuits individually, it can however be a good idea to recall the reason we had them in the first place. For this, we are especially interested in the tasks that span multiple circuits and proofs.
 
 #### State consistency
-While the individual kernels are validated on their own, they might rely on state changes earlier in the block. For the block to be correctly validated, this means that when validating kernel $n$, it must be executed on top of the state after all kernels $<n$ have been applied. For example, when kernel $3$ is executed, it must be executed on top of the state after kernel $0$, $1$ and $2$ has been applied. If this is not the case, the kernel proof might be valid, but the state changes invalid which could lead to double spends. 
+While the individual kernels are validated on their own, they might rely on state changes earlier in the block. For the block to be correctly validated, this means that when validating kernel $n$, it must be executed on top of the state after all kernels $<n$ have been applied. For example, when kernel $3$ is executed, it must be executed on top of the state after kernels $0$, $1$ and $2$ have been applied. If this is not the case, the kernel proof might be valid, but the state changes invalid which could lead to double spends. 
 
-It is therefore of the highest importance that the circuits ensure that the state is progressed correctly across circuit types and proofs. Logically, taking a few of the kernels from the above should be executed/proven as butchered below, $k_n$ applied on top of the state that applied $k_{n-1}$
+It is therefore of the highest importance that the circuits ensure that the state is progressed correctly across circuit types and proofs. Logically, taking a few of the kernels from the above should be executed/proven as shown below, $k_n$ applied on top of the state that applied $k_{n-1}$
 
 ```mermaid
 graph LR
     SM[State Machine]
-    S0((State 0))
-    K0((Kernel 0))
-    S1((State 1))
+    S0((State n-1))
+    K0((Kernel n-1))
+    S1((State n))
 
     S0 --> SM
     K0 --> SM
@@ -360,8 +360,8 @@ graph LR
 
 
     SM_2[State Machine]
-    K1((Kernel 1))
-    S2((State 2))
+    K1((Kernel n))
+    S2((State n+1))
 
     S1 --> SM_2
     K1 --> SM_2
@@ -372,11 +372,12 @@ graph LR
 ```
 
 #### State availability
-To ensure that state is made available, we could rely on the full block body as public inputs, but this would be very expensive. Instead we rely on a commitment to the body (the `ContentHash`) which we build upon throughout proof generation as needed.
+To ensure that state is made available, we could broadcast all of a block's input data as public inputs of the final root rollup proof, but a proof with so many public inputs would be very expensive to verify onchain. Instead we reduce the proof's public inputs by committing to the block's body by iteratively computing a `TxsHash` and `OutHash` at each rollup circuit iteration. AT the final iteration a `content_hash` is computed committing to the complete body.
 
-To check that this body is published a node can reconstruct the `ContentHash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](./../contracts/index.md), we can define "available" at the level of this node, e.g., if the validating light node can reconstruct the commitment then it is available.
+To check that this body is published an Aztec node can reconstruct the `content_hash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](./../contracts/index.md), we can define a block as being "available" if the validating light node can reconstruct the commitment `content_hash`.
 
-Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full tree. We can do so by building merkle trees of partial "commitments" that are then finished at the root. Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly include the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be known to the contract directly and not just proven available. This is not a concern when using calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).
+Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full tree. We can do so by building merkle trees of partial "commitments", whose roots are ultimately computed in the final root rollup circuit. The `content_hash` is then computed from the roots of these trees, together with incoming messages.
+Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly includes the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be available to the L1 contract directly and not just proven available. This is not a concern when using L1 calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).
 
 ```mermaid
 graph BT
@@ -447,7 +448,22 @@ graph BT
     K7 --> B3
 ```
 
- The roots of these tree together with incoming messages makes up the `ContentHash`. 
+ The roots of these trees, together with incoming messages, makes up the `content_hash`. 
+```mermaid
+graph BT
+    R[content_hash]
+    M0[TxsHash]
+    M1[OutHash]
+    M2[InHash]
+
+    M3[l1_to_l2_messages]
+
+    M0 --> R
+    M1 --> R
+    M2 --> R
+    M3 --> M2
+```
+
 ```python
 def content_hash(body: Body):
     txs_hash = merkle_tree(body.txs, SHA256).root

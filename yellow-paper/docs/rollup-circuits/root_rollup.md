@@ -3,7 +3,7 @@ title: Root Rollup
 sidebar_position: 4
 ---
 
-The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. Essentially, it is the last step that allow us to prove that the state transition function $\mathcal{T}(S, B) \mapsto S'$ was applied correctly for a state $S$ and a block $B$. Note, that while its public inputs might not be the block itself, it have commitments to the. Provided with the block (`ProvenBlock`) and proof, a node is able to derive the public inputs from the block and his state and then execute the proof against the values derived. If the proof is passing, the block is valid and the state progression is correct.
+The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. Essentially, it is the last step that allows us to prove that the state transition function $\mathcal{T}(S, B) \mapsto S'$ was applied correctly for a state $S$ and a block $B$. Note, that the root rollup circuit's public inputs do not comprise the block entirely as it would be too costly to verify. Given a `ProvenBlock` and proof a node can derive the public inputs and validate the correctness of the state progression.
 
 ```mermaid
 graph LR

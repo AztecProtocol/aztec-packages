@@ -15,7 +15,7 @@ The purpose of the L1 contracts are simple:
 
 ## Overview
 
-When presented with a new `ProvenBlock` and its proof, an Aztec node can be convinced of its validity if the proof passes and the `Header.last_archive` matches the `archive` of the node (archive here represents a root of [archive tree](../state/archive.md)). The `archive` used as public input is the archive after the new header is inserted (see [root rollup](./../rollup-circuits/root_rollup.md)).
+When presented with a new [`ProvenBlock`](../rollup-circuits/root_rollup.md) and its proof, an Aztec node can be convinced of its validity if the proof passes and the `Header.last_archive` matches the `archive` of the node (archive here represents a root of [archive tree](../state/archive.md)). The `archive` used as public input is the archive after the new header is inserted (see [root rollup](./../rollup-circuits/root_rollup.md)).
 
 ```python
 def process(block: ProvenBlock, archive: Fr, proof: Proof):
@@ -180,7 +180,7 @@ struct L1ToL2Msg {
     L2Actor: recipient,
     bytes32: content,
     bytes32: secretHash,
-    uint32 deadline,
+    uint32 deadline, // timestamp
     uint64 fee,
 }
 
@@ -191,7 +191,7 @@ struct L2ToL1Msg {
 }
 ```
 
-Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost. The `version` value of the `L2Actor` is the version of the rollup, which is intended to be used to specifying what version of the rollup the message is intended for or sent from. This waw, multiple rollup instances can use the same inbox/outbox contracts.
+Beware, that while we speak of messages, we are practically passing around only their **hashes** to reduce cost. The `version` value of the `L2Actor` is the version of the rollup, which is intended to be used to specify which version of the rollup the message is intended for or sent from. This way, multiple rollup instances can use the same inbox/outbox contracts.
 
 :::info Why a single hash?
 Compute on L1 is expensive, but storage is extremely expensive! To reduce overhead, we trade storage for computation and only commit to the messages and then "open" these for consumption later. However, since computation also bears significant we need to use a hash function that is relatively cheap on L1, while still being doable inside a snark. For this purpose a modded SHA256 was chosen, modded here meaning that it fits the output value into a single field element using the modulo operator.
