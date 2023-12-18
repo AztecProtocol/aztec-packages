@@ -132,13 +132,13 @@ namespace avmMini(256);
     sel_internal_call * ( internal_return_ptr - mem_idx_a) = 0;
     sel_internal_call * (rwa - 1) = 0; // it must be a write
     sel_internal_call * (mem_op_a - 1) = 0;
-    sel_internal_call * (pc - ia) = 0;
+    sel_internal_call * ((pc + 1) - ia) = 0;
     
     // We must load the memory pointer to be the  internal_return_ptr 
     #[return_pointer_decrement]
     sel_internal_return * ( internal_return_ptr' - ( internal_return_ptr - 1)) = 0; // We decrement out jump selector
     sel_internal_return * ( (internal_return_ptr - 1) - mem_idx_a) = 0;
-    sel_internal_return * (pc' - (ia+1)) = 0;
+    sel_internal_return * (pc' - ia) = 0;
     sel_internal_return * rwa = 0;
     sel_internal_return * (mem_op_a - 1) = 0;
 

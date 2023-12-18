@@ -540,9 +540,6 @@ void AvmMiniTraceBuilder::halt()
 {
     auto clk = mainTrace.size();
 
-    info("pc at halt: ", pc);
-    info("return pointer at halt: ", internal_return_ptr);
-
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc),
@@ -555,28 +552,27 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)
 {
     auto clk = mainTrace.size();
 
-    // TODO: make sure this is initialized
-    internal_call_stack.push(pc);
+    uint32_t stored_pc = pc + 1;
+    internal_call_stack.push(stored_pc);
 
     // We want to write the current pc to the memory location pointed by
-    storeAInMemTrace(internal_return_ptr, FF(pc));
+    storeAInMemTrace(internal_return_ptr, FF(stored_pc));
 
-    // TODO: we need a better way to insert globals into the trace
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
         .avmMini_pc = FF(pc),
         .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_internal_call = FF(1),
-        .avmMini_ia = pc,
+        .avmMini_ia = stored_pc,
         .avmMini_mem_op_a = FF(1),
         .avmMini_rwa = FF(1),
         .avmMini_mem_idx_a = FF(internal_return_ptr),
     });
 
     // We want the next row to be the one pointed by jmpDest
-    ffMemory.at(internal_return_ptr) = pc;
+    ffMemory.at(internal_return_ptr) = stored_pc;
     pc = jmpDest;
-    this->internal_return_ptr++;
+    internal_return_ptr++;
 }
 
 void AvmMiniTraceBuilder::internal_return()
@@ -585,9 +581,6 @@ void AvmMiniTraceBuilder::internal_return()
 
     // Internal return pointer is decremented
     FF a = ffMemory.at(internal_return_ptr - 1);
-
-    info("The internal pointer ", internal_return_ptr);
-    info("The internal pointer value", a);
 
     // We want to load the value pointed by the internal pointer
     loadAInMemTrace(internal_return_ptr - 1, FF(a));
@@ -604,10 +597,8 @@ void AvmMiniTraceBuilder::internal_return()
     });
 
     // We want the next row to be the one pointed by jmpDest
-    // TODO: is this type casting safe
-
     // The next pc should be from the top of the internal call stack + 1
-    pc = internal_call_stack.top() + 1;
+    pc = internal_call_stack.top();
     internal_call_stack.pop();
     internal_return_ptr--;
 }

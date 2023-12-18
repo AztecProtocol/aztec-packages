@@ -79,15 +79,13 @@ TEST_F(AvmMiniControlFlowTests, simpleCall)
 
     auto trace = trace_builder.finalize();
 
-    info("Built circuit with ", trace.size(), " rows");
-
     // Find the row of the call
     auto call_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
     EXPECT_TRUE(call_row != trace.end());
     EXPECT_EQ(call_row->avmMini_pc, FF(0));
     EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
-    EXPECT_EQ(call_row->avmMini_ia, FF(0));
+    EXPECT_EQ(call_row->avmMini_ia, FF(1));
     EXPECT_EQ(call_row->avmMini_mem_idx_a,
               FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
 
@@ -118,15 +116,13 @@ TEST_F(AvmMiniControlFlowTests, simpleCallAndReturn)
 
     auto trace = trace_builder.finalize();
 
-    info("Built circuit with ", trace.size(), " rows");
-
     // Find the row of the call
     auto call_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
     EXPECT_TRUE(call_row != trace.end());
     EXPECT_EQ(call_row->avmMini_pc, FF(0));
     EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
-    EXPECT_EQ(call_row->avmMini_ia, FF(0));
+    EXPECT_EQ(call_row->avmMini_ia, FF(1));
     EXPECT_EQ(call_row->avmMini_mem_idx_a,
               FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
 
@@ -178,12 +174,10 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
 
     auto trace = trace_builder.finalize();
 
-    info("Built circuit with ", trace.size(), " rows");
-
     // Check call 1
     {
         auto call_1 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_ia == FF(0);
+            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_ia == FF(1);
         });
         EXPECT_TRUE(call_1 != trace.end());
         EXPECT_EQ(call_1->avmMini_pc, FF(0));
@@ -195,10 +189,10 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
     // Call 2
     {
         auto call_2 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_ia == FF(CALL_ADDRESS_1);
+            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_1);
         });
         EXPECT_TRUE(call_2 != trace.end());
-        EXPECT_EQ(call_2->avmMini_pc, FF(CALL_ADDRESS_1));
+        EXPECT_EQ(call_2->avmMini_ia, FF(CALL_ADDRESS_1 + 1));
         EXPECT_EQ(call_2->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
         EXPECT_EQ(call_2->avmMini_mem_idx_a,
                   FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1)); // Store the return address (0) in memory
@@ -207,10 +201,10 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
     // Call 3
     {
         auto call_3 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_ia == FF(CALL_ADDRESS_2);
+            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_2);
         });
         EXPECT_TRUE(call_3 != trace.end());
-        EXPECT_EQ(call_3->avmMini_pc, FF(CALL_ADDRESS_2));
+        EXPECT_EQ(call_3->avmMini_ia, FF(CALL_ADDRESS_2 + 1));
         EXPECT_EQ(call_3->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 2));
         EXPECT_EQ(call_3->avmMini_mem_idx_a,
                   FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 2)); // Store the return address (0) in memory
@@ -228,10 +222,10 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
     // Call 4
     {
         auto call_4 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_ia == FF(CALL_ADDRESS_2 + 1);
+            return r.avmMini_sel_internal_call == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_2 + 1);
         });
         EXPECT_TRUE(call_4 != trace.end());
-        EXPECT_EQ(call_4->avmMini_pc, FF(CALL_ADDRESS_2 + 1));
+        EXPECT_EQ(call_4->avmMini_ia, FF(CALL_ADDRESS_2 + 2));
         EXPECT_EQ(call_4->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 2));
         EXPECT_EQ(call_4->avmMini_mem_idx_a,
                   FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 2)); // Store the return address (0) in memory
@@ -240,30 +234,30 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
     // Return 2
     {
         auto return_2 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_ia == FF(CALL_ADDRESS_2 + 1);
+            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_4);
         });
         EXPECT_TRUE(return_2 != trace.end());
-        EXPECT_EQ(return_2->avmMini_pc, FF(CALL_ADDRESS_4));
+        EXPECT_EQ(return_2->avmMini_ia, FF(CALL_ADDRESS_2 + 2));
         EXPECT_EQ(return_2->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 3));
     }
 
     // Return 3
     {
         auto return_3 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_ia == FF(CALL_ADDRESS_1);
+            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_2 + 2);
         });
         EXPECT_TRUE(return_3 != trace.end());
-        EXPECT_EQ(return_3->avmMini_pc, FF(CALL_ADDRESS_2 + 2));
+        EXPECT_EQ(return_3->avmMini_ia, FF(CALL_ADDRESS_1 + 1));
         EXPECT_EQ(return_3->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 2));
     }
 
     // Return 4
     {
         auto return_4 = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) {
-            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_ia == FF(0);
+            return r.avmMini_sel_internal_return == FF(1) && r.avmMini_pc == FF(CALL_ADDRESS_1 + 1);
         });
         EXPECT_TRUE(return_4 != trace.end());
-        EXPECT_EQ(return_4->avmMini_pc, FF(CALL_ADDRESS_1 + 1));
+        EXPECT_EQ(return_4->avmMini_ia, FF(1));
         EXPECT_EQ(return_4->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
     }
 
