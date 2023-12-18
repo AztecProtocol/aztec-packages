@@ -235,6 +235,9 @@ template <typename Builder> void apply_wire_index_offset(Builder& builder)
 
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
                                                                  size_t size_hint);
+template void create_circuit_with_witness<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                               acir_format const& constraint_system,
+                                                               WitnessVector const& witness);
 template void create_circuit_with_witness<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
                                                                      acir_format const& constraint_system,
                                                                      WitnessVector const& witness);
