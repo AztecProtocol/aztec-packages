@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  compare_gas_reports:
+  compare_protocol_circuits_gates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,13 +46,13 @@ jobs:
       - name: Generate gates report
         working-directory: ./yarn-project/noir-protocol-circuits/src
         run: |
-          nargo info --json > gates_report.json
-          mv gates_report.json ../../../gates_report.json
+          nargo info --json > protocol_circuits_report.json
+          mv protocol_circuits_report.json ../../../protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
         uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
         with:
-          report: gates_report.json
+          report: protocol_circuits_report.json
           summaryQuantile: 1 # Display any diff in gate count
 
       - name: Add gates diff to sticky comment
