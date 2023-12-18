@@ -2,8 +2,9 @@
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "config.hpp"
+#include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
-#include "get_crs.hpp"
+#include "get_grumpkin_crs.hpp"
 #include "get_witness.hpp"
 #include "log.hpp"
 #include <barretenberg/common/benchmark.hpp>
@@ -31,31 +32,39 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     auto subgroup_size = acir_composer.get_circuit_subgroup_size();
 
     // Must +1!
-    auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
-    auto g2_data = get_g2_data(CRS_PATH);
-    srs::init_crs_factory(g1_data, g2_data);
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, subgroup_size + 1);
+    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
+    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
+
+    // Must +1!
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, subgroup_size + 1);
+    srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 
     return acir_composer;
 }
 
 void init_reference_strings()
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size
     size_t subgroup_size = 32768;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
     // Must +1!
-    auto g1_data = get_g1_data(CRS_PATH, subgroup_size + 1);
-    auto g2_data = get_g2_data(CRS_PATH);
+    auto g1_data = get_bn254_g1_data(CRS_PATH, subgroup_size + 1);
+    auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(g1_data, g2_data);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/813): initializing this global assumes a directory
-    // structure PATH/monomial/transcript00.dat. We should download this once the Grumpkin SRS is uploaded.
-    srs::init_grumpkin_crs_factory(CRS_PATH);
+    // Must +1!
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, subgroup_size + 1);
+    srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
-acir_proofs::AcirComposer init() // WORKTODO: this is a verifier-only method? maybe rename?
+// Initializes without loading G1
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
+acir_proofs::AcirComposer verifier_init()
 {
     acir_proofs::AcirComposer acir_composer(0, verbose);
-    auto g2_data = get_g2_data(CRS_PATH);
+    auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     return acir_composer;
 }
@@ -216,7 +225,7 @@ void gateCount(const std::string& bytecodePath)
  */
 bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
-    auto acir_composer = init();
+    auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path), recursive);
@@ -284,7 +293,7 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
  */
 void contract(const std::string& output_path, const std::string& vk_path)
 {
-    auto acir_composer = init();
+    auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto contract = acir_composer.get_solidity_verifier();
@@ -325,7 +334,7 @@ void contract(const std::string& output_path, const std::string& vk_path)
  */
 void proof_as_fields(const std::string& proof_path, std::string const& vk_path, const std::string& output_path)
 {
-    auto acir_composer = init();
+    auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     auto data = acir_composer.serialize_proof_into_fields(read_file(proof_path), vk_data.num_public_inputs);
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
@@ -354,7 +363,7 @@ void proof_as_fields(const std::string& proof_path, std::string const& vk_path, 
  */
 void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 {
-    auto acir_composer = init();
+    auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto data = acir_composer.serialize_verification_key_into_fields();

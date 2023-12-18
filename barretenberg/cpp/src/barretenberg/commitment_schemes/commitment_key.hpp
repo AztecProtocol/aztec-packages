@@ -70,8 +70,10 @@ template <class Curve> class CommitmentKey {
     {
         const size_t degree = polynomial.size();
         ASSERT(degree <= srs->get_monomial_size());
-        return barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
+        auto ret = barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
+        info("C", ret);
+        return ret;
     };
 
     barretenberg::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
