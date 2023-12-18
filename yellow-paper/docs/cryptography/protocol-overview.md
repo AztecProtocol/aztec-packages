@@ -17,7 +17,7 @@ UltraPlonk utilizes the "Ultra" circuit arithmetisation. This is a configuration
 
 ## Honk
 
-Honk is a variant of the PLONK protocol. Plonk performs polynomial testing via evaluating a polynomial relation is zero modulo the vanishing polynomial of a multiplicative subgroup. Honk performs the polynomial testing via evaluating, using a sumcheck protocol, that a relation over multilinear polynomials vanishes when summed over a boolean hypercube.
+Honk is a variant of the PLONK protocol. Plonk performs polynomial testing via checking a polynomial relation is zero modulo the vanishing polynomial of a multiplicative subgroup. Honk performs the polynomial testing via checking, using a sumcheck protocol, that a relation over multilinear polynomials vanishes when summed over a boolean hypercube.
 
 The first protocol to combine Plonk and the sumcheck protocol was [HyperPlonk](https://eprint.iacr.org/2022/1355)
 
