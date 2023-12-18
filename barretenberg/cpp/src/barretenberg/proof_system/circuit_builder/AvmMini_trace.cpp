@@ -541,6 +541,7 @@ void AvmMiniTraceBuilder::halt()
     auto clk = mainTrace.size();
 
     info("pc at halt: ", pc);
+    info("return pointer at halt: ", internal_return_ptr);
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -573,19 +574,23 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)
     });
 
     // We want the next row to be the one pointed by jmpDest
+    ffMemory.at(internal_return_ptr) = pc;
     pc = jmpDest;
-    internal_return_ptr++;
+    this->internal_return_ptr++;
 }
 
 void AvmMiniTraceBuilder::internal_return()
 {
     auto clk = mainTrace.size();
 
-    // TODO: make sure this is initialized
-    FF a = ffMemory.at(internal_return_ptr);
+    // Internal return pointer is decremented
+    FF a = ffMemory.at(internal_return_ptr - 1);
 
-    // We want to write the current pc to the memory location pointed by
-    storeAInMemTrace(internal_return_ptr, FF(pc));
+    info("The internal pointer ", internal_return_ptr);
+    info("The internal pointer value", a);
+
+    // We want to load the value pointed by the internal pointer
+    loadAInMemTrace(internal_return_ptr - 1, FF(a));
 
     mainTrace.push_back(Row{
         .avmMini_clk = clk,
@@ -595,17 +600,15 @@ void AvmMiniTraceBuilder::internal_return()
         .avmMini_ia = a,
         .avmMini_mem_op_a = FF(1),
         .avmMini_rwa = FF(0),
-        .avmMini_mem_idx_a = FF(internal_return_ptr),
+        .avmMini_mem_idx_a = FF(internal_return_ptr - 1),
     });
 
     // We want the next row to be the one pointed by jmpDest
     // TODO: is this type casting safe
 
-    // The next pc should be from the top of the internal call stack
-    pc = internal_call_stack.top();
+    // The next pc should be from the top of the internal call stack + 1
+    pc = internal_call_stack.top() + 1;
     internal_call_stack.pop();
-
-    // The internal call stack pointer should be decremented
     internal_return_ptr--;
 }
 

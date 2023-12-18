@@ -137,14 +137,14 @@ namespace avmMini(256);
     // We must load the memory pointer to be the  internal_return_ptr 
     #[return_pointer_decrement]
     sel_internal_return * ( internal_return_ptr' - ( internal_return_ptr - 1)) = 0; // We decrement out jump selector
-    sel_internal_return * ( internal_return_ptr - mem_idx_a) = 0;
-    sel_internal_return * (pc' - ia) = 0;
+    sel_internal_return * ( (internal_return_ptr - 1) - mem_idx_a) = 0;
+    sel_internal_return * (pc' - (ia+1)) = 0;
     sel_internal_return * rwa = 0;
     sel_internal_return * (mem_op_a - 1) = 0;
 
     // Program counter must increment if not jumping or returning
     #[pc_increment]
-    (1-first) * (1- sel_halt) * (sel_internal_call + sel_internal_return + sel_op_add + sel_op_sub + sel_op_div + sel_op_mul) * (pc' - (pc + 1)) = 0;
+    (1-first) * (1- sel_halt) * (sel_op_add + sel_op_sub + sel_op_div + sel_op_mul) * (pc' - (pc + 1)) = 0;
 
 
     // TODO: we want to set an initial number for the reserved memory of the jump pointer
