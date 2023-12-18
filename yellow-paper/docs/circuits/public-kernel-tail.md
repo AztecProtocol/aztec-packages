@@ -26,25 +26,6 @@ The following must be empty to ensure all the public function calls are processe
 
 ### Responsibilities for Processing the Final Outputs:
 
-#### Verifying ordered arrays.
-
-The iterations of the public kernel may yield values in an unordered state due to the serial nature of the kernel, which contrasts with the stack-based nature of code execution.
-
-This circuit ensures the correct ordering of the following arrays:
-
-- Read requests.
-- Update requests.
-
-An ordered requests array (_ordered_requests_) and a hints array are provided for each requests array via the private inputs.
-
-For each hint _hints[i]_ at index _i_, this circuit locates the request at index _i_ in _ordered_requests_:
-
-- If the request is not empty:
-  - It must match the request at index _hints[i]_ in the corresponding requests in the previous iteration's public inputs (_prev_requests_).
-  - If _i_ != 0, its counter must be greater than the counter of the request at index _i - 1_.
-- If the request is empty:
-  - All the subsequent requests must be empty in both _ordered_requests_ and _prev_requests_.
-
 #### Siloing values.
 
 1. It silos the following in the transient accumulated data with each item's contract address:
@@ -72,12 +53,31 @@ Where _version_id_ and _portal_contract_address_ equal the values defined in the
 
 4. It silos the storage slot of each item in the following array with the item's contract address:
 
-- Ordered read requests.
-- Ordered update requests.
+- Read requests.
+- Update requests.
 
 The siloed storage slot is computed as: `hash(contract_address, storage_slot)`.
 
 > While siloing could occur in each kernel iteration, it is _typically_ more efficient to be done once in the tail circuit.
+
+#### Verifying ordered arrays.
+
+The iterations of the public kernel may yield values in an unordered state due to the serial nature of the kernel, which contrasts with the stack-based nature of code execution.
+
+This circuit ensures the correct ordering of the following:
+
+- Read requests.
+- Update requests.
+
+An _ordered_requests_ array and a hints array are provided for each requests array via private inputs.
+
+For each hint _hints[i]_ at index _i_, this circuit locates the request at index _i_ in _ordered_requests_:
+
+- If the request is not empty:
+  - It must match the request at index _hints[i]_ in the corresponding _unordered_requests_ in the previous iteration's public inputs.
+  - For _i_ != 0, its counter must be greater than the counter of the request at index _i - 1_.
+- If the request is empty:
+  - All the subsequent requests must be empty in both _ordered_requests_ and _prev_requests_.
 
 #### Verifying public data snaps.
 
@@ -97,7 +97,7 @@ This circuit ensures the uniqueness of each snap within the provided public data
 
 To facilitate the verification of read requests and streamline update requests, it is imperative to establish connections between update requests targeting the same storage slot. Moreover, the initial update request in a group must be associated with a public data snap to ensure the dataset has evolved from the correct value.
 
-A new field, _prev_counter_, is introduced to the ordered update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
+A new field, _prev_counter_, is introduced to the [ordered](#verifying-ordered-arrays) update requests to signify whether it possesses a previous snap or update request. This is accomplished through the following steps:
 
 1. For each non-empty public data snap:
 

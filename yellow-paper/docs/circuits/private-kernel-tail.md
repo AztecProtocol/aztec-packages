@@ -37,22 +37,6 @@ The following must be empty to ensure a comprehensive final reset:
 
 ### Responsibilities for Processing the Final Outputs:
 
-#### Verifying ordered arrays.
-
-The initial and inner kernel iterations may produce values in an unordered state due to the serial nature of the kernel, contrasting with the stack-based nature of code execution.
-
-This circuit ensures correct ordering of the public call requests in the public inputs (_public_call_requests_).
-
-A hints array is provided via the private inputs. For each hint _hints[i]_ at index _i_, this circuit locates the request at index _i_ in _public_call_requests_:
-
-- If the request is not empty:
-  - It must match the request at index _hints[i]_ in the public call requests in the previous iteration's public inputs (_prev_public_call_requests_).
-  - If _i_ != 0, its counter must be greater than the counter of the request at index _i - 1_.
-- If the request is empty:
-  - All the subsequent requests must be empty in both _public_call_requests_ and _prev_public_call_requests_.
-
-> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done in the tail circuit.
-
 #### Siloing values.
 
 This circuit must silo the following with each item's contract address:
@@ -78,11 +62,36 @@ Additionally, this circuit generates the final hashes for L2-L1 messages, calcul
 
 Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
 
+#### Verifying ordered arrays.
+
+The initial and inner kernel iterations may produce values in an unordered state due to the serial nature of the kernel, contrasting with the stack-based nature of code execution.
+
+This circuit ensures the correct ordering of the following arrays (_ordered_array_) in public inputs:
+
+- Note hashes.
+- Nullifiers.
+- L2-to-l1 messages.
+- Public call requests.
+
+The corresponding _unordered_arrays_ for the above are sourced either from the transient accumulated data of the previous iteration or from the [siloed results](#siloing-values).
+
+A hints array is provided through private inputs for every _unordered_array_.
+
+For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i_ in _ordered_array_:
+
+- If the item is not empty:
+  - It must correspond to the item at index _hints[i]_ in _unordered_array_.
+  - For _i_ != 0, the counter must be greater than the counter of the item at index _hints[i - 1]_ in _unordered_array_.
+- If the item is empty:
+  - All the subsequent items must be empty in both _ordered_array_ and _unordered_array_.
+
+> Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done once in the tail circuit.
+
 ### Responsibilities for Validating the Public Inputs:
 
 #### Verifying the accumulated data.
 
-The following must correspond to the value after siloing:
+The following must correspond to the values after siloing and ordering, and were verified in a [previous step](#verifying-ordered-arrays):
 
 - Note hashes.
 - Nullifiers.
