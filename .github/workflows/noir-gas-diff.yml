@@ -39,21 +39,21 @@ jobs:
         run: noirup $toolchain
         env:
           toolchain: --path ./noir
-          
+
       - name: Check nargo installation
         run: nargo --version
 
       - name: Generate gates report
         working-directory: ./yarn-project/noir-protocol-circuits/src
         run: |
-          ./gates_report.sh
+          nargo info --json > gates_report.json
           mv gates_report.json ../../../gates_report.json
       - name: Compare gates reports
         id: gates_diff
         uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
         with:
           report: gates_report.json
-          summaryQuantile: 0.9 # only display the 10% most significant circuit size diffs in the summary (defaults to 20%)
+          summaryQuantile: 1 # Display any diff in gate count
 
       - name: Add gates diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
