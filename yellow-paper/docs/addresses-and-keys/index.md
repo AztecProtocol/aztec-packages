@@ -11,7 +11,7 @@ Privacy keys are used for note encryption, tagging, and nullifying. These are al
 
 The [specification](./specification.md) covers the main requirements for addresses and keys, along with their specification and derivation mechanisms, while the [precompiles](./precompiles.md) section describes well-known contract addresses, with implementations defined by the protocol, used for note encryption and tagging. 
 
-The [registry](./registry.md), [note encryption and tagging](./encrypt-and-tag.md), and [diversified and stealth accounts](./diversified-and-stealth.md) sections describe application-level recommendations for the broadcasting of privacy keys, their usage in sending notes in application code, and suggested implementations for diversified and stealth accounts.
+Last, the [diversified and stealth accounts](./diversified-and-stealth.md) sections describe application-level recommendations for diversified and stealth accounts.
 
 import DocCardList from '@theme/DocCardList';
 
