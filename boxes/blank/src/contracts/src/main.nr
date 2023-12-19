@@ -25,7 +25,7 @@ contract Blank {
         nonce: Field,
         storage_slot: Field,
         serialized_note: [Field; 0]
-    ) -> [Field; 4] {
+    ) -> pub [Field; 4] {
         [0, 0, 0, 0]
     }
 }
