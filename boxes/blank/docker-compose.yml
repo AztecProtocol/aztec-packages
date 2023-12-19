@@ -16,7 +16,7 @@ services:
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
 
-  box:
+  boxes-blank:
     build: .
     command: test:integration
     environment:
