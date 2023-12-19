@@ -88,6 +88,8 @@ If a note doesn't appear when you expect it to, check the visible notes returned
 
 #include_code debug /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
 
+If the note appears in the visible notes and it contains the expected values there is probably an issue with how you fetch the notes. Check that the note getter (or note viewer) parameters are set correctly. If the note doesn't appear, ensure that you have emitted the corresponding encrypted log (usually by passing in a `broadcast = true` param to the `create_note` function). You can also check the Sandbox logs to see if the `emitEncryptedLog` was emitted. Run `export DEBUG="aztec:*" before spinning up sandbox to see all the logs.
+ 
 For debugging and logging in Aztec contracts, see [this page](../debugging/main.md).
 
 ## Assertions
