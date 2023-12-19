@@ -184,9 +184,9 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_rw_shift,
                               memTrace_m_val_shift,
                               memTrace_m_addr_shift,
+                              memTrace_m_rw_shift,
                               memTrace_m_tag_shift)
 
         RefVector<DataType> get_wires()
@@ -225,9 +225,9 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_rw_shift,
                      memTrace_m_val_shift,
                      memTrace_m_addr_shift,
+                     memTrace_m_rw_shift,
                      memTrace_m_tag_shift };
         };
         RefVector<DataType> get_unshifted()
@@ -269,11 +269,11 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_rw, memTrace_m_val, memTrace_m_addr, memTrace_m_tag };
+            return { memTrace_m_val, memTrace_m_addr, memTrace_m_rw, memTrace_m_tag };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_rw_shift, memTrace_m_val_shift, memTrace_m_addr_shift, memTrace_m_tag_shift };
+            return { memTrace_m_val_shift, memTrace_m_addr_shift, memTrace_m_rw_shift, memTrace_m_tag_shift };
         };
     };
 
@@ -286,13 +286,9 @@ class AvmMiniFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return {
-                memTrace_m_rw,
-                memTrace_m_addr,
-                memTrace_m_val,
-
-            };
+            return { memTrace_m_val, memTrace_m_addr, memTrace_m_rw, memTrace_m_tag };
         };
+
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
     };
@@ -319,7 +315,7 @@ class AvmMiniFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return avmMini_clk.size(); }
+        [[nodiscard]] size_t get_polynomial_size() const { return memTrace_m_clk.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
@@ -333,6 +329,7 @@ class AvmMiniFlavor {
             return result;
         }
     };
+
     using RowPolynomials = AllEntities<FF>;
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

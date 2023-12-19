@@ -53,9 +53,9 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF memTrace_m_rw_shift{};
     FF memTrace_m_val_shift{};
     FF memTrace_m_addr_shift{};
+    FF memTrace_m_rw_shift{};
     FF memTrace_m_tag_shift{};
 };
 
@@ -122,9 +122,9 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
 
         return polys;
@@ -132,7 +132,8 @@ class AvmMiniCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
-        ProverPolynomials polys = compute_polynomials();
+
+        auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
