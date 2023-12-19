@@ -11,69 +11,97 @@ Rationale for precompiled contracts is to provide a set of vetted primitives for
 
 - `ENCRYPTION_BATCH_SIZES=[4, 16, 32]`: Defines what max batch sizes are supported in precompiled encryption methods.
 - `ENCRYPTION_PRECOMPILE_ADDRESS_RANGE=0x00..0xFF`: Defines the range of addresses reserved for precompiles used for encryption and tagging.
+- `MAX_PLAINTEXT_LENGTH`: Defines the maximum length of a plaintext to encrypt.
+- `MAX_CYPHERTEXT_LENGTH`: Defines the maximum length of a returned encrypted cyphertext.
+- `MAX_TAGGED_CYPHERTEXT_LENGTH`: Defines the maximum length of a returned encrypted cyphertext prefixed with a note tag.
 
 ## Encryption and tagging precompiles
 
 All precompiles in the address range `ENCRYPTION_PRECOMPILE_ADDRESS_RANGE` are reserved for encryption and tagging. Application contracts can expected to call into these contracts with note plaintext, recipients, and public keys. To facilitate forward compatibility, all unassigned addresses within the range expose the functions below as no-ops, meaning that no actions will be executed when calling into them.
 
-These precompiles expose the following private functions:
+All functions in these precompiles accept a `PublicKeys` struct which contains the user advertised public keys. The structure of each of the public keys included can change from one encryption method to another, with the exception of the `nullifier_key` which is always restricted to a single field element. For forward compatibility, the precompiles interface accepts a hash of the public keys, which can be expanded within each method via an oracle call.
 
 ```
-validate_keys(public_keys: Field[]): bool
+struct PublicKeys:
+  nullifier_key: Field
+  incoming_encryption_key: PublicKey
+  outgoing_encryption_key: PublicKey
+  incoming_internal_encryption_key: PublicKey
+  tagging_key: PublicKey
 ```
 
-<!-- TODO: What's the max length for public_keys? Do we differentiate the keys in this array, or let the encryption method to handle them? -->
+To identify which public key to use in the encryption, precompiles also accept an enum:
 
+```
+enum EncryptionType:
+  incoming = 1
+  outgoing = 2
+  incoming_internal = 3
+```
+
+Precompiles expose the following private functions:
+
+```
+validate_keys(public_keys_hash: Field): bool
+```
 
 Returns true if the set of public keys represented by `public_keys` is valid for this encryption and tagging mechanism. The precompile must guarantee that any of its methods must succeed if called with a set of public keys deemed as valid. This method returns `false` for undefined precompiles.
 
 ```
-encrypt(public_keys: Field[], recipient: AztecAddress, plaintext: Field[]): Field[]
+encrypt(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_CYPHERTEXT_LENGTH]
 ```
-
-<!-- TODO: How do we identify which key to use here? (ie incoming or outgoing?) Who does the derivation if needed? What are the max lengths for plaintext and returned cyphertext? Should we have multiple flavors? -->
 
 Encrypts the given plaintext using the provided public keys, and returns the encrypted cyphertext.
 
 ```
-encrypt_and_tag(public_keys: Field[], recipient: AztecAddress, plaintext: Field[])
+encrypt_and_tag(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH]
 ```
 
-<!-- TODO: Does this method also broadcast? If so, should it broadcast as if it were msg_sender? If not, how do we handle scenarios when we need to broadcast more than one note if there are multiple recipients? -->
-
-Encrypts and tags the given plaintext using the provided public keys.
+Encrypts and tags the given plaintext using the provided public keys, and returns the encrypted note prefixed with its tag for note discovery.
 
 ```
-encrypt<N>({ public_keys: Field[], recipient: AztecAddress, plaintext: Field[] }[N]): Field[][N]
+encrypt_and_broadcast(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH]
 ```
 
-Same as `encrypt`, but accepts an array of `N` tuples of public keys, recipient, and plaintext to encrypt in batch. Precompiles expose instances of this method for multiple values of `N` as defined by `ENCRYPTION_BATCH_SIZES`. Batch values defined as zero are skipped.
+Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery.
+
+<!-- TODO: If the precompile is emitting the event here, how do we silo it to the emitting contract? How do we prevent one contract from emitting an event as if it were another? Should precompiles be allowed to emit events on behalf of msg_sender? Or should these precompiles be invoked with a (urgh) delegatecall so that events emitted by them look like emitted by msg_sender? Does this mean that precompiles should be class_ids? -->
 
 ```
-encrypt_and_tag<N>({ public_keys: Field[], recipient: AztecAddress, plaintext: Field[] }[N])
+encrypt<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_CYPHERTEXT_LENGTH][N]
+encrypt_and_tag<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
+encrypt_and_broadcast<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
 ```
 
-Same as `encrypt_and_tag`, but batched using the same logic as `encrypt<N>`.
+Batched versions of the methods above, which accept an array of `N` tuples of public keys, recipient, and plaintext to encrypt in batch. Precompiles expose instances of this method for multiple values of `N` as defined by `ENCRYPTION_BATCH_SIZES`. Values in the batch with zeroes are skipped. These functions are intended to be used in [batched calls](../calls/batched-calls.md).
 
 ```
-decrypt(public_keys: Field[], owner: AztecAddress, cyphertext: Field[]): Field[]
+decrypt(public_keys_hash: Field, encryption_type: EncryptionType, owner: AztecAddress, cyphertext: Field[MAX_CYPHERTEXT_LENGTH]): Field[MAX_PLAINTEXT_LENGTH]
 ```
 
 Decrypts the given cyphertext, encrypted for the provided owner. Instead of receiving the decryption key, this method triggers an oracle call to fetch the private decryption key directly from the local PXE and validates it against the supplied public key, in order to avoid leaking a user secret to untrusted application code. This method is intended for provable decryption use cases.
 
+## Encryption strategies
+
+List of encryption strategies implemented by precompiles:
+
+### AES128
+
+TODO
+
+## Note tagging strategies
+
+List of note tagging strategies implemented by precompiles:
+
+### Incremental counter
+
+TODO
 
 ## Defined precompiles
 
 List of precompiles defined by the protocol and their assigned address.
 
-<!-- TODO: Should we have a precompile for delegation? Or handle that at the registry/app level? Probably registry, since precompiles cannot go back to the registry to re-read? -->
-
-### Noop
-
-Address `0x01` is defined to always be a noop. Accounts that explicitly signal that they cannot receive encrypted payloads can advertise this precompile. Validation method returns `true` only for an empty list of public keys, and all other methods return empty.
-
-### AES encryption with handshakes
-
-Address `0x02` encrypts payloads using AES symmetric encryption, using an encryption key derived from the recipient's public key. Note discovery is performed by establishing a shared secret via an initial handshake for each sender-recipient pair, and broadcasting tags that result from hashing the shared secret and an incremental counter.
-
-<!-- TODO: Complete spec. Specify the flavor of public keys. -->
+| Address | Encryption | Note Tagging | Comments |
+|---------|------------|--------------|----------|
+| 0x01 | Noop | Noop | Used by accounts to explicitly signal that they cannot receive encrypted payloads. Validation method returns `true` only for an empty list of public keys. All other methods return empty. |
+| 0x02 | AES128 | Incremental counter |  |

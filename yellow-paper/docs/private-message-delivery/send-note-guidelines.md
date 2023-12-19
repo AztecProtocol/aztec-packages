@@ -18,6 +18,10 @@ If the user is not in the registry and the sender cannot provide the address pre
 
 Execution of the precompile that implements the recipient's choice for encryption and tagging should be done using a batched call, to amortize the cost of sending multiple notes using the same method.
 
+## Delegation
+
+TODO
+
 ## Pseudocode
 
 ```

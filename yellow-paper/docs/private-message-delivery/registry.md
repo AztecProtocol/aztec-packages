@@ -44,6 +44,10 @@ contract Registry
         registry[msg_sender] = { keys, precompile_address }
 ```
 
+## Delegation
+
+TODO
+
 ## Discussion
 
 See [_Addresses, keys, and sending notes (Dec 2023 edition)_](https://forum.aztec.network/t/addresses-keys-and-sending-notes-dec-2023-edition/2633) for relevant discussions on this topic.
