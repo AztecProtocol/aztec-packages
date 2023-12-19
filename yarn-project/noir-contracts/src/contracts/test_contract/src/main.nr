@@ -2,6 +2,10 @@
 contract Test {
     use dep::std::option::Option;
     use dep::protocol_types::constants::EMPTY_NULLIFIED_COMMITMENT;
+    use dep::protocol_types::address::{
+        AztecAddress,
+        EthAddress,
+    };
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
     // docs:end:unencrypted_import
@@ -28,10 +32,11 @@ contract Test {
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
 
-    #[event]
-    struct ExampleEvent {
-        value: Field,
-    }
+    // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3655
+    // #[event]
+    // struct ExampleEvent {
+    //     value: Field,
+    // }
 
     struct Storage {
         example_constant: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
@@ -51,7 +56,7 @@ contract Test {
     // docs:end:empty-constructor
 
     #[aztec(private)]
-    fn get_public_key(address: Field) -> [Field; 2] {
+    fn get_public_key(address: AztecAddress) -> [Field; 2] {
         let pub_key = get_public_key_oracle(address);
 
         [pub_key.x, pub_key.y]
@@ -59,19 +64,19 @@ contract Test {
 
     // Get the portal contract address through an oracle call
     #[aztec(private)]
-    fn get_portal_contract_address(aztec_address: Field) -> Field {
+    fn get_portal_contract_address(aztec_address: AztecAddress) -> EthAddress {
         get_portal_address(aztec_address)
     }
 
     // Get the address of the l1 portal for this contract (taken from the input context)
     #[aztec(private)]
-    fn get_this_portal_address() -> Field {
+    fn get_this_portal_address() -> EthAddress {
         context.this_portal_address()
     }
 
     // Get the address of this contract (taken from the input context)
     #[aztec(private)]
-    fn get_this_address() -> Field {
+    fn get_this_address() -> AztecAddress {
         context.this_address()
     }
 
@@ -158,9 +163,9 @@ contract Test {
 
     #[aztec(public)]
     fn consume_mint_public_message(
-        to: Field,
+        to: AztecAddress,
         amount: Field,
-        canceller: Field,
+        canceller: EthAddress,
         msg_key: Field,
         secret: Field
     ) {
@@ -173,7 +178,7 @@ contract Test {
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        canceller: Field,
+        canceller: EthAddress,
         msg_key: Field,
         secret_for_L1_to_L2_message_consumption: Field
     ) {
@@ -204,14 +209,14 @@ contract Test {
     }
 
     impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> pub Self {
+        fn new(amount: Field, secret_hash: Field) -> Self {
             Self {
                 amount: amount,
                 secret_hash: secret_hash
             }
         }
 
-        fn get_commitment(self) -> pub Field {
+        fn get_commitment(self) -> Field {
             pedersen_hash([self.amount, self.secret_hash],0)
         }
     }
@@ -233,7 +238,8 @@ contract Test {
         serialized_note: [Field; FIELD_NOTE_LEN]
     ) -> pub [Field; 4] {
         assert(storage_slot == 1);
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, serialized_note)
     }
 }

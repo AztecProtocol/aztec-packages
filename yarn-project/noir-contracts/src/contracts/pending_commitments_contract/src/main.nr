@@ -20,13 +20,17 @@ contract PendingCommitments {
         },
         state_vars::{map::Map, set::Set},
     };
+    use dep::protocol_types::{
+        address::AztecAddress,
+        abis::function_selector::FunctionSelector,
+    };
 
     struct Storage {
         balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 balances: Map::new(
                     context,
@@ -49,8 +53,8 @@ contract PendingCommitments {
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[aztec(private)]
-    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: Field) -> Field {
-        let owner_balance = storage.balances.at(owner);
+    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress) -> Field {
+        let owner_balance = storage.balances.at(owner.to_field());
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
@@ -71,8 +75,8 @@ contract PendingCommitments {
 
     // Confirm cannot access commitments inserted later in same function
     #[aztec(private)]
-    fn test_bad_get_then_insert_flat(amount: Field, owner: Field) -> Field {
-        let owner_balance = storage.balances.at(owner);
+    fn test_bad_get_then_insert_flat(amount: Field, owner: AztecAddress) -> Field {
+        let owner_balance = storage.balances.at(owner.to_field());
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note (note inserted at bottom of function shouldn't exist yet)
@@ -90,12 +94,12 @@ contract PendingCommitments {
 
     // Dummy nested/inner function (to pass a function which does nothing)
     #[aztec(private)]
-    fn dummy(amount: Field, owner: Field) {}
+    fn dummy(amount: Field, owner: AztecAddress) {}
 
     // Nested/inner function to create and insert a note
     #[aztec(private)]
-    fn insert_note(amount: Field, owner: Field) {
-        let owner_balance = storage.balances.at(owner);
+    fn insert_note(amount: Field, owner: AztecAddress) {
+        let owner_balance = storage.balances.at(owner.to_field());
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note
@@ -104,8 +108,8 @@ contract PendingCommitments {
 
     // Nested/inner function to get a note and confirm it matches the expected value
     #[aztec(private)]
-    fn get_then_nullify_note(expected_value: Field, owner: Field) -> Field {
-        let owner_balance = storage.balances.at(owner);
+    fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
+        let owner_balance = storage.balances.at(owner.to_field());
 
         let options = NoteGetterOptions::new().set_limit(1);
         let note = owner_balance.get_notes(options)[0].unwrap();
@@ -119,8 +123,8 @@ contract PendingCommitments {
 
     // Nested/inner function to get a note and confirms that none is returned
     #[aztec(private)]
-    fn get_note_zero_balance(owner: Field) {
-        let owner_balance = storage.balances.at(owner);
+    fn get_note_zero_balance(owner: AztecAddress) {
+        let owner_balance = storage.balances.at(owner.to_field());
 
         let options = NoteGetterOptions::new();
         let maybe_notes = owner_balance.get_notes(options);
@@ -135,28 +139,28 @@ contract PendingCommitments {
     #[aztec(private)]
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
-        owner: Field,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field,
-        get_note_zero_fn_selector: Field
+        owner: AztecAddress,
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector,
+        get_note_zero_fn_selector: FunctionSelector
     ) {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
-            [amount, owner]
+            [amount, owner.to_field()]
         );
         // nested call to read and nullify that note
         let _callStackItem2 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
-            [amount, owner]
+            [amount, owner.to_field()]
         );
         // nested call to confirm that balance is zero
         let _callStackItem3 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_note_zero_fn_selector,
-            [owner]
+            [owner.to_field()]
         );
     }
 
@@ -164,12 +168,12 @@ contract PendingCommitments {
     #[aztec(private)]
     fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
-        owner: Field,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field
+        owner: AztecAddress,
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
@@ -202,12 +206,12 @@ contract PendingCommitments {
     #[aztec(private)]
     fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         amount: Field,
-        owner: Field,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field
+        owner: AztecAddress,
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
@@ -234,13 +238,13 @@ contract PendingCommitments {
     #[aztec(private)]
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
-        owner: Field,
-        insert_fn_selector: Field,
-        get_then_nullify_fn_selector: Field,
-        get_note_zero_fn_selector: Field
+        owner: AztecAddress,
+        insert_fn_selector: FunctionSelector,
+        get_then_nullify_fn_selector: FunctionSelector,
+        get_note_zero_fn_selector: FunctionSelector
     ) {
         // args for nested calls
-        let args = [amount, owner];
+        let args = [amount, owner.to_field()];
 
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
@@ -263,7 +267,7 @@ contract PendingCommitments {
         let _callStackItem4 = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_note_zero_fn_selector,
-            [owner]
+            [owner.to_field()]
         );
     }
 
@@ -277,8 +281,8 @@ contract PendingCommitments {
     // #[aztec(private)]
     //fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
-    //    owner: Field,
-    //    get_then_nullify_fn_selector: Field,
+    //    owner: AztecAddress,
+    //    get_then_nullify_fn_selector: FunctionSelector,
     //) {
     //}
 
@@ -291,7 +295,8 @@ contract PendingCommitments {
         storage_slot: Field,
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
+        let note_header = NoteHeader::new(_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }
