@@ -6,7 +6,7 @@ import Image from "@theme/IdealImage";
 
 ## Overview
 
-Data trees are how we keep track of all the data in the network. Different tree structures are used for different kinds of data, as the requirements for each are different. This data is stored in corresponding trees who's roots are a part of an Aztec block.
+Data trees are how we keep track of all the data in the network. Different tree structures are used for different kinds of data, as the requirements for each are different. This data is stored in corresponding trees whose roots are a part of an Aztec block.
 
 Data includes:
 
