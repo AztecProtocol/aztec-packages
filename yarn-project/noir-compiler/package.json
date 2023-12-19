@@ -28,6 +28,22 @@
   "inherits": [
     "../package.common.json"
   ],
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "moduleFileExtensions": [
+      "js",
+      "ts",
+      "cts"
+    ],
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.cts$": "ts-jest"
+    }
+  },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -72,13 +88,5 @@
   "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=18"
-  },
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
-    },
-    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
   }
 }
