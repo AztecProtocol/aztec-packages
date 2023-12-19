@@ -568,14 +568,14 @@ void AvmMiniTraceBuilder::halt()
 
 /**
  * @brief INTERNAL_CALL OPCODE
- *        This opcode effectively jumps to a new `jumpDest` and stores the return program counter
+ *        This opcode effectively jumps to a new `jmpDest` and stores the return program counter
  *        (current program counter + 1) onto a call stack.
  *        This function must:
  *          - Set the next program counter to the provided `jmpDest`.
  *          - Store the current `pc` + 1 onto the call stack (emulated in memory)
- *          - Increment the return stack pointer ( a pointer to where the call stack is in memory )
+ *          - Increment the return stack pointer (a pointer to where the call stack is in memory)
  *
- *        Note: We use intermediate register a to perform memory storage operations.
+ *        Note: We use intermediate register to perform memory storage operations.
  *
  * @param jmpDest - The destination to jump to
  */

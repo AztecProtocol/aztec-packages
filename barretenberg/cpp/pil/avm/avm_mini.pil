@@ -172,7 +172,7 @@ namespace avmMini(256);
     sel_internal_return * rwa = 0;
     sel_internal_return * (mem_op_a - 1) = 0;
 
-    //===== CONTROL_FLOW_CONSITENCY ============================================
+    //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol CONTROL_FLOW_SELECTORS = (first + sel_internal_call + sel_internal_return + sel_halt);
     pol OPCODE_SELECTORS = (sel_op_add + sel_op_sub + sel_op_div + sel_op_mul);
 
@@ -180,6 +180,7 @@ namespace avmMini(256);
     #[PC_INCREMENT]
     (1 - first) * (1 - sel_halt) * OPCODE_SELECTORS * (pc' - (pc + 1)) = 0;
 
+    // first == 0 && sel_internal_call == 0 && sel_internal_return == 0 && sel_halt == 0 ==> internal_return_ptr == internal_return_ptr'
     #[INTERNAL_RETURN_POINTER_CONSISTENCY]
     (1 - CONTROL_FLOW_SELECTORS) * (internal_return_ptr' - internal_return_ptr) = 0; 
 
