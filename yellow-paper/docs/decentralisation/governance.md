@@ -4,7 +4,7 @@ sidebar_position: 0
 # Governance & Upgrades
 
 :::danger
-This is a first draft which articulates the latest thinking on upgrades. It is subject to change and further review - ultimately needing team-wide understanding and approval. Please take this as a proposal, not as truth. 
+This is a first draft which articulates the latest thinking on governance & upgrades. It is subject to change and further review - ultimately needing team-wide understanding and approval. Please take this as a proposal, not as truth. 
 :::
 
 ### Contents
@@ -235,6 +235,3 @@ TO DO
 :::danger
 TO DO
 :::
-
-### Disclaimer
-
