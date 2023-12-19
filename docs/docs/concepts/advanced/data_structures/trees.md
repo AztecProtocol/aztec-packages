@@ -30,7 +30,7 @@ flowchart TD
 
 ## Note Hash Tree
 
-The note hash tree is an append-only tree, primarily designed for storing hashes of private state variables.
+The note hash tree is an append-only tree, primarily designed for storing hashes of private state variables (called notes in Aztec Protocol).
 
 Each leaf value in the tree is a 254-bit altBN-254 scalar field element. This tree is used to verify validity of notes (which hold private state).
 
