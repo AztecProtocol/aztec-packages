@@ -46,6 +46,6 @@ contract ContractDeploymentEmitter is IContractDeploymentEmitter {
       _pubKeyX,
       _pubKeyY,
       _acir
-      );
+    );
   }
 }

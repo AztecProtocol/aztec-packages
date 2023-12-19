@@ -310,10 +310,7 @@ library Decoder {
             bytes12(0),
             slice(_l2Block, offsets.contractData + 0x20, 0x14) // newContractDataKernel1.ethAddress
           ),
-          bytes.concat(
-            vars.encryptedLogsHashKernel1,
-            vars.unencryptedLogsHashKernel1
-          )
+          bytes.concat(vars.encryptedLogsHashKernel1, vars.unencryptedLogsHashKernel1)
         );
 
         offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP;
