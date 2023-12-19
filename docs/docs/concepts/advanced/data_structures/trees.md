@@ -88,7 +88,7 @@ The Private Kernel circuit will modify this `note_hash` further, before it is in
   :::
 
 - Ensure uniqueness of the commitment, by hashing it with a nonce
-  `unique_siloed_note_hash: Field = hash(nonce, siloed_note_hash);`, where `nonce: Field = hash(new_nullifiers[0], index)`, where `new_nullifiers[0]` is a the first nullifier emitted in a transaction and **index** is the position of the new note hash in all new note hashes inserted by the transaction to the note hash tree.
+  `unique_siloed_note_hash: Field = hash(nonce, siloed_note_hash);`, where `nonce: Field = hash(new_nullifiers[0], index)`, where `new_nullifiers[0]` is a the first nullifier emitted in a transaction and `index` is the position of the new note hash in all new note hashes inserted by the transaction to the note hash tree.
 
   :::info
   First nullifier of a transaction is always ensured to be non-zero because it is always set by the protocol and it represents a transaction hash.
