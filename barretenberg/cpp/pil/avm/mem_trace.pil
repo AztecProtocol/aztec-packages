@@ -78,16 +78,23 @@ namespace memTrace(256);
 
     // Memory tag consistency check
     // We want to prove that m_in_tag == m_tag <==> m_tag_err == 0
-    // We introduce m_one_min_inv extra column to show that we can invert
-    // (m_in_tag - m_tag) when m_tag_err != 0
-    // m_one_min_inv is set to 1 - (m_in_tag - m_tag)^(-1) when m_tag_err == 1
+    // We want to show that we can invert (m_in_tag - m_tag) when m_tag_err == 1,
+    // i.e., m_tag_err == 1 ==> m_in_tag != m_tag
+    // For this purpose, we need an extra column to store a witness
+    // which can be used to show that (m_in_tag - m_tag) is invertible (non-zero).
+    // We re-use the same zero (non)-equality technique as in SUBOP_DIVISION_ZERO_ERR1/2 applied
+    // to (m_in_tag - m_tag) by replacing m_tag_err by 1 - m_tag_err because here
+    // the equality to zero is not an error. Another modification
+    // consists in storing 1 - (m_in_tag - m_tag)^(-1) in the extra witness column
+    // instead of (m_in_tag - m_tag)^(-1) as this allows to store zero by default (i.e., when m_tag_err == 0).
+    // The new column m_one_min_inv is set to 1 - (m_in_tag - m_tag)^(-1) when m_tag_err == 1
     // but must be set to 0 when tags are matching and m_tag_err = 0
     #[MEM_IN_TAG_CONSISTENCY_1]
     (m_in_tag - m_tag) * (1 - m_one_min_inv) - m_tag_err = 0;
     #[MEM_IN_TAG_CONSISTENCY_2]
     (1 - m_tag_err) * m_one_min_inv = 0;
 
-    // Correctness of above checks
+    // Correctness of two above checks MEM_IN_TAG_CONSISTENCY_1/2:
     // m_in_tag == m_tag ==> m_tag_err == 0 (first relation)
     // m_tag_err == 0 ==> m_one_min_inv == 0 by second relation. First relation ==> m_in_tag - m_tag == 0
 
