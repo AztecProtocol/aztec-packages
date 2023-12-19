@@ -138,7 +138,7 @@ contract TokenPortalTest is Test {
       expectedMessage.fee,
       expectedMessage.content,
       expectedMessage.secretHash
-    );
+      );
 
     // Perform op
     bytes32 entryKey = tokenPortal.depositToAztecPrivate{value: bid}(
@@ -181,7 +181,7 @@ contract TokenPortalTest is Test {
       expectedMessage.fee,
       expectedMessage.content,
       expectedMessage.secretHash
-    );
+      );
 
     // Perform op
     bytes32 entryKey = tokenPortal.depositToAztecPublic{value: bid}(

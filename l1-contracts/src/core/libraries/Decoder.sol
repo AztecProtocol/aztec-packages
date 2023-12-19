@@ -210,7 +210,7 @@ library Decoder {
 
       // Commitments
       uint256 count = read4(_l2Block, offset);
-      vars.baseLeaves = new bytes32[](count / (Constants.MAX_NEW_COMMITMENTS_PER_TX * 2));
+      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_COMMITMENTS_PER_TX);
       offsets.commitment = BLOCK_HEADER_OFFSET + 0x4;
       offset += 0x4 + count * 0x20;
       offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
@@ -290,18 +290,14 @@ library Decoder {
          */
         (vars.encryptedLogsHashKernel1, offsets.encryptedLogs) =
           computeKernelLogsHash(offsets.encryptedLogs, _l2Block);
-        (vars.encryptedLogsHashKernel2, offsets.encryptedLogs) =
-          computeKernelLogsHash(offsets.encryptedLogs, _l2Block);
 
         (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogs) =
-          computeKernelLogsHash(offsets.unencryptedLogs, _l2Block);
-        (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogs) =
           computeKernelLogsHash(offsets.unencryptedLogs, _l2Block);
 
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP), //TODO update these
             slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(
               _l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
@@ -312,16 +308,11 @@ library Decoder {
           bytes.concat(
             slice(_l2Block, offsets.contractData, 0x20), // newContractDataKernel1.aztecAddress
             bytes12(0),
-            slice(_l2Block, offsets.contractData + 0x20, 0x14), // newContractDataKernel1.ethAddress
-            slice(_l2Block, offsets.contractData + 0x34, 0x20), // newContractDataKernel2.aztecAddress
-            bytes12(0),
-            slice(_l2Block, offsets.contractData + 0x54, 0x14) // newContractDataKernel2.ethAddress
+            slice(_l2Block, offsets.contractData + 0x20, 0x14) // newContractDataKernel1.ethAddress
           ),
           bytes.concat(
             vars.encryptedLogsHashKernel1,
-            vars.encryptedLogsHashKernel2,
-            vars.unencryptedLogsHashKernel1,
-            vars.unencryptedLogsHashKernel2
+            vars.unencryptedLogsHashKernel1
           )
         );
 
