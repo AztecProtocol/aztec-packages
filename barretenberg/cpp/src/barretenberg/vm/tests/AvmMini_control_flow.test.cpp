@@ -3,7 +3,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/AvmMini_helper.hpp"
 #include "barretenberg/proof_system/circuit_builder/AvmMini_trace.hpp"
-#include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
@@ -30,8 +29,6 @@ class AvmMiniControlFlowTests : public ::testing::Test {
         trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
     };
 };
-
-class AvmMiniArithmeticNegativeTests : public AvmMiniControlFlowTests {};
 
 // We add some helper functions in the anonymous namespace.
 namespace {
@@ -70,6 +67,7 @@ void validateTraceProof(std::vector<Row>&& trace)
 TEST_F(AvmMiniControlFlowTests, simpleCall)
 {
     uint32_t const CALL_ADDRESS = 4;
+
     // trace_builder for the following operation
     // pc   opcode
     // 0    INTERNAL_CALL(pc=4)
@@ -79,28 +77,31 @@ TEST_F(AvmMiniControlFlowTests, simpleCall)
 
     auto trace = trace_builder.finalize();
 
-    // Find the row of the call
-    auto call_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
-    EXPECT_TRUE(call_row != trace.end());
-    EXPECT_EQ(call_row->avmMini_pc, FF(0));
-    EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
-    EXPECT_EQ(call_row->avmMini_ia, FF(1));
-    EXPECT_EQ(call_row->avmMini_mem_idx_a,
-              FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+    // Check call
+    {
+        auto call_row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
+        EXPECT_TRUE(call_row != trace.end());
+        EXPECT_EQ(call_row->avmMini_pc, FF(0));
+        EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
+        EXPECT_EQ(call_row->avmMini_ia, FF(1));
+        EXPECT_EQ(call_row->avmMini_mem_idx_a,
+                  FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+    }
 
-    // Find the row of the halt
-    auto halt_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_halt == FF(1); });
+    // Check halt
+    {
+        auto halt_row =
+            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_halt == FF(1); });
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(halt_row != trace.end());
-    EXPECT_EQ(halt_row->avmMini_pc, FF(CALL_ADDRESS));
-    EXPECT_EQ(halt_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
-
+        // Check that the correct result is stored at the expected memory location.
+        EXPECT_TRUE(halt_row != trace.end());
+        EXPECT_EQ(halt_row->avmMini_pc, FF(CALL_ADDRESS));
+        EXPECT_EQ(halt_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
+    }
     validateTraceProof(std::move(trace));
 }
 
-// Test on basic addition over finite field type.
 TEST_F(AvmMiniControlFlowTests, simpleCallAndReturn)
 {
     uint32_t const CALL_ADDRESS = 20;
@@ -116,30 +117,37 @@ TEST_F(AvmMiniControlFlowTests, simpleCallAndReturn)
 
     auto trace = trace_builder.finalize();
 
-    // Find the row of the call
-    auto call_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
-    EXPECT_TRUE(call_row != trace.end());
-    EXPECT_EQ(call_row->avmMini_pc, FF(0));
-    EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
-    EXPECT_EQ(call_row->avmMini_ia, FF(1));
-    EXPECT_EQ(call_row->avmMini_mem_idx_a,
-              FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+    // Check call
+    {
+        auto call_row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_call == FF(1); });
+        EXPECT_TRUE(call_row != trace.end());
+        EXPECT_EQ(call_row->avmMini_pc, FF(0));
+        EXPECT_EQ(call_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET));
+        EXPECT_EQ(call_row->avmMini_ia, FF(1));
+        EXPECT_EQ(call_row->avmMini_mem_idx_a,
+                  FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET)); // Store the return address (0) in memory
+    }
 
-    // Return row
-    auto return_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_return == FF(1); });
+    // Check return
+    {
+        auto return_row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_internal_return == FF(1); });
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(return_row != trace.end());
-    EXPECT_EQ(return_row->avmMini_pc, FF(CALL_ADDRESS));
-    EXPECT_EQ(return_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
+        // Check that the correct result is stored at the expected memory location.
+        EXPECT_TRUE(return_row != trace.end());
+        EXPECT_EQ(return_row->avmMini_pc, FF(CALL_ADDRESS));
+        EXPECT_EQ(return_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
+    }
 
-    // Halt row
-    auto halt_row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_halt == FF(1); });
+    // Check halt
+    {
+        auto halt_row =
+            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_halt == FF(1); });
 
-    EXPECT_TRUE(halt_row != trace.end());
-    EXPECT_EQ(halt_row->avmMini_pc, FF(RETURN_ADDRESS));
+        EXPECT_TRUE(halt_row != trace.end());
+        EXPECT_EQ(halt_row->avmMini_pc, FF(RETURN_ADDRESS));
+    }
 
     validateTraceProof(std::move(trace));
 }
