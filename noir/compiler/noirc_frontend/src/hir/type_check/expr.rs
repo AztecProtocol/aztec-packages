@@ -10,8 +10,8 @@ use crate::{
         },
         types::Type,
     },
-    node_interner::{DefinitionKind, ExprId, FuncId, TraitId, TraitImplKind, TraitMethodId},
-    BinaryOpKind, Signedness, TypeBinding, TypeBindings, TypeVariableKind, UnaryOp,
+    node_interner::{DefinitionKind, ExprId, FuncId, TraitId, TraitMethodId},
+    BinaryOpKind, Signedness, TypeBinding, TypeVariableKind, UnaryOp,
 };
 
 use super::{errors::TypeCheckError, TypeChecker};
@@ -114,7 +114,7 @@ impl<'interner> TypeChecker<'interner> {
                         Type::Array(Box::new(length), Box::new(elem_type))
                     }
                     HirLiteral::Bool(_) => Type::Bool,
-                    HirLiteral::Integer(_, _) => Type::polymorphic_integer(self.interner),
+                    HirLiteral::Integer(_) => Type::polymorphic_integer(self.interner),
                     HirLiteral::Str(string) => {
                         let len = Type::Constant(string.len() as u64);
                         Type::String(Box::new(len))
@@ -289,23 +289,15 @@ impl<'interner> TypeChecker<'interner> {
             }
             HirExpression::TraitMethodReference(method) => {
                 let the_trait = self.interner.get_trait(method.trait_id);
-                let typ2 = &the_trait.methods[method.method_index].typ;
-                let (typ, mut bindings) = typ2.instantiate(self.interner);
+                let method = &the_trait.methods[method.method_index];
 
-                // We must also remember to apply these substitutions to the object_type
-                // referenced by the selected trait impl, if one has yet to be selected.
-                let impl_kind = self.interner.get_selected_impl_for_ident(*expr_id);
-                if let Some(TraitImplKind::Assumed { object_type }) = impl_kind {
-                    let the_trait = self.interner.get_trait(method.trait_id);
-                    let object_type = object_type.substitute(&bindings);
-                    bindings.insert(
-                        the_trait.self_type_typevar_id,
-                        (the_trait.self_type_typevar.clone(), object_type.clone()),
-                    );
-                    self.interner
-                        .select_impl_for_ident(*expr_id, TraitImplKind::Assumed { object_type });
-                }
+                let typ = Type::Function(
+                    method.arguments.clone(),
+                    Box::new(method.return_type.clone()),
+                    Box::new(Type::Unit),
+                );
 
+                let (typ, bindings) = typ.instantiate(self.interner);
                 self.interner.store_instantiation_bindings(*expr_id, bindings);
                 typ
             }
@@ -554,7 +546,7 @@ impl<'interner> TypeChecker<'interner> {
             HirMethodReference::TraitMethodId(method) => {
                 let the_trait = self.interner.get_trait(method.trait_id);
                 let method = &the_trait.methods[method.method_index];
-                (method.typ.clone(), method.arguments().len())
+                (method.get_type(), method.arguments.len())
             }
         };
 
@@ -786,11 +778,7 @@ impl<'interner> TypeChecker<'interner> {
                     }));
                 }
 
-                let mut bindings = TypeBindings::new();
-                if other.try_bind_to_polymorphic_int(int, &mut bindings).is_ok()
-                    || other == &Type::Error
-                {
-                    Type::apply_type_bindings(bindings);
+                if other.try_bind_to_polymorphic_int(int).is_ok() || other == &Type::Error {
                     Ok(Bool)
                 } else {
                     Err(TypeCheckError::TypeMismatchWithSource {
@@ -906,9 +894,7 @@ impl<'interner> TypeChecker<'interner> {
                     }
                 }
             }
-            // TODO: We should allow method calls on `impl Trait`s eventually.
-            //       For now it is fine since they are only allowed on return types.
-            Type::TraitAsType(..) => {
+            Type::TraitAsType(_trait) => {
                 self.errors.push(TypeCheckError::UnresolvedMethodCall {
                     method_name: method_name.to_string(),
                     object_type: object_type.clone(),
@@ -1023,7 +1009,7 @@ impl<'interner> TypeChecker<'interner> {
                 let env_type = self.interner.next_type_variable();
                 let expected = Type::Function(args, Box::new(ret.clone()), Box::new(env_type));
 
-                if let Err(error) = binding.try_bind(expected, span) {
+                if let Err(error) = binding.borrow_mut().bind_to(expected, span) {
                     self.errors.push(error);
                 }
                 ret
@@ -1091,11 +1077,7 @@ impl<'interner> TypeChecker<'interner> {
                     }));
                 }
 
-                let mut bindings = TypeBindings::new();
-                if other.try_bind_to_polymorphic_int(int, &mut bindings).is_ok()
-                    || other == &Type::Error
-                {
-                    Type::apply_type_bindings(bindings);
+                if other.try_bind_to_polymorphic_int(int).is_ok() || other == &Type::Error {
                     Ok(other.clone())
                 } else {
                     Err(TypeCheckError::TypeMismatchWithSource {
@@ -1185,10 +1167,6 @@ impl<'interner> TypeChecker<'interner> {
 
         match op {
             crate::UnaryOp::Minus => {
-                if rhs_type.is_unsigned() {
-                    self.errors
-                        .push(TypeCheckError::InvalidUnaryOp { kind: rhs_type.to_string(), span });
-                }
                 let expected = Type::polymorphic_integer(self.interner);
                 rhs_type.unify(&expected, &mut self.errors, || TypeCheckError::InvalidUnaryOp {
                     kind: rhs_type.to_string(),

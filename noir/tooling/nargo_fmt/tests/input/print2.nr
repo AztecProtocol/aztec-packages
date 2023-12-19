@@ -1,6 +1,5 @@
 use dep::std;
 
-fn main() {
-    std::print("Hello world");
-    std::println("Hello world");
+fn main( ) { 
+std::println("Hello world");
 }

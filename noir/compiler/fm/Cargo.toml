@@ -9,8 +9,9 @@ license.workspace = true
 
 [dependencies]
 codespan-reporting.workspace = true
+rust-embed = "6.6.0"
 serde.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
+tempfile = "3.2.0"
 iter-extended.workspace = true

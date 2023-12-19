@@ -1,12 +1,11 @@
 use codespan_reporting::files::{Error, Files, SimpleFile, SimpleFiles};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::{ops::Range, path::PathBuf};
 
 // XXX: File and FileMap serve as opaque types, so that the rest of the library does not need to import the dependency
 // or worry about when we change the dep
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PathString(PathBuf);
 
 impl std::fmt::Display for PathString {
@@ -31,10 +30,7 @@ impl From<&PathBuf> for PathString {
     }
 }
 #[derive(Debug)]
-pub struct FileMap {
-    files: SimpleFiles<PathString, String>,
-    name_to_id: HashMap<PathString, FileId>,
-}
+pub struct FileMap(SimpleFiles<PathString, String>);
 
 // XXX: Note that we derive Default here due to ModuleOrigin requiring us to set a FileId
 #[derive(
@@ -63,22 +59,17 @@ impl<'input> File<'input> {
 
 impl FileMap {
     pub fn add_file(&mut self, file_name: PathString, code: String) -> FileId {
-        let file_id = FileId(self.files.add(file_name.clone(), code));
-        self.name_to_id.insert(file_name, file_id);
-        file_id
+        let file_id = self.0.add(file_name, code);
+        FileId(file_id)
     }
-
     pub fn get_file(&self, file_id: FileId) -> Option<File> {
-        self.files.get(file_id.0).map(File).ok()
-    }
-
-    pub fn get_file_id(&self, file_name: &PathString) -> Option<FileId> {
-        self.name_to_id.get(file_name).cloned()
+        self.0.get(file_id.0).map(File).ok()
     }
 }
+
 impl Default for FileMap {
     fn default() -> Self {
-        FileMap { files: SimpleFiles::new(), name_to_id: HashMap::new() }
+        FileMap(SimpleFiles::new())
     }
 }
 
@@ -88,18 +79,18 @@ impl<'a> Files<'a> for FileMap {
     type Source = &'a str;
 
     fn name(&self, file_id: Self::FileId) -> Result<Self::Name, Error> {
-        Ok(self.files.get(file_id.as_usize())?.name().clone())
+        Ok(self.0.get(file_id.as_usize())?.name().clone())
     }
 
     fn source(&'a self, file_id: Self::FileId) -> Result<Self::Source, Error> {
-        Ok(self.files.get(file_id.as_usize())?.source().as_ref())
+        Ok(self.0.get(file_id.as_usize())?.source().as_ref())
     }
 
     fn line_index(&self, file_id: Self::FileId, byte_index: usize) -> Result<usize, Error> {
-        self.files.get(file_id.as_usize())?.line_index((), byte_index)
+        self.0.get(file_id.as_usize())?.line_index((), byte_index)
     }
 
     fn line_range(&self, file_id: Self::FileId, line_index: usize) -> Result<Range<usize>, Error> {
-        self.files.get(file_id.as_usize())?.line_range((), line_index)
+        self.0.get(file_id.as_usize())?.line_range((), line_index)
     }
 }

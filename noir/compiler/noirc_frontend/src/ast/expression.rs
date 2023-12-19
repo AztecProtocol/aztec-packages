@@ -50,13 +50,7 @@ impl ExpressionKind {
     }
 
     pub fn prefix(operator: UnaryOp, rhs: Expression) -> ExpressionKind {
-        match (operator, &rhs) {
-            (
-                UnaryOp::Minus,
-                Expression { kind: ExpressionKind::Literal(Literal::Integer(field, sign)), .. },
-            ) => ExpressionKind::Literal(Literal::Integer(*field, !sign)),
-            _ => ExpressionKind::Prefix(Box::new(PrefixExpression { operator, rhs })),
-        }
+        ExpressionKind::Prefix(Box::new(PrefixExpression { operator, rhs }))
     }
 
     pub fn array(contents: Vec<Expression>) -> ExpressionKind {
@@ -71,7 +65,7 @@ impl ExpressionKind {
     }
 
     pub fn integer(contents: FieldElement) -> ExpressionKind {
-        ExpressionKind::Literal(Literal::Integer(contents, false))
+        ExpressionKind::Literal(Literal::Integer(contents))
     }
 
     pub fn boolean(contents: bool) -> ExpressionKind {
@@ -106,7 +100,7 @@ impl ExpressionKind {
         };
 
         match literal {
-            Literal::Integer(integer, _) => Some(*integer),
+            Literal::Integer(integer) => Some(*integer),
             _ => None,
         }
     }
@@ -320,7 +314,7 @@ impl UnaryOp {
 pub enum Literal {
     Array(ArrayLiteral),
     Bool(bool),
-    Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
+    Integer(FieldElement),
     Str(String),
     RawStr(String, u8),
     FmtStr(String),
@@ -516,13 +510,7 @@ impl Display for Literal {
                 write!(f, "[{repeated_element}; {length}]")
             }
             Literal::Bool(boolean) => write!(f, "{}", if *boolean { "true" } else { "false" }),
-            Literal::Integer(integer, sign) => {
-                if *sign {
-                    write!(f, "-{}", integer.to_u128())
-                } else {
-                    write!(f, "{}", integer.to_u128())
-                }
-            }
+            Literal::Integer(integer) => write!(f, "{}", integer.to_u128()),
             Literal::Str(string) => write!(f, "\"{string}\""),
             Literal::RawStr(string, num_hashes) => {
                 let hashes: String =

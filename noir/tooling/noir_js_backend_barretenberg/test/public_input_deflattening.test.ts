@@ -38,21 +38,18 @@ const abi: Abi = {
     ],
   },
   return_type: {
-    abi_type: {
-      kind: 'tuple',
-      fields: [
-        {
-          kind: 'field',
-        },
-        {
-          kind: 'field',
-        },
-        {
-          kind: 'field',
-        },
-      ],
-    },
-    visibility: 'public',
+    kind: 'tuple',
+    fields: [
+      {
+        kind: 'field',
+      },
+      {
+        kind: 'field',
+      },
+      {
+        kind: 'field',
+      },
+    ],
   },
   return_witnesses: [2, 13, 13],
 };

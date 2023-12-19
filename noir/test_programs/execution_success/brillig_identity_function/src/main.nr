@@ -19,7 +19,7 @@ fn main(x: Field) {
     assert(x == identity_struct.foo_arr[1]);
 }
 
-unconstrained fn identity(x: Field) -> pub Field {
+unconstrained fn identity(x: Field) -> Field {
     x
 }
 

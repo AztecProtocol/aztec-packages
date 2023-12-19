@@ -73,7 +73,7 @@ mod tests {
     use nargo::constants::VERIFIER_INPUT_FILE;
     use noirc_abi::{
         input_parser::{Format, InputValue},
-        Abi, AbiParameter, AbiReturnType, AbiType, AbiVisibility,
+        Abi, AbiParameter, AbiType, AbiVisibility,
     };
     use tempfile::TempDir;
 
@@ -98,10 +98,7 @@ mod tests {
                     visibility: AbiVisibility::Private,
                 },
             ],
-            return_type: Some(AbiReturnType {
-                abi_type: AbiType::Field,
-                visibility: AbiVisibility::Public,
-            }),
+            return_type: Some(AbiType::Field),
 
             // Input serialization is only dependent on types, not position in witness map.
             // Neither of these should be relevant so we leave them empty.

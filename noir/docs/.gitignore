@@ -7,7 +7,7 @@
 # Generated files
 .docusaurus
 .cache-loader
-/docs/docs/reference/NoirJS
+/docs/docs/noir_js/reference/
 
 # Misc
 .DS_Store
@@ -22,4 +22,3 @@ yarn-debug.log*
 yarn-error.log*
 
 package-lock.json
-versions.json

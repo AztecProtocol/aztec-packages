@@ -48,9 +48,15 @@ pub(crate) fn run(
         Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
     )?;
 
-    let np_language = backend.get_backend_info()?;
+    let (np_language, opcode_support) = backend.get_backend_info()?;
     for package in &workspace {
-        let program = compile_bin_package(&workspace, package, &args.compile_options, np_language)?;
+        let program = compile_bin_package(
+            &workspace,
+            package,
+            &args.compile_options,
+            np_language,
+            &opcode_support,
+        )?;
 
         verify_package(backend, &workspace, package, program, &args.verifier_name)?;
     }

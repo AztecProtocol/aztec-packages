@@ -6,7 +6,6 @@ use noirc_frontend::{
 };
 
 use crate::{
-    rewrite,
     utils::{last_line_contains_single_line_comment, last_line_used_width, FindToken},
     visitor::expr::{format_seq, NewlineMode},
 };
@@ -123,8 +122,7 @@ impl super::FmtVisitor<'_> {
                 result.push_str("pub ");
             }
 
-            let typ = rewrite::typ(self, self.shape(), func.return_type());
-            result.push_str(&typ);
+            result.push_str(self.slice(span));
 
             let slice = self.slice(span.end()..func_span.start());
             if !slice.trim().is_empty() {

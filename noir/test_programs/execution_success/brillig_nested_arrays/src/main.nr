@@ -8,7 +8,7 @@ struct MyNote {
     header: Header,
 }
 
-unconstrained fn access_nested(notes: [MyNote; 2], x: Field, y: Field) -> pub Field {
+unconstrained fn access_nested(notes: [MyNote; 2], x: Field, y: Field) -> Field {
     notes[x].array[y] + notes[y].array[x] + notes[x].plain + notes[y].header.params[x]
 }
 

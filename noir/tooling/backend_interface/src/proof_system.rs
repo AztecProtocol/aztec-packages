@@ -11,7 +11,7 @@ use crate::cli::{
     GatesCommand, InfoCommand, ProofAsFieldsCommand, ProveCommand, VerifyCommand,
     VkAsFieldsCommand, WriteVkCommand,
 };
-use crate::{Backend, BackendError};
+use crate::{Backend, BackendError, BackendOpcodeSupport};
 
 impl Backend {
     pub fn get_exact_circuit_size(&self, circuit: &Circuit) -> Result<u32, BackendError> {
@@ -30,20 +30,21 @@ impl Backend {
             .run(binary_path)
     }
 
-    pub fn get_backend_info(&self) -> Result<Language, BackendError> {
+    pub fn get_backend_info(&self) -> Result<(Language, BackendOpcodeSupport), BackendError> {
         let binary_path = self.assert_binary_exists()?;
         self.assert_correct_version()?;
         InfoCommand { crs_path: self.crs_directory() }.run(binary_path)
     }
 
-    /// If we cannot get a valid backend, returns Plonk with width 3
+    /// If we cannot get a valid backend, returns the default backend which supports all the opcodes
+    /// and uses Plonk with width 3
     /// The function also prints a message saying we could not find a backend
-    pub fn get_backend_info_or_default(&self) -> Language {
-        if let Ok(language) = self.get_backend_info() {
-            language
+    pub fn get_backend_info_or_default(&self) -> (Language, BackendOpcodeSupport) {
+        if let Ok(backend_info) = self.get_backend_info() {
+            (backend_info.0, backend_info.1)
         } else {
-            log::warn!("No valid backend found, defaulting to Plonk with width 3");
-            Language::PLONKCSat { width: 3 }
+            println!("No valid backend found, defaulting to Plonk with width 3 and all opcodes supported");
+            (Language::PLONKCSat { width: 3 }, BackendOpcodeSupport::all())
         }
     }
 
