@@ -149,7 +149,6 @@ std::string AcirComposer::get_solidity_verifier()
 {
     std::ostringstream stream;
     output_vk_sol(stream, verification_key_, "UltraVerificationKey");
-
     return stream.str() + CONTRACT_SOURCE;
 }
 
