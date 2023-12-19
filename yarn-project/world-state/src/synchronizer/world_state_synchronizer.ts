@@ -1,4 +1,4 @@
-import { MerkleTreeOperations } from '../index.js';
+import { MerkleTreeOperations } from '../world-state-db/index.js';
 
 /**
  * Defines the possible states of the world state synchronizer.
@@ -48,9 +48,9 @@ export interface WorldStateSynchronizer {
   /**
    * Forces an immediate sync to an optionally provided minimum block number
    * @param minBlockNumber - The minimum block number that we must sync to
-   * @returns A promise that resolves once the sync has completed.
+   * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: number): Promise<void>;
+  syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
    * Returns an instance of MerkleTreeOperations that will include uncommitted data.

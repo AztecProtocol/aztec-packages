@@ -1,5 +1,4 @@
 use crate::common;
-use dep::aztec::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 use dep::std::unsafe;
 use dep::types::{
     abis::{
@@ -7,6 +6,7 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
     },
+    constants::EMPTY_NULLIFIED_COMMITMENT,
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
     utils::arrays::is_empty_array,
@@ -117,7 +117,7 @@ impl PrivateKernelInputsInit {
 
 mod tests {
     use crate::private_kernel_init::PrivateKernelInputsInit;
-    use dep::aztec::constants_gen::{
+    use dep::types::constants::{
         MAX_READ_REQUESTS_PER_CALL,
     };
     use dep::types::{
@@ -126,7 +126,7 @@ mod tests {
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             private_kernel::private_call_data::PrivateCallData,
         },
-        address::Address,
+        address::AztecAddress,
         hash::{
             compute_constructor_hash,
             compute_logs_hash,
@@ -320,7 +320,7 @@ mod tests {
     fn contract_deployment_incorrect_contract_address_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.tx_request.origin = random_address;
         builder.private_call.contract_address = random_address;
@@ -332,7 +332,7 @@ mod tests {
     fn contract_deployment_contract_address_mismatch_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        let random_address = Address::from_field(27);
+        let random_address = AztecAddress::from_field(27);
         builder.private_call.public_inputs.call_context.storage_contract_address = random_address;
         builder.private_call.contract_address = random_address;
 
@@ -402,7 +402,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         // Set the storage_contract_address to a random scalar.
-        builder.private_call.public_inputs.call_context.storage_contract_address = Address::from_field(356);
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(356);
 
         builder.failed();
     }

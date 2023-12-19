@@ -64,7 +64,9 @@
  */
 
 #pragma once
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
+#include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
@@ -105,7 +107,14 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     barretenberg::EvaluationDomain<FF> evaluation_domain;
 
-    auto precomputed_polynomials_pointer_view() { return PrecomputedPolynomials::pointer_view(); }
+    std::vector<std::string> get_labels() const
+    {
+        return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
+    }
+    // This order matters! must match get_unshifted in entity classes
+    RefVector<Polynomial> get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
+    RefVector<Polynomial> get_witness_polynomials() { return WitnessPolynomials::get_all(); }
+    RefVector<Polynomial> get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -114,12 +123,12 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
-        for (auto* poly : PrecomputedPolynomials::pointer_view()) {
-            *poly = Polynomial(circuit_size);
+        for (auto& poly : PrecomputedPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
         }
         // Allocate memory for witness polynomials
-        for (auto* poly : WitnessPolynomials::pointer_view()) {
-            *poly = Polynomial(circuit_size);
+        for (auto& poly : WitnessPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
         }
     };
 };
@@ -298,6 +307,16 @@ template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>
 template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
 
 template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
+
+template <typename Container, typename Element>
+inline std::string flavor_get_label(Container&& container, const Element& element) {
+    for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {
+        if (&data == &element) {
+            return label;
+        }
+    }
+    return "(unknown label)";
+}
 
 // clang-format on
 } // namespace proof_system

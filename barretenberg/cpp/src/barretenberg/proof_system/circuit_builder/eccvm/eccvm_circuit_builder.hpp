@@ -7,7 +7,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/honk/proof_system/lookup_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -39,7 +39,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     using VMOperation = proof_system_eccvm::VMOperation<CycleGroup>;
     std::shared_ptr<ECCOpQueue> op_queue;
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
-    using AllPolynomials = typename Flavor::AllPolynomials;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     ECCVMCircuitBuilder()
         : op_queue(std::make_shared<ECCOpQueue>()){};
@@ -315,9 +315,9 @@ template <typename Flavor> class ECCVMCircuitBuilder {
      (reads come from msm_x/y1, msm_x/y2)
      *          lookup_read_counts_1: stores number of times a point has been read from a Straus precomputation table
      (reads come from msm_x/y3, msm_x/y4)
-     * @return AllPolynomials
+     * @return ProverPolynomials
      */
-    AllPolynomials compute_polynomials()
+    ProverPolynomials compute_polynomials()
     {
         const auto msms = get_msms();
         const auto flattened_muls = get_flattened_scalar_muls(msms);
@@ -339,9 +339,9 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
-        AllPolynomials polys;
-        for (auto* poly : polys.pointer_view()) {
-            *poly = Polynomial(num_rows_pow2);
+        ProverPolynomials polys;
+        for (auto& poly : polys.get_all()) {
+            poly = Polynomial(num_rows_pow2);
         }
 
         polys.lagrange_first[0] = 1;
@@ -505,9 +505,9 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
         auto polynomials = compute_polynomials();
         const size_t num_rows = polynomials.get_polynomial_size();
-        proof_system::honk::lookup_library::compute_logderivative_inverse<Flavor,
-                                                                          honk::sumcheck::ECCVMLookupRelation<FF>>(
-            polynomials, params, num_rows);
+        proof_system::honk::logderivative_library::
+            compute_logderivative_inverse<Flavor, honk::sumcheck::ECCVMLookupRelation<FF>>(
+                polynomials, params, num_rows);
 
         honk::permutation_library::compute_permutation_grand_product<Flavor, honk::sumcheck::ECCVMSetRelation<FF>>(
             num_rows, polynomials, params);

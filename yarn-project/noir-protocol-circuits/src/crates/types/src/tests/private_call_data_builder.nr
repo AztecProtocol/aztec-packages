@@ -11,7 +11,7 @@ use crate::{
         private_circuit_public_inputs::{PrivateCircuitPublicInputs},
         private_kernel::private_call_data::PrivateCallData,
     },
-    address::{Address, EthAddress},
+    address::{AztecAddress, EthAddress},
     hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
@@ -26,17 +26,15 @@ use crate::{
         bounded_vec::BoundedVec,
     },
 };
-use dep::aztec::{
-    constants_gen::{
+use crate::constants::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-    },
 };
 
 struct PrivateCallDataBuilder {
     // Values of PrivateCallStackItem.
-    contract_address: Address,
+    contract_address: AztecAddress,
     public_inputs: PrivateCircuitPublicInputsBuilder,
     is_execution_request: bool,
     function_data: FunctionData,

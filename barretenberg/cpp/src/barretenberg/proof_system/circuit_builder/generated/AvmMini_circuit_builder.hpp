@@ -51,7 +51,7 @@ class AvmMiniCircuitBuilder {
 
     // TODO: template
     using Polynomial = Flavor::Polynomial;
-    using AllPolynomials = Flavor::AllPolynomials;
+    using ProverPolynomials = Flavor::ProverPolynomials;
 
     static constexpr size_t num_fixed_columns = 25;
     static constexpr size_t num_polys = 22;
@@ -59,14 +59,14 @@ class AvmMiniCircuitBuilder {
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
 
-    AllPolynomials compute_polynomials()
+    ProverPolynomials compute_polynomials()
     {
         const auto num_rows = get_circuit_subgroup_size();
-        AllPolynomials polys;
+        ProverPolynomials polys;
 
         // Allocate mem for each column
-        for (auto* poly : polys.pointer_view()) {
-            *poly = Polynomial(num_rows);
+        for (auto& poly : polys.get_all()) {
+            poly = Polynomial(num_rows);
         }
 
         for (size_t i = 0; i < rows.size(); i++) {
@@ -103,7 +103,7 @@ class AvmMiniCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
-        auto polys = compute_polynomials();
+        ProverPolynomials polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {

@@ -84,7 +84,7 @@ template <typename T> class RefVector {
         std::size_t pos;
     };
 
-    [[nodiscard]] std::size_t size() const { return storage.size(); }
+    std::size_t size() const { return storage.size(); }
 
     void push_back(T& element) { storage.push_back(element); }
     iterator begin() const { return iterator(this, 0); }
@@ -139,6 +139,7 @@ template <typename T> RefVector<T> concatenate(const RefVector<T>& ref_vector, c
     return concatenated;
 }
 
+/* @details Ensures a nested vector holds reference objects */
 template <typename T> static std::vector<RefVector<T>> to_vector_of_ref_vectors(std::vector<std::vector<T>>& vec)
 {
     std::vector<RefVector<T>> result;

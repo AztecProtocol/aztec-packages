@@ -201,9 +201,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     template <typename DataType>
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>::get_all(), DerivedWitnessEntities<DataType>::get_all())
-        DEFINE_COMPOUND_POINTER_VIEW(WireEntities<DataType>::pointer_view(),
-                                     DerivedWitnessEntities<DataType>::pointer_view())
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
         RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
         // The sorted concatenations of table and witness data needed for plookup.
         RefVector<DataType> get_sorted_polynomials() { return {}; };
@@ -242,6 +240,38 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
                               precompute_select_shift,            // column 24
                               z_perm_shift);                      // column 25
     };
+
+    template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
+    static RefVector<DataType> get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
+    {
+        // NOTE: must match order of ShiftedEntities above!
+        return { entities.transcript_mul,
+                 entities.transcript_msm_count,
+                 entities.transcript_accumulator_x,
+                 entities.transcript_accumulator_y,
+                 entities.precompute_scalar_sum,
+                 entities.precompute_s1hi,
+                 entities.precompute_dx,
+                 entities.precompute_dy,
+                 entities.precompute_tx,
+                 entities.precompute_ty,
+                 entities.msm_transition,
+                 entities.msm_add,
+                 entities.msm_double,
+                 entities.msm_skew,
+                 entities.msm_accumulator_x,
+                 entities.msm_accumulator_y,
+                 entities.msm_count,
+                 entities.msm_round,
+                 entities.msm_add1,
+                 entities.msm_pc,
+                 entities.precompute_pc,
+                 entities.transcript_pc,
+                 entities.precompute_round,
+                 entities.transcript_accumulator_empty,
+                 entities.precompute_select,
+                 entities.z_perm };
+    }
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -265,47 +295,14 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         {}
         // get_wires is inherited
 
-        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>::get_all(),
-                                WitnessEntities<DataType>::get_all(),
-                                ShiftedEntities<DataType>::get_all())
-        DEFINE_COMPOUND_POINTER_VIEW(PrecomputedEntities<DataType>::pointer_view(),
-                                     WitnessEntities<DataType>::pointer_view(),
-                                     ShiftedEntities<DataType>::pointer_view())
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         // Gemini-specific getters.
         RefVector<DataType> get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        RefVector<DataType> get_to_be_shifted()
-        {
-            return { this->transcript_mul,
-                     this->transcript_msm_count,
-                     this->transcript_accumulator_x,
-                     this->transcript_accumulator_y,
-                     this->precompute_scalar_sum,
-                     this->precompute_s1hi,
-                     this->precompute_dx,
-                     this->precompute_dy,
-                     this->precompute_tx,
-                     this->precompute_ty,
-                     this->msm_transition,
-                     this->msm_add,
-                     this->msm_double,
-                     this->msm_skew,
-                     this->msm_accumulator_x,
-                     this->msm_accumulator_y,
-                     this->msm_count,
-                     this->msm_round,
-                     this->msm_add1,
-                     this->msm_pc,
-                     this->precompute_pc,
-                     this->transcript_pc,
-                     this->precompute_round,
-                     this->transcript_accumulator_empty,
-                     this->precompute_select,
-                     this->z_perm };
-        }
+        RefVector<DataType> get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<DataType>(*this); }
         RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -321,6 +318,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
+        RefVector<Polynomial> get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<Polynomial>(*this); }
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 3> get_table_column_wires() { return {}; };
     };
@@ -353,29 +351,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 
     /**
-     * @brief An owning container of polynomials.
-     * @warning When this was introduced it broke some of our design principles.
-     *   - Execution trace builders don't handle "polynomials" because the interpretation of the execution trace
-     * columns as polynomials is a detail of the proving system, and trace builders are (sometimes in practice,
-     * always in principle) reusable for different proving protocols (e.g., Plonk and Honk).
-     *   - Polynomial storage is handled by key classes. Polynomials aren't moved, but are accessed elsewhere by
-     * std::spans.
-     *
-     *  We will consider revising this data model: TODO(https://github.com/AztecProtocol/barretenberg/issues/743)
-     */
-    class AllPolynomials : public AllEntities<Polynomial> {
-      public:
-        [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
-        AllValues get_row(const size_t row_idx) const
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
-            }
-            return result;
-        }
-    };
-    /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
@@ -391,8 +366,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto* poly : this->pointer_view()) {
-                *poly = Polynomial(circuit_size / 2);
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };
@@ -408,10 +383,18 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
     /**
-     * @brief A container for the prover polynomials handles; only stores spans.
+     * @brief A container for the prover polynomials.
      */
-    class ProverPolynomials : public AllEntities<PolynomialHandle> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        // Define all operations as default, except move construction/assignment
+        ProverPolynomials() = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
@@ -419,8 +402,8 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         AllValues get_row(const size_t row_idx)
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.pointer_view(), this->pointer_view())) {
-                *result_field = (*polynomial)[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                result_field = polynomial[row_idx];
             }
             return result;
         }
@@ -524,17 +507,12 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     };
 
     class VerifierCommitments : public AllEntities<Commitment> {
-      private:
-        using Base = AllEntities<Commitment>;
-
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            [[maybe_unused]] const BaseTranscript& transcript)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            static_cast<void>(transcript);
-            Base::lagrange_first = verification_key->lagrange_first;
-            Base::lagrange_second = verification_key->lagrange_second;
-            Base::lagrange_last = verification_key->lagrange_last;
+            this->lagrange_first = verification_key->lagrange_first;
+            this->lagrange_second = verification_key->lagrange_second;
+            this->lagrange_last = verification_key->lagrange_last;
         }
     };
 

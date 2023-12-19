@@ -34,6 +34,11 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
+locals {
+  api_prefix = "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_KEY}"
+  rpc_url = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+}
+
 
 resource "aws_cloudwatch_log_group" "aztec-faucet" {
   name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-faucet"
@@ -72,18 +77,17 @@ resource "aws_service_discovery_service" "aztec-faucet" {
 
 # Define task definition and service.
 resource "aws_ecs_task_definition" "aztec-faucet" {
-  family                   = "${var.DEPLOY_TAG}-faucet"
+  family                   = "${var.DEPLOY_TAG}-aztec-faucet"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "2048"
   memory                   = "4096"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
-
-  container_definitions = <<DEFINITIONS
+  container_definitions    = <<DEFINITIONS
 [
   {
-    "name": "${var.DEPLOY_TAG}-faucet",
+    "name": "${var.DEPLOY_TAG}-aztec-faucet",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec-faucet:${var.DEPLOY_TAG}",
     "essential": true,
     "memoryReservation": 3776,
@@ -107,15 +111,11 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       },
       {
         "name": "RPC_URL",
-        "value": "${var.RPC_URL}"
-      },
-      {
-        "name": "API_KEY",
-        "value": "${var.API_KEY}"
+        "value": "${local.rpc_url}"
       },
       {
         "name": "API_PREFIX",
-        "value": "/${var.DEPLOY_TAG}/aztec-faucet/${API_PREFIX}"
+        "value": "${local.api_prefix}"
       },
       {
         "name": "CHAIN_ID",
@@ -123,8 +123,8 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       },
       {
         "name": "PRIVATE_KEY",
-        "value": "${var.PRIVATE_KEY}"
-      }
+        "value": "${var.FAUCET_PRIVATE_KEY}"
+      },
       {
         "name": "INTERVAL",
         "value": "86400"
@@ -148,7 +148,7 @@ DEFINITIONS
 }
 
 resource "aws_ecs_service" "aztec-faucet" {
-  name                               = "${var.DEPLOY_TAG}-faucet"
+  name                               = "${var.DEPLOY_TAG}-aztec-faucet"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = 1
@@ -166,13 +166,13 @@ resource "aws_ecs_service" "aztec-faucet" {
 
   load_balancer {
     target_group_arn = aws_alb_target_group.aztec-faucet.arn
-    container_name   = "${var.DEPLOY_TAG}-faucet"
+    container_name   = "${var.DEPLOY_TAG}-aztec-faucet"
     container_port   = 80
   }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-faucet.arn
-    container_name = "${var.DEPLOY_TAG}-faucet"
+    container_name = "${var.DEPLOY_TAG}-aztec-faucet"
     container_port = 80
   }
 
@@ -189,7 +189,7 @@ resource "aws_alb_target_group" "aztec-faucet" {
   deregistration_delay = 5
 
   health_check {
-    path                = "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_PREFIX}/status"
+    path                = "${local.api_prefix}/status"
     matcher             = "200"
     interval            = 10
     healthy_threshold   = 2
@@ -204,7 +204,7 @@ resource "aws_alb_target_group" "aztec-faucet" {
 
 resource "aws_lb_listener_rule" "api-1" {
   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 500
+  priority     = 600
 
   action {
     type             = "forward"

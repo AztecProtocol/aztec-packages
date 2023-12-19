@@ -1,7 +1,6 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
-  CompleteAddress,
   ContractData,
   ExtendedContractData,
   ExtendedNote,
@@ -165,10 +164,10 @@ export interface PXE {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot (or undefined if not found).
+   * @returns Storage value at the given contract slot.
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined>;
+  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Gets notes of accounts registered in this PXE based on the provided filter.

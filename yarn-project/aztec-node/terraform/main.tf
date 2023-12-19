@@ -1,9 +1,3 @@
-# Terraform to setup a prototype network of Aztec Nodes in AWS
-# It sets up 2 full nodes with different ports/keys etc.
-# Some duplication across the 2 defined services, could possibly
-# be refactored to use modules as and when we build out infrastructure for real
-
-
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
@@ -65,9 +59,10 @@ locals {
   node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
   node_count             = length(local.publisher_private_keys)
   bootnodes = [for i in range(0, local.node_count) :
-    "/dns4/${var.DEPLOY_TAG}-aztec-bootstrap-${i + 1}.local/tcp/${var.BOOTNODE_LISTEN_PORT + i}/p2p/${bootnode_ids[i]}"
+    "/dns4/${var.DEPLOY_TAG}-p2p-bootstrap-${i + 1}.local/tcp/${var.BOOTNODE_LISTEN_PORT + i}/p2p/${local.bootnode_ids[i]}"
   ]
   combined_bootnodes = join(",", local.bootnodes)
+  data_dir           = "/usr/src/yarn-project/aztec-sandbox/data"
 }
 
 resource "aws_cloudwatch_log_group" "aztec-node-log-group" {
@@ -107,9 +102,38 @@ resource "aws_service_discovery_service" "aztec-node" {
   }
 }
 
+# Configure an EFS filesystem.
+resource "aws_efs_file_system" "node_data_store" {
+  count                           = local.node_count
+  creation_token                  = "${var.DEPLOY_TAG}-node-${count.index + 1}-data"
+  throughput_mode                 = "provisioned"
+  provisioned_throughput_in_mibps = 20
+
+  tags = {
+    Name = "${var.DEPLOY_TAG}-node-${count.index + 1}-data"
+  }
+
+  lifecycle_policy {
+    transition_to_ia = "AFTER_14_DAYS"
+  }
+}
+
+resource "aws_efs_mount_target" "private_az1" {
+  count           = local.node_count
+  file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
+  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+}
+
+resource "aws_efs_mount_target" "private_az2" {
+  count           = local.node_count
+  file_system_id  = aws_efs_file_system.node_data_store[count.index].id
+  subnet_id       = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+  security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+}
+
 # Define task definitions for each node.
 resource "aws_ecs_task_definition" "aztec-node" {
-  # for_each                 = var.node_keys
   count                    = local.node_count
   family                   = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
   requires_compatibilities = ["FARGATE"]
@@ -118,7 +142,15 @@ resource "aws_ecs_task_definition" "aztec-node" {
   memory                   = "4096"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
-  container_definitions    = <<DEFINITIONS
+
+  volume {
+    name = "efs-data-store"
+    efs_volume_configuration {
+      file_system_id = aws_efs_file_system.node_data_store[count.index].id
+    }
+  }
+
+  container_definitions = <<DEFINITIONS
 [
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}",
@@ -130,7 +162,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "containerPort": 80
       },
       {
-        "containerPort": ${var.NODE_TCP_PORT + count.index + 1}
+        "containerPort": ${var.NODE_TCP_PORT + count.index}
       }
     ],
     "environment": [
@@ -147,6 +179,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "value": "${var.DEPLOY_TAG}"
       },
       {
+        "name": "DEPLOY_AZTEC_CONTRACTS",
+        "value": "false"
+      },
+      {
         "name": "AZTEC_NODE_PORT",
         "value": "80"
       },
@@ -156,7 +192,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
       },
       {
         "name": "ETHEREUM_HOST",
-        "value": "testnet"
+        "value": "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+      },
+      {
+        "name": "DATA_DIRECTORY",
+        "value": "${local.data_dir}"
       },
       {
         "name": "ARCHIVER_POLLING_INTERVAL",
@@ -189,6 +229,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "INBOX_CONTRACT_ADDRESS",
         "value": "${data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address}"
+      },
+      {
+        "name": "OUTBOX_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address}"
       },
       {
         "name": "REGISTRY_CONTRACT_ADDRESS",
@@ -241,6 +285,12 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "P2P_MAX_PEERS",
         "value": "${var.P2P_MAX_PEERS}"
+      }
+    ],
+    "mountPoints": [
+      {
+        "containerPath": "${local.data_dir}",
+        "sourceVolume": "efs-data-store"
       }
     ],
     "logConfiguration": {
@@ -333,7 +383,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/${var.DEPLOY_TAG}/aztec-node-${count.index}*"]
+      values = ["/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}*"]
     }
   }
 }
@@ -365,10 +415,6 @@ resource "aws_security_group_rule" "allow-node-tcp" {
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
-## Commented out here and setup manually as terraform (or the aws provider version we are using) has a bug
-## NLB listeners can't have a 'weight' property defined. You will see there isn't one here but that doesn't
-## stop it trying to automatically specify one and giving an error
-
 resource "aws_lb_listener" "aztec-node-tcp-listener" {
   count             = local.node_count
   load_balancer_arn = data.terraform_remote_state.aztec-network_iac.outputs.nlb_arn
@@ -380,12 +426,7 @@ resource "aws_lb_listener" "aztec-node-tcp-listener" {
   }
 
   default_action {
-    type = "forward"
-
-    forward {
-      target_group {
-        arn = aws_lb_target_group.aztec-bootstrap-target-group[count.index].arn
-      }
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.aztec-node-target-group[count.index].arn
   }
 }

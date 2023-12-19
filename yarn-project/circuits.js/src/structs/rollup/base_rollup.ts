@@ -2,15 +2,16 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  BLOCKS_TREE_HEIGHT,
+  ARCHIVE_HEIGHT,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   KERNELS_PER_BASE_ROLLUP,
   MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-  MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { FieldsOf } from '../../utils/jsUtils.js';
@@ -20,35 +21,10 @@ import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { NullifierLeaf, NullifierLeafPreimage } from './nullifier_leaf/index.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from './public_data_leaf/index.js';
 
-/**
- * Class containing the data of a preimage of a single leaf in the nullifier tree.
- * Note: It's called preimage because this data gets hashed before being inserted as a node into the `IndexedTree`.
- */
-export class NullifierLeafPreimage {
-  constructor(
-    /**
-     * Leaf value inside the indexed tree's linked list.
-     */
-    public leafValue: Fr,
-    /**
-     * Next value inside the indexed tree's linked list.
-     */
-    public nextValue: Fr,
-    /**
-     * Index of the next leaf in the indexed tree's linked list.
-     */
-    public nextIndex: UInt32,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.leafValue, this.nextValue, this.nextIndex);
-  }
-
-  static empty() {
-    return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0);
-  }
-}
+export { NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage };
 
 /**
  * Data which is forwarded through the base rollup circuits unchanged.
@@ -58,7 +34,7 @@ export class ConstantRollupData {
     /**
      * Snapshot of the blocks tree at the start of the rollup.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -100,7 +76,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.startBlocksTreeSnapshot,
+      fields.archiveSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -136,13 +112,13 @@ export class BaseRollupInputs {
      */
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Root of the public data tree at the start of the base rollup circuit.
+     * Snapshot of the public data tree at the start of the base rollup circuit.
      */
-    public startPublicDataTreeRoot: Fr,
+    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the blocks tree at the start of the base rollup circuit.
      */
-    public startBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    public archiveSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * The nullifiers to be inserted in the tree, sorted high to low.
@@ -165,6 +141,7 @@ export class BaseRollupInputs {
       MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
       typeof MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP
     >,
+
     /**
      * Sibling path "pointing to" where the new commitments subtree should be inserted into the note hash tree.
      */
@@ -178,26 +155,65 @@ export class BaseRollupInputs {
      */
     public newContractsSubtreeSiblingPath: Tuple<Fr, typeof CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
-     * Sibling paths of leaves which are to be affected by the public data update requests.
-     * Each item in the array is the sibling path that corresponds to an update request.
+     * The public data writes to be inserted in the tree, sorted high slot to low slot.
      */
-    public newPublicDataUpdateRequestsSiblingPaths: Tuple<
-      Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP
+    public sortedPublicDataWrites: Tuple<
+      Tuple<PublicDataTreeLeaf, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
+    >,
+    /**
+     * The indexes of the sorted public data writes to the original ones.
+     */
+    public sortedPublicDataWritesIndexes: Tuple<
+      Tuple<UInt32, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
+    >,
+    /**
+     * The public data writes which need to be updated to perform the batch insertion of the new public data writes.
+     * See `StandardIndexedTree.batchInsert` function for more details.
+     */
+    public lowPublicDataWritesPreimages: Tuple<
+      Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
+    >,
+    /**
+     * Membership witnesses for the nullifiers which need to be updated to perform the batch insertion of the new
+     * nullifiers.
+     */
+    public lowPublicDataWritesMembershipWitnesses: Tuple<
+      Tuple<MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
+    >,
+
+    /**
+     * Sibling path "pointing to" where the new public data subtree should be inserted into the public data tree.
+     */
+    public publicDataWritesSubtreeSiblingPaths: Tuple<
+      Tuple<Fr, typeof PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
+      typeof KERNELS_PER_BASE_ROLLUP
+    >,
+
+    /**
+     * Preimages of leaves which are to be read by the public data reads.
+     */
+    public publicDataReadsPreimages: Tuple<
+      Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
      * Sibling paths of leaves which are to be read by the public data reads.
      * Each item in the array is the sibling path that corresponds to a read request.
      */
-    public newPublicDataReadsSiblingPaths: Tuple<
-      Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP
+    public publicDataReadsMembershipWitnesses: Tuple<
+      Tuple<MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
+      typeof KERNELS_PER_BASE_ROLLUP
     >,
+
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public blocksTreeRootMembershipWitnesses: Tuple<
-      MembershipWitness<typeof BLOCKS_TREE_HEIGHT>,
+    public archiveRootMembershipWitnesses: Tuple<
+      MembershipWitness<typeof ARCHIVE_HEIGHT>,
       typeof KERNELS_PER_BASE_ROLLUP
     >,
     /**
@@ -216,8 +232,8 @@ export class BaseRollupInputs {
       fields.startNoteHashTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
-      fields.startPublicDataTreeRoot,
-      fields.startBlocksTreeSnapshot,
+      fields.startPublicDataTreeSnapshot,
+      fields.archiveSnapshot,
       fields.sortedNewNullifiers,
       fields.sortednewNullifiersIndexes,
       fields.lowNullifierLeafPreimages,
@@ -225,9 +241,14 @@ export class BaseRollupInputs {
       fields.newCommitmentsSubtreeSiblingPath,
       fields.newNullifiersSubtreeSiblingPath,
       fields.newContractsSubtreeSiblingPath,
-      fields.newPublicDataUpdateRequestsSiblingPaths,
-      fields.newPublicDataReadsSiblingPaths,
-      fields.blocksTreeRootMembershipWitnesses,
+      fields.sortedPublicDataWrites,
+      fields.sortedPublicDataWritesIndexes,
+      fields.lowPublicDataWritesPreimages,
+      fields.lowPublicDataWritesMembershipWitnesses,
+      fields.publicDataWritesSubtreeSiblingPaths,
+      fields.publicDataReadsPreimages,
+      fields.publicDataReadsMembershipWitnesses,
+      fields.archiveRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }
