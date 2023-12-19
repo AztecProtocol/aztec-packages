@@ -55,9 +55,18 @@ encrypt_and_tag<N>({ public_keys: Field[], recipient: AztecAddress, plaintext: F
 
 Same as `encrypt_and_tag`, but batched using the same logic as `encrypt<N>`.
 
+```
+decrypt(public_keys: Field[], owner: AztecAddress, cyphertext: Field[]): Field[]
+```
+
+Decrypts the given cyphertext, encrypted for the provided owner. Instead of receiving the decryption key, this method triggers an oracle call to fetch the private decryption key directly from the local PXE and validates it against the supplied public key, in order to avoid leaking a user secret to untrusted application code. This method is intended for provable decryption use cases.
+
+
 ## Defined precompiles
 
 List of precompiles defined by the protocol and their assigned address.
+
+<!-- TODO: Should we have a precompile for delegation? Or handle that at the registry/app level? Probably registry, since precompiles cannot go back to the registry to re-read? -->
 
 ### Noop
 
