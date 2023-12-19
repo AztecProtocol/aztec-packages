@@ -10,7 +10,7 @@
 set -eu
 
 REPOSITORY=$1
-COMPOSE_FILE=${2:-./docker-compose.yml}
+COMPOSE_FILE=$2
 shift 2
 
 BASE_TAG=$(calculate_image_tag $REPOSITORY)
