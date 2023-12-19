@@ -179,6 +179,8 @@ boxes-blank:
   dependencies:
     - yarn-project-prod
   runDependencies:
+    # We build as part of run, so include build deps.
+    - yarn-project-prod
     - aztec-sandbox
 
 # boxes-token:
