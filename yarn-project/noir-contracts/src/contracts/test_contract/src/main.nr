@@ -157,7 +157,13 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(to: Field, amount: Field, canceller: Field, msg_key: Field, secret: Field) {
+    fn consume_mint_public_message(
+        to: Field,
+        amount: Field,
+        canceller: Field,
+        msg_key: Field,
+        secret: Field
+    ) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(msg_key, content_hash, secret);
@@ -182,13 +188,13 @@ contract Test {
         storage.example_constant.initialize(&mut note, Option::none(), false);
     }
 
-    unconstrained fn get_constant() -> Field {
+    unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(kindaSeed: Field) -> Field {
+    unconstrained fn get_random(kindaSeed: Field) -> pub Field {
         kindaSeed * rand()
     }
 
@@ -220,7 +226,12 @@ contract Test {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; FIELD_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; FIELD_NOTE_LEN]
+    ) -> pub [Field; 4] {
         assert(storage_slot == 1);
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(FieldNoteMethods, note_header, serialized_note)

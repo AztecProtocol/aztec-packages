@@ -77,22 +77,18 @@ contract InclusionProofs {
 
     // Creates a value note owned by `owner`.
     #[aztec(private)]
-    fn create_note(
-        owner: AztecAddress,
-        value: Field,
-    ) {
+    fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner.address);
         let mut note = ValueNote::new(value, owner.address);
         owner_private_values.insert(&mut note, true);
     }
-
 
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
     fn test_note_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the note exists
-        spare_commitment: Field, // This is only used when the note is not found --> used to test the failure case
+        spare_commitment: Field // This is only used when the note is not found --> used to test the failure case
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner.address);
@@ -102,7 +98,12 @@ contract InclusionProofs {
 
         // 2) Prove the note inclusion
         if maybe_note.is_some() {
-            prove_note_inclusion(ValueNoteMethods, maybe_note.unwrap_unchecked(), block_number, context);
+            prove_note_inclusion(
+                ValueNoteMethods,
+                maybe_note.unwrap_unchecked(),
+                block_number,
+                context
+            );
         } else {
             // Note was not found so we will prove inclusion of the spare commitment
             prove_note_commitment_inclusion(spare_commitment, block_number, context);
@@ -114,7 +115,7 @@ contract InclusionProofs {
     fn test_nullifier_non_inclusion_proof(
         owner: AztecAddress,
         block_number: u32, // The block at which we'll prove that the nullifier does not exists
-        spare_nullifier: Field, // This is only used when the note is not found --> used to test the failure case
+        spare_nullifier: Field // This is only used when the note is not found --> used to test the failure case
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner.address);
@@ -124,7 +125,12 @@ contract InclusionProofs {
 
         // 3) Compute the nullifier from the note
         if maybe_note.is_some() {
-            prove_note_not_nullified(ValueNoteMethods, maybe_note.unwrap_unchecked(), block_number, context);
+            prove_note_not_nullified(
+                ValueNoteMethods,
+                maybe_note.unwrap_unchecked(),
+                block_number,
+                context
+            );
         } else {
             // Note was not found so we will use the spare nullifier
             prove_nullifier_non_inclusion(spare_nullifier, block_number, context);
@@ -134,7 +140,7 @@ contract InclusionProofs {
     #[aztec(private)]
     fn test_note_validity_proof(
         owner: AztecAddress,
-        block_number: u32, // The block at which we'll prove that the note exists and is not nullified
+        block_number: u32 // The block at which we'll prove that the note exists and is not nullified
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner.address);
@@ -147,9 +153,7 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
-    fn nullify_note(
-        owner: AztecAddress,
-    ) {
+    fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner.address);
         let options = NoteGetterOptions::new().select(1, owner.address).set_limit(1);
         let notes = private_values.get_notes(options);
@@ -164,7 +168,7 @@ contract InclusionProofs {
     #[aztec(private)]
     fn test_nullifier_inclusion_proof(
         nullifier: Field,
-        block_number: u32, // The block at which we'll prove that the nullifier not exists in the tree
+        block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
     ) {
         prove_nullifier_inclusion(nullifier, block_number, context);
     }
@@ -172,15 +176,25 @@ contract InclusionProofs {
     #[aztec(private)]
     fn test_public_value_inclusion_proof(
         public_value: Field,
-        block_number: u32, // The block at which we'll prove that the public value exists
+        block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        prove_public_value_inclusion(public_value, storage.public_value.storage_slot, block_number, context);
+        prove_public_value_inclusion(
+            public_value,
+            storage.public_value.storage_slot,
+            block_number,
+            context
+        );
     }
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(
+        contract_address: Field,
+        nonce: Field,
+        storage_slot: Field,
+        serialized_note: [Field; VALUE_NOTE_LEN]
+    ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
