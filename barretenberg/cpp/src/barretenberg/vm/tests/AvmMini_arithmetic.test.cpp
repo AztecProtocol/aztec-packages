@@ -69,8 +69,6 @@ TEST_F(AvmMiniArithmeticTests, additionFF)
     trace_builder.returnOP(0, 5);
     auto trace = trace_builder.finalize();
 
-    info("Built circuit with ", trace.size(), " rows");
-
     // Find the first row enabling the addition selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
 

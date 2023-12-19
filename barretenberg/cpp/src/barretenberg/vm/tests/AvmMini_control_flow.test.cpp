@@ -6,6 +6,7 @@
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
+#include "helpers.test.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -29,34 +30,6 @@ class AvmMiniControlFlowTests : public ::testing::Test {
         trace_builder = AvmMiniTraceBuilder(); // Clean instance for every run.
     };
 };
-
-// We add some helper functions in the anonymous namespace.
-namespace {
-
-/**
- * @brief Helper routine proving and verifying a proof based on the supplied trace
- *
- * @param trace The execution trace
- */
-void validateTraceProof(std::vector<Row>&& trace)
-{
-    auto circuit_builder = AvmMiniCircuitBuilder();
-    circuit_builder.set_trace(std::move(trace));
-
-    EXPECT_TRUE(circuit_builder.check_circuit());
-
-    auto composer = honk::AvmMiniComposer();
-    auto prover = composer.create_prover(circuit_builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_verifier(circuit_builder);
-    bool verified = verifier.verify_proof(proof);
-
-    if (!verified) {
-        log_avmMini_trace(circuit_builder.rows, 0, 10);
-    }
-};
-} // anonymous namespace
 
 /******************************************************************************
  *

@@ -615,7 +615,7 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)
  *          - Set the next program counter to the return location
  *          - Decrement the return stack pointer
  *
- *  TODO(ISSUENUMBER): This function must come after a call instruction.
+ *  TODO(https://github.com/AztecProtocol/aztec-packages/issues/3740): This function MUST come after a call instruction.
  */
 void AvmMiniTraceBuilder::internal_return()
 {

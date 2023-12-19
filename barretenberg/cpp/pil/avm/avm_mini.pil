@@ -154,16 +154,17 @@ namespace avmMini(256);
     // Imply that we must load the return location into mem_idx_a
     
     #[RETURN_POINTER_INCREMENT]
-    sel_internal_call * ( internal_return_ptr' - ( internal_return_ptr + 1)) = 0; // we increment our jump selector
+    sel_internal_call * ( internal_return_ptr' - ( internal_return_ptr + 1)) = 0;
     sel_internal_call * ( internal_return_ptr - mem_idx_a) = 0;
     sel_internal_call * ((pc + 1) - ia) = 0;
+    
     // TODO(md): Below relations may be removed through sub-op table lookup
     sel_internal_call * (rwa - 1) = 0;
     sel_internal_call * (mem_op_a - 1) = 0;
     
     // We must load the memory pointer to be the  internal_return_ptr 
     #[RETURN_POINTER_DECREMENT]
-    sel_internal_return * ( internal_return_ptr' - ( internal_return_ptr - 1)) = 0; // We decrement out jump selector
+    sel_internal_return * ( internal_return_ptr' - ( internal_return_ptr - 1)) = 0;
     sel_internal_return * ( (internal_return_ptr - 1) - mem_idx_a) = 0;
     sel_internal_return * (pc' - ia) = 0;
 

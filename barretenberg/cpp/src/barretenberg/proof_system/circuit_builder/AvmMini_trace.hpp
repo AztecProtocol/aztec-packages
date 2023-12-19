@@ -30,7 +30,7 @@ class AvmMiniTraceBuilder {
     // Number of rows
     static const size_t N = 256;
     static const size_t MEM_SIZE = 1024;
-    static const size_t CALLSTACK_OFFSET = 896; // TODO is this the vibe - i assume not
+    static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
     static const uint32_t SUB_CLK_LOAD_A = 0;
     static const uint32_t SUB_CLK_LOAD_B = 1;
@@ -60,7 +60,7 @@ class AvmMiniTraceBuilder {
     void div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset, AvmMemoryTag inTag);
 
     // Jump to a given program counter.
-    // TODO: this program counter MUST be an operand to the OPCODE.
+    // TODO(md): this program counter MUST be an operand to the OPCODE.
     void internal_call(uint32_t jmpDest);
 
     // Return from a jump.
@@ -98,7 +98,7 @@ class AvmMiniTraceBuilder {
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;
-    std::stack<uint32_t> internal_call_stack; // TODO: initialize
+    std::stack<uint32_t> internal_call_stack = {};
 
     static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
     void insertInMemTrace(
