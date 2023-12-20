@@ -1,0 +1,6 @@
+FROM aztecprotocol/l1-contracts AS l1-contracts
+FROM aztecprotocol/aztec-sandbox
+COPY --from=l1-contracts /usr/src/l1-contracts /usr/src/l1-contracts
+WORKDIR /usr/src/docs
+COPY ./docs .
+RUN yarn && yarn build

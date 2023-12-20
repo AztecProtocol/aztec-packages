@@ -853,24 +853,25 @@ jobs:
           name: "Copy docs dockerignore"
           command: cp docs/.dockerignore .
       - run:
-          name: "Configure build for master"
-          command: |
-            if [ "$CIRCLE_BRANCH" == "master" ]; then
-              echo "Configuring build for master"
-              echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
-            fi
-      - run:
-          name: "Build docs"
+          name: "Build docs using latest code"
           command: build docs
+
+  deploy-docs:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Copy docs dockerignore"
+          command: cp docs/.dockerignore .
+      - run:
+          name: "Build master docs using released code published in dockerhub"
+          command: build docs Dockerfile.prod
       - run:
           name: "Deploy docs"
-          command: |
-            if [ "$CIRCLE_BRANCH" == "master" ]; then
-              echo "Deploying docs (on master)."
-              docs/deploy_netlify.sh
-            else
-              echo "Skipping doc deploy (not on master)."
-            fi
+          command: docs/deploy_netlify.sh
 
   yellow-paper:
     machine:
@@ -928,6 +929,7 @@ jobs:
             deploy_dockerhub cli
             deploy_dockerhub aztec-faucet
             deploy_dockerhub mainnet-fork
+            deploy_dockerhub l1-contracts
       - run:
           name: "Release canary to NPM: yarn-project"
           command: |
@@ -1215,3 +1217,10 @@ workflows:
 
       # Production releases.
       - deploy-and-release: *defaults_deploy
+      - deploy-docs:
+          requires:
+            - deploy-and-release
+          filters:
+            branches:
+              only: master
+          <<: *defaults

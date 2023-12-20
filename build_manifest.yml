@@ -212,6 +212,20 @@ docs:
   dependencies:
     - yarn-project
 
+docs-prod:
+  buildDir: .
+  dockerfile: docs/Dockerfile.prod
+  rebuildPatterns:
+  - ^docs/
+  - ^.*.cpp$
+  - ^.*.hpp$
+  - ^.*.ts$
+  - ^.release-please-manifest.json$
+  - ^.*/noir-version.json$
+  - ^.*.nr$
+  dependencies:
+    - yarn-project
+
 yellow-paper:
   buildDir: yellow-paper
   rebuildPatterns:
