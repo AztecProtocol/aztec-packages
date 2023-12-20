@@ -954,7 +954,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x8400,
   );
 
-  const publicDataWritesSubtreeSiblingPaths = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8600);
+  const publicDataWritesSubtreeSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8600);
 
   const publicDataReadsPreimages = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_TX,
@@ -968,7 +968,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x8a00,
   );
 
-  const archiveRootMembershipWitnesses = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
+  const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
   const constants = makeConstantBaseRollupData(0x100);
 
@@ -990,10 +990,10 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses,
-    publicDataWritesSubtreeSiblingPaths,
+    publicDataWritesSubtreeSiblingPath,
     publicDataReadsPreimages,
     publicDataReadsMembershipWitnesses,
-    archiveRootMembershipWitnesses,
+    archiveRootMembershipWitness,
     constants,
   });
 }

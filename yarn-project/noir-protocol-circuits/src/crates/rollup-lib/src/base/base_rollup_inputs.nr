@@ -51,7 +51,7 @@ struct BaseRollupInputs {
     // Note: the insertion leaf index can be derived from the above snapshots' `next_available_leaf_index` values.
     new_commitments_subtree_sibling_path: [Field; NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH],
     new_nullifiers_subtree_sibling_path: [Field; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
-    public_data_writes_subtree_sibling_paths: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
+    public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH],
     new_contracts_subtree_sibling_path: [Field; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH],
 
     sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
@@ -62,7 +62,7 @@ struct BaseRollupInputs {
     public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
     public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
 
-    archive_root_membership_witnesses: ArchiveRootMembershipWitness,
+    archive_root_membership_witness: ArchiveRootMembershipWitness,
     
     constants: ConstantRollupData,
 }
@@ -243,7 +243,7 @@ impl BaseRollupInputs {
             self.sorted_public_data_writes_indexes,
             self.low_public_data_writes_preimages,
             self.low_public_data_writes_witnesses,
-            self.public_data_writes_subtree_sibling_paths,
+            self.public_data_writes_subtree_sibling_path,
         );
 
         end_public_data_tree_snapshot
@@ -351,7 +351,7 @@ impl BaseRollupInputs {
         let block_header = self.kernel_data.public_inputs.constants.block_header;
         let previous_block_hash = block_header.block_hash();
 
-        let previous_block_hash_witness = self.archive_root_membership_witnesses;
+        let previous_block_hash_witness = self.archive_root_membership_witness;
 
         // Now check that the previous block hash is in the blocks tree from the beginning of the rollup
         components::assert_check_membership(
@@ -873,7 +873,7 @@ mod tests {
             let new_nullifiers_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(start_nullifier_tree.get_sibling_path(self.pre_existing_nullifiers.len()), [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH]);
 
             let (
-                public_data_writes_subtree_sibling_paths,
+                public_data_writes_subtree_sibling_path,
                 sorted_public_data_writes,
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
@@ -905,7 +905,7 @@ mod tests {
 
                 new_commitments_subtree_sibling_path, 
                 new_nullifiers_subtree_sibling_path, 
-                public_data_writes_subtree_sibling_paths,
+                public_data_writes_subtree_sibling_path,
                 new_contracts_subtree_sibling_path, 
 
                 sorted_public_data_writes,
@@ -916,7 +916,7 @@ mod tests {
                 public_data_reads_preimages,
                 public_data_reads_witnesses,
 
-                archive_root_membership_witnesses: ArchiveRootMembershipWitness {
+                archive_root_membership_witness: ArchiveRootMembershipWitness {
                     leaf_index: 0,
                     sibling_path: start_archive.get_sibling_path(0)
                 },
@@ -1231,7 +1231,7 @@ mod tests {
     #[test(should_fail_with = "membership check failed")]
     unconstrained fn compute_membership_archive_negative() {
         let mut inputs = BaseRollupInputsBuilder::new().build_inputs();
-        inputs.archive_root_membership_witnesses.sibling_path[0] = 27;
+        inputs.archive_root_membership_witness.sibling_path[0] = 27;
         let _output = inputs.base_rollup_circuit();
     }
 

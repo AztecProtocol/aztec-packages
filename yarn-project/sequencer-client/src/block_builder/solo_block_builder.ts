@@ -740,7 +740,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
       lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
       lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-      publicDataWritesSubtreeSiblingPaths: txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
+      publicDataWritesSubtreeSiblingPath: txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
 
       sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
       sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortednewNullifiersIndexes[i]),
@@ -766,7 +766,7 @@ export class SoloBlockBuilder implements BlockBuilder {
           : this.makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
       ),
       kernelData: this.getKernelDataFor(tx),
-      archiveRootMembershipWitnesses: await this.getHistoricalTreesMembershipWitnessFor(tx),
+      archiveRootMembershipWitness: await this.getHistoricalTreesMembershipWitnessFor(tx),
     });
   }
 

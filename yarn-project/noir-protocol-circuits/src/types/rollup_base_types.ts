@@ -209,7 +209,7 @@ export interface BaseRollupInputs {
   low_nullifier_membership_witness: FixedLengthArray<NullifierMembershipWitness, 64>;
   new_commitments_subtree_sibling_path: FixedLengthArray<Field, 26>;
   new_nullifiers_subtree_sibling_path: FixedLengthArray<Field, 14>;
-  public_data_writes_subtree_sibling_paths: FixedLengthArray<Field, 36>;
+  public_data_writes_subtree_sibling_path: FixedLengthArray<Field, 36>;
   new_contracts_subtree_sibling_path: FixedLengthArray<Field, 16>;
   sorted_public_data_writes: FixedLengthArray<PublicDataTreeLeaf, 16>;
   sorted_public_data_writes_indexes: FixedLengthArray<u32, 16>;
@@ -217,7 +217,7 @@ export interface BaseRollupInputs {
   low_public_data_writes_witnesses: FixedLengthArray<PublicDataMembershipWitness, 16>;
   public_data_reads_preimages: FixedLengthArray<PublicDataTreeLeafPreimage, 16>;
   public_data_reads_witnesses: FixedLengthArray<PublicDataMembershipWitness, 16>;
-  archive_root_membership_witnesses: ArchiveRootMembershipWitness;
+  archive_root_membership_witness: ArchiveRootMembershipWitness;
   constants: ConstantRollupData;
 }
 

@@ -1392,7 +1392,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
     ),
     new_commitments_subtree_sibling_path: mapTuple(inputs.newCommitmentsSubtreeSiblingPath, mapFieldToNoir),
     new_nullifiers_subtree_sibling_path: mapTuple(inputs.newNullifiersSubtreeSiblingPath, mapFieldToNoir),
-    public_data_writes_subtree_sibling_paths: mapTuple(inputs.publicDataWritesSubtreeSiblingPaths, mapFieldToNoir),
+    public_data_writes_subtree_sibling_path: mapTuple(inputs.publicDataWritesSubtreeSiblingPath, mapFieldToNoir),
     new_contracts_subtree_sibling_path: mapTuple(inputs.newContractsSubtreeSiblingPath, mapFieldToNoir),
 
     sorted_public_data_writes: mapTuple(inputs.sortedPublicDataWrites, mapPublicDataTreeLeafToNoir),
@@ -1413,7 +1413,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
       mapPublicDataMembershipWitnessToNoir,
     ),
 
-    archive_root_membership_witnesses: mapArchiveRootMembershipWitnessToNoir(inputs.archiveRootMembershipWitnesses),
+    archive_root_membership_witness: mapArchiveRootMembershipWitnessToNoir(inputs.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.constants),
   };
 }

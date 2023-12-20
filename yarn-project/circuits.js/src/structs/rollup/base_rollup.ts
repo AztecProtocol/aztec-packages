@@ -182,7 +182,7 @@ export class BaseRollupInputs {
     /**
      * Sibling path "pointing to" where the new public data subtree should be inserted into the public data tree.
      */
-    public publicDataWritesSubtreeSiblingPaths: Tuple<Fr, typeof PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
+    public publicDataWritesSubtreeSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
 
     /**
      * Preimages of leaves which are to be read by the public data reads.
@@ -200,7 +200,7 @@ export class BaseRollupInputs {
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
-    public archiveRootMembershipWitnesses: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -230,10 +230,10 @@ export class BaseRollupInputs {
       fields.sortedPublicDataWritesIndexes,
       fields.lowPublicDataWritesPreimages,
       fields.lowPublicDataWritesMembershipWitnesses,
-      fields.publicDataWritesSubtreeSiblingPaths,
+      fields.publicDataWritesSubtreeSiblingPath,
       fields.publicDataReadsPreimages,
       fields.publicDataReadsMembershipWitnesses,
-      fields.archiveRootMembershipWitnesses,
+      fields.archiveRootMembershipWitness,
       fields.constants,
     ] as const;
   }
