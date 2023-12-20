@@ -47,11 +47,16 @@ $$
 
 \gdef\Ivpkappd{\color{violet}{Ivpk_{app,d}}}
 \gdef\shareableIvpkappd{\color{violet}{\widetilde{Ivpk_{app,d}}}}
+\gdef\Ivpkmd{\color{violet}{Ivpk_{m,d}}}
+\gdef\shareableIvpkmd{\color{violet}{\widetilde{Ivpk_{m,d}}}}
 
 
 \gdef\ivskappstealth{\color{red}{ivsk_{app,stealth}}}
 \gdef\Ivpkappdstealth{\color{violet}{Ivpk_{app,d,stealth}}}
 \gdef\Pkappdstealth{\color{violet}{Pk_{app,d,stealth}}}
+\gdef\ivskmstealth{\color{red}{ivsk_{m,stealth}}}
+\gdef\Ivpkmdstealth{\color{violet}{Ivpk_{m,d,stealth}}}
+\gdef\Pkmdstealth{\color{violet}{Pk_{m,d,stealth}}}
 
 \gdef\hstealth{\color{violet}{h_{stealth}}}
 
@@ -317,7 +322,6 @@ $\ovskm$ | h(0x04, $\sk$) | outgoing viewing secret key | PXE* | The owner of th
 ||||||
 $\Npkm$ | $\nskm \cdot G$ | nullifier public key | | Only included so that other people can derive the user's address from some public information, in such a way that it's tied to the user's $\nskm$. 
 $\Tpkm$ | $\tskm \cdot G$ | tagging public key | | The "tagging" key pair can be used to flag "this ciphertext is for you", without requiring decryption. |
-$\Ivpkm$ | $\ivskm \cdot G$ | incoming viewing public key | | A 'sender' can use this public key to derive an app-siloed incoming viewing key $\Ivpkapp$, which can then be used to derive an ephemeral symmetric encryption key, to encrypt a plaintext for some recipient. The data is "incoming" from the pov of the recipient. |
 $\Ovpkm$ | $\ovskm \cdot G$ | outgoing viewing public key | | Only included so that other people can derive the user's address from some public information, in such a way that it's tied to the user's $\ovskm$. |
 
 > \*These keys could also be safely passed into the Kernel circuit, but there's no immediately obvious use, so "K" has been omitted, to make design intentions clearer.
@@ -385,7 +389,7 @@ For Bob to derive a shared secret for Alice:
 |---|---|---|---|
 $\esk_{hs}$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key, for handshaking | $hs$ = handshake.
 $\Epk_{hs}$ | $\esk_{hs} \cdot G$ | Ephemeral public key, for handshaking |
-$\sharedsecret_{m,tagging}^{Bob \rightarrow Alice}$ | $\esk_{hs} \cdot \Ivpkm$ | Shared secret, for tagging | Here, we're illustrating the derivation of a shared secret (for tagging) using _master_ keys.<br />App developers could instead choose to use an app-specific key $\Ivpkapp$. See the next section.
+$\sharedsecret_{m,tagging}^{Bob \rightarrow Alice}$ | $\esk_{hs} \cdot \Ivpkm$ | Shared secret, for tagging | Here, we're illustrating the derivation of a shared secret (for tagging) using _master_ keys.
 
 Having derived a Shared Secret, Bob can now share it with Alice as follows:
 
@@ -422,57 +426,6 @@ This tag can be used as the basis for note retreival schemes. Each time Bob send
 
 <!-- TODO: Prevent spam (where a malicious user could observe the emitted tag $\tagg_{m,i}^{Bob \rightarrow Alice}$, and re-emit it many times via some other app-contract). Perhaps this could be achieved by emitting the tag as a nullifier (although this would cause state bloat). -->
 
-### Deriving a sequence of tags between Alice and Bob for a single app
-
-For Bob to derive a shared secret for Alice:
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\esk_{hs}$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key, for handshaking | $hs$ = handshake.
-$\Epk_{hs}$ | $\esk_{hs} \cdot G$ | Ephemeral public key, for handshaking |
-$\sharedsecret_{app,tagging}^{Bob \rightarrow Alice}$ | $\esk_{hs} \cdot \Ivpkapp$ | Shared secret, for tagging | Note: derivation of an app-specific tagging secret using $\Ivpkapp$ would enable a trusted 3rd party (if entrusted with $\ivskapp$) to identify Alice's notes more quickly, by observing the resulting $\tagg_{app,i}^{Bob \rightarrow Alice}$ values which would accompany each $\ciphertext$.
-
-Having derived a Shared Secret, Bob can now share it with Alice as follows:
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\Taghs$ | $\esk_{hs} \cdot \Tpkm$ | Handshake message identification tag | Note: the tagging public key $\Tpkm$ exists as an optimization, seeking to make brute-force message identification as fast as possible. In many cases, handshakes can be performed offchain via traditional web2 means, but in the case of on-chain handshakes, we have no preferred alternative over simply brute-force attempting to reconcile every 'Handshake message identification tag'. Note: this optimization reduces the recipient's work by 1 cpu-friendly hash per message (at the cost of 255-bits to broadcast a compressed encoding of $\Taghs$). We'll need to decide whether this is the right speed/communication trade-off.<br />Note also: the _master_ tagging key $\Tpkm$ is being used in this illustration, rather than some app-specific tagging key, to make this message identification process most efficient (otherwise the user would have to re-scan all handshakes for every app they use). |
-$\esk$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key, for encryption | TODO: perhaps just one ephemeral keypair could be used? |
-$\Epk$ | $\esk \cdot G$ | Ephemeral public key, for encryption |
-$\sharedsecret_{m,header}$ | $\esk \cdot \Ivpkm$ | Shared secret, for encrypting the ciphertext header. | The _master_ incoming viewing key is used here, to enable Alice to more-easily discover which contract address to use, and hence which app-specific $\ivskapp$ to use to ultimately derive the app-specific tag. |
-$\hmencheader$ | h("?", $\sharedsecret_{m,header}$) | Incoming encryption key |
-$\ciphertextheader$ | $enc_{\hmencheader}^{\Ivpkm}$(app_address)
-$\payload$ | [$\Taghs$, $\Epk_{hs}$, $\Epk$, $\ciphertextheader$] | Payload | This can be broadcast via L1.<br />Curve points can be compressed in the payload. |
-
-Alice can identify she is the indended the handshake recipient as follows:
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\Taghs$ | $\tskm \cdot \Epk_{hs}$ | Handshake message identification tag | Alice can extract $\Taghs$ and $\Epk_{hs}$ from the $\payload$ and perform this scalar multiplication on _every_ handshake message. If the computed $\Taghs$ value matches that of the $\payload$, then the message is indented for Alice.<br />Clearly, handshake transactions will need to be identifiable as such (to save Alice time), e.g. by revealing the contract address of some canonical handshaking contract alongside the $\payload$.<br />Recall: this step is merely an optimization, to enable Alice to do a single scalar multiplication before moving on (in cases where she is not the intended recipient). |
-
-If Alice successfully identifies that she is the indended the handshake recipient, she can proceed with deriving the shared secret (for tagging) as follows:
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\sharedsecret_{m,header}$ | $\ivskm \cdot \Epk$ | Shared secret, for encrypting the ciphertext header |
-$\hmencheader$ | h("?", $\sharedsecret_{m,header}$) | Incoming encryption key |
-app_address | $decrypt_{\hmencheader}^{\ivskm}(\ciphertextheader)$ |
-$\ivskapp$ | See derivations above. Use the decrypted app_address. | app-specific  incoming viewing secret key |
-$\sharedsecret_{app,tagging}^{Bob \rightarrow Alice}$ | $\ivskapp \cdot \Epk_{hs}$ | Shared secret, for tagging |  |
-
-A sequence of tags can then be derived by both Alice and Bob as:
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\tagg_{app,i}^{Bob \rightarrow Alice}$ | $h(\sharedsecret_{app,tagging}^{Bob \rightarrow Alice}, i)$ | The i-th tag in the sequence. |  |
-
-This tag can be used as the basis for note retreival schemes. Each time Bob sends Alice a $\ciphertext$ **for this particular app**, he can attach the next unused $\tagg_{app,i}^{Bob \rightarrow Alice}$ in the sequence. Alice - who is also able to derive the next $\tagg_{app,i}^{Bob \rightarrow Alice}$ in the sequence - can make privacy-preserving calls to a server, requesting the $\ciphertext$ associated with a particular $\tagg_{app,i}^{Bob \rightarrow Alice}$.
-
 ### Deriving a sequence of tags from Bob to himself across all apps
 
 The benefit of Bob deriving a sequence of tags for himself, is that he can re-sync his _outgoing_ transaction data more quickly, if he ever needs to in future.
@@ -493,18 +446,16 @@ This is not to be confused with 'Stealth Addresses', which 'flip' who derives: B
 
 > All of the key information below is Alice's
 
-Alice derives a 'diversified', app-specific incoming viewing public key, and sends it to Bob:
+Alice derives a 'diversified' incoming viewing public key, and sends it to Bob:
 
 <!-- prettier-ignore -->
 | Thing | Derivation | Name | Comments |
 |---|---|---|---|
 $\d$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ |diversifier |
 $\Gd$ | $\d \cdot G$ | diversified generator |
-$\Ivpkappd$ | $\ivskapp \cdot \Gd$ | Diversified, app-siloed incoming viewing public key |
+$\Ivpkmd$ | $\ivskm \cdot \Gd$ | Diversified incoming viewing public key |
 
-> Note: _master_ keys can also be diversified; just replace $app$ with $m$ in the above table of definitions. Some data (such as an app address) might need to be encrypted into a 'ciphertext header' with a master key (so as to enable the recipient to efficiently discover which app a ciphertext originated from, so they may then derive the correct siloed keys to use to decrypt the ciphertext).
-
-> Notice: when $\d = 1$, $\Ivpkappd = \Ivpkapp$. Often, it will be unncessary to diversify the below data, but we keep $\d$ around for the most generality.
+> Notice: when $\d = 1$, $\Ivpkmd = \Ivpkm$. Often, it will be unncessary to diversify the below data, but we keep $\d$ around for the most generality.
 
 ## Derive stealth public keys
 
@@ -519,9 +470,9 @@ $\d$ | Given by Alice | (Diversifier) | Remember, in most cases, $\d=1$ is suffi
 $\Gd$ | $\d \cdot G$ | (Diversified) generator | Remember, when $\d = 1$, $\Gd = G$.
 $\esk$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key |
 $\Epkd$ | $\esk \cdot \Gd$ | (Diversified) Ephemeral public key |
-$\sharedsecret_{app, stealth}$ | $\esk \cdot \Ivpkappd$ | Shared secret |
-$\hstealth$ | h("?", $\sharedsecret_{app, stealth}$) | Stealth key |
-$\Ivpkappdstealth$ | $\hstealth \cdot \Gd + \Ivpkappd$ | (Diversified) Stealth viewing public key |
+$\sharedsecret_{m, stealth}$ | $\esk \cdot \Ivpkmd$ | Shared secret |
+$\hstealth$ | h("?", $\sharedsecret_{m, stealth}$) | Stealth key |
+$\Ivpkmdstealth$ | $\hstealth \cdot \Gd + \Ivpkmd$ | (Diversified) Stealth viewing public key |
 
 Having derived a Stealth Address for Alice, Bob can now share it with Alice as follows:
 
@@ -542,12 +493,14 @@ Alice can learn about her new Stealth Address as follows. First, she would ident
 $\sharedsecret_{m,header}$ | $\ivskm \cdot \Epkd$ | Shared secret, for encrypting the ciphertext header |
 $\hmencheader$ | h("?", $\sharedsecret_{m,header}$) | Incoming encryption key |
 app_address | $decrypt_{\hmencheader}^{\ivskm}(\ciphertextheader)$ |
-$\ivskapp$ | See derivations above. Use the decrypted app_address. | app-specific  incoming viewing secret key |
+$\ivskapp$ | See derivations above. Use the decrypted app_address. | app-specific incoming viewing secret key |
 $\sharedsecret_{app, stealth}$ | $\ivskapp \cdot \Epkd$ |
 $\hstealth$ | h("?", $\sharedsecret_{app, stealth}$) |
 $\ivskappstealth$ | $\hstealth + \ivskapp$ |
 $\Ivpkappdstealth$ | $\ivskappstealth \cdot \Gd$ |
 $\Pkappdstealth$ | $\Ivpkappdstealth$ | Alias: "Alice's Stealth Public Key" |
+
+<!-- TODO: This requires app-specific incoming viewing keys, which we don't have. How do we adapt this derivation? -->
 
 ## Derive nullifier
 
@@ -609,6 +562,8 @@ $\sharedsecret_{app,enc}$ | $\esk \cdot \Ivpkappdstealth$ | Shared secret, for c
 $\happenc$ | h("?", $\sharedsecret_{app,enc}$) | Incoming data encryption key |
 $\ciphertext$ | $enc^{\Ivpkappdstealth}_{\happenc}(\plaintext)$ | Ciphertext |
 $\payload$ | [$\tagg_{m, i}^{Bob \rightarrow Alice}$, $\ciphertextheader$, $\ciphertext$, $\Epkdheader$, $\Epkd$] | Payload |
+
+<!-- TODO: This requires app-specific incoming viewing keys, which we don't have. How do we adapt this derivation? -->
 
 Alice can learn about her new $\payload$ as follows. First, she would identify the transaction has intended for her, either by observing $\tagg_{m, i}^{Bob \rightarrow Alice}$ on-chain herself (and then downloading the rest of the payload which accompanies the tag), or by making a privacy-preserving request to a server, to retrieve the payload which accompanies the tag. Assuming the $\payload$ has been identified as Alice's, and retrieved by Alice, we proceed.
 
