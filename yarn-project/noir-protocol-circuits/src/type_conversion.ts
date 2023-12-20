@@ -43,7 +43,6 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
