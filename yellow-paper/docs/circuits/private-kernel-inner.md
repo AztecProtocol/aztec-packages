@@ -139,14 +139,14 @@ It verifies that each relevant value is associated with a legitimate counter.
    - The _counter_end_ of the current call must be greater than its _counter_start_.
    - Both counters must match the ones defined in the top item in the previous iteration's private call requests.
 
-2. For both private and public call requests in the private function circuit's public inputs:
+2. For both private and public call requests in the private call data:
 
    - The _counter_end_ of each request must be greater than its _counter_start_.
    - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
    - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
    - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-3. For items in each ordered array in the private function circuit's public inputs:
+3. For items in each ordered array in the private call data:
 
    - The counter of the first item much be greater than the _counter_start_ of the current call.
    - The counter of each subsequent item much be greater than the counter of the previous item.
@@ -171,7 +171,7 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 
 #### Verifying the transient accumulated data.
 
-1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the private function circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the private call data:
 
    - Note hash contexts.
    - Nullifier contexts.
@@ -193,7 +193,7 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 3. It verifies that the private call requests include:
 
    - All requests from the previous iteration's public inputs excluding the top one.
-   - All requests present in the private function circuit's public inputs, appended to the above in **reverse** order.
+   - All requests present in the private call data, appended to the above in **reverse** order.
 
    > Ensuring the chronological execution of call requests is vital, requiring them to be arranged in reverse order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
 

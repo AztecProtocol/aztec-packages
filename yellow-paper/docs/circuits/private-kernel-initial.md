@@ -132,14 +132,14 @@ It verifies that each relevant value is associated with a legitimate counter.
 
 #### Verifying the accumulated data.
 
-It verifies that the following values align with those in the private function circuit's public inputs:
+It verifies that the following values align with those in the private call data:
 
 - Log hashes.
 - Log lengths.
 
 #### Verifying the transient accumulated data.
 
-1. It ensures that the following arrays match those in the private function circuit's public inputs:
+1. It ensures that the following arrays match those in the private call data:
 
    - Note hash contexts.
    - Nullifier contexts.
@@ -148,7 +148,7 @@ It verifies that the following values align with those in the private function c
    - Read requests.
    - Public call requests.
 
-2. It checks that the following aligns with the array in the private function circuit's public inputs, with items arranged in **reverse** order:
+2. It checks that the following aligns with the array in the private call data, with items arranged in **reverse** order:
 
    - Private call requests.
 

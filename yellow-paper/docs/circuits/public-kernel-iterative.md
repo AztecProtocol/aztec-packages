@@ -192,7 +192,7 @@ It verifies that each relevant value is associated with a legitimate counter.
 3. It verifies that the public call requests include:
 
    - All requests from the previous iteration's public inputs except for the top one.
-   - All requests present in the public function circuit's public inputs, appended to the above in **reverse** order.
+   - All requests present in the public call data, appended to the above in **reverse** order.
 
 #### Verifying the constant data.
 
