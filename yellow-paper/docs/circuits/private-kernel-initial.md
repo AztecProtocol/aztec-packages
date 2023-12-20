@@ -69,13 +69,13 @@ To ensure the function's existence, the circuit executes the following steps:
 5. Generates the contract address using the contract class ID and other relevant details.
 6. Validates that the contract address matches the address specified in the private call data.
 
-#### Verifying the app private function proof.
+#### Verifying the private function proof.
 
-It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the app circuit.
+It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the private function circuit.
 
-#### Verifying the app circuit public inputs.
+#### Verifying the public inputs of the private function circuit.
 
-It ensures the app circuit's intention by checking the following:
+It ensures the private function circuit's intention by checking the following:
 
 - The contract address for each non-empty item in the following arrays must equal the current contract address:
   - Note hash contexts.
@@ -92,7 +92,7 @@ It ensures the app circuit's intention by checking the following:
 
 For both private and public call requests initiated in the current function call, it ensures that for each request at index _i_:
 
-- Its hash equals the value at index _i_ within the call request hashes array in app circuit's public inputs.
+- Its hash equals the value at index _i_ within the call request hashes array in private function circuit's public inputs.
 - Its caller context is either empty or aligns with the call context of the current function call, including:
   - _msg_sender_
   - Storage contract address.
@@ -132,14 +132,14 @@ It verifies that each relevant value is associated with a legitimate counter.
 
 #### Verifying the accumulated data.
 
-It verifies that the following values align with those in the app circuit's public inputs:
+It verifies that the following values align with those in the private function circuit's public inputs:
 
 - Log hashes.
 - Log lengths.
 
 #### Verifying the transient accumulated data.
 
-1. It ensures that the following arrays match those in the app circuit's public inputs:
+1. It ensures that the following arrays match those in the private function circuit's public inputs:
 
    - Note hash contexts.
    - Nullifier contexts.
@@ -148,7 +148,7 @@ It verifies that the following values align with those in the app circuit's publ
    - Read requests.
    - Public call requests.
 
-2. It checks that the following aligns with the array in the app circuit's public inputs, with items arranged in **reverse** order:
+2. It checks that the following aligns with the array in the private function circuit's public inputs, with items arranged in **reverse** order:
 
    - Private call requests.
 
@@ -170,7 +170,7 @@ It verifies that:
 
 - The transaction context matches the one in the transaction request.
 
-> The historical data must align with the data used in the app circuit, as verified [earlier](#verifying-the-app-circuit-public-inputs).
+> The historical data must align with the data used in the private function circuit, as verified [earlier](#verifying-the-public-inputs-of-the-private-function-circuit).
 
 ## Private Inputs
 
@@ -200,9 +200,9 @@ The private call data holds details about the current private function call:
 - Function data.
 - Private call requests.
 - Public call requests.
-- App circuit public inputs.
-- Proof of the app circuit.
-- Verification key.
+- Private function circuit public inputs.
+- Proof of the private function circuit.
+- Verification key of the private function circuit.
 - Hash of the function bytecode.
 
 ### Hints

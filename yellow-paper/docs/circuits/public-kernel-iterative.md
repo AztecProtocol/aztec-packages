@@ -65,7 +65,7 @@ The preimage of the hash encompasses:
 
 - Contract address.
 - Function data.
-- App circuit's public inputs.
+- Public function circuit's public inputs.
 
 #### Ensuring this function is called with the correct context.
 
@@ -87,11 +87,11 @@ The preimage of the hash encompasses:
 
    - The _msg_sender_ of the current iteration must equal the storage contract address.
 
-#### Verifying the app public function proof.
+#### Verifying the public function proof.
 
 It verifies that the public function was executed with the provided proof data, verification key, and the public inputs of the VM circuit. The result of the execution is specified in the public inputs, which will be used in subsequent steps to enforce the conditions they must satisfy.
 
-#### Verifying the app circuit public inputs.
+#### Verifying the public inputs of the public function circuit.
 
 It ensures the function's intention by checking the following:
 
@@ -116,7 +116,7 @@ If it is a static call, it must ensure that the function does not induce any sta
 
 For the public call requests initiated in the current function call, it ensures that for each request at index _i_:
 
-- Its hash equals the value at index _i_ within the call request hashes array in app circuit's public inputs.
+- Its hash equals the value at index _i_ within the call request hashes array in public function circuit's public inputs.
 - If the hash is not zero, its caller context must align with the call context of the current function call, including:
   - _msg_sender_
   - Storage contract address.
@@ -171,7 +171,7 @@ It verifies that each relevant value is associated with a legitimate counter.
 
 #### Verifying the transient accumulated data.
 
-1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the public function circuit's public inputs:
 
    - Note hash contexts.
    - Nullifier contexts.
@@ -179,7 +179,7 @@ It verifies that each relevant value is associated with a legitimate counter.
    - Read requests.
    - Update requests.
 
-2. For the newly added update requests from app circuits' public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
+2. For the newly added update requests from public function circuit's public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
 
    - Zero: if the slot does not change later in the same transaction.
    - Greater than zero: if the slot is updated later in the same transaction.
@@ -192,7 +192,7 @@ It verifies that each relevant value is associated with a legitimate counter.
 3. It verifies that the public call requests include:
 
    - All requests from the previous iteration's public inputs except for the top one.
-   - All requests present in the app circuit's public inputs, appended to the above in **reverse** order.
+   - All requests present in the public function circuit's public inputs, appended to the above in **reverse** order.
 
 #### Verifying the constant data.
 
@@ -218,8 +218,8 @@ The call data holds details about the current public function call:
 - Contract address.
 - Function data.
 - Public call requests.
-- App circuit public inputs.
-- Proof of the app circuit.
+- Public function circuit public inputs.
+- Proof of the public function circuit.
 - Verification key.
 - Hash of the function bytecode.
 

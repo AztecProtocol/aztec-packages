@@ -70,7 +70,7 @@ The preimage of the hash encompasses:
 
 - Contract address.
 - Function data.
-- App circuit's public inputs.
+- Private function circuit's public inputs.
 
 #### Ensuring this function is called with the correct context.
 
@@ -92,15 +92,15 @@ The preimage of the hash encompasses:
 
    - The _msg_sender_ of the current iteration must equal the storage contract address.
 
-#### Verifying the app private function proof.
+#### Verifying the private function proof.
 
-It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the app circuit.
+It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the private function circuit.
 
-This circuit verifies this proof and [the proof for the previous function call](#verifying-the-previous-kernel-proof) using recursion, and generates a single proof. This consolidation of multiple proofs into one is what allows the private kernel circuits to gradually merge app private function proofs into a single proof of execution that represents the entire private section of a transaction.
+This circuit verifies this proof and [the proof for the previous function call](#verifying-the-previous-kernel-proof) using recursion, and generates a single proof. This consolidation of multiple proofs into one is what allows the private kernel circuits to gradually merge private function proofs into a single proof of execution that represents the entire private section of a transaction.
 
-#### Verifying the app circuit public inputs.
+#### Verifying the public inputs of the private function circuit.
 
-It ensures the app circuit's intention by checking the following:
+It ensures the private function circuit's intention by checking the following:
 
 - The contract address for each non-empty item in the following arrays must equal the storage contract address of the current call:
   - Note hash contexts.
@@ -123,7 +123,7 @@ If it is a static call, it must ensure that the function does not induce any sta
 
 For both private and public call requests initiated in the current function call, it ensures that for each request at index _i_:
 
-- Its hash equals the value at index _i_ within the call request hashes array in app circuit's public inputs.
+- Its hash equals the value at index _i_ within the call request hashes array in private function circuit's public inputs.
 - Its caller context is either empty or aligns with the call context of the current function call, including:
   - _msg_sender_
   - Storage contract address.
@@ -139,14 +139,14 @@ It verifies that each relevant value is associated with a legitimate counter.
    - The _counter_end_ of the current call must be greater than its _counter_start_.
    - Both counters must match the ones defined in the top item in the previous iteration's private call requests.
 
-2. For both private and public call requests in the app circuit's public inputs:
+2. For both private and public call requests in the private function circuit's public inputs:
 
    - The _counter_end_ of each request must be greater than its _counter_start_.
    - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
    - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
    - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-3. For items in each ordered array in the app circuit's public inputs:
+3. For items in each ordered array in the private function circuit's public inputs:
 
    - The counter of the first item much be greater than the _counter_start_ of the current call.
    - The counter of each subsequent item much be greater than the counter of the previous item.
@@ -171,7 +171,7 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 
 #### Verifying the transient accumulated data.
 
-1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the private function circuit's public inputs:
 
    - Note hash contexts.
    - Nullifier contexts.
@@ -180,7 +180,7 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
    - Read requests.
    - Public call requests.
 
-2. For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
+2. For the newly added note hashes from private function circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
 
    - Zero: if the note is not nullified in the same transaction.
    - Greater than zero: if the note is nullified in the same transaction.
@@ -193,7 +193,7 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 3. It verifies that the private call requests include:
 
    - All requests from the previous iteration's public inputs excluding the top one.
-   - All requests present in the app circuit's public inputs, appended to the above in **reverse** order.
+   - All requests present in the private function circuit's public inputs, appended to the above in **reverse** order.
 
    > Ensuring the chronological execution of call requests is vital, requiring them to be arranged in reverse order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
 
@@ -223,9 +223,9 @@ The private call data holds details about the current private function call:
 - Function data.
 - Private call requests.
 - Public call requests.
-- App circuit public inputs.
-- Proof of the app circuit.
-- Verification key of the app circuit.
+- Private function circuit public inputs.
+- Proof of the private function circuit.
+- Verification key of the private function circuit.
 - Hash of the function bytecode.
 
 ### Hints
