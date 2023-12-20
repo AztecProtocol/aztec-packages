@@ -1,5 +1,6 @@
 
 include "mem_trace.pil";
+include "alu_chip.pil";
 
 namespace avmMini(256);
 

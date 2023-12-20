@@ -11,6 +11,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
+#include "barretenberg/relations/generated/AvmMini/alu_chip.hpp"
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 
@@ -32,6 +33,36 @@ template <typename FF> struct AvmMiniFullRow {
     FF memTrace_m_in_tag{};
     FF memTrace_m_tag_err{};
     FF memTrace_m_one_min_inv{};
+    FF aluChip_alu_clk{};
+    FF aluChip_alu_ia{};
+    FF aluChip_alu_ib{};
+    FF aluChip_alu_ic{};
+    FF aluChip_alu_op_add{};
+    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_op_mul{};
+    FF aluChip_alu_op_div{};
+    FF aluChip_alu_u8{};
+    FF aluChip_alu_u16{};
+    FF aluChip_alu_u32{};
+    FF aluChip_alu_u64{};
+    FF aluChip_alu_u128{};
+    FF aluChip_alu_s1{};
+    FF aluChip_alu_s2{};
+    FF aluChip_alu_s3{};
+    FF aluChip_alu_s4{};
+    FF aluChip_alu_s5{};
+    FF aluChip_alu_s6{};
+    FF aluChip_alu_s7{};
+    FF aluChip_alu_s8{};
+    FF aluChip_alu_s9{};
+    FF aluChip_alu_s10{};
+    FF aluChip_alu_s11{};
+    FF aluChip_alu_s12{};
+    FF aluChip_alu_s13{};
+    FF aluChip_alu_s14{};
+    FF aluChip_alu_s15{};
+    FF aluChip_alu_s16{};
+    FF aluChip_alu_cf{};
     FF avmMini_pc{};
     FF avmMini_internal_return_ptr{};
     FF avmMini_sel_internal_call{};
@@ -60,10 +91,10 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_last{};
     FF avmMini_internal_return_ptr_shift{};
     FF avmMini_pc_shift{};
-    FF memTrace_m_tag_shift{};
-    FF memTrace_m_val_shift{};
-    FF memTrace_m_rw_shift{};
     FF memTrace_m_addr_shift{};
+    FF memTrace_m_tag_shift{};
+    FF memTrace_m_rw_shift{};
+    FF memTrace_m_val_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -76,8 +107,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 45;
-    static constexpr size_t num_polys = 39;
+    static constexpr size_t num_fixed_columns = 75;
+    static constexpr size_t num_polys = 69;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -106,6 +137,36 @@ class AvmMiniCircuitBuilder {
             polys.memTrace_m_in_tag[i] = rows[i].memTrace_m_in_tag;
             polys.memTrace_m_tag_err[i] = rows[i].memTrace_m_tag_err;
             polys.memTrace_m_one_min_inv[i] = rows[i].memTrace_m_one_min_inv;
+            polys.aluChip_alu_clk[i] = rows[i].aluChip_alu_clk;
+            polys.aluChip_alu_ia[i] = rows[i].aluChip_alu_ia;
+            polys.aluChip_alu_ib[i] = rows[i].aluChip_alu_ib;
+            polys.aluChip_alu_ic[i] = rows[i].aluChip_alu_ic;
+            polys.aluChip_alu_op_add[i] = rows[i].aluChip_alu_op_add;
+            polys.aluChip_alu_op_sub[i] = rows[i].aluChip_alu_op_sub;
+            polys.aluChip_alu_op_mul[i] = rows[i].aluChip_alu_op_mul;
+            polys.aluChip_alu_op_div[i] = rows[i].aluChip_alu_op_div;
+            polys.aluChip_alu_u8[i] = rows[i].aluChip_alu_u8;
+            polys.aluChip_alu_u16[i] = rows[i].aluChip_alu_u16;
+            polys.aluChip_alu_u32[i] = rows[i].aluChip_alu_u32;
+            polys.aluChip_alu_u64[i] = rows[i].aluChip_alu_u64;
+            polys.aluChip_alu_u128[i] = rows[i].aluChip_alu_u128;
+            polys.aluChip_alu_s1[i] = rows[i].aluChip_alu_s1;
+            polys.aluChip_alu_s2[i] = rows[i].aluChip_alu_s2;
+            polys.aluChip_alu_s3[i] = rows[i].aluChip_alu_s3;
+            polys.aluChip_alu_s4[i] = rows[i].aluChip_alu_s4;
+            polys.aluChip_alu_s5[i] = rows[i].aluChip_alu_s5;
+            polys.aluChip_alu_s6[i] = rows[i].aluChip_alu_s6;
+            polys.aluChip_alu_s7[i] = rows[i].aluChip_alu_s7;
+            polys.aluChip_alu_s8[i] = rows[i].aluChip_alu_s8;
+            polys.aluChip_alu_s9[i] = rows[i].aluChip_alu_s9;
+            polys.aluChip_alu_s10[i] = rows[i].aluChip_alu_s10;
+            polys.aluChip_alu_s11[i] = rows[i].aluChip_alu_s11;
+            polys.aluChip_alu_s12[i] = rows[i].aluChip_alu_s12;
+            polys.aluChip_alu_s13[i] = rows[i].aluChip_alu_s13;
+            polys.aluChip_alu_s14[i] = rows[i].aluChip_alu_s14;
+            polys.aluChip_alu_s15[i] = rows[i].aluChip_alu_s15;
+            polys.aluChip_alu_s16[i] = rows[i].aluChip_alu_s16;
+            polys.aluChip_alu_cf[i] = rows[i].aluChip_alu_cf;
             polys.avmMini_pc[i] = rows[i].avmMini_pc;
             polys.avmMini_internal_return_ptr[i] = rows[i].avmMini_internal_return_ptr;
             polys.avmMini_sel_internal_call[i] = rows[i].avmMini_sel_internal_call;
@@ -136,10 +197,10 @@ class AvmMiniCircuitBuilder {
 
         polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
         polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
-        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
-        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
+        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
 
         return polys;
     }
@@ -177,6 +238,10 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
+        if (!evaluate_relation.template operator()<AvmMini_vm::alu_chip<FF>>("alu_chip",
+                                                                             AvmMini_vm::get_relation_label_alu_chip)) {
+            return false;
+        }
         if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini",
                                                                              AvmMini_vm::get_relation_label_avm_mini)) {
             return false;

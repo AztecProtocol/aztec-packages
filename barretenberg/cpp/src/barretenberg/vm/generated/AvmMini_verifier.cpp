@@ -73,6 +73,52 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_tag_err);
     commitments.memTrace_m_one_min_inv =
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_one_min_inv);
+    commitments.aluChip_alu_clk =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_clk);
+    commitments.aluChip_alu_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ia);
+    commitments.aluChip_alu_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ib);
+    commitments.aluChip_alu_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ic);
+    commitments.aluChip_alu_op_add =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_add);
+    commitments.aluChip_alu_op_sub =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_sub);
+    commitments.aluChip_alu_op_mul =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_mul);
+    commitments.aluChip_alu_op_div =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_div);
+    commitments.aluChip_alu_u8 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8);
+    commitments.aluChip_alu_u16 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16);
+    commitments.aluChip_alu_u32 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u32);
+    commitments.aluChip_alu_u64 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u64);
+    commitments.aluChip_alu_u128 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u128);
+    commitments.aluChip_alu_s1 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s1);
+    commitments.aluChip_alu_s2 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s2);
+    commitments.aluChip_alu_s3 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s3);
+    commitments.aluChip_alu_s4 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s4);
+    commitments.aluChip_alu_s5 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s5);
+    commitments.aluChip_alu_s6 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s6);
+    commitments.aluChip_alu_s7 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s7);
+    commitments.aluChip_alu_s8 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s8);
+    commitments.aluChip_alu_s9 = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s9);
+    commitments.aluChip_alu_s10 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s10);
+    commitments.aluChip_alu_s11 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s11);
+    commitments.aluChip_alu_s12 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s12);
+    commitments.aluChip_alu_s13 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s13);
+    commitments.aluChip_alu_s14 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s14);
+    commitments.aluChip_alu_s15 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s15);
+    commitments.aluChip_alu_s16 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_s16);
+    commitments.aluChip_alu_cf = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_cf);
     commitments.avmMini_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_pc);
     commitments.avmMini_internal_return_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_internal_return_ptr);
