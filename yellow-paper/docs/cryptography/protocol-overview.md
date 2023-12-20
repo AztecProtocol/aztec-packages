@@ -21,7 +21,7 @@ Honk is a variant of the PLONK protocol. Plonk performs polynomial testing via c
 
 The first protocol to combine Plonk and the sumcheck protocol was [HyperPlonk](https://eprint.iacr.org/2022/1355)
 
-Honk uses a custom arithmetisation that extends the Ultra circuit arithmetisation (not yet finalized)
+Honk uses a custom arithmetisation that extends the Ultra circuit arithmetisation (not yet finalized, but includes efficient Poseidon2 hashing)
 
 # Incrementally Verifiable Computation Subprotocols
 
@@ -38,7 +38,7 @@ The client-side IVC scheme is substantially more complex than the rollup-side sc
 
 Rollup-side, each "step" in the IVC scheme is a Honk proof, which are recursively verified. As a result, no protoocols other than Honk are required to execute rollup-side IVC.
 
-We perform one layer of "proof-system compression" in the rollup. The final proof of block-correctness is constructed as a Honk proof. An UltraPlonk circuit is used to verify the correctness of the Honk proof, so that the proof that is verified on-chain is an UltraPlonk proof.
+We perform one layer of []"proof-system compression"](https://medium.com/aztec-protocol/proof-compression-a318f478d575) in the rollup. The final proof of block-correctness is constructed as a Honk proof. An UltraPlonk circuit is used to verify the correctness of the Honk proof, so that the proof that is verified on-chain is an UltraPlonk proof.
 Verification gas costs are lower for UltraPlonk vs Honk due to the following factors:
 
 1. Fewer precomputed selector polynomials, reducing Verifier G1 scalar multiplications
@@ -82,13 +82,13 @@ The ECCVM is a Honk circuit with a custom circuit arithmetisation, designed to o
 
 #### Translator Subprotocol
 
-The Translator is a Honk circuit with a custom circuit arithmetisation, designed to validate that the input commitments of an ECCVM circuit align with the delegated computations described by a Goblin Plonk transcript commitment.  
+The Translator is a Honk circuit, defined over BN254, with a custom circuit arithmetisation, designed to validate that the input commitments of an ECCVM circuit align with the delegated computations described by a Goblin Plonk transcript commitment.  
 
 ## Plonk Data Bus
 
-When passing data between successive IVC steps, the canonical method is to do so via public inputs. This adds significant costs to an IVC folding verifier (or recursive verifier when not using a folding scheme). Public inputs for part of the proof and therefore must be hashed prior to generating Fiat-Shamir challenges. When this is performed in-circuit, this adds a cost linear in the number of public inputs (with unpleasant constants ~30 constraints per field element).
+When passing data between successive IVC steps, the canonical method is to do so via public inputs. This adds significant costs to an IVC folding verifier (or recursive verifier when not using a folding scheme). Public inputs must be hashed prior to generating Fiat-Shamir challenges. When this is performed in-circuit, this adds a cost linear in the number of public inputs (with unpleasant constants ~30 constraints per field element).
 
-The Data Bus protocol eliminiates this cost by representing cross-step data via succinct commitments instead of raw field elements.
+The Data Bus protocol eliminates this cost by representing cross-step data via succinct commitments instead of raw field elements.
 
 The [Plonk Data Bus](https://aztecprotocol.slack.com/files/U8Q1VAX6Y/F05G2B971FY/plonk_bus.pdf) protocol enables efficient data transfer between two Honk instances within a larger IVC protocol.
 
@@ -100,7 +100,7 @@ UltraPlonk and Honk utilize multilinear PCS. The Plonk Data Bus and Goblin Plonk
 
 For multilinear polynomial commitment schemes, we use the [ZeroMorph](https://eprint.iacr.org/2023/917) protocol, which itself uses a univariate PCS as a core component.
 
-Depending on context we use the following two univariate schemes within our cryptography stack
+Depending on context we use the following two univariate schemes within our cryptography stack.
 
 ## KZG Commitments
 

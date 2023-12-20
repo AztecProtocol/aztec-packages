@@ -7,8 +7,8 @@ Aztec's cryptography tech stack and its associated implementation is an open-end
 This document is designed to definitively answer the following questions:
 
 1. What are the metrics we care about when measuring our cryptography components?
-3. What are minimum satisfiable values for these metrics?
-4. What are the aspirational values for these metrics?
+1. What are minimum satisfiable values for these metrics?
+1. What are the aspirational values for these metrics?
 
 # Important Metrics
 
@@ -19,8 +19,8 @@ The following is a list of the relevant properties that affect the performance o
 * Memory required to generate a user transaction proof
 * Time to generate an Aztec Virtual Machine proof
 * Memory required to generate an Aztec Virtual Machine proof
-* Time to compute a 2x2 rollup proof
-* Memory required to compute a 2x2 rollup proof
+* Time to compute a 2-to-1 rollup proof
+* Memory required to compute a 2-to-1 rollup proof
 
 <!-- We can break these properties down into metrics linked to specitic cryptographic components:
 
@@ -41,10 +41,10 @@ Note: gb = gigabytes (not gigabits, gigibits or gigibytes)
 | verifier time | how long does it take the verifier to check a proof (incl. grumpkin IPA MSMs) | 20ms | 1ms |
 | client memory consumption | fold 2^19 circuits into an accumulator an arbitrary number of times | 4gb | 1gb |
 | size of the kernel circuit | number of gates | 2^17 | 2^15 |
-| Aztec Virtual Machine prover time | 1 million VM step circuit | 60 seconds | 6 seconds |
+| Aztec Virtual Machine prover time | 10,000 step VM circuit | 15 seconds | 1.5 seconds |
 | Aztec Virtual Machine memory consumption | 1 million VM step circuit | 128gb | 16gb |
-| 2x2 rollup proving time | 1 2x2 rollup proof | 7.4 seconds | 0.74 seconds |
-| 2x2 rollup memory consumption | 1 2x2 rollup proof | 128gb | 16gb |
+| 2-to-1 rollup proving time | 1 2-to-1 rollup proof | 7.4 seconds | 0.74 seconds |
+| 2-to-1 rollup memory consumption | 1 2-to-1 rollup proof | 128gb | 16gb |
 
 To come up with the above estimates, we are targetting 10 transactions per second for the MVP and 100 tps for the "ideal" case. We are assuming both block producers and rollup Provers have access to 128-core machines with 128gb of RAM. Additionally, we assume that the various process required to produce a block consume the following: 
 
@@ -68,13 +68,13 @@ More practically, the data throughput of a p2p network will be less than the ban
 As a rough heuristic, we assume that network bandwidth will be 10% of p2p user bandwidth.
 NOTE: can we find some high-quality information about p2p network throughput relative to the data consumed by p2p node operators?
 
-As a result, the MPV data throughput could scale up to `100 * proof_size` bytes of data per second.
+As a result, the MVP data throughput could scale up to `100 * proof_size` bytes of data per second.
 
 For an MVP we wish to target a maximum bandwidth of 8MB per second (i.e. a good broadband connection). This gives us a network bandwidth of 0.8MB/s.
 
 This sets the proof size limit to 819.2 kb per second per 100 transactions => 82 kilobytes of data per transaction.
 
-As a rough estimate, we can assume the non-proof tx data will be irrelevant compared to 82kb, so we target a proof size of $80$ kilobytes for the MPV.
+As a rough estimate, we can assume the non-proof tx data will be irrelevant compared to 82kb, so we target a proof size of $80$ kilobytes for the MVV.
 
 To support 100 transactions per second we would rquire a proof size of $8$ kilobytes.
 
@@ -82,7 +82,7 @@ To support 100 transactions per second we would rquire a proof size of $8$ kilob
 
 The critical UX factor. To measure prover time for a transaction, we must first define a baseline transaction we wish to measure and the execution environment of the Prover.
 
-As we build+refine our MPV, we want to avoid optimising the best-case scenario (i.e. the most basic tx type, a token transfer). Instead we want to ensure that transactions of a "moderate" complexity are possible with consuer hardware.
+As we build+refine our MVP, we want to avoid optimising the best-case scenario (i.e. the most basic tx type, a token transfer). Instead we want to ensure that transactions of a "moderate" complexity are possible with consuer hardware.
 
 As a north star, we consider a private swap, and transpose it into an Aztec contract.
 
@@ -143,27 +143,39 @@ Not a critical metric, but the prover time + prover memory metrics are predicate
 
 Our goal is to hit main-net with a network that can support 10 transactions per second. We need to estimate how many VM computation steps will be needed per transaction to determine the required speed of the VM Prover. The following uses very conservative estimations due to the difficulty of estimating this.
 
+
 An Ethereum block consists of approximately 1,000 transactions, with a block gas limit of roughly 10 million gas. Basic computational steps in the Ethereum Virtual Machine consume 3 gas. If the entire block gas limit is consumed with basic computation steps (not true but let's assume for a moment), this implies that 1,000 transactions consume 3.33 million computation steps. i.e. 10 transactions per second would require roughly 33,000 steps per second and 3,330 steps per transaction.
 
-An AVM circuit with 1 million steps can therefore accomodate approximately 300 "typical" transactions. If we budget 20% of the block time to constructing AVM public funciton proofs, proof construction time must therefore be approximately 6 seconds to be able to prove all AVM programs in a block and achieve 10 tps.
+As a conservative estimate, let us assume that every tx in a block will consume 10,000 AVM steps.
 
-However, with device parallelisation these numbers can be increased substantially. Assuming the Prover network has access to 10 machines, this scales to 60 seconds.
+Our AVM model is currently to evaluate a transaction's public function calls within a single AVM circuit.
+This means that a block of `n` transactions will require `n` pulic kernel proofs and `n` AVM proofs to be generated (assuming all txns have a public component).
 
-Note: this measurement assumes we can evaluate multiple public VM function calls in a single VM execution trace.
+If public VM proof construction consumes 20% of block time, we must generate 10 AVM proofs and 10 public kernel proofs in 2 seconds.
+
+When measuring 2-to-1 rollup prover time, we assume we have access to a Prover network with 500 physical devices available for computation.
+
+i.e. 10 proofs in 2 seconds across 500 devices => 1 AVM + public kernel proof in 25 seconds per physical device.
+
+If we assume that ~10 seconds is budgeted to the public kernel proof, this would give a 15 second prover time target for a 10,000 step AVM circuit.
+
+100 tps requires 1.5 seconds per proof.
+
+
 
 ### AVM Memory consumption
 
 A large AWS instance can consume 128Gb of memory which puts an upper limit for AVM RAM consumption. Ideally consumer-grade hardware can be used to generate AVM proofs i.e. 16 Gb.
 
-### 2x2 rollup proving time
+### 2-to-1 rollup proving time
 
-For a rollup block containing $2^d$ transactions, we need to compute 2x2 rollup proofs across $d$ layers (i.e. 2^{d-1} 2x2 proofs, followed by 2^{d-2} proofs, followed by... etc down to requiring 1 2x2 proof). To hit 10tps, we must produce 1 block in $\frac{2^d}{10}$ seconds.
+For a rollup block containing $2^d$ transactions, we need to compute 2-to-1 rollup proofs across $d$ layers (i.e. 2^{d-1} 2-to-1 proofs, followed by 2^{d-2} proofs, followed by... etc down to requiring 1 2-to-1 proof). To hit 10tps, we must produce 1 block in $\frac{2^d}{10}$ seconds.
 
-Note: this excludes network coordination costs, latency costs, block construction costs, public VM proof construction costs (must be computed before the 2x2 rollup proofs), cost to compute the final UltraPlonk proof.
+Note: this excludes network coordination costs, latency costs, block construction costs, public VM proof construction costs (must be computed before the 2-to-1 rollup proofs), cost to compute the final UltraPlonk proof.
 
 To accomodate the above costs, we assume can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
 
-| block size | number of successive 2x2 rollup proofs | number of parallel Prover machines required for base layer proofs | time required to construct a rollup proof |
+| block size | number of successive 2-to-1 rollup proofs | number of parallel Prover machines required for base layer proofs | time required to construct a rollup proof |
 | --- | --- | --- | --- |
 | $1,024$ | $10$ | $512$ | 4.1s |
 | $2,048$ | $11$ | $1,024$ | 7.4s |
@@ -171,11 +183,11 @@ To accomodate the above costs, we assume can budget 40% of block production time
 | $8,192$ | $13$ | $4,096$ | 25.2s |
 | $16,384$ | $14$ | $8,192$ | 46.8s |
 
-We must also define the maximum number of physical machines we can reasonably expect to be constructing proofs across the Prover network. If we can assume we can expect $1,024$ machines available, this caps the MPV proof construction time at 7.4 seconds.
+We must also define the maximum number of physical machines we can reasonably expect to be constructing proofs across the Prover network. If we can assume we can expect $1,024$ machines available, this caps the MVP proof construction time at 7.4 seconds.
 
 Supporting a proof construction time of 4.1s would enable us to reduce minimum hardware requirements for the Prover network to 512 physical machines.
 
-### 2x2 rollup memory consumption
+### 2-to-1 rollup memory consumption
 
 Same rationale as the public VM proof construction time.
 
