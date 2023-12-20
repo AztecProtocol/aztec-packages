@@ -51,7 +51,7 @@ The following must be empty to ensure a comprehensive final reset:
 2. The circuit then applies nonces to the note hashes:
 
    - The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
-     - `first_nullifier` is the hash of the transaction request.
+     - `first_nullifier` is the [hash of the transaction request](./private-kernel-initial.md#ensuring-transaction-uniqueness).
      - `index` is the position of the note hash in the note hashes array in the public inputs.
 
    Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.

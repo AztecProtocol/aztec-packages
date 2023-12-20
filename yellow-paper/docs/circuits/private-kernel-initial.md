@@ -32,7 +32,7 @@ This entails ensuring that the following data from the private call aligns with 
 
 #### Ensuring transaction uniqueness.
 
-- It must emit the hash of the transaction request as a nullifier.
+- It must emit the hash of the transaction request as the **first** nullifier.
 
 This nullifier serves multiple purposes:
 

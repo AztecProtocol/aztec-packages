@@ -230,7 +230,7 @@ The private call data holds details about the current private function call:
 
 ### Hints
 
-Hints that aid in the verifications carried out in this circuit or later iterations:
+Data that aids in the verifications carried out in this circuit or later iterations:
 
 - Index of the new contract.
 - Membership witness for the function leaf.
