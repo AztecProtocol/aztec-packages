@@ -6,7 +6,7 @@ sidebar_position: 4
 
 The protocol should allow users to express their preferences in terms of encryption and note tagging mechanisms, and also provably advertise their encryption public keys. A canonical registry contract provides an application-level solution to both problems.
 
-## Canonical Registry Contract
+## Overview and Usage
 
 At the application level, a canonical singleton contract allows accounts register their public keys and their preference for encryption and tagging methods. This data is kept in public storage for anyone to check when they need to send a note to an account.
 
@@ -41,8 +41,17 @@ contract Registry
     internal public fn do_set(address, keys, precompile_address)
         assert precompile_address in ENCRYPTION_PRECOMPILE_ADDRESS_RANGE
         assert precompile_address.validate_keys(keys)
+        assert keys.length < MAX_KEYS_LENGTH
         registry[msg_sender] = { keys, precompile_address }
 ```
+
+## Storage
+
+The registry stores a struct for each user, which means that each entry requires multiple storage slots. Reading multiple storage slots requires multiple merkle membership proofs, which increase the total proving cost of any execution that needs access to the registry.
+
+To reduce the number of merkle membership proofs, the registry keeps in storage only the hash of the data stored, and emits the preimage as an unencrypted event. Nodes are expected to store these preimages, so they can be returned when clients query for the public keys for an address. Clients then prove that the preimage hashes to the commitment stored in the public data tree via a single merkle membership proof.
+
+<!-- TODO: This requires custom node behaviour, as well as a custom RPC call so that nodes can serve the preimage from the associated log. Should we implement this optimization? Should it be specific to this contract, or does it make sense to generalize it, since it seems like it could be a common pattern? -->
 
 ## Delegation
 
