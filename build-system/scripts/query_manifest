@@ -77,7 +77,7 @@ case "$CMD" in
     yq -r ".\"$REPO\".dependencies // [] | .[]" $MANIFEST
     ;;
   runDependencies)
-    # echo $REPO
+    echo $REPO
     yq -r ".\"$REPO\".runDependencies // [] | .[]" $MANIFEST
     RUN_NAME=${3:-}
     [ -n "$RUN_NAME" ] && yq -r ".\"$REPO\".run.\"$RUN_NAME\".dependencies // [] | .[]" $MANIFEST

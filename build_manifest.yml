@@ -168,26 +168,12 @@ cli:
     - yarn-project-prod
   multiarch: buildx
 
-# boxes-blank-react:
-#   buildDir: boxes
-#   projectDir: boxes/blank-react
-#   dependencies:
-#     - aztec-sandbox
-
-boxes-blank:
-  buildDir: boxes/blank
+boxes:
+  buildDir: boxes
   dependencies:
     - yarn-project-prod
   runDependencies:
-    # We build as part of run, so include build deps.
-    - yarn-project-prod
     - aztec-sandbox
-
-# boxes-token:
-#   buildDir: boxes
-#   projectDir: boxes/token
-#   dependencies:
-#     - aztec-sandbox
 
 end-to-end:
   buildDir: yarn-project
@@ -195,7 +181,6 @@ end-to-end:
   dependencies:
     - yarn-project
   runDependencies:
-    - end-to-end
     - aztec-sandbox
 
 mainnet-fork:

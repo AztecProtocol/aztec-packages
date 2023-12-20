@@ -1,5 +1,5 @@
 {
-  "name": "blank-contract",
+  "name": "@aztec/blank",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "compile:local": "ts-node --esm ../../yarn-project/cli/src/bin/index.ts compile \"src/contracts\" --outdir \"../artifacts\" --typescript \"../artifacts\"",
-    "test:integration": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -34,14 +34,6 @@
   "dependencies": {
     "@aztec/aztec.js": "^0.16.9",
     "serve": "^14.2.1"
-  },
-  "resolutions": {
-    "@aztec/aztec.js": "portal:../../yarn-project/aztec.js",
-    "@aztec/circuits.js": "portal:../../yarn-project/circuits.js",
-    "@aztec/foundation": "portal:../../yarn-project/foundation",
-    "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/types": "portal:../../yarn-project/types",
-    "@aztec/ethereum": "portal:../../yarn-project/ethereum"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
