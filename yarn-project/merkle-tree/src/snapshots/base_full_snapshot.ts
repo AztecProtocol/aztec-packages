@@ -97,9 +97,52 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     return this.openSnapshot(root, numLeaves);
   }
 
-  protected handleLeaf(_index: bigint, _node: Buffer, _batch: LevelUpChain) {
-    return Promise.resolve();
+  async restore(block: number) {
+    const snapshotMetadata = await this.#getSnapshotMeta(block);
+
+    if (snapshotMetadata === undefined) {
+      throw new Error('fucked')
+    }
+
+    const batch = this.db.batch();
+    const { root: snapshotRoot, numLeaves } = snapshotMetadata;
+    const depth = this.tree.getDepth();
+    const queue: [Buffer, number, bigint][] = [[snapshotRoot, 0, 0n]];
+
+    while (queue.length > 0) {
+      const [snapshotNode, level, i] = queue.shift()!;
+
+      const node = (await this.tree.getNode(level, i))!;
+
+      if (snapshotNode.equals(node)) {
+        continue;
+      }
+
+      batch.put(`${this.tree.getName()}:${level}:${i}`, snapshotNode);
+
+      if (level + 1 > depth) {
+        await this.handleLeafRestore(i, node, this.db);
+        continue;
+      }
+
+      const [lhs, rhs] = await Promise.all([
+        this.db.get(snapshotChildKey(snapshotNode!, 0)),
+        this.db.get(snapshotChildKey(snapshotNode!, 1)),
+      ]);
+
+        queue.push([lhs, level + 1, 2n * i]);
+        queue.push([rhs, level + 1, 2n * i + 1n]);
+    }
+
+    await this.tree.snapshotRestoreUtil(numLeaves, snapshotRoot);
+    await batch.write();
+
+    return;
   }
+
+  protected abstract handleLeaf(_index: bigint, _node: Buffer, _batch: LevelUpChain): Promise<void>;
+
+  protected abstract handleLeafRestore(_index: bigint, _node: Buffer, _batch: LevelUpChain): Promise<void>;
 
   async getSnapshot(version: number): Promise<S> {
     const snapshotMetadata = await this.#getSnapshotMeta(version);

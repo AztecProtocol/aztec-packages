@@ -216,6 +216,11 @@ export class EthCheatCodes {
     const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
     return res.result;
   }
+
+  public async snapShot(): Promise<`0x${string}`[]> {
+    const res = await this.rpcCall('evm_snapshot', []);
+    return res.result;
+  }
 }
 
 /**

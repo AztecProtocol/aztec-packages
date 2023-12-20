@@ -141,6 +141,22 @@ export abstract class TreeBase implements MerkleTree {
   }
 
   /**
+   * Used in conjunction with restoring the tree from snapshot
+   * @param newSize - The new size of the tree.
+   * @param newRoot - the new root of the tree.
+   * @returns Empty promise.
+   */
+  public async snapshotRestoreUtil(newSize: bigint, newRoot: Buffer): Promise<void> {
+    this.size = newSize;
+    this.root = newRoot;
+    await this.writeMeta();
+  }
+
+  public getDb() {
+    return this.db;
+  }
+
+  /**
    * Gets the value at the given index.
    * @param index - The index of the leaf.
    * @param includeUncommitted - Indicates whether to include uncommitted changes.

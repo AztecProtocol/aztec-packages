@@ -25,6 +25,10 @@ describe('e2e_deploy_contract', () => {
   let sequencer: SequencerClient | undefined;
   let teardown: () => Promise<void>;
 
+  beforeAll(async () => {
+    ({ teardown, pxe, accounts, logger, wallet, sequencer } = await setup());
+  }, 100_000);
+
   beforeEach(async () => {
     ({ teardown, pxe, accounts, logger, wallet, sequencer } = await setup());
   }, 100_000);

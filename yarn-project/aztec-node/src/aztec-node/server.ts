@@ -648,4 +648,8 @@ export class AztecNodeService implements AztecNode {
     const blockSourceHeight = await this.blockSource.getBlockNumber();
     return this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
   }
+
+  async restoreState() {
+    
+  }
 }
