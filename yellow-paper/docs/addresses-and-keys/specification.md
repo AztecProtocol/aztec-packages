@@ -343,10 +343,6 @@ The `PublicKeys` struct can vary depending on the format of keys used by the add
 
 ## Derive siloed keys
 
-### Incoming viewing keys
-
-The protocol does not support derivation of app-siloed incoming viewing keys.
-
 ### Nullifier keys
 
 <!-- prettier-ignore -->
@@ -357,6 +353,10 @@ $\Nkapp$ | $h(\nskapp)$ | Shareable nullifier key | PXE, K, T3P, App| If an app 
 
 See the appendix for an alternative derivation suggestion.
 
+### Incoming viewing keys
+
+The protocol does not support derivation of app-siloed incoming viewing keys.
+
 ### Outgoing viewing keys
 
 An app-siloed outgoing viewing secret key is derived as a hardened child of the master outgoing viewing secret key.
@@ -366,9 +366,13 @@ An app-siloed outgoing viewing secret key is derived as a hardened child of the 
 |---|---|---|---|---|
 $\ovskapp$ | $h(\ovskm, \text{app\_address})$ |
 
-This is a stripped-back non-hardened derivation. Such a hardened $\nskapp$ may enter the app circuit, but $\nskm$ must not, so the derivation of $\nskapp$ would need to be delegated by the app circuit to the kernel circuit (the assumption being that the kernel circuit is a core protocol circuit which can be trusted with this master secret). See [this later section](#derive-nullifier) for how such a computation would be delegated to the kernel circuit.
+This is a stripped-back non-hardened derivation. Such a hardened $\ovskapp$ may enter the app circuit, but $\ovskm$ must not, so the derivation of $\ovskapp$ must only be done in a trusted precompile contract.
 
-## "Handshaking" 
+### Internal incoming viewing keys
+
+Derivation of internal incoming viewing keys is equivalent to that of outgoing viewing keys.
+
+## Handshaking for tag-hopping
 
 Deriving a sequence of tags for tag-hopping.
 
@@ -580,9 +584,9 @@ $\Npkm$ | $\nskm \cdot G$ | nullifier public key |
 
 If the kernel circuit succeeds in these calculations, then the $\Nkapp$ has been validated as having a known secret key, and belonging to the $\address$.
 
-> Note: It's ugly. I don't like having to pass such a specific and obscure request to the kernel circuit. Having said that, the outgoing viewing keys also require a [very similar request](#doing-this-inside-an-app-circuit).
-
 ![Alt text](images/addresses-and-keys/image.png)
+
+See the [Appendix](#appendix) for an alternative approach.
 
 ## Encrypt and tag an incoming message
 
@@ -622,10 +626,6 @@ $\sharedsecret_{app, enc}$ | $\ivskappstealth \cdot \Epkd$ | Shared secret, for 
 $\happenc$ | h("?", $\sharedsecret_{app, enc}$) | Ciphertext encryption key |
 $\plaintext$ | $decrypt_{\happenc}^{\ivskappstealth}(\ciphertext)$ | Plaintext |
 
-## Encrypt and tag an internal incoming message
-
-TODO: describe internal key derivation
-
 ## Encrypt and tag an outgoing message
 
 Bob wants to send himself a private message (e.g. a record of the outgoing notes that he's created for other people) which we'll refer to as the $\plaintext$. Let's assume Bob has derived a sequence of tags $\tagg_{m,i}^{Bob \rightarrow Alice}$ for himself (see earlier).
@@ -649,7 +649,7 @@ $\d$ | Given by Alice | (Diversifier) | Remember, in most cases, $\d=1$ is suffi
 $\Gd$ | $\d \cdot G$ | (Diversified) generator | Remember, when $\d = 1$, $\Gd = G$.
 $\eskheader$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key |
 $\Epkdheader$ | $\eskheader \cdot \Gd$ | (Diversified) Ephemeral public key |
-$\hmencheader$ | h("?", $\ovskm$, $\Epkdheader$) | Header encryption key | Danger: this uses a master secret key $\ovskm$, which MUST NOT be given to an app, nor to an app circuit; it may only be given to the PXE or the Kernel circuit. See below for how we can enable an app to perform these encryption steps. | 
+$\hmencheader$ | h("?", $\ovskm$, $\Epkdheader$) | Header encryption key | This uses a master secret key $\ovskm$, which MUST NOT be given to an app nor to an app circuit. However, it can still be given to a trusted precompile, which can handle this derivation securely. | 
 $\ciphertextheader$ | $enc_{\hmencheader}$(app\_address) | Ciphertext header encryption key |  |
 |||||
 $\esk$ | $\stackrel{rand}{\leftarrow} \mathbb{F}$ | ephemeral secret key |
@@ -674,29 +674,9 @@ $\plaintext$ | $decrypt_{\happenc}(\ciphertext)$ |
 
 <!-- TODO: how does a user validate that they have successfully decrypted a ciphertext? Is this baked into ChaChaPoly1035, for example? -->
 
-### Doing this inside an app circuit
+## Encrypt and tag an internal incoming message
 
-Here's how an app circuit could constrain the app-siloed outgoing viewing secret key ($\ovskapp$) to be correct:
-
-The app circuit exposes, as public inputs, an "outgoing viewing key validation request":
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-`outgoing_viewing_key_validation_request` | app_address: app_address,<br />hardened_child_sk: $\nskapp$,<br />claimed_parent_pk: $\Npkm$ |
-
-The kernel circuit can then validate the request (having been given $\ovskm$ as a private input to the kernel circuit):
-
-<!-- prettier-ignore -->
-| Thing | Derivation | Name | Comments |
-|---|---|---|---|
-$\ovskapp$ | $h(\ovskm, \text{app\_address})$ |
-$\Ovpkm$ | $\ovskm \cdot G$ | Outgoing viewing public key |
-| | | | Copy-constrain $\ovskm$ with $\ovskm$. |
-
-If the kernel circuit succeeds in these calculations, then the $\ovskapp$ has been validated as the correct app-siled secret key for $\Ovpkm$.
-
-![Alt text](images/addresses-and-keys/image-3.png)
+Internal incoming messages are handled analogously to outgoing messages, since in both cases the sender is the same as the recipient, who has access to the secret keys when encrypting and tagging the message.
 
 ## Acknowledgements
 
@@ -757,7 +737,7 @@ The _kernel_ circuit can then validate the `pokodl_request` (having been given t
 |---|---|---|---|
 $\Nkapp$ | $\nskapp \cdot H$ |
 $\Npkapp$ | $\nskapp \cdot G$ |
-| | | | Copy-constrain $\nskapp$ with $\nskapp$.<br />This constraint makes the interface to the kernel circuit a bit uglier. The `pokodl_request` now needs to convey "and constrain the discrete logs of these two pokodl requests to be equal". Ewww. |
+| | | | Copy-constrain $\nskapp$ with $\nskapp$.<br />This constraint makes the interface to the kernel circuit a bit uglier. The `pokodl_request` now needs to convey "and constrain the discrete logs of these two pokodl requests to be equal". |
 
 If the kernel circuit succeeds in these calculations, then the $\Nkapp$ has been validated as having a known secret key, and belonging to the $\address$.
 
