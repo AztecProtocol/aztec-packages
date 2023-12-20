@@ -8,7 +8,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 The **tail** circuit abstains from processing individual private function calls. Instead, it incorporates the outcomes of a private kernel circuit and conducts additional processing essential for generating the final public inputs suitable for submission to the transaction pool, subsequently undergoing processing by Sequencers and Provers. The final public inputs must safeguard against revealing any private information unnecessary for the execution of public kernel circuits and rollup circuits.
 
-### Verification of the Previous Iteration:
+### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
@@ -35,7 +35,7 @@ The following must be empty to ensure a comprehensive final reset:
 
 > A [reset iteration](./private-kernel-reset.md) should ideally precede this step. Although it doesn't have to be executed immediately before the tail circuit, as long as it effectively clears the specified values.
 
-### Responsibilities for Processing the Final Outputs:
+### Processing Final Outputs
 
 #### Siloing values.
 
@@ -90,7 +90,7 @@ For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i
 
 > Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done once in the tail circuit.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 

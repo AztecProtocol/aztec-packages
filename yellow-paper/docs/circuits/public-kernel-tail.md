@@ -8,7 +8,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 The **tail** circuit refrains from processing individual public function calls. Instead, it integrates the results of iterative public kernel circuit and performs additional verification and processing necessary for generating the final public inputs.
 
-### Verification of the Previous Iteration:
+### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
@@ -24,7 +24,7 @@ The following must be empty to ensure all the public function calls are processe
 
 - Public call requests.
 
-### Responsibilities for Processing the Final Outputs:
+### Processing Final Outputs
 
 #### Siloing values.
 
@@ -197,7 +197,7 @@ After all the update requests are processed:
 - Verify that the latest root matches the root in the **new** public data tree snapshot in the public inputs.
 - Verify that the index in the **new** public data tree snapshot equals the index in the **old** public data tree snapshot plus the number of the new leaves appended to the subtree.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 

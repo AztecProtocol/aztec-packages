@@ -10,7 +10,7 @@ The **reset** circuit is designed to abstain from processing individual private 
 
 The incorporation of this circuit not only enhances the modularity and repeatability of the "reset" process but also diminishes the overall workload. Rather than conducting resource-intensive computations such as membership checks in each iteration, these tasks are only performed as necessary within the reset circuits.
 
-### Verification of the Previous Iteration:
+### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
@@ -21,7 +21,7 @@ The preceding proof can be:
 - [Initial private kernel proof](./private-kernel-initial.md).
 - [Inner private kernel proof](./private-kernel-inner.md).
 
-### Responsibilities for Verifying and Resetting Data:
+### Verifying and Resetting Data
 
 #### Verifying read requests.
 
@@ -72,7 +72,7 @@ For each nullifier associated with a non-zero nullified note hash:
 
 > Note that an index hint can be set as the length of the note hash array to bypass the above process even when the corresponding nullifier is nullifying a transient note hash already present in the public inputs. The transient note hash must be retained in the public inputs for reading in a yet-to-be-processed nested execution.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 

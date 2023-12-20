@@ -8,7 +8,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 In the **initial** kernel iteration, the process involves taking a transaction request and private call data, verifying their integrity, and preparing the necessary data for subsequent circuits to operate. This step is particularly beneficial due to its separation from the [inner private kernel circuit](./private-kernel-inner.md), as the first call lacks a "previous kernel" to process. Additionally, it executes tasks that are pertinent to a transaction and need only occur once.
 
-### Key Responsibilities Specific to this Circuit:
+### Key Responsibilities Specific to this Circuit
 
 #### Validating the correspondence of function call with caller's intent.
 
@@ -42,7 +42,7 @@ This nullifier serves multiple purposes:
 
 > Note that the final transaction data is not deterministic for a given transaction request. The production of new notes, the destruction of notes, and various other values are likely to change based on the time and conditions when a transaction is being composed. However, the intricacies of implementation should not be a concern for the entity initiating the transaction.
 
-### Responsibilities for Processing the Private Function Call:
+### Processing Private Function Call
 
 #### Ensuring the contract instance being called is deployed.
 
@@ -128,7 +128,7 @@ The ordered arrays include:
 - New contract contexts.
 - Read requests.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 

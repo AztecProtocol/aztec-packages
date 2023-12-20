@@ -8,7 +8,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 In the public kernel iteration, the process involves taking a previous iteration and public call data, verifying their integrity, and preparing the necessary data for subsequent circuits to operate.
 
-### Responsibilities for Processing the Previous Iteration:
+### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
@@ -19,7 +19,7 @@ The preceding proof can be:
 - [tail private kernel proof](./private-kernel-tail.md).
 - Iterative public kernel proof.
 
-### Responsibilities for Processing the Public Function Call:
+### Processing Public Function Call
 
 #### Ensuring the contract instance being called is deployed.
 
@@ -148,7 +148,7 @@ The ordered arrays include:
 - Read requests.
 - Update requests.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 

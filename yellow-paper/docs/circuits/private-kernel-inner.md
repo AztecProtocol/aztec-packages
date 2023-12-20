@@ -8,7 +8,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 Each **inner** kernel iteration processes a private function call and the results of a previous kernel iteration.
 
-### Verification of the Previous Iteration:
+### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
@@ -22,7 +22,7 @@ The preceding proof can be:
 
 The previous proof and the proof for the current function call are verified using recursion.
 
-### Responsibilities for Processing the Private Function Call:
+### Processing Private Function Call
 
 #### Ensuring the contract instance being called is deployed.
 
@@ -159,7 +159,7 @@ The ordered arrays include:
 - New contract contexts.
 - Read requests.
 
-### Responsibilities for Validating the Public Inputs:
+### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
