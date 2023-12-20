@@ -175,7 +175,7 @@ The program counter (machine state's `pc`) determines which instruction to execu
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`) modify the program counter based on inputs.
 
-The `INTERNALCALL` instruction jumps to the destination specified by its input (sets `pc` to that destination), but first it pushes the current program counter to `machineState.internalCallStack`. The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and jumps to that destination.
+The `INTERNALCALL` instruction jumps to the destination specified by its input (sets `pc` to that destination), but first it pushes the current `pc+1` to `machineState.internalCallStack`. The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and jumps there.
 
 > Jump destinations can only be constants from the contract bytecode, or destinations popped from `machineState.internalCallStack`. A jump destination will never originate from main memory.
 
@@ -247,7 +247,7 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
 1. **World state modification attempt during a static call**
     ```
     assert !environment.isStaticCall
-        or environment.bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
+        OR environment.bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 
@@ -320,7 +320,7 @@ When a message call's execution encounters an instruction that itself triggers a
 
 The success or failure of the nested call is captured into memory at the offset specified by the call instruction's `successOffset` input:
 ```
-context.machineState.memory[instr.args.successOffset] = subContext.results.reverted
+context.machineState.memory[instr.args.successOffset] = !subContext.results.reverted
 ```
 
 Recall that a nested call is allocated some gas. In particular, the call instruction's `gasOffset` input points to an L1 and L2 gas allocation for the nested call. As shown in the [section above](#context-initialization-for-a-nested-call), a nested call's `subContext.machineState.l1GasLeft` is initialized to `context.machineState.memory[instr.args.gasOffset]`. Likewise, `l2GasLeft` is initialized from `gasOfffset+1`.
@@ -341,7 +341,7 @@ if instr.args.retSize > 0:
 
 As long as a nested call has not reverted, its updates to the world state and accrued substate will be absorbed into the calling context.
 ```
-if !subContext.results.reverted and instr.opcode != STATICCALL_OP:
+if !subContext.results.reverted AND instr.opcode != STATICCALL_OP:
     context.worldState = subContext.worldState
     context.accruedSubstate.append(subContext.accruedSubstate)
 ```
