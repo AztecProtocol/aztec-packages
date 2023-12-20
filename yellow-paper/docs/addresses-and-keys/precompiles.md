@@ -3,7 +3,7 @@ title: Precompiles
 sidebar_position: 2
 ---
 
-Precompiled contracts, which borrow their name from Ethereum's, are contracts not deployed by users but defined at the protocol level. These contracts are assigned well-known low-number addresses, and their implementation is subject to change via protocol upgrades. Precompiled contracts in Aztec are implemented as a set of circuits, one for each function they expose, like user-defined private contracts. Precompiles may make use of the local PXE oracle. Note that, unlike user-defined contracts, the address of a precompiled contract has no known preimage.
+Precompiled contracts, which borrow their name from Ethereum's, are contracts not deployed by users but defined at the protocol level. These contracts and their classes are assigned well-known low-number addresses and identifiers, and their implementation is subject to change via protocol upgrades. Precompiled contracts in Aztec are implemented as a set of circuits, one for each function they expose, like user-defined private contracts. Precompiles may make use of the local PXE oracle. Note that, unlike user-defined contracts, the address of a precompiled contract instance and the identifier of its class both have no known preimage.
 
 Rationale for precompiled contracts is to provide a set of vetted primitives for note encryption and tagging that applications can use safely. These primitives are guaranteed to be always satisfiable when called with valid arguments. This allows account contracts to choose their preferred method of encryption and tagging from any primitive in this set, and application contracts to call into them without the risk of calling into a untrusted code, which could potentially halt the execution flow via an unsatisfiable constrain. Furthermore, by exposing these primitives in a reserved set of well-known addresses, applications can be forward-compatible and incorporate new encryption and tagging methods as accounts opt into them.
 
@@ -63,14 +63,12 @@ Encrypts and tags the given plaintext using the provided public keys, and return
 encrypt_and_broadcast(public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH]
 ```
 
-Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery.
-
-<!-- TODO: If the precompile is emitting the event here, how do we silo it to the emitting contract? How do we prevent one contract from emitting an event as if it were another? Should precompiles be allowed to emit events on behalf of msg_sender? Or should these precompiles be invoked with a (urgh) delegatecall so that events emitted by them look like emitted by msg_sender? Does this mean that precompiles should be class_ids? -->
+Encrypts and tags the given plaintext using the provided public keys, broadcasts them as an event, and returns the encrypted note prefixed with its tag for note discovery. This functions should be invoked via a [delegate call](../calls/delegate-calls.md), so that the broadcasted event is emitted as if it were from the caller contract.
 
 ```
-encrypt<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_CYPHERTEXT_LENGTH][N]
-encrypt_and_tag<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
-encrypt_and_broadcast<N>({ public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] }[N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
+encrypt<N>([call_context: CallContext, public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] ][N]): Field[MAX_CYPHERTEXT_LENGTH][N]
+encrypt_and_tag<N>([call_context: CallContext, public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] ][N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
+encrypt_and_broadcast<N>([call_context: CallContext, public_keys_hash: Field, encryption_type: EncryptionType, recipient: AztecAddress, plaintext: Field[MAX_PLAINTEXT_LENGTH] ][N]): Field[MAX_TAGGED_CYPHERTEXT_LENGTH][N]
 ```
 
 Batched versions of the methods above, which accept an array of `N` tuples of public keys, recipient, and plaintext to encrypt in batch. Precompiles expose instances of this method for multiple values of `N` as defined by `ENCRYPTION_BATCH_SIZES`. Values in the batch with zeroes are skipped. These functions are intended to be used in [batched calls](../calls/batched-calls.md).
@@ -93,15 +91,15 @@ TODO
 
 List of note tagging strategies implemented by precompiles:
 
-### Incremental counter
+### Tag hopping
 
 TODO
 
 ## Defined precompiles
 
-List of precompiles defined by the protocol and their assigned address.
+List of precompiles defined by the protocol:
 
 | Address | Encryption | Note Tagging | Comments |
 |---------|------------|--------------|----------|
 | 0x01 | Noop | Noop | Used by accounts to explicitly signal that they cannot receive encrypted payloads. Validation method returns `true` only for an empty list of public keys. All other methods return empty. |
-| 0x02 | AES128 | Incremental counter |  |
+| 0x02 | AES128 | Tag hopping |  |
