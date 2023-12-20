@@ -6,4 +6,3 @@ WORKDIR /usr/src/boxes
 COPY . .
 RUN yarn && yarn build
 ENTRYPOINT ["yarn", "workspace"]
-CMD ["start"]

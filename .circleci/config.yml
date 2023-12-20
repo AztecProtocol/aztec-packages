@@ -1119,6 +1119,7 @@ workflows:
       # Boxes.
       - boxes-blank:
           requires:
+            - aztec-sandbox
             - boxes
           <<: *defaults
       # - boxes-blank-react:
