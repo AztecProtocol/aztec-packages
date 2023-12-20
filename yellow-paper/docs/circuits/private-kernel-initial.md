@@ -83,7 +83,7 @@ It ensures the app circuit's intention by checking the following:
   - L2-to-L1 message contexts.
   - Read requests.
 - The portal contract address for each non-empty L2-to-L1 message context must equal the current portal contract address.
-- If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
+- If the new contract contexts array is not empty, the contract address must equal the precompiled deployment contract address.
 - The historical data must match the one in the constant data.
 
 > Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
@@ -125,6 +125,7 @@ The ordered arrays include:
 
 - Note hash contexts.
 - Nullifier contexts.
+- New contract contexts.
 - Read requests.
 
 ### Responsibilities for Validating the Public Inputs:
@@ -133,7 +134,6 @@ The ordered arrays include:
 
 It verifies that the following values align with those in the app circuit's public inputs:
 
-- New contracts.
 - Log hashes.
 - Log lengths.
 
@@ -144,6 +144,7 @@ It ensures that the following values match those in the app circuit's public inp
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Private call requests.
 - Public call requests.
@@ -231,7 +232,6 @@ These are constants that remain the same throughout the entire transaction:
 
 It contains the result from the current function call:
 
-- New contracts.
 - Log hashes.
 - Log lengths.
 
@@ -242,6 +242,7 @@ It includes transient data accumulated during the execution of the transaction u
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Private call requests.
 - Public call requests.

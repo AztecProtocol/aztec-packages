@@ -26,9 +26,16 @@ The previous proof and the proof for the current function call are verified usin
 
 #### Ensuring the contract instance being called is deployed.
 
-It proves that the nullifier representing the contract exists in the contract tree.
+It proves that either of the following conditions is true:
 
-This nullifier is the contract address siloed with the address of a precompiled deployment contract.
+1. The nullifier representing the contract exists in the contract tree.
+
+   - Specifically, this nullifier is the contract address siloed with the address of a precompiled deployment contract.
+
+2. The contract is listed in the new contract context within the public inputs.
+
+   - The index of this contract in the new contracts array is supplied as a hint through private inputs.
+   - The counter of the new contract context must be less than the _counter_start_ of the current call.
 
 #### Ensuring the function being called exists in the contract.
 
@@ -101,7 +108,7 @@ It ensures the app circuit's intention by checking the following:
   - L2-to-L1 message contexts.
   - Read requests.
 - The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
-- If the new contracts array is not empty, the contract address must equal the precompiled deployment contract address.
+- If the new contract contexts array is not empty, the contract address must equal the precompiled deployment contract address.
 - The historical data must match the one in the constant data.
 
 > Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
@@ -149,15 +156,12 @@ The ordered arrays include:
 
 - Note hash contexts.
 - Nullifier contexts.
+- New contract contexts.
 - Read requests.
 
 ### Responsibilities for Validating the Public Inputs:
 
 #### Verifying the accumulated data.
-
-It verifies that the following match the values in the previous iteration's public inputs combining with those in the app circuit's public inputs:
-
-- New contracts.
 
 It checks that the hashes and the lengths for both encrypted and unencrypted logs are accumulated as follows:
 
@@ -172,6 +176,7 @@ It verifies that the following values match the result of combining the values i
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Public call requests.
 
@@ -221,8 +226,11 @@ The private call data holds details about the current private function call:
 - Verification key of the app circuit.
 - Hash of the function bytecode.
 
-It also includes hints that aid in the verifications carried out in this circuit or later iterations:
+### Hints
 
+Hints that aid in the verifications carried out in this circuit or later iterations:
+
+- Index of the new contract.
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.
 - Transient note nullifier counters.
@@ -253,7 +261,6 @@ These are constants that remain the same throughout the entire transaction:
 
 It contains data accumulated during the execution of the transaction up to this point:
 
-- New contracts.
 - Log hashes.
 - Log lengths.
 
@@ -264,6 +271,7 @@ It includes transient data accumulated during the execution of the transaction u
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Private call requests.
 - Public call requests.

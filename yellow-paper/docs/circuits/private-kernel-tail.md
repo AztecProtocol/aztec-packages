@@ -71,6 +71,7 @@ This circuit ensures the correct ordering of the following arrays (_ordered_arra
 - Note hashes.
 - Nullifiers.
 - L2-to-l1 messages.
+- New contracts.
 - Public call requests.
 
 The corresponding _unordered_arrays_ for the above are sourced either from the transient accumulated data of the previous iteration or from the [siloed results](#siloing-values).
@@ -91,17 +92,17 @@ For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i
 
 #### Verifying the accumulated data.
 
-The following must correspond to the values after siloing and ordering, and were verified in a [previous step](#verifying-ordered-arrays):
+The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
 
 - Note hashes.
 - Nullifiers.
 - L2-to-L1 messages.
+- New contracts.
 
-> Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
+> Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
 The following must match the respective values in the previous kernel's public inputs:
 
-- New contracts.
 - Log hashes.
 - Log lengths.
 
@@ -182,6 +183,7 @@ It includes data that aids in processing each kernel iteration. They must be emp
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Update requests.
 - Public call requests.

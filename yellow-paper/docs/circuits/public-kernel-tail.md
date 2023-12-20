@@ -302,6 +302,7 @@ It includes data that aids in processing each kernel iteration. They must be emp
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Update requests.
 - Public call requests.

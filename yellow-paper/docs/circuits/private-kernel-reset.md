@@ -89,6 +89,7 @@ The following must equal the result after verification or squashing:
 The following must equal the corresponding values in the previous kernel's public inputs:
 
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Private call requests.
 - Public call requests.
 
@@ -143,7 +144,6 @@ These are constants that remain the same throughout the entire transaction:
 
 It contains data accumulated during the execution of the transaction up to this point:
 
-- New contracts.
 - Log hashes.
 - Log lengths.
 
@@ -154,6 +154,7 @@ It includes transient data accumulated during the execution of the transaction u
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Private call requests.
 - Public call requests.

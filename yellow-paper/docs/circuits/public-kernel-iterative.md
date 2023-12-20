@@ -23,9 +23,14 @@ The preceding proof can be:
 
 #### Ensuring the contract instance being called is deployed.
 
-It proves that the nullifier representing the contract exists in the contract tree.
+1. The nullifier representing the contract exists in the contract tree.
 
-This nullifier is the contract address siloed with the address of a precompiled deployment contract.
+   - Specifically, this nullifier is the contract address siloed with the address of a precompiled deployment contract.
+
+2. The contract is listed in the new contracts within the public inputs.
+
+   - The index of this contract in the new contracts array is supplied as a hint through private inputs.
+   - The counter of the new contract context must be less than the _counter_start_ of the current call.
 
 #### Ensuring the function being called exists in the contract.
 
@@ -218,8 +223,11 @@ The call data holds details about the current public function call:
 - Verification key.
 - Hash of the function bytecode.
 
-It also includes hints that aid in the verifications carried out in this circuit:
+### Hints
 
+Hints that aid in the verifications carried out in this circuit or later iterations:
+
+- Index of the new contract.
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.
 - Update requests override counters.
@@ -266,6 +274,7 @@ It includes data from the current function call, aggregated with the results fro
 - Note hash contexts.
 - Nullifier contexts.
 - L2-to-L1 message contexts.
+- New contract contexts.
 - Read requests.
 - Update requests.
 - Public call requests.
