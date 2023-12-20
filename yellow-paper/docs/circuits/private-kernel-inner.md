@@ -171,29 +171,29 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
 
 #### Verifying the transient accumulated data.
 
-It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- New contract contexts.
-- Read requests.
-- Public call requests.
+   - Note hash contexts.
+   - Nullifier contexts.
+   - L2-to-L1 message contexts.
+   - New contract contexts.
+   - Read requests.
+   - Public call requests.
 
-For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
+2. For the newly added note hashes from app circuits' public inputs, this circuit also checks that each is associated with a nullifier counter, provided as a hint via the private inputs. The nullifier counter can be:
 
-- Zero: if the note is not nullified in the same transaction.
-- Greater than zero: if the note is nullified in the same transaction.
-  - This value must be greater than the counter of the note hash.
+   - Zero: if the note is not nullified in the same transaction.
+   - Greater than zero: if the note is nullified in the same transaction.
+     - This value must be greater than the counter of the note hash.
 
-> Nullifier counters are used in the [reset private kernel circuit](./private-kernel-reset.md) to ensure a read happens **before** a transient note is nullified.
+   > Nullifier counters are used in the [reset private kernel circuit](./private-kernel-reset.md) to ensure a read happens **before** a transient note is nullified.
 
-> Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
+   > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
-It verifies that the private call requests include:
+3. It verifies that the private call requests include:
 
-- All requests from the previous iteration's public inputs except for the top one.
-- All requests present in the app circuit's public inputs.
+   - All requests from the previous iteration's public inputs excluding the top one.
+   - All requests present in the app circuit's public inputs, appended to the above in **reverse** order.
 
 #### Verifying the constant data.
 

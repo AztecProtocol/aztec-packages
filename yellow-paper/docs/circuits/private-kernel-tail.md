@@ -82,9 +82,11 @@ For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i
 
 - If the item is not empty:
   - It must correspond to the item at index _hints[i]_ in _unordered_array_.
-  - For _i_ != 0, the counter must be greater than the counter of the item at index _hints[i - 1]_ in _unordered_array_.
+  - For _i_ != 0, the counter must be greater (less for public call requests) than the counter of the item at index _hints[i - 1]_ in _unordered_array_.
 - If the item is empty:
   - All the subsequent items must be empty in both _ordered_array_ and _unordered_array_.
+
+> Note that the public call requests must be arranged in descending order to ensure the calls are executed in chronological order.
 
 > Note that while ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done once in the tail circuit.
 

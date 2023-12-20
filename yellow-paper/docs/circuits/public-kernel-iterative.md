@@ -171,28 +171,28 @@ It checks that the hash and the length for **unencrypted** logs are accumulated 
 
 #### Verifying the transient accumulated data.
 
-It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
+1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the app circuit's public inputs:
 
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- Read requests.
-- Update requests.
+   - Note hash contexts.
+   - Nullifier contexts.
+   - L2-to-L1 message contexts.
+   - Read requests.
+   - Update requests.
 
-For the newly added update requests from app circuits' public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
+2. For the newly added update requests from app circuits' public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
 
-- Zero: if the slot does not change later in the same transaction.
-- Greater than zero: if the slot is updated later in the same transaction.
-  - It pertains to a subsequent update request altering the same slot. Therefor, the counter value must be greater than the counter of the update request.
+   - Zero: if the slot does not change later in the same transaction.
+   - Greater than zero: if the slot is updated later in the same transaction.
+     - It pertains to a subsequent update request altering the same slot. Therefor, the counter value must be greater than the counter of the update request.
 
-> Override counters are used in the [tail public kernel circuit](./public-kernel-tail.md) to ensure a read happens **before** the value is changed in a later update.
+   > Override counters are used in the [tail public kernel circuit](./public-kernel-tail.md) to ensure a read happens **before** the value is changed in a later update.
 
-> Zero serves as an indicator for an unchanged update, as this value can never act as the counter of an update request. It corresponds to the _counter_start_ of the first function call.
+   > Zero serves as an indicator for an unchanged update, as this value can never act as the counter of an update request. It corresponds to the _counter_start_ of the first function call.
 
-It verifies that the public call requests include:
+3. It verifies that the public call requests include:
 
-- All requests from the previous iteration's public inputs except for the top one.
-- All requests present in the app circuit's public inputs.
+   - All requests from the previous iteration's public inputs except for the top one.
+   - All requests present in the app circuit's public inputs, appended to the above in **reverse** order.
 
 #### Verifying the constant data.
 
