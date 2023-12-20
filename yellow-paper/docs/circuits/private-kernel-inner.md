@@ -74,23 +74,23 @@ The preimage of the hash encompasses:
 
 #### Ensuring this function is called with the correct context.
 
-If it is a standard call:
+1. If it is a standard call:
 
-- The storage contract address of the current iteration must be the same as its contract address.
-- The _msg_sender_ of the current iteration must be the same as the caller's contract address.
+   - The storage contract address of the current iteration must be the same as its contract address.
+   - The _msg_sender_ of the current iteration must be the same as the caller's contract address.
 
-If it is a delegate call:
+2. If it is a delegate call:
 
-- The caller context in the call request must not be empty. Specifically, the following values of the caller should not be zeros:
-  - _msg_sender_.
-  - Storage contract address.
-- The _msg_sender_ of the current iteration must equal the caller's _msg_sender_.
-- The storage contract address of the current iteration must equal the caller's storage contract address.
-- The storage contract address of the current iteration must NOT equal the contract address.
+   - The caller context in the call request must not be empty. Specifically, the following values of the caller should not be zeros:
+     - _msg_sender_.
+     - Storage contract address.
+   - The _msg_sender_ of the current iteration must equal the caller's _msg_sender_.
+   - The storage contract address of the current iteration must equal the caller's storage contract address.
+   - The storage contract address of the current iteration must NOT equal the contract address.
 
-If it is an internal call:
+3. If it is an internal call:
 
-- The _msg_sender_ of the current iteration must equal the storage contract address.
+   - The _msg_sender_ of the current iteration must equal the storage contract address.
 
 #### Verifying the app private function proof.
 
@@ -134,30 +134,30 @@ For both private and public call requests initiated in the current function call
 
 It verifies that each relevant value is associated with a legitimate counter.
 
-For the current call:
+1. For the current call:
 
-- The _counter_end_ of the current call must be greater than its _counter_start_.
-- Both counters must match the ones defined in the top item in the previous iteration's private call requests.
+   - The _counter_end_ of the current call must be greater than its _counter_start_.
+   - Both counters must match the ones defined in the top item in the previous iteration's private call requests.
 
-For both private and public call requests in the app circuit's public inputs:
+2. For both private and public call requests in the app circuit's public inputs:
 
-- The _counter_end_ of each request must be greater than its _counter_start_.
-- The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
-- The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
-- The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
+   - The _counter_end_ of each request must be greater than its _counter_start_.
+   - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
+   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
+   - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-For items in each ordered array in the app circuit's public inputs:
+3. For items in each ordered array in the app circuit's public inputs:
 
-- The counter of the first item much be greater than the _counter_start_ of the current call.
-- The counter of each subsequent item much be greater than the counter of the previous item.
-- The counter of the last item much be less than the _counter_end_ of the current call.
+   - The counter of the first item much be greater than the _counter_start_ of the current call.
+   - The counter of each subsequent item much be greater than the counter of the previous item.
+   - The counter of the last item much be less than the _counter_end_ of the current call.
 
-The ordered arrays include:
+   The ordered arrays include:
 
-- Note hash contexts.
-- Nullifier contexts.
-- New contract contexts.
-- Read requests.
+   - Note hash contexts.
+   - Nullifier contexts.
+   - New contract contexts.
+   - Read requests.
 
 ### Validating Public Inputs
 

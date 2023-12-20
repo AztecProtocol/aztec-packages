@@ -34,18 +34,18 @@ For each non-empty read request in the previous kernel's public inputs, it can b
 
 1. When reading a persistent note, it requires a valid membership check, where:
 
-- The leaf corresponds to the note hash being read.
-- The sibling path is provided as a hint.
-- The root matches the note hash tree root in the historical data.
+   - The leaf corresponds to the note hash being read.
+   - The sibling path is provided as a hint.
+   - The root matches the note hash tree root in the historical data.
 
 2. When reading a transient note, it must have been created before the read operation:
 
-- Locates the note hash within the note hash contexts.
-  - Its index in the note hash contexts is provided as a hint through private inputs.
-- The note hash must equal the note hash of the read request.
-- The contract address of the note hash must equal the contract address of the read request.
-- The counter of the note hash must be less than the counter of the read request.
-- The nullifier counter of the note hash must be zero or a value greater than the counter of the read request.
+   - Locates the note hash within the note hash contexts.
+     - Its index in the note hash contexts is provided as a hint through private inputs.
+   - The note hash must equal the note hash of the read request.
+   - The contract address of the note hash must equal the contract address of the read request.
+   - The counter of the note hash must be less than the counter of the read request.
+   - The nullifier counter of the note hash must be zero or a value greater than the counter of the read request.
 
 For reading a transient note created in a yet-to-be-processed nested execution:
 

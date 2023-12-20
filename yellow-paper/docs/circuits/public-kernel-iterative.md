@@ -69,23 +69,23 @@ The preimage of the hash encompasses:
 
 #### Ensuring this function is called with the correct context.
 
-If it is a standard call:
+1. If it is a standard call:
 
-- The storage contract address of the current iteration must be the same as its contract address.
-- The _msg_sender_ of the current iteration must be the same as the caller's contract address.
+   - The storage contract address of the current iteration must be the same as its contract address.
+   - The _msg_sender_ of the current iteration must be the same as the caller's contract address.
 
-If it is a delegate call:
+2. If it is a delegate call:
 
-- The caller context in the call request must not be empty. Specifically, the following values of the caller should not be zeros:
-  - _msg_sender_.
-  - Storage contract address.
-- The _msg_sender_ of the current iteration must equal the caller's _msg_sender_.
-- The storage contract address of the current iteration must equal the caller's storage contract address.
-- The storage contract address of the current iteration must NOT equal the contract address.
+   - The caller context in the call request must not be empty. Specifically, the following values of the caller should not be zeros:
+     - _msg_sender_.
+     - Storage contract address.
+   - The _msg_sender_ of the current iteration must equal the caller's _msg_sender_.
+   - The storage contract address of the current iteration must equal the caller's storage contract address.
+   - The storage contract address of the current iteration must NOT equal the contract address.
 
-If it is an internal call:
+3. If it is an internal call:
 
-- The _msg_sender_ of the current iteration must equal the storage contract address.
+   - The _msg_sender_ of the current iteration must equal the storage contract address.
 
 #### Verifying the app public function proof.
 
@@ -125,49 +125,49 @@ For the public call requests initiated in the current function call, it ensures 
 
 It verifies that each relevant value is associated with a legitimate counter.
 
-For the current call:
+1. For the current call:
 
-- The _counter_end_ of the current call must be greater than its _counter_start_.
-- Both counters must match the ones defined in the top item in the previous iteration's public call requests.
+   - The _counter_end_ of the current call must be greater than its _counter_start_.
+   - Both counters must match the ones defined in the top item in the previous iteration's public call requests.
 
-For the public call requests:
+2. For the public call requests:
 
-- The _counter_end_ of each request must be greater than its _counter_start_.
-- The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
-- The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
-- The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
+   - The _counter_end_ of each request must be greater than its _counter_start_.
+   - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
+   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
+   - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-For items in each ordered array created in the current call:
+3. For items in each ordered array created in the current call:
 
-- The counter of the first item much be greater than the _counter_start_ of the current call.
-- The counter of each subsequent item much be greater than the counter of the previous item.
-- The counter of the last item much be less than the _counter_end_ of the current call.
+   - The counter of the first item much be greater than the _counter_start_ of the current call.
+   - The counter of each subsequent item much be greater than the counter of the previous item.
+   - The counter of the last item much be less than the _counter_end_ of the current call.
 
-The ordered arrays include:
+   The ordered arrays include:
 
-- Read requests.
-- Update requests.
+   - Read requests.
+   - Update requests.
 
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
-It ensures that the following values match those in the previous iteration's public inputs:
+1. It ensures that the following values match those in the previous iteration's public inputs:
 
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
-- New contracts.
-- **Encrypted** log hash.
-- **Encrypted** log length.
-- Old public data tree snapshot.
-- New public data tree snapshot.
+   - Note hashes.
+   - Nullifiers.
+   - L2-to-L1 messages.
+   - New contracts.
+   - **Encrypted** log hash.
+   - **Encrypted** log length.
+   - Old public data tree snapshot.
+   - New public data tree snapshot.
 
-It checks that the hash and the length for **unencrypted** logs are accumulated as follows:
+2. It checks that the hash and the length for **unencrypted** logs are accumulated as follows:
 
-- New log hash = `hash(prev_hash, cur_hash)`
-  - If either hash is zero, the new hash will be `prev_hash | cur_hash`
-- New log length = `prev_length + cur_length`
+   - New log hash = `hash(prev_hash, cur_hash)`
+     - If either hash is zero, the new hash will be `prev_hash | cur_hash`
+   - New log length = `prev_length + cur_length`
 
 #### Verifying the transient accumulated data.
 
@@ -225,7 +225,7 @@ The call data holds details about the current public function call:
 
 ### Hints
 
-Hints that aid in the verifications carried out in this circuit or later iterations:
+Data that aids in the verifications carried out in this circuit or later iterations:
 
 - Index of the new contract.
 - Membership witness for the function leaf.

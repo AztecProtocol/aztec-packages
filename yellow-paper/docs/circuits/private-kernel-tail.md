@@ -39,28 +39,28 @@ The following must be empty to ensure a comprehensive final reset:
 
 #### Siloing values.
 
-This circuit must silo the following with each item's contract address:
+1. This circuit must silo the following with each item's contract address:
 
-- Note hash contexts.
-- Nullifier contexts.
+   - Note hash contexts.
+   - Nullifier contexts.
 
-The siloed value is computed as: `hash(contract_address, value)`.
+   The siloed value is computed as: `hash(contract_address, value)`.
 
-Siloing with a contract address ensures that data produced by a contract is accurately attributed to the correct contract and cannot be misconstrued as data created in a different contract.
+   Siloing with a contract address ensures that data produced by a contract is accurately attributed to the correct contract and cannot be misconstrued as data created in a different contract.
 
-The circuit then applies nonces to the note hashes:
+2. The circuit then applies nonces to the note hashes:
 
-- The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
-  - `first_nullifier` is the hash of the transaction request.
-  - `index` is the position of the note hash in the note hashes array in the public inputs.
+   - The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
+     - `first_nullifier` is the hash of the transaction request.
+     - `index` is the position of the note hash in the note hashes array in the public inputs.
 
-Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
+   Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
 
-Additionally, this circuit generates the final hashes for L2-L1 messages, calculated as:
+3. Additionally, this circuit generates the final hashes for L2-L1 messages, calculated as:
 
-`hash(contract_address, version_id, portal_contract_address, chain_id, message)`
+   `hash(contract_address, version_id, portal_contract_address, chain_id, message)`
 
-Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
+   Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
 
 #### Verifying ordered arrays.
 
@@ -94,24 +94,24 @@ For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i
 
 #### Verifying the accumulated data.
 
-The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
+1. The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
 
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
-- New contracts.
+   - Note hashes.
+   - Nullifiers.
+   - L2-to-L1 messages.
+   - New contracts.
 
-> Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
+   > Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
-The following must match the respective values in the previous kernel's public inputs:
+2. The following must match the respective values in the previous kernel's public inputs:
 
-- Log hashes.
-- Log lengths.
+   - Log hashes.
+   - Log lengths.
 
-The following must be empty:
+3. The following must be empty:
 
-- Old public data tree snapshot.
-- New public data tree snapshot.
+   - Old public data tree snapshot.
+   - New public data tree snapshot.
 
 #### Verifying the transient accumulated data.
 

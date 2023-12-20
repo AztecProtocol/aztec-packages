@@ -103,30 +103,30 @@ For both private and public call requests initiated in the current function call
 
 It verifies that each relevant value is associated with a legitimate counter.
 
-For the current call:
+1. For the current call:
 
-- The _counter_start_ must be 0.
-- The _counter_end_ must be greater than the _counter_start_.
+   - The _counter_start_ must be 0.
+   - The _counter_end_ must be greater than the _counter_start_.
 
-For both private and public call requests:
+2. For both private and public call requests:
 
-- The _counter_end_ of each request must be greater than its _counter_start_.
-- The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
-- The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
-- The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
+   - The _counter_end_ of each request must be greater than its _counter_start_.
+   - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
+   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
+   - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
 
-For items in each ordered array created in the current call:
+3. For items in each ordered array created in the current call:
 
-- The counter of the first item much be greater than the _counter_start_ of the current call.
-- The counter of each subsequent item much be greater than the counter of the previous item.
-- The counter of the last item much be less than the _counter_end_ of the current call.
+   - The counter of the first item much be greater than the _counter_start_ of the current call.
+   - The counter of each subsequent item much be greater than the counter of the previous item.
+   - The counter of the last item much be less than the _counter_end_ of the current call.
 
-The ordered arrays include:
+   The ordered arrays include:
 
-- Note hash contexts.
-- Nullifier contexts.
-- New contract contexts.
-- Read requests.
+   - Note hash contexts.
+   - Nullifier contexts.
+   - New contract contexts.
+   - Read requests.
 
 ### Validating Public Inputs
 
@@ -205,7 +205,9 @@ The private call data holds details about the current private function call:
 - Verification key.
 - Hash of the function bytecode.
 
-It also includes hints that aid in the verifications carried out in this circuit or later iterations:
+### Hints
+
+Data that aids in the verifications carried out in this circuit or later iterations:
 
 - Membership witness for the function leaf.
 - Membership witness for the contract leaf.

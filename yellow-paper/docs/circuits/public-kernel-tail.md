@@ -201,24 +201,24 @@ After all the update requests are processed:
 
 #### Verifying the accumulated data.
 
-The following must correspond to the result after siloing:
+1. The following must correspond to the result after siloing:
 
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
+   - Note hashes.
+   - Nullifiers.
+   - L2-to-L1 messages.
 
-> Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
+   > Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
-The following must match the respective values in the previous kernel's public inputs:
+2. The following must match the respective values in the previous kernel's public inputs:
 
-- New contracts.
-- Log hashes.
-- Log lengths.
+   - New contracts.
+   - Log hashes.
+   - Log lengths.
 
-The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
+3. The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
 
-- Old public data tree snapshot.
-- New public data tree snapshot.
+   - Old public data tree snapshot.
+   - New public data tree snapshot.
 
 #### Verifying the transient accumulated data.
 
