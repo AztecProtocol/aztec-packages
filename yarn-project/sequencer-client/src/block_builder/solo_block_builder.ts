@@ -218,7 +218,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-    if (txs.length < 4 || (txs.length & (txs.length - 1)) !== 0) {
+    if (txs.length < 2 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
     }
 
