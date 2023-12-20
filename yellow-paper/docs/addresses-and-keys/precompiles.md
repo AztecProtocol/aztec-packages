@@ -10,7 +10,7 @@ Rationale for precompiled contracts is to provide a set of vetted primitives for
 ## Constants
 
 - `ENCRYPTION_BATCH_SIZES=[4, 16, 32]`: Defines what max batch sizes are supported in precompiled encryption methods.
-- `ENCRYPTION_PRECOMPILE_ADDRESS_RANGE=0x00..0xFF`: Defines the range of addresses reserved for precompiles used for encryption and tagging.
+- `ENCRYPTION_PRECOMPILE_ADDRESS_RANGE=0x00..0xFFFF`: Defines the range of addresses reserved for precompiles used for encryption and tagging.
 - `MAX_PLAINTEXT_LENGTH`: Defines the maximum length of a plaintext to encrypt.
 - `MAX_CYPHERTEXT_LENGTH`: Defines the maximum length of a returned encrypted cyphertext.
 - `MAX_TAGGED_CYPHERTEXT_LENGTH`: Defines the maximum length of a returned encrypted cyphertext prefixed with a note tag.
@@ -85,15 +85,72 @@ List of encryption strategies implemented by precompiles:
 
 ### AES128
 
-TODO
+Uses AES128 for encryption, by generating an AES128 symmetric key and an IV from a shared secret derived from the recipient's public key and an ephemeral keypair. Requires that the recipient's keys are points in the Grumpkin curve. The output of the encryption is the concatenation of the encrypted cyphertext and the ephemeral public key.
+
+Pseudocode for the encryption process:
+
+```
+encrypt(plaintext, recipient_public_key):
+  ephemeral_private_key, ephemeral_public_key = grumpkin_random_keypair()
+  shared_secret = recipient_public_key * ephemeral_private_key
+  [aes_key, aes_iv] = sha256(shared_secret ++ [0x01])
+  return ephemeral_public_key ++ aes_encrypt(aes_key, aes_iv, plaintext)
+```
+
+Pseudocode for the decryption process:
+
+```
+decrypt(cyphertext, recipient_private_key):
+  ephemeral_public_key = cyphertext[0:64]
+  shared_secret = ephemeral_public_key * recipient_private_key
+  [aes_key, aes_iv] = sha256(shared_secret ++ [0x01])
+  return aes_decrypt(aes_key, aes_iv, cyphertext[64:])
+```
+
+<!-- TODO: Why append the [1] at the end of the shared secret? Also, do we want to keep using sha, or should we use a snark-friendlier hash here? -->
 
 ## Note tagging strategies
 
 List of note tagging strategies implemented by precompiles:
 
+### Trial decryption
+
+Trial decryption relies on the recipient to brute-force trial-decrypting every note emitted by the chain. Every note is attempted to be decrypted with the associated decryption scheme. If decryption is successful, then the note is added to the local database. This requires no note tags to be emitted along with a note.
+
+In AES encryption, the plaintext is prefixed with the first 8 bytes of the IV. Decryption is deemed successful if the first 8 bytes of the decrypted plaintext matches the first 8 bytes of the IV derived from the shared secret.
+
+This is the cheapest approach in terms of calldata cost, and the simplest to implement, but puts a significant burden on the user. Should not be used except for accounts tied to users running full nodes.
+
+### Delegated trial decryption
+
+Delegated trial decryption relies on a tag added to each note, generated used the recipient's tagging public key. The holder of the corresponding tagging private key can trial-decrypt each tag, and if decryption is successful, proceed to decrypt the contents of the note using the associated decryption scheme.
+
+This allows a user to share their tagging private key with a trusted service provider, who then proceeds to trial decrypt all possible note tags on their behalf. This scheme is simple for the user, but requires trust on a third party.
+
+<!-- TODO: How should the tag be generated here? Tags should be unique, and tags encrypted with the same pubkey should not be linkable to each other without the tagging private key. Can we use a similar method than the IV check in trial-decryption? -->
+
 ### Tag hopping
 
-TODO
+Tag hopping relies on establishing a one-time shared secret through a handshake between each sender-recipient pair, advertise the handshake through a trial-decrypted brute-forced channel, and then generate tags by combining the shared secret and an incremental counter. Recipients need to trial-decrypt events emitted by a canonical `Handshake` contract to detect new channels established with them, and then scan for the next tag for each open channel. Note that the handshake contract leaks whenever a new shared secret has been established, but the participants of the handshake are kept hidden.
+
+This method requires the recipient to be continuously trial-decrypting the handshake channel, and then scanning for a number of tags equivalent to the number of handshakes they had received. While this can get to too large amounts for particularly active addresses, it is still far more efficient than trial decryption.
+
+When Alice wants to send a message to Bob for the first time:
+
+1. Alice creates a note, and calls into Bob's encryption and tagging precompile.
+2. The precompile makes an oracle call to `getSharedSecret(Alice, Bob)`.
+3. Alice's PXE looks up the shared secret which doesn't exist since this is their first interaction.
+4. Alice's PXE generates a random shared secret, and stores it associated Bob along with `counter=1`.
+5. The precompile makes a call to the `Handshake` contract that emits the shared secret, encrypted for Bob and optionally Alice.
+6. The precompile computes `new_tag = hash(alice, bob, secret, counter)`, emits it as a nullifier, and prepends it to the note cyphertext before broadcasting it.
+
+For all subsequent messages:
+
+1. Alice creates a note, and calls into Bob's encryption and tagging precompile.
+2. The precompile makes an oracle call to `getSharedSecret(Alice, Bob)`.
+3. Alice's PXE looks up the shared secret and returns it, along with the current value for `counter`, and locally increments `counter`.
+4. The precompile computes `previous_tag = hash(alice, bob, secret, counter)`, and performs a merkle membership proof for it in the nullifier tree. This ensures that tags are incremental and cannot be skipped.
+5. The precompile computes `new_tag = hash(alice, bob, secret, counter + 1)`, emits it as a nullifier, and prepends it to the note cyphertext before broadcasting it.
 
 ## Defined precompiles
 
@@ -102,4 +159,6 @@ List of precompiles defined by the protocol:
 | Address | Encryption | Note Tagging | Comments |
 |---------|------------|--------------|----------|
 | 0x01 | Noop | Noop | Used by accounts to explicitly signal that they cannot receive encrypted payloads. Validation method returns `true` only for an empty list of public keys. All other methods return empty. |
-| 0x02 | AES128 | Tag hopping |  |
+| 0x02 | AES128 | Trial decryption |  |
+| 0x03 | AES128 | Delegated trial decryption |  |
+| 0x04 | AES128 | Tag hopping |  |
