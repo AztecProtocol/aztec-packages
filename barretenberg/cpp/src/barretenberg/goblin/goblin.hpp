@@ -170,6 +170,7 @@ class Goblin {
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
         instance_inspector::inspect_instance(instance);
+        instance_inspector::print_databus_info(instance);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
         // mocking the first set of ecc ops

@@ -153,7 +153,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinBuilder<Builder>) {
-        info("WARNING: this circuit contains recursion_constraints!");
+        if (constraint_system.recursion_constraints.size() > 0) {
+            info("WARNING: this circuit contains recursion_constraints!");
+        }
     } else {
         // These are set and modified whenever we encounter a recursion opcode
         //
@@ -277,6 +279,6 @@ template void create_circuit_with_witness<GoblinUltraCircuitBuilder>(GoblinUltra
                                                                      acir_format const& constraint_system,
                                                                      WitnessVector const& witness);
 template void apply_wire_index_offset<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder);
-template void apply_wire_index_offset<UltraCircuitBuilder>(UltraCircuitBuilder& builder);
+template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
 
 } // namespace acir_format

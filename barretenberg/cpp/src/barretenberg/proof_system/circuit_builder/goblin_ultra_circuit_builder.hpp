@@ -88,6 +88,34 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         : GoblinUltraCircuitBuilder_(0, op_queue_in)
     {}
 
+    GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
+                               auto& witness_values,
+                               std::vector<uint32_t>& public_inputs,
+                               size_t varnum)
+        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
+        , op_queue(op_queue_in)
+    {
+        // Kev says this should virtually always be true for Noir programs.
+        ASSERT(witness_values.size() == varnum - 1);
+
+        // Add the variables and public inputs known directly from acir
+        for (size_t idx = 0; idx < witness_values.size(); ++idx) {
+            auto& value = witness_values[idx];
+            if (std::find(public_inputs.begin(), public_inputs.end(), idx) != public_inputs.end()) {
+                this->add_public_variable(value);
+            } else {
+                this->add_variable(value);
+            }
+        }
+
+        // Set indices to constants corresponding to Goblin ECC op codes
+        null_op_idx = this->zero_idx;
+        add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
+        mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
+        equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+        num_vars_added_in_constructor = this->variables.size();
+    };
+
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();
 
