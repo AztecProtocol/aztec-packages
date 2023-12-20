@@ -195,6 +195,8 @@ It checks that the hashes and the lengths for both encrypted and unencrypted log
    - All requests from the previous iteration's public inputs excluding the top one.
    - All requests present in the app circuit's public inputs, appended to the above in **reverse** order.
 
+   > Ensuring the chronological execution of call requests is vital, requiring them to be arranged in reverse order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
+
 #### Verifying the constant data.
 
 It verifies that the constant data matches the one in the previous iteration's public inputs.

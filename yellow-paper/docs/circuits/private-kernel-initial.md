@@ -152,6 +152,8 @@ It verifies that the following values align with those in the app circuit's publ
 
    - Private call requests.
 
+   > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
+
 3. For the note hash contexts, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
 
    - Zero: if the note is not nullified in the same transaction.
