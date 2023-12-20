@@ -148,7 +148,11 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
-    assert(perturbator_coeffs[0] == accumulator->target_sum);
+
+    if (perturbator_coeffs[0] != accumulator->target_sum) {
+        return false;
+    }
+
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
@@ -223,11 +227,9 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
 
     auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha");
     verified = verified & (next_alpha == expected_alpha);
-    info(verified);
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
     verified = verified & (next_eta == expected_parameters.eta);
-    info(verified);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
     verified = verified & (next_beta == expected_parameters.beta);

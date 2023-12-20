@@ -71,7 +71,6 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     for (size_t idx = 0; idx < multivariate_d; idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    info("here");
     auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
 
     FF u_0 = output.challenge[0];

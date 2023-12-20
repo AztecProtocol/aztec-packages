@@ -108,14 +108,6 @@ template <typename Flavor> class SumcheckProverRound {
         const barretenberg::PowPolynomial<FF>& pow_polynomial,
         const FF alpha)
     {
-        // Precompute the vector of required powers of zeta
-        // TODO(luke): Parallelize this
-        // std::vector<FF> pow_challenges(round_size >> 1);
-        // pow_challenges[0] = pow_univariate.partial_evaluation_constant;
-        // for (size_t i = 1; i < (round_size >> 1); ++i) {
-        //     pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow_sqr;
-        // }
-
         std::vector<FF> pow_challenges(round_size >> 1);
         pow_challenges[0] = pow_polynomial.partial_evaluation_result;
         for (size_t i = 1; i < (round_size >> 1); ++i) {
@@ -169,6 +161,7 @@ template <typename Flavor> class SumcheckProverRound {
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
+
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
             univariate_accumulators, alpha, pow_polynomial);

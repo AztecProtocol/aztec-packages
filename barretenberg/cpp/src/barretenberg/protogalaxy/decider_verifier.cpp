@@ -66,7 +66,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     auto witness_labels = inst->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
         comm_view[idx] = transcript->template receive_from_prover<Commitment>(witness_labels[idx]);
-        info(comm_view[idx]);
     }
 
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
@@ -76,7 +75,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
         vk_view[idx] = transcript->template receive_from_prover<Commitment>(vk_labels[idx]);
     }
 
-    VerifierCommitments commitments{ inst->verification_key };
+    VerifierCommitments commitments{ inst->verification_key, inst->witness_commitments };
     auto& witness_commitments = inst->witness_commitments;
     commitments.w_l = witness_commitments.w_l;
     commitments.w_r = witness_commitments.w_r;
@@ -85,7 +84,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     commitments.w_4 = witness_commitments.w_4;
     commitments.z_perm = witness_commitments.z_perm;
     commitments.z_lookup = witness_commitments.z_lookup;
-    info(commitments.z_lookup);
 
     auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript, inst->target_sum);
 
@@ -94,10 +92,10 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("at sumcheck");
         return false;
     }
 
-    info("here");
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
     auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
@@ -108,7 +106,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
                                             transcript);
 
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    info(verified);
+
     return sumcheck_verified.value() && verified;
 }
 

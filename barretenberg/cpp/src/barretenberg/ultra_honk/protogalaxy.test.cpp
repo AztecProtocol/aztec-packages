@@ -18,6 +18,7 @@ using Polynomial = typename Flavor::Polynomial;
 using ProverPolynomials = Flavor::ProverPolynomials;
 using RelationParameters = proof_system::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
+using CommitmentKey = Flavor::CommitmentKey;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace protogalaxy_tests {
@@ -44,24 +45,44 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
     return full_polynomials;
 }
 
-std::shared_ptr<VerificationKey> construct_ultra_verification_key(size_t instance_size, size_t num_public_inputs)
+std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
+                                          UltraComposer& composer,
+                                          bool expected_result)
 {
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, num_public_inputs);
-    auto vk_view = verification_key->get_all();
-    for (auto& view : vk_view) {
-        view = Affine(Projective::random_element());
-    }
-    return verification_key;
+    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
+    auto folding_verifier = composer.create_folding_verifier();
+
+    auto proof = folding_prover.fold_instances();
+    auto next_accumulator = proof.accumulator;
+    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
+    EXPECT_EQ(res, expected_result);
+    return next_accumulator;
 }
 
-WitnessCommitments construct_witness_commitments()
+void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator, bool expected_result)
 {
-    WitnessCommitments wc;
-    auto w_view = wc.get_all();
-    for (auto& view : w_view) {
-        view = Affine(Projective::random_element());
+    auto instance_size = accumulator->instance_size;
+    auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
+        accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
+    // Construct pow(\vec{betas*}) as in the paper
+    auto expected_pows_beta =
+        ProtoGalaxyProver::compute_pow_polynomial_at_values(accumulator->gate_challenges, instance_size);
+
+    // Compute the corresponding target sum and create a dummy accumulator
+    auto expected_target_sum = FF(0);
+    for (size_t i = 0; i < instance_size; i++) {
+        expected_target_sum += expected_honk_evals[i] * expected_pows_beta[i];
     }
-    return wc;
+
+    EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
+}
+void decide_and_verify(std::shared_ptr<Instance>& accumulator, UltraComposer& composer, bool expected_result)
+{
+    auto decider_prover = composer.create_decider_prover(accumulator, composer.commitment_key);
+    auto decider_verifier = composer.create_decider_verifier(accumulator);
+    auto decision = decider_prover.construct_proof();
+    auto verified = decider_verifier.verify_proof(decision);
+    EXPECT_EQ(verified, expected_result);
 }
 
 class ProtoGalaxyTests : public ::testing::Test {
@@ -257,11 +278,9 @@ TEST_F(ProtoGalaxyTests, FoldAlphaShouldBeZero)
     EXPECT_EQ(instances.alpha.evaluate(challenge), FF(0));
 }
 
-TEST_F(ProtoGalaxyTests, FirstIteration)
+// Check both manually and using the protocol two rounds of folding
+TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
 {
-    const size_t log_instance_size(4);
-    const size_t instance_size(1 << log_instance_size);
-
     auto composer = UltraComposer();
 
     auto builder_1 = typename Flavor::CircuitBuilder();
@@ -274,240 +293,80 @@ TEST_F(ProtoGalaxyTests, FirstIteration)
 
     auto instance_2 = composer.create_instance(builder_2);
 
-    auto commitment_key = composer.commitment_key;
-
     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
-    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
-    auto folding_verifier = composer.create_folding_verifier();
-
-    auto proof = folding_prover.fold_instances();
-    auto next_accumulator = proof.accumulator;
-    next_accumulator->is_accumulator = true;
-    auto res = folding_verifier.verify_folding_proof(proof.folding_data);
-    EXPECT_EQ(res, true);
-    auto next_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        next_accumulator->prover_polynomials, next_accumulator->alpha, next_accumulator->relation_parameters);
-    // Construct pow(\vec{betas*}) as in the paper
-    auto next_pow_beta =
-        ProtoGalaxyProver::compute_pow_polynomial_at_values(next_accumulator->gate_challenges, instance_size);
-
-    // Compute the corresponding target sum and create a dummy accumulator
-    auto next_target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        next_target_sum += next_honk_evals[i] * next_pow_beta[i];
-    }
-    info("e* ", next_target_sum);
-
-    EXPECT_EQ(next_accumulator->target_sum, next_target_sum);
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
 
     auto builder_3 = typename Flavor::CircuitBuilder();
     builder_3.add_public_variable(FF(1));
     auto instance_3 = composer.create_instance(builder_3);
-    instances = std::vector<std::shared_ptr<Instance>>{ next_accumulator, instance_3 };
 
-    folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
-    folding_verifier = composer.create_folding_verifier();
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    auto second_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(second_accumulator, true);
 
-    proof = folding_prover.fold_instances();
-    auto acc = proof.accumulator;
-    acc->is_accumulator = true;
-
-    res = folding_verifier.verify_folding_proof(proof.folding_data);
-    EXPECT_EQ(res, true);
-
-    next_honk_evals =
-        ProtoGalaxyProver::compute_full_honk_evaluations(acc->prover_polynomials, acc->alpha, acc->relation_parameters);
-    // Construct pow(\vec{betas*}) as in the paper
-    next_pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(acc->gate_challenges, instance_size);
-
-    // Compute the corresponding target sum and create a dummy accumulator
-    next_target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        next_target_sum += next_honk_evals[i] * next_pow_beta[i];
-    }
-    info("e* ", next_target_sum);
-
-    EXPECT_EQ(acc->target_sum, next_target_sum);
-    auto decider_prover = composer.create_decider_prover(acc, commitment_key);
-    auto decider_verifier = composer.create_decider_verifier(acc);
-    auto decision = decider_prover.construct_proof();
-    auto verified = decider_verifier.verify_proof(decision);
-    EXPECT_EQ(verified, true);
+    decide_and_verify(second_accumulator, composer, true);
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/807): Have proper full folding testing (both failing and
-// passing) and move creating a test accumulator in a separate function.
-TEST_F(ProtoGalaxyTests, ComputeNewAccumulator)
+TEST_F(ProtoGalaxyTests, TamperedCommitment)
 {
-    const size_t log_instance_size(4);
-    const size_t instance_size(1 << log_instance_size);
-
-    auto builder = typename Flavor::CircuitBuilder();
     auto composer = UltraComposer();
-    builder.add_public_variable(FF(1));
 
-    auto instance = composer.create_instance(builder);
-    auto commitment_key = composer.commitment_key;
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
 
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
-    for (auto& poly : random_polynomials) {
-        poly = get_random_polynomial(instance_size);
-    }
-    for (auto& poly : random_polynomials) {
-        poly[0] = FF::zero();
-    }
-    ProverPolynomials polynomials;
-    auto poly_views = polynomials.get_all();
-    for (size_t idx = 0; idx < poly_views.size(); idx++) {
-        poly_views[idx] = random_polynomials[idx];
-    }
-    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
+    auto instance_1 = composer.create_instance(builder_1);
 
-    auto alpha = FF::random_element();
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
 
-    auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(polynomials, alpha, relation_parameters);
-    std::vector<FF> betas(log_instance_size);
-    for (size_t idx = 0; idx < log_instance_size; idx++) {
-        betas[idx] = FF::random_element();
-    }
+    auto instance_2 = composer.create_instance(builder_2);
 
-    // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
-    // Compute the corresponding target sum and create a dummy accumulator
-    auto target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        target_sum += full_honk_evals[i] * pow_beta[i];
-    }
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
 
-    auto accumulator = std::make_shared<Instance>();
-    accumulator->prover_polynomials = std::move(polynomials);
-    auto witness_poly = polynomials.get_witness();
-    size_t idx = 0;
-    for (auto& comm : accumulator->witness_commitments.get_all()) {
-        comm = commitment_key->commit(witness_poly[idx]);
-        idx++;
-    }
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
 
-    idx = 0;
-    auto selector_poly = polynomials.get_precomputed();
-    accumulator->verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, 1);
-    for (auto& vk : accumulator->verification_key->get_all()) {
-        vk = commitment_key->commit(selector_poly[idx]);
-        idx++;
-    }
-    accumulator->instance_size = instance_size;
-    accumulator->log_instance_size = log_instance_size;
-    accumulator->gate_challenges = betas;
-    accumulator->target_sum = target_sum;
-    accumulator->relation_parameters = relation_parameters;
-    accumulator->alpha = alpha;
-    accumulator->is_accumulator = true;
-    accumulator->public_inputs = std::vector<FF>{ FF::random_element() };
+    // tampering with the commitment should cause the decider to fail
+    first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
 
-    auto instances = std::vector<std::shared_ptr<Instance>>{ accumulator, instance };
-    auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
-    auto folding_verifier = composer.create_folding_verifier();
+    auto second_accumulator = fold_and_verify(instances, composer, true);
 
-    auto proof = folding_prover.fold_instances();
-    auto next_accumulator = proof.accumulator;
-    // auto res = folding_verifier.verify_folding_proof(proof.folding_data);
-    // EXPECT_EQ(res, true);
-    // i got omega* \vec{\beta*} e*
-    // i want to check that \sum_i ∈ {0, n} pow_i(\vec{\beta*}) * f_i(\omega*) = e*
-    auto next_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        next_accumulator->prover_polynomials, next_accumulator->alpha, next_accumulator->relation_parameters);
-    // Construct pow(\vec{betas*}) as in the paper
-    auto next_pow_beta =
-        ProtoGalaxyProver::compute_pow_polynomial_at_values(next_accumulator->gate_challenges, instance_size);
-
-    // Compute the corresponding target sum and create a dummy accumulator
-    auto next_target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        next_target_sum += next_honk_evals[i] * next_pow_beta[i];
-    }
-    info("e* ", next_target_sum);
-
-    // for (size_t i = 0; i < log_instance_size; i++) {
-    //     EXPECT_EQ(accumulator->gate_challenges[i], next_accumulator->gate_challenges[i]);
-    // }
-    // EXPECT_EQ(next_pow_beta, pow_beta);
-
-    EXPECT_EQ(next_accumulator->target_sum, next_target_sum);
-    // auto decider_prover = composer.create_decider_prover(next_accumulator);
-    // auto decider_verifier = composer.create_decider_verifier(next_accumulator);
-    // auto decision = decider_prover.construct_proof();
-    // auto verified = decider_verifier.verify_proof(decision);
-    // EXPECT_EQ(verified, true);
+    decide_and_verify(second_accumulator, composer, false);
 }
 
-TEST_F(ProtoGalaxyTests, DecideDummyAccumulator)
+TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 {
-    const size_t log_instance_size(4);
-    const size_t instance_size(1 << log_instance_size);
     auto composer = UltraComposer();
-    auto commitment_key = composer.compute_commitment_key(instance_size);
 
-    std::array<barretenberg::Polynomial<FF>, NUM_POLYNOMIALS> random_polynomials;
-    for (auto& poly : random_polynomials) {
-        poly = get_random_polynomial(instance_size);
-    }
+    auto builder_1 = typename Flavor::CircuitBuilder();
+    builder_1.add_public_variable(FF(1));
 
-    for (auto& poly : random_polynomials) {
-        poly[0] = FF::zero();
-    }
-    ProverPolynomials polynomials;
-    auto poly_views = polynomials.get_all();
-    for (size_t idx = 0; idx < poly_views.size(); idx++) {
-        poly_views[idx] = random_polynomials[idx];
-    }
-    auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    auto alpha = FF::zero();
+    auto instance_1 = composer.create_instance(builder_1);
 
-    auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(polynomials, alpha, relation_parameters);
-    std::vector<FF> betas(log_instance_size);
-    for (size_t idx = 0; idx < log_instance_size; idx++) {
-        betas[idx] = FF::random_element();
-    }
+    auto builder_2 = typename Flavor::CircuitBuilder();
+    builder_2.add_public_variable(FF(1));
 
-    // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
+    auto instance_2 = composer.create_instance(builder_2);
 
-    // Compute the corresponding target sum and create a dummy accumulator
-    auto target_sum = FF(0);
-    for (size_t i = 0; i < instance_size; i++) {
-        target_sum += full_honk_evals[i] * pow_beta[i];
-    }
-    auto accumulator = std::make_shared<Instance>();
-    accumulator->prover_polynomials = std::move(polynomials);
-    auto witness_poly = polynomials.get_witness();
-    size_t idx = 0;
-    for (auto& comm : accumulator->witness_commitments.get_all()) {
-        comm = commitment_key->commit(witness_poly[idx]);
-        idx++;
-    }
+    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto first_accumulator = fold_and_verify(instances, composer, true);
+    check_accumulator_target_sum_manual(first_accumulator, true);
 
-    idx = 0;
-    auto selector_poly = polynomials.get_precomputed();
-    accumulator->verification_key = std::make_shared<typename Flavor::VerificationKey>(instance_size, 1);
-    for (auto& vk : accumulator->verification_key->get_all()) {
-        vk = commitment_key->commit(selector_poly[idx]);
-        idx++;
-    }
+    auto builder_3 = typename Flavor::CircuitBuilder();
+    builder_3.add_public_variable(FF(1));
+    auto instance_3 = composer.create_instance(builder_3);
 
-    accumulator->instance_size = instance_size;
-    accumulator->log_instance_size = log_instance_size;
-    accumulator->gate_challenges = betas;
-    accumulator->target_sum = target_sum;
-    accumulator->relation_parameters = relation_parameters;
-    accumulator->alpha = alpha;
-    accumulator->is_accumulator = true;
-    accumulator->public_inputs = std::vector<FF>{ FF::random_element() };
+    // tampering with accumulator's polynomial should cause both folding and deciding to fail
+    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    first_accumulator->prover_polynomials.w_l[1] = FF::random_element();
+    auto second_accumulator = fold_and_verify(instances, composer, false);
 
-    auto decider_prover = composer.create_decider_prover(accumulator, commitment_key);
-    auto decider_verifier = composer.create_decider_verifier(accumulator);
-    auto decision = decider_prover.construct_proof();
-    auto verified = decider_verifier.verify_proof(decision);
-    EXPECT_EQ(verified, true);
+    decide_and_verify(second_accumulator, composer, false);
 }
 
 } // namespace protogalaxy_tests

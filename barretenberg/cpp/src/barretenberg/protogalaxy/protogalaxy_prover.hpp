@@ -38,7 +38,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using ExtendedUnivariateWithRandomization =
         Univariate<FF,
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
-
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
     using TupleOfTuplesOfUnivariates =
@@ -163,9 +162,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::template accumulate_relation_evaluations<>(
                 row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
-            auto running_challenge = FF(1);
             auto output = FF(0);
-            scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+            scale_and_batch_elements(relation_evaluations, alpha, output);
 
             full_honk_evaluations[row] = output;
         }
@@ -176,18 +174,21 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Scale elements by consecutive powers of the challenge then sum
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& result)
     {
+        auto first_array = std::get<0>(tuple);
+        result = first_array[0];
+        for (auto& entry : first_array) {
+            result += entry * challenge;
+        }
+
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-                result += entry * current_scalar;
-                if (current_scalar != challenge) {
-
-                    current_scalar *= challenge;
-                }
+                result += entry * challenge;
             }
         };
-        Utils::apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
+
+        Utils::template apply_to_tuple_of_arrays<1>(scale_by_challenge_and_accumulate, tuple);
     }
 
     /**
@@ -254,8 +255,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
                                               const std::vector<FF>& deltas)
     {
-        info("HERE");
-        info(accumulator->alpha);
         auto full_honk_evaluations = compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -359,8 +358,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(univariate_accumulators, instances.alpha);
     }
-    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates univariate_accumulators,
-                                                                    AlphaType alpha)
+    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                                    const AlphaType& alpha)
     {
 
         // First relation does not get multiplied by a batching challenge

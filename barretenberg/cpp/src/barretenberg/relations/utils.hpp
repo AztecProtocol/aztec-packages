@@ -179,7 +179,7 @@ template <typename Flavor> class RelationUtils {
      * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
      * @param tuple Tuple of arrays (of FFs)
      */
-    template <typename Operation, size_t idx = 0, typename... Ts>
+    template <size_t idx = 0, typename Operation, typename... Ts>
     static void apply_to_tuple_of_arrays(Operation&& operation, std::tuple<Ts...>& tuple)
     {
         auto& element = std::get<idx>(tuple);
@@ -187,7 +187,7 @@ template <typename Flavor> class RelationUtils {
         std::invoke(std::forward<Operation>(operation), element);
 
         if constexpr (idx + 1 < sizeof...(Ts)) {
-            apply_to_tuple_of_arrays<Operation, idx + 1>(operation, tuple);
+            apply_to_tuple_of_arrays<idx + 1, Operation>(operation, tuple);
         }
     }
 };

@@ -122,7 +122,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         // efficient by avoiding the computation of the perturbator
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        info("log_instance_size ", instance->log_instance_size);
         auto beta = transcript->get_challenge(domain_separator + "_initial_gate_challenge");
         std::vector<FF> gate_challenges(instance->log_instance_size);
         gate_challenges[0] = beta;
@@ -149,6 +148,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     const FF& compressed_perturbator)
 {
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
+
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
     // and the computation of Lagrange basis for k instances
@@ -156,6 +156,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
     auto next_accumulator = std::make_shared<Instance>();
+    next_accumulator->is_accumulator = true;
     next_accumulator->instance_size = instances[0]->instance_size;
     next_accumulator->log_instance_size = instances[0]->log_instance_size;
 
@@ -260,7 +261,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         vk_idx++;
     }
     next_accumulator->verification_key = acc_vk;
-
     return next_accumulator;
 }
 
@@ -283,7 +283,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     }
     assert(perturbator[0] == accumulator->target_sum);
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge"); // alpha
-    info("F(alpha) ", perturbator.evaluate(perturbator_challenge));                  // F(\alpha)
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     const auto pow_betas_star =
@@ -291,7 +290,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     combine_relation_parameters(instances);
     combine_alpha(instances);
     auto combiner = compute_combiner(instances, pow_betas_star);
-    info("G(0) ", combiner.evaluations[0]);
 
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);
