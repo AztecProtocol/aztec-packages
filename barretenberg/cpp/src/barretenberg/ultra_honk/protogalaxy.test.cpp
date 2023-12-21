@@ -63,7 +63,7 @@ void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator,
 {
     auto instance_size = accumulator->instance_size;
     auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
+        accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
     // Construct pow(\vec{betas*}) as in the paper
     auto expected_pows_beta =
         ProtoGalaxyProver::compute_pow_polynomial_at_values(accumulator->gate_challenges, instance_size);
@@ -112,11 +112,11 @@ TEST_F(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
-    for (auto& alpha : instance->alpha) {
+    for (auto& alpha : instance->alphas) {
         alpha = FF::random_element();
     }
     auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        instance->prover_polynomials, instance->alpha, instance->relation_parameters);
+        instance->prover_polynomials, instance->alphas, instance->relation_parameters);
 
     // Evaluations should be 0 for valid circuit
     for (const auto& eval : full_honk_evals) {
@@ -148,13 +148,13 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    AlphaType alpha;
-    for (auto& a : alpha) {
-        a = FF::random_element();
+    AlphaType alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element();
     }
 
     auto full_honk_evals =
-        ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
+        ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alphas, relation_parameters);
     std::vector<FF> betas(log_instance_size);
     for (size_t idx = 0; idx < log_instance_size; idx++) {
         betas[idx] = FF::random_element();
@@ -174,7 +174,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     accumulator->gate_challenges = betas;
     accumulator->target_sum = target_sum;
     accumulator->relation_parameters = relation_parameters;
-    accumulator->alpha = alpha;
+    accumulator->alphas = alphas;
 
     auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
     auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas);
@@ -247,18 +247,18 @@ TEST_F(ProtoGalaxyTests, CombineAlpha)
 
     Builder builder1;
     auto instance1 = std::make_shared<Instance>(builder1);
-    instance1->alpha.fill(2);
+    instance1->alphas.fill(2);
 
     Builder builder2;
     builder2.add_variable(3);
     auto instance2 = std::make_shared<Instance>(builder2);
-    instance2->alpha.fill(4);
+    instance2->alphas.fill(4);
 
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_alpha(instances);
 
     Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
-    for (const auto& alpha : instances.alpha) {
+    for (const auto& alpha : instances.alphas) {
         EXPECT_EQ(alpha, expected_alpha);
     }
 }

@@ -245,7 +245,7 @@ bool GoblinTranslatorVerifier::verify_proof(const plonk::proof& proof)
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
-    FF alpha = transcript->get_challenge("alpha");
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));

@@ -42,7 +42,7 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
     transcript->send_to_verifier("lookup_grand_product_delta",
                                  accumulator->relation_parameters.lookup_grand_product_delta);
     size_t alpha_idx = 0;
-    for (auto alpha : accumulator->alpha) {
+    for (auto alpha : accumulator->alphas) {
         transcript->send_to_verifier("alpha_" + std::to_string(alpha_idx), alpha);
     }
 

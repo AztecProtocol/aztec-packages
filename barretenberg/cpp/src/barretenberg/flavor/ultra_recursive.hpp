@@ -85,10 +85,12 @@ template <typename BuilderType> class UltraRecursive_ {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
-    static constexpr size_t NUMBER_OF_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using AlphaType = std::array<FF, NUMBER_OF_SUBRELATIONS - 1>;
 
-    static constexpr bool is_decider = false; // for now
+    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
+    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
+    // combiner) to much.
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using AlphaType = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());

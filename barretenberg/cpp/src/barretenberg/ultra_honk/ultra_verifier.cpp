@@ -132,9 +132,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
-    AlphaType alpha;
-    for (size_t idx = 0; idx < alpha.size(); idx++) {
-        alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    AlphaType alphas;
+    for (size_t idx = 0; idx < alphas.size(); idx++) {
+        alphas[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
@@ -142,7 +142,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+        sumcheck.verify(relation_parameters, alphas, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {

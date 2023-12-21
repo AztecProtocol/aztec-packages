@@ -34,7 +34,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     using Instance = VerifierInstance_<Flavor>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
-    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
     transcript = std::make_shared<Transcript>(proof.proof_data);
     auto inst = std::make_unique<Instance>();
 
@@ -57,7 +57,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
 
-        inst->alpha[idx] = transcript->template receive_from_prover<FF>("alpha" + std::to_string(idx));
+        inst->alphas[idx] = transcript->template receive_from_prover<FF>("alpha" + std::to_string(idx));
     }
 
     inst->target_sum = transcript->template receive_from_prover<FF>("target_sum");
@@ -93,7 +93,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript, inst->target_sum);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(inst->relation_parameters, inst->alpha, inst->gate_challenges);
+        sumcheck.verify(inst->relation_parameters, inst->alphas, inst->gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {

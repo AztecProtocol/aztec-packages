@@ -10,7 +10,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
-    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
     using Instance = ProverInstance_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
@@ -21,7 +21,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using AlphaType = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
     ArrayType _data;
     RelationParameters relation_parameters;
-    AlphaType alpha;
+    AlphaType alphas;
     std::vector<FF> next_gate_challenges;
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }

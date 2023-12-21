@@ -165,12 +165,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto circuit_size = instance->proving_key->circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
-    AlphaType prover_alpha;
-    for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
-        prover_alpha[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    AlphaType prover_alphas;
+    for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
+        prover_alphas[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
 
-    instance->alpha = prover_alpha;
+    instance->alphas = prover_alphas;
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -183,9 +183,9 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
-    AlphaType verifier_alpha;
-    for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
-        verifier_alpha[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    AlphaType verifier_alphas;
+    for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
+        verifier_alphas[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
 
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
@@ -194,7 +194,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
             verifier_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto verifier_output =
-        sumcheck_verifier.verify(instance->relation_parameters, verifier_alpha, verifier_gate_challenges);
+        sumcheck_verifier.verify(instance->relation_parameters, verifier_alphas, verifier_gate_challenges);
 
     auto verified = verifier_output.verified.value();
 

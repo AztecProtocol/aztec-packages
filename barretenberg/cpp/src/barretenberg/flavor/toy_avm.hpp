@@ -67,8 +67,6 @@ class ToyAVM {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    static constexpr bool is_decider = true;
-
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 
     // define the containers for storing the contributions from each relation in Sumcheck

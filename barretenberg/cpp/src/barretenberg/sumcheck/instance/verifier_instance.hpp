@@ -18,7 +18,7 @@ template <class Flavor> class VerifierInstance_ {
     size_t instance_size;
     size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
-    AlphaType alpha;
+    AlphaType alphas;
     bool is_accumulator = false;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).

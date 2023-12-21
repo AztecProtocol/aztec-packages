@@ -260,7 +260,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                               const std::vector<FF>& deltas)
     {
         auto full_honk_evaluations = compute_full_honk_evaluations(
-            accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
+            accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
@@ -360,7 +360,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(univariate_accumulators, instances.alpha);
+        return batch_over_relations(univariate_accumulators, instances.alphas);
     }
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                                                     const CombinedAlphaType& alpha)
@@ -446,11 +446,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static void combine_alpha(ProverInstances& instances)
     {
         size_t alpha_idx = 0;
-        for (auto& alpha : instances.alpha) {
+        for (auto& alpha : instances.alphas) {
             Univariate<FF, ProverInstances::NUM> tmp;
             size_t instance_idx = 0;
             for (auto& instance : instances) {
-                tmp.value_at(instance_idx) = instance->alpha[alpha_idx];
+                tmp.value_at(instance_idx) = instance->alphas[alpha_idx];
                 instance_idx++;
             }
             alpha = tmp.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();

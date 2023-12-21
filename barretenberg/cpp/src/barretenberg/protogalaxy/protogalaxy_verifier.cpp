@@ -27,7 +27,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::sha
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alpha[idx] =
+        inst->alphas[idx] =
             transcript->template receive_from_prover<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
 
@@ -95,7 +95,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alpha[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
+        inst->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
 
     inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
@@ -217,13 +217,13 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         el_idx++;
     }
 
-    AlphaType expected_alpha;
+    AlphaType expected_alphas;
     size_t alpha_idx = 0;
-    for (auto& alpha : expected_alpha) {
+    for (auto& alpha : expected_alphas) {
         alpha = FF(0);
         size_t instance_idx = 0;
         for (auto& instance : instances) {
-            alpha += instance->alpha[alpha_idx] * lagranges[instance_idx];
+            alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
             instance_idx++;
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));

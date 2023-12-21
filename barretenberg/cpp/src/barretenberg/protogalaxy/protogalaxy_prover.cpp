@@ -57,7 +57,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     transcript->send_to_verifier(domain_separator + "_" + commitment_labels.z_lookup,
                                  instance->witness_commitments.z_lookup);
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        instance->alpha[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
+        instance->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
     auto vk_view = instance->verification_key->get_all();
     auto labels = instance->commitment_labels.get_precomputed();
@@ -89,7 +89,7 @@ void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Insta
                                  instance->relation_parameters.lookup_grand_product_delta);
 
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alpha[idx]);
+        transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alphas[idx]);
     }
 
     transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
@@ -225,10 +225,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 
     // Evaluate the combined batching challenge α univariate at challenge to obtain next α and send it to the
     // verifier
-    auto& folded_alpha = next_accumulator->alpha;
+    auto& folded_alphas = next_accumulator->alphas;
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        folded_alpha[idx] = instances.alpha[idx].evaluate(challenge);
-        transcript->send_to_verifier("next_alpha_" + std::to_string(idx), folded_alpha[idx]);
+        folded_alphas[idx] = instances.alphas[idx].evaluate(challenge);
+        transcript->send_to_verifier("next_alpha_" + std::to_string(idx), folded_alphas[idx]);
     }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to

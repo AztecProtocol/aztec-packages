@@ -33,7 +33,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         auto log_n = numeric::get_msb(circuit_size);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
+        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
         size_t size_FF = sizeof(FF);
         size_t size_G = 2 * size_FF;
