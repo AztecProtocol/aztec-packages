@@ -157,6 +157,9 @@ describe('public_processor', () => {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = callRequests.map(call => call.toCallRequest());
 
+      // generate a call request, print hash of a call request
+      // do the test also also in noir.  has to be the call request hash mismatching
+      // can also build a snapshot on TS side
       const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         callStackItems,

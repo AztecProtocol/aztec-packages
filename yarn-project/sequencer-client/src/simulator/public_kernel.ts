@@ -21,6 +21,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     if (!input.previousKernel.publicInputs.isPrivate) {
       throw new Error(`Expected private kernel previous inputs`);
     }
+    this.log(`calling executePublicKernelPrivatePrevious`);
     const [duration, result] = await elapsed(() => executePublicKernelPrivatePrevious(input));
     this.log(`Simulated public kernel circuit with private input`, {
       eventName: 'circuit-simulation',

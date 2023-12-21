@@ -134,7 +134,7 @@ export class CallRequest {
    * @returns A new instance of CallRequest with zero hash, caller contract address and caller context.
    */
   public static empty() {
-    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), new Fr(0), new Fr(0));
+    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), Fr.ZERO, Fr.ZERO);
   }
 
   equals(callRequest: CallRequest) {

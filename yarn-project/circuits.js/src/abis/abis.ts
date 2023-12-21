@@ -607,14 +607,14 @@ function computeContractStorageReadsHash(input: ContractStorageRead) {
 /**
  *
  */
-function computeCommitmentsHash(input: SideEffect) {
+export function computeCommitmentsHash(input: SideEffect) {
   return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
 }
 
 /**
  *
  */
-function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
+export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
   return pedersenHash(
     [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
     GeneratorIndex.SIDE_EFFECT,
@@ -624,10 +624,7 @@ function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
 /**
  *
  */
-function computePublicInputsHash(input: PublicCircuitPublicInputs) {
-  console.log(`newcommitments hashes ${input.newCommitments.map(computeCommitmentsHash)}`);
-  console.log(`newnullifier hashes ${input.newNullifiers.map(computeNullifierHash)}`);
-
+export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
   const toHash = [
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),

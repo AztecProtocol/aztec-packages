@@ -21,6 +21,21 @@ import { MerkleTreeId } from '@aztec/types';
 import { default as levelup } from 'levelup';
 import memdown from 'memdown';
 
+// TODO: generate a public call, hash it, assert it is the same as in noir
+// this creates the snapshot, take it to Noir.  hard code it into a Noir test
+// (can't read from snapshot in noir).  build noir data structure here,
+// can use type conversion methods to convert call stack items to build noir stack item.
+// do snapshot.
+// start with empty, see if hash is same for empty call request.  easy because
+// noir has unsafe::zerod to get empty version.
+
+// yarn test -u to update
+// "yarn test" should generate if not present.
+
+// nargo test has a command to show the output of prints
+// also has "--exact" with fully qualified path of test to only run that one
+// nargo test will show all of those fully qualified paths.
+
 describe('Data generation for noir tests', () => {
   const defaultContract = {
     address: AztecAddress.fromField(new Fr(12345)),

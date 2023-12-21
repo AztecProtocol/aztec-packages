@@ -286,6 +286,15 @@ pub fn accumulate_unencrypted_logs(public_call: PublicCallData,
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
     let call_stack_item = public_call.call_stack_item;
+
+    // let emptycallstackitem: PublicCallStackItem = dep::std::unsafe::zeroed();
+    let publiccircuitinputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    dep::std::println(publiccircuitinputs.hash());
+    // dep::std::println(call_stack_item);
+    // let empty = CallRequest::empty();
+    // dep::std::println(emptycallstackitem.hash());
+    // dep::std::println(call_stack_item.hash());
+    // dep::std::println(call_stack_item);
     assert(request.hash == call_stack_item.hash(),
         "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack");
 

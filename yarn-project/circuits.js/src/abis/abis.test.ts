@@ -8,6 +8,10 @@ import {
   FunctionSelector,
   GlobalVariables,
   NewContractData,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
 } from '../index.js';
 import {
   makeAztecAddress,
@@ -21,6 +25,7 @@ import {
 import {
   computeBlockHashWithGlobals,
   computeCommitmentNonce,
+  computeCommitmentsHash,
   computeCompleteAddress,
   computeContractAddressFromPartial,
   computeContractLeaf,
@@ -28,10 +33,12 @@ import {
   computeFunctionSelector,
   computeFunctionTreeRoot,
   computeGlobalsHash,
+  computeNullifierHash,
   computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
+  computePublicInputsHash,
   computeSecretMessageHash,
   computeTxHash,
   computeUniqueCommitment,
@@ -224,5 +231,35 @@ describe('abis', () => {
     const value = new Fr(8n);
     const hash = computeSecretMessageHash(value);
     expect(hash).toMatchSnapshot();
+  });
+
+  it('Computes an empty nullifier hash ', () => {
+    const emptyNull = SideEffectLinkedToNoteHash.empty();
+
+    const emptyHash = Fr.fromBuffer(computeNullifierHash(emptyNull)).toString();
+    expect(emptyHash).toMatchSnapshot();
+  });
+
+  it('Computes an empty sideeffect hash ', () => {
+    const emptySideEffect = SideEffect.empty();
+    const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
+    expect(emptyHash).toMatchSnapshot();
+  });
+
+  it('Computes an empty call request hash ', () => {
+    const emptycallstack = PublicCallStackItem.empty();
+    const emptyHash = emptycallstack.hash();
+    // const emptySideEffect = PublicCircuitPublicInputs.empty();
+    // const emptyHash = Fr.fromBuffer(computePublicInputsHash(emptySideEffect)).toString();
+    expect(emptyHash.toString()).toEqual('0x23d61bd55cb4c93f3e1a2efe3fd17026e9b4e5ade0a32c69219e25621340745e');
+  });
+
+  it('Computes an empty public inputs hash ', () => {
+    const publicInputs = PublicCircuitPublicInputs.empty();
+    const emptyHash = computePublicInputsHash(publicInputs);
+
+    expect(Fr.fromBuffer(emptyHash).toString()).toEqual(
+      '0xe6f5767edbd34ede7b3693186a3b0a49f1b266470003ee1385dd5d77b48d9e',
+    );
   });
 });

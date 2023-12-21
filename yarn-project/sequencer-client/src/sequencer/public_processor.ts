@@ -159,6 +159,7 @@ export class PublicProcessor {
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isEmpty())) {
+      this.log('calling processEnqueuedCalls');
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
@@ -168,6 +169,7 @@ export class PublicProcessor {
       this.log(`${(await makeProcessedTx(tx, publicKernelOutput, publicKernelProof)).data.end.newCommitments}`);
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
     } else {
+      this.log('calling makeProcessedTx with 1 args');
       return makeProcessedTx(tx);
     }
   }
@@ -193,6 +195,7 @@ export class PublicProcessor {
     // TODO(dbanks12): why must these be reversed?
     const enqueuedCallsReversed = tx.enqueuedPublicFunctionCalls.slice().reverse();
     for (const enqueuedCall of enqueuedCallsReversed) {
+      this.log(`reversed and found ${enqueuedCall.toCallRequest().hash.toString()}`);
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
 
       // Keep track of which result is for the top/enqueued call
@@ -210,6 +213,8 @@ export class PublicProcessor {
         executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
 
+        this.log(`${callData.publicCallStack[0].hash.toString()} callstack[0] hash}`);
+        this.log(`${callData.publicCallStack[3].hash.toString()} callstack[3] hash}`);
         [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
         this.log('kernel circuit run without error');
 
@@ -249,6 +254,8 @@ export class PublicProcessor {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputs(previousKernel, callData);
+      this.log('in getKernelCircuitOutput');
+      this.log(callData.publicCallStack[0].hash.toString());
       return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel

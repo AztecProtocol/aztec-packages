@@ -60,12 +60,20 @@ impl PublicCallStackItem {
         let mut request_public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
         request_public_inputs.call_context = public_inputs.call_context;
         request_public_inputs.args_hash = public_inputs.args_hash;
+        // request_public_inputs.new_commitments = public_inputs.new_commitments;
+        // request_public_inputs.new_nullifiers= public_inputs.new_nullifiers;
+        // dep::std::println(public_inputs.new_nullifiers[0].hash());
+        // dep::std::println(request_public_inputs.new_commitments[0].hash());
+        // dep::std::println(request_public_inputs.new_commitments[0].hash());
 
-        PublicCallStackItem {
+        let call_stack_item = PublicCallStackItem {
             contract_address: self.contract_address,
             function_data: self.function_data,
             is_execution_request: true,
             public_inputs: request_public_inputs,
-        }
+        };
+        // let emptyCallHash = call_stack_item.hash();
+        // dep::std::println(emptyCallHash);
+        call_stack_item
     }
 }
