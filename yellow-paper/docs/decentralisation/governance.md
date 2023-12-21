@@ -24,9 +24,9 @@ This is a first draft which articulates the latest thinking on governance & upgr
 ### Summary
 We propose an immutable governance & upgrade mechanism for The Aztec Network ("Aztec") that is comprised of a version registry, which points to deployments ("instances", used interchangably) of Aztec. 
 
-These instances may choose to be immutable themselves, or have governance that evolves overtime alongside the community. The governance contract will keep track of governance votes, from the current version of Aztec, as well as direct token votes from the community, in order to provide some form of checks and balances. 
+These instances may choose to be immutable themselves, or have governance that evolves over time alongside the community. The governance contract will keep track of governance votes, from the current version of Aztec, as well as direct token votes from the community, in order to provide some form of checks and balances. 
 
-The version registry will keep track of all historical versions of Aztec & provide them with incentives proportionate to their current stake. Additionally the governance contract will point to what the _current canonical_ version of Aztec is, particularly relevant for 3rd parties to follow, such as centralized exchanges, or portals that wish to follow governance.
+The version registry will keep track of all historical versions of Aztec & provide them with incentives proportionate to their current stake. Additionally the governance contract will point to what the _current canonical_ version of Aztec is, particularly relevant for 3rd parties to follow, such as centralized exchanges, or portals that wish to follow Aztec governance.
 
 ![Governance Summary Image](../decentralisation/images/Aztec-Governance-Summary-1.png)
 
@@ -35,14 +35,14 @@ We propose introducing a governance "version registry" which keeps track of a) w
 
 ![Rewards Summary Image](../decentralisation/images/Aztec-Governance-Summary-2.png)
 
-Given that deployments may be immutable, it is necessary to ensure that there are operators, ie sequencers & provers, running the infrastructure for a given deployment as long as users are interested in it. Therefore we suggest a model where all previous canonical instances of Aztec are rewarded pro-rata to their current proportion of stake.
+Given that deployments may be immutable, it is necessary to ensure that there are operators, i.e., sequencers & provers, running the infrastructure for a given deployment as long as users are interested in it. Therefore we suggest a model where all previous canonical instances of Aztec are rewarded pro-rata to their current proportion of stake.
 
-Beyond making it easier to understand for users, having a single token across all deployments is necessary to ensure that all instances are all utilizing the same token due to ecosystem cohesive and buisness development efforts, for example, having reliable onramps and wallets. 
+Beyond making it easier to understand for users, having a single token across all deployments is necessary to ensure that all instances are all utilizing the same token due to ecosystem cohesive and business development efforts, for example, having reliable onramps and wallets. 
 
 ### Initial deployment
 Upon initial deployment, there will be an immutable set of governance contracts which maintain the version registry, and an initial immutable instance of the rollup which will be the first "canonical" deployment. 
 
-The initial instance will be called "Aztec v0" and (the current thinking is that v0) will not include the ability to process user transactions. Sequencers can register for Fernet's sequencer selection algorithm by staking tokens to that particular instance, and practice proposing blocks on mainnet prior to deciding to "go live" with v1, which _does_ enable the processing of user transactions. This instance would then _"restake"_ these tokens within the governance contract, to have a voting weight equal to the amount of tokens staked by it's sequencer set. This is in order to ensure that the sequencer selection algorithm is working properly and the community of operators themselves can decide what happens to the network next, ie if it's ready to actually "go live" with transactions. It will also serve as a production readiness test of the upgradability. In the event that these v0 tests are unable to be successfully completed as expected, the community (with potential foundation approval) may need to redeploy and try again.
+The initial instance will be called "Aztec v0" and (the current thinking is that v0) will not include the ability to process user transactions. Sequencers can register for Fernet's sequencer selection algorithm by staking tokens to that particular instance, and practice proposing blocks on mainnet prior to deciding to "go live" with v1, which _does_ enable the processing of user transactions. This instance would then _"restake"_ these tokens within the governance contract, to have a voting weight equal to the amount of tokens staked by it's sequencer set. This is in order to ensure that the sequencer selection algorithm is working properly and the community of operators themselves can decide what happens to the network next, i.e., if it's ready to actually "go live" with transactions. It will also serve as a production readiness test of the upgradability. In the event that these v0 tests are unable to be successfully completed as expected, the community (with potential foundation approval) may need to redeploy and try again.
 
 ![Initial Deployment Image](../decentralisation/images/Aztec-Governance-Summary-3.png)
 
@@ -51,7 +51,7 @@ The ability to upgrade to v1 is articulated below, and should follow a "happy pa
 ![Version 1 Deployment Image](../decentralisation/images/Aztec-Governance-Summary-4.png)
 
 ### Proposing a new version
-The current canonical rollup ("current rollup") can at any point propose voting on a new instance to become canonical and added to the governance version registry contracts. It can have it's own logic for determining when makes sense to do so, and trigger the formal governance vote. In the initial deployment it's expected to be done as articulated in the empire stakes back, where a sequencer must flag a desire to upgrade signal as part of Fernet's proposal phase, ie they won a random leader election, and a majority of sequencers must do so over a specific time horizon, eg 7 days. 
+The current canonical rollup ("current rollup") can at any point propose voting on a new instance to become canonical and added to the governance version registry contracts. It can have it's own logic for determining when it makes sense to do so, and trigger the formal governance vote. In the initial deployment it's expected to be done as articulated in the empire stakes back, where a sequencer must flag a desire to upgrade signal as part of Fernet's proposal phase, i.e., they won a random leader election, and a majority of sequencers must do so over a specific time horizon, e.g., 7 days.
 
 In addition to the current rollup implementation deciding to propose a vote, token holders can lock a sufficient amount of tokens for a sufficient amount of time in order to bypass the current rollup and propose a new version to become canonical next. This can be used in the scenario that the rollup implementation is so buggy it is unable to propose a new rollup to replace itself, or is due to potential community disagreement. In this secenario of disagreement, it is likely to be a very contentious action - as it implies a large token holder actively disagrees with the current rollup's sequencer set.
 - Current thinking is this would require locking 1% of _total supply_ for 2 years.
@@ -62,11 +62,11 @@ In a worst case scenario, the rollup's sequencer set could be malicious and cens
 ### Voting
 
 #### Participation
-Aztec's governance voting occurs within the governance contract, and the tokens being utilized must be "locked within governance" ie untransfferable. 
+Aztec's governance voting occurs within the governance contract, and the tokens being utilized must be "locked within governance" i.e., non-transferable. 
     
 Any token holder is able to directly vote via an interaction with the governance contract. Specifically, this includes those with locked, noncirculating tokens.
 
-The current canonical rollup can choose to implement it's instances' internal voting however it would like, with the weight of the tokens staked in that instance. This is likely to be a majority of voting weight, which we can reliably assume will vote each time. Generally this addresses the problems of low token holder participation! In the initial instance, we envision a version of the Empire Stakes back, where sequencers are voting during part of their block proposal phases. Not all sequencers will win a block proposal/election during the time period of the vote, this leads it to being a randomized sampling of the current sequencer set. 
+The current canonical rollup can choose to implement its internal voting however it would like, with the weight of the tokens staked in that instance. This is likely to be a majority of voting weight, which we can reliably assume will vote each time. Generally this addresses the problems of low token holder participation! In the initial instance, we envision a version of the Empire Stakes back, where sequencers are voting during part of their block proposal phases. Not all sequencers will win a block proposal/election during the time period of the vote, this leads it to being a randomized sampling of the current sequencer set.
 
 :::danger
 Question: how to implement the votes? 
@@ -102,17 +102,17 @@ Lasse: note that if the portals follow the governance registry blindly, they ass
 
 ### Timing
 #### Phase 1 - Setup
-After the current canonical rollup, or a sufficient number of tokens are locked in governance, there is a ~3-7 day perparation period where users get their tokens "ready" for voting. ie. withdraw & deposit/lock for the vote, or choose a suitable delegate.
+After the current canonical rollup, or a sufficient number of tokens are locked in governance, there is a ~3-7 day preparation period where users get their tokens "ready" for voting. i.e., withdraw & deposit/lock for the vote, or choose a suitable delegate.
 
 #### Phase 2 - Voting 
 After setup has completed, there is a 7-30 day (TBD) period during which votes can land on the governance contract. In practice, we envision a majority of this voting happening in the current canonical instance and the voting weight of the current canonical instance being sufficient to reach quorum without any additional token delegation. 
 
 #### Phase 3 - Execution Delay (Timelock) 
 
-If a vote passes, there is a timelocked period before it becomes the new canonical rollup. This specific time period must be more than a minimum, eg 3 days, but is defined by the current rollup and in v1 may be controled by both the sequencers in a hapy path, and an emergency security council in a worst case scenario (articulated [below](#Emergency-mode)). In a typical happy path scenario, we suggest this is at least 30 days, and in an emergency, the shortest period possible.
+If a vote passes, there is a timelocked period before it becomes the new canonical rollup. This specific time period must be more than a minimum, e.g., 3 days, but is defined by the current rollup and in v1 may be controled by both the sequencers in a happy path, and an emergency security council in a worst case scenario (articulated [below](#Emergency-mode)). In a typical happy path scenario, we suggest this is at least 30 days, and in an emergency, the shortest period possible.
 
 :::info
-It is worth acknowledging that this configurability on upgrade delay windows will likely be flagged on L2 beat as a "medium" centralization risk, due to the ability to quickly upgrade the software (eg a vacation attack). Explicitly this decision could cause us to be labeled a "stage 1" rather than "stage 2" rollup. However, if a vote is reasonably long, then it should be fine as you can argue that the "upgrade period" is the aggregate of all 3 periods.
+It is worth acknowledging that this configurability on upgrade delay windows will likely be flagged on L2 beat as a "medium" centralization risk, due to the ability to quickly upgrade the software (e.g., a vacation attack). Explicitly this decision could cause us to be labeled a "stage 1" rather than "stage 2" rollup. However, if a vote is reasonably long, then it should be fine as you can argue that the "upgrade period" is the aggregate of all 3 periods.
 :::
 
 :::danger
@@ -120,7 +120,7 @@ Lasse: We need to also include a maximum value, such that you cannot brick upgra
 :::
 
 ### Diagrams
-Importantly we differentiate between `Aztec Governance`, and a particular instance of Aztec's Governance. This diagram articulates the high level of Aztec Governance, specifically how the network can deploy new versions overtime which will be part of a cohesive ecosystem, sharing a single token. In this case, we are not concerned with how the current canonical rollup chooses to implement it's decision to propose a new version, nor how it implements voting. It can be reasonably assumed that this is a version of The Empire Stakes back, where a majority of the current rollup sequencers are agreeing to propose and want to upgrade.
+Importantly we differentiate between `Aztec Governance`, and the governance of a particular instance of Aztec. This diagram articulates the high level of Aztec Governance, specifically how the network can deploy new versions overtime which will be part of a cohesive ecosystem, sharing a single token. In this case, we are not concerned with how the current canonical rollup chooses to implement it's decision to propose a new version, nor how it implements voting. It can be reasonably assumed that this is a version of The Empire Stakes back, where a majority of the current rollup sequencers are agreeing to propose and want to upgrade.
 
 #### Happy path
 ```mermaid
@@ -150,7 +150,7 @@ Sequencers ->> Next Rollup: Proposing new blocks here!
 ```
 
 #### "Bricked" rollup proposals
-In this diagram, we articulate the scenario in which the current canonical rollup contains bugs that result in it being unable to produce not only a block, but a vote of anykind. In this scenario, someone or a group (Lasse refers to as the "unbrick DAO") may lock 1% (specific # TBD) of total supply in order to propose a new canonical rollup. It is expected that this scenario is very unlikely, however, we believe it to be a nice set of checks and balances between the token holders and the decisions of the current rollup implementation. 
+In this diagram, we articulate the scenario in which the current canonical rollup contains bugs that result in it being unable to produce not only a block, but a vote of any kind. In this scenario, someone or a group (Lasse refers to as the "unbrick DAO") may lock 1% (specific # TBD) of total supply in order to propose a new canonical rollup. It is expected that this scenario is very unlikely, however, we believe it to be a nice set of checks and balances between the token holders and the decisions of the current rollup implementation. 
 
 ```mermaid
 sequenceDiagram
@@ -178,7 +178,7 @@ Sequencers ->> Next Rollup: Proposing new blocks here!
 Any token holder can delegate their token's voting weight to another address, including the current canonical rollup's, if it wishes to follow along in that addresses' vote. The tokens being delegated will be locked, either within the governance contract or the vesting contract.
 
 :::info
-:bulb: Locked, uncirculating tokens can be delegated! This "economic training wheel" enables Aztec Labs, Foundation, and potential investors to participate responsibly in governance while the protocol is getting off the ground. It is TBD if these locked, uncirculating, delegated tokens will be able to earn incentives, ie block rewards.
+:bulb: Locked, non-circulating tokens can be delegated! This "economic training wheel" enables Aztec Labs, Foundation, and potential investors to participate responsibly in governance while the protocol is getting off the ground. It is TBD if these locked, non-circulating, delegated tokens will be able to earn incentives, i.e., block rewards.
 :::
 
 The diagram below articulates calling delegateTo(address) on both the governance contract and specifying a particular address. Additionally calling delegateTo() on the current canonical rollup if you wish to align with whatever voting mechanism that system currently as in place. 
@@ -214,12 +214,12 @@ Sequencers ->> Next Rollup: Proposing new blocks here!
 ```
 
 ### Emergency mode
-Emergency mode is proposed to be introduced to the initial instance "v0" or "v1" of Aztec, whatever the first instance or deployment is. Emergency mode **will not be included as part of the canonical governance contracts or registry**. If future deployments wish to have a similar security council, they can choose to do so. In this design, the current rollup can determine the timelock period as articulated above, within some predefined constraints, eg 3-30 days. Explicitly, the current rollup can give a security council the ability to define what this timelock period may be, and in the case of a potential vulnerability or otherwise, may be well within it's rights to choose the smallest value defined by the immutable governance conract to ensure that the network is able to recover and come back online as quickly as possible. 
+Emergency mode is proposed to be introduced to the initial instance "v0" or "v1" of Aztec, whatever the first instance or deployment is. Emergency mode **will not be included as part of the canonical governance contracts or registry**. If future deployments wish to have a similar security council, they can choose to do so. In this design, the current rollup can determine the timelock period as articulated above, within some predefined constraints, e.g., 3-30 days. Explicitly, the current rollup can give a security council the ability to define what this timelock period may be, and in the case of a potential vulnerability or otherwise, may be well within it's rights to choose the smallest value defined by the immutable governance conract to ensure that the network is able to recover and come back online as quickly as possible. 
 
 ![Emergency Mode Image](../decentralisation/images/Aztec-Governance-Summary-4.png)
 
 #### Unpausing by default
-In the first instance, it's expected that this security council can _only_ pause the rollup instance, not make any other changes to the instance's functionaiity. It is important that after N days (eg 180), or after another rollup has been marked canonical and Y days (eg 60), this rollup _must_ become unpaused eventually - otherwise it's pratcially bricked from the perspective of those users choosing immutable portals, and could leave funds or other things beloning to users (eg identity credentials or something wacky) permanently inside of it. The same is true for all future instances that have pausable functionalities.
+In the first instance, it's expected that this security council can _only_ pause the rollup instance, not make any other changes to the instance's functionality. It is important that after N days (eg 180), or after another rollup has been marked canonical and Y days (eg 60), this rollup _must_ become unpaused eventually - otherwise it's practically bricked from the perspective of those users choosing immutable portals, and could leave funds or other things belonging to users (e.g., identity credentials or something wacky) permanently inside of it. The same is true for all future instances that have pause functionalities.
 
 #### Removing the emergency mode
 The emergency mode articulated here may be implemented as part of the next instance of Aztec - "v1" or whatever it ends up being called, when mainnet blocks are enabled. The current sequencer set on v0 (the initial instance) would then need to vote as outlined above on marking this new deployment as the "canonical v1" or predecessor to the initial instance. This would then have all of the portal contracts follow v1, which may or may not have other [training wheels](https://discourse.aztec.network/t/aztec-upgrade-training-wheels/641). If the community wishes, they can always deploy a new instance of the rollup which removes the emergency mode and therefore the pause-only multisig.
