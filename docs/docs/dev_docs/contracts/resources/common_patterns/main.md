@@ -162,7 +162,3 @@ In the [Prevent the same user flow from happening twice using nullifier](#preven
 E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../concepts/foundation/accounts/keys.md#nullifier-secrets). E.g.:
 
 #include_code nullifier /yarn-project/aztec-nr/value-note/src/value_note.nr rust
-
-### Ensuring uniqueness of identifiers
-
-There are often cases where you want to ensure that an identifier for some data or input to a note is unique. For example, a note that may be used by multiple parties could have a shared field that must be unique. You don't want any party to be able to create another note with a duplicate identifier, so indicating that the identifier has been used with a nullifier can prevent this from happening.
