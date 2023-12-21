@@ -16,16 +16,14 @@ If the recipient is not in the registry, then the app should allow the sender to
 
 If the user is not in the registry and the sender cannot provide the address preimage, then the application must prove that the user was not in the registry, or a malicious sender could simply not submit a correct merkle membership proof for the read and grief the recipient. In this scenario, it is strongly recommended that the application skips the note for the recipient as opposed to failing. This prevents an unregistered address from accidentally or maliciously bricking an application, if there is a note delivery to them in a critical code path in the application.
 
-Execution of the precompile that implements the recipient's choice for encryption and tagging should be done using a batched call, to amortize the cost of sending multiple notes using the same method.
-
-## Delegation
-
-TODO
+Execution of the precompile that implements the recipient's choice for encryption and tagging should be done using a batched delegated call, to amortize the cost of sending multiple notes using the same method, and to ensure the notes are broadcasted from the application contract's address.
 
 ## Pseudocode
 
+The following pseudocode covers how to provably send a note to a recipient, given an `encryption_type` (incoming, outgoing, or internal incoming). Should the registry support [multiple entries for a given recipient](./registry.md#multiple-recipients-per-address), this method must execute a batched call per each entry recovered from the registry.
+
 ```
-fn provably_send_note(recipient, note)
+fn provably_send_note(recipient, note, encryption_type)
     
     let block_number = context.latest_block_number
     let public_state_root = context.roots[block_number].public_state
@@ -43,12 +41,12 @@ fn provably_send_note(recipient, note)
         registry_address.assert_non_membership(recipient)
         return
         
-    batch_private_function_call(precompile_address.encrypt_and_tag, { public_keys, recipient, note })
+    batch_private_delegate_call(precompile_address.encrypt_and_broadcast, { public_keys, encryption_type, recipient, note })
 ```
 
 ## Unconstrained Message Delivery
 
-Applications may choose not to constrain proper message delivery, based on their requirements. In this case, the guidelines are the same as above, but without constraining correct execution, and without the need to assert non-membership when the recipient is not in the registry.
+Applications may choose not to constrain proper message delivery, based on their requirements. In this case, the guidelines are the same as above, but without constraining correct execution, and without the need to assert non-membership when the recipient is not in the registry. Apps can achieve this by issuing a synchronous [unconstrained call](../calls//unconstrained-calls.md) to the encryption precompile `encrypt_and_tag` function, and emitting the resulting encrypted note.
 
 This flexibility is useful in scenarios where the sender can be trusted to make its best effort so the recipient receives their private messages, since it reduces total proving time. An example is a standalone direct value transfer, where the sender wants the recipient to access the funds sent to them.
 
@@ -59,6 +57,10 @@ Applications may encrypt, tag, and broadcast messages for the same user who's in
 Applications may also choose to query the user wallet software via an oracle call, so the wallet can decide whether to broadcast the note to self on chain based on user preferences. This allows users to save on gas costs by avoiding unnecessary note broadcasts if they rely on other backup strategies.
 
 Last, applications with strong compliance and auditability requirements may choose to enforce provable encryption, tagging, and delivery to the sender user. This ensures that all user activity within the application is stored on-chain, so the user can later provably disclose their activity or repudiate actions they did not take.
+
+## Delivering Messages to Multiple Recipients via Shared Secrets
+
+As an alternative to registering [multiple recipients for a given address](./registry.md#multiple-recipients-per-address), multisig participants may deploy a contract using a shared secret derived among them. This makes it cheaper to broadcast messages to the group, since every note does not need to be individually encrypted for each of them. However, it forces all recipients in the group to use the same encryption and tagging method, and adds an extra address they need to monitor for note discovery.
 
 ## Discussions
 

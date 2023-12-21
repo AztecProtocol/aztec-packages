@@ -45,17 +45,37 @@ contract Registry
         registry[msg_sender] = { keys, precompile_address }
 ```
 
-## Storage
+## Storage Optimizations
 
 The registry stores a struct for each user, which means that each entry requires multiple storage slots. Reading multiple storage slots requires multiple merkle membership proofs, which increase the total proving cost of any execution that needs access to the registry.
 
 To reduce the number of merkle membership proofs, the registry keeps in storage only the hash of the data stored, and emits the preimage as an unencrypted event. Nodes are expected to store these preimages, so they can be returned when clients query for the public keys for an address. Clients then prove that the preimage hashes to the commitment stored in the public data tree via a single merkle membership proof.
 
-<!-- TODO: This requires custom node behaviour, as well as a custom RPC call so that nodes can serve the preimage from the associated log. Should we implement this optimization? Should it be specific to this contract, or does it make sense to generalize it, since it seems like it could be a common pattern? -->
+Note that this optimization may also be included natively into the protocol, [pending this discussion](https://forum.aztec.network/t/storing-data-of-arbitrary-length-in-the-public-data-tree/2669).
 
-## Delegation
+<!-- TODO: Figure out whether we want this optimization in the protocol, or just for the registry, or not at all. --> 
 
-TODO
+## Multiple Recipients per Address
+
+While account contracts that belong to individual users have a clear set of public keys to announce, some private contracts may be shared by a group of users, like in a multisig or an escrow contract. In these scenarios, we want all messages intended for the shared contract to actually be delivered to all participants, using the encryption method selected by each.
+
+This can be achieved by having the registry support multiple sets of keys and precompiles for each entry. Applications can then query the registry and obtain a list of recipients, rather than a single one. 
+
+The registry limits multi-recipient registrations to no more than `MAX_ENTRIES_PER_ADDRESS` to prevent abuse, since this puts an additional burden on the sender, who needs to emit the same note multiple times, increasing the cost of their transaction.
+
+Contracts that intend to register multiple recipients should account for those recipients eventually rotating their keys. To support this, contracts should include a method to refresh the registered addresses:
+
+```
+contract Sample
+
+    private address[] owners
+
+    private fn register()
+        let to_register = owners.map(owner => read_registry(owner))
+        registry.set(this, to_register)
+```
+
+<!-- TODO: Decide whether we want to bake this in. It means a sender may have to pay extra because of a choice by the recipient, since they may be forced to emit multiple notes, which costs calldata. I'm leaning towards not doing it. -->
 
 ## Discussion
 
