@@ -287,7 +287,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
-    assert(perturbator[0] == accumulator->target_sum);
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);

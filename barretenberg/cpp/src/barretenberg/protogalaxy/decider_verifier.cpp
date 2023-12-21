@@ -82,14 +82,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     }
 
     VerifierCommitments commitments{ inst->verification_key, inst->witness_commitments };
-    auto& witness_commitments = inst->witness_commitments;
-    commitments.w_l = witness_commitments.w_l;
-    commitments.w_r = witness_commitments.w_r;
-    commitments.w_o = witness_commitments.w_o;
-    commitments.sorted_accum = witness_commitments.sorted_accum;
-    commitments.w_4 = witness_commitments.w_4;
-    commitments.z_perm = witness_commitments.z_perm;
-    commitments.z_lookup = witness_commitments.z_lookup;
 
     auto sumcheck = SumcheckVerifier<Flavor>(inst->log_instance_size, transcript, inst->target_sum);
 
