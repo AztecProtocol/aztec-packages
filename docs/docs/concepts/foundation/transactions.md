@@ -2,7 +2,7 @@
 title: Transactions
 ---
 
-Transactions on Aztec start with a call from Aztec.js or the Aztec CLI, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
+import Image from '@theme/IdealImage';
 
 On this page you'll learn:
 
@@ -11,13 +11,49 @@ On this page you'll learn:
 - The Aztec Kernel and its two circuits: private and public, and how they execute function calls
 - The call stacks for private & public functions and how they determine a transaction's completion
 
+## Simple Example of the (Private) Transaction Lifecycle
+
+The transaction lifecycle for an Aztec transaction is fundamentally different from the lifecycle of an Ethereum transaction.
+
+The introduction of the Private eXecution Environment (PXE) provides a safe environment for the execution of sensitive operations, ensuring that decrypted data are not accessible to unauthorized applications. However, the PXE exists client-side on user devices, which creates a different model for imagining a transaction lifecycle. The existence of a sequencing network also introduces some key differences between the Aztec transaction model and the transaction model used for other networks.
+
+The accompanying diagram illustrates the flow of interactions between a user, their wallet, the PXE, the node operators (sequencers / provers), and the L1 chain.
+
+<Image img={require("/img/transaction-lifecycle.png")} />
+
+1. **The user initiates a transaction** – the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
+
+_The transaction has not been broadcasted to the sequencer network yet._
+
+2. **The wallet and PXE interact** – once the user has confirmed the transfer, the wallet sends an execution request to the PXE, which is running locally on the user device. The PXE executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user’s intention, which is shared with the wallet to be displayed to the user.
+
+_The transaction has still not been broadcasted to the sequencer network yet._
+
+3. **The wallet asks the user for approval** – the user sees the state difference and can confirm that this matches the intended transaction. This is not a required part of the protocol, but is good wallet UX. The user can then approve the transaction using their existing, selected authorization mechanism (e.g., FaceID, ECDSA signature, etc.).
+
+_The transaction has still not been broadcasted to the sequencer network yet._
+
+4. **The PXE proves correct execution** – now that the user has approved the transfer, the PXE receives the authorization and proves correct execution (via zero-knowledge proofs) of the authorization and the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the [note hash tree](../advanced/data_structures/trees.md#note-hash-tree) and nullifiers stored in the [nullifiers tree](../advanced/data_structures/trees.md#nullifier-tree)) to the sequencer.
+
+The sequencer has received transaction proof and can begin to process the transaction (verify proofs and apply updates to the relevant [data trees](../advanced/data_structures/trees.md)) alongside other public and private transactions.
+
+5. **The sequencer has the necessary information to act** – the randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs (e.g. the note commitments and nullifiers) for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. The sequencer updates the corresponding data trees and does the same for other private transactions. The sequencer requests proofs from a prover network that will be bundled into a final rollup proof.
+
+_The sequencer has passed the transaction information – proofs of correct execution and authorization, or public function execution information – to the prover, who will submit the new state root to Ethereum._
+
+6. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
+
+### Going deeper
+
+Transactions on Aztec start with a call from Aztec.js or the Aztec CLI, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
+
 <a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg"><img src="/img/sandbox_sending_a_tx.svg" alt="Sending a transaction" /></a>
 
-See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for an in-depth overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
+See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
 See the page on [contract communication](./communication/main.md) for more context on transaction execution.
 
-## Enabling Transaction Semantics: The Aztec Kernel
+### Enabling Transaction Semantics: The Aztec Kernel
 
 There are two kernel circuits in Aztec, the private kernel and the public kernel. Each circuit validates the correct execution of a particular function call.
 
