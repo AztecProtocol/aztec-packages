@@ -7,32 +7,33 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Alu_chipRow {
-    FF aluChip_alu_s3{};
-    FF aluChip_alu_s16{};
+    FF aluChip_alu_ib{};
+    FF aluChip_alu_s7{};
     FF aluChip_alu_s9{};
+    FF aluChip_alu_ic{};
     FF aluChip_alu_op_add{};
-    FF aluChip_alu_u32{};
-    FF aluChip_alu_s5{};
-    FF aluChip_alu_s6{};
-    FF aluChip_alu_s1{};
-    FF aluChip_alu_u64{};
-    FF aluChip_alu_cf{};
-    FF aluChip_alu_u16{};
-    FF aluChip_alu_s4{};
     FF aluChip_alu_u128{};
-    FF aluChip_alu_ia{};
+    FF aluChip_alu_s6{};
+    FF aluChip_alu_s15{};
+    FF aluChip_alu_s1{};
+    FF aluChip_alu_u32{};
     FF aluChip_alu_s2{};
     FF aluChip_alu_s8{};
-    FF aluChip_alu_u8{};
-    FF aluChip_alu_s10{};
-    FF aluChip_alu_ib{};
+    FF aluChip_alu_s16{};
     FF aluChip_alu_s11{};
+    FF aluChip_alu_u8{};
+    FF aluChip_alu_s4{};
     FF aluChip_alu_s12{};
-    FF aluChip_alu_ic{};
-    FF aluChip_alu_s14{};
+    FF aluChip_alu_s10{};
     FF aluChip_alu_s13{};
-    FF aluChip_alu_s15{};
-    FF aluChip_alu_s7{};
+    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_cf{};
+    FF aluChip_alu_ia{};
+    FF aluChip_alu_s5{};
+    FF aluChip_alu_s14{};
+    FF aluChip_alu_u64{};
+    FF aluChip_alu_u16{};
+    FF aluChip_alu_s3{};
 };
 
 inline std::string get_relation_label_alu_chip(int index)
@@ -45,8 +46,8 @@ template <typename FF_> class alu_chipImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 15> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -236,6 +237,147 @@ template <typename FF_> class alu_chipImpl {
                          aluChip_alu_ic));
             tmp *= scaling_factor;
             std::get<14>(evals) += tmp;
+        }
+        // Contribution 15
+        {
+            AvmMini_DECLARE_VIEWS(15);
+
+            auto tmp = ((aluChip_alu_u8 * aluChip_alu_op_sub) *
+                        (((aluChip_alu_s1 + (FF(256) * aluChip_alu_cf)) - aluChip_alu_ic) - aluChip_alu_ib));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += tmp;
+        }
+        // Contribution 16
+        {
+            AvmMini_DECLARE_VIEWS(16);
+
+            auto tmp = ((aluChip_alu_u8 * aluChip_alu_op_sub) * (aluChip_alu_s1 - aluChip_alu_ia));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += tmp;
+        }
+        // Contribution 17
+        {
+            AvmMini_DECLARE_VIEWS(17);
+
+            auto tmp =
+                ((aluChip_alu_u16 * aluChip_alu_op_sub) *
+                 ((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_cf)) - aluChip_alu_ic) -
+                  aluChip_alu_ib));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += tmp;
+        }
+        // Contribution 18
+        {
+            AvmMini_DECLARE_VIEWS(18);
+
+            auto tmp = ((aluChip_alu_u16 * aluChip_alu_op_sub) *
+                        ((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) - aluChip_alu_ia));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += tmp;
+        }
+        // Contribution 19
+        {
+            AvmMini_DECLARE_VIEWS(19);
+
+            auto tmp = ((aluChip_alu_u32 * aluChip_alu_op_sub) *
+                        ((((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                            (FF(16777216) * aluChip_alu_s4)) +
+                           (FF(4294967296UL) * aluChip_alu_cf)) -
+                          aluChip_alu_ic) -
+                         aluChip_alu_ib));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += tmp;
+        }
+        // Contribution 20
+        {
+            AvmMini_DECLARE_VIEWS(20);
+
+            auto tmp = ((aluChip_alu_u32 * aluChip_alu_op_sub) *
+                        ((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                          (FF(16777216) * aluChip_alu_s4)) -
+                         aluChip_alu_ia));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += tmp;
+        }
+        // Contribution 21
+        {
+            AvmMini_DECLARE_VIEWS(21);
+
+            auto tmp = ((aluChip_alu_u64 * aluChip_alu_op_sub) *
+                        ((((((((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                                (FF(16777216) * aluChip_alu_s4)) +
+                               (FF(4294967296UL) * aluChip_alu_s5)) +
+                              (FF(1099511627776UL) * aluChip_alu_s6)) +
+                             (FF(281474976710656UL) * aluChip_alu_s7)) +
+                            (FF(72057594037927936UL) * aluChip_alu_s8)) +
+                           (FF(uint256_t{ 0, 1, 0, 0 }) * aluChip_alu_cf)) -
+                          aluChip_alu_ic) -
+                         aluChip_alu_ib));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += tmp;
+        }
+        // Contribution 22
+        {
+            AvmMini_DECLARE_VIEWS(22);
+
+            auto tmp = ((aluChip_alu_u64 * aluChip_alu_op_sub) *
+                        ((((((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                              (FF(16777216) * aluChip_alu_s4)) +
+                             (FF(4294967296UL) * aluChip_alu_s5)) +
+                            (FF(1099511627776UL) * aluChip_alu_s6)) +
+                           (FF(281474976710656UL) * aluChip_alu_s7)) +
+                          (FF(72057594037927936UL) * aluChip_alu_s8)) -
+                         aluChip_alu_ia));
+            tmp *= scaling_factor;
+            std::get<22>(evals) += tmp;
+        }
+        // Contribution 23
+        {
+            AvmMini_DECLARE_VIEWS(23);
+
+            auto tmp = ((aluChip_alu_u128 * aluChip_alu_op_sub) *
+                        ((((((((((((((((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                                        (FF(16777216) * aluChip_alu_s4)) +
+                                       (FF(4294967296UL) * aluChip_alu_s5)) +
+                                      (FF(1099511627776UL) * aluChip_alu_s6)) +
+                                     (FF(281474976710656UL) * aluChip_alu_s7)) +
+                                    (FF(72057594037927936UL) * aluChip_alu_s8)) +
+                                   (FF(uint256_t{ 0, 1, 0, 0 }) * aluChip_alu_s9)) +
+                                  (FF(uint256_t{ 0, 256, 0, 0 }) * aluChip_alu_s10)) +
+                                 (FF(uint256_t{ 0, 65536, 0, 0 }) * aluChip_alu_s11)) +
+                                (FF(uint256_t{ 0, 16777216, 0, 0 }) * aluChip_alu_s12)) +
+                               (FF(uint256_t{ 0, 4294967296, 0, 0 }) * aluChip_alu_s13)) +
+                              (FF(uint256_t{ 0, 1099511627776, 0, 0 }) * aluChip_alu_s14)) +
+                             (FF(uint256_t{ 0, 281474976710656, 0, 0 }) * aluChip_alu_s15)) +
+                            (FF(uint256_t{ 0, 72057594037927936, 0, 0 }) * aluChip_alu_s16)) +
+                           (FF(uint256_t{ 0, 0, 1, 0 }) * aluChip_alu_cf)) -
+                          aluChip_alu_ic) -
+                         aluChip_alu_ib));
+            tmp *= scaling_factor;
+            std::get<23>(evals) += tmp;
+        }
+        // Contribution 24
+        {
+            AvmMini_DECLARE_VIEWS(24);
+
+            auto tmp = ((aluChip_alu_u128 * aluChip_alu_op_sub) *
+                        ((((((((((((((((aluChip_alu_s1 + (FF(256) * aluChip_alu_s2)) + (FF(65536) * aluChip_alu_s3)) +
+                                      (FF(16777216) * aluChip_alu_s4)) +
+                                     (FF(4294967296UL) * aluChip_alu_s5)) +
+                                    (FF(1099511627776UL) * aluChip_alu_s6)) +
+                                   (FF(281474976710656UL) * aluChip_alu_s7)) +
+                                  (FF(72057594037927936UL) * aluChip_alu_s8)) +
+                                 (FF(uint256_t{ 0, 1, 0, 0 }) * aluChip_alu_s9)) +
+                                (FF(uint256_t{ 0, 256, 0, 0 }) * aluChip_alu_s10)) +
+                               (FF(uint256_t{ 0, 65536, 0, 0 }) * aluChip_alu_s11)) +
+                              (FF(uint256_t{ 0, 16777216, 0, 0 }) * aluChip_alu_s12)) +
+                             (FF(uint256_t{ 0, 4294967296, 0, 0 }) * aluChip_alu_s13)) +
+                            (FF(uint256_t{ 0, 1099511627776, 0, 0 }) * aluChip_alu_s14)) +
+                           (FF(uint256_t{ 0, 281474976710656, 0, 0 }) * aluChip_alu_s15)) +
+                          (FF(uint256_t{ 0, 72057594037927936, 0, 0 }) * aluChip_alu_s16)) -
+                         aluChip_alu_ia));
+            tmp *= scaling_factor;
+            std::get<24>(evals) += tmp;
         }
     }
 };

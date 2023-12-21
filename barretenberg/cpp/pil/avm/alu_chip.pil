@@ -63,9 +63,12 @@ namespace aluChip(256);
     // TODO: Equivalence between intermediate registers, clk, type flag, operation
     //       An ALU chiplet flag will be introduced in main trace to select relevant rows.
 
-    // ========= ADDITION Operation Constraints ===============================
-    
-    // Intermediate polynomial terms
+
+
+    // ============= Helper polynomial terms ============================
+    // These are intermediate polynomial terms which are not commited but
+    // serves to express commited polynomials in a more concise way.
+
     // 8-bit slice partial sums
     pol sum_8 =            alu_s1;
     pol sum_16 =  sum_8  + 2**8 * alu_s2;
@@ -73,6 +76,9 @@ namespace aluChip(256);
     pol sum_64 =  sum_32 + 2**32 * alu_s5 + 2**40 * alu_s6 + 2**48 * alu_s7 + 2**56 * alu_s8;
     pol sum_96 =  sum_64 + 2**64 * alu_s9 + 2**72 * alu_s10 + 2**80 * alu_s11 + 2**88 * alu_s12;
     pol sum_128 = sum_96 + 2**96 * alu_s13 + 2**104 * alu_s14 + 2**112 * alu_s15 + 2**120 * alu_s16;
+
+
+    // ========= ADDITION Operation Constraints ===============================
 
     // u8 addition
     alu_u8 * alu_op_add * (sum_8 + 2**8 * alu_cf - alu_ia - alu_ib) = 0;
@@ -93,3 +99,28 @@ namespace aluChip(256);
     // u128 addition
     alu_u128 * alu_op_add * (sum_128 + 2**128 * alu_cf - alu_ia - alu_ib) = 0;
     alu_u128 * alu_op_add * (sum_128 - alu_ic) = 0;
+
+    // ========= SUBTRACTION Operation Constraints ===============================
+
+    // a - b = c <==> c + b = a (mod 2^k)
+    // Same constraints as for addition but we swap alu_ia with alu_ic
+
+    // u8 subtraction
+    alu_u8 * alu_op_sub * (sum_8 + 2**8 * alu_cf - alu_ic - alu_ib) = 0;
+    alu_u8 * alu_op_sub * (sum_8 - alu_ia) = 0;
+
+    // u16 subtraction
+    alu_u16 * alu_op_sub * (sum_16 + 2**16 * alu_cf - alu_ic - alu_ib) = 0;
+    alu_u16 * alu_op_sub * (sum_16 - alu_ia) = 0;
+
+    // u32 subtraction
+    alu_u32 * alu_op_sub * (sum_32 + 2**32 * alu_cf - alu_ic - alu_ib) = 0;
+    alu_u32 * alu_op_sub * (sum_32 - alu_ia) = 0;
+
+    // u64 subtraction
+    alu_u64 * alu_op_sub * (sum_64 + 2**64 * alu_cf - alu_ic - alu_ib) = 0;
+    alu_u64 * alu_op_sub * (sum_64 - alu_ia) = 0;
+
+    // u128 subtraction
+    alu_u128 * alu_op_sub * (sum_128 + 2**128 * alu_cf - alu_ic - alu_ib) = 0;
+    alu_u128 * alu_op_sub * (sum_128 - alu_ia) = 0;
