@@ -131,16 +131,21 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
 
     size_t circuit_idx = 0;
     for (auto& inner_circuit : inner_circuits) {
+        info("NEW inner_circuit");
         const bool has_input_aggregation_object = circuit_idx > 0;
 
         auto inner_composer = Composer();
         auto inner_prover = inner_composer.create_prover(inner_circuit);
         auto inner_proof = inner_prover.construct_proof();
+        auto proof_data = inner_proof.proof_data;
+        info("inner_proof.size() = ", proof_data.size());
         auto inner_verifier = inner_composer.create_verifier(inner_circuit);
 
         const bool has_nested_proof = inner_verifier.key->contains_recursive_proof;
-        const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
+        info("has_nested_proof = ", has_nested_proof);
 
+        const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
+        // info("num_inner_public_inputs = ", num_inner_public_inputs);
         transcript::StandardTranscript transcript(inner_proof.proof_data,
                                                   Composer::create_manifest(num_inner_public_inputs),
                                                   transcript::HashType::PedersenBlake3s,
@@ -149,11 +154,17 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         std::vector<barretenberg::fr> proof_witnesses = export_transcript_in_recursion_format(transcript);
         // - Save the public inputs so that we can set their values.
         // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
-
+        info("proof_witnesses.size() = ", proof_witnesses.size());
         std::vector<barretenberg::fr> inner_public_input_values(
             proof_witnesses.begin(), proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
-        proof_witnesses.erase(proof_witnesses.begin(),
-                              proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+
+        // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to
+        // recursively verify contains a recursive proof itself. We are safe to remove the inner public inputs as for
+        // this test
+        if (!has_nested_proof) {
+            proof_witnesses.erase(proof_witnesses.begin(),
+                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+        }
 
         const std::vector<barretenberg::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
 
@@ -178,19 +189,43 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         if (has_nested_proof) {
             for (size_t i = 0; i < 16; ++i) {
                 nested_aggregation_object[i] = inner_circuit.recursive_proof_public_input_indices[i];
+                // info("inner_circuit.recursive_proof_public_input_indices[i] = ",
+                //  inner_circuit.recursive_proof_public_input_indices[i]);
             }
         }
+        info("proof_witnesses.size() = ", proof_witnesses.size());
         for (size_t i = 0; i < proof_witnesses.size(); ++i) {
             proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
         }
+        info("about to update proof indices");
+        // NOTE: As the agg object is represented as proof indices, we actually want to fetch the public input indices
+        // TODO(maxim): could I instead simply keep the aggregation object attached.
+        // then I automatically add it into the public input myself based upon the witness in the key??
+        // but I need the indices to be a circuit constant so I cannot just do that.
+        // I could always attach them to the beginning of the public inputs?
+        // if (has_nested_proof) {
+        //     for (size_t i = 0; i < 16; ++i) {
+        //         proof_indices[i] = inner_circuit.recursive_proof_public_input_indices[i];
+        //         info("proof_indices[", i, "] = ", proof_indices[i]);
+        //     }
+        // }
+
         const size_t key_size = key_witnesses.size();
         for (size_t i = 0; i < key_size; ++i) {
             key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
         }
-        for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-            inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+                inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+            }
         }
-
+        for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+            info("inner_public_inputs[", i, "] = ", i + public_input_start_idx);
+        }
+        for (size_t i = 0; i < inner_public_inputs.size(); ++i) {
+            info("inner_public_inputs[", i, "] = ", inner_public_inputs[i]);
+        }
+        info("inner_public_inputs.size() = ", inner_public_inputs.size());
         RecursionConstraint recursion_constraint{
             .key = key_indices,
             .proof = proof_indices,
@@ -201,21 +236,41 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .nested_aggregation_object = nested_aggregation_object,
         };
         recursion_constraints.push_back(recursion_constraint);
+        info("proof_indices_start_idx - witness_offset = ", proof_indices_start_idx - witness_offset);
+        info("proof_witnesses.len() = ", proof_witnesses.size());
         for (size_t i = 0; i < proof_indices_start_idx - witness_offset; ++i) {
             witness.emplace_back(0);
         }
         for (const auto& wit : proof_witnesses) {
             witness.emplace_back(wit);
         }
+
         for (const auto& wit : key_witnesses) {
             witness.emplace_back(wit);
         }
+
+        // for (size_t i = 0; i < num_inner_public_inputs + 1; ++i) {
+        //     info("witness[", i, "] = ", witness[i]);
+        // }
+        info("num_inner_public_inputs = ", num_inner_public_inputs);
+
         // Set the values for the inner public inputs
         // Note: this is confusing, but we minus one here due to the fact that the
         // witness values have not taken into account that zero is taken up by the zero_idx
-        for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-            witness[inner_public_inputs[i] - 1] = inner_public_input_values[i];
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+                info("i = ", i);
+                info("inner_public_inputs[i] = ", inner_public_inputs[i]);
+                info("inner_public_input_values[i] = ", inner_public_input_values[i]);
+                witness[inner_public_inputs[i] - 1] = inner_public_input_values[i];
+            }
         }
+        // for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        //     info("i = ", i);
+        //     info("inner_public_inputs[i] = ", inner_public_inputs[i]);
+        //     info("inner_public_input_values[i] = ", inner_public_input_values[i]);
+        //     witness[inner_public_inputs[i] - 1] = inner_public_input_values[i];
+        // }
         witness_offset = key_indices_start_idx + key_witnesses.size();
         circuit_idx++;
     }
@@ -316,6 +371,8 @@ TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
     info("prover gates = ", prover.circuit_size);
     auto proof = prover.construct_proof();
+    auto proof_data = proof.proof_data;
+    info("proof_data.size() = ", proof_data.size());
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -340,11 +397,14 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
+    info("layer_3_circuit.public_inputs().size() = ", layer_3_circuit.get_public_inputs().size());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
     info("prover gates = ", prover.circuit_size);
     auto proof = prover.construct_proof();
+    auto proof_data = proof.proof_data;
+    info("proof_data.size() = ", proof_data.size());
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }

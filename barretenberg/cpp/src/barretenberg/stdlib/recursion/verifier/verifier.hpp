@@ -343,6 +343,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                 const fr_ct l1 = public_inputs[idx1];
                 const fr_ct l2 = public_inputs[idx2];
                 const fr_ct l3 = public_inputs[idx3];
+
                 l0.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l0");
                 l1.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l1");
                 l2.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l2");

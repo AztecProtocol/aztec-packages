@@ -33,11 +33,6 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     Builder& builder,
     const RecursionConstraint& input,
     std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    // TODO: does this need to be a part of the recursion opcode?
-    // TODO: or can we figure it out from the vk?
-    // TODO: either way we could probably have the user explicitly provide it
-    // TODO: in Noir.
-    // Note: this is not being used in Noir at the moment
     std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments)
 {
@@ -125,11 +120,9 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     }
 
     std::vector<field_ct> proof_fields;
-    // Prepend the public inputs to the proof fields because this is how the
-    // core barretenberg library processes proofs (with the public inputs first and not separated)
-    proof_fields.reserve(input.proof.size() + input.public_inputs.size());
     for (const auto& idx : input.public_inputs) {
         auto field = field_ct::from_witness_index(&builder, idx);
+        // info("public_input_field = ", field);
         proof_fields.emplace_back(field);
     }
     for (const auto& idx : input.proof) {
@@ -141,6 +134,8 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     std::shared_ptr<verification_key_ct> vkey = verification_key_ct::from_field_elements(
         &builder, key_fields, inner_proof_contains_recursive_proof, nested_aggregation_indices);
     vkey->program_width = noir_recursive_settings::program_width;
+    info("input.public_inputs.size() = ", input.public_inputs.size());
+
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
     aggregation_state_ct result = proof_system::plonk::stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
         &builder, vkey, transcript, previous_aggregation);
@@ -233,6 +228,7 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
     output.emplace_back(1); // circuit size
     output.emplace_back(1); // num public inputs
 
+    // bool contains = true;
     output.emplace_back(contains_recursive_proof); // contains_recursive_proof
     for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
         output.emplace_back(0); // recursive_proof_public_input_indices
@@ -286,6 +282,7 @@ std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transc
                 } else {
                     ASSERT(manifest_element.name == "public_inputs");
                     const auto public_inputs_vector = transcript.get_field_element_vector(manifest_element.name);
+                    info("public_inputs_vector = ", public_inputs_vector.size());
                     for (const auto& ele : public_inputs_vector) {
                         fields.emplace_back(ele);
                     }
@@ -335,16 +332,20 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
                     if (contains_recursive_proof) {
-                        ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                        for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
-                            auto scalar = barretenberg::fr::random_element();
-                            const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
-                            auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
-                            fields.emplace_back(g1_as_fields.x_lo);
-                            fields.emplace_back(g1_as_fields.x_hi);
-                            fields.emplace_back(g1_as_fields.y_lo);
-                            fields.emplace_back(g1_as_fields.y_hi);
+                        // ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                        for (size_t j = 0; j < num_public_inputs; ++j) {
+                            // auto scalar = barretenberg::fr::random_element();
+                            fields.emplace_back(0);
                         }
+                        // for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
+                        //     auto scalar = barretenberg::fr::random_element();
+                        //     const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one *
+                        //     scalar); auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
+                        //     fields.emplace_back(g1_as_fields.x_lo);
+                        //     fields.emplace_back(g1_as_fields.x_hi);
+                        //     fields.emplace_back(g1_as_fields.y_lo);
+                        //     fields.emplace_back(g1_as_fields.y_hi);
+                        // }
                     } else {
                         for (size_t j = 0; j < num_public_inputs; ++j) {
                             // auto scalar = barretenberg::fr::random_element();
@@ -356,6 +357,13 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
         }
     }
     return fields;
+}
+
+size_t transcript_in_recursion_format_size()
+{
+    const auto manifest = Composer::create_manifest(0);
+    auto dummy_transcript = export_dummy_transcript_in_recursion_format(manifest, false);
+    return dummy_transcript.size();
 }
 
 G1AsFields export_g1_affine_element_as_fields(const barretenberg::g1::affine_element& group_element)
