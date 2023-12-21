@@ -120,9 +120,11 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     }
 
     std::vector<field_ct> proof_fields;
+    // Prepend the public inputs to the proof fields because this is how the
+    // core barretenberg library processes proofs (with the public inputs first and not separated)
+    proof_fields.reserve(input.proof.size() + input.public_inputs.size());
     for (const auto& idx : input.public_inputs) {
         auto field = field_ct::from_witness_index(&builder, idx);
-        // info("public_input_field = ", field);
         proof_fields.emplace_back(field);
     }
     for (const auto& idx : input.proof) {
@@ -134,7 +136,6 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     std::shared_ptr<verification_key_ct> vkey = verification_key_ct::from_field_elements(
         &builder, key_fields, inner_proof_contains_recursive_proof, nested_aggregation_indices);
     vkey->program_width = noir_recursive_settings::program_width;
-    info("input.public_inputs.size() = ", input.public_inputs.size());
 
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
     aggregation_state_ct result = proof_system::plonk::stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
