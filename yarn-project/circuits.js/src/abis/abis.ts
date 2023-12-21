@@ -518,6 +518,7 @@ function computeCallContextHash(input: CallContext) {
       boolToBuffer(input.isDelegateCall, 32),
       boolToBuffer(input.isStaticCall, 32),
       boolToBuffer(input.isContractDeployment, 32),
+      input.startSideEffectCounter.toBuffer(),
     ],
     GeneratorIndex.CALL_CONTEXT,
   );
@@ -646,6 +647,7 @@ export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     input.blockHeader.globalVariablesHash.toBuffer(),
     input.proverAddress.toBuffer(),
   ];
+  console.log(`toHash: ${toHash.map(x => Fr.fromBuffer(x).toString())}`);
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
     throw new Error('Incorrect number of input fields when hashing PublicCircuitPublicInputs');
   }

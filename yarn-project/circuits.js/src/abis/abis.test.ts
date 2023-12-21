@@ -251,15 +251,13 @@ describe('abis', () => {
     const emptyHash = emptycallstack.hash();
     // const emptySideEffect = PublicCircuitPublicInputs.empty();
     // const emptyHash = Fr.fromBuffer(computePublicInputsHash(emptySideEffect)).toString();
-    expect(emptyHash.toString()).toEqual('0x23d61bd55cb4c93f3e1a2efe3fd17026e9b4e5ade0a32c69219e25621340745e');
+    expect(emptyHash.toString()).toMatchSnapshot();
   });
 
   it('Computes an empty public inputs hash ', () => {
     const publicInputs = PublicCircuitPublicInputs.empty();
     const emptyHash = computePublicInputsHash(publicInputs);
 
-    expect(Fr.fromBuffer(emptyHash).toString()).toEqual(
-      '0xe6f5767edbd34ede7b3693186a3b0a49f1b266470003ee1385dd5d77b48d9e',
-    );
+    expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
   });
 });
