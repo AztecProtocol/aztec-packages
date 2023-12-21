@@ -66,7 +66,7 @@ The top item in the previous iteration's private call requests must pertain to t
 
 This circuit will pop the request from the stack, comparing the hash with that of the current function call.
 
-The preimage of the hash encompasses:
+The preimage of the hash contains:
 
 - Contract address.
 - Function data.
@@ -139,7 +139,7 @@ It verifies that each relevant value is associated with a legitimate counter.
    - The _counter_end_ of the current call must be greater than its _counter_start_.
    - Both counters must match the ones defined in the top item in the previous iteration's private call requests.
 
-2. For both private and public call requests in the private call data:
+2. For private call requests in the private call data:
 
    - The _counter_end_ of each request must be greater than its _counter_start_.
    - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
@@ -158,6 +158,9 @@ It verifies that each relevant value is associated with a legitimate counter.
    - Nullifier contexts.
    - New contract contexts.
    - Read requests.
+   - Public call requests.
+
+   > Note that _counter_start_ is used in the above steps for public call requests to ensure their correct ordering. At this point, the _counter_end_ of public call request is unknown. Both counters will be [recalibrated](./private-kernel-tail.md#recalibrating-counters) in the tail circuit following the simulation of all public function calls.
 
 ### Validating Public Inputs
 

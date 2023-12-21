@@ -108,7 +108,7 @@ It verifies that each relevant value is associated with a legitimate counter.
    - The _counter_start_ must be 0.
    - The _counter_end_ must be greater than the _counter_start_.
 
-2. For both private and public call requests:
+2. For private call requests:
 
    - The _counter_end_ of each request must be greater than its _counter_start_.
    - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
@@ -127,6 +127,9 @@ It verifies that each relevant value is associated with a legitimate counter.
    - Nullifier contexts.
    - New contract contexts.
    - Read requests.
+   - Public call requests.
+
+   > Note that _counter_start_ is used in the above steps for public call requests to ensure their correct ordering. At this point, the _counter_end_ of public call request is unknown. Both counters will be [recalibrated](./private-kernel-tail.md#recalibrating-counters) in the tail circuit following the simulation of all public function calls.
 
 ### Validating Public Inputs
 

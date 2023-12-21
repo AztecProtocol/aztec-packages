@@ -61,7 +61,7 @@ The top item in the previous iteration's public call requests must pertain to th
 
 This circuit will pop the request from the stack, comparing the hash with that of the current function call.
 
-The preimage of the hash encompasses:
+The preimage of the hash contains:
 
 - Contract address.
 - Function data.
