@@ -156,7 +156,7 @@ class GoblinUltra {
 
     // GoblinUltra needs to expose more public classes than most flavors due to GoblinUltraRecursive reuse, but these
     // are internal:
-  private:
+  public:
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:

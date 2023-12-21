@@ -161,6 +161,12 @@ template <typename BuilderType> class UltraRecursive_ {
         RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
     };
 
+  public:
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
+
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
@@ -375,6 +381,46 @@ template <typename BuilderType> class UltraRecursive_ {
             this->table_4 = verification_key->table_4;
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
+        }
+
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
+                            const WitnessCommitments& witness_commitments)
+        {
+            this->q_m = verification_key->q_m;
+            this->q_l = verification_key->q_l;
+            this->q_r = verification_key->q_r;
+            this->q_o = verification_key->q_o;
+            this->q_4 = verification_key->q_4;
+            this->q_c = verification_key->q_c;
+            this->q_arith = verification_key->q_arith;
+            this->q_sort = verification_key->q_sort;
+            this->q_elliptic = verification_key->q_elliptic;
+            this->q_aux = verification_key->q_aux;
+            this->q_lookup = verification_key->q_lookup;
+            this->q_poseidon2_external = verification_key->q_poseidon2_external;
+            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
+            this->sigma_1 = verification_key->sigma_1;
+            this->sigma_2 = verification_key->sigma_2;
+            this->sigma_3 = verification_key->sigma_3;
+            this->sigma_4 = verification_key->sigma_4;
+            this->id_1 = verification_key->id_1;
+            this->id_2 = verification_key->id_2;
+            this->id_3 = verification_key->id_3;
+            this->id_4 = verification_key->id_4;
+            this->table_1 = verification_key->table_1;
+            this->table_2 = verification_key->table_2;
+            this->table_3 = verification_key->table_3;
+            this->table_4 = verification_key->table_4;
+            this->lagrange_first = verification_key->lagrange_first;
+            this->lagrange_last = verification_key->lagrange_last;
+
+            this->w_l = witness_commitments.w_l;
+            this->w_r = witness_commitments.w_r;
+            this->w_o = witness_commitments.w_o;
+            this->sorted_accum = witness_commitments.sorted_accum;
+            this->w_4 = witness_commitments.w_4;
+            this->z_perm = witness_commitments.z_perm;
+            this->z_lookup = witness_commitments.z_lookup;
         }
     };
 

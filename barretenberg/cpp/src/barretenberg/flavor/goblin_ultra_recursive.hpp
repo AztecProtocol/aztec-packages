@@ -150,6 +150,11 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
         };
     };
 
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = GoblinUltra::WitnessEntities<Commitment>;
+
     using CommitmentLabels = GoblinUltra::CommitmentLabels;
     // Reuse the VerifierCommitments from GoblinUltra
     using VerifierCommitments = GoblinUltra::VerifierCommitments_<Commitment, VerificationKey>;
