@@ -254,7 +254,11 @@ Given that this is our best-known approach, we include some requirements relatin
 
 ### Rotating keys
 
-- A user can rotate any of their keys, without having to deploy a new account contract.
+- A user should be able to rotate their set of keys, without having to deploy a new account contract.
+  - Reason: keys can be compromised, and setting up a new identity is costly, since the user needs to migrate all their assets. Rotating encryption keys allows the user to regain privacy for all subsequent interactions while keeping their identity.
+  - This requirement causes a security risk when applied to nullifier keys. If a user can rotate their nullifier key, then the nullifier for any of their notes changes, so they can re-spend any note. Rotating nullifier keys requires the nullifier public key, or at least an identifier of it, to be stored as part of the note. Alternatively, this requirement can be removed for nullifier keys, which are not allowed to be rotated.
+
+<!-- TODO: Allow to rotate nullifier keys or not? -->
 
 ### Diversified Keys
 
