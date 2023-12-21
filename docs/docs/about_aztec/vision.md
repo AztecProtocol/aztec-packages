@@ -4,7 +4,7 @@ title: Vision
 
 ## The world's encrypted ledger
 
-Our vision is to create a fairer, more open financial eco-system, built with encryption at its core.
+Our vision is to create a fairer, more open financial ecosystem, built with encryption at its core.
 
 We believe decentralization is premised on individual rights — without widely accessible encryption, we compromise our ability to choose how we live our lives and earn our livelihoods.
 
@@ -13,8 +13,8 @@ We are building the [Aztec Network](https://aztec.network/), a fully programmabl
 ## Values
 
 - **Private.**: The only true zero-knowledge rollup, built with a privacy-first UTXO architecture to allow developers to build privacy preserving programable applications.
-- **Accessible.**: Proving transaction validity via recursively aggregation of zero-knowledge proofs, significantly reduces transaction costs.
-- **Compliant**: The programmable nature of Aztec smart contracts, enables dApp developers to code privacy-preserving audit and compliance checks into apps, while fully preserving a credible neutral protocol layer.
+- **Accessible.**: Proving transaction validity via recursive aggregation of zero-knowledge proofs significantly reduces transaction costs, keeping the protocol accessible to the masses.
+- **Compliant**: The programmable nature of Aztec smart contracts, enables dApp developers to code privacy-preserving audit and compliance checks into apps while fully preserving a credible neutral protocol layer.
 
 #### _Zac Williamson, CEO and Co-founder, Aztec_
 
