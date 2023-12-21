@@ -22,7 +22,8 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
 {}
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given Flavor.
+ * @brief This function verifies an Ultra Honk proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
+ * e*).
  *
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plonk::proof& proof)

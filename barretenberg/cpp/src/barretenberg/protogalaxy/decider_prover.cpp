@@ -6,7 +6,8 @@ namespace proof_system::honk {
 /**
  * Create DeciderProver_ from an accumulator.
  *
- * @param accumulator Instance whose proof we want to generate.
+ * @param accumulator Relaxed instance (ϕ, ω' \vec{β*}, e*) whose proof we want to generate, produced by Protogalaxy
+ * folding prover
  *
  * @tparam a type of UltraFlavor
  * */
@@ -20,8 +21,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 {}
 
 /**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
+ * @brief Add  ϕ, \vec{β*}, e* to the transcript.
  */
 template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_round()
 {
@@ -51,8 +51,6 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
         transcript->send_to_verifier("gate_challenge_" + std::to_string(idx), accumulator->gate_challenges[idx]);
     }
 
-    // send as verifier commitments
-    // should protogalaxy work on verifier commitments?
     auto comm_view = accumulator->witness_commitments.get_all();
     auto witness_labels = accumulator->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
@@ -67,7 +65,8 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
 }
 
 /**
- * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
+ * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = e*. This results in u = (u_1,...,u_d) sumcheck round
+ * challenges and all evaluations at u being calculated.
  *
  */
 template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
@@ -102,10 +101,9 @@ template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::export_proof
 
 template <UltraFlavor Flavor> plonk::proof& DeciderProver_<Flavor>::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
+    // Add ϕ, \vec{β*}, e* to transcript
     execute_preamble_round();
 
-    // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
 

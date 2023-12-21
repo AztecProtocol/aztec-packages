@@ -62,7 +62,6 @@ template <typename Flavor> class SumcheckProverRound {
     using ExtendedEdges = typename Flavor::ExtendedEdges;
 
     size_t round_size; // a power of 2
-    size_t hop_size;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
@@ -71,9 +70,8 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // Prover constructor
-    SumcheckProverRound(size_t initial_round_size, size_t initial_hop_size)
+    SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
-        , hop_size(initial_hop_size)
     {
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
@@ -109,10 +107,12 @@ template <typename Flavor> class SumcheckProverRound {
         const barretenberg::PowPolynomial<FF>& pow_polynomial,
         const AlphaType alpha)
     {
+        // Compute the constant contribution of pow polynomials for each edge as the product of c_l and the elements of
+        // pow(\vec{β}) not containing β_0,..., β_l
         std::vector<FF> pow_challenges(round_size >> 1);
         pow_challenges[0] = pow_polynomial.partial_evaluation_result;
         for (size_t i = 1; i < (round_size >> 1); ++i) {
-            pow_challenges[i] = pow_challenges[0] * pow_polynomial.pow_values[i * hop_size];
+            pow_challenges[i] = pow_challenges[0] * pow_polynomial[i * pow_polynomial.periodicity];
         }
 
         // Determine number of threads for multithreading.
@@ -139,21 +139,15 @@ template <typename Flavor> class SumcheckProverRound {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
-            // For each edge_idx = 2i, we need to multiply the whole contribution by zeta^{2^{2i}}
-            // This means that each univariate for each relation needs an extra multiplication.
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                 extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
 
-                // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                FF pow_challenge = pow_challenges[edge_idx >> 1];
-
                 // Compute the i-th edge's univariate contribution,
-                // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
-                // and add it to the accumulators for Sˡ(Xₗ)
+                // scale it by pow_challenge constant contribution and add it to the accumulators for Sˡ(Xₗ)
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_edges[thread_idx],
                                                 relation_parameters,
-                                                pow_challenge);
+                                                pow_challenges[edge_idx >> 1]);
             }
         });
 
@@ -202,7 +196,7 @@ template <typename Flavor> class SumcheckProverRound {
     {
         ExtendedUnivariate extended_random_polynomial;
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_polynomial = barretenberg::Univariate<FF, 2>({ 1, pow_polynomial.current_element });
+        auto random_polynomial = barretenberg::Univariate<FF, 2>({ 1, pow_polynomial.current_element() });
         extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {

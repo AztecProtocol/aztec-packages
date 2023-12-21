@@ -6,29 +6,16 @@ namespace barretenberg {
 
 /**
  * @brief Succinct representation of the `pow` polynomial that can be partially evaluated variable-by-variable.
- * pow(X_0,X_1,..,X_d) = \prod_{0≤l<d} ((1−X_l) + X_l⋅ζ_l)
+ * pow(X_0,X_1,..,X_d) = \prod_{0≤l<d} ((1−X_l) + X_l⋅β_l) for a vector {β_0,...,β_{d-1}}
  *
  * @details Let
  * - d be the number of variables
  * - l be the current Sumcheck round ( l ∈ {0, …, d-1} )
  * - u_0, ..., u_l-1 the challenges sent by the verifier in rounds 0 to l-1.
  *
- * We define
- *
- * - ζ_0, ..., ζ_{d-1}, as ζ_l = ζ^{ 2^l }.
- *   When 0 ≤ i < 2^d is represented in bits [i_0, ..., i_{d-1}] where i_0 is the MSB, we have
- *   ζ^{i} = ζ^{ ∑_{0≤l<d} i_l ⋅ 2^l }
- *         =     ∏_{0≤l<d} ζ^{ i_l ⋅ 2^l }
- *         =     ∏_{0≤l<d} ζ_l^{ i_l }
- *         =     ∏_{0≤l<d} { ( 1-i_l ) + i_l ⋅ ζ_l } // As i_l \in \{0, 1\}
- *   Note that
- *   - ζ_{0} = ζ,
- *   - ζ_{l+1} = ζ_{l}^2,
- *   - ζ_{d-1}   = ζ^{ 2^{d-1} }
- *
- * - pow(X) = ∏_{0≤l<d} ((1−X_l) + X_l⋅ζ_l) is the multilinear polynomial whose evaluation at the i-th index
- *   of the full hypercube, equals ζⁱ.
- *   We can also see it as the multi-linear extension of the vector (ζ, ζ^2, ζ^4, ..., ζ^{2^{d-1}}).
+ * - pow(X) = ∏_{0≤l<d} ((1−X_l) + X_l⋅β_l) is the multilinear polynomial whose evaluation at the i-th index
+ *   of the full hypercube, equals ∏ β_j where j are the bits set to 1 in the binary representation of i
+ *   We can also see it as the multi-linear extension of the vector \vec{β}.
  *
  * - At round l, we iterate over all remaining vertices (i_{l+1}, ..., i_{d-1}) ∈ {0,1}^{d-l-1}.
  *   Let i = ∑_{l<k<d} i_k ⋅ 2^{k-(l+1)} be the index of the current edge over which we are evaluating the relation.
@@ -37,16 +24,16 @@ namespace barretenberg {
  *   powˡᵢ( X_{l} ) = pow( u_{0}, ..., u_{l-1},
  *                         X_{l},
  *                         i_{l+1}, ..., i_{d-1})
- *                  = ∏_{0≤k<l} ( (1-u_k) + u_k⋅ζ_k )
- *                             ⋅( (1−X_l) + X_l⋅ζ_l )
- *                    ∏_{l<k<d} ( (1-i_k) + i_k⋅ζ_k )
- *                  = c_l ⋅ ( (1−X_l) + X_l⋅ζ^{2^l} ) ⋅ ∏_{l<k<d} ( (1-i_k) + i_k⋅ζ^{2^k} )
- *                  = c_l ⋅ ( (1−X_l) + X_l⋅ζ^{2^l} ) ⋅ ζ^{ ∑_{l<k<d} i_k ⋅ 2^k }
- *                  = c_l ⋅ ( (1−X_l) + X_l⋅ζ^{2^l} ) ⋅(ζ^2^{l+1})^{ ∑_{l<k<d} i_k ⋅ 2^{k-(l+1)} }
- *                  = c_l ⋅ ( (1−X_l) + X_l⋅ζ^{2^l} ) ⋅ζ_{l+1}^{i}
+ *                  = ∏_{0≤k<l} ( (1-u_k) + u_k⋅β_k )
+ *                             ⋅( (1−X_l) + X_l⋅β_l )
+ *                    ∏_{l<k<d} ( (1-i_k) + i_k⋅β_k )
  *
- *   This is the pow polynomial, partially evaluated in the first l-1 variables as
- *     (X_{0}, ..., X_{l-1}) = (u_{0}, ..., u_{l-1}).
+ *  Note that as we iterate over the remaining vertices(i_{l+1}, ..., i_{d-1}) ∈ {0,1}^{d-l-1}, the subproducts
+ * ∏_{l<k<d} ( (1-i_k) + i_k⋅β_k ) represents the terms of pow(\vec{β}) that do not contain β_0,...,β_l. These are
+ * periodic in pow(\vec{β}), their periodicity being 2*(l+1).
+ *
+ * This is the pow polynomial,partially evaluated in the first l-1 variables as (X_{0}, ..., X_{l-1}) = (u_{0}, ...,
+ * u_{l-1}).
  *
  * - Sˡᵢ( X_l ) is the univariate of the full relation at edge pair i
  * i.e. it is the alpha-linear-combination of the relations evaluated in the edge at index i.
@@ -56,129 +43,81 @@ namespace barretenberg {
  *
  * We want to check that P(i)=0 for all i ∈ {0,1}^d. So we use Sumcheck over the polynomial
  * P'(X) = pow(X)⋅P(X).
- * The claimed sum is 0 and is equal to ∑_{i ∈ {0,1}^d} pow(i)⋅P(i) = ∑_{i ∈ {0,1}^d} ζ^{i}⋅P(i)
+ * The claimed sum is 0 and is equal to ∑_{i ∈ {0,1}^d} pow(i)⋅P(i).
  * If the Sumcheck passes, then with it must hold with high-probability that all P(i) are 0.
- *
- * The trivial implementation using P'(X) directly would increase the degree of our combined relation by 1.
- * Instead, we exploit the special structure of pow to preserve the same degree.
- *
- * In each round l, the prover should compute the univariate polynomial for the relation defined by P'(X)
- * S'ˡ(X_l) = ∑_{ 0 ≤ i < 2^{d-l-1} } powˡᵢ( X_l ) Sˡᵢ( X_l ) .
- *        = ∑_{ 0 ≤ i < 2^{d-l-1} } [ ζ_{l+1}ⁱ⋅( (1−X_l) + X_l⋅ζ_l )⋅c_l ]⋅Sˡᵢ( X_l )
- *        = ( (1−X_l) + X_l⋅ζ_l ) ⋅ ∑_{ 0 ≤ i < 2^{d-l-1} } [ c_l ⋅ ζ_{l+1}ⁱ ⋅ Sˡᵢ( X_l ) ]
- *        = ( (1−X_l) + X_l⋅ζ_l ) ⋅ ∑_{ 0 ≤ i < 2^{d-l-1} } [ c_l ⋅ ζ_{l+1}ⁱ ⋅ Sˡᵢ( X_l ) ]
- *
- * If we define Tˡ( X_l ) := ∑_{0≤i<2ˡ} [ c_l ⋅ ζ_{l+1}ⁱ ⋅ Sˡᵢ( X_l ) ], then Tˡ has the same degree as the original Sˡ(
- * X_l ) for the relation P(X) and is only slightly more expensive to compute than Sˡ( X_l ). Moreover, given Tˡ( X_l ),
- * the verifier can evaluate S'ˡ( u_l ) by evaluating ( (1−u_l) + u_l⋅ζ_l )Tˡ( u_l ). When the verifier checks the
- * claimed sum, the procedure is modified as follows
  *
  * Init:
  * - σ_0 <-- 0 // Claimed Sumcheck sum
  * - c_0  <-- 1 // Partial evaluation constant, before any evaluation
- * - ζ_0 <-- ζ // Initial power of ζ
  *
  * Round 0≤l<d-1:
  * - σ_{ l } =?= S'ˡ(0) + S'ˡ(1) = Tˡ(0) + ζ_{l}⋅Tˡ(1)  // Check partial sum
- * - σ_{l+1} <-- ( (1−u_{l}) + u_{l}⋅ζ_{l} )⋅Tʲ(u_{l})  // Compute next partial sum
- * - c_{l+1} <-- ( (1−u_{l}) + u_{l}⋅ζ_{l} )⋅c_{l}      // Partially evaluate pow in u_{l}
- * - ζ_{l+1} <-- ζ_{l}^2                                // Get next power of ζ
+ * - σ_{l+1} <-- ( (1−u_{l}) + u_{l}⋅β_{l} )⋅Tʲ(u_{l})  // Compute next partial sum
+ * - c_{l+1} <-- ( (1−u_{l}) + u_{l}⋅β_{l} )⋅c_{l}      // Partially evaluate pow in u_{l}
  *
  * Final round l=d-1:
- * - σ_{d-1} =?= S'ᵈ⁻¹(0) + S'ᵈ⁻¹(1) = Tᵈ⁻¹(0) + ζ_{d-1}⋅Tᵈ⁻¹(1)    // Check partial sum
+ * - σ_{d-1} =?= S'ᵈ⁻¹(0) + S'ᵈ⁻¹(1) = Tᵈ⁻¹(0) + β_{d-1}⋅Tᵈ⁻¹(1)    // Check partial sum
  * - σ_{ d } <-- ( (1−u_{d-1}) + u_{d-1}⋅ζ_{0} )⋅Tᵈ⁻¹(u_{d-1})      // Compute purported evaluation of P'(u)
- * - c_{ d } <-- ∏_{0≤l<d} ( (1-u_{l}) + u_{l}⋅ζ_{l} )
+ * - c_{ d } <-- ∏_{0≤l<d} ( (1-u_{l}) + u_{l}⋅β_{l} )
  *             = pow(u_{0}, ..., u_{d-1})                           // Full evaluation of pow
  * - σ_{ d } =?= c_{d}⋅P(u_{0}, ..., u_{d-1})                       // Compare against real evaluation of P'(u)
  */
-template <typename FF> struct PowUnivariate {
-    // ζ_{l}, initialized as ζ_{0} = ζ
-    // At round l, this equals ζ^{ 2^l }
-    FF zeta_pow;
-    // ζ_{l+1}, initialized as ζ_{1} = ζ^2
-    // At round l,this  equals ζ^{ 2^{l+1 } }
-    FF zeta_pow_sqr;
-    // The constant c_{l} obtained by partially evaluating one variable in the power polynomial at each round. At the
-    // end of round l in the sumcheck protocol, variable X_l is replaced by a verifier challenge u_l. The partial
-    // evaluation constant is updated to represent pow(u_0,.., u_l) = \prod_{0 ≤ k < l} ( (1-u_{k}) + u_{k}⋅ζ_{k}).
-    FF partial_evaluation_result = FF(1);
-
-    // Initialize with the random zeta
-    explicit PowUnivariate(FF zeta_pow)
-        : zeta_pow(zeta_pow)
-        , zeta_pow_sqr(zeta_pow.sqr())
-    {}
-
-    /**
-     * @brief Evaluate the monomial ((1−X_l) + X_l⋅ζ_l) in the challenge point X_l=u_l.
-     */
-    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (zeta_pow - FF(1)))); };
-
-    /**
-     * @brief Parially evaluate the pow polynomial in the new challenge, by updating the constant c_{l} -> c_{l+1}.
-     * Also update (ζ_{l}, ζ_{l+1}) -> (ζ_{l+1}, ζ_{l+1}^2)
-     *
-     * @param challenge l-th verifier challenge u_{l}
-     */
-    void partially_evaluate(FF challenge)
-    {
-        FF current_univariate_eval = univariate_eval(challenge);
-        zeta_pow = zeta_pow_sqr;
-        // TODO(luke): for native FF, this could be self_sqr()
-        zeta_pow_sqr = zeta_pow_sqr.sqr();
-
-        partial_evaluation_result *= current_univariate_eval;
-    }
-};
 
 template <typename FF> struct PowPolynomial {
-    std::vector<FF> values;
-    std::vector<FF> pow_values;
-    FF current_element;
+    std::vector<FF> betas;
+    std::vector<FF> pow_betas;
     size_t current_element_idx = 0;
+    size_t periodicity = 2;
+
+    // The constant c_l obtained by partially evaluating one variable in the power polynomial at each round. At the
+    // end of round l in the sumcheck protocol, variable X_l is replaced by a verifier challenge u_l. The partial
+    // evaluation constant is updated to represent pow(u_0,.., u_l) = \prod_{0 ≤ k < l} ( (1-u_k) + u_k⋅β_k).
     FF partial_evaluation_result = FF(1);
 
-    explicit PowPolynomial(const std::vector<FF>& values)
-        : values(values)
-        , current_element(values[0])
+    explicit PowPolynomial(const std::vector<FF>& betas)
+        : betas(betas)
     {
         compute_pow_polynomial_at_values();
     }
 
-    /**
-     * @brief Evaluate the monomial ((1−X_l) + X_l⋅ζ_l) in the challenge point X_l=u_l.
-     */
-    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (current_element - FF(1)))); };
+    FF const& operator[](size_t idx) const { return pow_betas[idx]; }
+
+    FF current_element() const { return betas[current_element_idx]; }
 
     /**
-     * @brief Parially evaluate the pow polynomial in the new challenge, by updating the constant c_{l} -> c_{l+1}.
-     * Also update (ζ_{l}, ζ_{l+1}) -> (ζ_{l+1}, ζ_{l+1}^2)
+     * @brief Evaluate the monomial ((1−X_l) + X_l⋅β_l) in the challenge point X_l=u_l.
+     */
+    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
+
+    /**
+     * @brief Parially evaluate the pow polynomial in X_l and updating the constant c_l -> c_{l+1}.
      *
-     * @param challenge l-th verifier challenge u_{l}
+     * @param challenge l-th verifier challenge u_l
      */
     void partially_evaluate(FF challenge)
     {
         FF current_univariate_eval = univariate_eval(challenge);
         partial_evaluation_result *= current_univariate_eval;
-
-        if (current_element_idx != values.size() - 1) {
-            current_element_idx++;
-            current_element = values[current_element_idx];
-        }
+        current_element_idx++;
+        periodicity *= 2;
     }
 
+    /**
+     * @brief Given {β_0,...,β_{d-1}} compute pow(β) of size 2^d
+     *
+     */
     void compute_pow_polynomial_at_values()
     {
-        size_t pow_size = 1 << values.size();
-        pow_values = std::vector<FF>(1 << values.size(), 0);
+        size_t pow_size = 1 << betas.size();
+        pow_betas = std::vector<FF>(1 << betas.size(), 0);
         for (size_t i = 0; i < pow_size; i++) {
             auto res = FF(1);
             for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
                 if ((j & 1) == 1) {
-                    res *= values[beta_idx];
+                    res *= betas[beta_idx];
                 }
             }
-            pow_values[i] = res;
+            pow_betas[i] = res;
         }
     }
 };

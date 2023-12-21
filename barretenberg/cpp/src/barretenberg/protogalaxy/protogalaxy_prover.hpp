@@ -92,23 +92,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
      */
     FoldingResult<Flavor> fold_instances();
-    /**
-     * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
-     */
-    static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF>& betas, const size_t instance_size)
-    {
-        std::vector<FF> pow_betas(instance_size);
-        for (size_t i = 0; i < instance_size; i++) {
-            auto res = FF(1);
-            for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-                if ((j & 1) == 1) {
-                    res *= betas[beta_idx];
-                }
-            }
-            pow_betas[i] = res;
-        }
-        return pow_betas;
-    }
 
     /**
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
@@ -309,7 +292,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      */
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const std::vector<FF>& pow_betas_star)
+                                                         const PowPolynomial<FF>& pow_betas)
     {
         size_t common_instance_size = instances[0]->instance_size;
 
@@ -343,7 +326,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 // No need to initialise extended_univariates to 0, it's assigned to
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
-                FF pow_challenge = pow_betas_star[idx];
+                FF pow_challenge = pow_betas[idx];
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
                 // function have already been folded

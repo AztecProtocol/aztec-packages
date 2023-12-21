@@ -223,8 +223,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         el_idx++;
     }
 
-    // Evaluate the combined batching challenge α univariate at challenge to obtain next α and send it to the
-    // verifier
+    // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
+    // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
     auto& folded_alphas = next_accumulator->alphas;
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         folded_alphas[idx] = instances.alphas[idx].evaluate(challenge);
@@ -235,7 +235,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // the verifier
     auto& combined_relation_parameters = instances.relation_parameters;
     auto folded_relation_parameters = proof_system::RelationParameters<FF>{
-        combined_relation_parameters.eta.evaluate(challenge), // WORKTODO change all of these to evaluate(challenge)
+        combined_relation_parameters.eta.evaluate(challenge),
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
         combined_relation_parameters.public_input_delta.evaluate(challenge),
@@ -291,11 +291,9 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-    const auto pow_betas_star =
-        compute_pow_polynomial_at_values(instances.next_gate_challenges, accumulator->instance_size);
     combine_relation_parameters(instances);
     combine_alpha(instances);
-    auto combiner = compute_combiner(instances, pow_betas_star);
+    auto combiner = compute_combiner(instances, PowPolynomial<FF>(instances.next_gate_challenges));
 
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);

@@ -62,7 +62,7 @@ template <typename Flavor> class SumcheckProver {
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , transcript(transcript)
-        , round(multivariate_n, 2)
+        , round(multivariate_n)
         , partially_evaluated_polynomials(multivariate_n){};
 
     // WORKTODO delete this
@@ -101,10 +101,8 @@ template <typename Flavor> class SumcheckProver {
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
-        round.round_size =
-            round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and release memory?
-        round.hop_size = round.hop_size << 1;
-        // All but final round
+        round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
+                                                  // release memory?        // All but final round
         // We operate on partially_evaluated_polynomials in place.
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
@@ -116,7 +114,6 @@ template <typename Flavor> class SumcheckProver {
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
-            round.hop_size = round.hop_size << 1;
         }
 
         // Final round: Extract multivariate evaluations from partially_evaluated_polynomials and add to transcript
@@ -190,7 +187,7 @@ template <typename Flavor> class SumcheckVerifier {
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
 
-    // verifier instantiates sumcheck with circuit size
+    // Verifier instantiates sumcheck with circuit size, optionally a different target sum than 0 can be specified.
     explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
         : multivariate_d(multivariate_d)
         , transcript(transcript)

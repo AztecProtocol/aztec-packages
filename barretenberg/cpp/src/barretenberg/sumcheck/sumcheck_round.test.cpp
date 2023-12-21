@@ -8,7 +8,6 @@ using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
 
 using barretenberg::BarycentricData;
-using barretenberg::PowUnivariate;
 using barretenberg::Univariate;
 
 using Flavor = flavor::Ultra;

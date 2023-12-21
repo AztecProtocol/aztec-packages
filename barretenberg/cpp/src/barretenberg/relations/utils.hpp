@@ -63,22 +63,23 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scale Univaraites by consecutive powers of the provided challenge
+     * @brief Scale Univaraites, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
-     * @param challenge
+     * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
+     * scaled)
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const AlphaType& challenge, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const AlphaType& challenges, FF& current_scalar)
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
-        auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
+        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
-            current_scalar = challenge[idx];
+            current_scalar = challenges[idx];
             idx++;
         };
-        apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
+        apply_to_tuple_of_tuples(tuple, scale_by_challenges);
     }
 
     /**
@@ -110,8 +111,7 @@ template <typename Flavor> class RelationUtils {
     template <typename... T>
     static constexpr void add_tuples(std::tuple<T...>& tuple_1, const std::tuple<T...>& tuple_2)
     {
-        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>)
-        {
+        auto add_tuples_helper = [&]<std::size_t... I>(std::index_sequence<I...>) {
             ((std::get<I>(tuple_1) += std::get<I>(tuple_2)), ...);
         };
 
@@ -181,21 +181,23 @@ template <typename Flavor> class RelationUtils {
     };
 
     /**
-     * @brief Scale elements by consecutive powers of the challenge then sum
+     * @brief Scale elements, which in sumcheck represent evaluations of subrelations, by different challenges then sum
+     * @param challenges Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation does not need to be
+     * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenge, FF current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenges, FF current_scalar, FF& result)
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
-        auto scale_by_challenge_and_accumulate = [&](auto& element) {
+        auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
                 result += entry * current_scalar;
-                current_scalar = challenge[idx];
+                current_scalar = challenges[idx];
                 idx++;
             }
         };
-        apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
+        apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
     }
 
     /**

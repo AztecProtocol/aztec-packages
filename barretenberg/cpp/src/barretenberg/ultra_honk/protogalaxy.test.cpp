@@ -1,8 +1,8 @@
+#include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
 using namespace proof_system::honk;
 
 using Flavor = flavor::Ultra;
@@ -19,9 +19,11 @@ using ProverPolynomials = Flavor::ProverPolynomials;
 using RelationParameters = proof_system::RelationParameters<FF>;
 using WitnessCommitments = typename Flavor::WitnessCommitments;
 using CommitmentKey = Flavor::CommitmentKey;
+using PowPolynomial = barretenberg::PowPolynomial<FF>;
+
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-namespace protogalaxy_tests {
+namespace barretenberg::protogalaxy_tests {
 namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
@@ -65,13 +67,12 @@ void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator,
     auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
         accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
     // Construct pow(\vec{betas*}) as in the paper
-    auto expected_pows_beta =
-        ProtoGalaxyProver::compute_pow_polynomial_at_values(accumulator->gate_challenges, instance_size);
+    auto expected_pows = PowPolynomial(accumulator->gate_challenges);
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto expected_target_sum = FF(0);
     for (size_t i = 0; i < instance_size; i++) {
-        expected_target_sum += expected_honk_evals[i] * expected_pows_beta[i];
+        expected_target_sum += expected_honk_evals[i] * expected_pows[i];
     }
 
     EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
@@ -161,7 +162,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
 
     // Construct pow(\vec{betas}) as in the paper
-    auto pow_beta = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, instance_size);
+    auto pow_beta = PowPolynomial(betas);
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto target_sum = FF(0);
@@ -181,14 +182,6 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 
     // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
     EXPECT_EQ(perturbator[0], target_sum);
-}
-
-TEST_F(ProtoGalaxyTests, PowPolynomialsOnPowers)
-{
-    auto betas = std::vector<FF>{ 2, 4, 16 };
-    auto pow_betas = ProtoGalaxyProver::compute_pow_polynomial_at_values(betas, 8);
-    auto expected_values = std::vector<FF>{ 1, 2, 4, 8, 16, 32, 64, 128 };
-    EXPECT_EQ(expected_values, pow_betas);
 }
 
 TEST_F(ProtoGalaxyTests, CombinerQuotient)
@@ -354,4 +347,4 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
     decide_and_verify(second_accumulator, composer, false);
 }
 
-} // namespace protogalaxy_tests
+} // namespace barretenberg::protogalaxy_tests
