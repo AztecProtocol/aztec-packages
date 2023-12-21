@@ -225,7 +225,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
 
-  barretenberg-honk-tests:
+  barretenberg-ulta-honk-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -234,7 +234,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 ultra_honk_tests
 
   barretenberg-proof-system-tests:
     docker:
@@ -1058,7 +1058,7 @@ workflows:
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-sol: *defaults
       - barretenberg-proof-system-tests: *bb_test
-      - barretenberg-honk-tests: *bb_test
+      - barretenberg-ultra-honk-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
       - barretenberg-tests: *bb_test
       - barretenberg-stdlib-tests: *bb_test
