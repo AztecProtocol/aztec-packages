@@ -229,13 +229,6 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
             std::vector<uint32_t> proof_output_witness_indices(current_output_aggregation_object.begin(),
                                                                current_output_aggregation_object.end());
             builder.set_recursive_proof(proof_output_witness_indices);
-            // for (size_t i = 0; i < proof_output_witness_indices.size(); ++i) {
-            //     info("builder.recursive_proof_public_input_indices[",
-            //          i,
-            //          "] = ",
-            //          builder.recursive_proof_public_input_indices[i]);
-            // }
-            // info("builder.public_inputs.size() = ", builder.get_public_inputs().size());
         }
     }
 }

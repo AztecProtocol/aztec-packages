@@ -188,7 +188,8 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         for (size_t i = 0; i < proof_witnesses.size(); ++i) {
             proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
         }
-        for (size_t i = 0; i < key_witnesses.size(); ++i) {
+        const size_t key_size = key_witnesses.size();
+        for (size_t i = 0; i < key_size; ++i) {
             key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
         }
         // In the case of a nested proof we keep the nested aggregation object attached to the proof,
@@ -329,7 +330,6 @@ TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
     auto proof = prover.construct_proof();
-    auto proof_data = proof.proof_data;
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -357,7 +357,6 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
     auto proof = prover.construct_proof();
-    auto proof_data = proof.proof_data;
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }

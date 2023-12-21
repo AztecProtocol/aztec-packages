@@ -229,7 +229,6 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
     output.emplace_back(1); // circuit size
     output.emplace_back(1); // num public inputs
 
-    // bool contains = true;
     output.emplace_back(contains_recursive_proof); // contains_recursive_proof
     for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
         output.emplace_back(0); // recursive_proof_public_input_indices
@@ -332,20 +331,16 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
                     if (contains_recursive_proof) {
-                        // ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                        for (size_t j = 0; j < num_public_inputs; ++j) {
-                            // auto scalar = barretenberg::fr::random_element();
-                            fields.emplace_back(0);
+                        ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                        for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
+                            auto scalar = barretenberg::fr::random_element();
+                            const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
+                            auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
+                            fields.emplace_back(g1_as_fields.x_lo);
+                            fields.emplace_back(g1_as_fields.x_hi);
+                            fields.emplace_back(g1_as_fields.y_lo);
+                            fields.emplace_back(g1_as_fields.y_hi);
                         }
-                        // for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
-                        //     auto scalar = barretenberg::fr::random_element();
-                        //     const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one *
-                        //     scalar); auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
-                        //     fields.emplace_back(g1_as_fields.x_lo);
-                        //     fields.emplace_back(g1_as_fields.x_hi);
-                        //     fields.emplace_back(g1_as_fields.y_lo);
-                        //     fields.emplace_back(g1_as_fields.y_hi);
-                        // }
                     } else {
                         for (size_t j = 0; j < num_public_inputs; ++j) {
                             // auto scalar = barretenberg::fr::random_element();
