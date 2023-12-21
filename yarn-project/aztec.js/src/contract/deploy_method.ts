@@ -47,7 +47,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private publicKey: PublicKey,
     protected pxe: PXE,
     private artifact: ContractArtifact,
-    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<Contract>,
+    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
   ) {
     super(pxe);

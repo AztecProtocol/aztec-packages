@@ -5,7 +5,6 @@ import { PXE } from '@aztec/types';
 import zip from 'lodash.zip';
 
 import { getSchnorrAccount } from '../account_manager/index.js';
-// import SchnorrAccountContractArtifact from '../accounts_contract/artifacts/schnorr_account_contract.json' assert { type: 'json' };
 import { createPXEClient } from '../pxe_client.js';
 import { AccountWalletWithPrivateKey } from '../wallet/index.js';
 
@@ -18,8 +17,6 @@ export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
 export const INITIAL_SANDBOX_SIGNING_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
 
 export const INITIAL_SANDBOX_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
-
-// export const INITIAL_SANDBOX_ACCOUNT_CONTRACT_ABI = SchnorrAccountContractArtifact;
 
 export const { PXE_URL = 'http://localhost:8080' } = process.env;
 

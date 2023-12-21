@@ -25,7 +25,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   constructor(
     wallet: PXE | Wallet,
     txHashPromise: Promise<TxHash>,
-    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<Contract>,
+    private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
 
     /**
      * The complete address of the deployed contract
