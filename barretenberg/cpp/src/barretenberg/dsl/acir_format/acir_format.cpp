@@ -173,7 +173,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         // Get the size of proof with no public inputs prepended to it
         // This is used while processing recursion constraints to determine whether
         // the proof we are verifying contains a recursive proof itself
-        auto proof_size_no_pub_inputs = transcript_in_recursion_format_size();
+        auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
 
         // Add recursion constraints
         for (auto constraint : constraint_system.recursion_constraints) {

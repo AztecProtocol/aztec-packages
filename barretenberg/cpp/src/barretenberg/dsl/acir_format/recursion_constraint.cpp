@@ -354,7 +354,7 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
     return fields;
 }
 
-size_t transcript_in_recursion_format_size()
+size_t recursion_proof_size_without_public_inputs()
 {
     const auto manifest = Composer::create_manifest(0);
     auto dummy_transcript = export_dummy_transcript_in_recursion_format(manifest, false);

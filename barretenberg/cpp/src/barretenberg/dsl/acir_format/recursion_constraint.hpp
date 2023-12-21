@@ -80,7 +80,7 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
 std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript);
 std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
                                                                           const bool contains_recursive_proof);
-size_t transcript_in_recursion_format_size();
+size_t recursion_proof_size_without_public_inputs();
 
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1
 // elements as field elements. This happens in multiple locations when creating a recursion constraint. The struct and
