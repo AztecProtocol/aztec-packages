@@ -1,4 +1,5 @@
 #include "get_bn254_crs.hpp"
+#include "barretenberg/bb/file_io.hpp"
 
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
@@ -27,16 +28,13 @@ std::vector<uint8_t> download_bn254_g2_data()
 std::vector<barretenberg::g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
     std::filesystem::create_directories(path);
-    std::ifstream size_file(path / "size");
-    size_t size = 0;
-    if (size_file) {
-        size_file >> size;
-        size_file.close();
-    }
-    if (size >= num_points) {
-        auto file = path / "g1.dat";
-        vinfo("using cached crs at: ", file);
-        auto data = read_file(file, num_points * 64);
+
+    auto g1_path = path / "bn254_g1.dat";
+    size_t g1_file_size = get_file_size(g1_path);
+
+    if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0) {
+        vinfo("using cached crs of size ", std::to_string(g1_file_size / 64), " at ", g1_path);
+        auto data = read_file(g1_path, g1_file_size);
         auto points = std::vector<barretenberg::g1::affine_element>(num_points);
         for (size_t i = 0; i < num_points; ++i) {
             points[i] = from_buffer<barretenberg::g1::affine_element>(data, i * 64);
@@ -46,14 +44,7 @@ std::vector<barretenberg::g1::affine_element> get_bn254_g1_data(const std::files
 
     vinfo("downloading crs...");
     auto data = download_bn254_g1_data(num_points);
-    write_file(path / "g1.dat", data);
-
-    std::ofstream new_size_file(path / "size");
-    if (!new_size_file) {
-        throw std::runtime_error("Failed to open size file for writing");
-    }
-    new_size_file << num_points;
-    new_size_file.close();
+    write_file(g1_path, data);
 
     auto points = std::vector<barretenberg::g1::affine_element>(num_points);
     for (size_t i = 0; i < num_points; ++i) {
@@ -66,12 +57,15 @@ barretenberg::g2::affine_element get_bn254_g2_data(const std::filesystem::path& 
 {
     std::filesystem::create_directories(path);
 
-    try {
-        auto data = read_file(path / "g2.dat");
-        return from_buffer<barretenberg::g2::affine_element>(data.data());
-    } catch (std::exception&) {
-        auto data = download_bn254_g2_data();
-        write_file(path / "g2.dat", data);
+    auto g2_path = path / "bn254_g2.dat";
+    size_t g2_file_size = get_file_size(g2_path);
+
+    if (g2_file_size == 128) {
+        auto data = read_file(g2_path);
         return from_buffer<barretenberg::g2::affine_element>(data.data());
     }
+
+    auto data = download_bn254_g2_data();
+    write_file(g2_path, data);
+    return from_buffer<barretenberg::g2::affine_element>(data.data());
 }
