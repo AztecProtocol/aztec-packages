@@ -283,7 +283,6 @@ std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transc
                 } else {
                     ASSERT(manifest_element.name == "public_inputs");
                     const auto public_inputs_vector = transcript.get_field_element_vector(manifest_element.name);
-                    info("public_inputs_vector = ", public_inputs_vector.size());
                     for (const auto& ele : public_inputs_vector) {
                         fields.emplace_back(ele);
                     }
