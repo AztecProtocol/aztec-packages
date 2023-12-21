@@ -23,7 +23,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
-    using AlphaType = typename ProverInstances::AlphaType;
+    using AlphaType = typename Flavor::AlphaType;
+    using CombinedAlphaType = typename ProverInstances::AlphaType;
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -43,6 +44,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using TupleOfTuplesOfUnivariates =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+
+    static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
 
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
@@ -146,7 +149,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
      */
     static std::vector<FF> compute_full_honk_evaluations(const ProverPolynomials& instance_polynomials,
-                                                         const FF& alpha,
+                                                         const AlphaType& alpha,
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
@@ -163,33 +166,34 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
             auto output = FF(0);
-            scale_and_batch_elements(relation_evaluations, alpha, output);
+            auto running_challenge = FF(1);
+            Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
 
             full_honk_evaluations[row] = output;
         }
         return full_honk_evaluations;
     }
 
-    /**
-     * @brief Scale elements by consecutive powers of the challenge then sum
-     * @param result Batched result
-     */
-    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& result)
-    {
-        auto first_array = std::get<0>(tuple);
-        result = first_array[0];
-        for (auto& entry : first_array) {
-            result += entry * challenge;
-        }
+    // /**
+    //  * @brief Scale elements by consecutive powers of the challenge then sum
+    //  * @param result Batched result
+    //  */
+    // static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& result)
+    // {
+    //     auto first_array = std::get<0>(tuple);
+    //     result = first_array[0];
+    //     for (auto& entry : first_array) {
+    //         result += entry * challenge;
+    //     }
 
-        auto scale_by_challenge_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * challenge;
-            }
-        };
+    //     auto scale_by_challenge_and_accumulate = [&](auto& element) {
+    //         for (auto& entry : element) {
+    //             result += entry * challenge;
+    //         }
+    //     };
 
-        Utils::template apply_to_tuple_of_arrays<1>(scale_by_challenge_and_accumulate, tuple);
-    }
+    //     Utils::template apply_to_tuple_of_arrays<1>(scale_by_challenge_and_accumulate, tuple);
+    // }
 
     /**
      * @brief  Recursively compute the parent nodes of each level in there, starting from the leaves. Note that at each
@@ -359,16 +363,18 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return batch_over_relations(univariate_accumulators, instances.alpha);
     }
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
-                                                                    const AlphaType& alpha)
+                                                                    const CombinedAlphaType& alpha)
     {
 
         // First relation does not get multiplied by a batching challenge
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+        size_t idx = 0;
         auto scale_and_sum = [&]<size_t outer_idx, size_t>(auto& element) {
             auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
-            extended *= alpha;
+            extended *= alpha[idx];
             result += extended;
+            idx++;
         };
 
         Utils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
@@ -439,13 +445,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     // batching the i-th folded subrelation in the combiner.
     static void combine_alpha(ProverInstances& instances)
     {
-        Univariate<FF, ProverInstances::NUM> accumulated_alpha;
-        size_t instance_idx = 0;
-        for (auto& instance : instances) {
-            accumulated_alpha.value_at(instance_idx) = instance->alpha;
-            instance_idx++;
+        size_t alpha_idx = 0;
+        for (auto& alpha : instances.alpha) {
+            Univariate<FF, ProverInstances::NUM> tmp;
+            size_t instance_idx = 0;
+            for (auto& instance : instances) {
+                tmp.value_at(instance_idx) = instance->alpha[alpha_idx];
+                instance_idx++;
+            }
+            alpha = tmp.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+            alpha_idx++;
         }
-        instances.alpha = accumulated_alpha.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
     }
 
     /**

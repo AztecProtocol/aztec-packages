@@ -17,6 +17,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using AlphaType = typename Flavor::AlphaType;
+
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
 
     VerifierInstances instances;
 

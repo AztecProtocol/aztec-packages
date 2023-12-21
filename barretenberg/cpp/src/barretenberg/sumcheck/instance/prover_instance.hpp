@@ -26,6 +26,7 @@ template <class Flavor> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using AlphaType = typename Flavor::AlphaType;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
@@ -45,7 +46,7 @@ template <class Flavor> class ProverInstance_ {
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
     // instances
     size_t pub_inputs_offset = 0;
-    FF alpha;
+    AlphaType alpha;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
 

@@ -41,8 +41,10 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
     transcript->send_to_verifier("public_input_delta", accumulator->relation_parameters.public_input_delta);
     transcript->send_to_verifier("lookup_grand_product_delta",
                                  accumulator->relation_parameters.lookup_grand_product_delta);
-
-    transcript->send_to_verifier("alpha", accumulator->alpha);
+    size_t alpha_idx = 0;
+    for (auto alpha : accumulator->alpha) {
+        transcript->send_to_verifier("alpha_" + std::to_string(alpha_idx), alpha);
+    }
 
     transcript->send_to_verifier("target_sum", accumulator->target_sum);
     for (size_t idx = 0; idx < accumulator->gate_challenges.size(); idx++) {

@@ -36,6 +36,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = flavor::Ultra;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
+    using AlphaType = typename Flavor::AlphaType;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = proof_system::UltraCircuitBuilder();
@@ -163,7 +164,13 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
-    instance->alpha = prover_transcript->get_challenge("alpha");
+
+    AlphaType prover_alpha;
+    for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
+        prover_alpha[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
+    instance->alpha = prover_alpha;
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -176,13 +183,18 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
-    FF alpha = verifier_transcript->get_challenge("alpha");
+    AlphaType verifier_alpha;
+    for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
+        verifier_alpha[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         verifier_gate_challenges[idx] =
             verifier_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    auto verifier_output = sumcheck_verifier.verify(instance->relation_parameters, alpha, verifier_gate_challenges);
+    auto verifier_output =
+        sumcheck_verifier.verify(instance->relation_parameters, verifier_alpha, verifier_gate_challenges);
 
     auto verified = verifier_output.verified.value();
 

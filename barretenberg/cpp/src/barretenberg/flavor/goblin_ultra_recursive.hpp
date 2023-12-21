@@ -73,6 +73,8 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    static constexpr size_t NUMBER_OF_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using AlphaType = std::array<FF, NUMBER_OF_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());

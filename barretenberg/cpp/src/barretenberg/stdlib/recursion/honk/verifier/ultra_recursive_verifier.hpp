@@ -15,6 +15,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
+    using AlphaType = typename Flavor::AlphaType;
     using PairingPoints = std::array<GroupElement, 2>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,

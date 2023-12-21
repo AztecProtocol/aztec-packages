@@ -132,7 +132,11 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
-    FF alpha = transcript->get_challenge("alpha");
+    AlphaType alpha;
+    for (size_t idx = 0; idx < alpha.size(); idx++) {
+        alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));

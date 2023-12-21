@@ -10,6 +10,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
     using Instance = ProverInstance_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
@@ -17,7 +18,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     using RelationParameters = proof_system::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-    using AlphaType = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
+    using AlphaType = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
     ArrayType _data;
     RelationParameters relation_parameters;
     AlphaType alpha;

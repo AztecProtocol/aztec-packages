@@ -34,6 +34,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     using Instance = VerifierInstance_<Flavor>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUMBER_OF_SUBRELATIONS;
     transcript = std::make_shared<Transcript>(proof.proof_data);
     auto inst = std::make_unique<Instance>();
 
@@ -53,7 +54,11 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
     auto lookup_grand_product_delta = transcript->template receive_from_prover<FF>("lookup_grand_product_delta");
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-    inst->alpha = transcript->template receive_from_prover<FF>("alpha");
+
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
+
+        inst->alpha[idx] = transcript->template receive_from_prover<FF>("alpha" + std::to_string(idx));
+    }
 
     inst->target_sum = transcript->template receive_from_prover<FF>("target_sum");
 

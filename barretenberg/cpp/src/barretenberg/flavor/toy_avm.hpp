@@ -39,6 +39,7 @@ class ToyAVM {
     using PolynomialHandle = std::span<FF>;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using AlphaType = FF;
 
     // The number of wires is 5. The set of tuples (permutation_set_column_1,permutation_set_column_2) should be
     // equivalent to (permutation_set_column_3, permutation_set_column_4) and the self_permutation_column contains 2
@@ -65,6 +66,8 @@ class ToyAVM {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+
+    static constexpr bool is_decider = true;
 
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 

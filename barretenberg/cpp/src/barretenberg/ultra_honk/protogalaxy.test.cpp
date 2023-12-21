@@ -112,9 +112,11 @@ TEST_F(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
     instance->compute_sorted_accumulator_polynomials(eta);
     instance->compute_grand_product_polynomials(beta, gamma);
 
-    auto alpha = FF::random_element();
+    for (auto& alpha : instance->alpha) {
+        alpha = FF::random_element();
+    }
     auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-        instance->prover_polynomials, alpha, instance->relation_parameters);
+        instance->prover_polynomials, instance->alpha, instance->relation_parameters);
 
     // Evaluations should be 0 for valid circuit
     for (const auto& eval : full_honk_evals) {
@@ -136,6 +138,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorCoefficients)
 
 TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 {
+    using AlphaType = Flavor::AlphaType;
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
@@ -145,7 +148,10 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    auto alpha = FF::random_element();
+    AlphaType alpha;
+    for (auto& a : alpha) {
+        a = FF::random_element();
+    }
 
     auto full_honk_evals =
         ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alpha, relation_parameters);
@@ -213,7 +219,7 @@ TEST_F(ProtoGalaxyTests, CombinerQuotient)
     }
 }
 
-TEST_F(ProtoGalaxyTests, FoldChallenges)
+TEST_F(ProtoGalaxyTests, CombineRelationParameters)
 {
     using Instances = ProverInstances_<Flavor, 2>;
     using Instance = typename Instances::Instance;
@@ -234,48 +240,27 @@ TEST_F(ProtoGalaxyTests, FoldChallenges)
     EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
 }
 
-TEST_F(ProtoGalaxyTests, FoldAlpha)
+TEST_F(ProtoGalaxyTests, CombineAlpha)
 {
     using Instances = ProverInstances_<Flavor, 2>;
     using Instance = typename Instances::Instance;
 
     Builder builder1;
     auto instance1 = std::make_shared<Instance>(builder1);
-    instance1->alpha = 2;
+    instance1->alpha.fill(2);
 
     Builder builder2;
     builder2.add_variable(3);
     auto instance2 = std::make_shared<Instance>(builder2);
-    instance2->alpha = 4;
+    instance2->alpha.fill(4);
 
     Instances instances{ { instance1, instance2 } };
     ProtoGalaxyProver::combine_alpha(instances);
 
     Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
-    EXPECT_EQ(instances.alpha, expected_alpha);
-}
-
-TEST_F(ProtoGalaxyTests, FoldAlphaShouldBeZero)
-{
-    using Instances = ProverInstances_<Flavor, 2>;
-    using Instance = typename Instances::Instance;
-
-    Builder builder1;
-    auto instance1 = std::make_shared<Instance>(builder1);
-    instance1->alpha = FF(0);
-
-    Builder builder2;
-    builder2.add_variable(3);
-    auto instance2 = std::make_shared<Instance>(builder2);
-    instance2->alpha = FF(0);
-
-    Instances instances{ { instance1, instance2 } };
-    ProtoGalaxyProver::combine_alpha(instances);
-
-    Univariate<FF, 13> expected_alpha{ { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
-    auto challenge = FF::random_element();
-    EXPECT_EQ(instances.alpha, expected_alpha);
-    EXPECT_EQ(instances.alpha.evaluate(challenge), FF(0));
+    for (const auto& alpha : instances.alpha) {
+        EXPECT_EQ(alpha, expected_alpha);
+    }
 }
 
 // Check both manually and using the protocol two rounds of folding

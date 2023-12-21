@@ -56,8 +56,9 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
                                  instance->witness_commitments.z_perm);
     transcript->send_to_verifier(domain_separator + "_" + commitment_labels.z_lookup,
                                  instance->witness_commitments.z_lookup);
-
-    instance->alpha = transcript->get_challenge(domain_separator + "_alpha");
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
+        instance->alpha[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
+    }
     auto vk_view = instance->verification_key->get_all();
     auto labels = instance->commitment_labels.get_precomputed();
     for (size_t idx = 0; idx < labels.size(); idx++) {
@@ -87,7 +88,9 @@ void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Insta
     transcript->send_to_verifier(domain_separator + "_lookup_grand_product_delta",
                                  instance->relation_parameters.lookup_grand_product_delta);
 
-    transcript->send_to_verifier(domain_separator + "_alpha", instance->alpha);
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
+        transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alpha[idx]);
+    }
 
     transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
     for (size_t idx = 0; idx < instance->gate_challenges.size(); idx++) {
@@ -222,8 +225,11 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 
     // Evaluate the combined batching challenge α univariate at challenge to obtain next α and send it to the
     // verifier
-    next_accumulator->alpha = instances.alpha.evaluate(challenge);
-    transcript->send_to_verifier("next_alpha", next_accumulator->alpha);
+    auto& folded_alpha = next_accumulator->alpha;
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
+        folded_alpha[idx] = instances.alpha[idx].evaluate(challenge);
+        transcript->send_to_verifier("next_alpha_" + std::to_string(idx), folded_alpha[idx]);
+    }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
     // the verifier
@@ -282,7 +288,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
     assert(perturbator[0] == accumulator->target_sum);
-    auto perturbator_challenge = transcript->get_challenge("perturbator_challenge"); // alpha
+    auto perturbator_challenge = transcript->get_challenge("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     const auto pow_betas_star =
@@ -297,7 +303,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge"); // gamma
+    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
 
     FoldingResult<Flavor> res;
     auto next_accumulator =

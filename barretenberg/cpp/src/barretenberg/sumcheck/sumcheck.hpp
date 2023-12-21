@@ -16,6 +16,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
+    using AlphaType = typename Flavor::AlphaType;
 
     const size_t multivariate_n;
     const size_t multivariate_d;
@@ -83,7 +84,7 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
                                  const proof_system::RelationParameters<FF>& relation_parameters,
-                                 const FF alpha,
+                                 const AlphaType alpha,
                                  const std::vector<FF>& gate_challenges)
     {
 
@@ -179,6 +180,7 @@ template <typename Flavor> class SumcheckVerifier {
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
+    using AlphaType = typename Flavor::AlphaType;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
@@ -204,7 +206,7 @@ template <typename Flavor> class SumcheckVerifier {
      * @param transcript
      */
     SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
-                                  FF alpha,
+                                  AlphaType alpha,
                                   const std::vector<FF>& gate_challenges)
     {
         bool verified(true);

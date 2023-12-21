@@ -21,6 +21,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using AlphaType = typename Flavor::AlphaType;
 
   public:
     explicit UltraProver_(const std::shared_ptr<Instance>&,

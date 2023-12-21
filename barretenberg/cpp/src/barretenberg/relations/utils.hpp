@@ -1,4 +1,7 @@
 #pragma once
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
@@ -10,6 +13,7 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using AlphaType = typename Flavor::AlphaType;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
 
@@ -65,13 +69,31 @@ template <typename Flavor> class RelationUtils {
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const FF& challenge, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const AlphaType& challenge, FF& current_scalar)
+        requires proof_system::IsFoldingFlavor<Flavor>
+    {
+        size_t idx = 0;
+        auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
+            element *= current_scalar;
+            current_scalar = challenge[idx];
+            idx++;
+        };
+        apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
+    }
+
+    /**
+     * @brief Scale Univaraites by consecutive powers of the provided challenge
+     *
+     * @param tuple Tuple of tuples of Univariates
+     * @param challenge
+     * @param current_scalar power of the challenge
+     */
+    static void scale_univariates(auto& tuple, const AlphaType& challenge, FF& current_scalar)
+        requires(!proof_system::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
-            if (current_scalar != challenge) {
-                current_scalar *= challenge;
-            }
+            current_scalar *= challenge;
         };
         apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
     }
@@ -98,8 +120,8 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Componentwise addition of nested tuples (tuples of tuples)
      * @details Used for summing tuples of tuples of Univariates. Needed for Sumcheck multithreading. Each thread
-     * accumulates relation contributions across a portion of the hypecube and then the results are accumulated into a
-     * single nested tuple.
+     * accumulates relation contributions across a portion of the hypecube and then the results are accumulated into
+     * a single nested tuple.
      *
      * @tparam Tuple
      * @tparam Index Index into outer tuple
@@ -118,10 +140,11 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
      *
-     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
-     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
-     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
-     * checked against the final value of the target total sum (called sigma_0 in the thesis).
+     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to
+     * calculate a contribution to the purported value of the full Honk relation. These are stored in `evaluations`.
+     * Adding these together, with appropriate scaling factors, produces the expected value of the full Honk
+     * relation. This value is checked against the final value of the target total sum (called sigma_0 in the
+     * thesis).
      */
     template <typename Parameters, size_t relation_idx = 0>
     // TODO(#224)(Cody): Input should be an array?
@@ -160,14 +183,31 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale elements by consecutive powers of the challenge then sum
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenge, FF current_scalar, FF& result)
+        requires proof_system::IsFoldingFlavor<Flavor>
+    {
+        size_t idx = 0;
+        auto scale_by_challenge_and_accumulate = [&](auto& element) {
+            for (auto& entry : element) {
+                result += entry * current_scalar;
+                current_scalar = challenge[idx];
+                idx++;
+            }
+        };
+        apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
+    }
+
+    /**
+     * @brief Scale elements by consecutive powers of the challenge then sum
+     * @param result Batched result
+     */
+    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenge, FF current_scalar, FF& result)
+        requires(!proof_system::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
                 result += entry * current_scalar;
-                if (current_scalar != challenge) { // HACK
-                    current_scalar *= challenge;
-                }
+                current_scalar *= challenge;
             }
         };
         apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);

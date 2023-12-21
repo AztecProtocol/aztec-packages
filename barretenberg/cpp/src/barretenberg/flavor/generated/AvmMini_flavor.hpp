@@ -15,8 +15,7 @@
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
-namespace flavor {
+namespace proof_system::honk::flavor {
 
 class AvmMiniFlavor {
   public:
@@ -32,6 +31,7 @@ class AvmMiniFlavor {
     using CommitmentHandle = G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using AlphaType = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 20;
@@ -476,5 +476,4 @@ class AvmMiniFlavor {
     };
 };
 
-} // namespace flavor
-} // namespace proof_system::honk
+} // namespace proof_system::honk::flavor
