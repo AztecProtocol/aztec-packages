@@ -272,8 +272,11 @@ TEST_F(AcirRecursionConstraint, TestBasicDoubleRecursionConstraints)
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 
+    info("circuit gates = ", layer_2_circuit.get_num_gates());
+
     auto layer_2_composer = Composer();
     auto prover = layer_2_composer.create_ultra_with_keccak_prover(layer_2_circuit);
+    info("prover gates = ", prover.circuit_size);
     auto proof = prover.construct_proof();
     auto verifier = layer_2_composer.create_ultra_with_keccak_verifier(layer_2_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
@@ -326,9 +329,11 @@ TEST_F(AcirRecursionConstraint, TestOneOuterRecursiveCircuit)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created second outer circuit");
+    info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
+    info("prover gates = ", prover.circuit_size);
     auto proof = prover.construct_proof();
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
@@ -353,9 +358,11 @@ TEST_F(AcirRecursionConstraint, TestFullRecursiveComposition)
 
     auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
     info("created third outer circuit");
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
 
     auto layer_3_composer = Composer();
     auto prover = layer_3_composer.create_ultra_with_keccak_prover(layer_3_circuit);
+    info("prover gates = ", prover.circuit_size);
     auto proof = prover.construct_proof();
     auto verifier = layer_3_composer.create_ultra_with_keccak_verifier(layer_3_circuit);
     EXPECT_EQ(verifier.verify_proof(proof), true);
