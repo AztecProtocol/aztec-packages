@@ -157,27 +157,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return full_honk_evaluations;
     }
 
-    // /**
-    //  * @brief Scale elements by consecutive powers of the challenge then sum
-    //  * @param result Batched result
-    //  */
-    // static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF& result)
-    // {
-    //     auto first_array = std::get<0>(tuple);
-    //     result = first_array[0];
-    //     for (auto& entry : first_array) {
-    //         result += entry * challenge;
-    //     }
-
-    //     auto scale_by_challenge_and_accumulate = [&](auto& element) {
-    //         for (auto& entry : element) {
-    //             result += entry * challenge;
-    //         }
-    //     };
-
-    //     Utils::template apply_to_tuple_of_arrays<1>(scale_by_challenge_and_accumulate, tuple);
-    // }
-
     /**
      * @brief  Recursively compute the parent nodes of each level in there, starting from the leaves. Note that at each
      * level, the resulting parent nodes will be polynomials of degree (level + 1) because we multiply by an additional
@@ -418,14 +397,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     }
 
     /**
-     * @brief Combine the relation batching parameter (named alpha) from each instance into a univariate, used in the
+     * @brief Combine the relation batching parameters (alphas) from each instance into a univariate, used in the
      * computation of combiner.
      *
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/772): At the moment we have a single α per Instance, we
-    // fold them and then we use the unique folded_α for each folded subrelation that is batched in the combiner. This
-    // is obviously insecure. We need to generate α_i for each subrelation_i, fold them and then use folded_α_i when
-    // batching the i-th folded subrelation in the combiner.
     static void combine_alpha(ProverInstances& instances)
     {
         size_t alpha_idx = 0;
