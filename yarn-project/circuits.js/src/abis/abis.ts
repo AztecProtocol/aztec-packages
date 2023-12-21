@@ -647,7 +647,6 @@ export function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     input.blockHeader.globalVariablesHash.toBuffer(),
     input.proverAddress.toBuffer(),
   ];
-  console.log(`toHash: ${toHash.map(x => Fr.fromBuffer(x).toString())}`);
   if (toHash.length != PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH) {
     throw new Error('Incorrect number of input fields when hashing PublicCircuitPublicInputs');
   }

@@ -21,7 +21,8 @@ import { MerkleTreeId } from '@aztec/types';
 import { default as levelup } from 'levelup';
 import memdown from 'memdown';
 
-// TODO: generate a public call, hash it, assert it is the same as in noir
+// TODO: DELETE THIS COMMENT
+// fix failing hash approach: generate a public call, hash it, assert it is the same as in noir
 // this creates the snapshot, take it to Noir.  hard code it into a Noir test
 // (can't read from snapshot in noir).  build noir data structure here,
 // can use type conversion methods to convert call stack items to build noir stack item.

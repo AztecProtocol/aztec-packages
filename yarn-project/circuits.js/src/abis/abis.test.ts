@@ -249,8 +249,6 @@ describe('abis', () => {
   it('Computes an empty call request hash ', () => {
     const emptycallstack = PublicCallStackItem.empty();
     const emptyHash = emptycallstack.hash();
-    // const emptySideEffect = PublicCircuitPublicInputs.empty();
-    // const emptyHash = Fr.fromBuffer(computePublicInputsHash(emptySideEffect)).toString();
     expect(emptyHash.toString()).toMatchSnapshot();
   });
 

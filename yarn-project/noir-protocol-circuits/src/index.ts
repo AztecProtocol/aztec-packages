@@ -318,7 +318,6 @@ async function executePublicKernelPrivatePreviousWithACVM(
   const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, input as any);
   const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
-  console.log(JSON.stringify(input));
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
     await getSolver(),
     decodedBytecode,
