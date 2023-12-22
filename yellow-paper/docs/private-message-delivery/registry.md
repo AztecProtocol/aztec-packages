@@ -53,8 +53,6 @@ To reduce the number of merkle membership proofs, the registry keeps in storage 
 
 Note that this optimization may also be included natively into the protocol, [pending this discussion](https://forum.aztec.network/t/storing-data-of-arbitrary-length-in-the-public-data-tree/2669).
 
-<!-- TODO: Figure out whether we want this optimization in the protocol, or just for the registry, or not at all. --> 
-
 ## Multiple Recipients per Address
 
 While account contracts that belong to individual users have a clear set of public keys to announce, some private contracts may be shared by a group of users, like in a multisig or an escrow contract. In these scenarios, we want all messages intended for the shared contract to actually be delivered to all participants, using the encryption method selected by each.
