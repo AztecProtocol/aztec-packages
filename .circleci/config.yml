@@ -1122,22 +1122,22 @@ workflows:
       - aztec-sandbox: *defaults_yarn_project_prod
       - cli: *defaults_yarn_project_prod
       - aztec-faucet: *defaults_yarn_project_prod
-      - boxes: *defaults_yarn_project_prod
 
       # Boxes.
-      - boxes-blank:
+      - boxes:
           requires:
             - aztec-sandbox
+          <<: *defaults
+      - boxes-blank:
+          requires:
             - boxes
           <<: *defaults
       - boxes-blank-react:
           requires:
-            - aztec-sandbox
             - boxes
           <<: *defaults
       - boxes-token:
           requires:
-            - aztec-sandbox
             - boxes
           <<: *defaults
 
