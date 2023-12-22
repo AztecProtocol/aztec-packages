@@ -5,14 +5,13 @@
   "type": "module",
   "main": "./dest/index.js",
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
+    "build": "yarn clean && yarn compile && tsc -b && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
     "start:dev": "webpack serve --mode=development",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",
-    "compile:local": "ts-node --esm ../../yarn-project/cli/src/bin/index.ts compile \"src/contracts\" --outdir \"../artifacts\" --typescript \"../artifacts\"",
+    "compile": "${AZTEC_CLI:-aztec-cli} compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {

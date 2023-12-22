@@ -16,6 +16,7 @@ import {
   EthAddressLike,
   FieldLike,
   Fr,
+  FunctionSelectorLike,
   Point,
   PublicKey,
   Wallet,
@@ -56,14 +57,14 @@ export class BlankContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ) {
-    return new DeployMethod<BlankContract>(Point.ZERO, wallet, BlankContractArtifact, Array.from(arguments).slice(1));
+    return new DeployMethod<BlankContract>(Point.ZERO, wallet, BlankContractArtifact, BlankContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, ) {
-    return new DeployMethod<BlankContract>(publicKey, wallet, BlankContractArtifact, Array.from(arguments).slice(2));
+    return new DeployMethod<BlankContract>(publicKey, wallet, BlankContractArtifact, BlankContract.at, Array.from(arguments).slice(2));
   }
   
 
@@ -79,7 +80,7 @@ export class BlankContract extends ContractBase {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
     
-    /** getPublicKey(address: field) */
-    getPublicKey: ((address: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** getPublicKey(address: struct) */
+    getPublicKey: ((address: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 }

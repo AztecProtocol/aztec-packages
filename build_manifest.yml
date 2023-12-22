@@ -124,6 +124,7 @@ yarn-project:
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
     - ^yarn-project/Dockerfile$
+    - ^yarn-project/cli/aztec-cli
   dependencies:
     - yarn-project-base
 
