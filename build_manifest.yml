@@ -166,6 +166,8 @@ boxes:
   buildDir: boxes
   dependencies:
     - aztec-sandbox
+  runDependencies:
+    - aztec-sandbox
 
 end-to-end:
   buildDir: yarn-project
