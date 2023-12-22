@@ -148,9 +148,11 @@ contract TokenBridge {
 
     // /// Unconstrained ///
 
+    // docs:start:read_token
     unconstrained fn token() -> pub AztecAddress {
         storage.token.read()
     }
+    // docs:end:read_token
 
     #[aztec(public)]
     internal fn _initialize(token: AztecAddress) {
