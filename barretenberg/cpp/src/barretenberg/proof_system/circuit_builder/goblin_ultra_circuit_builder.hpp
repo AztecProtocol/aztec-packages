@@ -20,6 +20,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
+    size_t num_vars_added_in_constructor = 0; // needed in constructing circuit from acir
+
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
     // Stores record of ecc operations and performs corresponding native operations internally
@@ -37,14 +39,23 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     // Wires storing ecc op queue data; values are indices into the variables array
     std::array<WireVector, arithmetization::UltraHonk<FF>::NUM_WIRES> ecc_op_wires;
 
-    WireVector& ecc_op_wire_1 = std::get<0>(ecc_op_wires);
-    WireVector& ecc_op_wire_2 = std::get<1>(ecc_op_wires);
-    WireVector& ecc_op_wire_3 = std::get<2>(ecc_op_wires);
-    WireVector& ecc_op_wire_4 = std::get<3>(ecc_op_wires);
+    WireVector& ecc_op_wire_1() { return std::get<0>(ecc_op_wires); };
+    WireVector& ecc_op_wire_2() { return std::get<1>(ecc_op_wires); };
+    WireVector& ecc_op_wire_3() { return std::get<2>(ecc_op_wires); };
+    WireVector& ecc_op_wire_4() { return std::get<3>(ecc_op_wires); };
+
+    const WireVector& ecc_op_wire_1() const { return std::get<0>(ecc_op_wires); };
+    const WireVector& ecc_op_wire_2() const { return std::get<1>(ecc_op_wires); };
+    const WireVector& ecc_op_wire_3() const { return std::get<2>(ecc_op_wires); };
+    const WireVector& ecc_op_wire_4() const { return std::get<3>(ecc_op_wires); };
 
     SelectorVector& q_busread() { return this->selectors.q_busread(); };
-    SelectorVector& q_poseidon2_external = this->selectors.q_poseidon2_external();
-    SelectorVector& q_poseidon2_internal = this->selectors.q_poseidon2_internal();
+    SelectorVector& q_poseidon2_external() { return this->selectors.q_poseidon2_external(); };
+    SelectorVector& q_poseidon2_internal() { return this->selectors.q_poseidon2_internal(); };
+
+    const SelectorVector& q_busread() const { return this->selectors.q_busread(); };
+    const SelectorVector& q_poseidon2_external() const { return this->selectors.q_poseidon2_external(); };
+    const SelectorVector& q_poseidon2_internal() const { return this->selectors.q_poseidon2_internal(); };
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;
@@ -71,6 +82,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
         mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+        num_vars_added_in_constructor = this->variables.size();
     };
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : GoblinUltraCircuitBuilder_(0, op_queue_in)

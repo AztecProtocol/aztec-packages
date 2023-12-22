@@ -80,15 +80,19 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 #include_code use-existing-wallets /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-### Running Sandbox in the nodejs process
+### Using debug options
 
-Instead of connecting to a local running Sandbox instance, you can also start your own Sandbox within the nodejs process running your tests, for an easier setup. To do this, import the `@aztec/aztec-sandbox` package in your project, and run `createSandbox` during setup. Note that this will still require you to run a local Ethereum development node like [Anvil](https://book.getfoundry.sh/anvil/), [Hardhat Network](https://hardhat.org/hardhat-network/docs/overview), or [Ganache](https://trufflesuite.com/ganache/).
+You can use the `debug` option in the `wait` method to get more information about the effects of the transaction. At the time of writing, this includes information about new note hashes added to the note hash tree, new nullifiers, public data writes, new L2 to L1 messages, new contract information and newly visible notes.
 
-#include_code in-proc-sandbox /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+This debug information will be populated in the transaction receipt. You can log it to the console or use it to make assertions about the transaction.
 
-The `createSandbox` returns a `stop` callback that you should run once your test suite is over to stop all Sandbox services.
+If a note doesn't appear when you expect it to, check the visible notes returned by the debug options. See the following example for reference on how it's done in the token contract tests.
 
-#include_code stop-in-proc-sandbox /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+
+If the note appears in the visible notes and it contains the expected values there is probably an issue with how you fetch the notes. Check that the note getter (or note viewer) parameters are set correctly. If the note doesn't appear, ensure that you have emitted the corresponding encrypted log (usually by passing in a `broadcast = true` param to the `create_note` function). You can also check the Sandbox logs to see if the `emitEncryptedLog` was emitted. Run `export DEBUG="aztec:\*" before spinning up sandbox to see all the logs.
+
+For debugging and logging in Aztec contracts, see [this page](../debugging/main.md).
 
 ## Assertions
 
