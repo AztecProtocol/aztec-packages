@@ -445,16 +445,16 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=blank
 
-  # boxes-blank-react:
-  #   machine:
-  #     image: ubuntu-2204:2023.07.2
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test via adhoc script"
-  #         command: ./boxes/run_tests blank-react
+  boxes-blank-react:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=blank-react
 
   # boxes-token:
   #   machine:
@@ -1130,10 +1130,11 @@ workflows:
             - aztec-sandbox
             - boxes
           <<: *defaults
-      # - boxes-blank-react:
-      #     requires:
-      #       - aztec-sandbox
-      #     <<: *defaults
+      - boxes-blank-react:
+          requires:
+            - aztec-sandbox
+            - boxes
+          <<: *defaults
       # - boxes-token:
       #     requires:
       #       - aztec-sandbox
