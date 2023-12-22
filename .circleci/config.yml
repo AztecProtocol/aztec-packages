@@ -1120,6 +1120,7 @@ workflows:
             - bb-js
             - noir-ecr-manifest
             - noir-packages
+            - boxes-files
           <<: *defaults
       - yarn-project:
           requires:
@@ -1130,7 +1131,6 @@ workflows:
       - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
       - build-docs: *defaults_yarn_project
-      - boxes: *defaults_yarn_project
 
       # Artifacts
       - aztec-sandbox: *defaults_yarn_project_prod
@@ -1138,6 +1138,10 @@ workflows:
       - aztec-faucet: *defaults_yarn_project_prod
 
       # Boxes.
+      - boxes:
+          requires:
+            - aztec-sandbox
+          <<: *defaults
       - boxes-blank:
           requires:
             - boxes
