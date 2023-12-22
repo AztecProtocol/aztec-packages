@@ -66,6 +66,10 @@ The iterations of the public kernel may yield values in an unordered state due t
 
 This circuit ensures the correct ordering of the following:
 
+- Note hashes.
+- Nullifiers.
+- L2-to-L1 messages.
+- New contracts.
 - Read requests.
 - Update requests.
 
@@ -201,17 +205,17 @@ After all the update requests are processed:
 
 #### Verifying the accumulated data.
 
-1. The following must correspond to the result after siloing:
+1. The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
 
    - Note hashes.
    - Nullifiers.
    - L2-to-L1 messages.
+   - New contracts.
 
-   > Note that these are arrays of siloed values. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
+   > Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
 2. The following must match the respective values in the previous kernel's public inputs:
 
-   - New contracts.
    - Log hashes.
    - Log lengths.
 
