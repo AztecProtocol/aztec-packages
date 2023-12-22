@@ -22,7 +22,7 @@ Convincing someone that a piece of data is active can then be done by proving it
 
 ### Private State Access
 
-Whenever a user is to read of use data, they must then convince the "rollup" that the their data is active. As mentioned above, they must prove that the data is in the data tree (membership proof) and that it is still active (non-membership proof). However, there are nuances to this approach! 
+Whenever a user is to read or use data, they must then convince the "rollup" that the their data is active. As mentioned above, they must prove that the data is in the data tree (membership proof) and that it is still active (non-membership proof). However, there are nuances to this approach! 
 
 One important aspect to consider is *when* state can be accessed. In most blockchains, state is always accessed at the head of the chain and changes are only made by the sequencer as new blocks are added. 
 
@@ -36,7 +36,7 @@ Membership can be proven using historical state because we are using an append-o
 However, this doesn't work for the non-membership proof, as it can only prove that the data was active at the time the proof was generated, not that it is still active today! This would allow a user to create multiple transactions spending the same data and then send those transactions all at once, creating a double spend. 
 
 
-To solve this, we need to perform the non-membership proofs at the head of the chain, which only the sequencer knows! This means that instead of the user proving that the data is not in the nullifier tree, they provide the nullifiers as part of their transaction, and the sequencer then proves non-membership **AND** inserts them into the nullifier tree. This way, if multiple transactions are sent with the same nullifier, only one of them will be included in the block as the others will fail the non-membership proof.
+To solve this, we need to perform the non-membership proofs at the head of the chain, which only the sequencer knows! This means that instead of the user proving that the nullifier of the data is not in the nullifier tree, they provide the nullifier as part of their transaction, and the sequencer then proves non-membership **AND** inserts it into the nullifier tree. This way, if multiple transactions include the same nullifier, only one of them will be included in the block as the others will fail the non-membership proof.
 
 **Why does it need to insert the nullifier if I'm reading?** Why can't it just prove that the nullifier is not in the tree? Well, this is a privacy concern. If you just make the non-membership proof, you are leaking that you are reading data for nullifier $x$, so if you read that data again at a later point, $x$ is seen by the sequencer again and it can infer that it is the same actor reading data. By emitting the nullifier the read is indistinguishable from a write, and the sequencer cannot tell what is happening and there will be no repetitions.
 
