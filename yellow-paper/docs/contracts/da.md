@@ -11,7 +11,7 @@ This page is heavily based on the Rollup and Data Ramblings documents. As for th
 
 Essentially Data Publication $\subset$ Data Availability, since if it is available, it must also have been published. This difference might be small but becomes important in a few moments.
 
-Progressing the state of the validating light requires that we can convince it (and therefore the [availability oracle](./index.md#availability-oracle)) that the data was published - as it needs to compute the public inputs for the proof. The exact method of computing these public inputs can vary depending on the data layer, but generally, it would be by providing the data directly or by using data availability sampling or a data committee.
+Progressing the state of the validating light node requires that we can convince it (and therefore the [availability oracle](./index.md#availability-oracle)) that the data was published - as it needs to compute the public inputs for the proof. The exact method of computing these public inputs can vary depending on the data layer, but generally, it would be by providing the data directly or by using data availability sampling or a data availability committee.
 
 The exact mechanism greatly impacts the security and cost of the system, and will be discussed in the following sections. Before that we need to get some definitions in place. 
 
@@ -19,8 +19,8 @@ The exact mechanism greatly impacts the security and cost of the system, and wil
 
 :::warning **Security**
 Security is often used quite in an unspecific manner, "good" security etc, without specifying what security is. From distributed systems, the *security* of a protocol or system is defined by:
-- **Safety**: Nothing bad will happen. 
 - **Liveness**: Eventually something good will happen.
+- **Safety**: Nothing bad will happen. 
 :::
 
 In the context of blockchain, this *security* is defined by the confirmation rule, while this can be chosen individually by the user, our validating light node (L1 bridge) can be seen as a user, after all, it's "just" another node. For the case of a validity proof based blockchain, a good confirmation rule should satisfy the following sub-properties (inspired by [Sreeram's framing](https://twitter.com/sreeramkannan/status/1683735050897207296)):
@@ -41,16 +41,16 @@ In particular, we will be looking at what is required to give observers (nodes) 
 
 ## Quick Catch-up
 
-A rollup is broadly speaking a blockchain that put its blocks on some other chain (the host) to make them available to its nodes. Most rollups have a contract on this host blockchain which validates it state transitions (through fault proofs or validity proofs) taking the role of a full-validating light-node, increasing the accessibility of running a node on the rollup chain, making any host chain node indirectly validate its state. 
+A rollup is broadly speaking a blockchain that put its blocks on some other chain (the host) to make them available to its nodes. Most rollups have a contract on this host blockchain which validates its state transitions (through fault proofs or validity proofs) taking the role of a full-validating light-node, increasing the accessibility of running a node on the rollup chain, making any host chain node indirectly validate its state. 
 
-With its state being validated by the host chain, the security properties can eventually be enforced by the host-chain if the rollup chain itself is not progressing. Bluntly, the rollup is renting security from the host. The essential difference between a L1 and a rollup then comes down to who are required for liveness and to convince the validating light-node, for the L1 it is the nodes of the L1, and for the Rollup the nodes of its host (eventually). This in practice means that we can get some better properties for how easy it is to get sufficient assurance that no trickery is happening.
+With its state being validated by the host chain, the security properties can eventually be enforced by the host-chain if the rollup chain itself is not progressing. Bluntly, the rollup is renting security from the host. The essential difference between a L1 and a rollup then comes down to who are required for block production (liveness) and to convince the validating light-node (security), for the L1 it is the nodes of the L1, and for the Rollup the nodes of its host (eventually). This in practice means that we can get some better properties for how easy it is to get sufficient assurance that no trickery is happening.
 
 | |Security| Accessibility|
 :-----------: | :-----------: | :-----------: |
 Full node| 😃 | 😦 |
 Full-verifier light node (L1 state transitioner)| 😃 | 😃 |
 
-With that out the way, we can draw out a model of the rollup as a two-chain system, what Jon calls the *dynamically available ledger* and the *finalized prefix ledger*, when you jump from one to the other depends on the confirmation rules applied. In Ethereum the *dynamically available* chain is following [LMD-ghost](https://eth2book.info/capella/part2/consensus/lmd_ghost/) fork choice rule and is the one block builders are building on top of. Eventually consensus forms and blocks from the *dynamic* chain gets included in the *finalized* chain ([Gasper](https://eth2book.info/capella/part2/consensus/casper_ffg/)). Below image is from [Bridging and Finality: Ethereum](https://jumpcrypto.com/writing/bridging-and-finality-ethereum/).
+With that out the way, we can draw out a model of the rollup as a two-chain system, what Jon calls the *dynamically available ledger* and the *finalized prefix ledger*. The point where we jump from one to the other depends on the confirmation rules applied. In Ethereum the *dynamically available* chain follows the [LMD-ghost](https://eth2book.info/capella/part2/consensus/lmd_ghost/) fork choice rule and is the one block builders are building on top of. Eventually consensus forms and blocks from the *dynamic* chain gets included in the *finalized* chain ([Gasper](https://eth2book.info/capella/part2/consensus/casper_ffg/)). Below image is from [Bridging and Finality: Ethereum](https://jumpcrypto.com/writing/bridging-and-finality-ethereum/).
 ![](https://jumpcrypto-com.ghost.io/content/images/2023/03/ZK-Bridging-4--1-.png)
 
 In rollup land, the *available* chain will often live outside the host where it is built upon before blocks make their way onto the host DA and later get *finalized* by the the validating light node that lives on the host as a smart contract.
@@ -65,63 +65,17 @@ One of the places where the existence of consensus make a difference for the rol
 For a consensus based rollup you can run LMD-Ghost similarly to Ethereum, new blocks are built like Ethereum, and then eventually reach the host chain where the light client should also validate the consensus rules before progressing state. In this world, you have a probability of re-orgs trending down as blocks are built upon while getting closer to the finalization. Users can then rely on their own confirmation rules to decide when they deem their transaction confirmed. You could say that the transactions are pre-confirmed until they convince the validating light-client on the host.
 
 ### No-consensus
-If there is no explicit consensus for the Rollup, but a distinct sequencer will have a period to propose a block and convince the validating light-client, the user can as before define his own confirmation rules and decide that if the sequencer provide him with an acknowledgement that his transaction is confirmed. This can be done fully on trust, of with some signed message the user could take to the host and "slash" the sequencer for not upholding his part of the deal.
+If there is no explicit consensus for the Rollup, staking can still be utilized for leader selection, picking a distinct sequencer which will have a period to propose a block and convince the validating light-client. The user can as earlier define his own confirmation rules and could decide that if the sequencer acknowledge his transaction, then he sees it as confirmed. This can be done fully on trust, of with some signed message the user could take to the host and "slash" the sequencer for not upholding his part of the deal.
 
-#### Fernet
-Fernet lives in this category if you have a single sequencer active from the proposal to proof inclusion stage. Within the individual block it can be seen as a centralized sequencer, 
+:::info Fernet
+Fernet lives in this category if you have a single sequencer active from the proposal to proof inclusion stage.
+:::
 
 Common for both consensus and no-consensus rollups is that the user can decide when he deems his transaction confirmed. If the user is not satisfied with the guarantee provided by the sequencer, he can always wait for the block to be included in the host chain and get the guarantee from the host chain consensus rules.
 
----
-## Observer Guarantees
-
-Below we will look at the guarantees that can be provided to observers.
-
-### Observers of the dynamically available chain
-
-What are the properties of such a system from different types of observers?
-- **Consensus-verifier light node**: Trust honest majority of rollup sequencer consensus
-- **Full-verifier light node**: Verifies consensus + data availability + state validity
-- **Full node**: Verify consensus + DA (download) + execute state, this could be other sequencers validating based on their view of the world if they want to build on the blocks etc.
-
-|             |          How Observers Get This Property           ||| 
- ------------ | :-----------: | :-----------: | :-----------: |
-Security Property  | Consensus-verifier light node | Full-verifier light node | Full node | 
-**Liveness**||||
-Ledger Growth  | Relying on the reliability of the sequencer selection mechanism and the P2P layer. If the sequencer set is properly decentralized, sequencers need to share all content of the block for it to be included. |||
-Data Availability | Honest majority L2 consensus | State Availability Sampling | Store full state |
-Censorship Resistance | Relying on the decentralization of the sequencer set or forced transactions. |||
-**Safety**||||
-Re-org resistance| High cost of re-org either economically or reputationally. |||
-Data Publication| Honest majority L2 consensus | Sample blocks | Download blocks |
-State Validity| Honest majority L2 consensus | Validate block proofs | Execute block |
-
-
-### Observers of the host chain
-
-Going forward to seeing it from the PoV of an observer watching the host chain, we will have:
-- **Consensus-verifier light node**: Trust honest majority of Ethereum consensus
-- **Full-verifier light node**: Verifies consensus + data availability + state validity. We assume that this is also enforced through a validating bridge to the rollup (the state transitioner).
-- **Full node**: Verify consensus + DA (download) + execute state
-
-|             |          How Nodes Get This Property           ||| 
-| ------------ | :-----------: | :-----------: | :-----------: |
-| Security Property  | Consensus-verifier light node | Full-verifier light node | Full node | 
-**Liveness**||||
-Ledger Growth  | L2 block production works, *or* we can eventually force blocks directly on L1. L1 consensus is reliable. |||
-Data Availability | Honest majority L1 consensus | State Availability Sampling | Store full state |
-Censorship Resistance | Relying on the decentralization of the validator set or social layer to eventually step in. |||
-**Safety**||||
-Re-org resistance| High cost of re-org either economically or reputationally |||
-Data Publication| Honest majority L1 consensus | Sample blocks | Download blocks |
-State Validity| Honest majority L1 consensus | Validate block proofs | Directly execute state (incl validate block proofs) |
-
----
-
 ## Data Availability and Publication
 
-
-As alluded to earlier, I don't think Availability and Publication is the same thing. Generally, what is called Availability is that it have been published on Ethereum (for Ethereum DA). At the moment you will have no issues getting a hold of the data because there are many full nodes and they behave nicely, but they could just not give you the data. New nodes are essentially bootstrapped by other friendly notes.
+As alluded to earlier, I am of the school of thought that Data Availability and Publication is different things. Generally, what is referred to as Availability is merely publication, e.g., whether or not the data have been published somewhere. For data published on Ethereum you will currently have no issues getting a hold of the data because there are many full nodes and they behave nicely, but they could are not guaranteed to be so. New nodes are essentially bootstrapped by other friendly nodes.
 
 With that out the way, I think it would be prudent to elaborate on my definition from earlier:
 
@@ -129,7 +83,7 @@ With that out the way, I think it would be prudent to elaborate on my definition
 - **Data Publication**: The data was available for a period when it was published.
 
 
-With this split, we can map them to the ways of including data that our rollup can receive the data. Below we have included only systems that are live or close to live where we have good ideas around the throughput and latency of the data.
+With this split, we can map the methods of which we can include data for our rollup. Below we have included only systems that are live or close to live where we have good ideas around the throughput and latency of the data. The latency is based on using Ethereum L1 as the home of the validating light node, and will therefore be the latency from being included in the data layer until statements can be included in the host chain.
 
 |Method | Publication | Availability | Quantity | Latency | Description |
 | ------- | :----------: | :----------: | :----------: | :-------: | :-------: |
@@ -167,7 +121,7 @@ Espresso is not yet live, so the following section is very much in the air, it m
 
 > My knowledge of hotshot is limited here. So keeping my commentary likewise limited until more educated in this matter.
 
-From their [benchmarks](https://docs.espressosys.com/sequencer/releases/doppio-testnet-release/benchmarks), seems like 25-30MB/s is their throughput with small commitees of 10 nodes depending on the full size of the node-set.
+From their [benchmarks](https://docs.espressosys.com/sequencer/releases/doppio-testnet-release/benchmarks), it seems like the system can support 25-30MB/s of throughput by using small committees of 10 nodes. The throughput further is impacted by the size of the node-set from where the committee is picked.
 
 While the committee is small, it seems like they can ensure honesty through the other nodes. But the nodes active here might need a lot of bandwidth to handle both DA Proposals and VID chunks.
 
@@ -185,15 +139,14 @@ The things that are important to **everyone** are the things that we have direct
 - L1 -> L2
 - L2 -> L1
 
-Some of these can be moved around between layers, and others are hard-linked to live on the host. For one, moving the cross-chain message L1 -> L2 and L2 -> L1 anywhere else than the host is up hill. Also, beware that the state for L2 -> L1, is split between the layers, as we don't really need them inside the L2, just as the combination.
+Some of these can be moved around between layers, and others are hard-linked to live on the host. For one, moving the cross-chain message L1 -> L2 and L2 -> L1 anywhere else than the host is fighting an up-hill battle. Also, beware that the state for L2 -> L1 messages is split between the data layers, as the messages don't strictly need to be available from the L2 itself, but must be for consumption on L1.
 
 We need to know what these things are to be able to progress the state. Without having the state, we don't know how the output of a state transition should look and cannot prove it.
 
 Beyond the above data that is important to everyone, we also have data that is important to *someone*, these are the logs, both unencrypted and encrypted. Knowing the historic logs are not required to progress the chain, but are important for the users to ensure that they learn about their notes etc.
 
-A transactions data publication requirements can pragmatically be computed as the below python snippet. Where `e` is **everyone** and `s` for *someone*. We will need a few more bytes to specify the sizes of these lists but it will land us in the right ball park. 
+A few transaction examples based on our E2E tests have the following data footprints. We will need a few more bytes to specify the sizes of these lists but it will land us in the right ball park. 
 
-A few transaction examples based on our E2E tests have the following data footprints. 
 >These were made back in august and are a bit outdated. They should be updated to also include more complex transactions.
 
 ```
@@ -223,7 +176,7 @@ For a more liberal estimation, lets suppose we emit 4 nullifiers, 4 new commitme
 ```python
 Tx ((512, 1036) bytes): comms=4, nulls=4, pubs=4, l2_to_l1=0, e_logs=988, u_logs=48
 ```
-Lets say that this is a decent guess, and get some ideas on how much we should expect to require at different throughput. 
+Assuming that this is a decent guess, and we can estimate the data requirements at different transaction throughput.
 
 ### Throughput Requirements
 
@@ -265,16 +218,16 @@ The security aspect in particular can become a problem if users deploy accounts 
 
 Since the individual user burden is high with multi-layer approach, we discard it as a viable option, as the probability of user failure is too high.
 
-Instead, the likely design, will be that an instance have a specific data layer, and that upgrading to a new instance allow for a new data layer. This ensures that composability is ensured as everything lives on the same data layer. Ossification is possible hence the upgrade mechanism [**REFERENCE**] don't "destroy" the old instance, so applications can be built to reject upgrades if they believe the new data layer is not secure enough.
+Instead, the likely design, will be that an instance has a specific data layer, and that "upgrading" to a new instance allows for a new data layer by deploying an entire instance. This ensures that composability is ensured as everything lives on the same data layer. Ossification is possible hence the upgrade mechanism [**REFERENCE**] doesn't "destroy" the old instance. This means that applications can be built to reject upgrades if they believe the new data layer is not secure enough and simple continue using the old.
 
 
 ## Privacy is Data Hungry - What choices do we really have?
 
 With the target of 10 transactions per second at launch, in which the transactions are likely to be more complex than the simple ones estimated here, some of the options simply cannot satisfy our requirements. 
 
-For Eip-4844, 10 TPS is really out the picture regardless of if we are being a "full L2" as people would understand it with as close to L1 guarantees as possible or even just keeping what is required for everyone.
+For one, EIP-4844 is out of the picture, as it cannot support the data requirements for 10 TPS, neither for everyone or someone data.
 
-At Danksharding with 64 blobs, we can fit in 50 tps but not both the data for **everyone** and *someone*. And since this is likely years in the making, it might not be something we can meaningfully count on to address our data needs.
+At Danksharding with 64 blobs, we could theoretically support 50 tps, but will not be able to address both the data for everyone and someone. Additionally this is likely years in the making, and might not be something we can meaningfully count on to address our data needs.
 
 With the current target, data cannot fit on the host, and we must work to integrate with external data layers. Of these, Celestia has the current most "out-the-box" solution, but Eigen-da and other alternatives are expected to come online in the future.
 
