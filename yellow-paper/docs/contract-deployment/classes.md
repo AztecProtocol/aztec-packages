@@ -22,13 +22,13 @@ The structure of a contract class is defined as:
 | version | u8 | Version identifier. Initially one, bumped for any changes to the contract class struct. |
 | registerer_address | AztecAddress | Address of the canonical contract used for registering this class. |
 | artifact_hash | Field | Hash of the entire contract artifact, including compiler information, proving backend, and all generated ACIR and Brillig. The specification of this hash is left to the compiler and not enforced by the protocol. |
-| constructor_function | PrivateFunction | Constructor for instances of this class. |
+| constructor_function | PrivateFunction | PublicFunction | Constructor for instances of this class. |
 | private_functions | PrivateFunction[] | List of private functions. |
 | public_functions | PublicFunction[] | List of public functions. |
 | unconstrained_functions | UnconstrainedFunction[] | List of unconstrained functions. |
 
 <!-- TODO: Do we need the artifact hash, if we're including the artifact hash of each individual function? -->
-<!-- NOTE: I'm deliberately omitting the portal bytecode hash here -->
+<!-- NOTE: I'm deliberately omitting the portal bytecode hash here. -->
 
 ### Private Function
 
@@ -50,24 +50,23 @@ The structure of a contract class is defined as:
 
 <!-- TODO: Expand on the bytecode commitment scheme and bytecode_hash, both here and for private fns. -->
 
+### Class Identifier
+
+The class identifier is computed by merkleizing the lists of private, public, and unconstrained functions separately, replacing the functions lists in the contract class struct with their respective tree roots, and then hashing the resulting struct.
+
 ## Registration
 
-A contract class is registered by calling a `register` function in a canonical `ClassRegisterer` contract. The `register` function receives a `ContractClass` struct as defined above, and performs the following checks:
+A contract class is registered by calling a private `register` function in a canonical `ClassRegisterer` contract. The `register` function receives a `ContractClass` struct as defined above, except for the `registerer_address`, and performs the following checks:
 
 - `version` is 1 for the initial release
-- `registerer_address` equals to self
 - `bytecode` for each function hashes to the `bytecode_hash`
 
 The `register` function then:
 
 - Emits the `ContractClass` struct as unencrypted events.
 - Computes the class identifier as the hash of the `ContractClass` object.
-- Returns the computed class identifier as a `new_contract_classes` public input.
+- Emits the computed class identifier as a nullifier.
 
-The kernel circuit then validates that the contract emitting the new contract classes is the canonical `ClassRegisterer`, and emits the `new_contract_classes` so they are added to the contract class tree in global state. Upon seeing a new contract class registration in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class.
+Upon seeing a new contract class registration event in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class.
 
-<!-- 
-TODO: Should register be private or public? Or both? 
-TODO: Define the format of the unencrypted event
-TODO: Define how to compute the hash
---> 
+Note that emitting the class identifier as a nullifier, instead of as an entry in the note hashes tree, allows public functions to prove non-existence of a class, which is required to support public contract instance deployments.
