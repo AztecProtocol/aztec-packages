@@ -107,6 +107,10 @@ barretenberg-acir-tests-bb.js:
 l1-contracts:
   buildDir: l1-contracts
 
+boxes-files:
+  buildDir: boxes
+  dockerfile: Dockerfile.files
+
 yarn-project-base:
   buildDir: yarn-project
   projectDir: yarn-project/yarn-project-base
@@ -118,6 +122,7 @@ yarn-project-base:
     - bb.js
     - noir
     - noir-packages
+    - boxes-files
 
 yarn-project:
   buildDir: yarn-project
@@ -160,7 +165,7 @@ cli:
 boxes:
   buildDir: boxes
   dependencies:
-    - yarn-project-prod
+    - yarn-project
   runDependencies:
     - aztec-sandbox
 

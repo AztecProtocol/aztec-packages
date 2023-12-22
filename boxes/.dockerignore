@@ -3,6 +3,6 @@
 dest
 node_modules
 .tsbuildinfo
-Dockerfile
+Dockerfile*
 .dockerignore
 docker-compose.yml
