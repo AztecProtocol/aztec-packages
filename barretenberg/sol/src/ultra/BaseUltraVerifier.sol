@@ -810,13 +810,14 @@ abstract contract BaseUltraVerifier {
                 mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, c_alpha, p))
                 c_alpha_base := mload(C_ALPHA_BASE_LOC)
                 result :=
-                    add(
+                    addmod(
                         result,
                         mulmod(
                             c_alpha_base,
                             mulmod(mload(L_END_LOC), add(z_omega_eval, sub(p, mload(PUBLIC_INPUT_DELTA_LOC))), p),
                             p
-                        )
+                        ),
+                        p
                     )
                 mstore(C_ALPHA_BASE_LOC, mulmod(c_alpha_base, c_alpha, p))
                 c_alpha_base := mload(C_ALPHA_BASE_LOC)
