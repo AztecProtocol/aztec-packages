@@ -2,5 +2,5 @@
 # Add a symlink to this somewhere in your path.
 # Now you can run aztec-cli-dev anywhere to execute latest code, no 'yarn build' required.
 SCRIPT_PATH=$(dirname $(realpath $0))
-export TS_NODE_PROJECT="$SCRIPT_PATH/tsconfig.json"
-node --no-warnings --loader ts-node/esm $SCRIPT_PATH/src/bin/index.ts $@
+(cd $SCRIPT_PATH && yarn tsc -b)
+node --no-warnings $SCRIPT_PATH/dest/bin/index.js $@
