@@ -5,7 +5,7 @@
  * lookups (for explanation on how to define them, see "relation_definer.hpp")
  *
  * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
- * witnesses, selectors or function of these) is contained withing a particular set. It is a relative of set
+ * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
  * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
  * are being looked up from. In this relation template we use the following terminology:
  * + READ - the action of looking up the value in the table
@@ -32,12 +32,40 @@ namespace proof_system::honk::sumcheck {
 template <typename Settings, typename FF_> class GenericLookupRelationImpl {
   public:
     using FF = FF_;
-    // Read and write terms counts should stay set to 1 unless we want to permute several columns at once as accumulated
-    // sets (not as tuples).
+
+    // Read terms specified how many maximum lookups can be performed in 1 row
     static constexpr size_t READ_TERMS = Settings::READ_TERMS;
+
+    // Looked up entries can be a basic tuple, a scaled tuple or completely arbitrary
+    enum READ_TERM_TYPES { READ_BASIC_TUPLE = 0, READ_SCALED_TUPLE, READ_ARBITRARY };
+
+    // Write terms specifies how many insertions into the lookup table can be performed in 1 row
     static constexpr size_t WRITE_TERMS = Settings::WRITE_TERMS;
 
+    // Entries put into the table are ever defined as a tuple or constructed arbitrarily
+    enum WRITE_TERM_TYPES { WRITE_BASIC_TUPLE = 0, WRITE_ARBITRARY };
+
+    // Lookup tuple size specifies how many values are bundled together to represent a single entry in the lookup table.
+    // For example, it would be 1 for a range constraint lookup, or 3 for XOR lookup
     static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
+
+    // Compute the length of the inverse polynomial correctness sub-relation MAX(product of terms * inverse, inverse
+    // exists polynomial) + 1;
+    static constexpr size_t FIRST_SUBRELATION_LENGTH =
+        std::max((READ_TERMS + WRITE_TERMS + 1), Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) + 1;
+
+    // Read term degree is dependent on what type of read term we use
+    static constexpr size_t READ_TERM_DEGREE = Settings::READ_TERM_TYPE == READ_BASIC_TUPLE ? 1
+                                               : Settings::READ_TERM_TYPE == READ_SCALED_TUPLE
+                                                   ? 2
+                                                   : Settings::READ_TERM_DEGREE;
+    static_assert(READ_TERM_DEGREE != 0);
+
+    // Write  term degree is dependent on what type of write term we use
+    static constexpr size_t WRITE_TERM_DEGREE =
+        Settings::WRITE_TERM_TYPE == WRITE_BASIC_TUPLE ? 1 : Settings::WRITE_TERM_DEGREE;
+    // Compute the length of the log-derived term subrelation
+    static constexpr size_t SECOND_SUBRELATION_LENGTH = std::max(READ_TERM_DEGREE + 1, WRITE_TERM_DEGREE + 2) + 1;
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
 
@@ -197,9 +225,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         static_assert(read_index < READ_TERMS);
         static_assert(Settings::READ_TERM_TYPE < 3);
         static_assert(Settings::READ_TERM_TYPE >= 0);
-        enum READ_TERM_TYPES { BASIC_TUPLE = 0, SCALED_TUPLE, ARBITRARY };
 
-        if constexpr (Settings::READ_TERM_TYPE == BASIC_TUPLE) {
+        if constexpr (Settings::READ_TERM_TYPE == READ_BASIC_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
 
@@ -213,7 +240,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
                 [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
             const auto& gamma = params.gamma;
             return result + gamma;
-        } else if constexpr (Settings::READ_TERM_TYPE == SCALED_TUPLE) {
+        } else if constexpr (Settings::READ_TERM_TYPE == READ_SCALED_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
 
@@ -253,15 +280,13 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         static_assert(Settings::WRITE_TERM_TYPE >= 0);
         static_assert(Settings::READ_TERM_TYPE < 3);
         static_assert(Settings::READ_TERM_TYPE >= 0);
-        enum READ_TERM_TYPES { BASIC_TUPLE = 0, SCALED_TUPLE, ARBITRARY };
-        enum WRITE_TERM_TYPES { WRITE_BASIC_TUPLE = 0, WRITE_ARBITRARY };
 
         using View = typename Accumulator::View;
         // Write term offset is dependet on which read term computation method is used
         constexpr size_t WRITE_TERMS_OFFSET = LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX +
-                                              (Settings::READ_TERM_TYPE == BASIC_TUPLE    ? LOOKUP_TUPLE_SIZE
-                                               : Settings::READ_TERM_TYPE == SCALED_TUPLE ? LOOKUP_TUPLE_SIZE * 3
-                                                                                          : 0);
+                                              (Settings::READ_TERM_TYPE == READ_BASIC_TUPLE    ? LOOKUP_TUPLE_SIZE
+                                               : Settings::READ_TERM_TYPE == READ_SCALED_TUPLE ? LOOKUP_TUPLE_SIZE * 3
+                                                                                               : 0);
         if constexpr (Settings::WRITE_TERM_TYPE == WRITE_BASIC_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
