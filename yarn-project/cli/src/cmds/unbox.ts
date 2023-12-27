@@ -1,9 +1,19 @@
 import { LogFn } from '@aztec/foundation/log';
 
 import { parse, stringify } from '@iarna/toml';
-import { cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { appendFileSync, cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+const resolutions: { [key: string]: string } = {
+  '@aztec/aztec.js': 'portal:.aztec-packages/yarn-project/aztec.js',
+  '@aztec/circuits.js': 'portal:.aztec-packages/yarn-project/circuits.js',
+  '@aztec/foundation': 'portal:.aztec-packages/yarn-project/foundation',
+  '@aztec/bb.js': 'portal:.aztec-packages/barretenberg/ts',
+  '@aztec/types': 'portal:.aztec-packages/yarn-project/types',
+  '@aztec/ethereum': 'portal:.aztec-packages/yarn-project/ethereum',
+};
 
 /**
  * Unboxes one of the pre-created projects in /boxes.
@@ -23,12 +33,20 @@ export function unbox(boxName: string, directory: string | undefined, cliVersion
   // We are considered a release if the COMMIT_TAG env var is set to something.
   const isRelease = !!process.env.COMMIT_TAG;
   if (isRelease) {
-    packageJsonUpdatePackageVersions(`${destPath}/package.json`, cliVersion);
+    packageJsonUpdatePackageVersions(`${destPath}/package.json`, () => cliVersion);
     nargoTomlUpdateToGithubDeps(`${destPath}/src/contracts/Nargo.toml`, cliVersion);
   } else {
+    // Allows testing of unbox against whatever the local code is.
+    // First copy in dev dependencies to .aztec-packages.
     copyDependenciesToBox(dirName, destPath);
-    packageJsonInjectDevPortals(`${destPath}/package.json`);
+    // Update config to point to dev dependencies.
+    packageJsonInjectLocalResolutions(`${destPath}/package.json`);
+    packageJsonUpdatePackageVersions(`${destPath}/package.json`, dep => resolutions[dep]);
     nargoTomlUpdateToDevPath(`${destPath}/src/contracts/Nargo.toml`);
+    // Set box to use yarn berry, and node-modules linkage.
+    process.chdir(destPath);
+    execSync(`yarn set version berry`, { stdio: 'inherit' });
+    appendFileSync(`.yarnrc.yml`, 'nodeLinker: node-modules');
   }
 }
 
@@ -59,32 +77,26 @@ function copyDependenciesToBox(dirName: string, destPath: string) {
 /**
  *
  */
-function packageJsonInjectDevPortals(path: string) {
+function packageJsonInjectLocalResolutions(path: string) {
   const data = readFileSync(path, 'utf-8');
   const packageJson = JSON.parse(data);
-  packageJson.resolution = {
-    '@aztec/aztec.js': 'portal:.aztec-packages/yarn-project/aztec.js',
-    '@aztec/circuits.js': 'portal:.aztec-packages/yarn-project/circuits.js',
-    '@aztec/foundation': 'portal:.aztec-packages/yarn-project/foundation',
-    '@aztec/bb.js': 'portal:.aztec-packages/barretenberg/ts',
-    '@aztec/types': 'portal:.aztec-packages/yarn-project/types',
-    '@aztec/ethereum': 'portal:.aztec-packages/yarn-project/ethereum',
-  };
+  packageJson.resolutions = resolutions;
   writeFileSync(path, JSON.stringify(packageJson, null, 2), 'utf-8');
 }
 
 /**
+ * Call fn to get new version for each known aztec package.
  * TODO: Should this be better done with release-please?
  */
-function packageJsonUpdatePackageVersions(path: string, cliVersion: string) {
+function packageJsonUpdatePackageVersions(path: string, fn: (dep: string) => string) {
   const data = readFileSync(path, 'utf-8');
   const packageJson = JSON.parse(data);
 
   ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'].forEach(section => {
     if (packageJson[section]) {
       Object.keys(packageJson[section]).forEach(dependency => {
-        if (dependency.startsWith('@aztec/')) {
-          packageJson[section][dependency] = `^${cliVersion}`;
+        if (resolutions[dependency]) {
+          packageJson[section][dependency] = fn(dependency);
         }
       });
     }
