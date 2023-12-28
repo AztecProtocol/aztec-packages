@@ -234,7 +234,7 @@ Data that aids in the verifications carried out in this circuit or later iterati
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md) and the [tail public kernel circuit](./public-kernel-tail.md).
+The structure of this public inputs aligns with that of [tail private kernel circuit](./private-kernel-tail.md), [initial public kernel circuit](./public-kernel-initial.md), and [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 

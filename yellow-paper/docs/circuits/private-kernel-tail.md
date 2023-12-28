@@ -95,32 +95,26 @@ For each hint _hints[i]_ at index _i_, this circuit locates the item at index _i
 
 1. For public call requests:
 
-   The _counter_end_ for a public call request is determined by the overall count of call requests, reads and writes, note hashes and nullifiers within its scope, including those nested within its child function executions. This calculation, performed in advance of executing this circuit, provides the necessary input for the recalibration process.
+   While the _counter_start_ of a public call request is initially assigned in the private function circuit to ensure proper ordering within the transaction, it should be modified in this step. As using _counter_start_ values obtained from private function circuits may leak information.
 
-   This circuit enables the adjustment of counters, ensuring that subsequent public kernels can be executed with the correct counter range.
+   The counters in the **ordered** public call requests in the public inputs have been recalibrated. This circuit validates them through the following checks:
 
-   An array _public_call_counters_ is provided through private inputs. The reassignment process unfolds as follows:
-
-   1. Check that items in _public_call_counters_ are in descending order:
-      - The _counter_end_ of each item must be greater than its _counter_start_.
-      - The _counter_end_ of the second and subsequent items must be less than the _counter_start_ of the previous item.
-   2. Ensure that the _counter_start_ of the last item in _public_call_counters_ is _1_.
-   3. Assign the _counter_start_ and _counter_end_ of the item at index _i_ in _public_call_counters_ to the corresponding item at index _i_ in the [ordered](#verifying-ordered-arrays) public call requests.
+   - The _counter_start_ of the item at index _i_ must equal the _counter_start_ of the item at index _i + 1_ **plus 1**.
+   - The _counter_start_ of the last item must be _1_.
 
    > It's crucial for the _counter_start_ of the last item to be _1_, as it's assumed in the [tail public kernel circuit](./public-kernel-tail.md#grouping-update-requests) that no update requests have a counter _1_.
 
-   > While the _counter_start_ of public call request is assigned in the private function circuit to preserve the order, it's important to acknowledge that it may be modified in this step. As using _counter_start_ populated from private function circuits maybe leak information. It's recommended to adept the values that mirror the incremented amount on the public side without including any side effects on the private side.
+   > The _counter_end_ for a public call request is determined by the overall count of call requests, reads and writes, note hashes and nullifiers within its scope, including those nested within its child function executions. This calculation will be performed by the sequencer for the executions of public function calls.
 
 2. For new contract contexts:
 
-   If there's at least one non-empty public call request, the new contract contexts will be carried forward for processing in the public kernels. However, the counters in new contract contexts must be adjusted to reflect the changes to the counters for public call requests in the previous step.
+   If there's at least one non-empty public call request, the new contract contexts are forwarded for processing in the public kernels. However, the counters within new contract contexts must be adjusted to reflect changes in the counters for public call requests from the previous step.
 
    For each new contract context in the transient accumulated data:
 
-   1. If its counter is greater than the **old** _counter_start_ of the public call request at index _0_, update it to be the **new** _counter_end_ of the public call request and skip the remaining steps.
-   2. Find the public call request at index _i_ where the **old** _counter_start_ is greater than the counter.
-   3. Check that the **old** _counter_start_ of the public call request at index _i + 1_ is less than the counter.
-   4. Update its counter to be the **new** _counter_start_ of the public call request at index _i_.
+   1. If its counter is greater than the **old** _counter_start_ of the public call request at index _0_, update it to be the **new** _counter_start_ of that public call request **plus 1** and skip the remaining steps.
+   2. Locate the public call request at index _i_ where the **old** _counter_start_ is greater than the counter, and the **old** _counter_start_ of the public call request at index _i + 1_ is less than the counter.
+   3. Update its counter to be the **new** _counter_start_ of the public call request at index _i_.
 
 ### Validating Public Inputs
 
@@ -176,11 +170,10 @@ The data of the previous kernel iteration:
 Data that aids in the verifications carried out in this circuit:
 
 - Sorted indices of public call requests.
-- Counters for public call requests.
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [iterative public kernel circuit](./public-kernel-iterative.md) and the [tail public kernel circuit](./public-kernel-tail.md).
+The structure of this public inputs aligns with that of [initial public kernel circuit](./public-kernel-initial.md), [iterative public kernel circuit](./public-kernel-iterative.md), and [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 
