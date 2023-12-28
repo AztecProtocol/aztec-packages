@@ -6,7 +6,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 ## Requirements
 
-The **tail** circuit refrains from processing individual public function calls. Instead, it integrates the results of iterative public kernel circuit and performs additional verification and processing necessary for generating the final public inputs.
+The **tail** circuit refrains from processing individual public function calls. Instead, it integrates the results of inner public kernel circuit and performs additional verification and processing necessary for generating the final public inputs.
 
 ### Verification of the Previous Iteration
 
@@ -16,7 +16,7 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can only be:
 
-- [Iterative public kernel proof](./public-kernel-iterative.md).
+- [Inner public kernel proof](./public-kernel-inner.md).
 
 #### Ensuring the previous iteration is the last.
 
@@ -239,7 +239,7 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It must be:
-  - [Iterative public kernel circuit](./public-kernel-iterative.md).
+  - [Inner public kernel circuit](./public-kernel-inner.md).
 - Public inputs of the proof.
 - Verification key of the circuit.
 - Membership witness for the verification key.
@@ -266,7 +266,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md), [initial public kernel circuit](./public-kernel-initial.md), and the [iterative public kernel circuit](./public-kernel-iterative.md).
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md), the [initial public kernel circuit](./public-kernel-initial.md), and the [inner public kernel circuit](./public-kernel-inner.md).
 
 ### Accumulated Data
 

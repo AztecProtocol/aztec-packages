@@ -1,4 +1,4 @@
-# Public Kernel Circuit - Iterative
+# Public Kernel Circuit - Inner
 
 :::info Disclaimer
 This is a draft. These requirements need to be considered by the wider team, and might change significantly before a mainnet release.
@@ -16,8 +16,8 @@ It verifies that the previous iteration was executed successfully with the given
 
 The preceding proof can be:
 
-- [tail private kernel proof](./private-kernel-tail.md).
-- Iterative public kernel proof.
+- [Initial public kernel proof](./public-kernel-initial.md).
+- Inner public kernel proof.
 
 ### Processing Public Function Call
 
@@ -205,8 +205,8 @@ It verifies that the constant data matches the one in the previous iteration's p
 The data of the previous kernel iteration:
 
 - Proof of the kernel circuit. It could be one of the following:
-  - [Tail private kernel circuit](./private-kernel-tail.md).
-  - Iterative public kernel circuit.
+  - [Initial public kernel circuit](./public-kernel-initial.md).
+  - Inner public kernel circuit.
 - Public inputs of the proof.
 - Verification key of the kernel circuit.
 - Membership witness for the verification key.
@@ -234,7 +234,7 @@ Data that aids in the verifications carried out in this circuit or later iterati
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of [tail private kernel circuit](./private-kernel-tail.md), [initial public kernel circuit](./public-kernel-initial.md), and [tail public kernel circuit](./public-kernel-tail.md).
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md), the [initial public kernel circuit](./public-kernel-initial.md), and the [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 

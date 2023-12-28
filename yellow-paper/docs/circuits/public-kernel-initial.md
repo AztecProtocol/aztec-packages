@@ -1,4 +1,4 @@
-# Public Kernel Circuit - Iterative
+# Public Kernel Circuit - Initial
 
 :::info Disclaimer
 This is a draft. These requirements need to be considered by the wider team, and might change significantly before a mainnet release.
@@ -75,7 +75,7 @@ The data of the previous kernel iteration:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of [tail private kernel circuit](./private-kernel-tail.md), [iterative public kernel circuit](./public-kernel-iterative.md), and [tail public kernel circuit](./public-kernel-tail.md).
+The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md), the [inner public kernel circuit](./public-kernel-inner.md), and the [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 

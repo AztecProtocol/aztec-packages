@@ -173,7 +173,7 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of [initial public kernel circuit](./public-kernel-initial.md), [iterative public kernel circuit](./public-kernel-iterative.md), and [tail public kernel circuit](./public-kernel-tail.md).
+The structure of this public inputs aligns with that of the [initial public kernel circuit](./public-kernel-initial.md), the [inner public kernel circuit](./public-kernel-inner.md), and the [tail public kernel circuit](./public-kernel-tail.md).
 
 ### Constant Data
 
