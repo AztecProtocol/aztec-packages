@@ -50,5 +50,14 @@ RUN ARCH= && \
     --exclude "*/include/*" && \
     rm "node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
     node --version
+# Yarn is used for unboxing.
+ENV YARN_VERSION=1.22.19 
+RUN curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" && \
+    mkdir -p /opt && \
+    tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/ && \
+    ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn && \
+    ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg && \
+    rm yarn-v$YARN_VERSION.tar.gz && \
+    yarn --version
 COPY --from=builder /usr/src /usr/src
 ENTRYPOINT ["/usr/bin/node"]

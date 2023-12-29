@@ -106,7 +106,7 @@ function packageJsonUpdatePackageVersions(path: string, fn: (dep: string) => str
 }
 
 /**
- *
+ * Adjust the dependency paths from pointing to yarn-project, to the tagged version in github.
  */
 function nargoTomlUpdateToGithubDeps(path: string, cliVersion: string) {
   const data = readFileSync(path, 'utf-8');
@@ -132,7 +132,7 @@ function nargoTomlUpdateToGithubDeps(path: string, cliVersion: string) {
 }
 
 /**
- *
+ * Adjust the dependency paths from pointing to yarn-project, to the code copied into .aztec-packages.
  */
 function nargoTomlUpdateToDevPath(path: string) {
   const data = readFileSync(path, 'utf-8');
