@@ -20,6 +20,15 @@ interface Options {
  *
  */
 export function addNoirCompilerCommanderActions(program: Command, log: LogFn = () => {}) {
+  addCompileCommanderAction(program, log);
+  addGenerateTypescriptCommanderAction(program, log);
+  addGenerateNoirInterfaceCommanderAction(program, log);
+}
+
+/**
+ *
+ */
+export function addCompileCommanderAction(program: Command, log: LogFn = () => {}) {
   program
     .command('compile')
     .argument('<project-path>', 'Path to the bin or Aztec.nr project to compile')
@@ -33,7 +42,12 @@ export function addNoirCompilerCommanderActions(program: Command, log: LogFn = (
       const { compileNoir } = await import('./compile_noir.js');
       await compileNoir(projectPath, options, log);
     });
+}
 
+/**
+ *
+ */
+export function addGenerateTypescriptCommanderAction(program: Command, log: LogFn = () => {}) {
   program
     .command('generate-typescript')
     .argument('<project-path>', 'Path to the noir project')
@@ -49,7 +63,12 @@ export function addNoirCompilerCommanderActions(program: Command, log: LogFn = (
       const { generateTypescriptInterface } = await import('./generate_typescript_interface.js');
       await generateTypescriptInterface(projectPath, options, log);
     });
+}
 
+/**
+ *
+ */
+export function addGenerateNoirInterfaceCommanderAction(program: Command, log: LogFn = () => {}) {
   return program
     .command('generate-noir-interface')
     .argument('<project-path>', 'Path to the noir project')

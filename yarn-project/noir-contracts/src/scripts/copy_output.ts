@@ -49,7 +49,8 @@ function writeToProject(artifact: any) {
  * @param contractName - The name of the contract
  */
 function processNoirCompilerArtifact(projectName: string, contractName: string) {
-  const artifactJsonFilePath = `src/contracts/${projectName}/target/${contractName}.json`;
+  // const artifactJsonFilePath = `src/contracts/${projectName}/target/${contractName}.json`;
+  const artifactJsonFilePath = `target/${projectName}-${contractName}.json`;
   const artifactJson: ContractArtifact = JSON.parse(readFileSync(artifactJsonFilePath).toString());
   return artifactJson;
 }
