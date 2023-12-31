@@ -323,11 +323,11 @@ class ExampleLookupBasedRangeConstraintSettings {
 
         return std::forward_as_tuple(
             in.lookup_range_constraint_inverses,   /* The polynomial containing the inverse product*/
-            in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
-            in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
-            in.lookup_is_table_entry,              /* Enables adding second set to the sum */
-            in.range_constrained_column,           /* The first set column */
-            in.lookup_range_table_entries);
+            in.lookup_range_constraint_read_count, /* The polynomial containing number of reads of each table entry */
+            in.lookup_is_range_constrained,        /* Enables lookup action in this row */
+            in.lookup_is_table_entry,              /* Enables adding an entry to the table */
+            in.range_constrained_column,           /* Column being looked up */
+            in.lookup_range_table_entries);        /* Column containing table entries*/
     }
     /**
      * @brief Get all the entities for the lookup when only need to read them
@@ -339,14 +339,13 @@ class ExampleLookupBasedRangeConstraintSettings {
      */
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-
         return std::forward_as_tuple(
             in.lookup_range_constraint_inverses,   /* The polynomial containing the inverse product*/
-            in.lookup_range_constraint_read_count, /* The polynomial enabling the product check subrelation */
-            in.lookup_is_range_constrained,        /* Enables adding first set to the sum */
-            in.lookup_is_table_entry,              /* Enables adding second set to the sum */
-            in.range_constrained_column,           /* The first set column */
-            in.lookup_range_table_entries);
+            in.lookup_range_constraint_read_count, /* The polynomial containing number of reads of each table entry */
+            in.lookup_is_range_constrained,        /* Enables lookup action in this row */
+            in.lookup_is_table_entry,              /* Enables adding an entry to the table */
+            in.range_constrained_column,           /* Column being looked up */
+            in.lookup_range_table_entries);        /* Column containing table entries*/
     }
 };
 
