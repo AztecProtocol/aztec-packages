@@ -6,7 +6,7 @@ import { AuthWitness, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
 
 import { AuthWitnessProvider } from '../account/interface.js';
 import { generatePublicKey } from '../utils/index.js';
-import SchnorrSingleKeyAccountContractArtifact from './artifacts/schnorr_single_key_account_contract.json' assert { type: 'json' };
+import SchnorrSingleKeyAccountContractArtifact from './artifacts/SchnorrSingleKeyAccount.json' assert { type: 'json' };
 import { BaseAccountContract } from './base_account_contract.js';
 
 /**
@@ -33,7 +33,10 @@ export class SingleKeyAccountContract extends BaseAccountContract {
  * by reconstructing the current address.
  */
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
-  constructor(private privateKey: GrumpkinPrivateKey, private partialAddress: PartialAddress) {}
+  constructor(
+    private privateKey: GrumpkinPrivateKey,
+    private partialAddress: PartialAddress,
+  ) {}
 
   createAuthWitness(message: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();

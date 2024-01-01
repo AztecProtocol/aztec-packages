@@ -1,22 +1,8 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-set -euo pipefail;
+# The wasm way. Commenting out for now as it's simpler to just use nargo.
+# ./scripts/compile.sh $(./scripts/get_all_contracts.sh)
 
-# Compiles Aztec.nr contracts in parallel, bubbling any compilation errors
-
-export self_dir=$(dirname "$(realpath $0)")
-export COMPILER="$self_dir/../../noir-compiler/dest/cli.js"
-
-build() {
-  CONTRACT_NAME=$1
-  CONTRACT_FOLDER="$self_dir/../src/contracts/${CONTRACT_NAME}_contract"
-  echo "Compiling $CONTRACT_NAME..."
-  rm -rf ${CONTRACT_FOLDER}/target
-
-  node --no-warnings "$COMPILER" compile "$CONTRACT_FOLDER"
-}
-
-export -f build
-
-# run nproc builds at a time
-echo "$@" | xargs -n 1 -P $(nproc) bash -c 'build "$0"'
+# TODO: Move this compilation phase out of yarn-project to own job, and ingest abis.
+../../noir/target/release/nargo compile --silence-warnings
