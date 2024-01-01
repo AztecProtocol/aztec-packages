@@ -1,6 +1,7 @@
 #!/bin/bash
 # Sadly, yarn-project expects ABI files in a format different to what is output from nargo.
-# We need to transform every ABI into this adjusted format.
+# This provides a tool to quickly do the transform with jq.
+# It's not currently used as the transform is done in TypeScript when we generate the contract wrapper.
 # TODO: Why don't our contract classes just work with noir abis?
 #
 # Lowercase function_type value.
