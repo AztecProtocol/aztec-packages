@@ -11,9 +11,6 @@
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../noir-compiler"
     }
   ],
   "include": [
