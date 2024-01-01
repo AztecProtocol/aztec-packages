@@ -30,7 +30,7 @@ function generateFunctionArtifact(fn: NoirFunctionEntry): FunctionArtifact {
   }
 
   // If the function is secret, the return is the public inputs, which should be omitted
-  const returnTypes = functionType === FunctionType.SECRET ? [] : [fn.abi.return_type];
+  const returnTypes = functionType === FunctionType.SECRET ? [] : [fn.abi.return_type.abi_type];
 
   return {
     name: fn.name,
@@ -72,7 +72,6 @@ export function generateProgramArtifact(
     // eslint-disable-next-line camelcase
     noir_version,
     hash: program.hash,
-    backend: program.backend,
     abi: program.abi,
 
     // TODO: should we parse and write the debug?  it doesn't seem to be in the nargo output
@@ -89,6 +88,10 @@ export function generateContractArtifact(
   { contract, debug }: NoirContractCompilationArtifacts,
   aztecNrVersion?: string,
 ): ContractArtifact {
+  const constructorArtifact = contract.functions.find(({ name }) => name === 'constructor');
+  if (constructorArtifact === undefined) {
+    throw new Error('Contract must have a constructor function');
+  }
   if (contract.functions.length > 2 ** FUNCTION_TREE_HEIGHT) {
     throw new Error(`Contract can only have a maximum of ${2 ** FUNCTION_TREE_HEIGHT} functions`);
   }

@@ -43,7 +43,7 @@ Now inside `packages` create a new directory called `aztec-contracts`
 
 Inside `aztec-contracts`, create the following file structure:
 
-```
+```tree
 aztec-contracts
 └── token_bridge
     ├── Nargo.toml
@@ -64,11 +64,12 @@ type = "contract"
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
 safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/safe-math"}
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
 ```
 
 We will also be writing some helper functions that should exist elsewhere so we don't overcomplicated our contract. In `src` create two more files - one called `util.nr` and one called `token_interface` - so your dir structure should now look like this:
 
-```
+```tree
 aztec-contracts
 └── token_bridge
     ├── Nargo.toml

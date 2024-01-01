@@ -3,7 +3,8 @@ import {
   ContractArtifact,
   FunctionArtifact,
   isAztecAddressStruct,
-  isEthereumAddressStruct,
+  isEthAddressStruct,
+  isFunctionSelectorStruct,
 } from '@aztec/foundation/abi';
 
 import compact from 'lodash.compact';
@@ -26,11 +27,14 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
     case 'array':
       return `${abiTypeToTypescript(type.type)}[]`;
     case 'struct':
-      if (isEthereumAddressStruct(type)) {
+      if (isEthAddressStruct(type)) {
         return 'EthAddressLike';
       }
       if (isAztecAddressStruct(type)) {
         return 'AztecAddressLike';
+      }
+      if (isFunctionSelectorStruct(type)) {
+        return 'FunctionSelectorLike';
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
@@ -67,21 +71,22 @@ function generateMethod(entry: FunctionArtifact) {
 function generateDeploy(input: ContractArtifact) {
   const ctor = input.functions.find(f => f.name === 'constructor');
   const args = (ctor?.parameters ?? []).map(generateParameter).join(', ');
-  const artifactName = `${input.name}ContractArtifact`;
+  const contractName = `${input.name}Contract`;
+  const artifactName = `${contractName}Artifact`;
 
   return `
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${input.name}Contract>(Point.ZERO, wallet, ${artifactName}, Array.from(arguments).slice(1));
+    return new DeployMethod<${input.name}Contract>(Point.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, ${args}) {
-    return new DeployMethod<${input.name}Contract>(publicKey, wallet, ${artifactName}, Array.from(arguments).slice(2));
+    return new DeployMethod<${input.name}Contract>(publicKey, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
   }
   `;
 }
@@ -189,6 +194,7 @@ import {
   EthAddressLike,
   FieldLike,
   Fr,
+  FunctionSelectorLike,
   Point,
   PublicKey,
   Wallet,

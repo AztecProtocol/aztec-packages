@@ -3,21 +3,14 @@ import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import {
-  ContractData,
-  ExtendedContractData,
-  GetUnencryptedLogsResponse,
-  L2Block,
-  L2BlockL2Logs,
-  L2Tx,
-  LogFilter,
-  LogType,
-  MerkleTreeId,
-  SequencerConfig,
-  StateInfoProvider,
-  Tx,
-  TxHash,
-} from '../index.js';
+import { ContractData, ExtendedContractData } from '../contract_data.js';
+import { L2Block } from '../l2_block.js';
+import { L2Tx } from '../l2_tx.js';
+import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
+import { MerkleTreeId } from '../merkle_tree_id.js';
+import { Tx, TxHash } from '../tx/index.js';
+import { SequencerConfig } from './configs.js';
+import { StateInfoProvider } from './state_info_provider.js';
 
 /**
  * The aztec node.
@@ -37,12 +30,6 @@ export interface AztecNode extends StateInfoProvider {
    * @returns The blocks requested.
    */
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
-
-  /**
-   * Fetches the current block number.
-   * @returns The block number.
-   */
-  getBlockNumber(): Promise<number>;
 
   /**
    * Method to fetch the version of the rollup the node is connected to.
@@ -128,9 +115,9 @@ export interface AztecNode extends StateInfoProvider {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot (or undefined if not found).
+   * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr | undefined>;
+  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Returns the current committed roots for the data trees.

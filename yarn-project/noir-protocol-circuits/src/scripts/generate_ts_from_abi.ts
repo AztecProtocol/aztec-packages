@@ -111,9 +111,13 @@ function generateStructInterfaces(type: ABIType, output: Set<string>): string {
   let result = '';
 
   // Edge case to handle the array of structs case.
-  if (type.kind === 'array' && type.type.kind === 'struct' && !output.has(getLastComponentOfPath(type.type.path))) {
+  if (
+    type.kind === 'array' &&
+    ((type.type.kind === 'struct' && !output.has(getLastComponentOfPath(type.type.path))) || type.type.kind === 'array')
+  ) {
     result += generateStructInterfaces(type.type, output);
   }
+
   if (type.kind !== 'struct') {
     return result;
   }
@@ -163,8 +167,8 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
   // Generating Return type, if it exists
   //
   if (abiObj.return_type != null) {
-    result += generateStructInterfaces(abiObj.return_type, outputStructs);
-    result += `export type ReturnType = ${abiTypeToTs(abiObj.return_type)};\n`;
+    result += generateStructInterfaces(abiObj.return_type.abi_type, outputStructs);
+    result += `export type ReturnType = ${abiTypeToTs(abiObj.return_type.abi_type)};\n`;
   }
 
   // Generating Input type
