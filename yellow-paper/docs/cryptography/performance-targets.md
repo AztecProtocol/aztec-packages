@@ -76,7 +76,7 @@ This sets the proof size limit to 819.2 kb per second per 100 transactions => 82
 
 As a rough estimate, we can assume the non-proof tx data will be irrelevant compared to 82kb, so we target a proof size of $80$ kilobytes for the MVV.
 
-To support 100 transactions per second we would rquire a proof size of $8$ kilobytes.
+To support 100 transactions per second we would require a proof size of $8$ kilobytes.
 
 ### Prover time
 
@@ -173,7 +173,7 @@ For a rollup block containing $2^d$ transactions, we need to compute 2-to-1 roll
 
 Note: this excludes network coordination costs, latency costs, block construction costs, public VM proof construction costs (must be computed before the 2-to-1 rollup proofs), cost to compute the final UltraPlonk proof.
 
-To accomodate the above costs, we assume can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
+To accomodate the above costs, we assume that we can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
 
 | block size | number of successive 2-to-1 rollup proofs | number of parallel Prover machines required for base layer proofs | time required to construct a rollup proof |
 | --- | --- | --- | --- |
