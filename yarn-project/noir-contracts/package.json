@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./artifacts": "./dest/artifacts/index.js",
-    "./types": "./dest/types/index.js"
+    ".": "./dest/index.js",
+    "./*": "./dest/*.js"
   },
   "scripts": {
     "build": "yarn clean && ./scripts/compile.sh && ./scripts/generate-types.sh && tsc -b",
