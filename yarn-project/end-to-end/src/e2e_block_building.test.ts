@@ -11,8 +11,8 @@ import {
   isContractDeployed,
 } from '@aztec/aztec.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { TestContractArtifact } from '@aztec/noir-contracts/artifacts';
-import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TestContractArtifact, TestContract } from '@aztec/noir-contracts/Test';
+import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import times from 'lodash.times';
 

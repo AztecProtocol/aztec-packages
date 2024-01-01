@@ -9,9 +9,8 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base as builder
 # Copy in the entire workspace.
 COPY . .
 
-RUN yarn workspace @aztec/foundation build
 RUN yarn workspace @aztec/noir-compiler build
-RUN yarn workspace @aztec/noir-contracts noir:build:all
+RUN yarn workspace @aztec/noir-contracts build
 RUN yarn workspace @aztec/noir-protocol-circuits noir:build
 RUN yarn tsc -b
 

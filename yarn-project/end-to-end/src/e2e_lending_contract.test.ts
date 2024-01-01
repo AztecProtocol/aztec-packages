@@ -11,7 +11,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts/types';
+import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts';
 
 import { jest } from '@jest/globals';
 
