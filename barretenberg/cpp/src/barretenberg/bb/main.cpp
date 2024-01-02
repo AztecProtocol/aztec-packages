@@ -46,7 +46,7 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 void init_reference_strings()
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size
-    size_t subgroup_size = 65536;
+    size_t subgroup_size = 131072;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
     // Must +1!
