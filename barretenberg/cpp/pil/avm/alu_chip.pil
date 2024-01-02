@@ -77,6 +77,26 @@ namespace aluChip(256);
     pol sum_96 =  sum_64 + 2**64 * alu_s9 + 2**72 * alu_s10 + 2**80 * alu_s11 + 2**88 * alu_s12;
     pol sum_128 = sum_96 + 2**96 * alu_s13 + 2**104 * alu_s14 + 2**112 * alu_s15 + 2**120 * alu_s16;
 
+    // ========= EXPLANATIONS =================================================
+    // Main trick for arithmetic operations modulo 2^k is to perform the operation
+    // over the integers and expressing the result as low + high * 2^k with low
+    // smaller than 2^k. low is used as the output. This works as long this does
+    // not overflow the underlying finite field order (u128 multiplication will be
+    // handled differently). If we want to prove that c = OP(a,b) where OP denotes
+    // an arithmetic operation modulo 2^k, we need two relations:
+    // (1) low + high * 2^k - OP(a,b) = 0
+    // (2) low - c = 0
+    //
+    // We support u8, u16, u32, u64, u128 types and decompose low into
+    // smaller bit slices, e.g., 16. For instance, low = s_0 + s_1 * 2^16 + s_2 * 2^32 + ...
+    // The slices have to be range constrained and there is a trade-off between the
+    // number of regiesters and complexity of the range constraints.
+    // TODO: Determine the best slice size allocation. Note that we might choose different
+    // slice sizes for the different types. At this stage, it is still unknown how this
+    // allocation affects the performance.
+    //
+    // Preliminary choice: We use one u8 register to support u8 operations and up to 8 u16
+    // registers for the other types.
 
     // ========= ADDITION Operation Constraints ===============================
 
