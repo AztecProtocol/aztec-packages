@@ -1,0 +1,81 @@
+name: Rebase Yellow Paper Comments PRs
+
+# Every time a directory of the yellow paper is 'touched' on `master`, we want to rebase the corresponding "comments pr" for that directory (`dir`)
+# The "comments prs" are all at branches named `yp-comments-${dir}`
+
+on:
+  push:
+    branches:
+      - mc/master
+    paths:
+      - 'yellow-paper/docs/**' # only trigger workflow if files in this dir are touched by a merge into master.
+
+jobs:
+  rebase-yp-comments-prs:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        dir: [
+          'addresses-and-keys',
+          'bytecode',
+          'calls',
+          'circuits',
+          'contract-deployment',
+          'contracts',
+          'cryptography',
+          'decentralization',
+          'gas-and-fees',
+          'logs',
+          'private-message-delivery',
+          'public-vm',
+          'rollup-circuits',
+          'state',
+          'transactions'
+        ]
+
+    steps:
+    - name: Check if a yp-comments-${{ matrix.dir }} branch exists
+      id: check-branch-exists
+      run: |
+        doesnt_exist=$(! git show-ref --quiet refs/heads/mc/yp-comments-${{ matrix.dir }} )
+        echo "::set-output name=branch_exists::$(! doesnt_exist)"
+
+    - name: Determine if files in directory were touched
+      id: check-touched
+      run: |
+        touched_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E "^yellow-paper/docs/${{ matrix.dir }}/.*$")
+        echo "::set-output name=files_touched::$(echo "$touched_files" | wc -l)"
+
+    - name: Checkout
+      if: steps.check-branch-exists.outputs.branch_exists && steps.check-touched.outputs.files_touched != '0'
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        ref: mc/yp-comments-${{ matrix.dir }} # branch name
+
+    - name: Rebase the branch of comments
+      if: steps.check-branch-exists.outputs.branch_exists && steps.check-touched.outputs.files_touched != '0'
+      run: |
+        git config --global user.name AztecBot
+        git config --global user.email tech@aztecprotocol.com
+        git fetch origin mc/master
+        git rebase origin/mc/master
+
+        # Delete any extra files that have been added to the dir
+        directory="yellow-paper/docs/${{ matrix.dir }}"
+        if [ -d "$directory" ]; then
+          rm -rf "$directory"/*
+          if [ $? -eq 0 ]; then
+              echo "Success: Contents of the directory have been deleted."
+          else
+              echo "Error: Failed to delete contents of the directory."
+              exit 1
+          fi
+        else
+            echo "Error: Directory does not exist."
+            exit 1
+        fi
+
+        git push origin mc/yp-comments-${{ matrix.dir }} --force
