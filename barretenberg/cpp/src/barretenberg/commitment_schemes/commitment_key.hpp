@@ -69,7 +69,7 @@ template <class Curve> class CommitmentKey {
     Commitment commit(std::span<const Fr> polynomial)
     {
         const size_t degree = polynomial.size();
-        if (degree <= srs->get_monomial_size()) {
+        if (degree > srs->get_monomial_size()) {
             info("CommitmentKey:");
             info("degree = ", degree);
             info("srs->get_monomial_size() = ", srs->get_monomial_size());
