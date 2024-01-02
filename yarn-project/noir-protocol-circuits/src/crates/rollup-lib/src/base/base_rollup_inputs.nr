@@ -33,6 +33,7 @@ use dep::types::constants::{
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
+use dep::types::abis::side_effect::SideEffect;
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
