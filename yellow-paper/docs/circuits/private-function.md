@@ -6,7 +6,7 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 ## Requirements
 
-A private function circuit is a custom circuit tailored to the needs of a specific application. This circuit should be designed to handle private data processing while generating public inputs that safeguard the application and account's intentions without compromising sensitive information.
+[]A private function circuit is a custom circuit tailored to the needs of a specific application. This circuit should be designed to handle private data processing while generating public inputs that safeguard the application and account's intentions without compromising sensitive information.
 
 The logic of this circuit is flexible, yet its public inputs must adhere to a specific format.
 
