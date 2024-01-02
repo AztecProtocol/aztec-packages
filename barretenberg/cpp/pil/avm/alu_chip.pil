@@ -17,29 +17,24 @@ namespace aluChip(256);
     pol commit alu_op_div;
 
     // Flattened boolean instruction tags
-    pol commit alu_u8;
-    pol commit alu_u16;
-    pol commit alu_u32;
-    pol commit alu_u64;
-    pol commit alu_u128;
+    pol commit alu_u8_tag;
+    pol commit alu_u16_tag;
+    pol commit alu_u32_tag;
+    pol commit alu_u64_tag;
+    pol commit alu_u128_tag;
 
     // 8-bit slice registers
-    pol commit alu_s1;
-    pol commit alu_s2;
-    pol commit alu_s3;
-    pol commit alu_s4;
-    pol commit alu_s5;
-    pol commit alu_s6;
-    pol commit alu_s7;
-    pol commit alu_s8;
-    pol commit alu_s9;
-    pol commit alu_s10;
-    pol commit alu_s11;
-    pol commit alu_s12;
-    pol commit alu_s13;
-    pol commit alu_s14;
-    pol commit alu_s15;
-    pol commit alu_s16;
+    pol commit alu_u8_r0;
+
+    // 16-bit slice registers
+    pol commit alu_u16_r0;
+    pol commit alu_u16_r1;
+    pol commit alu_u16_r2;
+    pol commit alu_u16_r3;
+    pol commit alu_u16_r4;
+    pol commit alu_u16_r5;
+    pol commit alu_u16_r6;
+    pol commit alu_u16_r7;
 
     // Carry flag
     pol commit alu_cf;
@@ -51,11 +46,11 @@ namespace aluChip(256);
     //                   arithmetic expressions are not overflowing finite field size
 
     // Boolean flattened instructions tags
-    alu_u8 * (1 - alu_u8) = 0;
-    alu_u16 * (1 - alu_u16) = 0;
-    alu_u32 * (1 - alu_u32) = 0;
-    alu_u64 * (1 - alu_u64) = 0;
-    alu_u128 * (1 - alu_u128) = 0;
+    alu_u8_tag * (1 - alu_u8_tag) = 0;
+    alu_u16_tag * (1 - alu_u16_tag) = 0;
+    alu_u32_tag * (1 - alu_u32_tag) = 0;
+    alu_u64_tag * (1 - alu_u64_tag) = 0;
+    alu_u128_tag * (1 - alu_u128_tag) = 0;
 
     // Operation selectors are copied from main table and do not need to be constrained here.
 
@@ -63,19 +58,6 @@ namespace aluChip(256);
     // TODO: Equivalence between intermediate registers, clk, type flag, operation
     //       An ALU chiplet flag will be introduced in main trace to select relevant rows.
 
-
-
-    // ============= Helper polynomial terms ============================
-    // These are intermediate polynomial terms which are not commited but
-    // serves to express commited polynomials in a more concise way.
-
-    // 8-bit slice partial sums
-    pol sum_8 =            alu_s1;
-    pol sum_16 =  sum_8  + 2**8 * alu_s2;
-    pol sum_32 =  sum_16 + 2**16 * alu_s3 + 2**24 * alu_s4;
-    pol sum_64 =  sum_32 + 2**32 * alu_s5 + 2**40 * alu_s6 + 2**48 * alu_s7 + 2**56 * alu_s8;
-    pol sum_96 =  sum_64 + 2**64 * alu_s9 + 2**72 * alu_s10 + 2**80 * alu_s11 + 2**88 * alu_s12;
-    pol sum_128 = sum_96 + 2**96 * alu_s13 + 2**104 * alu_s14 + 2**112 * alu_s15 + 2**120 * alu_s16;
 
     // ========= EXPLANATIONS =================================================
     // Main trick for arithmetic operations modulo 2^k is to perform the operation
@@ -98,27 +80,40 @@ namespace aluChip(256);
     // Preliminary choice: We use one u8 register to support u8 operations and up to 8 u16
     // registers for the other types.
 
+
+    // ============= Helper polynomial terms ============================
+    // These are intermediate polynomial terms which are not commited but
+    // serves to express commited polynomials in a more concise way.
+
+    // 16-bit slice partial sums
+    pol sum_16 =  alu_u16_r0;
+    pol sum_32 =  sum_16     + alu_u16_r1 * 2**16;
+    pol sum_64 =  sum_32     + alu_u16_r2 * 2**32 + alu_u16_r3 * 2**48; 
+    pol sum_96 =  sum_64     + alu_u16_r4 * 2**64 + alu_u16_r5 * 2**80;
+    pol sum_128 = sum_96     + alu_u16_r6 * 2**96 + alu_u16_r7 * 2**112;
+
+
     // ========= ADDITION Operation Constraints ===============================
 
     // u8 addition
-    alu_u8 * alu_op_add * (sum_8 + 2**8 * alu_cf - alu_ia - alu_ib) = 0;
-    alu_u8 * alu_op_add * (sum_8 - alu_ic) = 0;
+    alu_u8_tag * alu_op_add * (alu_u8_r0 + alu_cf * 2**8 - alu_ia - alu_ib) = 0;
+    alu_u8_tag * alu_op_add * (alu_u8_r0 - alu_ic) = 0;
 
     // u16 addition
-    alu_u16 * alu_op_add * (sum_16 + 2**16 * alu_cf - alu_ia - alu_ib) = 0;
-    alu_u16 * alu_op_add * (sum_16 - alu_ic) = 0;
+    alu_u16_tag * alu_op_add * (sum_16 + alu_cf * 2**16  - alu_ia - alu_ib) = 0;
+    alu_u16_tag * alu_op_add * (sum_16 - alu_ic) = 0;
 
     // u32 addition
-    alu_u32 * alu_op_add * (sum_32 + 2**32 * alu_cf - alu_ia - alu_ib) = 0;
-    alu_u32 * alu_op_add * (sum_32 - alu_ic) = 0;
+    alu_u32_tag * alu_op_add * (sum_32 + alu_cf * 2**32 - alu_ia - alu_ib) = 0;
+    alu_u32_tag * alu_op_add * (sum_32 - alu_ic) = 0;
 
     // u64 addition
-    alu_u64 * alu_op_add * (sum_64 + 2**64 * alu_cf - alu_ia - alu_ib) = 0;
-    alu_u64 * alu_op_add * (sum_64 - alu_ic) = 0;
+    alu_u64_tag * alu_op_add * (sum_64 + alu_cf * 2**64 - alu_ia - alu_ib) = 0;
+    alu_u64_tag * alu_op_add * (sum_64 - alu_ic) = 0;
 
     // u128 addition
-    alu_u128 * alu_op_add * (sum_128 + 2**128 * alu_cf - alu_ia - alu_ib) = 0;
-    alu_u128 * alu_op_add * (sum_128 - alu_ic) = 0;
+    alu_u128_tag * alu_op_add * (sum_128 + alu_cf * 2**128 - alu_ia - alu_ib) = 0;
+    alu_u128_tag * alu_op_add * (sum_128 - alu_ic) = 0;
 
     // ========= SUBTRACTION Operation Constraints ===============================
 
@@ -126,21 +121,21 @@ namespace aluChip(256);
     // Same constraints as for addition but we swap alu_ia with alu_ic
 
     // u8 subtraction
-    alu_u8 * alu_op_sub * (sum_8 + 2**8 * alu_cf - alu_ic - alu_ib) = 0;
-    alu_u8 * alu_op_sub * (sum_8 - alu_ia) = 0;
+    alu_u8_tag * alu_op_sub * (alu_u8_r0 + alu_cf * 2**8 - alu_ic - alu_ib) = 0;
+    alu_u8_tag * alu_op_sub * (alu_u8_r0 - alu_ia) = 0;
 
     // u16 subtraction
-    alu_u16 * alu_op_sub * (sum_16 + 2**16 * alu_cf - alu_ic - alu_ib) = 0;
-    alu_u16 * alu_op_sub * (sum_16 - alu_ia) = 0;
+    alu_u16_tag * alu_op_sub * (sum_16 + alu_cf * 2**16 - alu_ic - alu_ib) = 0;
+    alu_u16_tag * alu_op_sub * (sum_16 - alu_ia) = 0;
 
     // u32 subtraction
-    alu_u32 * alu_op_sub * (sum_32 + 2**32 * alu_cf - alu_ic - alu_ib) = 0;
-    alu_u32 * alu_op_sub * (sum_32 - alu_ia) = 0;
+    alu_u32_tag * alu_op_sub * (sum_32 + alu_cf * 2**32 - alu_ic - alu_ib) = 0;
+    alu_u32_tag * alu_op_sub * (sum_32 - alu_ia) = 0;
 
     // u64 subtraction
-    alu_u64 * alu_op_sub * (sum_64 + 2**64 * alu_cf - alu_ic - alu_ib) = 0;
-    alu_u64 * alu_op_sub * (sum_64 - alu_ia) = 0;
+    alu_u64_tag * alu_op_sub * (sum_64 + alu_cf * 2**64 - alu_ic - alu_ib) = 0;
+    alu_u64_tag * alu_op_sub * (sum_64 - alu_ia) = 0;
 
     // u128 subtraction
-    alu_u128 * alu_op_sub * (sum_128 + 2**128 * alu_cf - alu_ic - alu_ib) = 0;
-    alu_u128 * alu_op_sub * (sum_128 - alu_ia) = 0;
+    alu_u128_tag * alu_op_sub * (sum_128 + alu_cf * 2**128 - alu_ic - alu_ib) = 0;
+    alu_u128_tag * alu_op_sub * (sum_128 - alu_ia) = 0;
