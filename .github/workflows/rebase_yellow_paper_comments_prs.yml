@@ -38,11 +38,21 @@ jobs:
     - name: Check if a yp-comments-${{ matrix.dir }} branch exists
       id: check-branch-exists
       run: |
-        doesnt_exist=$(! git show-ref --quiet refs/heads/mc/yp-comments-${{ matrix.dir }} )
-        echo "::set-output name=branch_exists::$(! doesnt_exist)"
+        branch_name="mc/yp-comments-${{ matrix.dir }}"
+
+        if git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
+            echo "Branch '$branch_name' exists."
+            branch_exists=true
+        else
+            echo "Branch '$branch_name' does not exist."
+            branch_exists=false
+        fi
+        echo "::set-output name=branch_exists::$(branch_exists)"
 
     - name: Determine if files in directory were touched
       id: check-touched
+      with:
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       run: |
         touched_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E "^yellow-paper/docs/${{ matrix.dir }}/.*$")
         echo "::set-output name=files_touched::$(echo "$touched_files" | wc -l)"
