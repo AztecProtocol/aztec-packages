@@ -35,6 +35,14 @@ jobs:
         ]
 
     steps:
+    #TODO: Is there a way to avoid checking out the repo for every dir?
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        ref: mc/yp-comments-${{ matrix.dir }} # branch name
+
     - name: Check if a yp-comments-${{ matrix.dir }} branch exists
       id: check-branch-exists
       run: |
@@ -47,21 +55,13 @@ jobs:
             echo "Branch '$branch_name' does not exist."
             branch_exists=false
         fi
-        echo "::set-output name=branch_exists::$(branch_exists)"
+        echo "::set-output name=branch_exists::$branch_exists"
 
     - name: Determine if files in directory were touched
       id: check-touched
       run: |
         touched_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E "^yellow-paper/docs/${{ matrix.dir }}/.*$")
         echo "::set-output name=files_touched::$(echo "$touched_files" | wc -l)"
-
-    - name: Checkout
-      if: steps.check-branch-exists.outputs.branch_exists && steps.check-touched.outputs.files_touched != '0'
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        ref: mc/yp-comments-${{ matrix.dir }} # branch name
 
     - name: Rebase the branch of comments
       if: steps.check-branch-exists.outputs.branch_exists && steps.check-touched.outputs.files_touched != '0'
