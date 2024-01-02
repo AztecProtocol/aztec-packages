@@ -19,7 +19,7 @@ struct NullifierMembershipWitness {
 
 impl NullifierMembershipWitness {
     pub fn deserialize(fields: [Field; NULLIFIER_MEMBERSHIP_WITNESS]) -> Self {
-        let leaf_preimage_fields = arr_copy_slice(fields, [0; NULLIFIER_LEAF_PREIMAGE_LENGTH], 0);
+        let leaf_preimage_fields = arr_copy_slice(fields, [0; NULLIFIER_LEAF_PREIMAGE_LENGTH], 1);
         Self {
             index: fields[0],
             leaf_preimage: NullifierLeafPreimage::deserialize(leaf_preimage_fields),
