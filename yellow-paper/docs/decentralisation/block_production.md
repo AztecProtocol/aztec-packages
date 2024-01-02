@@ -12,42 +12,59 @@ This document aims to be the latest source of truth for the Fernet sequencer sel
 This document outlines a proposal for Aztec's block production, integrating immutable smart contracts on Ethereum's mainnet (L1) to establish Aztec as a Layer-2 Ethereum network. Sequencers can register permissionlessly via Aztec's L1 contracts, entering a queue before becoming eligible for a random leader election ("Fernet"). Sequencers are free to leave, adhering to an exit queue or period. Roughly every 7-10 minutes (subject to reduction as proving and execution speeds stabilize and/or improve) sequencers create a random hash using [RANDAO](https://eth2book.info/capella/part2/building_blocks/randomness/#the-randao) and their public keys. The highest-ranking hash determines block proposal eligibility. Selected sequencers either collaborate with third-party proving services or self-prove their block. They commit to a prover's L1 address, which stakes an economic deposit. Failure to submit proofs on time results in deposit forfeiture. Once L1 contracts validate proofs and state transitions, the cycle repeats for subsequent block production (forever, and ever...).
 
 :::info
-We need to specify later how the `RANDAO` value is constrained.
+We need to specify exactly how the `RANDAO` value is constrained.
+:::
+
+### Full Nodes
+Aztec full nodes are nodes that maintain a copy of the current state of the network. They fetch blocks from the data layer, verify and apply them to its local view of the state. They also participate in the [P2P network](./p2p-network.md) to disburse transactions and their proofs. Can be connected to a **PXE** which can build transaction witness using the data provided by the node (data membership proofs).
+
+:::info
+We should probably introduce the PXE somewhere
+:::
+
+| 🖥️      | Minimum | Recommended |
+| ------- | ------- | ----------- |
+| CPU     | 16cores | 32cores     |
+| Network | 32 mb/s | 128 mb/s    |
+| Storage | 3TB     | 5TB         |
+| RAM     | 32gb    | 64gb        |
+
+:::info Estimates
+- **CPU**: Help
+- **Network**: 40KB for a transaction with proof (see [P2P network](./p2p-network.md#network-bandwidth)). Assuming gossiping grows the data upload/download 10x, ~400KB per tx. With 10 tx/s that's 4MB/s or 32mb/s.
+- **Storage**: [~1548 bytes per transaction](./../contracts/da.md#aztec-specific-data) + tree overhead, ~ 0.4 TB per year. 
+- **RAM**: Help
 :::
 
 ### Sequencers
-Aztec Sequencer's are nodes or computers that propose blocks, execute public functions and choose provers, within the Aztec Network. It is the actor coordinating state transitions and proof production. Aztec is currently planning on implementing a protocol called Fernet (Fair Election Randomized Natively on Ethereum trustlessly), which is permissionless and anyone can participate. Additionally, sequencers play a role participating within Aztec Governance, determining how to manage [protocol upgrades](./governance.md).
+Aztec Sequencer's are full nodes that propose blocks, execute public functions and choose provers, within the Aztec Network. It is the actor coordinating state transitions and proof production. Aztec is currently planning on implementing a protocol called Fernet (Fair Election Randomized Natively on Ethereum trustlessly), which is permissionless and anyone can participate. Additionally, sequencers play a role participating within Aztec Governance, determining how to manage [protocol upgrades](./governance.md).
 
 #### Hardware requirements
 
 | 🖥️      | Minimum | Recommended |
 | ------- | ------- | ----------- |
 | CPU     | 16cores | 32cores     |
-| Network | 1 gb/s  | 2 gb/s      |
+| Network | 32 mb/s | 128 mb/s    |
 | Storage | 3TB     | 5TB         |
-| RAM     | 64gb    | 128gb       |
+| RAM     | 32gb    | 64gb        |
 
-:::danger
-@lasse/others to clarify? much better to under promise and over deliver :)
-
-**Lasse Comment**: Holy... Won't those networks requirements cut off half the world and push us into data centers primarily? https://www.cable.co.uk/broadband/speed/worldwide-speed-league/#speed. 
+:::info Estimates
+Mostly as full nodes. The network requirements might be larger since it needs to gossip the block proposal and coordinate with provers, depends on the number of peers and exact proving structure.
 :::
 
 ### Provers
-An Aztec Prover is a node or computer that is producing Aztec-specific zero knowledge (zk) proofs ([rollup proofs](./../rollup-circuits/index.md)). The current protocol, called [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428), suggests facilitating out of protocol proving, similar to out of protocol [PBS](https://ethresear.ch/t/proposer-block-builder-separation-friendly-fee-market-designs/9725). Provers in this case are fully permissonless and could be anyone - such as a vertically integrated sequencer, or a proving marketplace such as [nil](https://nil.foundation/proof-market), [gevulot](https://www.gevulot.com/), or [kalypso](https://docs.marlin.org/user-guides/kalypso/), as long as they choose to support the latest version of Aztec's proving system.
+An Aztec Prover is a full node that is producing Aztec-specific zero knowledge (zk) proofs ([rollup proofs](./../rollup-circuits/index.md)). The current protocol, called [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428), suggests facilitating out of protocol proving, similar to out of protocol [PBS](https://ethresear.ch/t/proposer-block-builder-separation-friendly-fee-market-designs/9725). Provers in this case are fully permissonless and could be anyone - such as a vertically integrated sequencer, or a proving marketplace such as [nil](https://nil.foundation/proof-market), [gevulot](https://www.gevulot.com/), or [kalypso](https://docs.marlin.org/user-guides/kalypso/), as long as they choose to support the latest version of Aztec's proving system.
 
 #### Hardware requirements
 | 🖥️      | Minimum | Recommended |
 | ------- | ------- | ----------- |
-| CPU     |   16cores      |      32cores       |
-| Network |   1 gb/s      |      2 gb/s       |
-| Storage |   3TB      |      5TB       |
+| CPU     | 16cores | 32cores     |
+| Network | 32 mb/s | 128 mb/s    |
+| Storage | 3TB     | 5TB         |
 | RAM     | 32gb    | 64gb        |
 
-:::danger
-@lasse/others to clarify? much better to under promise and over deliver :)
-
-**Lasse Comment**: See above. 
+:::info Estimates
+Mostly as full nodes. The compute and memory requirements might be larger since it needs to actually build the large proofs. Note, that the prover don't directly need to be a full node, merely have access to one.
 :::
 
 ### Other types of network nodes
@@ -57,11 +74,6 @@ An Aztec Prover is a node or computer that is producing Aztec-specific zero know
   - Can be used to validate correctness of information received from a data provider.
 - [Transaction Pool Nodes](./p2p-network.md#network-participants)
   - Maintain a pool of transactions that are ready to be included in a block.
-- Full nodes 
-  - Participates in the [P2P network](./p2p-network.md) to disburse transactions and their proofs
-  - Maintain a copy of the current state of the network.
-  - Fetches blocks from data layer, verifies and apply them to its local view of the state
-  - Used to build transaction witness, (simulate transaction and provide data membership proofs)
 - Archival nodes
   - A full node that also stores the full history of the network
   - Used to provide historical membership proofs, e.g., prove that $x$ was included in block $n$.
