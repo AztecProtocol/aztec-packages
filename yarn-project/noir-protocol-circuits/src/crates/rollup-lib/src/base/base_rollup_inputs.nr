@@ -33,7 +33,7 @@ use dep::types::constants::{
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
-use dep::types::abis::side_effect::SideEffect;
+use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
@@ -173,7 +173,7 @@ impl BaseRollupInputs {
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         crate::indexed_tree::batch_insert(
             self.start_nullifier_tree_snapshot,
-            self.kernel_data.public_inputs.end.new_nullifiers,
+            self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,
@@ -797,7 +797,7 @@ mod tests {
 
                     let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
 
-                    kernel_data[0].public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
+                    kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     low_nullifier_leaf_preimages[i] = low_preimage;
