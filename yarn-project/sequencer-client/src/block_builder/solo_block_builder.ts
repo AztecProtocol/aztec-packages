@@ -219,7 +219,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 2 || (txs.length & (txs.length - 1)) !== 0) {
-      throw new Error(`Length of txs for the block should be a power of two and at least four (got ${txs.length})`);
+      throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
 
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
