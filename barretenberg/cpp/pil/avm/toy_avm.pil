@@ -13,8 +13,32 @@ namespace toy(256);
     q_tuple_set { set_1_column_1, set_1_column_2 } is { set_2_column_1, set_2_column_2 };
 
     // Relation not used -> we currently require a single relation for codegen
-    pol commit x;
-    x' - x = 0;
+    q_tuple_set * (1 - q_tuple_set) = 0;
 
     // Also needs a fixed relation 
     pol fixed first = [1] + [0]*;
+
+    // Lookup related stuff
+
+    // For each xor term we need:
+    // - The witness wire it is over
+    // - The column being lookuped
+    // - A shift of the column being lookuped
+    // - An accumulator for each of the tables 
+
+    // constraint wires
+    pol commit xor_a;
+    pol commit xor_b;
+    pol commit xor_c;
+    
+    // Precomputed tables
+    pol constant table_xor_a;
+    pol constant table_xor_b;
+    pol constant table_xor_c;
+
+    pol commit q_xor;
+
+    q_xor * (1 - q_xor) = 0;
+
+    #[lookup_xor_inverses]
+    q_xor { xor_a, xor_b, xor_c } in { table_xor_a, table_xor_b, table_xor_c };

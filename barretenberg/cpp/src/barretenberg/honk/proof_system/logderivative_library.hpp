@@ -31,6 +31,18 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
 
     auto lookup_relation = Relation();
+
+    // SELF: we get the inverse polynomial from the lookup relation template
+    // - > The numerator in any of these will be 1, therefore we have to make an addition to the denominator for the row
+    // -> Rather what we do is add all of the denominators in the inverse polynomial, then we do a batch inversion so
+    // that the whole polynomial consists of inversions QUESTION: the doc comment seems to imply that the inverse is
+    // really a PRODUCT of some set of inverse (∏ from this icon) ANS: It IS ! we perform the denominator accumulation
+    // for EACH of our READ TERMS
+    //      - Are these read terms each of the columns in the lookup?
+    // for EACH of our WRITE TERMS
+    //     - Are these write terms each of the columns the contribute to the lookuped columns?
+
+    // I am not 100% sure how to contribute to the table vs how to read from the table
     auto& inverse_polynomial = lookup_relation.template get_inverse_polynomial(polynomials);
     for (size_t i = 0; i < circuit_size; ++i) {
         auto row = polynomials.get_row(i);
