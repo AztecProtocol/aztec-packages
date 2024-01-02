@@ -51,7 +51,7 @@ use crate::types::{
     vec::BoundedVec,
 };
 
-use crate::utils::{arr_copy_slice, arr_copy_slice_in_struct_dumb2, arr_copy_slice_in_struct_dumb3};
+use crate::utils::Reader;
 
 use crate::oracle::{
     arguments,
@@ -282,64 +282,68 @@ impl PrivateContext {
             function_selector, 
             args_hash,
         );
+        let mut reader = Reader::new(fields);
+
         let item = PrivateCallStackItem {
-            contract_address: AztecAddress::from_field(fields[0]),
+            contract_address: AztecAddress::from_field(reader.read()),
             function_data: FunctionData {
-                selector: FunctionSelector::from_field(fields[1]),
-                is_internal: fields[2] as bool,
-                is_private: fields[3] as bool,
-                is_constructor: fields[4] as bool,
+                selector: FunctionSelector::from_field(reader.read()),
+                is_internal: reader.read() as bool,
+                is_private: reader.read() as bool,
+                is_constructor: reader.read() as bool,
             },
             public_inputs: PrivateCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(fields[5]),
-                    storage_contract_address : AztecAddress::from_field(fields[6]),
-                    portal_contract_address : EthAddress::from_field(fields[7]),
-                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
-                    is_delegate_call : fields[9] as bool,
-                    is_static_call : fields[10] as bool,
-                    is_contract_deployment: fields[11] as bool,
-                    start_side_effect_counter: fields[12],
+                    msg_sender : AztecAddress::from_field(reader.read()),
+                    storage_contract_address : AztecAddress::from_field(reader.read()),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
+                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
+                    is_delegate_call : reader.read() as bool,
+                    is_static_call : reader.read() as bool,
+                    is_contract_deployment: reader.read() as bool,
+                    start_side_effect_counter: reader.read(),
                 },
-                // TODO handle the offsets as a variable incremented during extraction?
-                args_hash: fields[13],
-                return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 14), // +1
-                read_requests: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL], SideEffect::deserialise, 18),
-                new_commitments: arr_copy_slice_in_struct_dumb2(fields, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL], SideEffect::deserialise, 82),
-                new_nullifiers: arr_copy_slice_in_struct_dumb3(fields, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL], SideEffectLinkedToNoteHash::deserialise, 114),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 162),
-                private_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 178),
-                public_call_stack_hashes: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 190),
-                new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 202),
-                encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 206),
-                unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 208),
-                encrypted_log_preimages_length: fields[210],
-                unencrypted_log_preimages_length: fields[211],
+                args_hash: reader.read(),
+                return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
+                read_requests: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_READ_REQUESTS_PER_CALL]),
+                new_commitments: reader.read_struct_array(SideEffect::deserialise, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
+                new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialise, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
+                nullified_commitments: reader.read_array([0; MAX_NEW_NULLIFIERS_PER_CALL]),
+                private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
+                public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
+                new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+                encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+                unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+                encrypted_log_preimages_length: reader.read(),
+                unencrypted_log_preimages_length: reader.read(),
                 block_header: BlockHeader{
                     // Must match order in `private_circuit_public_inputs.hpp`
-                    note_hash_tree_root : fields[212],
-                    nullifier_tree_root : fields[213],
-                    contract_tree_root : fields[214],
-                    l1_to_l2_messages_tree_root : fields[215],
-                    archive_root : fields[216],
-                    public_data_tree_root: fields[217],
-                    global_variables_hash: fields[218],
+                    note_hash_tree_root : reader.read(),
+                    nullifier_tree_root : reader.read(),
+                    contract_tree_root : reader.read(),
+                    l1_to_l2_messages_tree_root : reader.read(),
+                    archive_root : reader.read(),
+                    public_data_tree_root: reader.read(),
+                    global_variables_hash: reader.read(),
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point {
-                      x: fields[219], 
-                      y: fields[220]
+                      x: reader.read(), 
+                      y: reader.read()
                     },
-                    constructor_vk_hash : fields[221],
-                    function_tree_root : fields[222],
-                    contract_address_salt : fields[223],
-                    portal_contract_address : EthAddress::from_field(fields[224]),
+                    constructor_vk_hash : reader.read(),
+                    function_tree_root : reader.read(),
+                    contract_address_salt : reader.read(),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
                 },
-                chain_id: fields[225],
-                version: fields[226],
+                chain_id: reader.read(),
+                version: reader.read(),
             },
-            is_execution_request: fields[227] as bool,
+            is_execution_request: reader.read() as bool,
         };
+
+        reader.finish();
+        
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 

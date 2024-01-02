@@ -33,27 +33,43 @@ pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     dep::std::eddsa::lt_bytes32(rhs, lhs)
 }
 
-// TODO: Replace these with something smart.
-pub fn arr_copy_slice_in_struct_dumb2<T, U, N, M>(
-    src: [T; N],
-    mut dst: [U; M],
-    deserialise: fn([T; 2]) -> U,
+struct Reader<N> {
+    data: [Field; N],
     offset: Field,
-) -> [U; M] {
-    for i in 0..dst.len() {
-        dst[i] = deserialise([src[offset + 2 * i], src[offset + 2 * i + 1]]);
-    }
-    dst
 }
 
-pub fn arr_copy_slice_in_struct_dumb3<T, U, N, M>(
-    src: [T; N],
-    mut dst: [U; M],
-    deserialise: fn([T; 3]) -> U,
-    offset: Field,
-) -> [U; M] {
-    for i in 0..dst.len() {
-        dst[i] = deserialise([src[offset + 2 * i], src[offset + 2 * i + 1], src[offset + 2 * i + 2]]);
+impl<N> Reader<N> {
+    pub fn new(data: [Field; N]) -> Self {
+        Self { data, offset: 0 }
     }
-    dst
+
+    pub fn read(&mut self) -> Field {
+        let result = self.data[self.offset];
+        self.offset += 1;
+        result
+    }
+
+    pub fn read_array<K>(&mut self, mut result: [Field; K]) -> [Field; K] {
+        for i in 0..K {
+            result[i] = self.data[self.offset + i];
+        }
+        self.offset += K;
+        result
+    }
+
+    pub fn read_struct<T, K>(&mut self, deserialise: fn([Field; K]) -> T) -> T {
+        let result = deserialise(self.read_array([0; K]));
+        result
+    }
+
+    pub fn read_struct_array<T, K, C>(&mut self, deserialise: fn([Field; K]) -> T, mut result: [T; C]) -> [T; C] {
+        for i in 0..C {
+            result[i] = self.read_struct(deserialise);
+        }
+        result
+    }
+
+    pub fn finish(self) {
+        assert(self.offset == self.data.len(), "Reader did not read all data");
+    } 
 }
