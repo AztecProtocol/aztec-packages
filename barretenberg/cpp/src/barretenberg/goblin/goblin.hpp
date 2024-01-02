@@ -225,13 +225,18 @@ class Goblin {
         // bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
         // info("verified merge proof. result: ", merge_verified);
 
+        info("ECCVM: create_verifier");
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        info("ECCVM: verify_proof");
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
+        info("Translator: create_verifier");
         auto translator_verifier = translator_composer->create_verifier(*translator_builder, eccvm_verifier.transcript);
+        info("Translator: verify_proof");
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
+        info("Translator: verify_translation");
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
 
         return /* merge_verified && */ eccvm_verified && accumulator_construction_verified && translation_verified;
