@@ -87,15 +87,47 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
             // Make range constrained
             polys.lookup_is_range_constrained[i] = 1;
             uint256_t constrained_value = wires[5][i];
-            // If the value is correct, update the appropriate counter
+            // if the value is correct, update the appropriate counter
             if (constrained_value < 256) {
                 polys.lookup_range_constraint_read_count[static_cast<size_t>(constrained_value.data[0])] =
                     polys.lookup_range_constraint_read_count[static_cast<size_t>(constrained_value.data[0])] + 1;
             }
+
+            // Copy xor values
+            polys.lookup_xor_argument_1[i] = wires[6][i];
+            polys.lookup_xor_argument_2[i] = wires[7][i];
+            polys.lookup_xor_result[i] = wires[8][i];
+            polys.lookup_xor_accumulated_argument_1[i] = wires[9][i];
+            polys.lookup_xor_accumulated_argument_2[i] = wires[10][i];
+            polys.lookup_xor_accumulated_result[i] = wires[11][i];
+            // Enable xor
+            polys.lookup_is_xor_operation[i] = 1;
+
+            // Calculate index of this xor table entry
+            uint256_t xor_index = wires[6][i] * 16 + wires[7][i];
+            // if the value is correct, update the appropriate counter
+            if (xor_index < 256) {
+                polys.lookup_xor_read_count[static_cast<size_t>(xor_index.data[0])] =
+                    polys.lookup_xor_read_count[static_cast<size_t>(xor_index.data[0])] + 1;
+            }
+            xor_index = (uint256_t(wires[9][i]) & 0xf) * 16 + (uint256_t(wires[10][i]) & 0xf);
+            // if the value is correct, update the appropriate counter
+            if (xor_index < 256) {
+                polys.lookup_xor_read_count[static_cast<size_t>(xor_index.data[0])] =
+                    polys.lookup_xor_read_count[static_cast<size_t>(xor_index.data[0])] + 1;
+            }
         }
         for (size_t i = 0; i < 256; i++) {
-            polys.lookup_is_table_entry[i] = FF(1);
+            //  Fill range table
+            polys.lookup_is_range_table_entry[i] = FF(1);
             polys.lookup_range_table_entries[i] = FF(i);
+
+            // Fill xor table
+            polys.lookup_is_xor_table_entry[i] = FF(1);
+            polys.lookup_xor_table_1[i] = FF(i >> 4);
+            polys.lookup_xor_table_2[i] = FF(i % 16);
+            polys.lookup_xor_table_3[i] = FF((i >> 4) ^ (i % 16));
+            polys.lookup_xor_shift[i] = FF(16);
         }
         return polys;
     }
@@ -195,6 +227,32 @@ template <typename Flavor> class ToyAVMCircuitBuilder {
                 return false;
             }
         }
+
+        // Check the xor relation
+        proof_system::honk::logderivative_library::compute_logderivative_inverse<
+            Flavor,
+            honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleXorLookupConstraintSettings, FF>>(
+            polynomials, params, num_rows);
+
+        using XorLookupRelation =
+            honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleXorLookupConstraintSettings, FF>;
+        typename honk::sumcheck::GenericLookupRelation<honk::sumcheck::ExampleXorLookupConstraintSettings,
+                                                       typename Flavor::FF>::SumcheckArrayOfValuesOverSubrelations
+            xor_constraint_result;
+        for (auto& r : xor_constraint_result) {
+            r = 0;
+        }
+        for (size_t i = 0; i < num_rows; ++i) {
+
+            XorLookupRelation::accumulate(xor_constraint_result, polynomials.get_row(i), params, 1);
+        }
+        for (auto r : xor_constraint_result) {
+            if (r != 0) {
+                info("Xor Constraint failed.");
+                return false;
+            }
+        }
+
         return true;
     }
 

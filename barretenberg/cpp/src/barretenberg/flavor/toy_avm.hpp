@@ -41,20 +41,17 @@ class ToyAVM {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
-    // The number of wires is 5. The set of tuples (permutation_set_column_1,permutation_set_column_2) should be
-    // equivalent to (permutation_set_column_3, permutation_set_column_4) and the self_permutation_column contains 2
-    // subsets which are permutations of each other
-    static constexpr size_t NUM_WIRES = 6;
+    static constexpr size_t NUM_WIRES = 12;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 18;
+    static constexpr size_t NUM_ALL_ENTITIES = 32;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 8;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 14;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 10;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 18;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<sumcheck::GenericPermutationRelation<sumcheck::ExampleTuplePermutationSettings, FF>>;
@@ -88,8 +85,14 @@ class ToyAVM {
                               enable_first_set_permutation,     // column 3
                               enable_second_set_permutation,    // column 4
                               lookup_is_range_constrained,      // column 5
-                              lookup_is_table_entry,            // column 6
-                              lookup_range_table_entries)       // column 7
+                              lookup_is_range_table_entry,      // column 6
+                              lookup_range_table_entries,       // column 7
+                              lookup_is_xor_operation,          // column 8
+                              lookup_is_xor_table_entry,        // column 9
+                              lookup_xor_shift,                 // column 10
+                              lookup_xor_table_1,
+                              lookup_xor_table_2,
+                              lookup_xor_table_3)
 
         RefVector<DataType> get_selectors()
         {
@@ -99,8 +102,14 @@ class ToyAVM {
                      enable_first_set_permutation,
                      enable_second_set_permutation,
                      lookup_is_range_constrained,
-                     lookup_is_table_entry,
-                     lookup_range_table_entries };
+                     lookup_is_range_table_entry,
+                     lookup_range_table_entries,
+                     lookup_is_xor_operation,
+                     lookup_is_xor_table_entry,
+                     lookup_xor_shift,
+                     lookup_xor_table_1,
+                     lookup_xor_table_2,
+                     lookup_xor_table_3 };
         };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
@@ -122,15 +131,33 @@ class ToyAVM {
                               self_permutation_column,  // Column 4
                               lookup_range_constraint_read_count,
                               range_constrained_column,
-                              tuple_permutation_inverses, // Column 5
+                              lookup_xor_read_count,
+                              lookup_xor_argument_1,
+                              lookup_xor_argument_2,
+                              lookup_xor_result,
+                              lookup_xor_accumulated_argument_1,
+                              lookup_xor_accumulated_argument_2,
+                              lookup_xor_accumulated_result,
+
+                              tuple_permutation_inverses,
                               single_permutation_inverses,
-                              lookup_range_constraint_inverses) // Column 6
+                              lookup_range_constraint_inverses,
+                              lookup_xor_inverses)
 
         RefVector<DataType> get_wires()
         {
-            return { permutation_set_column_1, permutation_set_column_2, permutation_set_column_3,
-                     permutation_set_column_4, self_permutation_column,  lookup_range_constraint_read_count,
-                     range_constrained_column };
+            return { permutation_set_column_1,
+                     permutation_set_column_2,
+                     permutation_set_column_3,
+                     permutation_set_column_4,
+                     self_permutation_column,
+                     range_constrained_column,
+                     lookup_xor_argument_1,
+                     lookup_xor_argument_2,
+                     lookup_xor_result,
+                     lookup_xor_accumulated_argument_1,
+                     lookup_xor_accumulated_argument_2,
+                     lookup_xor_accumulated_result };
         };
     };
 
@@ -153,7 +180,13 @@ class ToyAVM {
                               enable_first_set_permutation,     // column 3
                               enable_second_set_permutation,    // column 4
                               lookup_is_range_constrained,      // column 5
-                              lookup_is_table_entry,            // column 6
+                              lookup_is_range_table_entry,      // column 6
+                              lookup_is_xor_operation,
+                              lookup_is_xor_table_entry,
+                              lookup_xor_shift,
+                              lookup_xor_table_1,
+                              lookup_xor_table_2,
+                              lookup_xor_table_3,
                               lookup_range_table_entries,
                               permutation_set_column_1, // Column 0
                               permutation_set_column_2, // Column 1
@@ -162,15 +195,33 @@ class ToyAVM {
                               self_permutation_column,  // Column 4
                               lookup_range_constraint_read_count,
                               range_constrained_column,
+                              lookup_xor_read_count,
+                              lookup_xor_argument_1,
+                              lookup_xor_argument_2,
+                              lookup_xor_result,
+                              lookup_xor_accumulated_argument_1,
+                              lookup_xor_accumulated_argument_2,
+                              lookup_xor_accumulated_result,
+
                               tuple_permutation_inverses, // Column 5
                               single_permutation_inverses,
-                              lookup_range_constraint_inverses) // Column 11
+                              lookup_range_constraint_inverses,
+                              lookup_xor_inverses) // Column 11
 
         RefVector<DataType> get_wires()
         {
-            return { permutation_set_column_1, permutation_set_column_2, permutation_set_column_3,
-                     permutation_set_column_4, self_permutation_column,  lookup_range_constraint_read_count,
-                     range_constrained_column };
+            return { permutation_set_column_1,
+                     permutation_set_column_2,
+                     permutation_set_column_3,
+                     permutation_set_column_4,
+                     self_permutation_column,
+                     range_constrained_column,
+                     lookup_xor_argument_1,
+                     lookup_xor_argument_2,
+                     lookup_xor_result,
+                     lookup_xor_accumulated_argument_1,
+                     lookup_xor_accumulated_argument_2,
+                     lookup_xor_accumulated_result };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -180,7 +231,10 @@ class ToyAVM {
                      enable_first_set_permutation,     // column 3
                      enable_second_set_permutation,    // column 4
                      lookup_is_range_constrained,      // column 5
-                     lookup_is_table_entry,            // column 6
+                     lookup_is_range_table_entry,      // column 6
+                     lookup_is_xor_operation,
+                     lookup_is_xor_table_entry,
+                     lookup_xor_shift,
                      lookup_range_table_entries,
                      permutation_set_column_1, // Column 0
                      permutation_set_column_2, // Column 1
@@ -189,9 +243,20 @@ class ToyAVM {
                      self_permutation_column,  // Column 4
                      lookup_range_constraint_read_count,
                      range_constrained_column,
+                     lookup_xor_read_count,
+                     lookup_xor_argument_1,
+                     lookup_xor_argument_2,
+                     lookup_xor_result,
+                     lookup_xor_accumulated_argument_1,
+                     lookup_xor_accumulated_argument_2,
+                     lookup_xor_accumulated_result,
+                     lookup_xor_table_1,
+                     lookup_xor_table_2,
+                     lookup_xor_table_3,
                      tuple_permutation_inverses, // Column 5
                      single_permutation_inverses,
-                     lookup_range_constraint_inverses
+                     lookup_range_constraint_inverses,
+                     lookup_xor_inverses
 
             };
         };
@@ -304,6 +369,7 @@ class ToyAVM {
         CommitmentLabels()
             : AllEntities<std::string>()
         {
+            // TODO: fill out labels
             Base::permutation_set_column_1 = "PERMUTATION_SET_COLUMN_1";
             Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
             Base::permutation_set_column_3 = "PERMUTATION_SET_COLUMN_3";
@@ -325,6 +391,7 @@ class ToyAVM {
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
+            // TODO: fill out commitments
             lagrange_first = verification_key->lagrange_first;
             enable_tuple_set_permutation = verification_key->enable_tuple_set_permutation;
             enable_single_column_permutation = verification_key->enable_single_column_permutation;

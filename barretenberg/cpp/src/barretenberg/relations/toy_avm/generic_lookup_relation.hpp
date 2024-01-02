@@ -49,25 +49,117 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     // For example, it would be 1 for a range constraint lookup, or 3 for XOR lookup
     static constexpr size_t LOOKUP_TUPLE_SIZE = Settings::LOOKUP_TUPLE_SIZE;
 
-    // Compute the length of the inverse polynomial correctness sub-relation MAX(product of terms * inverse, inverse
-    // exists polynomial) + 1;
-    static constexpr size_t FIRST_SUBRELATION_LENGTH =
-        std::max((READ_TERMS + WRITE_TERMS + 1), Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) + 1;
+    /**
+     * @brief Compute the maximum degree of read terms
+     *
+     *@details We need this to evaluate the length of the subrelations correctly
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_maximum_read_term_degree()
+    {
+        size_t maximum_degree = 0;
+        for (size_t i = 0; i < READ_TERMS; i++) {
+            size_t current_degree = 0;
+            if (Settings::READ_TERM_TYPES[i] == READ_BASIC_TUPLE) {
+                current_degree = 1;
+            } else if (Settings::READ_TERM_TYPES[i] == READ_SCALED_TUPLE) {
+                current_degree = 2;
+            } else {
+                current_degree = Settings::READ_TERM_DEGREE;
+            }
+            maximum_degree = std::max(current_degree, maximum_degree);
+        }
+        return maximum_degree;
+    }
+
+    /**
+     * @brief Compute the maximum degree of write terms
+     *
+     *@details We need this to evaluate the length of the subrelations correctly
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_maximum_write_term_degree()
+    {
+        size_t maximum_degree = 0;
+        for (size_t i = 0; i < WRITE_TERMS; i++) {
+            size_t current_degree = 0;
+            if (Settings::WRITE_TERM_TYPES[i] == WRITE_BASIC_TUPLE) {
+                current_degree = 1;
+            } else {
+                current_degree = Settings::WRITE_TERM_DEGREE;
+            }
+            maximum_degree = std::max(current_degree, maximum_degree);
+        }
+        return maximum_degree;
+    }
+
+    /**
+     * @brief Compute the degree of of the product of read terms
+     *
+     * @details The degree of the inverse polynomial check subrelation is dependent on this value
+     *
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_read_term_product_degree()
+    {
+        size_t accumulated_degree = 0;
+        for (size_t i = 0; i < READ_TERMS; i++) {
+            size_t current_degree = 0;
+            if (Settings::READ_TERM_TYPES[i] == READ_BASIC_TUPLE) {
+                current_degree = 1;
+            } else if (Settings::READ_TERM_TYPES[i] == READ_SCALED_TUPLE) {
+                current_degree = 2;
+            } else {
+                current_degree = Settings::READ_TERM_DEGREE;
+            }
+            accumulated_degree += current_degree;
+        }
+        return accumulated_degree;
+    }
+
+    /**
+     * @brief Compute the degree of of the product of write terms
+     *
+     * @details The degree of the inverse polynomial check subrelation is dependent on this value
+     *
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_write_term_product_degree()
+    {
+        size_t accumulated_degree = 0;
+        for (size_t i = 0; i < WRITE_TERMS; i++) {
+            size_t current_degree = 0;
+            if (Settings::WRITE_TERM_TYPES[i] == WRITE_BASIC_TUPLE) {
+                current_degree = 1;
+            } else {
+                current_degree = Settings::WRITE_TERM_DEGREE;
+            }
+            accumulated_degree += current_degree;
+        }
+        return accumulated_degree;
+    }
 
     // Read term degree is dependent on what type of read term we use
-    static constexpr size_t READ_TERM_DEGREE = Settings::READ_TERM_TYPE == READ_BASIC_TUPLE ? 1
-                                               : Settings::READ_TERM_TYPE == READ_SCALED_TUPLE
-                                                   ? 2
-                                                   : Settings::READ_TERM_DEGREE;
+    static constexpr size_t READ_TERM_DEGREE = compute_maximum_read_term_degree();
     static_assert(READ_TERM_DEGREE != 0);
 
     // Write  term degree is dependent on what type of write term we use
-    static constexpr size_t WRITE_TERM_DEGREE =
-        Settings::WRITE_TERM_TYPE == WRITE_BASIC_TUPLE ? 1 : Settings::WRITE_TERM_DEGREE;
-    // Compute the length of the log-derived term subrelation
-    static constexpr size_t SECOND_SUBRELATION_LENGTH = std::max(READ_TERM_DEGREE + 1, WRITE_TERM_DEGREE + 2) + 1;
+    static constexpr size_t WRITE_TERM_DEGREE = compute_maximum_write_term_degree();
+
+    static_assert(WRITE_TERM_DEGREE != 0);
+
+    // Compute the length of the inverse polynomial correctness sub-relation MAX(product of terms * inverse, inverse
+    // exists polynomial) + 1;
+    static constexpr size_t FIRST_SUBRELATION_LENGTH =
+        std::max((compute_read_term_product_degree() + compute_write_term_product_degree() + 1),
+                 Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
+        1;
+
+    // Compute the length of the log-derived term subrelation MAX(read term * enable read, write term * write count *
+    // enable write)
+    static constexpr size_t SECOND_SUBRELATION_LENGTH = std::max(READ_TERM_DEGREE + 1, WRITE_TERM_DEGREE + 2);
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
+    static constexpr size_t LENGTH = std::max(FIRST_SUBRELATION_LENGTH, SECOND_SUBRELATION_LENGTH);
 
     // The structure of polynomial tuple returned from Settings' functions get_const_entities and get_nonconst_entities
     // is the following:
@@ -78,16 +170,16 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     // or not)
     // 4) WRITE_TERMS number of polynomials enabling a particular write term in this row (should we add it to
     // the lookup table or not)
-    // 5) Depending on the type of read terms (BASIC_TUPLE, SCALED_TUPLE or ARBITRARY):
-    //  1. In case of basic tuple READ_TERMS polynomials the combination of whose values in a row is supposed to
+    // 5) For each read term depending on its type (READ_BASIC_TUPLE, READ_SCALED_TUPLE or READ_ARBITRARY):
+    //  1. In case of basic tuple LOOKUP_TUPLE_SIZE polynomials the combination of whose values in a row is supposed to
     //  represent the looked up entry
-    //  2. In case of scaled tuple there are READ_TERMS previous accumulator polynomials, READ_TERMS
-    //  scaling polynomials and READ_TERMS current accumulator polynomials. The tuple is comprised of values
+    //  2. In case of scaled tuple there are LOOKUP_TUPLE_SIZE previous accumulator polynomials, LOOKUP_TUPLE_SIZE
+    //  scaling polynomials and LOOKUP_TUPLE_SIZE current accumulator polynomials. The tuple is comprised of values
     //  (current_accumulator-scale*previous_accumulator)
-    //  3. In the arbitrary case the are no additional read_term
+    //  3. In the arbitrary case the are no additional
     //  polynomials, because the logic is completely decided in the settings
-    // 6) Depending on the type of read terms (BASIC_TUPLE or ARBITRARY):
-    //  1. In case of basic tuple WRITE_TERNS polynomials the combination of whose values in a row is supposed to
+    // 6) For each  write term depending on its type (READ_BASIC_TUPLE or READ_ARBITRARY):
+    //  1. In case of basic tuple LOOKUP_TUPLE_SIZE polynomials the combination of whose values in a row is supposed to
     //  represent the entry written into the lookup table
     //  2. In the arbitrary case the are no additional write term polynomials,
     //  because the logic is completely decided in the settings
@@ -104,7 +196,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         LENGTH, // inverse polynomial correctness sub-relation
         LENGTH  // log-derived terms subrelation
     };
-
     /**
      * @brief We apply the power polynomial only to the first subrelation
      *
@@ -208,6 +299,74 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     }
 
     /**
+     * @brief Compute where the polynomials defining a particular read term are located
+     *
+     *@details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
+     *depending on the type of read term different number of polynomials can be used to compute it. So we need to
+     *compute the offset in the tuple iteratively
+     *
+     * @param read_index Index of the read term
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_read_term_polynomial_offset(size_t read_index)
+    {
+        // If it's the starting index, then there is nothing to compute, just get the starting index
+        if (read_index == 0) {
+            return LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX;
+        }
+
+        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear combination
+        // of polynomials)
+        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_BASIC_TUPLE) {
+            return compute_read_term_polynomial_offset(read_index - 1) + LOOKUP_TUPLE_SIZE;
+        }
+
+        // If the previous term used scaled tuple lookup, add lookup tuple size x 3 (it was using just a linear
+        // combination of differences (current - previous⋅scale))
+
+        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_SCALED_TUPLE) {
+            return compute_read_term_polynomial_offset(read_index - 1) + 3 * LOOKUP_TUPLE_SIZE;
+        }
+        // In case of arbitrary read term, no polynomials from the tuple are being used
+        if (Settings::READ_TERM_TYPES[read_index - 1] == READ_ARBITRARY) {
+            return compute_read_term_polynomial_offset(read_index - 1);
+        }
+        throw std::logic_error("Should never reach this part");
+        return SIZE_MAX;
+    }
+
+    /**
+     * @brief Compute where the polynomials defining a particular write term are located
+     *
+     *@details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
+     *depending on the type of term different number of polynomials can be used to compute it. So we need to
+     *compute the offset in the tuple iteratively
+     *
+     * @param write_index Index of the write term
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_write_term_polynomial_offset(size_t write_index)
+    {
+        // If it's the starting index, then we need to find out how many polynomials were taken by read terms
+        if (write_index == 0) {
+            return compute_read_term_polynomial_offset(READ_TERMS);
+        }
+
+        // If the previous term used basic tuple lookup, add lookup tuple size (it was using just a linear combination
+        // of polynomials)
+        if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_BASIC_TUPLE) {
+            return compute_write_term_polynomial_offset(write_index - 1) + LOOKUP_TUPLE_SIZE;
+        }
+
+        // In case of arbitrary write term, no polynomials from the tuple are being used
+        if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_ARBITRARY) {
+            return compute_write_term_polynomial_offset(write_index - 1);
+        }
+        throw std::logic_error("Should never reach this part");
+        return SIZE_MAX;
+    }
+
+    /**
      * @brief Compute the value of a single item in the set
      *
      * @details Computes the polynomial \gamma + \sum_{i=0}^{num_columns}(column_i*\beta^i), so the tuple of columns is
@@ -223,36 +382,30 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         using View = typename Accumulator::View;
 
         static_assert(read_index < READ_TERMS);
-        static_assert(Settings::READ_TERM_TYPE < 3);
-        static_assert(Settings::READ_TERM_TYPE >= 0);
-
-        if constexpr (Settings::READ_TERM_TYPE == READ_BASIC_TUPLE) {
+        constexpr size_t start_polynomial_index = compute_read_term_polynomial_offset(read_index);
+        if constexpr (Settings::READ_TERM_TYPES[read_index] == READ_BASIC_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
 
             auto result = Accumulator(0);
 
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index * LOOKUP_TUPLE_SIZE,
-                                        LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX +
-                                            (read_index + 1) * LOOKUP_TUPLE_SIZE,
-                                        1>(
+            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
             const auto& gamma = params.gamma;
             return result + gamma;
-        } else if constexpr (Settings::READ_TERM_TYPE == READ_SCALED_TUPLE) {
+        } else if constexpr (Settings::READ_TERM_TYPES[read_index] == READ_SCALED_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
 
             auto result = Accumulator(0);
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<
-                LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + read_index * 3 * LOOKUP_TUPLE_SIZE,
-                LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX + (read_index * 3 + 1) * LOOKUP_TUPLE_SIZE,
-                1>([&]<size_t i>() {
-                result = (result * params.beta) + View(std::get<i + 2 * LOOKUP_TUPLE_SIZE>(all_polynomials)) -
-                         View(std::get<i + LOOKUP_TUPLE_SIZE>(all_polynomials)) * View(std::get<i>(all_polynomials));
-            });
+            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
+                [&]<size_t i>() {
+                    result =
+                        (result * params.beta) + View(std::get<i + 2 * LOOKUP_TUPLE_SIZE>(all_polynomials)) -
+                        View(std::get<i + LOOKUP_TUPLE_SIZE>(all_polynomials)) * View(std::get<i>(all_polynomials));
+                });
             const auto& gamma = params.gamma;
             return result + gamma;
         } else {
@@ -276,27 +429,18 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     {
 
         static_assert(write_index < WRITE_TERMS);
-        static_assert(Settings::WRITE_TERM_TYPE < 2);
-        static_assert(Settings::WRITE_TERM_TYPE >= 0);
-        static_assert(Settings::READ_TERM_TYPE < 3);
-        static_assert(Settings::READ_TERM_TYPE >= 0);
 
         using View = typename Accumulator::View;
-        // Write term offset is dependet on which read term computation method is used
-        constexpr size_t WRITE_TERMS_OFFSET = LOOKUP_READ_PREDICATE_START_POLYNOMIAL_INDEX +
-                                              (Settings::READ_TERM_TYPE == READ_BASIC_TUPLE    ? LOOKUP_TUPLE_SIZE
-                                               : Settings::READ_TERM_TYPE == READ_SCALED_TUPLE ? LOOKUP_TUPLE_SIZE * 3
-                                                                                               : 0);
-        if constexpr (Settings::WRITE_TERM_TYPE == WRITE_BASIC_TUPLE) {
+        constexpr size_t start_polynomial_index = compute_write_term_polynomial_offset(write_index);
+
+        if constexpr (Settings::WRITE_TERM_TYPES[write_index] == WRITE_BASIC_TUPLE) {
             // Retrieve all polynomials used
             const auto all_polynomials = Settings::get_const_entities(in);
 
             auto result = Accumulator(0);
 
             // Iterate over tuple and sum as a polynomial over beta
-            barretenberg::constexpr_for<WRITE_TERMS_OFFSET + write_index * LOOKUP_TUPLE_SIZE,
-                                        WRITE_TERMS_OFFSET + (write_index + 1) * LOOKUP_TUPLE_SIZE,
-                                        1>(
+            barretenberg::constexpr_for<start_polynomial_index, start_polynomial_index + LOOKUP_TUPLE_SIZE, 1>(
                 [&]<size_t i>() { result = (result * params.beta) + View(std::get<i>(all_polynomials)); });
             const auto& gamma = params.gamma;
             return result + gamma;

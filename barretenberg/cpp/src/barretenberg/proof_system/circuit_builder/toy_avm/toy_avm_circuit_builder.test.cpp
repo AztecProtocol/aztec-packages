@@ -35,15 +35,28 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
         column_2.emplace_back(FF::random_element());
     }
 
+    std::vector<std::pair<uint8_t, uint8_t>> xor_arguments;
+
+    // Get xor arguments
+    for (size_t i = 0; i < circuit_size; i++) {
+        xor_arguments.emplace_back(engine.get_random_uint8(), engine.get_random_uint8());
+    }
     for (size_t i = 0; i < circuit_size; i++) {
         // We put the same tuple of values in the first 2 wires and in the next 2 to at different rows
         // We also put the same value in the self_permutation column in 2 consecutive rows
-        circuit_builder.add_row({ column_0[i],
-                                  column_1[i],
-                                  column_0[15 - i],
-                                  column_1[15 - i],
-                                  column_2[i / 2],
-                                  engine.get_random_uint8() });
+        uint8_t xor_result = std::get<0>(xor_arguments[i]) ^ std::get<1>(xor_arguments[i]);
+        circuit_builder.add_row({ column_0[i],                        // Tuple 1 element 1
+                                  column_1[i],                        // Tuple 1 element 2
+                                  column_0[15 - i],                   // Tuple 2 element 1
+                                  column_1[15 - i],                   // Tuple 2  element 2
+                                  column_2[i / 2],                    // Self-permutation column
+                                  engine.get_random_uint8(),          // Range constrained column
+                                  std::get<0>(xor_arguments[i]) >> 4, // Xor columns
+                                  std::get<1>(xor_arguments[i]) >> 4,
+                                  xor_result >> 4,
+                                  std::get<0>(xor_arguments[i]),
+                                  std::get<1>(xor_arguments[i]),
+                                  xor_result });
     }
 
     // Test that permutations with correct values work
@@ -68,8 +81,51 @@ TEST(ToyAVMCircuitBuilder, BaseCase)
     EXPECT_EQ(result, true);
 
     // Break single-column permutation
+    tmp = circuit_builder.wires[4][0];
     circuit_builder.wires[4][0] = FF::random_element();
     result = circuit_builder.check_circuit();
     EXPECT_EQ(result, false);
+
+    // Restore value
+    circuit_builder.wires[4][0] = tmp;
+    // Check circuit passes
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, true);
+
+    // Break range constraint
+
+    circuit_builder.wires[5][0] = 257;
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, false);
+
+    // Restore range constraint
+
+    circuit_builder.wires[5][0] = 255;
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, true);
+
+    // Break xor  constraint
+
+    circuit_builder.wires[6][0] = 0;
+    circuit_builder.wires[7][0] = 0;
+    circuit_builder.wires[8][0] = 1;
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, false);
+
+    // Break scaled xor  constraint
+
+    circuit_builder.wires[6][0] = 0;
+    circuit_builder.wires[7][0] = 0;
+    circuit_builder.wires[8][0] = 0;
+    circuit_builder.wires[9][0] = 1;
+    circuit_builder.wires[10][0] = 1;
+    circuit_builder.wires[11][0] = 1;
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, false);
+
+    // Restore xor constraint
+    circuit_builder.wires[11][0] = 0;
+    result = circuit_builder.check_circuit();
+    EXPECT_EQ(result, true);
 }
 } // namespace toy_avm_circuit_builder_tests
