@@ -91,10 +91,12 @@ contract SchnorrAccount {
         }
 
         // Verify signature of the payload bytes
-        let verification = std::schnorr::verify_signature(public_key.x,
+        let verification = std::schnorr::verify_signature(
+            public_key.x,
             public_key.y,
             signature,
-            message_hash.to_be_bytes(32));
+            message_hash.to_be_bytes(32)
+        );
         assert(verification == true);
         // docs:end:entrypoint
         true

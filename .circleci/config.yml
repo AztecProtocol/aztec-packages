@@ -114,7 +114,7 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
 
-  noir-acir-tests:
+  noir-compile-acir-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -123,7 +123,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build noir-acir-tests 32
+          command: cond_spot_run_build noir-compile-acir-tests 32
 
   # Barretenberg
   barretenberg-wasm-linux-clang:
@@ -324,6 +324,17 @@ jobs:
           name: "Build and test"
           command: build l1-contracts
 
+  boxes-files:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: build boxes-files
+
   yarn-project-base:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -423,38 +434,49 @@ jobs:
           name: "Build and test"
           command: build aztec-faucet | add_timestamps
 
-  boxes-blank-react:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+  boxes:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Test via adhoc script"
-          command: ./boxes/run_tests blank-react
+          name: "Build"
+          command: cond_spot_run_build boxes 4
 
   boxes-blank:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Test via adhoc script"
-          command: ./boxes/run_tests blank
+          name: "Test"
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank
+
+  boxes-blank-react:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-blank-react
 
   boxes-token:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Test via adhoc script"
-          command: ./boxes/run_tests token
+          name: "Test"
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-token
 
   end-to-end:
     machine:
@@ -853,6 +875,14 @@ jobs:
           name: "Copy docs dockerignore"
           command: cp docs/.dockerignore .
       - run:
+          name: "Require released code"
+          command: |
+            echo Requiring released code snippets
+            echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
+            LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
+            echo Fetching latest released tag $LAST_TAG
+            git fetch origin --refetch --no-filter refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
+      - run:
           name: "Build docs"
           command: build docs
       - run:
@@ -971,8 +1001,9 @@ jobs:
             export TF_VAR_NODE_1_PRIVATE_KEY=$NODE_1_PRIVATE_KEY
             export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
             # Check if l1-contracts have changed
-            if $CONTRACTS_DEPLOYED -eq 1; then
-              deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node aws_efs_file_system.node_data_store
+            if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
+              echo "Contracts have changed, taint nodes to force redeploy.."
+              deploy_terraform_services yarn-project/aztec-node aztec-sandbox aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]"
             else
               deploy_terraform_services yarn-project/aztec-node aztec-sandbox
             fi
@@ -1036,7 +1067,7 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
-      - noir-acir-tests:
+      - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
           <<: *defaults
@@ -1058,7 +1089,7 @@ workflows:
       - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
-            - noir-acir-tests
+            - noir-compile-acir-tests
           <<: *defaults
       - bb-js:
           requires:
@@ -1071,7 +1102,7 @@ workflows:
       - bb-js-acir-tests:
           requires:
             - bb-js
-            - noir-acir-tests
+            - noir-compile-acir-tests
           <<: *defaults
 
       - l1-contracts: *defaults
@@ -1080,6 +1111,8 @@ workflows:
 
       - yellow-paper: *defaults
 
+      - boxes-files: *defaults
+
       # Yarn Project
       - yarn-project-base:
           requires:
@@ -1087,6 +1120,7 @@ workflows:
             - bb-js
             - noir-ecr-manifest
             - noir-packages
+            - boxes-files
           <<: *defaults
       - yarn-project:
           requires:
@@ -1104,17 +1138,21 @@ workflows:
       - aztec-faucet: *defaults_yarn_project_prod
 
       # Boxes.
-      - boxes-blank-react:
+      - boxes:
           requires:
             - aztec-sandbox
           <<: *defaults
       - boxes-blank:
           requires:
-            - aztec-sandbox
+            - boxes
+          <<: *defaults
+      - boxes-blank-react:
+          requires:
+            - boxes
           <<: *defaults
       - boxes-token:
           requires:
-            - aztec-sandbox
+            - boxes
           <<: *defaults
 
       # End to end tests.
