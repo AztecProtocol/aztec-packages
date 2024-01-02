@@ -62,6 +62,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
   private:
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
+    void set_goblin_ecc_op_code_constant_variables();
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -70,10 +71,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
-        null_op_idx = this->zero_idx;
-        add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-        mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-        equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+        set_goblin_ecc_op_code_constant_variables();
     };
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : GoblinUltraCircuitBuilder_(0, op_queue_in)
@@ -113,10 +111,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         }
 
         // Set indices to constants corresponding to Goblin ECC op codes
-        null_op_idx = this->zero_idx;
-        add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-        mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-        equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+        set_goblin_ecc_op_code_constant_variables();
     };
 
     void finalize_circuit();

@@ -145,23 +145,23 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           const std::string& witnessPath,
                           [[maybe_unused]] bool recursive)
 {
-    info("Construct constraint_system and witness.");
+    // info("Construct constraint_system and witness.");
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
     init_reference_strings();
 
-    info("Construct goblin circuit from constraint system and witness.");
+    // info("Construct goblin circuit from constraint system and witness.");
     acir_proofs::AcirComposer acir_composer;
     acir_composer.create_goblin_circuit(constraint_system, witness);
 
-    info("Construct goblin proof.");
+    // info("Construct goblin proof.");
     auto proof = acir_composer.create_goblin_proof();
 
-    info("verify_goblin_proof.");
+    // info("verify_goblin_proof.");
     auto verified = acir_composer.verify_goblin_proof(proof);
 
-    vinfo("verified: ", verified);
+    // vinfo("verified: ", verified);
     return verified;
 }
 
