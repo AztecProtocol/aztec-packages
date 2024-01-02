@@ -10,6 +10,7 @@ contract Child {
         state_vars::public_state::PublicState,
         types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
     };
+    use dep::protocol_types::address::AztecAddress;
 
     struct Storage {
         current_value: PublicState<Field, FIELD_SERIALIZED_LEN>,

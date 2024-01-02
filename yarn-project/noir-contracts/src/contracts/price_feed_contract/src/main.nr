@@ -9,6 +9,7 @@ contract PriceFeed {
             public_state::PublicState,
         },
     };
+    use dep::protocol_types::address::AztecAddress;
     use crate::asset::{ASSET_SERIALIZED_LEN, Asset, AssetSerializationMethods};
 
     // Storage structure, containing all storage, and specifying what slots they use.
