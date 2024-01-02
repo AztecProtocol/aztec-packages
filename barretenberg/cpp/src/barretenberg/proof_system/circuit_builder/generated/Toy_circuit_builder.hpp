@@ -11,6 +11,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/generated/Toy_flavor.hpp"
+#include "barretenberg/relations/generated/Toy/lookup_xor_inverses.hpp"
 #include "barretenberg/relations/generated/Toy/toy_avm.hpp"
 #include "barretenberg/relations/generated/Toy/two_column_perm.hpp"
 
@@ -25,9 +26,12 @@ template <typename FF> struct ToyFullRow {
     FF toy_set_1_column_2{};
     FF toy_set_2_column_1{};
     FF toy_set_2_column_2{};
-    FF toy_x{};
+    FF toy_xor_a{};
+    FF toy_xor_b{};
+    FF toy_xor_c{};
+    FF toy_q_xor{};
     FF two_column_perm{};
-    FF toy_x_shift{};
+    FF lookup_xor_inverses{};
 };
 
 class ToyCircuitBuilder {
@@ -40,8 +44,8 @@ class ToyCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 9;
-    static constexpr size_t num_polys = 8;
+    static constexpr size_t num_fixed_columns = 12;
+    static constexpr size_t num_polys = 12;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -63,11 +67,13 @@ class ToyCircuitBuilder {
             polys.toy_set_1_column_2[i] = rows[i].toy_set_1_column_2;
             polys.toy_set_2_column_1[i] = rows[i].toy_set_2_column_1;
             polys.toy_set_2_column_2[i] = rows[i].toy_set_2_column_2;
-            polys.toy_x[i] = rows[i].toy_x;
+            polys.toy_xor_a[i] = rows[i].toy_xor_a;
+            polys.toy_xor_b[i] = rows[i].toy_xor_b;
+            polys.toy_xor_c[i] = rows[i].toy_xor_c;
+            polys.toy_q_xor[i] = rows[i].toy_q_xor;
             polys.two_column_perm[i] = rows[i].two_column_perm;
+            polys.lookup_xor_inverses[i] = rows[i].lookup_xor_inverses;
         }
-
-        polys.toy_x_shift = Polynomial(polys.toy_x.shifted());
 
         return polys;
     }
@@ -88,7 +94,7 @@ class ToyCircuitBuilder {
             .eccvm_set_permutation_delta = 0,
         };
 
-        ProverPolynomials polys = compute_polynomials();
+        auto polys = compute_polynomials();
         const size_t num_rows = polys.get_polynomial_size();
 
         const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
@@ -147,6 +153,10 @@ class ToyCircuitBuilder {
 
         if (!evaluate_permutation.template operator()<honk::sumcheck::two_column_perm_relation<FF>>(
                 "two_column_perm")) {
+            return false;
+        }
+        if (!evaluate_permutation.template operator()<honk::sumcheck::lookup_xor_inverses_relation<FF>>(
+                "lookup_xor_inverses")) {
             return false;
         }
 

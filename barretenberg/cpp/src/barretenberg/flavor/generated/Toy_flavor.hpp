@@ -36,11 +36,11 @@ class ToyFlavor {
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 9;
+    static constexpr size_t NUM_ALL_ENTITIES = 12;
 
     using Relations = std::tuple<Toy_vm::toy_avm<FF>, sumcheck::two_column_perm_relation<FF>>;
 
@@ -81,13 +81,18 @@ class ToyFlavor {
                               toy_set_1_column_2,
                               toy_set_2_column_1,
                               toy_set_2_column_2,
-                              toy_x,
-                              two_column_perm)
+                              toy_xor_a,
+                              toy_xor_b,
+                              toy_xor_c,
+                              toy_q_xor,
+                              two_column_perm,
+                              lookup_xor_inverses)
 
         RefVector<DataType> get_wires()
         {
-            return { toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1, toy_set_2_column_2,
-                     toy_x,           two_column_perm };
+            return { toy_q_tuple_set,    toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1,
+                     toy_set_2_column_2, toy_xor_a,          toy_xor_b,          toy_xor_c,
+                     toy_q_xor,          two_column_perm,    lookup_xor_inverses };
         };
         RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
@@ -101,22 +106,27 @@ class ToyFlavor {
                               toy_set_1_column_2,
                               toy_set_2_column_1,
                               toy_set_2_column_2,
-                              toy_x,
+                              toy_xor_a,
+                              toy_xor_b,
+                              toy_xor_c,
+                              toy_q_xor,
                               two_column_perm,
-                              toy_x_shift)
+                              lookup_xor_inverses)
 
         RefVector<DataType> get_wires()
         {
-            return { toy_first,          toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1,
-                     toy_set_2_column_2, toy_x,           two_column_perm,    toy_x_shift };
+            return { toy_first,          toy_q_tuple_set,    toy_set_1_column_1, toy_set_1_column_2,
+                     toy_set_2_column_1, toy_set_2_column_2, toy_xor_a,          toy_xor_b,
+                     toy_xor_c,          toy_q_xor,          two_column_perm,    lookup_xor_inverses };
         };
         RefVector<DataType> get_unshifted()
         {
-            return { toy_first,          toy_q_tuple_set, toy_set_1_column_1, toy_set_1_column_2, toy_set_2_column_1,
-                     toy_set_2_column_2, toy_x,           two_column_perm };
+            return { toy_first,          toy_q_tuple_set,    toy_set_1_column_1, toy_set_1_column_2,
+                     toy_set_2_column_1, toy_set_2_column_2, toy_xor_a,          toy_xor_b,
+                     toy_xor_c,          toy_q_xor,          two_column_perm,    lookup_xor_inverses };
         };
-        RefVector<DataType> get_to_be_shifted() { return { toy_x }; };
-        RefVector<DataType> get_shifted() { return { toy_x_shift }; };
+        RefVector<DataType> get_to_be_shifted() { return {}; };
+        RefVector<DataType> get_shifted() { return {}; };
     };
 
   public:
@@ -126,7 +136,7 @@ class ToyFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
         using Base::Base;
 
-        RefVector<DataType> get_to_be_shifted() { return { toy_x }; };
+        RefVector<DataType> get_to_be_shifted() { return {}; };
 
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
@@ -169,6 +179,8 @@ class ToyFlavor {
         }
     };
 
+    using RowPolynomials = AllEntities<FF>;
+
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
       public:
         PartiallyEvaluatedMultivariates() = default;
@@ -206,8 +218,12 @@ class ToyFlavor {
             Base::toy_set_1_column_2 = "TOY_SET_1_COLUMN_2";
             Base::toy_set_2_column_1 = "TOY_SET_2_COLUMN_1";
             Base::toy_set_2_column_2 = "TOY_SET_2_COLUMN_2";
-            Base::toy_x = "TOY_X";
+            Base::toy_xor_a = "TOY_XOR_A";
+            Base::toy_xor_b = "TOY_XOR_B";
+            Base::toy_xor_c = "TOY_XOR_C";
+            Base::toy_q_xor = "TOY_Q_XOR";
             Base::two_column_perm = "TWO_COLUMN_PERM";
+            Base::lookup_xor_inverses = "LOOKUP_XOR_INVERSES";
         };
     };
 
@@ -231,8 +247,12 @@ class ToyFlavor {
         Commitment toy_set_1_column_2;
         Commitment toy_set_2_column_1;
         Commitment toy_set_2_column_2;
-        Commitment toy_x;
+        Commitment toy_xor_a;
+        Commitment toy_xor_b;
+        Commitment toy_xor_c;
+        Commitment toy_q_xor;
         Commitment two_column_perm;
+        Commitment lookup_xor_inverses;
 
         std::vector<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -257,8 +277,12 @@ class ToyFlavor {
             toy_set_1_column_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             toy_set_2_column_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             toy_set_2_column_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
-            toy_x = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            toy_xor_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            toy_xor_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            toy_xor_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            toy_q_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
             two_column_perm = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
+            lookup_xor_inverses = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_bytes_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -287,8 +311,12 @@ class ToyFlavor {
             serialize_to_buffer<Commitment>(toy_set_1_column_2, Transcript::proof_data);
             serialize_to_buffer<Commitment>(toy_set_2_column_1, Transcript::proof_data);
             serialize_to_buffer<Commitment>(toy_set_2_column_2, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(toy_x, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(toy_xor_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(toy_xor_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(toy_xor_c, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(toy_q_xor, Transcript::proof_data);
             serialize_to_buffer<Commitment>(two_column_perm, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_xor_inverses, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
