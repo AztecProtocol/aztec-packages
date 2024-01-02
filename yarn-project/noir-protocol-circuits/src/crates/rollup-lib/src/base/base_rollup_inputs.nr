@@ -166,22 +166,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree(self.kernel_data.public_inputs.end.new_commitments)
-        let mut commitment_tree_leaves = [0; NOTE_HASH_SUBTREE_WIDTH];
-        
-        for i in 0..KERNELS_PER_BASE_ROLLUP {
-            let new_commitments = self.kernel_data[i].public_inputs.end.new_commitments;
-
-            // Our commitments size MUST be 4 to calculate our subtrees correctly
-            assert(new_commitments.len() == MAX_NEW_COMMITMENTS_PER_TX, "New commitments in kernel data must be MAX_NEW_COMMITMENTS_PER_TX (see constants.hpp)");
-
-            for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
-                // TODO(Maddiaa): batch insert
-                commitment_tree_leaves[i * MAX_NEW_COMMITMENTS_PER_TX + j] =  new_commitments[j].value;
-            }
-        }
-
-        calculate_subtree(commitment_tree_leaves)
+        calculate_subtree(self.kernel_data.public_inputs.end.new_commitments.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
