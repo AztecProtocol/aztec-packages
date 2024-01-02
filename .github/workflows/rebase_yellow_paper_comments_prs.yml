@@ -51,8 +51,6 @@ jobs:
 
     - name: Determine if files in directory were touched
       id: check-touched
-      with:
-        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       run: |
         touched_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E "^yellow-paper/docs/${{ matrix.dir }}/.*$")
         echo "::set-output name=files_touched::$(echo "$touched_files" | wc -l)"
