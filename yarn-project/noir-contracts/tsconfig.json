@@ -5,7 +5,11 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
-  "references": [],
+  "references": [
+    {
+      "path": "../aztec.js"
+    }
+  ],
   "include": [
     "src",
     "src/**/*.json"
