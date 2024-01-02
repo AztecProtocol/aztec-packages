@@ -6,9 +6,9 @@ This is a draft. These requirements need to be considered by the wider team, and
 
 ## Requirements
 
-A private function circuit is a custom circuit tailored to the needs of a specific application. This circuit should be designed to handle private data processing while generating public inputs that safeguard the application and account's intentions without compromising sensitive information.
+Private function circuits represent smart contract functions that modify the Aztec private state trees. They serve as untrusted, third-party code that is executed as part of evaluating an Aztec transaction.
 
-The logic of this circuit is flexible, yet its public inputs must adhere to a specific format.
+The logic of each private function circuit is tailored to the needs of a particular application or scenario, yet its public inputs must adhere to a specific format. This circuit should be designed to handle private data processing while generating public inputs that safeguard the application and account's intentions without compromising sensitive information.
 
 ## Private Inputs
 
@@ -18,7 +18,7 @@ The private inputs of a private function circuit are customizable.
 
 The public inputs of a private function circuit will be incorporated into the private inputs of a private kernel circuit. Private kernel circuits leverage these public inputs, coupled with proof data and verification key from a private function circuit, to prove the correct execution of a private function.
 
-It must adhere to the following format:
+The following format defines the ABI that is used by the private kernel circuit when processing private function public inputs:
 
 | Field                              | Type                       | Description                                                            |
 | ---------------------------------- | -------------------------- | ---------------------------------------------------------------------- |

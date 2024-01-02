@@ -36,7 +36,7 @@ The preceding proof can be:
 
 The contract address contains the contract class ID, which is a hash of the root of its function tree and additional values. This circuit leverages these characteristics to establish the validity of the function's association with the contract address.
 
-Each leaf of the function tree is a hash representing a function. The preimage includes:
+Each leaf of the function tree is a hash representing a function. The preimage is defined as the concatenation of:
 
 - Function data.
 - Hash of the verification key.
@@ -61,7 +61,7 @@ The top item in the previous iteration's public call requests must pertain to th
 
 This circuit will pop the request from the stack, comparing the hash with that of the current function call.
 
-The preimage of the hash contains:
+The preimage of the hash is the concatenation of:
 
 - Contract address.
 - Function data.

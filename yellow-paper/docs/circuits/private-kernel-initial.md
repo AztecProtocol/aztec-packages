@@ -37,7 +37,7 @@ This entails ensuring that the following data from the private call aligns with 
 This nullifier serves multiple purposes:
 
 - Identifying a transaction.
-- Preventing the signature of a transaction request from being reused in another transaction.
+- Non-malleability. Preventing the signature of a transaction request from being reused in another transaction.
 - Generating values that should be maintained within the transaction's scope. For example, it is utilized to compute the nonces for all the note hashes in a transaction.
 
 > Note that the final transaction data is not deterministic for a given transaction request. The production of new notes, the destruction of notes, and various other values are likely to change based on the time and conditions when a transaction is being composed. However, the intricacies of implementation should not be a concern for the entity initiating the transaction.
@@ -54,7 +54,7 @@ This nullifier is the contract address siloed with the address of a precompiled 
 
 The contract address contains the contract class ID, which is a hash of the root of its function tree and additional values. This circuit leverages these characteristics to establish the validity of the function's association with the contract address.
 
-Each leaf of the function tree is a hash representing a function. The preimage includes:
+Each leaf of the function tree is a hash representing a function. The preimage is defined as the concatenation of:
 
 - Function data.
 - Hash of the verification key.
