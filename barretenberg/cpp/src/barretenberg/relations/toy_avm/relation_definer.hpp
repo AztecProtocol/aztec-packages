@@ -285,7 +285,7 @@ class ExampleLookupBasedRangeConstraintSettings {
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
 
-        using View = Accumulator::View;
+        using View = typename Accumulator::View;
         const auto is_constrained = View(in.lookup_is_range_constrained);
         const auto is_table_entry = View(in.lookup_is_range_table_entry);
         return (is_constrained + is_table_entry - is_constrained * is_table_entry);
@@ -431,7 +431,7 @@ class ExampleXorLookupConstraintSettings {
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
 
-        using View = Accumulator::View;
+        using View = typename Accumulator::View;
         const auto is_xor_operation = View(in.lookup_is_xor_operation);
         const auto is_xor_table_entry = View(in.lookup_is_xor_table_entry);
         return (is_xor_operation + is_xor_table_entry - is_xor_operation * is_xor_table_entry);
