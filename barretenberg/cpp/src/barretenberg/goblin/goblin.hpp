@@ -198,14 +198,18 @@ class Goblin {
 
         eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
         eccvm_composer = std::make_unique<ECCVMComposer>();
+        info("ECCVM: create_prover");
         auto eccvm_prover = eccvm_composer->create_prover(*eccvm_builder);
+        info("ECCVM: construct_proof");
         proof.eccvm_proof = eccvm_prover.construct_proof();
         proof.translation_evaluations = eccvm_prover.translation_evaluations;
 
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover.translation_batching_challenge_v, eccvm_prover.evaluation_challenge_x, op_queue);
         translator_composer = std::make_unique<TranslatorComposer>();
+        info("Translator: create_prover");
         auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover.transcript);
+        info("Translator: construct_proof");
         proof.translator_proof = translator_prover.construct_proof();
 
         proof_ = proof; // ACIRHACK
