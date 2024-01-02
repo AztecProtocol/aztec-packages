@@ -9,6 +9,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "contract.hpp"
 
 namespace acir_proofs {
 
@@ -17,13 +18,15 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
-void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
+template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
 {
+    // this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
+    // sizes below never get set and that eventually causes too few srs points to be extracted
     if (builder_.get_num_gates() > 1) {
         return;
     }
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_);
+    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_);
     exact_circuit_size_ = builder_.get_num_gates();
     total_circuit_size_ = builder_.get_total_circuit_size();
     circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
@@ -75,6 +78,28 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     return proof;
 }
 
+void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
+                                         acir_format::WitnessVector& witness)
+{
+    // Provide the builder with the op queue owned by the goblin instance
+    goblin_builder_.op_queue = goblin.op_queue;
+
+    create_circuit_with_witness(goblin_builder_, constraint_system, witness);
+
+    info("after create_circuit_with_witness: num_gates = ", goblin_builder_.num_gates);
+
+    // Correct for the addition of const variables in the builder constructor
+    acir_format::apply_wire_index_offset(goblin_builder_);
+
+    // Add some arbitrary op gates to ensure the associated polynomials are non-zero
+    GoblinTestingUtils::construct_goblin_ecc_op_circuit(goblin_builder_);
+}
+
+std::vector<uint8_t> AcirComposer::create_goblin_proof()
+{
+    return goblin.construct_proof(goblin_builder_);
+}
+
 std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verification_key()
 {
     if (!proving_key_) {
@@ -106,6 +131,16 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     // Hack. Shouldn't need to do this. 2144 is size with no public inputs.
     builder_.public_inputs.resize((proof.size() - 2144) / 32);
 
+    // TODO: We could get rid of this, if we made the Noir program specify whether something should be
+    // TODO: created with the recursive setting or not. ie:
+    //
+    // #[recursive_friendly]
+    // fn main() {}
+    // would put in the ACIR that we want this to be recursion friendly with a flag maybe and the backend
+    // would set the is_recursive flag to be true.
+    // This would eliminate the need for nargo to have a --recursive flag
+    //
+    // End result is that we may just be able to get it off of builder_, like builder_.is_recursive_friendly
     if (is_recursive) {
         auto verifier = composer.create_verifier(builder_);
         return verifier.verify_proof({ proof });
@@ -115,14 +150,21 @@ bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof, bool is_recur
     }
 }
 
+bool AcirComposer::verify_goblin_proof(std::vector<uint8_t> const& proof)
+{
+    return goblin.verify_proof({ proof });
+}
+
 std::string AcirComposer::get_solidity_verifier()
 {
     std::ostringstream stream;
     output_vk_sol(stream, verification_key_, "UltraVerificationKey");
-    return stream.str();
+    return stream.str() + CONTRACT_SOURCE;
 }
 
 /**
+ * TODO: We should change this to return a proof without public inputs, since that is what std::verify_proof
+ * TODO: takes.
  * @brief Takes in a proof buffer and converts into a vector of field elements.
  *        The Recursion opcode requires the proof serialized as a vector of witnesses.
  *        Use this method to get the witness values!

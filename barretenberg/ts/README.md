@@ -62,7 +62,7 @@ Commands:
   contract [options]          Output solidity verification key contract.
   write_vk [options]          Output verification key.
   proof_as_fields [options]   Return the proof as fields elements
-  vk_as_fields [options]      Return the verifiation key represented as fields elements. Also return the verification key hash.
+  vk_as_fields [options]      Return the verification key represented as field elements. Also return the verification key hash.
   help [command]              display help for command
 ```
 
@@ -89,7 +89,7 @@ To create the API and do a blake2s hash:
 ```typescript
 import { Crs, Barretenberg, RawBuffer } from './index.js';
 
-const api = await Barretenberg.new(/* num_threads */ 1);
+const api = await Barretenberg.new(/* num_threads */ { threads: 1 });
 const input = Buffer.from('hello world!');
 const result = await api.blake2s(input);
 await api.destroy();

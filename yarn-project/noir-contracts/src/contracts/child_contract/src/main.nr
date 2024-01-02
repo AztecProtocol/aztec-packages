@@ -10,13 +10,14 @@ contract Child {
         state_vars::public_state::PublicState,
         types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
     };
+    use dep::protocol_types::address::AztecAddress;
 
     struct Storage {
         current_value: PublicState<Field, FIELD_SERIALIZED_LEN>,
     }
 
     impl Storage {
-        fn init(context: Context) -> pub Self {
+        fn init(context: Context) -> Self {
             Storage {
                 current_value: PublicState::new(
                     context,
@@ -37,7 +38,7 @@ contract Child {
     }
 
     fn check_sender(call_context: CallContext) {
-        assert_eq(call_context.msg_sender, call_context.storage_contract_address, "Sender must be this contract");
+        assert(call_context.msg_sender.eq(call_context.storage_contract_address), "Sender must be this contract");
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
@@ -109,7 +110,7 @@ contract Child {
     }
 
     // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: AztecAddress, nonce: Field, storage_slot: Field, serialized_note: [Field; 0]) -> pub [Field; 4] {
         [0, 0, 0, 0]
     }
 }

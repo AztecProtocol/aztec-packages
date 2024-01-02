@@ -6,7 +6,7 @@ Here you will find a reference to everything available within the Sandbox.
 
 ## Installation
 
-You can run the Sandbox using either Docker or npm.
+You can run the Sandbox using Docker. See the [Quickstart](../getting_started/quickstart.md#install-docker) for instructions on installing Docker.
 
 ### With Docker
 
@@ -16,27 +16,13 @@ You can run the Sandbox using either Docker or npm.
 
 This will attempt to run the Sandbox on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
 
-If you don't have the CLI installed via a node package manager, this command will also install or update the CLI.
+This command also installs or updates the CLI. If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
 
 To install a specific version of the sandbox, you can set the environment variable `SANDBOX_VERSION`
 
 ```bash
 SANDBOX_VERSION=<version> /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
-
-NOTE: The sandbox version should be the same as your `@aztec/cli` package to ensure compatibility.
-
-### With npm
-
-You can download and run the Sandbox package directly if you have nodejs 18 or higher installed.
-
-You will also need an Ethereum node like Anvil or Hardhat running locally on port 8545.
-
-```bash
-npx @aztec/aztec-sandbox @aztec/cli
-```
-
-You can read [this tutorial on how to use the npm package](../tutorials/testing.md#running-sandbox-in-the-nodejs-process)
 
 ## Running
 
@@ -75,7 +61,9 @@ MODE='sandbox' # Option to start the sandbox or a standalone part of the system.
 AZTEC_NODE_PORT=8079 # The port that the Aztec node wil be listening to (default: 8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 
-
+# Ethereum Forking (Optional: not enabled by default) #
+FORK_BLOCK_NUMBER=0 # The block number to fork from
+FORK_URL="" # The URL of the Ethereum node to fork from
 
 ## Polling intervals ##
 ARCHIVER_POLLING_INTERVAL_MS=50
@@ -92,7 +80,6 @@ Variables like `DEPLOY_AZTEC_CONTRACTS` & `AZTEC_NODE_PORT` are valid here as de
 `TEST_ACCOUNTS` cannot be used here because the Aztec node does not control an Aztec account to deploy contracts from.
 
 ```sh
-
 # P2P config #
 # Configuration variables for connecting a Node to the Aztec Node P2P network. You'll need a running P2P-Bootstrap node to connect to.
 P2P_ENABLED='false' # A flag to enable P2P networking for this node. (default: false)
