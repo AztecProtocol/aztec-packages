@@ -122,7 +122,7 @@ impl PreviousKernelDataBuilder {
                 // The default value is its index + 1.
                 self.end.new_commitments.push(SideEffect{
                     value: i + mocked_value_offset,
-                    counter: i + 1
+                    counter: 0
                 });
             }
         }
@@ -137,7 +137,8 @@ impl PreviousKernelDataBuilder {
                 self.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
                     value: i + mocked_value_offset,
                     note_hash: first_nullifier.note_hash,
-                    counter: i + 1});
+                    counter: 0
+                });
             }
         }
     }
