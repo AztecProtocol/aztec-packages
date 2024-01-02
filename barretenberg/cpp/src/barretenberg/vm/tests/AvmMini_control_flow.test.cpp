@@ -37,7 +37,6 @@ class AvmMiniControlFlowTests : public ::testing::Test {
  *
  *****************************************************************************/
 
-// TODO: add jump selector checks in here!
 TEST_F(AvmMiniControlFlowTests, simpleCall)
 {
     uint32_t const CALL_ADDRESS = 4;
@@ -104,7 +103,6 @@ TEST_F(AvmMiniControlFlowTests, simpleJump)
         auto halt_row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_halt == FF(1); });
 
-        // Check that the correct result is stored at the expected memory location.
         EXPECT_TRUE(halt_row != trace.end());
         EXPECT_EQ(halt_row->avmMini_pc, FF(JUMP_ADDRESS));
     }
