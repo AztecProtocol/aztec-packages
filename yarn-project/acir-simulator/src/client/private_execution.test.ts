@@ -248,7 +248,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it.only('should run the create_note function', async () => {
+    it('should run the create_note function', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
 
       const result = await runSimulator({ args: [owner, 140], artifact }); // this line
@@ -297,8 +297,8 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(
-        field => !field.value.equals(Fr.ZERO),
+      const newCommitments = sideEffectArrayToValueArray(result.callStackItem.publicInputs.newCommitments).filter(
+        field => !field.equals(Fr.ZERO),
       );
       expect(newCommitments).toHaveLength(2);
 
@@ -649,7 +649,7 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = result.callStackItem.publicInputs.readRequests[0];
+      const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.readRequests)[0];
       expect(readRequest).toEqual(innerNoteHash);
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
@@ -657,7 +657,7 @@ describe('Private Execution test suite', () => {
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
-      expect(nullifier).toEqual(expectedNullifier);
+      expect(nullifier.value).toEqual(expectedNullifier);
     });
 
     it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
@@ -712,7 +712,7 @@ describe('Private Execution test suite', () => {
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
       const newCommitments = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.newCommitments),
+        nonEmptySideEffects(execInsert.callStackItem.publicInputs.newCommitments),
       );
       expect(newCommitments).toHaveLength(1);
 
@@ -723,14 +723,14 @@ describe('Private Execution test suite', () => {
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0];
-      expect(readRequest).toEqual(innerNoteHash);
+      expect(readRequest.value).toEqual(innerNoteHash);
 
       const gotNoteValue = execGetThenNullify.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = hashFields([innerNoteHash, ownerPk.low, ownerPk.high]);
-      expect(nullifier).toEqual(expectedNullifier);
+      expect(nullifier.value).toEqual(expectedNullifier);
 
       // check that the last get_notes call return no note
       const afterNullifyingNoteValue = getNotesAfterNullify.callStackItem.publicInputs.returnValues[0].value;
@@ -772,15 +772,15 @@ describe('Private Execution test suite', () => {
 
       // read requests should be empty
       const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
-      expect(readRequest).toEqual(0n);
+      expect(readRequest).toEqual(Fr.ZERO);
 
       // should get note value 0 because it actually gets a fake note since the real one hasn't been inserted yet!
-      const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
-      expect(gotNoteValue).toEqual(0n);
+      const gotNoteValue = result.callStackItem.publicInputs.returnValues[0];
+      expect(gotNoteValue).toEqual(Fr.ZERO);
 
       // there should be no nullifiers
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0].value;
-      expect(nullifier).toEqual(0n);
+      expect(nullifier).toEqual(Fr.ZERO);
     });
   });
 
