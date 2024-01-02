@@ -90,9 +90,9 @@ class ToyAVM {
                               lookup_is_xor_operation,          // column 8
                               lookup_is_xor_table_entry,        // column 9
                               lookup_xor_shift,                 // column 10
-                              lookup_xor_table_1,
-                              lookup_xor_table_2,
-                              lookup_xor_table_3)
+                              lookup_xor_table_1,               // column 11
+                              lookup_xor_table_2,               // column 12
+                              lookup_xor_table_3)               // column 13
 
         RefVector<DataType> get_selectors()
         {
@@ -124,25 +124,24 @@ class ToyAVM {
     template <typename DataType> class WitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              permutation_set_column_1, // Column 0
-                              permutation_set_column_2, // Column 1
-                              permutation_set_column_3, // Column 2
-                              permutation_set_column_4, // Column 3
-                              self_permutation_column,  // Column 4
-                              lookup_range_constraint_read_count,
-                              range_constrained_column,
-                              lookup_xor_read_count,
-                              lookup_xor_argument_1,
-                              lookup_xor_argument_2,
-                              lookup_xor_result,
-                              lookup_xor_accumulated_argument_1,
-                              lookup_xor_accumulated_argument_2,
-                              lookup_xor_accumulated_result,
-
-                              tuple_permutation_inverses,
-                              single_permutation_inverses,
-                              lookup_range_constraint_inverses,
-                              lookup_xor_inverses)
+                              permutation_set_column_1,           // Column 0
+                              permutation_set_column_2,           // Column 1
+                              permutation_set_column_3,           // Column 2
+                              permutation_set_column_4,           // Column 3
+                              self_permutation_column,            // Column 4
+                              lookup_range_constraint_read_count, // column 5
+                              range_constrained_column,           // column 6
+                              lookup_xor_read_count,              // column 7
+                              lookup_xor_argument_1,              // column 8
+                              lookup_xor_argument_2,              // column 9
+                              lookup_xor_result,                  // column 10
+                              lookup_xor_accumulated_argument_1,  // column 11
+                              lookup_xor_accumulated_argument_2,  // column 12
+                              lookup_xor_accumulated_result,      // column 13
+                              tuple_permutation_inverses,         // column 14
+                              single_permutation_inverses,        // column 15
+                              lookup_range_constraint_inverses,   // column 16
+                              lookup_xor_inverses)                // column 17
 
         RefVector<DataType> get_wires()
         {
@@ -174,39 +173,38 @@ class ToyAVM {
     template <typename DataType> class AllEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              lagrange_first,                   // column 0
-                              enable_tuple_set_permutation,     // column 1
-                              enable_single_column_permutation, // column 2
-                              enable_first_set_permutation,     // column 3
-                              enable_second_set_permutation,    // column 4
-                              lookup_is_range_constrained,      // column 5
-                              lookup_is_range_table_entry,      // column 6
-                              lookup_is_xor_operation,
-                              lookup_is_xor_table_entry,
-                              lookup_xor_shift,
-                              lookup_xor_table_1,
-                              lookup_xor_table_2,
-                              lookup_xor_table_3,
-                              lookup_range_table_entries,
-                              permutation_set_column_1, // Column 0
-                              permutation_set_column_2, // Column 1
-                              permutation_set_column_3, // Column 2
-                              permutation_set_column_4, // Column 3
-                              self_permutation_column,  // Column 4
-                              lookup_range_constraint_read_count,
-                              range_constrained_column,
-                              lookup_xor_read_count,
-                              lookup_xor_argument_1,
-                              lookup_xor_argument_2,
-                              lookup_xor_result,
-                              lookup_xor_accumulated_argument_1,
-                              lookup_xor_accumulated_argument_2,
-                              lookup_xor_accumulated_result,
-
-                              tuple_permutation_inverses, // Column 5
-                              single_permutation_inverses,
-                              lookup_range_constraint_inverses,
-                              lookup_xor_inverses) // Column 11
+                              lagrange_first,                     // column 0
+                              enable_tuple_set_permutation,       // column 1
+                              enable_single_column_permutation,   // column 2
+                              enable_first_set_permutation,       // column 3
+                              enable_second_set_permutation,      // column 4
+                              lookup_is_range_constrained,        // column 5
+                              lookup_is_range_table_entry,        // column 6
+                              lookup_is_xor_operation,            // column 7
+                              lookup_is_xor_table_entry,          // column 8
+                              lookup_xor_shift,                   // column 9
+                              lookup_xor_table_1,                 // column 10
+                              lookup_xor_table_2,                 // column 11
+                              lookup_xor_table_3,                 // column 12
+                              lookup_range_table_entries,         // column 13
+                              permutation_set_column_1,           // column 14
+                              permutation_set_column_2,           // column 15
+                              permutation_set_column_3,           // column 16
+                              permutation_set_column_4,           // column 17
+                              self_permutation_column,            // column 18
+                              lookup_range_constraint_read_count, // column 19
+                              range_constrained_column,           // column 20
+                              lookup_xor_read_count,              // column 21
+                              lookup_xor_argument_1,              // column 22
+                              lookup_xor_argument_2,              // column 23
+                              lookup_xor_result,                  // column 24
+                              lookup_xor_accumulated_argument_1,  // column 25
+                              lookup_xor_accumulated_argument_2,  // column 26
+                              lookup_xor_accumulated_result,      // column 27
+                              tuple_permutation_inverses,         // column 28
+                              single_permutation_inverses,        // column 29
+                              lookup_range_constraint_inverses,   // column 30
+                              lookup_xor_inverses)                // column 31
 
         RefVector<DataType> get_wires()
         {
@@ -225,22 +223,22 @@ class ToyAVM {
         };
         RefVector<DataType> get_unshifted()
         {
-            return { lagrange_first,                   // column 0
-                     enable_tuple_set_permutation,     // column 1
-                     enable_single_column_permutation, // column 2
-                     enable_first_set_permutation,     // column 3
-                     enable_second_set_permutation,    // column 4
-                     lookup_is_range_constrained,      // column 5
-                     lookup_is_range_table_entry,      // column 6
+            return { lagrange_first,
+                     enable_tuple_set_permutation,
+                     enable_single_column_permutation,
+                     enable_first_set_permutation,
+                     enable_second_set_permutation,
+                     lookup_is_range_constrained,
+                     lookup_is_range_table_entry,
                      lookup_is_xor_operation,
                      lookup_is_xor_table_entry,
                      lookup_xor_shift,
                      lookup_range_table_entries,
-                     permutation_set_column_1, // Column 0
-                     permutation_set_column_2, // Column 1
-                     permutation_set_column_3, // Column 2
-                     permutation_set_column_4, // Column 3
-                     self_permutation_column,  // Column 4
+                     permutation_set_column_1,
+                     permutation_set_column_2,
+                     permutation_set_column_3,
+                     permutation_set_column_4,
+                     self_permutation_column,
                      lookup_range_constraint_read_count,
                      range_constrained_column,
                      lookup_xor_read_count,
@@ -253,7 +251,7 @@ class ToyAVM {
                      lookup_xor_table_1,
                      lookup_xor_table_2,
                      lookup_xor_table_3,
-                     tuple_permutation_inverses, // Column 5
+                     tuple_permutation_inverses,
                      single_permutation_inverses,
                      lookup_range_constraint_inverses,
                      lookup_xor_inverses
@@ -367,23 +365,10 @@ class ToyAVM {
 
       public:
         CommitmentLabels()
-            : AllEntities<std::string>()
-        {
-            // TODO: fill out labels
-            Base::permutation_set_column_1 = "PERMUTATION_SET_COLUMN_1";
-            Base::permutation_set_column_2 = "PERMUTATION_SET_COLUMN_2";
-            Base::permutation_set_column_3 = "PERMUTATION_SET_COLUMN_3";
-            Base::permutation_set_column_4 = "PERMUTATION_SET_COLUMN_4";
-            Base::self_permutation_column = "SELF_PERMUTATION_COLUMN";
-            Base::tuple_permutation_inverses = "TUPLE_PERMUTATION_INVERSES";
-            Base::single_permutation_inverses = "SINGLE_PERMUTATION_INVERSES";
-            // The ones beginning with "__" are only used for debugging
-            Base::lagrange_first = "__LAGRANGE_FIRST";
-            Base::enable_tuple_set_permutation = "__ENABLE_SET_PERMUTATION";
-            Base::enable_single_column_permutation = "__ENABLE_SINGLE_COLUMN_PERMUTATION";
-            Base::enable_first_set_permutation = "__ENABLE_FIRST_SET_PERMUTATION";
-            Base::enable_second_set_permutation = "__ENABLE_SECOND_SET_PERMUTATION";
-        };
+            : AllEntities<std::string>(){
+                // TODO: fill out labels when the proving system is involved
+                //            Base::permutation_set_column_1 = "PERMUTATION_SET_COLUMN_1";
+            };
     };
 
     class VerifierCommitments : public AllEntities<Commitment> {
@@ -391,12 +376,21 @@ class ToyAVM {
       public:
         VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            // TODO: fill out commitments
+
             lagrange_first = verification_key->lagrange_first;
             enable_tuple_set_permutation = verification_key->enable_tuple_set_permutation;
             enable_single_column_permutation = verification_key->enable_single_column_permutation;
             enable_first_set_permutation = verification_key->enable_first_set_permutation;
             enable_second_set_permutation = verification_key->enable_second_set_permutation;
+            lookup_is_range_constrained = verification_key->lookup_is_range_constrained;
+            lookup_is_range_table_entry = verification_key->lookup_is_range_table_entry;
+            lookup_range_table_entries = verification_key->lookup_range_table_entries;
+            lookup_is_xor_operation = verification_key->lookup_is_xor_operation;
+            lookup_is_xor_table_entry = verification_key->lookup_is_xor_table_entry;
+            lookup_xor_shift = verification_key->lookup_xor_shift;
+            lookup_xor_table_1 = verification_key->lookup_xor_table_1;
+            lookup_xor_table_2 = verification_key->lookup_xor_table_2;
+            lookup_xor_table_3 = verification_key->lookup_xor_table_3;
         }
     };
 
