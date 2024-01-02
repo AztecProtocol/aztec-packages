@@ -105,8 +105,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.txContext.chainId,
       this.txContext.version,
 
-      this.callContext.startSideEffectCounter,
-
       ...args,
     ];
 
