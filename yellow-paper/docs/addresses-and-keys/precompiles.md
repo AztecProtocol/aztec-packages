@@ -3,9 +3,7 @@ title: Precompiles
 sidebar_position: 2
 ---
 
-Precompiled contracts, which borrow their name from Ethereum's, are contracts not deployed by users but defined at the protocol level. These contracts and their classes are assigned well-known low-number addresses and identifiers, and their implementation is subject to change via protocol upgrades. Precompiled contracts in Aztec are implemented as a set of circuits, one for each function they expose, like user-defined private contracts. Precompiles may make use of the local PXE oracle. Note that, unlike user-defined contracts, the address of a precompiled contract instance and the identifier of its class both have no known preimage.
-
-Rationale for precompiled contracts is to provide a set of vetted primitives for note encryption and tagging that applications can use safely. These primitives are guaranteed to be always satisfiable when called with valid arguments. This allows account contracts to choose their preferred method of encryption and tagging from any primitive in this set, and application contracts to call into them without the risk of calling into a untrusted code, which could potentially halt the execution flow via an unsatisfiable constrain. Furthermore, by exposing these primitives in a reserved set of well-known addresses, applications can be forward-compatible and incorporate new encryption and tagging methods as accounts opt into them.
+I have deleted two paragraphs.
 
 ## Constants
 
@@ -19,7 +17,7 @@ Rationale for precompiled contracts is to provide a set of vetted primitives for
 
 All precompiles in the address range `ENCRYPTION_PRECOMPILE_ADDRESS_RANGE` are reserved for encryption and tagging. Application contracts can expected to call into these contracts with note plaintext, recipients, and public keys. To facilitate forward compatibility, all unassigned addresses within the range expose the functions below as no-ops, meaning that no actions will be executed when calling into them.
 
-All functions in these precompiles accept a `PublicKeys` struct which contains the user advertised public keys. The structure of each of the public keys included can change from one encryption method to another, with the exception of the `nullifier_key` which is always restricted to a single field element. For forward compatibility, the precompiles interface accepts a hash of the public keys, which can be expanded within each method via an oracle call.
+All functions in these precompiles accept a `PublicKeys` struct which contains the user advertised public keys. INSERTING TEXT IN THE MIDDLE OF THIS THING. The structure of each of the public keys included can change from one encryption method to another, with the exception of the `nullifier_key` which is always restricted to a single field element. For forward compatibility, the precompiles interface accepts a hash of the public keys, which can be expanded within each method via an oracle call.
 
 ```
 struct PublicKeys:
@@ -38,6 +36,8 @@ enum EncryptionType:
   outgoing = 2
   incoming_internal = 3
 ```
+
+Hi Mum!
 
 Precompiles expose the following private functions:
 
@@ -156,9 +156,9 @@ For all subsequent messages:
 
 List of precompiles defined by the protocol:
 
-| Address | Encryption | Note Tagging | Comments |
-|---------|------------|--------------|----------|
-| 0x01 | Noop | Noop | Used by accounts to explicitly signal that they cannot receive encrypted payloads. Validation method returns `true` only for an empty list of public keys. All other methods return empty. |
-| 0x02 | AES128 | Trial decryption |  |
-| 0x03 | AES128 | Delegated trial decryption |  |
-| 0x04 | AES128 | Tag hopping |  |
+| Address | Encryption | Note Tagging               | Comments                                                                                                                                                                                   |
+| ------- | ---------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0x01    | Noop       | Noop                       | Used by accounts to explicitly signal that they cannot receive encrypted payloads. Validation method returns `true` only for an empty list of public keys. All other methods return empty. |
+| 0x02    | AES128     | Trial decryption           |                                                                                                                                                                                            |
+| 0x03    | AES128     | Delegated trial decryption |                                                                                                                                                                                            |
+| 0x04    | AES128     | Tag hopping                |                                                                                                                                                                                            |
