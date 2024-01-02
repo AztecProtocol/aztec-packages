@@ -504,6 +504,7 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     )))]);
 
     // Define `FunctionSelector` return type
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
     let return_type_path = chained_path!("protocol_types", "abis", "function_selector", "FunctionSelector");
     let return_type = FunctionReturnType::Ty(make_type(UnresolvedTypeData::Named(return_type_path, vec![])));
 

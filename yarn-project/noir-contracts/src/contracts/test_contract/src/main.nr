@@ -6,6 +6,10 @@ contract Test {
         AztecAddress,
         EthAddress,
     };
+    // The following import is here in order to make the event macro work because the macro doesn't add the import.
+    // It doesn't add the import because in the future we will re-export all the types via aztec-nr and aztec-nr is
+    // already auto-imported by the macros.
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Remove this once the issue is fixed.
     use dep::protocol_types;
     // docs:start:unencrypted_import
     use dep::aztec::log::emit_unencrypted_log;
