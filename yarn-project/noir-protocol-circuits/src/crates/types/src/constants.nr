@@ -85,7 +85,6 @@ global NUM_FIELDS_PER_SHA256: Field = 2;
 global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
-
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
 // Move these constants to a noir file once the issue bellow is resolved:
@@ -114,7 +113,7 @@ global CONTRACT_STORAGE_READ_LENGTH: Field = 2;
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: Field = 190;
 global GET_NOTES_ORACLE_RETURN_LENGTH: Field = 674;
 global EMPTY_NULLIFIED_COMMITMENT: Field = 1000000;
-global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 228;
+global CALL_PRIVATE_FUNCTION_RETURN_SIZE: Field = 210;
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 87;
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH: Field = 192;
 global COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP: Field = 4096;
