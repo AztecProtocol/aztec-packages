@@ -1,13 +1,7 @@
 #pragma once
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/types.hpp"
-#include "barretenberg/proof_system/types/merkle_hash_type.hpp"
-#include "barretenberg/proof_system/types/pedersen_commitment_type.hpp"
 #include "ultra_circuit_builder.hpp"
-#include <optional>
 
 namespace proof_system {
 
@@ -19,8 +13,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-
-    size_t num_vars_added_in_constructor = 0; // needed in constructing circuit from acir
 
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
@@ -82,12 +74,25 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
         mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
-        num_vars_added_in_constructor = this->variables.size();
     };
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : GoblinUltraCircuitBuilder_(0, op_queue_in)
     {}
 
+    /**
+     * @brief Constructor from data generated from ACIR
+     *
+     * @param op_queue_in Op queue to which goblinized group ops will be added
+     * @param witness_values witnesses values known to acir
+     * @param public_inputs indices of public inputs in witness array
+     * @param varnum number of known witness
+     *
+     * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
+     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
+     * we know will exist but whose values are not known during acir generation. Both are in general less than the total
+     * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
+     * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
+     */
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                                auto& witness_values,
                                std::vector<uint32_t>& public_inputs,
@@ -95,15 +100,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
         , op_queue(op_queue_in)
     {
-        // WORKTODO: clarify this in comments
-        // // Kev says this should virtually always be true for Noir programs.
-        // info("witness_values.size() = ", witness_values.size());
-        // info("varnum = ", varnum);
-        // // ASSERT(witness_values.size() == varnum - 1);
-
         // Add the variables and public inputs known directly from acir
         for (size_t idx = 0; idx < varnum; ++idx) {
-            // for (size_t idx = 0; idx < witness_values.size(); ++idx) {
+            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
+            // be "set" later on via the assert_equal mechanism.
             auto value = idx < witness_values.size() ? witness_values[idx] : 0;
             if (std::find(public_inputs.begin(), public_inputs.end(), idx) != public_inputs.end()) {
                 this->add_public_variable(value);
@@ -117,7 +117,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
         mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
-        num_vars_added_in_constructor = this->variables.size();
     };
 
     void finalize_circuit();
