@@ -620,7 +620,6 @@ void AvmMiniTraceBuilder::internal_call(uint32_t jmpDest)
         .avmMini_pc = FF(pc),
         .avmMini_internal_return_ptr = FF(internal_return_ptr),
         .avmMini_sel_internal_call = FF(1),
-        .avmMini_sel_jump = FF(1),
         .avmMini_ia = FF(jmpDest),
         .avmMini_ib = stored_pc,
         .avmMini_mem_op_b = FF(1),
