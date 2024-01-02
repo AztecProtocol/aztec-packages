@@ -165,7 +165,7 @@ namespace avmMini(256);
     sel_internal_call * (internal_return_ptr - mem_idx_b) = 0;
     sel_internal_call * ((pc + 1) - ib) = 0;
 
-    sel_internal_call - (sel_jump * sel_internal_call) = 0;
+    sel_internal_call * (sel_internal_call - sel_jump) = 0;
     
     // TODO(md): Below relations may be removed through sub-op table lookup
     sel_internal_call * (rwb - 1) = 0;
