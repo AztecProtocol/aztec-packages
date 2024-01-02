@@ -234,47 +234,4 @@ Data that aids in the verifications carried out in this circuit or later iterati
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md), the [initial public kernel circuit](./public-kernel-initial.md), and the [tail public kernel circuit](./public-kernel-tail.md).
-
-### Constant Data
-
-These are constants that remain the same throughout the entire transaction:
-
-- Historical data - representing the states of the block at which the transaction is constructed, including:
-  - Hash of the global variables.
-  - Roots of the trees:
-    - Note hash tree.
-    - Nullifier tree.
-    - Contract tree.
-    - L1-to-l2 message tree.
-    - Public data tree.
-- Transaction context
-  - A flag indicating whether it is a fee paying transaction.
-  - A flag indicating whether it is a fee rebate transaction.
-  - Chain ID.
-  - Version of the transaction.
-
-### Accumulated Data
-
-It contains data accumulated during the execution of the transaction up to this point:
-
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Old public data tree snapshot.
-- New public data tree snapshot.
-
-### Transient Accumulated Data
-
-It includes data from the current function call, aggregated with the results from the previous iterations:
-
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- New contract contexts.
-- Read requests.
-- Update requests.
-- Public call requests.
+The public inputs of this circuit align with that of the [tail private kernel circuit](./private-kernel-tail.md#public-inputs).

@@ -218,8 +218,6 @@ Data that aids in the verifications carried out in this circuit or later iterati
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [inner private kernel circuit](./private-kernel-inner.md) and the [reset private kernel circuit](./private-kernel-reset.md).
-
 ### Constant Data
 
 These are constants that remain the same throughout the entire transaction:
