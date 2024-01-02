@@ -169,8 +169,8 @@ class Goblin {
         auto instance = composer.create_instance(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
-        instance_inspector::inspect_instance(instance);
-        instance_inspector::print_databus_info(instance);
+        // instance_inspector::inspect_instance(instance);
+        // instance_inspector::print_databus_info(instance);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
         // mocking the first set of ecc ops
@@ -191,7 +191,7 @@ class Goblin {
     // ACIRHACK
     Proof prove_for_acir()
     {
-        info("Goblin.prove(): op_queue size = ", op_queue->ultra_ops[0].size());
+        // info("Goblin.prove(): op_queue size = ", op_queue->ultra_ops[0].size());
         Proof proof;
 
         proof.merge_proof = std::move(merge_proof);
@@ -236,9 +236,9 @@ class Goblin {
     // ACIRHACK
     std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
     {
-        info("goblin: construct_proof");
+        // info("goblin: construct_proof");
         accumulate_for_acir(builder);
-        info("accumulate complete.");
+        // info("accumulate complete.");
         std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
         std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
 
@@ -257,15 +257,19 @@ class Goblin {
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
         GoblinUltraVerifier verifier{ accumulator.verification_key };
-        info("constructed GUH verifier");
+        // info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
-        info("                           verified GUH proof; result: ", verified);
+        if (verified) {
+            info("GUH verification SUCCEEDED");
+        } else {
+            info("GUH verification FAILED");
+        }
 
         const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         auto goblin_proof = extract_goblin_proof(proof);
-        info("extracted goblin proof");
+        // info("extracted goblin proof");
         verified = verified && verify_for_acir(goblin_proof);
-        info("verified goblin proof");
+        // info("verified goblin proof");
         return verified;
     }
 };

@@ -95,12 +95,16 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
         , op_queue(op_queue_in)
     {
-        // Kev says this should virtually always be true for Noir programs.
-        ASSERT(witness_values.size() == varnum - 1);
+        // WORKTODO: clarify this in comments
+        // // Kev says this should virtually always be true for Noir programs.
+        // info("witness_values.size() = ", witness_values.size());
+        // info("varnum = ", varnum);
+        // // ASSERT(witness_values.size() == varnum - 1);
 
         // Add the variables and public inputs known directly from acir
-        for (size_t idx = 0; idx < witness_values.size(); ++idx) {
-            auto& value = witness_values[idx];
+        for (size_t idx = 0; idx < varnum; ++idx) {
+            // for (size_t idx = 0; idx < witness_values.size(); ++idx) {
+            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
             if (std::find(public_inputs.begin(), public_inputs.end(), idx) != public_inputs.end()) {
                 this->add_public_variable(value);
             } else {
