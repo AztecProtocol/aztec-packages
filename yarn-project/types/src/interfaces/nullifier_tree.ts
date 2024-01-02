@@ -31,9 +31,7 @@ export class NullifierMembershipWitness {
   public toFieldArray(): Fr[] {
     return [
       new Fr(this.index),
-      new Fr(this.leafPreimage.nullifier),
-      new Fr(this.leafPreimage.nextIndex),
-      new Fr(this.leafPreimage.nextNullifier),
+      ...this.leafPreimage.toFieldArray(),
       ...this.siblingPath.toFieldArray(),
     ];
   }
