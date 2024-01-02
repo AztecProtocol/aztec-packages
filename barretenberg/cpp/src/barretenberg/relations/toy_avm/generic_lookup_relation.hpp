@@ -331,7 +331,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         if (Settings::READ_TERM_TYPES[read_index - 1] == READ_ARBITRARY) {
             return compute_read_term_polynomial_offset(read_index - 1);
         }
-        throw std::logic_error("Should never reach this part");
         return SIZE_MAX;
     }
 
@@ -362,7 +361,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         if (Settings::WRITE_TERM_TYPES[write_index - 1] == WRITE_ARBITRARY) {
             return compute_write_term_polynomial_offset(write_index - 1);
         }
-        throw std::logic_error("Should never reach this part");
         return SIZE_MAX;
     }
 
