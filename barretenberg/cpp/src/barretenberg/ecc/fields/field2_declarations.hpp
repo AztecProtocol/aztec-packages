@@ -3,30 +3,37 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 // forward declare Engine
-namespace numeric::random {
+namespace numeric::random
+{
 class Engine;
 }
 
-namespace barretenberg {
-template <class base_field, class Params> struct alignas(32) field2 {
+namespace barretenberg
+{
+template <class base_field, class Params> struct alignas(32) field2
+{
   public:
     constexpr field2(const base_field& a = base_field::zero(), const base_field& b = base_field::zero())
         : c0(a)
         , c1(b)
-    {}
+    {
+    }
 
     constexpr field2(const field2& other) noexcept
         : c0(other.c0)
         , c1(other.c1)
-    {}
+    {
+    }
     constexpr field2(field2&& other) noexcept
         : c0(other.c0)
         , c1(other.c1)
-    {}
+    {
+    }
 
     constexpr field2& operator=(const field2& other) noexcept
     {
-        if (this == &other) {
+        if (this == &other)
+        {
             return *this;
         }
         c0 = other.c0;
@@ -36,7 +43,8 @@ template <class base_field, class Params> struct alignas(32) field2 {
 
     constexpr field2& operator=(field2&& other) noexcept
     {
-        if (this == &other) {
+        if (this == &other)
+        {
             return *this;
         }
         c0 = other.c0;
@@ -138,4 +146,16 @@ template <class base_field, class Params> struct alignas(32) field2 {
     }
 };
 
+template <typename B, typename base_field, typename Params> void read(B& it, field2<base_field, Params>& value)
+{
+    using serialize::read;
+    read(it, value.c0);
+    read(it, value.c1);
+}
+template <typename B, typename base_field, typename Params> void write(B& buf, field2<base_field, Params> const& value)
+{
+    using serialize::write;
+    write(buf, value.c0);
+    write(buf, value.c1);
+}
 } // namespace barretenberg

@@ -1,7 +1,7 @@
 // A contract used for running benchmarks.
 // We should try to change this contract as little as possible, since any modification
 // would alter the metrics we're capturing in the benchmarks, and we want to keep the
-// subject being tested as unmodified as possible so we can detect metric changes that 
+// subject being tested as unmodified as possible so we can detect metric changes that
 // arise from code changes.
 
 contract Benchmarking {
@@ -78,13 +78,12 @@ contract Benchmarking {
     }
 
     unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: Field,
+        contract_address: AztecAddress,
         nonce: Field,
         storage_slot: Field,
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
-        let _address = AztecAddress::from_field(contract_address); // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/3669
-        let note_header = NoteHeader::new(_address, nonce, storage_slot);
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
     }
 }

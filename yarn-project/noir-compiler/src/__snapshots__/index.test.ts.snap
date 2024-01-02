@@ -166,14 +166,14 @@ export class TestContractContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(Point.ZERO, wallet, TestContractContractArtifact, Array.from(arguments).slice(1));
+    return new DeployMethod<TestContractContract>(Point.ZERO, wallet, TestContractContractArtifact, TestContractContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(publicKey, wallet, TestContractContractArtifact, Array.from(arguments).slice(2));
+    return new DeployMethod<TestContractContract>(publicKey, wallet, TestContractContractArtifact, TestContractContract.at, Array.from(arguments).slice(2));
   }
   
 
@@ -364,14 +364,14 @@ export class TestContractContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(Point.ZERO, wallet, TestContractContractArtifact, Array.from(arguments).slice(1));
+    return new DeployMethod<TestContractContract>(Point.ZERO, wallet, TestContractContractArtifact, TestContractContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, pub_param: FieldLike) {
-    return new DeployMethod<TestContractContract>(publicKey, wallet, TestContractContractArtifact, Array.from(arguments).slice(2));
+    return new DeployMethod<TestContractContract>(publicKey, wallet, TestContractContractArtifact, TestContractContract.at, Array.from(arguments).slice(2));
   }
   
 
