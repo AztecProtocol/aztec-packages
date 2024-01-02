@@ -11,8 +11,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 
     auto data = exec_pipe(command);
     // Header + num_points * sizeof point.
-    if (data.size() < g1_end)
-    {
+    if (data.size() < g1_end) {
         throw std::runtime_error("Failed to download g1 data.");
     }
 
@@ -33,13 +32,11 @@ std::vector<barretenberg::g1::affine_element> get_bn254_g1_data(const std::files
     auto g1_path = path / "bn254_g1.dat";
     size_t g1_file_size = get_file_size(g1_path);
 
-    if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0)
-    {
+    if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0) {
         vinfo("using cached crs of size ", std::to_string(g1_file_size / 64), " at ", g1_path);
         auto data = read_file(g1_path, g1_file_size);
         auto points = std::vector<barretenberg::g1::affine_element>(num_points);
-        for (size_t i = 0; i < num_points; ++i)
-        {
+        for (size_t i = 0; i < num_points; ++i) {
             points[i] = from_buffer<barretenberg::g1::affine_element>(data, i * 64);
         }
         return points;
@@ -50,8 +47,7 @@ std::vector<barretenberg::g1::affine_element> get_bn254_g1_data(const std::files
     write_file(g1_path, data);
 
     auto points = std::vector<barretenberg::g1::affine_element>(num_points);
-    for (size_t i = 0; i < num_points; ++i)
-    {
+    for (size_t i = 0; i < num_points; ++i) {
         points[i] = from_buffer<barretenberg::g1::affine_element>(data, i * 64);
     }
     return points;
@@ -64,8 +60,7 @@ barretenberg::g2::affine_element get_bn254_g2_data(const std::filesystem::path& 
     auto g2_path = path / "bn254_g2.dat";
     size_t g2_file_size = get_file_size(g2_path);
 
-    if (g2_file_size == 128)
-    {
+    if (g2_file_size == 128) {
         auto data = read_file(g2_path);
         return from_buffer<barretenberg::g2::affine_element>(data.data());
     }

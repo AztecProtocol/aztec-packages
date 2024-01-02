@@ -2,8 +2,7 @@
 
 // Gets the transcript URL from the BARRETENBERG_GRUMPKIN_TRANSCRIPT_URL environment variable, if set.
 // Otherwise returns the default URL.
-namespace
-{
+namespace {
 std::string get_grumpkin_transcript_url()
 {
     const char* ENV_VAR_NAME = "BARRETENBERG_GRUMPKIN_TRANSCRIPT_URL";
@@ -29,8 +28,7 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 
     auto data = exec_pipe(command);
     // Header + num_points * sizeof point.
-    if (data.size() < g1_end - g1_start)
-    {
+    if (data.size() < g1_end - g1_start) {
         throw std::runtime_error("Failed to download grumpkin g1 data.");
     }
 
@@ -42,13 +40,11 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
     std::filesystem::create_directories(path);
     std::ifstream size_file(path / "grumpkin_size");
     size_t size = 0;
-    if (size_file)
-    {
+    if (size_file) {
         size_file >> size;
         size_file.close();
     }
-    if (size >= num_points)
-    {
+    if (size >= num_points) {
         auto file = path / "grumpkin_g1.dat";
         vinfo("using cached crs at: ", file);
         auto data = read_file(file, 28 + num_points * 64);
@@ -64,8 +60,7 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
     write_file(path / "grumpkin_g1.dat", data);
 
     std::ofstream new_size_file(path / "grumpkin_size");
-    if (!new_size_file)
-    {
+    if (!new_size_file) {
         throw std::runtime_error("Failed to open size file for writing");
     }
     new_size_file << num_points;

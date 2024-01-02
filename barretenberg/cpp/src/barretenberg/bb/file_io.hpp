@@ -9,8 +9,7 @@ inline size_t get_file_size(std::string const& filename)
 {
     // Open the file in binary mode and move to the end.
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file)
-    {
+    if (!file) {
         return 0;
     }
 
@@ -22,16 +21,14 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 {
     // Get the file size.
     auto size = get_file_size(filename);
-    if (size <= 0)
-    {
+    if (size <= 0) {
         throw std::runtime_error("File is empty or there's an error reading it: " + filename);
     }
 
     auto to_read = bytes == 0 ? size : bytes;
 
     std::ifstream file(filename, std::ios::binary);
-    if (!file)
-    {
+    if (!file) {
         throw std::runtime_error("Unable to open file: " + filename);
     }
 
@@ -47,8 +44,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 inline void write_file(const std::string& filename, std::vector<uint8_t> const& data)
 {
     std::ofstream file(filename, std::ios::binary);
-    if (!file)
-    {
+    if (!file) {
         throw std::runtime_error("Failed to open data file for writing");
     }
     file.write((char*)data.data(), (std::streamsize)data.size());

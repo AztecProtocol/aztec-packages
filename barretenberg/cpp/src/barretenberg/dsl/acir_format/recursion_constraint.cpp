@@ -5,8 +5,7 @@
 #include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
 #include <cstddef>
 
-namespace acir_format
-{
+namespace acir_format {
 
 using namespace proof_system::plonk;
 
@@ -39,8 +38,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
 {
     const auto& nested_aggregation_indices = nested_aggregation_object;
     bool nested_aggregation_indices_all_zero = true;
-    for (const auto& idx : nested_aggregation_indices)
-    {
+    for (const auto& idx : nested_aggregation_indices) {
         nested_aggregation_indices_all_zero &= (idx == 0);
     }
     const bool inner_proof_contains_recursive_proof = !nested_aggregation_indices_all_zero;
@@ -58,8 +56,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
         // Remove the public inputs from the dummy proof
         dummy_proof.erase(dummy_proof.begin(),
                           dummy_proof.begin() + static_cast<std::ptrdiff_t>(input.public_inputs.size()));
-        for (size_t i = 0; i < input.proof.size(); ++i)
-        {
+        for (size_t i = 0; i < input.proof.size(); ++i) {
             const auto proof_field_idx = input.proof[i];
             // if we do NOT have a witness assignment (i.e. are just building the proving/verification keys),
             // we add our dummy proof values as Builder variables.
@@ -73,8 +70,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
             // will not trigger basic errors (check inputs are on-curve, check we are not inverting 0)
             builder.assert_equal(builder.add_variable(dummy_field), proof_field_idx);
         }
-        for (size_t i = 0; i < input.key.size(); ++i)
-        {
+        for (size_t i = 0; i < input.key.size(); ++i) {
             const auto key_field_idx = input.key[i];
             barretenberg::fr dummy_field =
                 has_valid_witness_assignments ? builder.get_variable(key_field_idx) : dummy_key[i];
@@ -91,16 +87,13 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
-    for (const auto& idx : aggregation_input)
-    {
+    for (const auto& idx : aggregation_input) {
         inner_aggregation_indices_all_zero &= (idx == 0);
     }
 
-    if (!inner_aggregation_indices_all_zero)
-    {
+    if (!inner_aggregation_indices_all_zero) {
         std::array<bn254::BaseField, 4> aggregation_elements;
-        for (size_t i = 0; i < 4; ++i)
-        {
+        for (size_t i = 0; i < 4; ++i) {
             aggregation_elements[i] =
                 bn254::BaseField(field_ct::from_witness_index(&builder, aggregation_input[4 * i]),
                                  field_ct::from_witness_index(&builder, aggregation_input[4 * i + 1]),
@@ -113,9 +106,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
         previous_aggregation.P0 = bn254::Group(aggregation_elements[0], aggregation_elements[1]);
         previous_aggregation.P1 = bn254::Group(aggregation_elements[2], aggregation_elements[3]);
         previous_aggregation.has_data = true;
-    }
-    else
-    {
+    } else {
         previous_aggregation.has_data = false;
     }
 
@@ -123,8 +114,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
 
     std::vector<field_ct> key_fields;
     key_fields.reserve(input.key.size());
-    for (const auto& idx : input.key)
-    {
+    for (const auto& idx : input.key) {
         auto field = field_ct::from_witness_index(&builder, idx);
         key_fields.emplace_back(field);
     }
@@ -133,13 +123,11 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     // Prepend the public inputs to the proof fields because this is how the
     // core barretenberg library processes proofs (with the public inputs first and not separated)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
-    for (const auto& idx : input.public_inputs)
-    {
+    for (const auto& idx : input.public_inputs) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
-    for (const auto& idx : input.proof)
-    {
+    for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
@@ -159,8 +147,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     ASSERT(result.public_inputs.size() == input.public_inputs.size());
 
     // Assign the `public_input` field to the public input of the inner proof
-    for (size_t i = 0; i < input.public_inputs.size(); ++i)
-    {
+    for (size_t i = 0; i < input.public_inputs.size(); ++i) {
         result.public_inputs[i].assert_equal(field_ct::from_witness_index(&builder, input.public_inputs[i]));
     }
 
@@ -190,22 +177,16 @@ std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<ver
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_recursive_proof);
-    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i)
-    {
-        if (vkey->recursive_proof_public_input_indices.size() > i)
-        {
+    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+        if (vkey->recursive_proof_public_input_indices.size() > i) {
             output.emplace_back(vkey->recursive_proof_public_input_indices[i]);
-        }
-        else
-        {
+        } else {
             output.emplace_back(0);
             ASSERT(vkey->contains_recursive_proof == false);
         }
     }
-    for (const auto& descriptor : vkey->polynomial_manifest.get())
-    {
-        if (descriptor.source == PolynomialSource::SELECTOR || descriptor.source == PolynomialSource::PERMUTATION)
-        {
+    for (const auto& descriptor : vkey->polynomial_manifest.get()) {
+        if (descriptor.source == PolynomialSource::SELECTOR || descriptor.source == PolynomialSource::PERMUTATION) {
             const auto element = vkey->commitments.at(std::string(descriptor.commitment_label));
             auto g1_as_fields = export_g1_affine_element_as_fields(element);
             output.emplace_back(g1_as_fields.x_lo);
@@ -249,15 +230,12 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_recursive_proof); // contains_recursive_proof
-    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i)
-    {
+    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
         output.emplace_back(0); // recursive_proof_public_input_indices
     }
 
-    for (const auto& descriptor : polynomial_manifest.get())
-    {
-        if (descriptor.source == PolynomialSource::SELECTOR || descriptor.source == PolynomialSource::PERMUTATION)
-        {
+    for (const auto& descriptor : polynomial_manifest.get()) {
+        if (descriptor.source == PolynomialSource::SELECTOR || descriptor.source == PolynomialSource::PERMUTATION) {
             // the std::biggroup class creates unsatisfiable constraints when identical points are added/subtracted.
             // (when verifying zk proofs this is acceptable as we make sure verification key points are not identical.
             // And prover points should contain randomness for an honest Prover).
@@ -289,31 +267,22 @@ std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transc
 {
     std::vector<barretenberg::fr> fields;
     const auto num_rounds = transcript.get_manifest().get_num_rounds();
-    for (size_t i = 0; i < num_rounds; ++i)
-    {
-        for (const auto& manifest_element : transcript.get_manifest().get_round_manifest(i).elements)
-        {
-            if (!manifest_element.derived_by_verifier)
-            {
-                if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs")
-                {
+    for (size_t i = 0; i < num_rounds; ++i) {
+        for (const auto& manifest_element : transcript.get_manifest().get_round_manifest(i).elements) {
+            if (!manifest_element.derived_by_verifier) {
+                if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs") {
                     fields.emplace_back(transcript.get_field_element(manifest_element.name));
-                }
-                else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs")
-                {
+                } else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs") {
                     const auto group_element = transcript.get_group_element(manifest_element.name);
                     auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
                     fields.emplace_back(g1_as_fields.x_lo);
                     fields.emplace_back(g1_as_fields.x_hi);
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
-                }
-                else
-                {
+                } else {
                     ASSERT(manifest_element.name == "public_inputs");
                     const auto public_inputs_vector = transcript.get_field_element_vector(manifest_element.name);
-                    for (const auto& ele : public_inputs_vector)
-                    {
+                    for (const auto& ele : public_inputs_vector) {
                         fields.emplace_back(ele);
                     }
                 }
@@ -335,19 +304,13 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
 {
     std::vector<barretenberg::fr> fields;
     const auto num_rounds = manifest.get_num_rounds();
-    for (size_t i = 0; i < num_rounds; ++i)
-    {
-        for (const auto& manifest_element : manifest.get_round_manifest(i).elements)
-        {
-            if (!manifest_element.derived_by_verifier)
-            {
-                if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs")
-                {
+    for (size_t i = 0; i < num_rounds; ++i) {
+        for (const auto& manifest_element : manifest.get_round_manifest(i).elements) {
+            if (!manifest_element.derived_by_verifier) {
+                if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs") {
                     // auto scalar = barretenberg::fr::random_element();
                     fields.emplace_back(0);
-                }
-                else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs")
-                {
+                } else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs") {
                     // the std::biggroup class creates unsatisfiable constraints when identical points are
                     // added/subtracted.
                     // (when verifying zk proofs this is acceptable as we make sure verification key points are not
@@ -361,19 +324,15 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                     fields.emplace_back(g1_as_fields.x_hi);
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
-                }
-                else
-                {
+                } else {
                     ASSERT(manifest_element.name == "public_inputs");
                     const size_t num_public_inputs = manifest_element.num_bytes / 32;
                     // If we have a recursive proofs the public inputs must describe an aggregation object that
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
-                    if (contains_recursive_proof)
-                    {
+                    if (contains_recursive_proof) {
                         ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                        for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k)
-                        {
+                        for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
                             auto scalar = barretenberg::fr::random_element();
                             const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
                             auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
@@ -382,11 +341,8 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                             fields.emplace_back(g1_as_fields.y_lo);
                             fields.emplace_back(g1_as_fields.y_hi);
                         }
-                    }
-                    else
-                    {
-                        for (size_t j = 0; j < num_public_inputs; ++j)
-                        {
+                    } else {
+                        for (size_t j = 0; j < num_public_inputs; ++j) {
                             // auto scalar = barretenberg::fr::random_element();
                             fields.emplace_back(0);
                         }

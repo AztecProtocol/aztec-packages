@@ -5,8 +5,7 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include <cstddef>
 
-namespace acir_format
-{
+namespace acir_format {
 
 /**
  * @brief Populate variables and public_inputs in builder given witness and constraint_system
@@ -27,22 +26,17 @@ void populate_variables_and_public_inputs(Builder& builder,
     // variable in noir. This entire block can be removed once the +1 is removed from noir.
     const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
-    for (const auto& index : constraint_system.public_inputs)
-    {
+    for (const auto& index : constraint_system.public_inputs) {
         corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
     }
 
-    for (size_t idx = 0; idx < constraint_system.varnum; ++idx)
-    {
+    for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/815) why is this needed?
         fr value = idx < witness.size() ? witness[idx] : 0;
         if (std::find(corrected_public_inputs.begin(), corrected_public_inputs.end(), idx) !=
-            corrected_public_inputs.end())
-        {
+            corrected_public_inputs.end()) {
             builder.add_public_variable(value);
-        }
-        else
-        {
+        } else {
             builder.add_variable(value);
         }
     }
@@ -52,8 +46,7 @@ template <typename Builder> void read_witness(Builder& builder, WitnessVector co
 {
     builder.variables[0] =
         0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): This the constant 0 hacked in. Bad.
-    for (size_t i = 0; i < witness.size(); ++i)
-    {
+    for (size_t i = 0; i < witness.size(); ++i) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The i+1 accounts for the fact that 0 is added
         // as a constant in variables in the UCB constructor. "witness" only contains the values that came directly from
         // acir.
@@ -68,18 +61,15 @@ template <typename Builder> void read_witness(Builder& builder, WitnessVector co
 template <typename Builder> void add_public_vars(Builder& builder, acir_format const& constraint_system)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): i = 1 acounting for const 0 in first position?
-    for (size_t i = 1; i < constraint_system.varnum; ++i)
-    {
+    for (size_t i = 1; i < constraint_system.varnum; ++i) {
         // If the index is in the public inputs vector, then we add it as a public input
 
         if (std::find(constraint_system.public_inputs.begin(), constraint_system.public_inputs.end(), i) !=
-            constraint_system.public_inputs.end())
-        {
+            constraint_system.public_inputs.end()) {
 
             builder.add_public_variable(0);
-        }
-        else
-        {
+
+        } else {
             builder.add_variable(0);
         }
     }
@@ -89,101 +79,83 @@ template <typename Builder>
 void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
-    for (const auto& constraint : constraint_system.constraints)
-    {
+    for (const auto& constraint : constraint_system.constraints) {
         builder.create_poly_gate(constraint);
     }
 
     // Add logic constraint
-    for (const auto& constraint : constraint_system.logic_constraints)
-    {
+    for (const auto& constraint : constraint_system.logic_constraints) {
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
     }
 
     // Add range constraint
-    for (const auto& constraint : constraint_system.range_constraints)
-    {
+    for (const auto& constraint : constraint_system.range_constraints) {
         builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
     }
 
     // Add sha256 constraints
-    for (const auto& constraint : constraint_system.sha256_constraints)
-    {
+    for (const auto& constraint : constraint_system.sha256_constraints) {
         create_sha256_constraints(builder, constraint);
     }
 
     // Add schnorr constraints
-    for (const auto& constraint : constraint_system.schnorr_constraints)
-    {
+    for (const auto& constraint : constraint_system.schnorr_constraints) {
         create_schnorr_verify_constraints(builder, constraint);
     }
 
     // Add ECDSA k1 constraints
-    for (const auto& constraint : constraint_system.ecdsa_k1_constraints)
-    {
+    for (const auto& constraint : constraint_system.ecdsa_k1_constraints) {
         create_ecdsa_k1_verify_constraints(builder, constraint, has_valid_witness_assignments);
     }
 
     // Add ECDSA r1 constraints
-    for (const auto& constraint : constraint_system.ecdsa_r1_constraints)
-    {
+    for (const auto& constraint : constraint_system.ecdsa_r1_constraints) {
         create_ecdsa_r1_verify_constraints(builder, constraint, has_valid_witness_assignments);
     }
 
     // Add blake2s constraints
-    for (const auto& constraint : constraint_system.blake2s_constraints)
-    {
+    for (const auto& constraint : constraint_system.blake2s_constraints) {
         create_blake2s_constraints(builder, constraint);
     }
 
     // Add keccak constraints
-    for (const auto& constraint : constraint_system.keccak_constraints)
-    {
+    for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);
     }
-    for (const auto& constraint : constraint_system.keccak_var_constraints)
-    {
+    for (const auto& constraint : constraint_system.keccak_var_constraints) {
         create_keccak_var_constraints(builder, constraint);
     }
 
     // Add pedersen constraints
-    for (const auto& constraint : constraint_system.pedersen_constraints)
-    {
+    for (const auto& constraint : constraint_system.pedersen_constraints) {
         create_pedersen_constraint(builder, constraint);
     }
 
-    for (const auto& constraint : constraint_system.pedersen_hash_constraints)
-    {
+    for (const auto& constraint : constraint_system.pedersen_hash_constraints) {
         create_pedersen_hash_constraint(builder, constraint);
     }
 
     // Add fixed base scalar mul constraints
-    for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints)
-    {
+    for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
         create_fixed_base_constraint(builder, constraint);
     }
 
     // Add hash to field constraints
-    for (const auto& constraint : constraint_system.hash_to_field_constraints)
-    {
+    for (const auto& constraint : constraint_system.hash_to_field_constraints) {
         create_hash_to_field_constraints(builder, constraint);
     }
 
     // Add block constraints
-    for (const auto& constraint : constraint_system.block_constraints)
-    {
+    for (const auto& constraint : constraint_system.block_constraints) {
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
-    if constexpr (IsGoblinBuilder<Builder>)
-    {
+    if constexpr (IsGoblinBuilder<Builder>) {
         info("WARNING: this circuit contains recursion_constraints!");
-    }
-    else
-    {
+    } else {
         // These are set and modified whenever we encounter a recursion opcode
         //
         // These should not be set by the caller
@@ -204,8 +176,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
 
         // Add recursion constraints
-        for (auto constraint : constraint_system.recursion_constraints)
-        {
+        for (auto constraint : constraint_system.recursion_constraints) {
             // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
             // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
             // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
@@ -214,13 +185,11 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
             // proof is above the expected size (with public inputs stripped)
             std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
-            if (constraint.proof.size() > proof_size_no_pub_inputs)
-            {
+            if (constraint.proof.size() > proof_size_no_pub_inputs) {
                 // The public inputs attached to a proof should match the aggregation object in size
                 ASSERT(constraint.proof.size() - proof_size_no_pub_inputs ==
                        RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i)
-                {
+                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                     // Set the nested aggregation object indices to the current size of the public inputs
                     // This way we know that the nested aggregation object indices will always be the last
                     // indices of the public inputs
@@ -246,14 +215,12 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
         // Now that the circuit has been completely built, we add the output aggregation as public
         // inputs.
-        if (!constraint_system.recursion_constraints.empty())
-        {
+        if (!constraint_system.recursion_constraints.empty()) {
 
             // First add the output aggregation object as public inputs
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
-            for (const auto& idx : current_output_aggregation_object)
-            {
+            for (const auto& idx : current_output_aggregation_object) {
                 builder.set_public_input(idx);
             }
 
@@ -268,8 +235,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
 template <typename Builder> void create_circuit(Builder& builder, acir_format const& constraint_system)
 {
-    if (constraint_system.public_inputs.size() > constraint_system.varnum)
-    {
+    if (constraint_system.public_inputs.size() > constraint_system.varnum) {
         info("create_circuit: too many public inputs!");
     }
 
@@ -296,8 +262,7 @@ Builder create_circuit_with_witness(acir_format const& constraint_system,
 template <typename Builder>
 void create_circuit_with_witness(Builder& builder, acir_format const& constraint_system, WitnessVector const& witness)
 {
-    if (constraint_system.public_inputs.size() > constraint_system.varnum)
-    {
+    if (constraint_system.public_inputs.size() > constraint_system.varnum) {
         info("create_circuit_with_witness: too many public inputs!");
     }
 
@@ -330,10 +295,8 @@ template <typename Builder> void apply_wire_index_offset(Builder& builder)
     // Apply the offset to the indices stored the wires that were generated from acir. (Do not apply the offset to
     // those values that were added in the builder constructor).
     size_t start_index = builder.num_vars_added_in_constructor;
-    for (auto& wire : builder.wires)
-    {
-        for (size_t idx = start_index; idx < wire.size(); ++idx)
-        {
+    for (auto& wire : builder.wires) {
+        for (size_t idx = start_index; idx < wire.size(); ++idx) {
             wire[idx] += offset;
         }
     }

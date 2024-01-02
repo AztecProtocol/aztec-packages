@@ -8,13 +8,11 @@
 
 using namespace proof_system::plonk;
 
-class AcirRecursionConstraint : public ::testing::Test
-{
+class AcirRecursionConstraint : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
 };
-namespace acir_format::test
-{
+namespace acir_format::test {
 Builder create_inner_circuit()
 {
     /**
@@ -132,8 +130,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     std::vector<fr, ContainerSlabAllocator<fr>> witness;
 
     size_t circuit_idx = 0;
-    for (auto& inner_circuit : inner_circuits)
-    {
+    for (auto& inner_circuit : inner_circuits) {
         const bool has_input_aggregation_object = circuit_idx > 0;
 
         auto inner_composer = Composer();
@@ -158,8 +155,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to
         // recursively verify contains a recursive proof itself. We are safe to keep all the inner public inputs
         // as in these tests the outer circuits do not have public inputs themselves
-        if (!has_nested_proof)
-        {
+        if (!has_nested_proof) {
             proof_witnesses.erase(proof_witnesses.begin(),
                                   proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
         }
@@ -178,37 +174,29 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         std::vector<uint32_t> inner_public_inputs;
         std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object = {};
         std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-        if (has_input_aggregation_object)
-        {
+        if (has_input_aggregation_object) {
             input_aggregation_object = output_aggregation_object;
         }
-        for (size_t i = 0; i < 16; ++i)
-        {
+        for (size_t i = 0; i < 16; ++i) {
             output_aggregation_object[i] = (static_cast<uint32_t>(i + output_aggregation_object_start_idx));
         }
-        if (has_nested_proof)
-        {
-            for (size_t i = 0; i < 16; ++i)
-            {
+        if (has_nested_proof) {
+            for (size_t i = 0; i < 16; ++i) {
                 nested_aggregation_object[i] = inner_circuit.recursive_proof_public_input_indices[i];
             }
         }
-        for (size_t i = 0; i < proof_witnesses.size(); ++i)
-        {
+        for (size_t i = 0; i < proof_witnesses.size(); ++i) {
             proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
         }
         const size_t key_size = key_witnesses.size();
-        for (size_t i = 0; i < key_size; ++i)
-        {
+        for (size_t i = 0; i < key_size; ++i) {
             key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
         }
         // In the case of a nested proof we keep the nested aggregation object attached to the proof,
         // thus we do not explicitly have to keep the public inputs while setting up the initial recursion constraint.
         // They will later be attached as public inputs when creating the circuit.
-        if (!has_nested_proof)
-        {
-            for (size_t i = 0; i < num_inner_public_inputs; ++i)
-            {
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
         }
@@ -224,17 +212,14 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         };
         recursion_constraints.push_back(recursion_constraint);
 
-        for (size_t i = 0; i < proof_indices_start_idx - witness_offset; ++i)
-        {
+        for (size_t i = 0; i < proof_indices_start_idx - witness_offset; ++i) {
             witness.emplace_back(0);
         }
-        for (const auto& wit : proof_witnesses)
-        {
+        for (const auto& wit : proof_witnesses) {
             witness.emplace_back(wit);
         }
 
-        for (const auto& wit : key_witnesses)
-        {
+        for (const auto& wit : key_witnesses) {
             witness.emplace_back(wit);
         }
 
@@ -244,10 +229,8 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         //
         // We once again have to check whether we have a nested proof, because if we do have one
         // then we could get a segmentation fault as `inner_public_inputs` was never filled with values.
-        if (!has_nested_proof)
-        {
-            for (size_t i = 0; i < num_inner_public_inputs; ++i)
-            {
+        if (!has_nested_proof) {
+            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
                 witness[inner_public_inputs[i] - 1] = inner_public_input_values[i];
             }
         }

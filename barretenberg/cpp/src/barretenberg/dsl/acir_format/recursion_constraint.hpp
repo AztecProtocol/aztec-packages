@@ -3,8 +3,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include <vector>
 
-namespace acir_format
-{
+namespace acir_format {
 
 using namespace proof_system::plonk;
 
@@ -43,8 +42,7 @@ using namespace proof_system::plonk;
  * the previous recursion constraint in the circuit (the one that verifies A)
  *
  */
-struct RecursionConstraint
-{
+struct RecursionConstraint {
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements
     static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
@@ -87,8 +85,7 @@ size_t recursion_proof_size_without_public_inputs();
 // In order to interact with a recursive aggregation state inside of a circuit, we need to represent its internal G1
 // elements as field elements. This happens in multiple locations when creating a recursion constraint. The struct and
 // method below export a g1 affine element as fields to use as part of the recursive circuit.
-struct G1AsFields
-{
+struct G1AsFields {
     barretenberg::fr x_lo;
     barretenberg::fr x_hi;
     barretenberg::fr y_lo;
