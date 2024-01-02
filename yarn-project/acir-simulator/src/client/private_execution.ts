@@ -29,7 +29,6 @@ export async function executePrivateFunction(
   const acir = Buffer.from(artifact.bytecode, 'base64');
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
-  await AcirSimulator.getSolver();
   const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
     (err: Error) => {
       throw new ExecutionError(
@@ -44,7 +43,6 @@ export async function executePrivateFunction(
     },
   );
 
-  log(`got partialWitness, getting publicInputs`); // failing in line above
   const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);
 
   const encryptedLogs = context.getEncryptedLogs();

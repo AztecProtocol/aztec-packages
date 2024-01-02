@@ -292,7 +292,6 @@ describe('Private kernel', () => {
   it('Executes private kernel inner for a nested call', async () => {
     logger('Initialized Noir instance with private kernel init circuit');
 
-    // TODO: need to update the serialized file for test to pass, but e2e fails currently
     const filepath = resolve(
       dirname(fileURLToPath(import.meta.url)),
       './fixtures/nested-call-private-kernel-inner.hex',

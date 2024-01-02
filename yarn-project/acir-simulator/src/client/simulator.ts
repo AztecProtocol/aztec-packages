@@ -105,7 +105,6 @@ export class AcirSimulator {
     );
 
     try {
-      // this is failing right now
       const executionResult = await executePrivateFunction(
         context,
         entryPointArtifact,
