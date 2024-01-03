@@ -183,6 +183,7 @@ export function extractPrivateCircuitPublicInputs(
   const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
+  const endSideEffectCounter = witnessReader.readField();
 
   const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
@@ -221,6 +222,7 @@ export function extractPrivateCircuitPublicInputs(
     privateCallStack,
     publicCallStack,
     newL2ToL1Msgs,
+    endSideEffectCounter,
     encryptedLogsHash,
     unencryptedLogsHash,
     encryptedLogPreimagesLength,

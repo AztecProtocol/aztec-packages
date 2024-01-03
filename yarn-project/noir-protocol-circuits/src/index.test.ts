@@ -145,6 +145,7 @@ describe('Private kernel', () => {
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => Fr.ZERO),
+      Fr.ZERO,
       [Fr.fromString('0x9cc0744c0dde14f24854659b052ffb7e'), Fr.fromString('0x28120e19a5cc9ec344f3d6d41b6fada2')],
       [Fr.fromString('0xe3b0c44298fc1c149afbf4c8996fb924'), Fr.fromString('0x27ae41e4649b934ca495991b7852b855')],
       Fr.fromString('0xf8'),

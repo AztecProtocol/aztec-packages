@@ -547,6 +547,7 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
     ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
+    input.endSideEffectCounter.toBuffer(),
     ...input.encryptedLogsHash.map(fr => fr.toBuffer()),
     ...input.unencryptedLogsHash.map(fr => fr.toBuffer()),
     input.encryptedLogPreimagesLength.toBuffer(),

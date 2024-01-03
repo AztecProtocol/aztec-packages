@@ -61,6 +61,10 @@ export class PrivateCircuitPublicInputs {
      */
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
+     * The end side effect counter for this call.
+     */
+    public endSideEffectCounter: Fr,
+    /**
      * Hash of the encrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
@@ -124,6 +128,7 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
+      reader.readObject(Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readObject(Fr),
@@ -150,6 +155,7 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      Fr.ZERO,
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
@@ -203,6 +209,7 @@ export class PrivateCircuitPublicInputs {
       fields.privateCallStackHashes,
       fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,
+      fields.endSideEffectCounter,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
