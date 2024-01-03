@@ -175,26 +175,16 @@ mod tests {
         }
     }
 
-    pub fn validate_deployed_contract_address(
-        tx_request: TxRequest,
-        private_call: PrivateCallDataBuilder,
-        public_inputs: KernelCircuitPublicInputs
-    ) {
+    pub fn validate_deployed_contract_address(tx_request: TxRequest, private_call: PrivateCallDataBuilder, public_inputs: KernelCircuitPublicInputs) {
         assert_eq(public_inputs.end.new_contracts.len(), 1);
         let cdd = tx_request.tx_context.contract_deployment_data;
 
         let private_circuit_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
-        let constructor_hash = compute_constructor_hash(
-            tx_request.function_data,
-            tx_request.args_hash,
-            private_circuit_vk_hash
-        );
-        let contract_address = CompleteAddress::compute(
-            cdd.deployer_public_key,
+        let constructor_hash = compute_constructor_hash(tx_request.function_data, tx_request.args_hash, private_circuit_vk_hash);
+        let contract_address = CompleteAddress::compute(cdd.deployer_public_key,
             cdd.contract_address_salt,
             cdd.function_tree_root,
-            constructor_hash
-        ).address;
+            constructor_hash).address;
         assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));
     }
 
@@ -268,7 +258,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.read_requests.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -277,7 +267,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.new_commitments.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -286,7 +276,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.new_nullifiers.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -295,7 +285,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.nullified_commitments.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -304,7 +294,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.private_call_stack_hashes.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -313,7 +303,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.public_call_stack_hashes.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -322,7 +312,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.push_array([0, 9123]);
-
+        
         builder.failed();
     }
 
@@ -377,7 +367,7 @@ mod tests {
 
         builder.failed();
     }
-
+    
     #[test(should_fail_with="Cannot call an internal function directly")]
     fn private_function_is_internal_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();

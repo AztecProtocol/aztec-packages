@@ -1,3 +1,4 @@
+
 struct BoundedVec<T, MaxLen> {
     storage: [T; MaxLen],
     // TODO: change this to return a u64 as Noir now

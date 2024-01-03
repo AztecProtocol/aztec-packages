@@ -3,7 +3,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::EMPTY_NULLIFIED_COMMITMENT,
 };
-
+    
 use crate::context::{PrivateContext, Context};
 use crate::note::{
     lifecycle::create_note,
