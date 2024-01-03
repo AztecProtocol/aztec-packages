@@ -69,12 +69,6 @@ template <class Curve> class CommitmentKey {
     Commitment commit(std::span<const Fr> polynomial)
     {
         const size_t degree = polynomial.size();
-        if (degree > srs->get_monomial_size()) {
-            info("CommitmentKey:");
-            info("degree = ", degree);
-            info("srs->get_monomial_size() = ", srs->get_monomial_size());
-        }
-
         ASSERT(degree <= srs->get_monomial_size());
         return barretenberg::scalar_multiplication::pippenger_unsafe<Curve>(
             const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);

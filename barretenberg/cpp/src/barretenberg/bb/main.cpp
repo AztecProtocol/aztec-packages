@@ -52,7 +52,8 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
 
 void init_reference_strings()
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size. Currently set to
+    // max circuit size present in acir tests suite.
     size_t subgroup_size = 262144;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
@@ -145,23 +146,18 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
                           const std::string& witnessPath,
                           [[maybe_unused]] bool recursive)
 {
-    // info("Construct constraint_system and witness.");
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
     init_reference_strings();
 
-    // info("Construct goblin circuit from constraint system and witness.");
     acir_proofs::AcirComposer acir_composer;
     acir_composer.create_goblin_circuit(constraint_system, witness);
 
-    // info("Construct goblin proof.");
     auto proof = acir_composer.create_goblin_proof();
 
-    // info("verify_goblin_proof.");
     auto verified = acir_composer.verify_goblin_proof(proof);
 
-    // vinfo("verified: ", verified);
     return verified;
 }
 
