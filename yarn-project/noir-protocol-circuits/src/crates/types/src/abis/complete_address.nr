@@ -19,12 +19,12 @@ impl CompleteAddress{
         self.partial_address.assert_is_zero();
     }
     
-    pub fn compute(point : GrumpkinPoint, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
+    pub fn compute(public_key : GrumpkinPoint, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
         let partial_address = PartialAddress::compute(contract_address_salt, function_tree_root, constructor_hash);
         
         CompleteAddress{
-            address : AztecAddress::compute(point, partial_address),
-            public_key : point, 
+            address : AztecAddress::compute(public_key, partial_address),
+            public_key, 
             partial_address,
         }
     }
