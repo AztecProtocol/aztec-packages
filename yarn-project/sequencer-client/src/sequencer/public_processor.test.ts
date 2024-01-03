@@ -38,7 +38,6 @@ import {
 } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
-import { log } from 'console';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
