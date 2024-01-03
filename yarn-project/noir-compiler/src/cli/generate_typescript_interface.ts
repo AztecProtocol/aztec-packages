@@ -1,18 +1,42 @@
-import { mkdir, readFile, writeFile } from 'fs/promises';
-
 import { generateContractArtifact } from '../contract-interface-gen/abi.js';
 import { generateTypescriptContractInterface } from '../contract-interface-gen/contractTypescript.js';
+import { existsSync, statSync, readdirSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import path from 'path';
 
-export async function generateTypescriptInterfaceFromNoirAbi(
-  outputPath: string,
-  noirAbiPath: string,
-  noirDebugPath?: string,
-) {
-  const contract = JSON.parse(await readFile(noirAbiPath, 'utf8'));
-  const debug = noirDebugPath ? JSON.parse(await readFile(noirDebugPath, 'utf8')) : undefined;
+/**
+ *
+ */
+export function generateTypescriptInterface(outputPath: string, fileOrDirPath: string, includeDebug = false) {
+  const stats = statSync(fileOrDirPath);
+
+  if (stats.isDirectory()) {
+    const files = readdirSync(fileOrDirPath).filter(file => file.endsWith('.json') && !file.startsWith('debug_'));
+    for (const file of files) {
+      const fullPath = path.join(fileOrDirPath, file);
+      generateTypescriptInterfaceFromNoirAbi(outputPath, fullPath, includeDebug);
+    }
+  } else if (stats.isFile()) {
+    generateTypescriptInterfaceFromNoirAbi(outputPath, fileOrDirPath, includeDebug);
+  }
+}
+
+/**
+ *
+ */
+function generateTypescriptInterfaceFromNoirAbi(outputPath: string, noirAbiPath: string, includeDebug: boolean) {
+  const contract = JSON.parse(readFileSync(noirAbiPath, 'utf8'));
+  const noirDebugPath = includeDebug ? getDebugFilePath(noirAbiPath) : undefined;
+  const debug = noirDebugPath ? JSON.parse(readFileSync(noirDebugPath, 'utf8')) : undefined;
   const aztecAbi = generateContractArtifact({ contract, debug });
   const tsWrapper = generateTypescriptContractInterface(aztecAbi, `./${aztecAbi.name}.json`);
-  await mkdir(outputPath, { recursive: true });
-  await writeFile(`${outputPath}/${aztecAbi.name}.ts`, tsWrapper);
-  await writeFile(`${outputPath}/${aztecAbi.name}.json`, JSON.stringify(aztecAbi, undefined, 2));
+  mkdirSync(outputPath, { recursive: true });
+  writeFileSync(`${outputPath}/${aztecAbi.name}.ts`, tsWrapper);
+  writeFileSync(`${outputPath}/${aztecAbi.name}.json`, JSON.stringify(aztecAbi, undefined, 2));
+}
+
+function getDebugFilePath(filePath: string) {
+  const dirname = path.dirname(filePath);
+  const basename = path.basename(filePath);
+  const result = path.join(dirname, 'debug_' + basename);
+  return existsSync(result) ? result : undefined;
 }

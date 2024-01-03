@@ -51,28 +51,26 @@ export function addCompileCommanderAction(program: Command, log: LogFn = () => {
 export function addGenerateTypescriptCommanderAction(program: Command, _: LogFn = () => {}) {
   program
     .command('generate-typescript')
-    .argument('<noir-abi-path>', 'Path to the Noir ABI.')
-    .option('-d, --debug-path <path>', 'Path to the Noir debug file.')
+    .argument('<noir-abi-path>', 'Path to the Noir ABI or project dir.')
     .option('-o, --outdir <path>', 'Output folder for the generated typescript.')
     .description('Generates TypeScript interface from the given abi.')
     .action(async (noirAbiPath: string, { debugPath, outdir }) => {
-      const { generateTypescriptInterfaceFromNoirAbi } = await import('./generate_typescript_interface.js');
-      await generateTypescriptInterfaceFromNoirAbi(outdir || dirname(noirAbiPath), noirAbiPath, debugPath);
+      const { generateTypescriptInterface } = await import('./generate_typescript_interface.js');
+      await generateTypescriptInterface(outdir || dirname(noirAbiPath), noirAbiPath);
     });
 }
 
 /**
  *
  */
-export function addGenerateNoirInterfaceCommanderAction(program: Command, log: LogFn = () => {}) {
+export function addGenerateNoirInterfaceCommanderAction(program: Command, _: LogFn = () => {}) {
   return program
     .command('generate-noir-interface')
-    .argument('<noir-abi-path>', 'Path to the Noir ABI.')
-    .option('-d, --debug-path <path>', 'Path to the Noir debug file.')
-    .option('-o, --outdir <path>', 'Output folder for the generated typescript.')
+    .argument('<noir-abi-path>', 'Path to the Noir ABI or project dir.')
+    .option('-o, --outdir <path>', 'Output folder for the generated noir.')
     .description('Generates Noir interfaces from the artifacts in the given project')
     .action(async (noirAbiPath: string, { outdir }) => {
-      const { generateNoirInterfaceFromNoirAbi } = await import('./generate_noir_interface.js');
-      await generateNoirInterfaceFromNoirAbi(outdir || dirname(noirAbiPath), noirAbiPath);
+      const { generateNoirInterface } = await import('./generate_noir_interface.js');
+      await generateNoirInterface(outdir || dirname(noirAbiPath), noirAbiPath);
     });
 }
