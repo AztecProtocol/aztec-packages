@@ -351,9 +351,6 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
 
         let public_inputs = builder.execute();
-        dep::std::println([unique_siloed_commitments[0]]);
-        dep::std::println(public_inputs.end.new_commitments);
-        dep::std::println(new_commitments);
 
         assert(
             struct_array_eq(

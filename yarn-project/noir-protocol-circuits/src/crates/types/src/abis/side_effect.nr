@@ -85,8 +85,3 @@ impl SideEffectLinkedToNoteHash{
     }
 }
 
-// for nested calls - keep track of their side effect start/end, and verify
-// that the start value is equal to what is passed in, and then resume
-// outer call side effect counting using the returned end value
-// we deviate from original implementation - no SideEffectWithRange, but now
-// modify the CallRequest to include start/end counters directly

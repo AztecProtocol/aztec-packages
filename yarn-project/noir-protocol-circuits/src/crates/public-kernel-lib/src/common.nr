@@ -162,7 +162,10 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &m
     propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
-fn propagate_valid_public_data_update_requests(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
+fn propagate_valid_public_data_update_requests(
+    public_call: PublicCallData,
+    circuit_outputs: &mut KernelCircuitPublicInputsBuilder
+) {
     let contract_address = public_call.call_stack_item.contract_address;
     let update_requests = public_call.call_stack_item.public_inputs.contract_storage_update_requests;
 
@@ -309,14 +312,6 @@ pub fn validate_call_against_request(public_call: PublicCallData, request: CallR
     // and the 'gas rebate' tx).
     let call_stack_item = public_call.call_stack_item;
 
-    // let emptycallstackitem: PublicCallStackItem = dep::std::unsafe::zeroed();
-    let publiccircuitinputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    // dep::std::println(publiccircuitinputs.hash());
-    // dep::std::println(call_stack_item);
-    // let empty = CallRequest::empty();
-    // dep::std::println(emptycallstackitem.hash());
-    // dep::std::println(call_stack_item.hash());
-    // dep::std::println(call_stack_item);
     assert(
         request.hash == call_stack_item.hash(), "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack"
     );
