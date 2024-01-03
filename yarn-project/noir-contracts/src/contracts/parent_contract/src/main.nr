@@ -1,6 +1,5 @@
 // A contract used along with `Child` contract to test nested calls.
 contract Parent {
-    use dep::aztec::selector::compute_selector;
     use dep::protocol_types::{
         address::AztecAddress,
         abis::function_selector::FunctionSelector,
@@ -62,7 +61,7 @@ contract Parent {
         targetContract: AztecAddress,
         targetSelector: FunctionSelector
     ) {
-        let enqueueCallToChildSelector = compute_selector("enqueueCallToChild((Field),(u32),Field)");
+        let enqueueCallToChildSelector = FunctionSelector::from_signature("enqueueCallToChild((Field),(u32),Field)");
         let _ret = context.call_private_function(
             context.this_address(),
             enqueueCallToChildSelector,
@@ -80,7 +79,7 @@ contract Parent {
         targetSelector: FunctionSelector
     ) {
         context.call_public_function(targetContract, targetSelector, [20]);
-        let enqueueCallToChildSelector = compute_selector("enqueueCallToChild((Field),(u32),Field)");
+        let enqueueCallToChildSelector = FunctionSelector::from_signature("enqueueCallToChild((Field),(u32),Field)");
         let _ret = context.call_private_function(
             context.this_address(),
             enqueueCallToChildSelector,
@@ -108,7 +107,7 @@ contract Parent {
         targetSelector: FunctionSelector,
         targetValue: Field
     ) {
-        let pubEntryPointSelector = compute_selector("pubEntryPoint((Field),(u32),Field)");
+        let pubEntryPointSelector = FunctionSelector::from_signature("pubEntryPoint((Field),(u32),Field)");
         let thisAddress = context.this_address();
         let _void = context.call_public_function(
             thisAddress,
@@ -124,7 +123,7 @@ contract Parent {
         targetSelector: FunctionSelector,
         targetValue: Field
     ) {
-        let pubEntryPointSelector = compute_selector("pubEntryPoint((Field),(u32),Field)");
+        let pubEntryPointSelector = FunctionSelector::from_signature("pubEntryPoint((Field),(u32),Field)");
         let thisAddress = context.this_address();
 
         context.call_public_function(

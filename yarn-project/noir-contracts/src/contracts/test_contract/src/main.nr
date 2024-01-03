@@ -37,10 +37,10 @@ contract Test {
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::{FieldNote, FieldNoteMethods, FIELD_NOTE_LEN};
 
-    #[event]
-    struct ExampleEvent {
-        value: Field,
-    }
+    // #[event]
+    // struct ExampleEvent {
+    //     value: Field,
+    // }
 
     struct Storage {
         example_constant: ImmutableSingleton<FieldNote, FIELD_NOTE_LEN>,
