@@ -6,6 +6,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-sandbox AS aztec-sandbox
 FROM node:18.19.0
 COPY --from=aztec-sandbox /usr/src /usr/src
 WORKDIR /usr/src/boxes
+ENV AZTEC_NARGO=../../noir/target/release/nargo
 ENV AZTEC_CLI=../../yarn-project/cli/aztec-cli-dest
 RUN yarn && yarn build
 ENTRYPOINT ["yarn", "workspace"]
