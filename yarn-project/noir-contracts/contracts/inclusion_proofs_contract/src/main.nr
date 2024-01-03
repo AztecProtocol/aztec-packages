@@ -1,11 +1,12 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
     use dep::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::{
             AztecAddress,
             EthAddress,
         },
-        point::Point,
+        grumpkin_point::GrumpkinPoint,
     };
     use dep::aztec::{
         state_vars::{
@@ -13,7 +14,6 @@ contract InclusionProofs {
             set::Set,
             public_state::PublicState,
         },
-        selector::compute_selector,
         types::{
             type_serialization::field_serialization::FieldSerializationMethods,
         },
@@ -75,7 +75,7 @@ contract InclusionProofs {
 
     #[aztec(private)]
     fn constructor(public_value: Field) {
-        let selector = compute_selector("_initialize(Field)");
+        let selector = FunctionSelector::from_signature("_initialize(Field)");
         context.call_public_function(context.this_address(), selector, [public_value]);
     }
 
@@ -211,7 +211,7 @@ contract InclusionProofs {
     //       contract's aztec address instead of just the address.
     #[aztec(private)]
     fn test_contract_inclusion_proof(
-        deployer_public_key: Point,
+        deployer_public_key: GrumpkinPoint,
         contract_address_salt: Field,
         function_tree_root: Field,
         constructor_hash: Field,
