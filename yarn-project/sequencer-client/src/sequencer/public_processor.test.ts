@@ -179,7 +179,6 @@ describe('public_processor', () => {
       });
 
       const [processed, failed] = await processor.process([tx]);
-      log(failed);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);
