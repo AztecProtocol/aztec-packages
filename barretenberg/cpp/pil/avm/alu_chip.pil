@@ -25,6 +25,7 @@ namespace aluChip(256);
 
     // 8-bit slice registers
     pol commit alu_u8_r0;
+    pol commit alu_u8_r1;
 
     // 16-bit slice registers
     pol commit alu_u16_r0;
@@ -72,7 +73,7 @@ namespace aluChip(256);
     // We support u8, u16, u32, u64, u128 types and decompose low into
     // smaller bit slices, e.g., 16. For instance, low = s_0 + s_1 * 2^16 + s_2 * 2^32 + ...
     // The slices have to be range constrained and there is a trade-off between the
-    // number of regiesters and complexity of the range constraints.
+    // number of registers and complexity of the range constraints.
     // TODO: Determine the best slice size allocation. Note that we might choose different
     // slice sizes for the different types. At this stage, it is still unknown how this
     // allocation affects the performance.
@@ -139,3 +140,24 @@ namespace aluChip(256);
     // u128 subtraction
     alu_u128_tag * alu_op_sub * (sum_128 + alu_cf * 2**128 - alu_ic - alu_ib) = 0;
     alu_u128_tag * alu_op_sub * (sum_128 - alu_ia) = 0;
+
+    // ========= MULTIPLICATION Operation Constraints ===============================
+
+    // We need 2k bits to express the product (a*b) over the integer, i.e., for type uk
+    // we express the product as sum_k (u8 is an exception as we need 8-bit registers)
+
+    // u8 multiplication
+    alu_u8_tag * alu_op_mul * (alu_u8_r0 + alu_u8_r1 * 2**8 - alu_ia * alu_ib) = 0;
+    alu_u8_tag * alu_op_mul * (alu_u8_r0 - alu_ic) = 0;
+
+    // u16 multiplication
+    alu_u16_tag * alu_op_mul * (sum_32 - alu_ia * alu_ib) = 0;
+    alu_u16_tag * alu_op_mul * (sum_16 - alu_ic) = 0;
+
+    // u32 multiplication
+    alu_u32_tag * alu_op_mul * (sum_64 - alu_ia * alu_ib) = 0;
+    alu_u32_tag * alu_op_mul * (sum_32 - alu_ic) = 0;
+
+    // u64 multiplication
+    alu_u64_tag * alu_op_mul * (sum_128 - alu_ia * alu_ib) = 0;
+    alu_u64_tag * alu_op_mul * (sum_64 - alu_ic) = 0;
