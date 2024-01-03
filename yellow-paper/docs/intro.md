@@ -26,7 +26,7 @@ Some of the info we need to populate this document might have already been writt
 
 ## Diagrams
 To increase the probability of diagrams being up to date we encourage you to write them in `mermaid`. Mermaid is a markdown-like language for generating diagrams and is supported by Docusaurus, so it will be rendered automatically for you. 
-You simple create a codeblock specifying the language as `mermaid` and write your diagram in the codeblock. For example:
+You simply create a codeblock specifying the language as `mermaid` and write your diagram in the codeblock. For example:
 ```txt
 ```mermaid
 graph LR
@@ -41,9 +41,9 @@ graph LR
     B --> C
     C --> A
 ```
-Mermaid support multiple types of diagrams so finding one that suite your needs should be possible. Consult their [documentation](https://mermaid.js.org/intro/getting-started.html) or try out their [live editor](https://mermaid.live/) to see if they got what you need.
+Mermaid supports multiple types of diagrams, so finding one that suits your needs should be possible. Consult their [documentation](https://mermaid.js.org/intro/getting-started.html) or try out their [live editor](https://mermaid.live/) to see if they've got what you need.
 
-When writing class diagrams, we recommend using the `classDiagram` type and composition arrows `*--` to represent extensions. Also for the sake of readability, add all the components in the class itself, also if their are a composite. For example:
+When writing class diagrams, we recommend using the `classDiagram` type and composition arrows `*--` to represent extensions. Also for the sake of readability, add all the components in the class itself, including composite types. For example:
 
 ```txt
 ```mermaid
@@ -82,8 +82,8 @@ classDiagram
     C *-- B: b
 ```
 
-### Mermaid don't cover my case, what should I do?
-If mermaid don't cover your case, please add both the rendered image and the source code to the documentation. Most of the tools for diagramming can export a non-rendered representation that can then be updated by other people. Please name it such that it is clear what tool was used.
+### Mermaid doesn't cover my case, what should I do?
+If mermaid doesn't cover your case, please add both the rendered image and the source code to the documentation. Most of the tools for diagramming can export a non-rendered representation that can then be updated by other people. Please name it such that it is clear what tool was used.
 
 This should allow us to keep the diagrams up to date, by allowing others to update them. 
 
