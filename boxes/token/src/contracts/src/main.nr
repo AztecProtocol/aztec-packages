@@ -125,7 +125,7 @@ contract Token {
     // docs:start:constructor
     #[aztec(private)]
     fn constructor(admin: AztecAddress) {
-        let selector = FunctionSelector::from_signature::from_signature("_initialize((Field))");
+        let selector = FunctionSelector::from_signature("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [admin.to_field()]);
     }
     // docs:end:constructor
