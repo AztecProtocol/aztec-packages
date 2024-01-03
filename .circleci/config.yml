@@ -877,10 +877,9 @@ jobs:
       - run:
           name: "Require released code"
           command: |
-            echo Requiring released code snippets
-            echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
             LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
-            echo Fetching latest released tag $LAST_TAG
+            git ls-remote --tags origin | grep -q "$LAST_TAG" && echo "Using code released from $LAST_TAG" || { echo "Skipping as $LAST_TAG is not yet published" && exit 0; }
+            echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
             git fetch origin --refetch --no-filter refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
       - run:
           name: "Build docs"
