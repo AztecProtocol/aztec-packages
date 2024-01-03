@@ -7,7 +7,7 @@
     "./types": "./dest/types/index.js"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && yarn noir:build && yarn noir:types && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
