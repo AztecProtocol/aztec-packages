@@ -4,6 +4,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/types.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
@@ -92,7 +93,7 @@ void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_sy
     acir_format::apply_wire_index_offset(goblin_builder_);
 
     // Add some arbitrary op gates to ensure the associated polynomials are non-zero
-    GoblinTestingUtils::construct_goblin_ecc_op_circuit(goblin_builder_);
+    GoblinMockCircuits::construct_goblin_ecc_op_circuit(goblin_builder_);
 }
 
 std::vector<uint8_t> AcirComposer::create_goblin_proof()
