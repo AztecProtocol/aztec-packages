@@ -5,7 +5,7 @@ use crate::{
     },
     hash::pedersen_hash,
     utils,
-    point::Point,
+    grumpkin_point::GrumpkinPoint,
 };
 
 // Aztec address
@@ -32,7 +32,7 @@ impl AztecAddress {
         }
     }
 
-    pub fn compute(pub_key: Point, partial_address: PartialAddress) -> AztecAddress {
+    pub fn compute(pub_key: GrumpkinPoint, partial_address: PartialAddress) -> AztecAddress {
         AztecAddress::from_field(
             pedersen_hash(
                 [pub_key.x, pub_key.y, partial_address.to_field()],

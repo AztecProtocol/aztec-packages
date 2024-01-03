@@ -1,12 +1,14 @@
-use crate::point::Point;
-use crate::address::{
-    AztecAddress,
-    PartialAddress,
+use crate::{
+    address::{
+        AztecAddress,
+        PartialAddress,
+    },
+    grumpkin_point::GrumpkinPoint,
 };
 
 struct CompleteAddress {
     address : AztecAddress,
-    public_key : Point, 
+    public_key : GrumpkinPoint, 
     partial_address: PartialAddress,
 }
 
@@ -17,7 +19,7 @@ impl CompleteAddress{
         self.partial_address.assert_is_zero();
     }
     
-    pub fn compute(point : Point, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
+    pub fn compute(point : GrumpkinPoint, contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> CompleteAddress {
         let partial_address = PartialAddress::compute(contract_address_salt, function_tree_root, constructor_hash);
         
         CompleteAddress{

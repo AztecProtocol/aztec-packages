@@ -1,5 +1,5 @@
 use crate::abis::complete_address::CompleteAddress;
-use crate::point::Point;
+use crate::grumpkin_point::GrumpkinPoint;
 use crate::transaction::request::TxRequest;
 use crate::address::{AztecAddress, EthAddress};
 use crate::transaction::context::TxContext;
@@ -13,7 +13,7 @@ use crate::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 
 #[test]
 fn compute_complete_address() {
-    let point = Point { x: 1, y: 2 };
+    let point = GrumpkinPoint { x: 1, y: 2 };
     let contract_address_salt = 3;
     let function_tree_root = 4;
     let constructor_hash = 5;
@@ -47,7 +47,7 @@ fn compute_tx_request_hash() {
             is_rebate_payment_tx: false,
             is_contract_deployment_tx: true,
             contract_deployment_data: ContractDeploymentData {
-                deployer_public_key: Point { x: 1, y: 2 },
+                deployer_public_key: GrumpkinPoint { x: 1, y: 2 },
                 constructor_vk_hash: 1,
                 function_tree_root: 2,
                 contract_address_salt: 3,
