@@ -1,10 +1,11 @@
 use dep::aztec::types::point::Point;
 use dep::authwit::auth_witness;
+use dep::protocol_types::address::PartialAddress;
 
 struct AuthWitness {
     owner: Point,
     signature: [u8; 64],
-    partial_address: Field,
+    partial_address: PartialAddress,
 }
 
 impl AuthWitness {
@@ -16,7 +17,7 @@ impl AuthWitness {
         Self {
             owner: Point::new(values[0], values[1]),
             signature,
-            partial_address: values[66],
+            partial_address: PartialAddress::from_field(values[66]),
         }
     }
 }
