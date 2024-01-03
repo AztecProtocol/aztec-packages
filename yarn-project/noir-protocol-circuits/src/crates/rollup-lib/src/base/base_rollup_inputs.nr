@@ -1,4 +1,3 @@
-use crate::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
 use crate::abis::public_data_tree_leaf::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage};
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
@@ -33,6 +32,8 @@ use dep::types::constants::{
 use dep::types::abis::previous_kernel_data::PreviousKernelData;
 use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness, MembershipWitness};
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
+use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
+use dep::types::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
@@ -166,13 +167,13 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree(self.kernel_data.public_inputs.end.new_commitments)
+        calculate_subtree(self.kernel_data.public_inputs.end.new_commitments.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         crate::indexed_tree::batch_insert(
             self.start_nullifier_tree_snapshot,
-            self.kernel_data.public_inputs.end.new_nullifiers,
+            self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
             self.new_nullifiers_subtree_sibling_path,
@@ -187,25 +188,25 @@ impl BaseRollupInputs {
             |nullifier: Field| {nullifier == 0}, // Nullifier is zero
             |leaf: NullifierLeafPreimage| {leaf.hash()}, // Hash leaf
             |low_leaf: NullifierLeafPreimage, nullifier: Field| { // Is valid low leaf
-                let is_less_than_nullifier = full_field_less_than(low_leaf.leaf_value, nullifier);
-                let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_value);
+                let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
+                let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
 
                 (!low_leaf.is_empty()) & is_less_than_nullifier & (
                     is_next_greater_than | 
-                    ((low_leaf.next_index == 0) & (low_leaf.next_value == 0))
+                    ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
                 )
             },
             |low_leaf: NullifierLeafPreimage, nullifier: Field, nullifier_index: u32| { // Update low leaf
                 NullifierLeafPreimage{
-                    leaf_value : low_leaf.leaf_value,
-                    next_value : nullifier,
+                    nullifier : low_leaf.nullifier,
+                    next_nullifier : nullifier,
                     next_index : nullifier_index, 
                 }
             },
             |nullifier: Field, low_leaf: NullifierLeafPreimage| { // Build insertion leaf
                 NullifierLeafPreimage {
-                    leaf_value : nullifier,
-                    next_value : low_leaf.next_value,
+                    nullifier : nullifier,
+                    next_nullifier : low_leaf.next_nullifier,
                     next_index : low_leaf.next_index,
                 }
             },
@@ -274,12 +275,12 @@ impl BaseRollupInputs {
         let mut offset = 0;
 
         for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            calldata_hash_inputs[offset + j] = new_commitments[j];
+            calldata_hash_inputs[offset + j] = new_commitments[j].value;
         }
         offset += MAX_NEW_COMMITMENTS_PER_TX ;
 
         for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-            calldata_hash_inputs[offset + j] = new_nullifiers[j];
+            calldata_hash_inputs[offset + j] = new_nullifiers[j].value;
         }
         offset += MAX_NEW_NULLIFIERS_PER_TX ;
 
@@ -567,7 +568,6 @@ mod tests {
         merkle_tree::{calculate_subtree, calculate_empty_tree_root},
         abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-        abis::nullifier_leaf_preimage::NullifierLeafPreimage,
         abis::public_data_tree_leaf::{PublicDataTreeLeafPreimage, PublicDataTreeLeaf},
         abis::constant_rollup_data::ConstantRollupData,
         tests::merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
@@ -598,9 +598,11 @@ mod tests {
         abis::membership_witness::ArchiveRootMembershipWitness,
         abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness},
         abis::new_contract_data::NewContractData,
+        abis::nullifier_leaf_preimage::NullifierLeafPreimage,
         abis::public_data_read::PublicDataRead,
         abis::public_data_update_request::PublicDataUpdateRequest,
         abis::previous_kernel_data::PreviousKernelData,
+        abis::side_effect::SideEffect,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{AztecAddress, EthAddress},
         utils::bounded_vec::BoundedVec,
@@ -795,7 +797,7 @@ mod tests {
 
                     let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
 
-                    kernel_data.public_inputs.end.new_nullifiers[original_index] = new_nullifier;
+                    kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     low_nullifier_leaf_preimages[i] = low_preimage;
@@ -804,7 +806,7 @@ mod tests {
                         sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
                     };
 
-                    low_preimage.next_value = new_nullifier;
+                    low_preimage.next_nullifier = new_nullifier;
                     low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
                     pre_existing_nullifiers[low_index] = low_preimage;
 
@@ -1014,7 +1016,10 @@ mod tests {
         let new_commitments = [27, 28, 29, 30, 31, 32];
         let mut new_commitments_vec = builder.kernel_data.end.new_commitments;
         for i in 0..new_commitments.len() {
-            new_commitments_vec.push(new_commitments[i]);
+            new_commitments_vec.push(SideEffect{
+                value: new_commitments[i],
+                counter: 0,
+                });
         }
         builder.kernel_data.end.new_commitments = new_commitments_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
@@ -1058,13 +1063,13 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 7,
+            nullifier : 0,
+            next_nullifier : 7,
             next_index : 1,
         };
         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 0,
+            nullifier : 7,
+            next_nullifier : 0,
             next_index : 0,
         };
 
@@ -1076,27 +1081,27 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 7,
+            nullifier : 0,
+            next_nullifier : 7,
             next_index : 1,
         };
         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 0,
+            nullifier : 7,
+            next_nullifier : 0,
             next_index : 0,
         };
 
         builder.new_nullifiers.push(NullifierInsertion { existing_index: 0, value: 1 });
         let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX * 2];
         tree_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 1,
+            nullifier : 0,
+            next_nullifier : 1,
             next_index : MAX_NEW_NULLIFIERS_PER_TX as u32,
         };
         tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX] = NullifierLeafPreimage {
-            leaf_value : 1,
-            next_value : 7,
+            nullifier : 1,
+            next_nullifier : 7,
             next_index : 1,
         };
 
@@ -1121,13 +1126,13 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 7,
+            nullifier : 0,
+            next_nullifier : 7,
             next_index : 1,
         };
         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 0,
+            nullifier : 7,
+            next_nullifier : 0,
             next_index : 0,
         };
 
@@ -1141,22 +1146,22 @@ mod tests {
         tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
 
         tree_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 8,
+            nullifier : 7,
+            next_nullifier : 8,
             next_index : MAX_NEW_NULLIFIERS_PER_TX as u32,
         };
 
         let last_index = builder.new_nullifiers.max_len() - 1;
         for i in 0..last_index {
             tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX + i] = NullifierLeafPreimage {
-                leaf_value : (8 + i) as Field,
-                next_value : (8 + i + 1) as Field,
+                nullifier : (8 + i) as Field,
+                next_nullifier : (8 + i + 1) as Field,
                 next_index : (MAX_NEW_NULLIFIERS_PER_TX + i) as u32 + 1,
             };
         }
         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX+last_index] = NullifierLeafPreimage {
-            leaf_value : (8 + last_index) as Field,
-            next_value : 0,
+            nullifier : (8 + last_index) as Field,
+            next_nullifier : 0,
             next_index : 0,
         };
 
@@ -1179,13 +1184,13 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 7,
+            nullifier : 0,
+            next_nullifier : 7,
             next_index : 1,
         };
         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 0,
+            nullifier : 7,
+            next_nullifier : 0,
             next_index : 0,
         };
 
@@ -1200,13 +1205,13 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
 
         builder.pre_existing_nullifiers[0] = NullifierLeafPreimage {
-            leaf_value : 0,
-            next_value : 7,
+            nullifier : 0,
+            next_nullifier : 7,
             next_index : 1,
         };
         builder.pre_existing_nullifiers[1] = NullifierLeafPreimage {
-            leaf_value : 7,
-            next_value : 0,
+            nullifier : 7,
+            next_nullifier : 0,
             next_index : 0,
         };
 
