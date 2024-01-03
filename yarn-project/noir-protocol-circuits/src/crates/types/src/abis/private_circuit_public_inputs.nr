@@ -33,7 +33,6 @@ struct PrivateCircuitPublicInputs {
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
-    // todo: add the notehash to these, for squashing
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
 
     // todo: include counters as part of the hash?
