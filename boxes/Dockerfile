@@ -9,6 +9,6 @@ COPY --from=aztec-sandbox /usr/src /usr/src
 COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
 WORKDIR /usr/src/boxes
 ENV AZTEC_NARGO=/usr/src/noir/target/release/nargo
-ENV AZTEC_CLI=/usr/src/yarn-project/cli/aztec-cli
+ENV AZTEC_CLI=/usr/src/yarn-project/cli/aztec-cli-dest
 RUN yarn && yarn build
 ENTRYPOINT ["yarn", "workspace"]
