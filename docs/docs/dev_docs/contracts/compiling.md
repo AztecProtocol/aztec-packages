@@ -42,7 +42,7 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-typescript ./path/to/my_aztec_contract_project
 ```
 
-Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
+Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_contract/src/main.nr) contract:
 
 ```ts showLineNumbers
 export class TokenContract extends ContractBase {
@@ -145,7 +145,7 @@ You can also generate these interfaces from prebuilt artifacts using the `genera
 aztec-cli generate-noir-interface ./path/to/my_aztec_contract_project
 ```
 
-Below is an example interface, also generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) contract:
+Below is an example interface, also generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_contract/src/main.nr) contract:
 
 ```rust
 impl TokenPrivateContextInterface {
@@ -234,19 +234,6 @@ Read more about how to use the Aztec.nr interfaces [here](./syntax/functions.md#
 :::info
 At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.
 :::
-
-## Compile using nodejs
-
-You can also programmatically access the compiler via the `@aztec/noir-compiler` package. To do this, install the package into your nodejs project:
-
-`npm install @aztec/noir-compiler`
-
-The compiler exposes the following functions:
-
-- `compileUsingNoirWasm`: Compiles an Aztec.nr project in the target folder using a WASM build of the compiler and returns the generated ABIs.
-- `compileUsingNargo`: Does the same as `compileUsingNargo` but instead of WASM it uses the `nargo` binary available on the shell `PATH`
-- `generateTypescriptContractInterface`: Generates a typescript class for the given contract artifact.
-- `generateNoirContractInterface`: Generates a Aztec.nr interface struct for the given contract artifact.
 
 ## Next steps
 

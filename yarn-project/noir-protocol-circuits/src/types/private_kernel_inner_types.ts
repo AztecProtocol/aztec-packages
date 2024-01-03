@@ -9,19 +9,32 @@ export type u32 = string;
 
 export interface AggregationObject {}
 
-export interface Address {
+export interface SideEffect {
+  value: Field;
+  counter: Field;
+}
+
+export interface SideEffectLinkedToNoteHash {
+  value: Field;
+  note_hash: Field;
+  counter: Field;
+}
+
+export interface AztecAddress {
   inner: Field;
 }
 
 export interface CallerContext {
-  msg_sender: Address;
-  storage_contract_address: Address;
+  msg_sender: AztecAddress;
+  storage_contract_address: AztecAddress;
 }
 
 export interface CallRequest {
   hash: Field;
-  caller_contract_address: Address;
+  caller_contract_address: AztecAddress;
   caller_context: CallerContext;
+  start_side_effect_counter: Field;
+  end_side_effect_counter: Field;
 }
 
 export interface EthAddress {
@@ -29,7 +42,7 @@ export interface EthAddress {
 }
 
 export interface NewContractData {
-  contract_address: Address;
+  contract_address: AztecAddress;
   portal_contract_address: EthAddress;
   function_tree_root: Field;
 }
@@ -57,23 +70,21 @@ export interface OptionallyRevealedData {
 }
 
 export interface PublicDataUpdateRequest {
-  leaf_index: Field;
+  leaf_slot: Field;
   old_value: Field;
   new_value: Field;
 }
 
 export interface PublicDataRead {
-  leaf_index: Field;
+  leaf_slot: Field;
   value: Field;
 }
 
 export interface CombinedAccumulatedData {
   aggregation_object: AggregationObject;
-  read_requests: FixedLengthArray<Field, 128>;
-  pending_read_requests: FixedLengthArray<Field, 128>;
-  new_commitments: FixedLengthArray<Field, 64>;
-  new_nullifiers: FixedLengthArray<Field, 64>;
-  nullified_commitments: FixedLengthArray<Field, 64>;
+  read_requests: FixedLengthArray<SideEffect, 128>;
+  new_commitments: FixedLengthArray<SideEffect, 64>;
+  new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
@@ -87,19 +98,14 @@ export interface CombinedAccumulatedData {
   public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 
-export interface Block {
+export interface BlockHeader {
   note_hash_tree_root: Field;
   nullifier_tree_root: Field;
   contract_tree_root: Field;
   l1_to_l2_messages_tree_root: Field;
+  archive_root: Field;
   public_data_tree_root: Field;
   global_variables_hash: Field;
-}
-
-export interface BlockHeader {
-  archive_root: Field;
-  block: Block;
-  private_kernel_vk_tree_root: Field;
 }
 
 export interface Point {
@@ -148,27 +154,27 @@ export interface PreviousKernelData {
 }
 
 export interface CallContext {
-  msg_sender: Address;
-  storage_contract_address: Address;
+  msg_sender: AztecAddress;
+  storage_contract_address: AztecAddress;
   portal_contract_address: EthAddress;
   function_selector: FunctionSelector;
   is_delegate_call: boolean;
   is_static_call: boolean;
   is_contract_deployment: boolean;
+  start_side_effect_counter: Field;
 }
 
 export interface PrivateCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
   return_values: FixedLengthArray<Field, 4>;
-  read_requests: FixedLengthArray<Field, 32>;
-  pending_read_requests: FixedLengthArray<Field, 32>;
-  new_commitments: FixedLengthArray<Field, 16>;
-  new_nullifiers: FixedLengthArray<Field, 16>;
-  nullified_commitments: FixedLengthArray<Field, 16>;
+  read_requests: FixedLengthArray<SideEffect, 32>;
+  new_commitments: FixedLengthArray<SideEffect, 16>;
+  new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 16>;
   private_call_stack_hashes: FixedLengthArray<Field, 4>;
   public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
+  end_side_effect_counter: Field;
   encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;
@@ -180,7 +186,7 @@ export interface PrivateCircuitPublicInputs {
 }
 
 export interface PrivateCallStackItem {
-  contract_address: Address;
+  contract_address: AztecAddress;
   public_inputs: PrivateCircuitPublicInputs;
   function_data: FunctionData;
   is_execution_request: boolean;

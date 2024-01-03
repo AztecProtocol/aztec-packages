@@ -11,7 +11,7 @@ import {
   SingleKeyAccountContract,
   Wallet,
 } from '@aztec/aztec.js';
-import { ChildContract } from '@aztec/noir-contracts/types';
+import { ChildContract } from '@aztec/noir-contracts/Child';
 
 import { randomBytes } from 'crypto';
 
@@ -58,7 +58,7 @@ function itShouldBehaveLikeAnAccountContract(
       logger('Calling public function...');
       await child.methods.pubIncValue(42).send().wait({ interval: 0.1 });
       const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
-      expect(storedValue!).toEqual(new Fr(42n));
+      expect(storedValue).toEqual(new Fr(42n));
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/goblin/goblin.hpp"
@@ -38,6 +40,15 @@ class GoblinMockCircuits {
         }
     }
 
+    static void construct_goblin_ecc_op_circuit(GoblinUltraBuilder& builder)
+    {
+        // Add a mul accum op and an equality op
+        auto point = Point::one() * FF::random_element();
+        auto scalar = FF::random_element();
+        builder.queue_ecc_mul_accum(point, scalar);
+        builder.queue_ecc_eq();
+    }
+
     /**
      * @brief Mock the interactions of a simple curcuit with the op_queue
      * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
@@ -55,11 +66,8 @@ class GoblinMockCircuits {
     {
         proof_system::GoblinUltraCircuitBuilder builder{ op_queue };
 
-        // Add a mul accum op and an equality op
-        auto point = Point::one() * FF::random_element();
-        auto scalar = FF::random_element();
-        builder.queue_ecc_mul_accum(point, scalar);
-        builder.queue_ecc_eq();
+        // Add some goblinized ecc ops
+        construct_goblin_ecc_op_circuit(builder);
 
         op_queue->set_size_data();
 

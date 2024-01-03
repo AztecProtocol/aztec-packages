@@ -21,7 +21,8 @@ import {
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
 
@@ -103,7 +104,8 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if ((await bridge.methods.token().view()) !== token.address.toBigInt()) {
+  // TODO(#3641) - Fix deserialization and compare AztecAddress directly
+  if ((await bridge.methods.token().view()).inner !== token.address.toBigInt()) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 

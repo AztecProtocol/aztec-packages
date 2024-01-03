@@ -12,7 +12,8 @@ import {
   getSandboxAccountsWallets,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { TestContract, TokenContract } from '@aztec/noir-contracts/types';
+import { TestContract } from '@aztec/noir-contracts/Test';
+import { TokenContract } from '@aztec/noir-contracts/Token';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -165,7 +166,7 @@ describe('guides/dapp/testing', () => {
         await token.methods.mint_public(owner.getAddress(), 100n).send().wait();
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
-        expect(balance!.value).toEqual(100n);
+        expect(balance.value).toEqual(100n);
         // docs:end:public-storage
       }, 30_000);
 

@@ -1,15 +1,15 @@
-use crate::address::Address;
+use crate::address::AztecAddress;
 
 struct CallerContext {
-    msg_sender: Address,
-    storage_contract_address: Address,
+    msg_sender: AztecAddress,
+    storage_contract_address: AztecAddress,
 }
 
 impl CallerContext {
     pub fn empty() -> Self {
         CallerContext {
-            msg_sender: Address::zero(),
-            storage_contract_address: Address::zero(),
+            msg_sender: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
         }
     }
 
@@ -25,16 +25,20 @@ impl CallerContext {
 
 struct CallRequest {
     hash: Field,
-    caller_contract_address: Address,
+    caller_contract_address: AztecAddress,
     caller_context: CallerContext,
+    start_side_effect_counter: Field,
+    end_side_effect_counter: Field,
 }
 
 impl CallRequest {
     pub fn empty() -> Self {
         Self {
             hash: 0,
-            caller_contract_address: Address::zero(),
+            caller_contract_address: AztecAddress::zero(),
             caller_context: dep::std::unsafe::zeroed(),
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0,
         }
     }
 
@@ -46,5 +50,7 @@ impl CallRequest {
         (call_request.hash == self.hash)
             & (call_request.caller_contract_address.eq(self.caller_contract_address))
             & (call_request.caller_context.eq(self.caller_context))
+            & (call_request.start_side_effect_counter == self.start_side_effect_counter)
+            & (call_request.end_side_effect_counter == self.end_side_effect_counter)
     }
 }

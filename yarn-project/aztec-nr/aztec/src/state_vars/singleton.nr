@@ -1,5 +1,13 @@
 use dep::std::option::Option;
-use dep::protocol_types::constants::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALIZATION_NULLIFIER};
+
+use dep::protocol_types::{
+    address::AztecAddress,
+    constants::{
+        GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    },
+    hash::pedersen_hash,
+};
+
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, destroy_note},
@@ -11,13 +19,14 @@ use crate::oracle::{
     get_secret_key::get_secret_key,
     notes::check_nullifier_exists,
 };
-use crate::hash::pedersen_hash;
 
-pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<Field>) -> Field {
+pub fn compute_singleton_initialization_nullifier(storage_slot: Field, owner: Option<AztecAddress>) -> Field {
     if owner.is_some() {
         let secret = get_secret_key(owner.unwrap_unchecked());
-        pedersen_hash([storage_slot, secret.low, secret.high],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER)
+        pedersen_hash(
+            [storage_slot, secret.low, secret.high],
+            GENERATOR_INDEX__INITIALIZATION_NULLIFIER
+        )
     } else {
         pedersen_hash([storage_slot], GENERATOR_INDEX__INITIALIZATION_NULLIFIER)
     }
@@ -28,7 +37,7 @@ struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    compute_initialization_nullifier: fn (Field, Option<Field>) -> Field,
+    compute_initialization_nullifier: fn (Field, Option<AztecAddress>) -> Field,
 }
 // docs:end:struct
 
@@ -50,7 +59,7 @@ impl<Note, N> Singleton<Note, N> {
     // docs:end:new
 
     // docs:start:is_initialized
-    unconstrained pub fn is_initialized(self, owner: Option<Field>) -> bool {
+    unconstrained pub fn is_initialized(self, owner: Option<AztecAddress>) -> bool {
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
         check_nullifier_exists(nullifier)
@@ -61,7 +70,7 @@ impl<Note, N> Singleton<Note, N> {
     pub fn initialize(
         self,
         note: &mut Note,
-        owner: Option<Field>,
+        owner: Option<AztecAddress>,
         broadcast: bool,
     ) {
         let context = self.context.unwrap();
@@ -69,7 +78,7 @@ impl<Note, N> Singleton<Note, N> {
         // Nullify the storage slot.
         let compute_initialization_nullifier = self.compute_initialization_nullifier;
         let nullifier = compute_initialization_nullifier(self.storage_slot, owner);
-        context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
+        context.push_new_nullifier(nullifier, 0);
 
         create_note(context, self.storage_slot, note, self.note_interface, broadcast);
     }
