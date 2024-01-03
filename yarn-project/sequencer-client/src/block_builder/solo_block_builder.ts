@@ -11,7 +11,7 @@ import {
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -138,7 +138,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      tx.data.end.publicDataWrites.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
 
@@ -575,12 +575,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight).toFieldArray();
   }
 
-  protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
+  protected async processPublicDataWrites(tx: ProcessedTx) {
     const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
         // TODO(#3675) remove oldValue from update requests
-        tx.data.end.publicDataUpdateRequests.map(updateRequest => {
+        tx.data.end.publicDataWrites.map(updateRequest => {
           return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
         }),
         PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -590,11 +590,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Could not craft public data batch insertion proofs`);
     }
 
-    const sortedPublicDataWrites = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+    const sortedPublicDataWrites = makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, i => {
       return PublicDataTreeLeaf.fromBuffer(sortedNewLeaves[i]);
     });
 
-    const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+    const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, i => {
       return sortedNewLeavesIndexes[i];
     });
 
@@ -605,8 +605,8 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const lowPublicDataWritesMembershipWitnesses: Tuple<
       MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
+      typeof MAX_PUBLIC_DATA_WRITES_PER_TX
+    > = makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, i => {
       const witness = lowLeavesWitnessData[i];
       return MembershipWitness.fromBufferArray(
         witness.index,
@@ -614,12 +614,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       );
     });
 
-    const lowPublicDataWritesPreimages: Tuple<
-      PublicDataTreeLeafPreimage,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    > = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => {
-      return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
-    });
+    const lowPublicDataWritesPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_WRITES_PER_TX> =
+      makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, i => {
+        return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
+      });
 
     return {
       lowPublicDataWritesPreimages,
@@ -702,7 +700,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.
     const txPublicDataReadsInfo = await this.getPublicDataReadsInfo(tx);
-    const txPublicDataUpdateRequestInfo = await this.processPublicDataUpdateRequests(tx);
+    const txPublicDataWriteInfo = await this.processPublicDataWrites(tx);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
     const newNullifiers = tx.data.end.newNullifiers;
@@ -736,11 +734,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       startNoteHashTreeSnapshot,
       startPublicDataTreeSnapshot,
       archiveSnapshot: startArchiveSnapshot,
-      sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
-      sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
-      lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
-      lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-      publicDataWritesSubtreeSiblingPath: txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
+      sortedPublicDataWrites: txPublicDataWriteInfo.sortedPublicDataWrites,
+      sortedPublicDataWritesIndexes: txPublicDataWriteInfo.sortedPublicDataWritesIndexes,
+      lowPublicDataWritesPreimages: txPublicDataWriteInfo.lowPublicDataWritesPreimages,
+      lowPublicDataWritesMembershipWitnesses: txPublicDataWriteInfo.lowPublicDataWritesMembershipWitnesses,
+      publicDataWritesSubtreeSiblingPath: txPublicDataWriteInfo.newPublicDataSubtreeSiblingPath,
 
       sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
       sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortednewNullifiersIndexes[i]),

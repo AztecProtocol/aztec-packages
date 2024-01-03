@@ -4,7 +4,7 @@ import { Tuple } from '@aztec/foundation/serialize';
 import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { assertMemberLength } from '../../utils/jsUtils.js';
@@ -58,7 +58,7 @@ export class WitnessedPublicCallData {
      */
     public readonly publicDataTreeRoot: Fr,
   ) {
-    assertMemberLength(this, 'updateRequestsHashPaths', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    assertMemberLength(this, 'updateRequestsHashPaths', MAX_PUBLIC_DATA_WRITES_PER_TX);
     assertMemberLength(this, 'readsHashPaths', MAX_PUBLIC_DATA_READS_PER_TX);
   }
 

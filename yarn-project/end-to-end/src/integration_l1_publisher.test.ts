@@ -14,9 +14,9 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   makeTuple,
   range,
 } from '@aztec/circuits.js';
@@ -163,9 +163,9 @@ describe('L1Publisher integration', () => {
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.blockHeader = await getBlockHeader(builderDb, prevGlobals);
-    kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+    kernelOutput.end.publicDataWrites = makeTuple(
+      MAX_PUBLIC_DATA_WRITES_PER_TX,
+      i => new PublicDataWrite(fr(i), fr(0), fr(i + 10)),
       seed + 0x500,
     );
 

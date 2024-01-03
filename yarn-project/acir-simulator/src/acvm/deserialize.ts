@@ -3,7 +3,7 @@ import {
   CallContext,
   ContractDeploymentData,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   FunctionSelector,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -12,7 +12,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_PUBLIC_DATA_WRITES_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   PrivateCircuitPublicInputs,
@@ -230,19 +230,17 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
 
-  const contractStorageUpdateRequests = new Array(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).fill(
-    ContractStorageUpdateRequest.empty(),
-  );
-  for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-    const request = new ContractStorageUpdateRequest(
+  const contractStorageWrites = new Array(MAX_PUBLIC_DATA_WRITES_PER_CALL).fill(ContractStorageWrite.empty());
+  for (let i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_CALL; i++) {
+    const request = new ContractStorageWrite(
       witnessReader.readField(),
       witnessReader.readField(),
       witnessReader.readField(),
     );
-    contractStorageUpdateRequests[i] = request;
+    contractStorageWrites[i] = request;
   }
   const contractStorageReads = new Array(MAX_PUBLIC_DATA_READS_PER_CALL).fill(ContractStorageRead.empty());
-  for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
+  for (let i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_CALL; i++) {
     const request = new ContractStorageRead(witnessReader.readField(), witnessReader.readField());
     contractStorageReads[i] = request;
   }
@@ -271,10 +269,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     callContext,
     argsHash,
     returnValues,
-    contractStorageUpdateRequests as Tuple<
-      ContractStorageUpdateRequest,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
-    >,
+    contractStorageWrites as Tuple<ContractStorageWrite, typeof MAX_PUBLIC_DATA_WRITES_PER_CALL>,
     contractStorageReads as Tuple<ContractStorageRead, typeof MAX_PUBLIC_DATA_READS_PER_CALL>,
     publicCallStack,
     newCommitments,

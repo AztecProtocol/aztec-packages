@@ -173,7 +173,7 @@ export interface OptionallyRevealedData {
   called_from_public_l2: boolean;
 }
 
-export interface PublicDataUpdateRequest {
+export interface PublicDataWrite {
   leaf_slot: Field;
   old_value: Field;
   new_value: Field;
@@ -200,7 +200,7 @@ export interface CombinedAccumulatedData {
   unencrypted_log_preimages_length: Field;
   new_contracts: FixedLengthArray<NewContractData, 1>;
   optionally_revealed_data: FixedLengthArray<OptionallyRevealedData, 4>;
-  public_data_update_requests: FixedLengthArray<PublicDataUpdateRequest, 16>;
+  public_data_writes: FixedLengthArray<PublicDataWrite, 16>;
   public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 

@@ -2,7 +2,7 @@
 #include "new_contract_data.hpp"
 #include "optionally_revealed_data.hpp"
 #include "public_data_read.hpp"
-#include "public_data_update_request.hpp"
+#include "public_data_write.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"

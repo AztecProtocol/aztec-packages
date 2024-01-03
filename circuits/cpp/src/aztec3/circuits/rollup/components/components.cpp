@@ -112,7 +112,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     // 2 encrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     // 2 unencrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     auto const number_of_inputs =
-        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
+        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_WRITES_PER_TX * 2 +
          MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
          NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 +
          NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256) *
@@ -122,7 +122,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     for (size_t i = 0; i < 2; i++) {
         auto new_commitments = kernel_data[i].public_inputs.end.new_commitments;
         auto new_nullifiers = kernel_data[i].public_inputs.end.new_nullifiers;
-        auto public_data_update_requests = kernel_data[i].public_inputs.end.public_data_update_requests;
+        auto public_data_writes = kernel_data[i].public_inputs.end.public_data_writes;
         auto newL2ToL1msgs = kernel_data[i].public_inputs.end.new_l2_to_l1_msgs;
         auto encryptedLogsHash = kernel_data[i].public_inputs.end.encrypted_logs_hash;
         auto unencryptedLogsHash = kernel_data[i].public_inputs.end.unencrypted_logs_hash;
@@ -139,13 +139,13 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
         }
         offset += MAX_NEW_NULLIFIERS_PER_TX * 2;
 
-        for (size_t j = 0; j < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; j++) {
-            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + j * 2] =
-                public_data_update_requests[j].leaf_index;
-            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + j * 2 + 1] =
-                public_data_update_requests[j].new_value;
+        for (size_t j = 0; j < MAX_PUBLIC_DATA_WRITES_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_WRITES_PER_TX * 2 + j * 2] =
+                public_data_writes[j].leaf_index;
+            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_WRITES_PER_TX * 2 + j * 2 + 1] =
+                public_data_writes[j].new_value;
         }
-        offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 * 2;
+        offset += MAX_PUBLIC_DATA_WRITES_PER_TX * 2 * 2;
 
         for (size_t j = 0; j < MAX_NEW_L2_TO_L1_MSGS_PER_TX; j++) {
             calldata_hash_inputs[offset + i * MAX_NEW_L2_TO_L1_MSGS_PER_TX + j] = newL2ToL1msgs[j];

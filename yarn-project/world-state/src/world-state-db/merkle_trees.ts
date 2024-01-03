@@ -4,7 +4,7 @@ import {
   Fr,
   GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -591,10 +591,10 @@ export class MerkleTrees implements MerkleTreeDb {
       const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
 
       // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-      for (let i = 0; i < l2Block.newPublicDataWrites.length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+      for (let i = 0; i < l2Block.newPublicDataWrites.length / MAX_PUBLIC_DATA_WRITES_PER_TX; i++) {
         await publicDataTree.batchInsert(
           l2Block.newPublicDataWrites
-            .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * i, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (i + 1))
+            .slice(MAX_PUBLIC_DATA_WRITES_PER_TX * i, MAX_PUBLIC_DATA_WRITES_PER_TX * (i + 1))
             .map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
           PUBLIC_DATA_SUBTREE_HEIGHT,
         );

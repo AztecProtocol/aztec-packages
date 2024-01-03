@@ -1,4 +1,4 @@
-import { MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
+import { MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_WRITES_PER_TX } from '@aztec/circuits.js';
 import { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 
 import { MerkleTreeOperations } from './merkle_tree_operations.js';
@@ -20,7 +20,7 @@ import { MerkleTreeOperations } from './merkle_tree_operations.js';
  */
 export const INITIAL_NULLIFIER_TREE_SIZE = 2 * MAX_NEW_NULLIFIERS_PER_TX;
 
-export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_PUBLIC_DATA_WRITES_PER_TX;
 
 /**
  * Adds a last boolean flag in each function on the type.

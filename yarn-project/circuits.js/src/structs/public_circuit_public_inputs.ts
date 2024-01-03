@@ -9,7 +9,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_PUBLIC_DATA_WRITES_PER_CALL,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
@@ -81,10 +81,10 @@ export class ContractStorageRead {
 /**
  * Contract storage update request for a slot on a specific contract.
  *
- * Note: Similar to `PublicDataUpdateRequest` but it's from the POV of contract storage so we are not working with
+ * Note: Similar to `PublicDataWrite` but it's from the POV of contract storage so we are not working with
  * public data tree leaf index but storage slot index.
  */
-export class ContractStorageUpdateRequest {
+export class ContractStorageWrite {
   constructor(
     /**
      * Storage slot we are updating.
@@ -110,7 +110,7 @@ export class ContractStorageUpdateRequest {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new ContractStorageWrite(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -118,8 +118,8 @@ export class ContractStorageUpdateRequest {
    * @param fields - The dictionary.
    * @returns A PublicCallRequest object.
    */
-  static from(fields: FieldsOf<ContractStorageUpdateRequest>): ContractStorageUpdateRequest {
-    return new ContractStorageUpdateRequest(...ContractStorageUpdateRequest.getFields(fields));
+  static from(fields: FieldsOf<ContractStorageWrite>): ContractStorageWrite {
+    return new ContractStorageWrite(...ContractStorageWrite.getFields(fields));
   }
 
   /**
@@ -127,12 +127,12 @@ export class ContractStorageUpdateRequest {
    * @param fields - Object with fields.
    * @returns The array.
    */
-  static getFields(fields: FieldsOf<ContractStorageUpdateRequest>) {
+  static getFields(fields: FieldsOf<ContractStorageWrite>) {
     return [fields.storageSlot, fields.oldValue, fields.newValue, fields.sideEffectCounter] as const;
   }
 
   static empty() {
-    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new ContractStorageWrite(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   isEmpty() {
@@ -164,10 +164,7 @@ export class PublicCircuitPublicInputs {
     /**
      * Contract storage update requests executed during the call.
      */
-    public contractStorageUpdateRequests: Tuple<
-      ContractStorageUpdateRequest,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
-    >,
+    public contractStorageWrites: Tuple<ContractStorageWrite, typeof MAX_PUBLIC_DATA_WRITES_PER_CALL>,
     /**
      * Contract storage reads executed during the call.
      */
@@ -225,7 +222,7 @@ export class PublicCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_WRITES_PER_CALL, ContractStorageWrite.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
@@ -244,7 +241,7 @@ export class PublicCircuitPublicInputs {
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
-      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
+      isArrayEmpty(this.contractStorageWrites, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
       isFrArrayEmpty(this.newCommitments) &&
@@ -267,7 +264,7 @@ export class PublicCircuitPublicInputs {
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
-      fields.contractStorageUpdateRequests,
+      fields.contractStorageWrites,
       fields.contractStorageReads,
       fields.publicCallStackHashes,
       fields.newCommitments,

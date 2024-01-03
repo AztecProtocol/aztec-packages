@@ -6,7 +6,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -83,7 +83,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
-    newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+    newPublicDataWrites: times(MAX_PUBLIC_DATA_WRITES_PER_TX, PublicDataWrite.random),
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
     newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
     newEncryptedLogs,

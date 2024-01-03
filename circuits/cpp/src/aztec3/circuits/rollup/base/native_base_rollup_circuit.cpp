@@ -2,7 +2,7 @@
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
-#include "aztec3/circuits/abis/public_data_update_request.hpp"
+#include "aztec3/circuits/abis/public_data_write.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/base/base_rollup_inputs.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -358,31 +358,29 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
     };
 }
 
-fr insert_public_data_update_requests(
+fr insert_public_data_writes(
     DummyBuilder& builder,
     fr tree_root,
-    std::array<abis::PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> const&
-        public_data_update_requests,
+    std::array<abis::PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_TX> const& public_data_writes,
     size_t witnesses_offset,
-    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> const& witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_WRITES_PER_TX> const& witnesses)
 {
     auto root = tree_root;
 
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; ++i) {
-        const auto& state_write = public_data_update_requests[i];
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_TX; ++i) {
+        const auto& state_write = public_data_writes[i];
         const auto& witness = witnesses[i + witnesses_offset];
 
         if (state_write.is_empty()) {
             continue;
         }
 
-        check_membership<NT>(
-            builder,
-            state_write.old_value,
-            state_write.leaf_index,
-            witness,
-            root,
-            format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING, "validate_public_data_update_requests index ", i));
+        check_membership<NT>(builder,
+                             state_write.old_value,
+                             state_write.leaf_index,
+                             witness,
+                             root,
+                             format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING, "validate_public_data_writes index ", i));
 
         root = root_from_sibling_path<NT>(state_write.new_value, state_write.leaf_index, witness);
     }
@@ -429,12 +427,12 @@ fr validate_and_process_public_state(DummyBuilder& builder, BaseRollupInputs con
     //                            0,
     //                            baseRollupInputs.new_public_data_reads_sibling_paths);
 
-    auto mid_public_data_tree_root = insert_public_data_update_requests(
-        builder,
-        baseRollupInputs.start_public_data_tree_root,
-        baseRollupInputs.kernel_data[0].public_inputs.end.public_data_update_requests,
-        0,
-        baseRollupInputs.new_public_data_update_requests_sibling_paths);
+    auto mid_public_data_tree_root =
+        insert_public_data_writes(builder,
+                                  baseRollupInputs.start_public_data_tree_root,
+                                  baseRollupInputs.kernel_data[0].public_inputs.end.public_data_writes,
+                                  0,
+                                  baseRollupInputs.new_public_data_writes_sibling_paths);
 
 
     // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
@@ -450,12 +448,12 @@ fr validate_and_process_public_state(DummyBuilder& builder, BaseRollupInputs con
     //                            MAX_PUBLIC_DATA_READS_PER_TX,
     //                            baseRollupInputs.new_public_data_reads_sibling_paths);
 
-    auto end_public_data_tree_root = insert_public_data_update_requests(
-        builder,
-        mid_public_data_tree_root,
-        baseRollupInputs.kernel_data[1].public_inputs.end.public_data_update_requests,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        baseRollupInputs.new_public_data_update_requests_sibling_paths);
+    auto end_public_data_tree_root =
+        insert_public_data_writes(builder,
+                                  mid_public_data_tree_root,
+                                  baseRollupInputs.kernel_data[1].public_inputs.end.public_data_writes,
+                                  MAX_PUBLIC_DATA_WRITES_PER_TX,
+                                  baseRollupInputs.new_public_data_writes_sibling_paths);
 
     return end_public_data_tree_root;
 }

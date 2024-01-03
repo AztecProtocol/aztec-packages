@@ -1,6 +1,6 @@
 use crate::{
     constants::{
-        CONTRACT_STORAGE_READ_LENGTH,
+        STORAGE_READ_LENGTH,
         GENERATOR_INDEX__PUBLIC_DATA_READ,
     },
     hash::pedersen_hash,
@@ -19,7 +19,7 @@ impl StorageRead {
         }
     }
 
-    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
+    pub fn serialize(self) -> [Field; STORAGE_READ_LENGTH] {
         [self.storage_slot, self.current_value]
     }
 

@@ -2,7 +2,7 @@
 #include "new_contract_data.hpp"
 #include "optionally_revealed_data.hpp"
 #include "public_data_read.hpp"
-#include "public_data_update_request.hpp"
+#include "public_data_write.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
@@ -55,7 +55,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
-    std::array<PublicDataUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_update_requests{};
+    std::array<PublicDataWrite<NCT>, MAX_PUBLIC_DATA_WRITES_PER_TX> public_data_writes{};
     std::array<PublicDataRead<NCT>, MAX_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
 
     // for serialization, update with new fields
@@ -74,7 +74,7 @@ template <typename NCT> struct CombinedAccumulatedData {
                    unencrypted_log_preimages_length,
                    new_contracts,
                    optionally_revealed_data,
-                   public_data_update_requests,
+                   public_data_writes,
                    public_data_reads);
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
     {
@@ -118,7 +118,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
             map(new_contracts, to_circuit_type),
             map(optionally_revealed_data, to_circuit_type),
-            map(public_data_update_requests, to_circuit_type),
+            map(public_data_writes, to_circuit_type),
             map(public_data_reads, to_circuit_type),
         };
 
@@ -159,7 +159,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
             map(new_contracts, to_native_type),
             map(optionally_revealed_data, to_native_type),
-            map(public_data_update_requests, to_native_type),
+            map(public_data_writes, to_native_type),
             map(public_data_reads, to_native_type),
         };
         return acc_data;
@@ -187,7 +187,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
         set_array_public(new_contracts);
         set_array_public(optionally_revealed_data);
-        set_array_public(public_data_update_requests);
+        set_array_public(public_data_writes);
         set_array_public(public_data_reads);
     }
 
@@ -215,7 +215,7 @@ template <typename NCT> struct CombinedAccumulatedData {
         }
     }
 
-    template <size_t SIZE> void set_array_public(std::array<PublicDataUpdateRequest<NCT>, SIZE>& arr)
+    template <size_t SIZE> void set_array_public(std::array<PublicDataWrite<NCT>, SIZE>& arr)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {

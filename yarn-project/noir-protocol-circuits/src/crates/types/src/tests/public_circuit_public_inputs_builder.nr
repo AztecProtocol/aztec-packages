@@ -7,7 +7,7 @@ use crate::{
     address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
+        storage_write::StorageWrite,
     },
     hash::NUM_FIELDS_PER_SHA256,
     tests::fixtures,
@@ -19,7 +19,7 @@ use crate::constants::{
     MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    MAX_PUBLIC_DATA_WRITES_PER_CALL,
     RETURN_VALUES_LENGTH,
 };
 
@@ -27,7 +27,7 @@ struct PublicCircuitPublicInputsBuilder {
     call_context: CallContext,
     args_hash: Field,
     return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
-    storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
+    storage_writes: BoundedVec<StorageWrite, MAX_PUBLIC_DATA_WRITES_PER_CALL>,
     storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
@@ -52,7 +52,7 @@ impl PublicCircuitPublicInputsBuilder {
             call_context: self.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
-            storage_update_requests: self.storage_update_requests.storage,
+            storage_writes: self.storage_writes.storage,
             storage_reads: self.storage_reads.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_commitments: self.new_commitments.storage,

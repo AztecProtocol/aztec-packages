@@ -86,7 +86,7 @@ describe('ACIR public execution simulator', () => {
         const expectedBalance = new Fr(previousBalance.value + mintAmount);
         const expectedTotalSupply = new Fr(previousTotalSupply.value + mintAmount);
         // There should be 2 storage updates, one for the recipient's balance and one for the total supply
-        expect(result.contractStorageUpdateRequests).toEqual([
+        expect(result.contractStorageWrites).toEqual([
           {
             storageSlot: recipientBalanceStorageSlot,
             oldValue: previousBalance,
@@ -174,7 +174,7 @@ describe('ACIR public execution simulator', () => {
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
 
-        expect(result.contractStorageUpdateRequests).toEqual([
+        expect(result.contractStorageWrites).toEqual([
           {
             storageSlot: senderStorageSlot,
             oldValue: senderBalance,

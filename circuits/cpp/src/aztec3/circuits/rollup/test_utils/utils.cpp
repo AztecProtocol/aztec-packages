@@ -53,7 +53,7 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
-        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
+        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_WRITES_PER_TX * 2 +
          MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * 2 +
          NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * 2) *
         2;
@@ -142,13 +142,13 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
             public_data_tree.update_element(leaf_index, public_data_read.value);
         }
 
-        for (auto public_data_update_request : kernel_data[i].public_inputs.end.public_data_update_requests) {
-            auto leaf_index = uint256_t(public_data_update_request.leaf_index);
-            if (public_data_update_request.is_empty() || visited_indices.contains(leaf_index)) {
+        for (auto public_data_write : kernel_data[i].public_inputs.end.public_data_writes) {
+            auto leaf_index = uint256_t(public_data_write.leaf_index);
+            if (public_data_write.is_empty() || visited_indices.contains(leaf_index)) {
                 continue;
             }
             visited_indices.insert(leaf_index);
-            public_data_tree.update_element(leaf_index, public_data_update_request.old_value);
+            public_data_tree.update_element(leaf_index, public_data_write.old_value);
         }
     }
 
@@ -194,15 +194,14 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                 get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
-        for (size_t j = 0; j < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; j++) {
-            auto public_data_update_request = kernel_data[i].public_inputs.end.public_data_update_requests[j];
-            if (public_data_update_request.is_empty()) {
+        for (size_t j = 0; j < MAX_PUBLIC_DATA_WRITES_PER_TX; j++) {
+            auto public_data_write = kernel_data[i].public_inputs.end.public_data_writes[j];
+            if (public_data_write.is_empty()) {
                 continue;
             }
-            auto leaf_index = uint256_t(public_data_update_request.leaf_index);
-            public_data_tree.update_element(leaf_index, public_data_update_request.new_value);
-            baseRollupInputs
-                .new_public_data_update_requests_sibling_paths[i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + j] =
+            auto leaf_index = uint256_t(public_data_write.leaf_index);
+            public_data_tree.update_element(leaf_index, public_data_write.new_value);
+            baseRollupInputs.new_public_data_writes_sibling_paths[i * MAX_PUBLIC_DATA_WRITES_PER_TX + j] =
                 get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
     }

@@ -50,7 +50,7 @@ export async function executePublicFunction(
   const newCommitments = newCommitmentsPadded.filter(v => !v.isZero());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isZero());
 
-  const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
+  const { contractStorageReads, contractStorageWrites } = context.getStorageActionData();
   log(
     `Contract storage reads: ${contractStorageReads
       .map(r => r.toFriendlyJSON() + ` - sec: ${r.sideEffectCounter}`)
@@ -66,7 +66,7 @@ export async function executePublicFunction(
     newL2ToL1Messages,
     newNullifiers,
     contractStorageReads,
-    contractStorageUpdateRequests,
+    contractStorageWrites,
     returnValues,
     nestedExecutions,
     unencryptedLogs,

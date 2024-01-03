@@ -103,7 +103,7 @@ class ConstantRollupData {
 }
 ConstantRollupData *-- GlobalVariables : global_variables
 
-class PublicDataUpdateRequest {
+class PublicDataWrite {
     index: Fr
     old_value: Fr
     new_value: Fr
@@ -130,7 +130,7 @@ class CombinedAccumulatedData {
 
     l2_to_l1_messages: List~Fr~
     contracts: List~NewContractData~
-    public_update_requests: List~PublicDataUpdateRequest~
+    public_writes: List~PublicDataWrite~
     public_reads: List~PublicDataRead~
     logs: Logs
 
@@ -140,7 +140,7 @@ class CombinedAccumulatedData {
     end_public_data_root: Fr
 }
 CombinedAccumulatedData *-- "m" NewContractData: contracts
-CombinedAccumulatedData *-- "m" PublicDataUpdateRequest: public_update_requests
+CombinedAccumulatedData *-- "m" PublicDataWrite: public_writes
 CombinedAccumulatedData *-- "m" PublicDataRead: public_reads
 CombinedAccumulatedData *-- Logs : logs
 

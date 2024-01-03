@@ -1,8 +1,8 @@
 #pragma once
 
 #include "call_context.hpp"
-#include "contract_storage_read.hpp"
-#include "contract_storage_update_request.hpp"
+#include "storage_read.hpp"
+#include "storage_write.hpp"
 #include "../../constants.hpp"
 
 #include "aztec3/circuits/abis/block_header.hpp"
@@ -27,7 +27,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     fr args_hash = 0;
     std::array<fr, RETURN_VALUES_LENGTH> return_values{};
 
-    std::array<ContractStorageUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> storage_update_requests{};
+    std::array<ContractStorageWrite<NCT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> storage_writes{};
     std::array<ContractStorageRead<NCT>, MAX_PUBLIC_DATA_READS_PER_CALL> storage_reads{};
 
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
@@ -49,7 +49,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     MSGPACK_FIELDS(call_context,
                    args_hash,
                    return_values,
-                   storage_update_requests,
+                   storage_writes,
                    storage_reads,
                    public_call_stack,
                    new_commitments,
@@ -79,7 +79,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
             .args_hash = to_ct(args_hash),
             .return_values = to_ct(return_values),
 
-            .storage_update_requests = map(storage_update_requests, to_circuit_type),
+            .storage_writes = map(storage_writes, to_circuit_type),
             .storage_reads = map(storage_reads, to_circuit_type),
 
             .public_call_stack = to_ct(public_call_stack),
@@ -109,7 +109,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         inputs.push_back(args_hash);
         spread_arr_into_vec(return_values, inputs);
 
-        spread_arr_into_vec(map(storage_update_requests, to_hashes), inputs);
+        spread_arr_into_vec(map(storage_writes, to_hashes), inputs);
         spread_arr_into_vec(map(storage_reads, to_hashes), inputs);
 
         spread_arr_into_vec(public_call_stack, inputs);

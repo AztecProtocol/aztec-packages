@@ -8,7 +8,7 @@ use crate::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
     },
     address::{AztecAddress, EthAddress},
     hash::NUM_FIELDS_PER_SHA256,
@@ -24,7 +24,7 @@ use crate::constants::{
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_PUBLIC_DATA_WRITES_PER_TX,
         VK_TREE_HEIGHT,
 };
 
@@ -73,11 +73,11 @@ impl PreviousKernelDataBuilder {
         *self
     }
 
-    pub fn append_public_data_update_requests(&mut self, num_updates: Field) {
-        let value_offset = self.end.public_data_update_requests.len();
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+    pub fn append_public_data_writes(&mut self, num_updates: Field) {
+        let value_offset = self.end.public_data_writes.len();
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TX {
             if i as u64 < num_updates as u64 {
-                let update_request = PublicDataUpdateRequest {
+                let write = PublicDataWrite {
                     // The default leaf index is its index + 23.
                     leaf_slot: value_offset + i + 23,
                     // The default value is its index + 45.
@@ -85,7 +85,7 @@ impl PreviousKernelDataBuilder {
                     // The default value is its index + 678.
                     new_value: value_offset + i + 678,
                 };
-                self.end.public_data_update_requests.push(update_request);
+                self.end.public_data_writes.push(write);
             }
         }
     }

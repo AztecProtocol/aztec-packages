@@ -3,7 +3,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   Vector,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -124,7 +124,7 @@ export class L2Tx {
     return new L2Tx(
       times(rand(0, MAX_NEW_COMMITMENTS_PER_TX), Fr.random),
       times(rand(1, MAX_NEW_NULLIFIERS_PER_TX), Fr.random),
-      times(rand(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX), PublicDataWrite.random),
+      times(rand(0, MAX_PUBLIC_DATA_WRITES_PER_TX), PublicDataWrite.random),
       times(rand(0, MAX_NEW_L2_TO_L1_MSGS_PER_TX), Fr.random),
       times(rand(0, MAX_NEW_CONTRACTS_PER_TX), Fr.random),
       times(rand(0, MAX_NEW_CONTRACTS_PER_TX), ContractData.random),

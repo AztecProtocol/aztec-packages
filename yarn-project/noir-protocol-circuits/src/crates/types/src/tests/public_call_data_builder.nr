@@ -10,7 +10,7 @@ use crate::{
     address::{AztecAddress, EthAddress},
     contrakt::{
         storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
+        storage_write::StorageWrite,
     },
     mocked::Proof,
     tests::{
@@ -22,7 +22,7 @@ use crate::{
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    MAX_PUBLIC_DATA_WRITES_PER_CALL,
     NUM_FIELDS_PER_SHA256,
 };
 
@@ -143,11 +143,11 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn append_update_requests(&mut self, num_updates: Field) {
-        let value_offset = self.public_inputs.storage_update_requests.len();
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
+    pub fn append_writes(&mut self, num_updates: Field) {
+        let value_offset = self.public_inputs.storage_writes.len();
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_CALL {
             if i as u64 < num_updates as u64 {
-                let update_request = StorageUpdateRequest {
+                let write = StorageWrite {
                     // The default storage slot is its index + 1.
                     storage_slot: value_offset + i + 1,
                     // The default value is its index + 567.
@@ -155,15 +155,15 @@ impl PublicCallDataBuilder {
                     // The default value is its index + 890.
                     new_value: value_offset + i + 890,
                 };
-                self.public_inputs.storage_update_requests.push(update_request);
+                self.public_inputs.storage_writes.push(write);
             }
         }
     }
 
-    pub fn append_empty_update_requests(&mut self, num_updates: Field) {
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
+    pub fn append_empty_writes(&mut self, num_updates: Field) {
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_CALL {
             if i as u64 < num_updates as u64 {
-                self.public_inputs.storage_update_requests.push(StorageUpdateRequest::empty());
+                self.public_inputs.storage_writes.push(StorageWrite::empty());
             }
         }
     }

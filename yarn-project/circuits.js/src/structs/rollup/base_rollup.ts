@@ -6,7 +6,7 @@ import {
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
@@ -156,27 +156,24 @@ export class BaseRollupInputs {
     /**
      * The public data writes to be inserted in the tree, sorted high slot to low slot.
      */
-    public sortedPublicDataWrites: Tuple<PublicDataTreeLeaf, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public sortedPublicDataWrites: Tuple<PublicDataTreeLeaf, typeof MAX_PUBLIC_DATA_WRITES_PER_TX>,
 
     /**
      * The indexes of the sorted public data writes to the original ones.
      */
-    public sortedPublicDataWritesIndexes: Tuple<UInt32, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public sortedPublicDataWritesIndexes: Tuple<UInt32, typeof MAX_PUBLIC_DATA_WRITES_PER_TX>,
     /**
      * The public data writes which need to be updated to perform the batch insertion of the new public data writes.
      * See `StandardIndexedTree.batchInsert` function for more details.
      */
-    public lowPublicDataWritesPreimages: Tuple<
-      PublicDataTreeLeafPreimage,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    >,
+    public lowPublicDataWritesPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_WRITES_PER_TX>,
     /**
      * Membership witnesses for the nullifiers which need to be updated to perform the batch insertion of the new
      * nullifiers.
      */
     public lowPublicDataWritesMembershipWitnesses: Tuple<
       MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      typeof MAX_PUBLIC_DATA_WRITES_PER_TX
     >,
 
     /**

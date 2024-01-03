@@ -4,7 +4,7 @@ use crate::{
         new_contract_data::NewContractData,
         optionally_revealed_data::OptionallyRevealedData,
         public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
     },
     hash::NUM_FIELDS_PER_SHA256,
     mocked::AggregationObject,
@@ -20,7 +20,7 @@ use crate::constants::{
     MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_NEW_CONTRACTS_PER_TX,
     MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_WRITES_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX
 };
 
@@ -50,7 +50,7 @@ struct CombinedAccumulatedData {
 
     optionally_revealed_data: [OptionallyRevealedData; MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX],
 
-    public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_writes: [PublicDataWrite; MAX_PUBLIC_DATA_WRITES_PER_TX],
 
     public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
 }
@@ -107,7 +107,7 @@ struct CombinedAccumulatedDataBuilder {
 
     optionally_revealed_data: [OptionallyRevealedData; MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX],
 
-    public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public_data_writes: BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_WRITES_PER_TX>,
 
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 }
@@ -138,7 +138,7 @@ impl CombinedAccumulatedDataBuilder {
 
             optionally_revealed_data: self.optionally_revealed_data,
 
-            public_data_update_requests: self.public_data_update_requests.storage,
+            public_data_writes: self.public_data_writes.storage,
 
             public_data_reads: self.public_data_reads.storage,
         }
@@ -147,7 +147,7 @@ impl CombinedAccumulatedDataBuilder {
     pub fn to_final(self) -> FinalAccumulatedData {
         assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
         assert_eq(self.pending_read_requests.len, 0, "Final accumulated data: pending read requests not empty");
-        assert_eq(self.public_data_update_requests.len, 0, "Final accumulated data: public data update requests not empty");
+        assert_eq(self.public_data_writes.len, 0, "Final accumulated data: public data update requests not empty");
         assert_eq(self.public_data_reads.len, 0, "Final accumulated data: public data reads not empty");
 
         FinalAccumulatedData {

@@ -15,7 +15,7 @@ import {
   ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   EthAddress,
   FUNCTION_TREE_HEIGHT,
   FinalAccumulatedData,
@@ -34,7 +34,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
@@ -59,7 +59,7 @@ import {
   PublicDataRead,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   PublicKernelInputs,
   ReadRequestMembershipWitness,
   RootRollupInputs,
@@ -93,7 +93,7 @@ import {
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelInputsInit as PrivateKernelInputsInitNoir,
   PublicDataRead as PublicDataReadNoir,
-  PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
+  PublicDataWrite as PublicDataWriteNoir,
   ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
@@ -113,7 +113,7 @@ import {
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicKernelPrivatePreviousInputs as PublicKernelInputsNoir,
   StorageRead as StorageReadNoir,
-  StorageUpdateRequest as StorageUpdateRequestNoir,
+  StorageWrite as StorageWriteNoir,
 } from './types/public_kernel_private_previous_types.js';
 import {
   ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
@@ -679,31 +679,27 @@ export function mapNewContractDataToNoir(newContractData: NewContractData): NewC
 
 /**
  * Maps public data update request from noir to the parsed type.
- * @param publicDataUpdateRequest - The noir public data update request.
+ * @param publicDataWrite - The noir public data update request.
  * @returns The parsed public data update request.
  */
-export function mapPublicDataUpdateRequestFromNoir(
-  publicDataUpdateRequest: PublicDataUpdateRequestNoir,
-): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(
-    mapFieldFromNoir(publicDataUpdateRequest.leaf_slot),
-    mapFieldFromNoir(publicDataUpdateRequest.old_value),
-    mapFieldFromNoir(publicDataUpdateRequest.new_value),
+export function mapPublicDataWriteFromNoir(publicDataWrite: PublicDataWriteNoir): PublicDataWrite {
+  return new PublicDataWrite(
+    mapFieldFromNoir(publicDataWrite.leaf_slot),
+    mapFieldFromNoir(publicDataWrite.old_value),
+    mapFieldFromNoir(publicDataWrite.new_value),
   );
 }
 
 /**
  * Maps public data update request to noir public data update request.
- * @param publicDataUpdateRequest - The public data update request.
+ * @param publicDataWrite - The public data update request.
  * @returns The noir public data update request.
  */
-export function mapPublicDataUpdateRequestToNoir(
-  publicDataUpdateRequest: PublicDataUpdateRequest,
-): PublicDataUpdateRequestNoir {
+export function mapPublicDataWriteToNoir(publicDataWrite: PublicDataWrite): PublicDataWriteNoir {
   return {
-    leaf_slot: mapFieldToNoir(publicDataUpdateRequest.leafSlot),
-    old_value: mapFieldToNoir(publicDataUpdateRequest.oldValue),
-    new_value: mapFieldToNoir(publicDataUpdateRequest.newValue),
+    leaf_slot: mapFieldToNoir(publicDataWrite.leafSlot),
+    old_value: mapFieldToNoir(publicDataWrite.oldValue),
+    new_value: mapFieldToNoir(publicDataWrite.newValue),
   };
 }
 
@@ -766,9 +762,9 @@ export function mapCombinedAccumulatedDataFromNoir(
       mapOptionallyRevealedDataFromNoir,
     ),
     mapTupleFromNoir(
-      combinedAccumulatedData.public_data_update_requests,
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      mapPublicDataUpdateRequestFromNoir,
+      combinedAccumulatedData.public_data_writes,
+      MAX_PUBLIC_DATA_WRITES_PER_TX,
+      mapPublicDataWriteFromNoir,
     ),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_reads,
@@ -838,10 +834,7 @@ export function mapCombinedAccumulatedDataToNoir(
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
     new_contracts: mapTuple(combinedAccumulatedData.newContracts, mapNewContractDataToNoir),
     optionally_revealed_data: mapTuple(combinedAccumulatedData.optionallyRevealedData, mapOptionallyRevealedDataToNoir),
-    public_data_update_requests: mapTuple(
-      combinedAccumulatedData.publicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
+    public_data_writes: mapTuple(combinedAccumulatedData.publicDataWrites, mapPublicDataWriteToNoir),
     public_data_reads: mapTuple(combinedAccumulatedData.publicDataReads, mapPublicDataReadToNoir),
   };
 }
@@ -975,16 +968,14 @@ export function mapPrivateKernelInputsOrderingToNoir(
 
 /**
  * Maps a private kernel inputs final to noir.
- * @param storageUpdateRequest - The storage update request.
+ * @param StorageWrite - The storage update request.
  * @returns The noir storage update request.
  */
-export function mapStorageUpdateRequestToNoir(
-  storageUpdateRequest: ContractStorageUpdateRequest,
-): StorageUpdateRequestNoir {
+export function mapStorageWriteToNoir(StorageWrite: ContractStorageWrite): StorageWriteNoir {
   return {
-    storage_slot: mapFieldToNoir(storageUpdateRequest.storageSlot),
-    old_value: mapFieldToNoir(storageUpdateRequest.oldValue),
-    new_value: mapFieldToNoir(storageUpdateRequest.newValue),
+    storage_slot: mapFieldToNoir(StorageWrite.storageSlot),
+    old_value: mapFieldToNoir(StorageWrite.oldValue),
+    new_value: mapFieldToNoir(StorageWrite.newValue),
   };
 }
 /**
@@ -1054,7 +1045,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
-    storage_update_requests: mapTuple(publicInputs.contractStorageUpdateRequests, mapStorageUpdateRequestToNoir),
+    storage_writes: mapTuple(publicInputs.contractStorageWrites, mapStorageWriteToNoir),
     storage_reads: mapTuple(publicInputs.contractStorageReads, mapStorageReadToNoir),
     public_call_stack_hashes: mapTuple(publicInputs.publicCallStackHashes, mapFieldToNoir),
     new_commitments: mapTuple(publicInputs.newCommitments, mapFieldToNoir),

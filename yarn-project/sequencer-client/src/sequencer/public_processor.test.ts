@@ -279,7 +279,7 @@ function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicEx
     newL2ToL1Messages: [],
     newNullifiers: [],
     contractStorageReads: [],
-    contractStorageUpdateRequests: [],
+    contractStorageWrites: [],
     unencryptedLogs: new FunctionL2Logs([]),
   };
 }
@@ -304,7 +304,7 @@ function makePublicExecutionResult(
     newNullifiers: [],
     newL2ToL1Messages: [],
     contractStorageReads: [],
-    contractStorageUpdateRequests: [],
+    contractStorageWrites: [],
     unencryptedLogs: new FunctionL2Logs([]),
   };
 }

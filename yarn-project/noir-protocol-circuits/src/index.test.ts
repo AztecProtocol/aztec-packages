@@ -27,7 +27,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
@@ -44,7 +44,7 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   RETURN_VALUES_LENGTH,
   ReadRequestMembershipWitness,
   TxContext,
@@ -215,7 +215,7 @@ describe('Private kernel', () => {
         ),
       ],
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, () => OptionallyRevealedData.empty()),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => PublicDataUpdateRequest.empty()),
+      makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, () => PublicDataWrite.empty()),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataRead.empty()),
     );
 

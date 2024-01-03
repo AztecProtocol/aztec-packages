@@ -22,7 +22,7 @@ import {
   ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   FUNCTION_TREE_HEIGHT,
   FinalAccumulatedData,
   Fq,
@@ -48,8 +48,8 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_CALL,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
@@ -82,7 +82,7 @@ import {
   PublicDataRead,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   PublicKernelInputs,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
@@ -154,16 +154,16 @@ export function makeSelector(seed: number): FunctionSelector {
  * @param seed - The seed to use for generating the public data update request.
  * @returns A public data update request.
  */
-export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(fr(seed), fr(seed + 1), fr(seed + 2));
+export function makePublicDataWrite(seed = 1): PublicDataWrite {
+  return new PublicDataWrite(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 /**
  * Creates empty public data update request.
  * @returns An empty public data update request.
  */
-export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(fr(0), fr(0), fr(0));
+export function makeEmptyPublicDataWrite(): PublicDataWrite {
+  return new PublicDataWrite(fr(0), fr(0), fr(0));
 }
 
 /**
@@ -188,8 +188,8 @@ export function makeEmptyPublicDataRead(): PublicDataRead {
  * @param seed - The seed to use for generating the contract storage update request.
  * @returns A contract storage update request.
  */
-export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdateRequest {
-  return new ContractStorageUpdateRequest(fr(seed), fr(seed + 1), fr(seed + 2));
+export function makeContractStorageWrite(seed = 1): ContractStorageWrite {
+  return new ContractStorageWrite(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 /**
@@ -225,7 +225,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
     tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
-    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
+    tupleGenerator(MAX_PUBLIC_DATA_WRITES_PER_TX, makePublicDataWrite, seed + 0xd00),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -331,7 +331,7 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, storageContractAddress),
     fr(seed + 0x100),
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_DATA_WRITES_PER_CALL, makeContractStorageWrite, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
@@ -552,9 +552,7 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
 export function makeWitnessedPublicCallData(seed = 1): WitnessedPublicCallData {
   return new WitnessedPublicCallData(
     makePublicCallData(seed),
-    range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
-      makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
-    ),
+    range(MAX_PUBLIC_DATA_WRITES_PER_TX, seed + 0x100).map(x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x)),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
     fr(seed + 0x300),
   );
@@ -934,22 +932,18 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const sortedNewNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x6000);
   const sortednewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => i, seed + 0x7000);
 
-  const sortedPublicDataWrites = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    makePublicDataTreeLeaf,
-    seed + 0x8000,
-  );
+  const sortedPublicDataWrites = makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, makePublicDataTreeLeaf, seed + 0x8000);
 
-  const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, 0);
+  const sortedPublicDataWritesIndexes = makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, i => i, 0);
 
   const lowPublicDataWritesPreimages = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_WRITES_PER_TX,
     makePublicDataTreeLeafPreimage,
     seed + 0x8200,
   );
 
   const lowPublicDataWritesMembershipWitnesses = makeTuple(
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_WRITES_PER_TX,
     i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
     seed + 0x8400,
   );

@@ -1,12 +1,12 @@
-use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
+use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_WRITE;
 
-struct PublicDataUpdateRequest {
+struct PublicDataWrite {
     leaf_slot : Field,
     old_value : Field,
     new_value : Field
 }
 
-impl PublicDataUpdateRequest {
+impl PublicDataWrite {
     pub fn empty() -> Self {
         Self {
             leaf_slot : 0,
@@ -15,9 +15,9 @@ impl PublicDataUpdateRequest {
         }
     }
 
-    pub fn eq(self, update_request: PublicDataUpdateRequest) -> bool {
-        (update_request.leaf_slot == self.leaf_slot) & (update_request.old_value == self.old_value) 
-            & (update_request.new_value == self.new_value)
+    pub fn eq(self, write: PublicDataWrite) -> bool {
+        (write.leaf_slot == self.leaf_slot) & (write.old_value == self.old_value) 
+            & (write.new_value == self.new_value)
     }
 
     pub fn hash(self) -> Field {
@@ -25,7 +25,7 @@ impl PublicDataUpdateRequest {
             self.leaf_slot,
             self.old_value,
             self.new_value
-        ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+        ], GENERATOR_INDEX__PUBLIC_DATA_WRITE)
     }
 
     pub fn is_empty(self) -> bool {

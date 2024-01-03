@@ -2,11 +2,11 @@ import {
   AztecAddress,
   CallContext,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   Fr,
   FunctionData,
   PublicDataRead,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
 import { FunctionL2Logs } from '@aztec/types';
@@ -28,7 +28,7 @@ export interface PublicExecutionResult {
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */
-  contractStorageUpdateRequests: ContractStorageUpdateRequest[];
+  contractStorageWrites: ContractStorageWrite[];
   /** The results of nested calls. */
   nestedExecutions: this[];
   /**
@@ -85,20 +85,20 @@ export function collectPublicDataReads(execResult: PublicExecutionResult): Publi
 
 /**
  * Collect all public storage update requests across all nested executions
- * and convert them to PublicDataUpdateRequests (to match kernel output).
+ * and convert them to PublicDataWrites (to match kernel output).
  * @param execResult - The topmost execution result.
  * @returns All public data reads (in execution order).
  */
-export function collectPublicDataUpdateRequests(execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
+export function collectPublicDataWrites(execResult: PublicExecutionResult): PublicDataWrite[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
   const contractAddress = execResult.execution.contractAddress;
 
-  const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
-    contractStorageUpdateRequestToPublicDataUpdateRequest(update, contractAddress),
+  const thisExecPublicDataWrites = execResult.contractStorageWrites.map(update =>
+    contractStorageWriteToPublicDataWrite(update, contractAddress),
   );
   const unsorted = [
-    ...thisExecPublicDataUpdateRequests,
-    ...[...execResult.nestedExecutions].flatMap(result => collectPublicDataUpdateRequests(result)),
+    ...thisExecPublicDataWrites,
+    ...[...execResult.nestedExecutions].flatMap(result => collectPublicDataWrites(result)),
   ];
   return unsorted.sort((a, b) => a.sideEffectCounter! - b.sideEffectCounter!);
 }
@@ -123,11 +123,11 @@ function contractStorageReadToPublicDataRead(read: ContractStorageRead, contract
  * @param contractAddress - the contract address of the data update request.
  * @returns The public data update request.
  */
-function contractStorageUpdateRequestToPublicDataUpdateRequest(
-  update: ContractStorageUpdateRequest,
+function contractStorageWriteToPublicDataWrite(
+  update: ContractStorageWrite,
   contractAddress: AztecAddress,
-): PublicDataUpdateRequest {
-  return new PublicDataUpdateRequest(
+): PublicDataWrite {
+  return new PublicDataWrite(
     computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
     computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),

@@ -5,7 +5,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STRING_ENCODING,
 } from '@aztec/circuits.js';
@@ -191,7 +191,7 @@ export class L2Block {
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
     const newContractData = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, ContractData.random);
-    const newPublicDataWrites = times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txsPerBlock, PublicDataWrite.random);
+    const newPublicDataWrites = times(MAX_PUBLIC_DATA_WRITES_PER_TX * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random);
     const newEncryptedLogs = L2BlockL2Logs.random(
@@ -680,7 +680,7 @@ export class L2Block {
     for (let i = 0; i < leafCount; i++) {
       const commitmentsPerBase = MAX_NEW_COMMITMENTS_PER_TX;
       const nullifiersPerBase = MAX_NEW_NULLIFIERS_PER_TX;
-      const publicDataUpdateRequestsPerBase = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+      const publicDataWritesPerBase = MAX_PUBLIC_DATA_WRITES_PER_TX;
       const l2ToL1MsgsPerBase = MAX_NEW_L2_TO_L1_MSGS_PER_TX;
       const commitmentsBuffer = Buffer.concat(
         this.newCommitments.slice(i * commitmentsPerBase, (i + 1) * commitmentsPerBase).map(x => x.toBuffer()),
@@ -688,9 +688,9 @@ export class L2Block {
       const nullifiersBuffer = Buffer.concat(
         this.newNullifiers.slice(i * nullifiersPerBase, (i + 1) * nullifiersPerBase).map(x => x.toBuffer()),
       );
-      const publicDataUpdateRequestsBuffer = Buffer.concat(
+      const publicDataWritesBuffer = Buffer.concat(
         this.newPublicDataWrites
-          .slice(i * publicDataUpdateRequestsPerBase, (i + 1) * publicDataUpdateRequestsPerBase)
+          .slice(i * publicDataWritesPerBase, (i + 1) * publicDataWritesPerBase)
           .map(x => x.toBuffer()),
       );
       const newL2ToL1MsgsBuffer = Buffer.concat(
@@ -703,7 +703,7 @@ export class L2Block {
       const inputValue = Buffer.concat([
         commitmentsBuffer,
         nullifiersBuffer,
-        publicDataUpdateRequestsBuffer,
+        publicDataWritesBuffer,
         newL2ToL1MsgsBuffer,
         this.newContracts[i].toBuffer(),
         this.newContractData[i].contractAddress.toBuffer(),
@@ -747,7 +747,7 @@ export class L2Block {
       .slice(MAX_NEW_NULLIFIERS_PER_TX * txIndex, MAX_NEW_NULLIFIERS_PER_TX * (txIndex + 1))
       .filter(x => !x.isZero());
     const newPublicDataWrites = this.newPublicDataWrites
-      .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txIndex, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (txIndex + 1))
+      .slice(MAX_PUBLIC_DATA_WRITES_PER_TX * txIndex, MAX_PUBLIC_DATA_WRITES_PER_TX * (txIndex + 1))
       .filter(x => !x.isEmpty());
     const newL2ToL1Msgs = this.newL2ToL1Msgs
       .slice(MAX_NEW_L2_TO_L1_MSGS_PER_TX * txIndex, MAX_NEW_L2_TO_L1_MSGS_PER_TX * (txIndex + 1))

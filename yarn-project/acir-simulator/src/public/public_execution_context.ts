@@ -84,8 +84,8 @@ export class PublicExecutionContext extends TypedOracle {
    * Return the data read and updated during this execution.
    */
   public getStorageActionData() {
-    const [contractStorageReads, contractStorageUpdateRequests] = this.storageActions.collect();
-    return { contractStorageReads, contractStorageUpdateRequests };
+    const [contractStorageReads, contractStorageWrites] = this.storageActions.collect();
+    return { contractStorageReads, contractStorageWrites };
   }
 
   /**

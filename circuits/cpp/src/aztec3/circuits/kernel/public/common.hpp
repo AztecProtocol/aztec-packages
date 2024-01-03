@@ -3,7 +3,7 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/public_data_update_request.hpp"
+#include "aztec3/circuits/abis/public_data_write.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/utils/array.hpp"
@@ -14,7 +14,7 @@ namespace aztec3::circuits::kernel::public_kernel {
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
-using aztec3::circuits::abis::PublicDataUpdateRequest;
+using aztec3::circuits::abis::PublicDataWrite;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::array_length;
@@ -105,10 +105,10 @@ void common_validate_call_stack(DummyBuilder& builder, KernelInput const& public
                                  "; does not reconcile for a delegate call"),
                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 
-        const auto num_storage_update_requests = array_length(preimage.public_inputs.storage_update_requests);
+        const auto num_storage_writes = array_length(preimage.public_inputs.storage_writes);
         builder.do_assert(
-            !is_static_call || num_storage_update_requests == 0,
-            format("storage_update_requests[", i, "] should be empty for a static call"),
+            !is_static_call || num_storage_writes == 0,
+            format("storage_writes[", i, "] should be empty for a static call"),
             CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_CONTRACT_STORAGE_UPDATES_PROHIBITED_FOR_STATIC_CALL);
     }
 };
@@ -127,15 +127,15 @@ void common_validate_call_context(DummyBuilder& builder, KernelInput const& publ
     const auto is_static_call = call_stack_item.public_inputs.call_context.is_static_call;
     const auto contract_address = call_stack_item.contract_address;
     const auto storage_contract_address = call_stack_item.public_inputs.call_context.storage_contract_address;
-    const auto storage_update_requests_length = array_length(call_stack_item.public_inputs.storage_update_requests);
+    const auto storage_writes_length = array_length(call_stack_item.public_inputs.storage_writes);
 
     builder.do_assert(!is_delegate_call || contract_address != storage_contract_address,
                       std::string("curent contract address must not match storage contract address for delegate calls"),
                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 
-    builder.do_assert(!is_static_call || storage_update_requests_length == 0,
+    builder.do_assert(!is_static_call || storage_writes_length == 0,
                       std::string("No contract storage update requests are allowed for static calls"),
-                      CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
+                      CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_WRITES_PROHIBITED_FOR_STATIC_CALL);
 };
 
 /**
@@ -218,26 +218,25 @@ void perform_static_call_checks(Builder& builder, KernelInput const& public_kern
  * @param circuit_outputs The circuit outputs to be populated
  */
 template <typename KernelInput, typename Builder>
-void propagate_valid_public_data_update_requests(Builder& builder,
-                                                 KernelInput const& public_kernel_inputs,
-                                                 KernelCircuitPublicInputs<NT>& circuit_outputs)
+void propagate_valid_public_data_writes(Builder& builder,
+                                        KernelInput const& public_kernel_inputs,
+                                        KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     const auto& contract_address = public_kernel_inputs.public_call.call_stack_item.contract_address;
-    const auto& update_requests =
-        public_kernel_inputs.public_call.call_stack_item.public_inputs.storage_update_requests;
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; ++i) {
-        const auto& update_request = update_requests[i];
-        if (update_request.is_empty()) {
+    const auto& writes = public_kernel_inputs.public_call.call_stack_item.public_inputs.storage_writes;
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_TX; ++i) {
+        const auto& write = writes[i];
+        if (write.is_empty()) {
             continue;
         }
-        const auto new_write = PublicDataUpdateRequest<NT>{
-            .leaf_index = compute_public_data_tree_index<NT>(contract_address, update_request.storage_slot),
-            .old_value = compute_public_data_tree_value<NT>(update_request.old_value),
-            .new_value = compute_public_data_tree_value<NT>(update_request.new_value),
+        const auto new_write = PublicDataWrite<NT>{
+            .leaf_index = compute_public_data_tree_index<NT>(contract_address, write.storage_slot),
+            .old_value = compute_public_data_tree_value<NT>(write.old_value),
+            .new_value = compute_public_data_tree_value<NT>(write.new_value),
         };
         array_push(
             builder,
-            circuit_outputs.end.public_data_update_requests,
+            circuit_outputs.end.public_data_writes,
             new_write,
             format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many public data update requests in one tx"));
     }
@@ -257,13 +256,13 @@ void propagate_valid_public_data_reads(Builder& builder,
     const auto& contract_address = public_kernel_inputs.public_call.call_stack_item.contract_address;
     const auto& reads = public_kernel_inputs.public_call.call_stack_item.public_inputs.storage_reads;
     for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; ++i) {
-        const auto& contract_storage_read = reads[i];
-        if (contract_storage_read.is_empty()) {
+        const auto& storage_read = reads[i];
+        if (storage_read.is_empty()) {
             continue;
         }
         const auto new_read = PublicDataRead<NT>{
-            .leaf_index = compute_public_data_tree_index<NT>(contract_address, contract_storage_read.storage_slot),
-            .value = compute_public_data_tree_value<NT>(contract_storage_read.current_value),
+            .leaf_index = compute_public_data_tree_index<NT>(contract_address, storage_read.storage_slot),
+            .value = compute_public_data_tree_value<NT>(storage_read.current_value),
         };
         array_push(builder,
                    circuit_outputs.end.public_data_reads,
@@ -431,7 +430,7 @@ void common_update_public_end_values(Builder& builder,
 
     propagate_new_l2_to_l1_messages(builder, public_kernel_inputs, circuit_outputs);
 
-    propagate_valid_public_data_update_requests(builder, public_kernel_inputs, circuit_outputs);
+    propagate_valid_public_data_writes(builder, public_kernel_inputs, circuit_outputs);
 
     propagate_valid_public_data_reads(builder, public_kernel_inputs, circuit_outputs);
 }

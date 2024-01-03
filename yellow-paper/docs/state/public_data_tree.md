@@ -14,6 +14,6 @@ fn compute_siloed_public_data_item(key, value, contract):
 
 When reading a key from the Public Data tree, the key may or may not be present. If the key is not present, then a non-membership proof is produced, and the value is assumed to be zero. When a key is written to, either a new node is appended to the tree if the key was not present, or its value is overwritten if it was.
 
-Public functions can read from or write to the Public Data tree by emitting `contract_storage_read` and `storage_update_requests` in the `PublicCircuitPublicInputs`. The Kernel circuit then siloes these requests per contract.
+Public functions can read from or write to the Public Data tree by emitting `storage_read` and `storage_writes` in the `PublicCircuitPublicInputs`. The Kernel circuit then siloes these requests per contract.
 
 Contracts can store arbitrary data at a given key, which is always stored as a single field element. Applications are responsible for interpreting this data. Should an application need to store data larger than a single field element, they are responsible for partitioning it across multiple keys.

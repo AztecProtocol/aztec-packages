@@ -50,16 +50,16 @@ mod tests {
         public_kernel_public_previous::PublicKernelPublicPreviousInputs,
         utils::{
             assert_eq_public_data_reads,
-            assert_eq_public_data_update_requests,
+            assert_eq_public_data_writes,
             compute_public_data_reads,
-            compute_public_data_update_requests,
+            compute_public_data_writes,
         },
     };
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             public_data_read::PublicDataRead,
-            public_data_update_request::PublicDataUpdateRequest,
+            public_data_write::PublicDataWrite,
         },
         hash::{
             compute_l2_to_l1_hash,
@@ -77,7 +77,7 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_DATA_WRITES_PER_CALL,
     };
 
     struct PublicKernelPublicPreviousInputsBuilder {
@@ -106,10 +106,10 @@ mod tests {
             compute_public_data_reads(self.public_call.contract_address, read_requests)
         }
 
-        pub fn get_current_public_data_update_requests(self) -> [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL] {
-            compute_public_data_update_requests(
+        pub fn get_current_public_data_writes(self) -> [PublicDataWrite; MAX_PUBLIC_DATA_WRITES_PER_CALL] {
+            compute_public_data_writes(
                 self.public_call.contract_address,
-                self.public_call.public_inputs.storage_update_requests.storage,
+                self.public_call.public_inputs.storage_writes.storage,
             )
         }
 
@@ -175,12 +175,12 @@ mod tests {
         let portal_contract_address = builder.public_call.portal_contract_address;
 
         // Setup 2 data writes on the previous kernel.
-        builder.previous_kernel.append_public_data_update_requests(2);
-        let previous = builder.previous_kernel.end.public_data_update_requests.storage;
+        builder.previous_kernel.append_public_data_writes(2);
+        let previous = builder.previous_kernel.end.public_data_writes.storage;
         // Setup 2 data writes on the current public inputs.
-        builder.public_call.append_update_requests(2);
-        let current = builder.get_current_public_data_update_requests();
-        let public_data_update_requests = [previous[0], previous[1], current[0], current[1]];
+        builder.public_call.append_writes(2);
+        let current = builder.get_current_public_data_writes();
+        let public_data_writes = [previous[0], previous[1], current[0], current[1]];
 
         // Setup 2 data reads on the previous kernel.
         builder.previous_kernel.append_public_data_read_requests(2);
@@ -238,10 +238,7 @@ mod tests {
         );
 
         let public_inputs = builder.execute();
-        assert_eq_public_data_update_requests(
-            public_inputs.end.public_data_update_requests,
-            public_data_update_requests
-        );
+        assert_eq_public_data_writes(public_inputs.end.public_data_writes, public_data_writes);
         assert_eq_public_data_reads(
             public_inputs.end.public_data_reads,
             public_data_read_requests
@@ -262,10 +259,10 @@ mod tests {
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
-    fn previous_public_kernel_fails_if_storage_update_requests_on_static_call() {
+    fn previous_public_kernel_fails_if_storage_writes_on_static_call() {
         let mut builder = PublicKernelPublicPreviousInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
-        builder.public_call.append_update_requests(1);
+        builder.public_call.append_writes(1);
 
         builder.failed();
     }

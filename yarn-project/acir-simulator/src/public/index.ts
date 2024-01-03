@@ -4,6 +4,6 @@ export {
   PublicExecutionResult,
   isPublicExecutionResult,
   collectPublicDataReads,
-  collectPublicDataUpdateRequests,
+  collectPublicDataWrites,
 } from './execution.js';
 export { PublicExecutor } from './executor.js';

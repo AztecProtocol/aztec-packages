@@ -11,7 +11,7 @@ mod contract_leaf_preimage;
 mod block_header;
 mod combined_constant_data;
 mod public_data_read;
-mod public_data_update_request;
+mod public_data_write;
 mod optionally_revealed_data;
 
 mod combined_accumulated_data;

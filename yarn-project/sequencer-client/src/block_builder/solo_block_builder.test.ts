@@ -8,13 +8,13 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
   PublicDataTreeLeaf,
-  PublicDataUpdateRequest,
+  PublicDataWrite as PublicDataUpdateRequest,
   RootRollupPublicInputs,
   makeTuple,
   range,
@@ -138,7 +138,7 @@ describe('sequencer/solo_block_builder', () => {
     for (const tx of txs) {
       await expectsDb.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        tx.data.end.publicDataUpdateRequests.map(write => {
+        tx.data.end.publicDataWrites.map(write => {
           return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
         }),
         PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -221,7 +221,7 @@ describe('sequencer/solo_block_builder', () => {
       n => new ContractData(n.contractAddress, n.portalContractAddress),
     );
     const newPublicDataWrites = flatMap(txs, tx =>
-      tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+      tx.data.end.publicDataWrites.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
     const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
@@ -304,8 +304,8 @@ describe('sequencer/solo_block_builder', () => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.blockHeader = await getBlockHeader(builderDb);
-      kernelOutput.end.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      kernelOutput.end.publicDataWrites = makeTuple(
+        MAX_PUBLIC_DATA_WRITES_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
         seed + 0x500,
       );

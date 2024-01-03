@@ -4,7 +4,7 @@ use crate::constants::{
     MAX_NEW_COMMITMENTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+    MAX_PUBLIC_DATA_WRITES_PER_CALL,
     RETURN_VALUES_LENGTH,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS,
     PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
@@ -18,7 +18,7 @@ use crate::{
     address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
+        storage_write::StorageWrite,
     },
     hash::{NUM_FIELDS_PER_SHA256},
     utils::bounded_vec::BoundedVec,
@@ -30,7 +30,7 @@ struct PublicCircuitPublicInputs{
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
-    storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+    storage_writes: [StorageWrite; MAX_PUBLIC_DATA_WRITES_PER_CALL],
     storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
@@ -56,8 +56,8 @@ impl PublicCircuitPublicInputs{
         inputs.push(self.call_context.hash());
         inputs.push(self.args_hash);
         inputs.push_array(self.return_values);
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
-            inputs.push(self.storage_update_requests[i].hash());
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_CALL {
+            inputs.push(self.storage_writes[i].hash());
         }
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             inputs.push(self.storage_reads[i].hash());
@@ -81,8 +81,8 @@ impl PublicCircuitPublicInputs{
         fields.push_array(self.call_context.serialize());   
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
-            fields.push_array(self.storage_update_requests[i].serialize());
+        for i in 0..MAX_PUBLIC_DATA_WRITES_PER_CALL {
+            fields.push_array(self.storage_writes[i].serialize());
         }
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             fields.push_array(self.storage_reads[i].serialize());

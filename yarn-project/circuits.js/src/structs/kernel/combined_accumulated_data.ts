@@ -11,7 +11,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
@@ -225,7 +225,7 @@ export class PublicDataRead {
 /**
  * Write operations on the public data tree including the previous value.
  */
-export class PublicDataUpdateRequest {
+export class PublicDataWrite {
   constructor(
     /**
      * Index of the leaf in the public data tree which is to be updated.
@@ -259,7 +259,7 @@ export class PublicDataUpdateRequest {
      */
     newValue: Fr;
   }) {
-    return new PublicDataUpdateRequest(args.leafIndex, args.oldValue, args.newValue);
+    return new PublicDataWrite(args.leafIndex, args.oldValue, args.newValue);
   }
 
   toBuffer() {
@@ -268,11 +268,11 @@ export class PublicDataUpdateRequest {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new PublicDataWrite(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   static empty() {
-    return new PublicDataUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new PublicDataWrite(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   toFriendlyJSON() {
@@ -351,7 +351,7 @@ export class CombinedAccumulatedData {
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_WRITES_PER_TX>,
     /**
      * All the public data reads made in this transaction.
      */
@@ -375,7 +375,7 @@ export class CombinedAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.newContracts,
       this.optionallyRevealedData,
-      this.publicDataUpdateRequests,
+      this.publicDataWrites,
       this.publicDataReads,
     );
   }
@@ -407,7 +407,7 @@ export class CombinedAccumulatedData {
       Fr.fromBuffer(reader),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
       reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readArray(MAX_PUBLIC_DATA_WRITES_PER_TX, PublicDataWrite),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
@@ -429,7 +429,7 @@ export class CombinedAccumulatedData {
       finalData.unencryptedLogPreimagesLength,
       finalData.newContracts,
       finalData.optionallyRevealedData,
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, PublicDataWrite.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
@@ -460,7 +460,7 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_WRITES_PER_TX, PublicDataWrite.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }

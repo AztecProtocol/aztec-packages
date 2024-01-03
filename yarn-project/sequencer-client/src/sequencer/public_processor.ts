@@ -4,7 +4,7 @@ import {
   PublicExecutor,
   PublicStateDB,
   collectPublicDataReads,
-  collectPublicDataUpdateRequests,
+  collectPublicDataWrites,
   isPublicExecutionResult,
 } from '@aztec/acir-simulator';
 import {
@@ -13,7 +13,7 @@ import {
   CallRequest,
   CombinedAccumulatedData,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   Fr,
   GlobalVariables,
   KernelCircuitPublicInputs,
@@ -23,8 +23,8 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_WRITES_PER_CALL,
+  MAX_PUBLIC_DATA_WRITES_PER_TX,
   MembershipWitness,
   PreviousKernelData,
   Proof,
@@ -32,7 +32,7 @@ import {
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
-  PublicDataUpdateRequest,
+  PublicDataWrite,
   PublicKernelInputs,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
@@ -288,10 +288,10 @@ export class PublicProcessor {
         ContractStorageRead.empty(),
         MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
-      contractStorageUpdateRequests: padArrayEnd(
-        result.contractStorageUpdateRequests,
-        ContractStorageUpdateRequest.empty(),
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+      contractStorageWrites: padArrayEnd(
+        result.contractStorageWrites,
+        ContractStorageWrite.empty(),
+        MAX_PUBLIC_DATA_WRITES_PER_CALL,
       ),
       publicCallStackHashes,
       unencryptedLogsHash,
@@ -360,9 +360,9 @@ export class PublicProcessor {
   private patchPublicStorageActionOrdering(publicInputs: KernelCircuitPublicInputs, execResult: PublicExecutionResult) {
     // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
     const simPublicDataReads = collectPublicDataReads(execResult);
-    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
+    const simPublicDataWrites = collectPublicDataWrites(execResult);
 
-    const { publicDataReads, publicDataUpdateRequests } = publicInputs.end; // from kernel
+    const { publicDataReads, publicDataWrites } = publicInputs.end; // from kernel
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
@@ -370,10 +370,10 @@ export class PublicProcessor {
         accum && !!publicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
       true,
     );
-    const updatesAreEqual = simPublicDataUpdateRequests.reduce(
+    const updatesAreEqual = simPublicDataWrites.reduce(
       (accum, update) =>
         accum &&
-        !!publicDataUpdateRequests.find(
+        !!publicDataWrites.find(
           item =>
             item.leafSlot.equals(update.leafSlot) &&
             item.oldValue.equals(update.oldValue) &&
@@ -391,9 +391,9 @@ export class PublicProcessor {
     }
     if (!updatesAreEqual) {
       throw new Error(
-        `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataUpdateRequests
+        `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataWrites
           .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel: ${publicDataUpdateRequests.map(i => i.toFriendlyJSON()).join(', ')}`,
+          .join(', ')}\nFrom public kernel: ${publicDataWrites.map(i => i.toFriendlyJSON()).join(', ')}`,
       );
     }
 
@@ -405,11 +405,11 @@ export class PublicProcessor {
       f => f.leafSlot.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
     );
     const numTotalUpdatesInKernel = arrayNonEmptyLength(
-      publicInputs.end.publicDataUpdateRequests,
+      publicInputs.end.publicDataWrites,
       f => f.leafSlot.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
     );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
-    const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;
+    const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataWrites.length;
 
     // Override kernel output
     publicInputs.end.publicDataReads = padArrayEnd(
@@ -423,32 +423,28 @@ export class PublicProcessor {
     );
 
     // Override kernel output
-    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+    publicInputs.end.publicDataWrites = padArrayEnd(
       [
         // do not mess with items from previous top/enqueued calls in kernel output
-        ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
-        ...simPublicDataUpdateRequests,
+        ...publicDataWrites.slice(0, numUpdatesBeforeThisEnqueuedCall),
+        ...simPublicDataWrites,
       ],
-      PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      PublicDataWrite.empty(),
+      MAX_PUBLIC_DATA_WRITES_PER_TX,
     );
   }
 
   private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
     const lastWritesMap = new Map();
-    for (const write of publicInputs.end.publicDataUpdateRequests) {
+    for (const write of publicInputs.end.publicDataWrites) {
       const key = write.leafSlot.toString();
       lastWritesMap.set(key, write);
     }
 
-    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(
+    const lastWrites = publicInputs.end.publicDataWrites.filter(
       write => lastWritesMap.get(write.leafSlot.toString()) === write,
     );
 
-    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
-      lastWrites,
-      PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
+    publicInputs.end.publicDataWrites = padArrayEnd(lastWrites, PublicDataWrite.empty(), MAX_PUBLIC_DATA_WRITES_PER_TX);
   }
 }

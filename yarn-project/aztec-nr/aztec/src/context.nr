@@ -21,7 +21,7 @@ use dep::protocol_types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_DATA_WRITES_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
         MAX_PENDING_READ_REQUESTS_PER_CALL,
         NUM_FIELDS_PER_SHA256,
@@ -30,7 +30,7 @@ use dep::protocol_types::{
     contrakt::{
         deployment_data::ContractDeploymentData,
         storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
+        storage_write::StorageWrite,
     },
     hash::hash_args,
     point::Point,
@@ -399,7 +399,7 @@ impl PrivateContext {
                 },
                 args_hash: fields[12],
                 return_values: [0; RETURN_VALUES_LENGTH],
-                storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                storage_writes: [StorageWrite::empty(); MAX_PUBLIC_DATA_WRITES_PER_CALL],
                 storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
@@ -438,7 +438,7 @@ struct PublicContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
+    storage_writes: BoundedVec<StorageWrite, MAX_PUBLIC_DATA_WRITES_PER_CALL>,
     storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
@@ -457,14 +457,14 @@ struct PublicContext {
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
         let empty_storage_read = StorageRead::empty();
-        let empty_storage_update = StorageUpdateRequest::empty();
+        let empty_storage_update = StorageWrite::empty();
         PublicContext {
             inputs: inputs,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            storage_update_requests: BoundedVec::new(empty_storage_update),
+            storage_writes: BoundedVec::new(empty_storage_update),
             storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
 
@@ -528,7 +528,7 @@ impl PublicContext {
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
-            storage_update_requests: self.storage_update_requests.storage,
+            storage_writes: self.storage_writes.storage,
             storage_reads: self.storage_reads.storage,
             return_values: self.return_values.storage,
             new_commitments: self.new_commitments.storage,

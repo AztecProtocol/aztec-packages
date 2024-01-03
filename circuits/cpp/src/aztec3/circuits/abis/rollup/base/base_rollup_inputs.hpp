@@ -32,8 +32,8 @@ template <typename NCT> struct BaseRollupInputs {
     std::array<fr, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH> new_commitments_subtree_sibling_path{};
     std::array<fr, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH> new_nullifiers_subtree_sibling_path{};
     std::array<fr, CONTRACT_SUBTREE_SIBLING_PATH_LENGTH> new_contracts_subtree_sibling_path{};
-    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP>
-        new_public_data_update_requests_sibling_paths{};
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, MAX_PUBLIC_DATA_WRITES_PER_BASE_ROLLUP>
+        new_public_data_writes_sibling_paths{};
     std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP>
         new_public_data_reads_sibling_paths{};
 
@@ -53,7 +53,7 @@ template <typename NCT> struct BaseRollupInputs {
                    new_commitments_subtree_sibling_path,
                    new_nullifiers_subtree_sibling_path,
                    new_contracts_subtree_sibling_path,
-                   new_public_data_update_requests_sibling_paths,
+                   new_public_data_writes_sibling_paths,
                    new_public_data_reads_sibling_paths,
                    archive_root_membership_witnesses,
                    constants);

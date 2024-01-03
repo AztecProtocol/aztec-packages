@@ -29,7 +29,7 @@ void common_initialize_end_values(PublicKernelInputs<NT> const& public_kernel_in
 
     end.optionally_revealed_data = start.optionally_revealed_data;
 
-    end.public_data_update_requests = start.public_data_update_requests;
+    end.public_data_writes = start.public_data_writes;
     end.public_data_reads = start.public_data_reads;
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output

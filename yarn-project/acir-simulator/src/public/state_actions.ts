@@ -1,4 +1,4 @@
-import { ContractStorageRead, ContractStorageUpdateRequest } from '@aztec/circuits.js';
+import { ContractStorageRead, ContractStorageWrite } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -17,7 +17,7 @@ export class ContractStorageActionsCollector {
   > = new Map();
 
   // Map from slot to first read value and latest updated value
-  private readonly contractStorageUpdateRequests: Map<
+  private readonly contractStorageWrites: Map<
     bigint,
     {
       /** The old value. */ oldValue: Fr;
@@ -38,7 +38,7 @@ export class ContractStorageActionsCollector {
    */
   public async read(storageSlot: Fr, sideEffectCounter: number): Promise<Fr> {
     const slot = storageSlot.value;
-    const updateRequest = this.contractStorageUpdateRequests.get(slot);
+    const updateRequest = this.contractStorageWrites.get(slot);
     if (updateRequest) {
       return updateRequest.newValue;
     }
@@ -60,21 +60,21 @@ export class ContractStorageActionsCollector {
    */
   public async write(storageSlot: Fr, newValue: Fr, sideEffectCounter: number): Promise<void> {
     const slot = storageSlot.value;
-    const updateRequest = this.contractStorageUpdateRequests.get(slot);
+    const updateRequest = this.contractStorageWrites.get(slot);
     if (updateRequest) {
-      this.contractStorageUpdateRequests.set(slot, { oldValue: updateRequest.oldValue, newValue, sideEffectCounter });
+      this.contractStorageWrites.set(slot, { oldValue: updateRequest.oldValue, newValue, sideEffectCounter });
       return;
     }
 
     const read = this.contractStorageReads.get(slot);
     if (read) {
       this.contractStorageReads.delete(slot);
-      this.contractStorageUpdateRequests.set(slot, { oldValue: read.currentValue, newValue, sideEffectCounter });
+      this.contractStorageWrites.set(slot, { oldValue: read.currentValue, newValue, sideEffectCounter });
       return;
     }
 
     const oldValue = await this.db.storageRead(this.address, storageSlot);
-    this.contractStorageUpdateRequests.set(slot, { oldValue, newValue, sideEffectCounter });
+    this.contractStorageWrites.set(slot, { oldValue, newValue, sideEffectCounter });
     return;
   }
 
@@ -82,7 +82,7 @@ export class ContractStorageActionsCollector {
    * Returns all storage reads and update requests performed.
    * @returns All storage read and update requests.
    */
-  public collect(): [ContractStorageRead[], ContractStorageUpdateRequest[]] {
+  public collect(): [ContractStorageRead[], ContractStorageWrite[]] {
     const reads = Array.from(this.contractStorageReads.entries()).map(([slot, valueAndCounter]) =>
       ContractStorageRead.from({
         storageSlot: new Fr(slot),
@@ -90,8 +90,8 @@ export class ContractStorageActionsCollector {
       }),
     );
 
-    const updateRequests = Array.from(this.contractStorageUpdateRequests.entries()).map(([slot, valuesAndCounter]) =>
-      ContractStorageUpdateRequest.from({
+    const updateRequests = Array.from(this.contractStorageWrites.entries()).map(([slot, valuesAndCounter]) =>
+      ContractStorageWrite.from({
         storageSlot: new Fr(slot),
         ...valuesAndCounter,
       }),

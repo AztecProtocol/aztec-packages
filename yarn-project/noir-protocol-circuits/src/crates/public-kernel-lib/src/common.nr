@@ -10,12 +10,12 @@ use dep::types::{
         public_call_data::PublicCallData,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_write::PublicDataWrite,
     },
     address::AztecAddress,
     contrakt::{
         storage_read::StorageRead,
-        storage_update_request::StorageUpdateRequest,
+        storage_write::StorageWrite,
     },
     constants::{
         EMPTY_NULLIFIED_COMMITMENT,
@@ -23,7 +23,7 @@ use dep::types::{
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_PUBLIC_DATA_WRITES_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
     },
@@ -76,7 +76,7 @@ pub fn initialize_end_values(
 
     circuit_outputs.end.optionally_revealed_data = start.optionally_revealed_data;
 
-    circuit_outputs.end.public_data_update_requests = struct_array_to_bounded_vec(start.public_data_update_requests, |pdu: PublicDataUpdateRequest| pdu.is_empty(), PublicDataUpdateRequest::empty());
+    circuit_outputs.end.public_data_writes = struct_array_to_bounded_vec(start.public_data_writes, |pdu: PublicDataWrite| pdu.is_empty(), PublicDataWrite::empty());
     circuit_outputs.end.public_data_reads = struct_array_to_bounded_vec(start.public_data_reads, |pdr: PublicDataRead| pdr.is_empty(), PublicDataRead::empty());
 
     // Public kernel does not modify encrypted logs values --> we just copy them to output
@@ -97,13 +97,8 @@ fn perform_static_call_checks(public_call: PublicCallData) {
             is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
         );
 
-        let update_requests_length = struct_array_length(
-            public_inputs.storage_update_requests,
-            |r: StorageUpdateRequest| r.is_empty()
-        );
-        assert(
-            update_requests_length == 0, "No contract storage update requests are allowed for static calls"
-        );
+        let writes_length = struct_array_length(public_inputs.storage_writes, |r: StorageWrite| r.is_empty());
+        assert(writes_length == 0, "No contract storage update requests are allowed for static calls");
     }
 }
 
@@ -157,33 +152,30 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &m
 
     propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
 
-    propagate_valid_public_data_update_requests(public_call, circuit_outputs);
+    propagate_valid_public_data_writes(public_call, circuit_outputs);
 
     propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
-fn propagate_valid_public_data_update_requests(
-    public_call: PublicCallData,
-    circuit_outputs: &mut KernelCircuitPublicInputsBuilder
-) {
+fn propagate_valid_public_data_writes(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {
     let contract_address = public_call.call_stack_item.contract_address;
-    let update_requests = public_call.call_stack_item.public_inputs.storage_update_requests;
+    let writes = public_call.call_stack_item.public_inputs.storage_writes;
 
-    let mut public_data_update_requests : BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> = BoundedVec::new(PublicDataUpdateRequest::empty());
+    let mut public_data_writes : BoundedVec<PublicDataWrite, MAX_PUBLIC_DATA_WRITES_PER_TX> = BoundedVec::new(PublicDataWrite::empty());
 
-    for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-        let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
-            let public_data_update_request = PublicDataUpdateRequest {
-                leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
-                old_value: compute_public_data_tree_value(update_request.old_value),
-                new_value: compute_public_data_tree_value(update_request.new_value)
+    for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TX {
+        let write = writes[i];
+        if (!write.is_empty()) {
+            let public_data_write = PublicDataWrite {
+                leaf_slot: compute_public_data_tree_index(contract_address, write.storage_slot),
+                old_value: compute_public_data_tree_value(write.old_value),
+                new_value: compute_public_data_tree_value(write.new_value)
             };
 
-            public_data_update_requests.push(public_data_update_request);
+            public_data_writes.push(public_data_write);
         }
     }
-    circuit_outputs.end.public_data_update_requests.push_vec(public_data_update_requests);
+    circuit_outputs.end.public_data_writes.push_vec(public_data_writes);
 }
 
 fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_outputs: &mut KernelCircuitPublicInputsBuilder) {

@@ -56,7 +56,7 @@ export interface OptionallyRevealedData {
   called_from_public_l2: boolean;
 }
 
-export interface PublicDataUpdateRequest {
+export interface PublicDataWrite {
   leaf_slot: Field;
   old_value: Field;
   new_value: Field;
@@ -83,7 +83,7 @@ export interface CombinedAccumulatedData {
   unencrypted_log_preimages_length: Field;
   new_contracts: FixedLengthArray<NewContractData, 1>;
   optionally_revealed_data: FixedLengthArray<OptionallyRevealedData, 4>;
-  public_data_update_requests: FixedLengthArray<PublicDataUpdateRequest, 16>;
+  public_data_writes: FixedLengthArray<PublicDataWrite, 16>;
   public_data_reads: FixedLengthArray<PublicDataRead, 16>;
 }
 
@@ -152,7 +152,7 @@ export interface CallContext {
   is_contract_deployment: boolean;
 }
 
-export interface StorageUpdateRequest {
+export interface StorageWrite {
   storage_slot: Field;
   old_value: Field;
   new_value: Field;
@@ -167,7 +167,7 @@ export interface PublicCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
   return_values: FixedLengthArray<Field, 4>;
-  storage_update_requests: FixedLengthArray<StorageUpdateRequest, 16>;
+  storage_writes: FixedLengthArray<StorageWrite, 16>;
   storage_reads: FixedLengthArray<StorageRead, 16>;
   public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_commitments: FixedLengthArray<Field, 16>;

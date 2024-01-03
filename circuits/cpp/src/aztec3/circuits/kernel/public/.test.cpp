@@ -6,10 +6,10 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/contract_storage_update_request.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
+#include "aztec3/circuits/abis/storage_write.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
@@ -32,7 +32,7 @@ using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ContractStorageRead;
-using aztec3::circuits::abis::ContractStorageUpdateRequest;
+using aztec3::circuits::abis::ContractStorageWrite;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
 using aztec3::circuits::abis::PreviousKernelData;
@@ -62,13 +62,13 @@ template <typename T, size_t SIZE> std::array<T, SIZE> empty_array_of_values()
     return values;
 }
 
-std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> generate_storage_update_requests(
-    NT::uint32& count, NT::uint32 num_values_required = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL)
+std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> generate_storage_writes(
+    NT::uint32& count, NT::uint32 num_values_required = MAX_PUBLIC_DATA_WRITES_PER_CALL)
 {
-    std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> values;
+    std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> values;
     for (size_t i = 0; i < num_values_required; i++) {
         const auto prev = count++;
-        values[i] = ContractStorageUpdateRequest<NT>{
+        values[i] = ContractStorageWrite<NT>{
             .storage_slot = prev,
             .old_value = prev,
             .new_value = count,
@@ -127,15 +127,14 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
         array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL>(count);
     std::array<ContractStorageRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const reads = generate_storage_reads(count);
-    std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> const update_requests =
-        generate_storage_update_requests(count);
+    std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> const writes = generate_storage_writes(count);
 
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
         .call_context = call_context,
         .args_hash = args_hash,
         .return_values = return_values,
-        .storage_update_requests = update_requests,
+        .storage_writes = writes,
         .storage_reads = reads,
         .public_call_stack = public_call_stack,
         .new_commitments = new_commitments,
@@ -151,23 +150,22 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     return call_stack_item;
 }
 
-PublicDataRead<NT> public_data_read_from_contract_storage_read(ContractStorageRead<NT> const& contract_storage_read,
-                                                               NT::fr const& contract_address)
+PublicDataRead<NT> public_data_read_from_storage_read(ContractStorageRead<NT> const& storage_read,
+                                                      NT::fr const& contract_address)
 {
     return PublicDataRead<NT>{
-        .leaf_index = compute_public_data_tree_index<NT>(contract_address, contract_storage_read.storage_slot),
-        .value = compute_public_data_tree_value<NT>(contract_storage_read.current_value),
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, storage_read.storage_slot),
+        .value = compute_public_data_tree_value<NT>(storage_read.current_value),
     };
 }
 
-PublicDataUpdateRequest<NT> public_data_update_request_from_contract_storage_update_request(
-    ContractStorageUpdateRequest<NT> const& contract_storage_update_request, NT::fr const& contract_address)
+PublicDataWrite<NT> public_data_write_from_storage_write(ContractStorageWrite<NT> const& storage_write,
+                                                         NT::fr const& contract_address)
 {
-    return PublicDataUpdateRequest<NT>{
-        .leaf_index =
-            compute_public_data_tree_index<NT>(contract_address, contract_storage_update_request.storage_slot),
-        .old_value = compute_public_data_tree_value<NT>(contract_storage_update_request.old_value),
-        .new_value = compute_public_data_tree_value<NT>(contract_storage_update_request.new_value),
+    return PublicDataWrite<NT>{
+        .leaf_index = compute_public_data_tree_index<NT>(contract_address, storage_write.storage_slot),
+        .old_value = compute_public_data_tree_value<NT>(storage_write.old_value),
+        .new_value = compute_public_data_tree_value<NT>(storage_write.new_value),
     };
 }
 
@@ -181,23 +179,21 @@ std::array<PublicDataRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> public_data_reads
         if (read.is_empty()) {
             continue;
         }
-        values[i] = public_data_read_from_contract_storage_read(read, contract_address);
+        values[i] = public_data_read_from_storage_read(read, contract_address);
     }
     return values;
 }
 
-std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>
-public_data_update_requests_from_storage_update_requests(
-    std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> const& update_requests,
-    NT::fr const& contract_address)
+std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> public_data_writes_from_storage_writes(
+    std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> const& writes, NT::fr const& contract_address)
 {
-    std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> values;
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        const auto& update_request = update_requests[i];
-        if (update_request.is_empty()) {
+    std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> values;
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_TX; i++) {
+        const auto& write = writes[i];
+        if (write.is_empty()) {
             continue;
         }
-        values[i] = public_data_update_request_from_contract_storage_update_request(update_request, contract_address);
+        values[i] = public_data_write_from_storage_write(write, contract_address);
     }
     return values;
 }
@@ -313,8 +309,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
 
     std::array<fr, RETURN_VALUES_LENGTH> const return_values =
         array_of_values<RETURN_VALUES_LENGTH>(seed, RETURN_VALUES_LENGTH / 2);
-    std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> const update_requests =
-        generate_storage_update_requests(seed, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL / 2);
+    std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> const writes =
+        generate_storage_writes(seed, MAX_PUBLIC_DATA_WRITES_PER_CALL / 2);
     std::array<ContractStorageRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const reads =
         generate_storage_reads(seed, MAX_PUBLIC_DATA_READS_PER_CALL / 2);
     std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
@@ -342,7 +338,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .call_context = call_context,
         .args_hash = compute_var_args_hash<NT>(args),
         .return_values = return_values,
-        .storage_update_requests = update_requests,
+        .storage_writes = writes,
         .storage_reads = reads,
         .public_call_stack = call_stack_hashes,
         .new_commitments = new_commitments,
@@ -406,8 +402,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
         .optionally_revealed_data =
             std::array<OptionallyRevealedData<NT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>(),
-        .public_data_update_requests =
-            std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>(),
+        .public_data_writes = std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_TX>(),
         .public_data_reads = std::array<PublicDataRead<NT>, MAX_PUBLIC_DATA_READS_PER_TX>()
     };
 
@@ -440,15 +435,13 @@ void validate_public_kernel_outputs_correctly_propagated(const KernelInput& inpu
 
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
     size_t st_index = 0;
-    for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        const auto& contract_storage_update_request =
-            inputs.public_call.call_stack_item.public_inputs.storage_update_requests[i];
-        if (contract_storage_update_request.is_empty()) {
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_WRITES_PER_TX; i++) {
+        const auto& storage_write = inputs.public_call.call_stack_item.public_inputs.storage_writes[i];
+        if (storage_write.is_empty()) {
             continue;
         }
-        const auto public_data_update_request = public_data_update_request_from_contract_storage_update_request(
-            contract_storage_update_request, contract_address);
-        ASSERT_EQ(public_inputs.end.public_data_update_requests[st_index++], public_data_update_request);
+        const auto public_data_write = public_data_write_from_storage_write(storage_write, contract_address);
+        ASSERT_EQ(public_inputs.end.public_data_writes[st_index++], public_data_write);
     }
 
     size_t sr_index = 0;
@@ -457,7 +450,7 @@ void validate_public_kernel_outputs_correctly_propagated(const KernelInput& inpu
         if (read.is_empty()) {
             continue;
         }
-        const auto public_read = public_data_read_from_contract_storage_read(read, contract_address);
+        const auto public_read = public_data_read_from_storage_read(read, contract_address);
         ASSERT_EQ(public_inputs.end.public_data_reads[sr_index++], public_read);
     }
 }
@@ -522,33 +515,33 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
 
     // only the 2 valid reads should have been propagated
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
-    const auto public_read_1 = public_data_read_from_contract_storage_read(first_valid, contract_address);
-    const auto public_read_2 = public_data_read_from_contract_storage_read(second_valid, contract_address);
+    const auto public_read_1 = public_data_read_from_storage_read(first_valid, contract_address);
+    const auto public_read_2 = public_data_read_from_storage_read(second_valid, contract_address);
     ASSERT_EQ(public_inputs.end.public_data_reads[0], public_read_1);
     ASSERT_EQ(public_inputs.end.public_data_reads[1], public_read_2);
 }
 
-TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
+TEST(public_kernel_tests, only_valid_writes_should_be_propagated)
 {
-    DummyBuilder dummyBuilder = DummyBuilder("public_kernel_tests__only_valid_update_requests_should_be_propagated");
+    DummyBuilder dummyBuilder = DummyBuilder("public_kernel_tests__only_valid_writes_should_be_propagated");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
 
     // modify the contract storage update requests so only 2 are valid and only those should be propagated
-    const auto first_valid = ContractStorageUpdateRequest<NT>{
+    const auto first_valid = ContractStorageWrite<NT>{
         .storage_slot = 123456789,
         .old_value = 76543,
         .new_value = 76544,
     };
-    const auto second_valid = ContractStorageUpdateRequest<NT>{
+    const auto second_valid = ContractStorageWrite<NT>{
         .storage_slot = 987654321,
         .old_value = 86543,
         .new_value = 86544,
     };
-    std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> update_requests =
-        std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
-    update_requests[1] = first_valid;
-    update_requests[3] = second_valid;
-    inputs.public_call.call_stack_item.public_inputs.storage_update_requests = update_requests;
+    std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> writes =
+        std::array<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL>();
+    writes[1] = first_valid;
+    writes[3] = second_valid;
+    inputs.public_call.call_stack_item.public_inputs.storage_writes = writes;
 
     // adjust the call stack item hash for the current call in the previous iteration
     inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
@@ -567,12 +560,10 @@ TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
 
     // only the 2 valid update requests should have been propagated
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
-    const auto public_write_1 =
-        public_data_update_request_from_contract_storage_update_request(first_valid, contract_address);
-    const auto public_write_2 =
-        public_data_update_request_from_contract_storage_update_request(second_valid, contract_address);
-    ASSERT_EQ(public_inputs.end.public_data_update_requests[0], public_write_1);
-    ASSERT_EQ(public_inputs.end.public_data_update_requests[1], public_write_2);
+    const auto public_write_1 = public_data_write_from_storage_write(first_valid, contract_address);
+    const auto public_write_2 = public_data_write_from_storage_write(second_valid, contract_address);
+    ASSERT_EQ(public_inputs.end.public_data_writes[0], public_write_1);
+    ASSERT_EQ(public_inputs.end.public_data_writes[1], public_write_2);
 }
 
 TEST(public_kernel_tests, constructor_should_fail)
@@ -949,10 +940,10 @@ TEST(public_kernel_tests, private_previous_kernel_non_private_previous_kernel_sh
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__PREVIOUS_KERNEL_NOT_PRIVATE);
 }
 
-TEST(public_kernel_tests, previous_private_kernel_fails_if_storage_update_requests_on_static_call)
+TEST(public_kernel_tests, previous_private_kernel_fails_if_storage_writes_on_static_call)
 {
     DummyBuilder dummyBuilder =
-        DummyBuilder("public_kernel_tests__previous_private_kernel_fails_if_storage_update_requests_on_static_call");
+        DummyBuilder("public_kernel_tests__previous_private_kernel_fails_if_storage_writes_on_static_call");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
 
     // the function call has contract storage update requests so setting it to static should fail
@@ -961,7 +952,7 @@ TEST(public_kernel_tests, previous_private_kernel_fails_if_storage_update_reques
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code,
-              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_WRITES_PROHIBITED_FOR_STATIC_CALL);
 }
 
 TEST(public_kernel_tests, previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call)
@@ -1019,21 +1010,21 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
 
     // setup 2 previous data writes on the public inputs
-    const auto first_write = PublicDataUpdateRequest<NT>{
+    const auto first_write = PublicDataWrite<NT>{
         .leaf_index = 123456789,
         .old_value = 76543,
         .new_value = 76544,
     };
-    const auto second_write = PublicDataUpdateRequest<NT>{
+    const auto second_write = PublicDataWrite<NT>{
         .leaf_index = 987654321,
         .old_value = 86543,
         .new_value = 86544,
     };
-    std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> initial_writes =
-        std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>();
+    std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_TX> initial_writes =
+        std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_TX>();
     initial_writes[0] = first_write;
     initial_writes[1] = second_write;
-    inputs.previous_kernel.public_inputs.end.public_data_update_requests = initial_writes;
+    inputs.previous_kernel.public_inputs.end.public_data_writes = initial_writes;
 
     // setup 2 previous data reads on the public inputs
     const auto first_read = PublicDataRead<NT>{
@@ -1083,9 +1074,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_EQ(array_length(public_inputs.end.public_data_reads),
               array_length(inputs.previous_kernel.public_inputs.end.public_data_reads) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.storage_reads));
-    ASSERT_EQ(array_length(public_inputs.end.public_data_update_requests),
-              array_length(inputs.previous_kernel.public_inputs.end.public_data_update_requests) +
-                  array_length(inputs.public_call.call_stack_item.public_inputs.storage_update_requests));
+    ASSERT_EQ(array_length(public_inputs.end.public_data_writes),
+              array_length(inputs.previous_kernel.public_inputs.end.public_data_writes) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.storage_writes));
     ASSERT_EQ(array_length(public_inputs.end.new_commitments),
               array_length(inputs.previous_kernel.public_inputs.end.new_commitments) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.new_commitments));
@@ -1099,9 +1090,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
 
     const auto contract_address = inputs.public_call.call_stack_item.contract_address;
     const auto portal_contract_address = inputs.public_call.portal_contract_address;
-    std::array<PublicDataUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> const expected_new_writes =
-        public_data_update_requests_from_storage_update_requests(
-            inputs.public_call.call_stack_item.public_inputs.storage_update_requests, contract_address);
+    std::array<PublicDataWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL> const expected_new_writes =
+        public_data_writes_from_storage_writes(inputs.public_call.call_stack_item.public_inputs.storage_writes,
+                                               contract_address);
 
     // Unencrypted logs hash and preimage lengths should now be correctly accumulated
     auto const& public_inputs_unencrypted_logs_hash = inputs.previous_kernel.public_inputs.end.unencrypted_logs_hash;
@@ -1121,9 +1112,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
               unencrypted_log_preimages_length + public_inputs_unencrypted_log_preimages_length);
 
     ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
-                                            inputs.previous_kernel.public_inputs.end.public_data_update_requests,
+                                            inputs.previous_kernel.public_inputs.end.public_data_writes,
                                             expected_new_writes,
-                                            public_inputs.end.public_data_update_requests));
+                                            public_inputs.end.public_data_writes));
 
     std::array<PublicDataRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const expected_new_reads =
         public_data_reads_from_storage_reads(inputs.public_call.call_stack_item.public_inputs.storage_reads,
@@ -1170,10 +1161,10 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_FALSE(dummyBuilder.failed());
 }
 
-TEST(public_kernel_tests, previous_public_kernel_fails_if_storage_update_requests_on_static_call)
+TEST(public_kernel_tests, previous_public_kernel_fails_if_storage_writes_on_static_call)
 {
     DummyBuilder dummyBuilder =
-        DummyBuilder("public_kernel_tests__previous_public_kernel_fails_if_storage_update_requests_on_static_call");
+        DummyBuilder("public_kernel_tests__previous_public_kernel_fails_if_storage_writes_on_static_call");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
 
     // the function call has contract storage update requests so setting it to static should fail
@@ -1182,7 +1173,7 @@ TEST(public_kernel_tests, previous_public_kernel_fails_if_storage_update_request
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code,
-              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
+              CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_WRITES_PROHIBITED_FOR_STATIC_CALL);
 }
 
 TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call)
@@ -1211,8 +1202,8 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_commitments_on_static
     inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
 
     // set previously set items to 0
-    inputs.public_call.call_stack_item.public_inputs.storage_update_requests =
-        empty_array_of_values<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
+    inputs.public_call.call_stack_item.public_inputs.storage_writes =
+        empty_array_of_values<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL>();
 
     // regenerate call data hash
     inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
@@ -1235,8 +1226,8 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_
     inputs.public_call.call_stack_item.public_inputs.call_context.is_static_call = true;
 
     // set previously set items to 0
-    inputs.public_call.call_stack_item.public_inputs.storage_update_requests =
-        empty_array_of_values<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
+    inputs.public_call.call_stack_item.public_inputs.storage_writes =
+        empty_array_of_values<ContractStorageWrite<NT>, MAX_PUBLIC_DATA_WRITES_PER_CALL>();
     inputs.public_call.call_stack_item.public_inputs.new_commitments =
         empty_array_of_values<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL>();
 

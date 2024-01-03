@@ -19,7 +19,7 @@ import {
   CompleteAddress,
   ContractDeploymentData,
   ContractStorageRead,
-  ContractStorageUpdateRequest,
+  ContractStorageWrite,
   FunctionData,
   FunctionLeafPreimage,
   GlobalVariables,
@@ -579,10 +579,10 @@ export function computePrivateCallStackItemHash(callStackItem: PrivateCallStackI
 /**
  *
  */
-function computeContractStorageUpdateRequestHash(input: ContractStorageUpdateRequest) {
+function computeContractStorageWriteHash(input: ContractStorageWrite) {
   return pedersenHash(
     [input.storageSlot.toBuffer(), input.oldValue.toBuffer(), input.newValue.toBuffer()],
-    GeneratorIndex.PUBLIC_DATA_UPDATE_REQUEST,
+    GeneratorIndex.PUBLIC_DATA_WRITE,
   );
 }
 
@@ -601,7 +601,7 @@ function computePublicInputsHash(input: PublicCircuitPublicInputs) {
     computeCallContextHash(input.callContext),
     input.argsHash.toBuffer(),
     ...input.returnValues.map(fr => fr.toBuffer()),
-    ...input.contractStorageUpdateRequests.map(computeContractStorageUpdateRequestHash),
+    ...input.contractStorageWrites.map(computeContractStorageWriteHash),
     ...input.contractStorageReads.map(computeContractStorageReadsHash),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newCommitments.map(fr => fr.toBuffer()),

@@ -1,32 +1,32 @@
 use crate::{
     constants::{
-        CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
-        GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST,
+        STORAGE_WRITE_LENGTH,
+        GENERATOR_INDEX__PUBLIC_DATA_WRITE,
     },
     hash::pedersen_hash,
 };
 
-struct StorageUpdateRequest{
+struct StorageWrite{
     storage_slot : Field,
     old_value : Field,
     new_value : Field,
 }
 
-impl StorageUpdateRequest {
+impl StorageWrite {
     pub fn empty() -> Self {
-        StorageUpdateRequest {
+        StorageWrite {
             storage_slot: 0,
             old_value: 0,
             new_value: 0,
         }
     }
 
-    pub fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
+    pub fn serialize(self) -> [Field; STORAGE_WRITE_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value]
     }
 
     pub fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_WRITE)
     }
 
     pub fn is_empty(self) -> bool {

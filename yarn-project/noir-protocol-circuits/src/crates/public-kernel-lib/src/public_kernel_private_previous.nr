@@ -59,9 +59,9 @@ mod tests {
             assert_eq_call_requests,
             assert_eq_new_contracts,
             assert_eq_public_data_reads,
-            assert_eq_public_data_update_requests,
+            assert_eq_public_data_writes,
             compute_public_data_reads,
-            compute_public_data_update_requests,
+            compute_public_data_writes,
         },
     };
     use dep::types::{
@@ -71,7 +71,7 @@ mod tests {
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             new_contract_data::NewContractData,
             public_data_read::PublicDataRead,
-            public_data_update_request::PublicDataUpdateRequest,
+            public_data_write::PublicDataWrite,
         },
         address::{AztecAddress, EthAddress},
         contrakt::storage_read::StorageRead,
@@ -91,7 +91,7 @@ mod tests {
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
         MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_DATA_WRITES_PER_CALL,
     };
 
     struct PublicKernelPrivatePreviousInputsBuilder {
@@ -126,10 +126,10 @@ mod tests {
             compute_public_data_reads(self.public_call.contract_address, read_requests)
         }
 
-        pub fn get_current_public_data_update_requests(self) -> [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL] {
-            compute_public_data_update_requests(
+        pub fn get_current_public_data_writes(self) -> [PublicDataWrite; MAX_PUBLIC_DATA_WRITES_PER_CALL] {
+            compute_public_data_writes(
                 self.public_call.contract_address,
-                self.public_call.public_inputs.storage_update_requests.storage,
+                self.public_call.public_inputs.storage_writes.storage,
             )
         }
 
@@ -174,18 +174,18 @@ mod tests {
     }
 
     #[test]
-    fn only_valid_update_requests_should_be_propagated() {
+    fn only_valid_writes_should_be_propagated() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.append_update_requests(1);
-        builder.public_call.append_empty_update_requests(1);
-        builder.public_call.append_update_requests(1);
-        let public_data_update_requests = builder.get_current_public_data_update_requests();
+        builder.public_call.append_writes(1);
+        builder.public_call.append_empty_writes(1);
+        builder.public_call.append_writes(1);
+        let public_data_writes = builder.get_current_public_data_writes();
 
         let public_inputs = builder.execute();
 
         // Only the 2 valid reads should have been propagated.
-        let expected = [public_data_update_requests[0], public_data_update_requests[2]];
-        assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
+        let expected = [public_data_writes[0], public_data_writes[2]];
+        assert_eq_public_data_writes(public_inputs.end.public_data_writes, expected);
     }
 
     #[test(should_fail_with="Constructors cannot be public functions")]
@@ -412,9 +412,9 @@ mod tests {
         let storage = builder.public_call.public_call_stack.storage;
         let public_call_stack = [storage[0], storage[1]];
 
-        builder.public_call.append_update_requests(2);
-        let storage = builder.get_current_public_data_update_requests();
-        let update_requests = [storage[0], storage[1]];
+        builder.public_call.append_writes(2);
+        let storage = builder.get_current_public_data_writes();
+        let writes = [storage[0], storage[1]];
 
         builder.public_call.append_read_requests(3);
         let storage = builder.get_current_public_data_reads();
@@ -425,10 +425,7 @@ mod tests {
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
-        assert_eq_public_data_update_requests(
-            public_inputs.end.public_data_update_requests,
-            update_requests
-        );
+        assert_eq_public_data_writes(public_inputs.end.public_data_writes, writes);
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
     }
 
@@ -463,10 +460,10 @@ mod tests {
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
-    fn previous_private_kernel_fails_if_storage_update_requests_on_static_call() {
+    fn previous_private_kernel_fails_if_storage_writes_on_static_call() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
-        builder.public_call.append_update_requests(1);
+        builder.public_call.append_writes(1);
 
         builder.failed();
     }

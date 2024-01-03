@@ -24,7 +24,7 @@ struct ConstantsPacker {
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
                  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
                  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+                 MAX_PUBLIC_DATA_WRITES_PER_CALL,
                  MAX_PUBLIC_DATA_READS_PER_CALL,
                  MAX_READ_REQUESTS_PER_CALL,
                  MAX_PENDING_READ_REQUESTS_PER_CALL,
@@ -33,7 +33,7 @@ struct ConstantsPacker {
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
                  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
                  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+                 MAX_PUBLIC_DATA_WRITES_PER_TX,
                  MAX_PUBLIC_DATA_READS_PER_TX,
                  MAX_NEW_CONTRACTS_PER_TX,
                  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
@@ -44,7 +44,7 @@ struct ConstantsPacker {
                  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
                  KERNELS_PER_BASE_ROLLUP,
                  MAX_NEW_NULLIFIERS_PER_BASE_ROLLUP,
-                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_BASE_ROLLUP,
+                 MAX_PUBLIC_DATA_WRITES_PER_BASE_ROLLUP,
                  MAX_PUBLIC_DATA_READS_PER_BASE_ROLLUP,
                  VK_TREE_HEIGHT,
                  FUNCTION_TREE_HEIGHT,
@@ -77,8 +77,8 @@ struct ConstantsPacker {
                  FUNCTION_DATA_LENGTH,
                  CONTRACT_DEPLOYMENT_DATA_LENGTH,
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-                 CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
-                 CONTRACT_STORAGE_READ_LENGTH,
+                 STORAGE_WRITE_LENGTH,
+                 STORAGE_READ_LENGTH,
                  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  GET_NOTES_ORACLE_RETURN_LENGTH,
                  EMPTY_NULLIFIED_COMMITMENT),
@@ -112,7 +112,7 @@ struct GeneratorIndexPacker {
         int INITIALIZATION_NULLIFIER = GeneratorIndex::INITIALIZATION_NULLIFIER;
         int OUTER_NULLIFIER = GeneratorIndex::OUTER_NULLIFIER;
         int PUBLIC_DATA_READ = GeneratorIndex::PUBLIC_DATA_READ;
-        int PUBLIC_DATA_UPDATE_REQUEST = GeneratorIndex::PUBLIC_DATA_UPDATE_REQUEST;
+        int PUBLIC_DATA_WRITE = GeneratorIndex::PUBLIC_DATA_WRITE;
         int FUNCTION_DATA = GeneratorIndex::FUNCTION_DATA;
         int FUNCTION_LEAF = GeneratorIndex::FUNCTION_LEAF;
         int CONTRACT_DEPLOYMENT_DATA = GeneratorIndex::CONTRACT_DEPLOYMENT_DATA;
@@ -150,7 +150,7 @@ struct GeneratorIndexPacker {
                  INITIALIZATION_NULLIFIER,
                  OUTER_NULLIFIER,
                  PUBLIC_DATA_READ,
-                 PUBLIC_DATA_UPDATE_REQUEST,
+                 PUBLIC_DATA_WRITE,
                  FUNCTION_DATA,
                  FUNCTION_LEAF,
                  CONTRACT_DEPLOYMENT_DATA,
