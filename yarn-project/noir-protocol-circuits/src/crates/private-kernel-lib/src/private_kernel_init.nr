@@ -68,9 +68,8 @@ impl PrivateKernelInputsInit {
     fn update_end_values(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
         public_inputs.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
-            // weird case where the value is the hash already... so duplicate the value for "note_hash" or leave as 0?
             value: self.tx_request.hash(),
-            note_hash: self.tx_request.hash(),
+            note_hash: EMPTY_NULLIFIED_COMMITMENT,
             counter: 0,
             });
         
@@ -182,16 +181,26 @@ mod tests {
         }
     }
 
-    pub fn validate_deployed_contract_address(tx_request: TxRequest, private_call: PrivateCallDataBuilder, public_inputs: KernelCircuitPublicInputs) {
+    pub fn validate_deployed_contract_address(
+        tx_request: TxRequest,
+        private_call: PrivateCallDataBuilder,
+        public_inputs: KernelCircuitPublicInputs
+    ) {
         assert_eq(public_inputs.end.new_contracts.len(), 1);
         let cdd = tx_request.tx_context.contract_deployment_data;
 
         let private_circuit_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
-        let constructor_hash = compute_constructor_hash(tx_request.function_data, tx_request.args_hash, private_circuit_vk_hash);
-        let contract_address = CompleteAddress::compute(cdd.deployer_public_key,
+        let constructor_hash = compute_constructor_hash(
+            tx_request.function_data,
+            tx_request.args_hash,
+            private_circuit_vk_hash
+        );
+        let contract_address = CompleteAddress::compute(
+            cdd.deployer_public_key,
             cdd.contract_address_salt,
             cdd.function_tree_root,
-            constructor_hash).address;
+            constructor_hash
+        ).address;
         assert(public_inputs.end.new_contracts[0].contract_address.eq(contract_address));
     }
 
@@ -264,15 +273,13 @@ mod tests {
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.read_requests.push_array([
-            SideEffect {
-            value: 0,
-            counter: 0},
-            SideEffect {
-                value: 9123,
-                counter: 1,
-            }]);
-        
+        builder.private_call.public_inputs.read_requests.push_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
+        ]
+        );
+
         builder.failed();
     }
 
@@ -280,16 +287,13 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_commitments.push_array([
-            SideEffect {
-            value: 0,
-            counter: 0,
-            },
-            SideEffect {
-                value: 9123,
-                counter: 1,
-            }]);
-        
+        builder.private_call.public_inputs.new_commitments.push_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
+        ]
+        );
+
         builder.failed();
     }
 
@@ -297,17 +301,13 @@ mod tests {
     fn input_validation_malformed_arrays_nullifiers() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_nullifiers.push_array([SideEffectLinkedToNoteHash{
-            value: 0,
-            note_hash: 0,
-            counter: 0,
-            },
-            SideEffectLinkedToNoteHash{
-                value: 9123,
-                note_hash: 0,
-                counter: 1,
-                }]);
-        
+        builder.private_call.public_inputs.new_nullifiers.push_array(
+            [
+            SideEffectLinkedToNoteHash { value: 0, note_hash: 0, counter: 0 },
+            SideEffectLinkedToNoteHash { value: 9123, note_hash: 0, counter: 1 }
+        ]
+        );
+
         builder.failed();
     }
 
@@ -316,7 +316,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.nullified_commitments.push_array([0, 9123]);
-        
+
         builder.failed();
     }
 
@@ -325,7 +325,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.private_call_stack_hashes.push_array([0, 9123]);
-        
+
         builder.failed();
     }
 
@@ -334,7 +334,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.public_call_stack_hashes.push_array([0, 9123]);
-        
+
         builder.failed();
     }
 
@@ -343,7 +343,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.push_array([0, 9123]);
-        
+
         builder.failed();
     }
 
@@ -398,7 +398,7 @@ mod tests {
 
         builder.failed();
     }
-    
+
     #[test(should_fail_with="Cannot call an internal function directly")]
     fn private_function_is_internal_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
@@ -490,11 +490,7 @@ mod tests {
 
         // tweak read_request so it gives wrong root when paired with its sibling path
         let read_request = builder.private_call.public_inputs.read_requests.pop();
-        builder.private_call.public_inputs.read_requests.push(
-            SideEffect{
-                value: read_request.value + 1,
-                counter: read_request.counter,
-                });
+        builder.private_call.public_inputs.read_requests.push(SideEffect { value: read_request.value + 1, counter: read_request.counter });
 
         builder.failed();
     }
@@ -635,6 +631,8 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_empty()), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(
+            struct_array_length(public_inputs.end.read_requests, |r: SideEffect| r.is_empty()), MAX_READ_REQUESTS_PER_CALL
+        );
     }
 }
