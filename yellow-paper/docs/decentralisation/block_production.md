@@ -11,10 +11,6 @@ This document aims to be the latest source of truth for the Fernet sequencer sel
 ## Overview
 This document outlines a proposal for Aztec's block production, integrating immutable smart contracts on Ethereum's mainnet (L1) to establish Aztec as a Layer-2 Ethereum network. Sequencers can register permissionlessly via Aztec's L1 contracts, entering a queue before becoming eligible for a random leader election ("Fernet"). Sequencers are free to leave, adhering to an exit queue or period. Roughly every 7-10 minutes (subject to reduction as proving and execution speeds stabilize and/or improve) sequencers create a random hash using [RANDAO](https://eth2book.info/capella/part2/building_blocks/randomness/#the-randao) and their public keys. The highest-ranking hash determines block proposal eligibility. Selected sequencers either collaborate with third-party proving services or self-prove their block. They commit to a prover's L1 address, which stakes an economic deposit. Failure to submit proofs on time results in deposit forfeiture. Once L1 contracts validate proofs and state transitions, the cycle repeats for subsequent block production (forever, and ever...).
 
-:::info
-We need to specify exactly how the `RANDAO` value is constrained.
-:::
-
 ### Full Nodes
 Aztec full nodes are nodes that maintain a copy of the current state of the network. They fetch blocks from the data layer, verify and apply them to its local view of the state. They also participate in the [P2P network](./p2p-network.md) to disburse transactions and their proofs. Can be connected to a **PXE** which can build transaction witness using the data provided by the node (data membership proofs).
 
@@ -40,7 +36,6 @@ We should probably introduce the PXE somewhere
 Aztec Sequencer's are full nodes that propose blocks, execute public functions and choose provers, within the Aztec Network. It is the actor coordinating state transitions and proof production. Aztec is currently planning on implementing a protocol called Fernet (Fair Election Randomized Natively on Ethereum trustlessly), which is permissionless and anyone can participate. Additionally, sequencers play a role participating within Aztec Governance, determining how to manage [protocol upgrades](./governance.md).
 
 #### Hardware requirements
-
 | 🖥️      | Minimum | Recommended |
 | ------- | ------- | ----------- |
 | CPU     | 16cores | 32cores     |
@@ -107,9 +102,8 @@ Anyone ->> Network: eligible as a sequencer
 
 :::danger **TODO**
 - The diagram needs to be updated with respect to "VRF".
-- The **proposal** phase must specify how `RANDAO` is constrained. Since RANDAO changes every L1 block, I could make proposals over multiple blocks to get different values. This still is the case if using the RANDAO value of block $n-m$.
 - In **Prover commitment** phase, it is not said what the signature is used for. I'm expecting that it is used to allow the prover to publish the message on behalf of the sequencer, but it is not made clear.
-- In **Backstop** phase, would be useful if we add a comment on the duration
+- In **Backup** phase, would be useful if we add a comment on the duration
 - In Diagram
   - add a dedicated timeline from the block production's PoV
   - get rid of "pre-confirmed"
@@ -126,12 +120,11 @@ Every staked sequencers participate in the following phases, comprising an Aztec
 4. **Proving:** The prover or prover network coordinates out of protocol to build the [recursive proof tree](./../rollup-circuits/index.md). After getting to the last, singular proof that reflects the entire blocks's state transitions they then upload the proof of the block to the L1 smart contracts.
 5. **Finalization:** The smart contracts verify the block's proof, which triggers payouts to sequencer and prover, and the address which submits the proofs (likely the prover, but could be anyone such as a relay). Once finalized, the cycle continues! 
     - For data layers that is not on the host, the host must have learned of the publication from the **Reveal** before the **Finalization** can begin.
-6. **Backstop:** Should no prover commitment be put down, or should the block not get finalized, then an additional phase is opened where anyone can submit a block with its proof, in a based-rollup mode. In the backstop phase, the first rollup verified will become canonical.
+6. **Backup:** Should no prover commitment be put down, or should the block not get finalized, then an additional phase is opened where anyone can submit a block with its proof, in a based-rollup mode. In the backup phase, the first rollup verified will become canonical.
 
 ```mermaid
 sequenceDiagram
 
-participant Anyone 
 participant Contract as Aztec L1 Contract
 participant Network as Aztec Network
 participant Sequencers
@@ -153,6 +146,20 @@ loop Happy Path Block Production
     Note right of Contract: "block confirmed!"
 end 
 ```
+
+### Constraining Randao
+The `RANDAO` values used in the score as part of the Proposal phase must be constrained by the L1 contract to ensure that the computation is stable throughout a block. This is to prevent a sequencer from proposing the same L2 block at multiple L1 blocks to increase their probability of being chosen.
+
+Furthermore, we wish to constrain the `RANDAO` ahead of time, such that sequencers will know whether they need to produce blocks or not. This is to ensure that the sequencer can ramp up their hardware in time for the block production.
+
+As only the last `RANDAO` value is available to Ethereum contracts we cannot simply read an old value. Instead, we must compute update it as storage in the contract. 
+
+The simplest way to do so is by storing the `RANDAO` at every block, and then use the `RANDAO` for block number - $n$ when computing the score for block number $n$. For the first $n$ blocks, the value could pre-defined.
+
+:::info
+Updating the `RANDAO` values used is a potential attack vector since it can be biased. By delaying blocks by an L1 block, it is possible to change the `RANDAO` value stored. Consider how big this issue is, and whether it is required to mitigate it.
+:::
+
 
 ## Exiting
 In order to leave the protocol sequencers can exit via another L1 transaction. After signaling their desire to exit, they will no longer be considered `active` and move to an `exiting` status.
@@ -183,16 +190,6 @@ There are various stages in the block production lifecycle that a user and/or ap
 
 Notably there are no consistent, industry wide definitions for confirmation rules. Articulated here is an initial proposal for what the Aztec community could align on in order to best set expectations and built towards a consistent set of user experiences/interactions. Alternative suggestions encouraged! 
 
-:::danger TODO:
-I removed the namings of the stages, not sure what they should be named.
-- Clarity on expected timing and when it'd be applicable/relevant for developers would be nice. 
-- "where to find or validate" this information.
-- diagram missing some arrows
-- figure 2 with a lot of names should be updated
-  - pls no preconfirm
-  - finalized should be when in a finalized block on Ethereum (not just likely to be)
-:::
-
 Below, we outline the stages of confirmation.
 
 1. Executed locally
@@ -200,7 +197,7 @@ Below, we outline the stages of confirmation.
     - users no longer need to actively do anything
 3. In the highest ranking proposed block
 4. In the highest ranking proposed block, with a valid prover commitment 
-5. In the highest ranking proposed block with proofs available on the DA Layer (L1)
+5. In the highest ranking proposed block with effects available on the DA Layer
 6. In a proven block that has been verified / validated by the L1 rollup contracts
 7. In a proven block that has been finalized on the L1
 
@@ -223,10 +220,25 @@ Contract --> Contract: verifies block
 Contract --> Contract: waits N more blocks
 Contract --> Contract: finalizes block
 Network --> Contract: updates state to reflect finality
-Anyone ->> Network: confirms on their own node or block explorer they paid their rent
+Anyone ->> Network: confirms on their own node or block explorer
 ```
 
-![image](./images/Aztec-Block-Production-2.png)
+<!--![image](./images/Aztec-Block-Production-2.png)-->
+
+```mermaid
+journey
+    title Wallet use case, basic transfer (tx confirmation happy path)
+    section User Device
+      Proof generated: 0: User
+      Broadcast Tx: 0: User
+    section Network
+      In highest ranking proposal: 2: Sequencer
+      Proposal with valid prover commitment: 3: Sequencer
+      Tx effects available on DA: 4: Sequencer
+    section L1
+      Tx in block verified on L1: 6: Sequencer
+      Tx in block finalized on L1: 7: Sequencer
+```
 
 ## Economics 
 In the current Aztec model, it's expected that block rewards in the native token are allocated to the sequencer, the prover, and the entity submitting the rollup to L1 for verification. Sequencers retain the block's fees and MEV (Maximal Extractable Value). A potential addition in consideration is the implementation of MEV or fee burn. The ratio of the distribution is to be determined, via modeling and simulation.
@@ -240,7 +252,7 @@ With the rest of the protocol _mostly_ well defined, Aztec Labs now expects to b
 ## Mev-boost
 :::success
 ##### About MEV on Aztec
-Within the Aztec Network, "MEV" (Maximal Extractable Value) can be considered "mitigated", compared to "public" blockchains where all transaction contents and their resulting state transitions are public. In Aztec's case, MEV is _generally_ only applicable to [public functions](#) and those tranactions that touch publicly viewable state. 
+Within the Aztec Network, "MEV" (Maximal Extractable Value) can be considered "mitigated", compared to "public" blockchains where all transaction contents and their resulting state transitions are public. In Aztec's case, MEV is _generally_ only applicable to [public functions](#) and those transactions that touch publicly viewable state. 
 :::
 
 It is expected that any Aztec sequencer client software will initially ship with some form of first price or priority gas auction for transaction ordering. Meaning that in general, transactions paying higher fees will get included earlier in the network's transaction history. Similar to Layer-1, eventually an opt-in, open source implementation of "out of protocol proposer builder separation" (PBS) such as [mev-boost](https://boost.flashbots.net/) will likely emerge within the community, giving sequencers an easier to access way to earn more money during their periods as sequencers. This is an active area of research. 
@@ -250,9 +262,9 @@ It is likely that this proving ecosystem will emerge around a [flashbots mev-boo
 
 Specifically, Proof boost is expected to be open source software sequencers can optionally run alongside their clients that will facilitate a negotiation for the rights to prove this block, therefore earning block rewards in the form of the native protocol token. After the negotiation, the sequencer will commit to an address, and that address will need to put up an economic commitment (deposit) that will be slashed in the event that the block's proofs are not produced within the alloted timeframe.
 
-![image](https://hackmd.io/_uploads/r19NeMlPp.png)
+![image](./images/Aztec-Block-Production-3.png)
 
-Initially it's expected that the negotiations and commitment could be facilitated by a trusted relay, similar to L1 block building, but options such as onchain proving pools are under consideration. Due to the out of protocol nature of [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428), these designs can be iterated and improved upon outside the scope of other Aztec related governance or upgrades - as long as they maintain compatability with the currently utilized proving system(s). Eventually, any upgrade or governance mechanism may choose to enshrine a specific well adopted proving protocol, if it makes sense to do so.
+Initially it's expected that the negotiations and commitment could be facilitated by a trusted relay, similar to L1 block building, but options such as onchain proving pools are under consideration. Due to the out of protocol nature of [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428), these designs can be iterated and improved upon outside the scope of other Aztec related governance or upgrades - as long as they maintain compatibility with the currently utilized proving system(s). Eventually, any upgrade or governance mechanism may choose to enshrine a specific well adopted proving protocol, if it makes sense to do so.
 
 ## Diagrams
 
@@ -295,10 +307,6 @@ Sequencers --> Sequencers: wait 7 days
 
 #### Voting on upgrades
 
-:::danger TODO
-- The flag would probably be something like `proposal|vote` where proposal is a id and vote is `yes|no|abstain`. 
-:::
-
 In the initial implementation of Aztec, sequencers may vote on upgrades alongside block proposals. If they wish to vote alongside an upgrade, they signal by updating their client software or an environment configuration variable. If they wish to vote no or abstain, they do nothing. Because the "election" is randomized, the voting acts as a random sampling throughout the current sequencer set. This implies that the specific duration of the vote must be sufficiently long and RANDAO sufficiently randomized to ensure that the sampling is reasonably distributed.
 
 ```mermaid
@@ -311,7 +319,7 @@ participant Provers
 
 loop Happy Path Block Production
     Sequencers --> Sequencers: Generate random hashes and rank them
-    Sequencers ->> Contract: Propose block + flag that they desire to upgrade
+    Sequencers ->> Contract: Propose block + indicate that they desire to upgrade
     Note right of Contract: Proposal phase is over!
     Contract ->> Network: calculates highest ranking proposal + vote
     Sequencers ->> Provers: negotiates the cost to prove
