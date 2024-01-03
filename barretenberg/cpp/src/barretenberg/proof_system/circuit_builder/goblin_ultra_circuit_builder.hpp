@@ -98,17 +98,16 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
         , op_queue(op_queue_in)
     {
-        // Add the variables and public inputs known directly from acir
+        // Add the witness variables known directly from acir
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
             // be "set" later on via the assert_equal mechanism.
             auto value = idx < witness_values.size() ? witness_values[idx] : 0;
-            if (std::find(public_inputs.begin(), public_inputs.end(), idx) != public_inputs.end()) {
-                this->add_public_variable(value);
-            } else {
-                this->add_variable(value);
-            }
+            this->add_variable(value);
         }
+
+        // Add the public_inputs from acir
+        this->public_inputs = public_inputs;
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
