@@ -32,7 +32,7 @@ use dep::protocol_types::{
         storage_update_request::StorageUpdateRequest,
     },
     hash::hash_args,
-    point::Point,
+    grumpkin_point::GrumpkinPoint,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -316,7 +316,7 @@ impl PrivateContext {
                     global_variables_hash: reader.read(),
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point {
+                    deployer_public_key: GrumpkinPoint {
                       x: reader.read(), 
                       y: reader.read()
                     },
