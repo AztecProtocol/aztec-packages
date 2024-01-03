@@ -11,7 +11,6 @@ use dep::types::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_READ_REQUESTS_PER_TX,
@@ -76,11 +75,11 @@ impl PrivateKernelInputsOrdering {
             let nullifier_commitment_hint = self.nullifier_commitment_hints[n_idx];
             let hint_pos = nullifier_commitment_hint as u64;
 
-            // Nullified_commitment of value `EMPTY_NULLIFIED_COMMITMENT` implies non-transient (persistable)
+            // Nullified_commitment of value `0` implies non-transient (persistable)
             // nullifier in which case no attempt will be made to match it to a commitment.
             // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a commitment below!
             // 0-valued nullified_commitment is empty and will be ignored
-            if (nullified_commitment != 0) & (nullified_commitment != EMPTY_NULLIFIED_COMMITMENT) {
+            if nullified_commitment != 0 {
                 assert(hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64, "New nullifier is transient but hint is invalid");
                 assert_eq(nullified_commitment, new_commitments[hint_pos].value, "Hinted commitment does not match");
                 // match found!

@@ -15,7 +15,6 @@ use dep::types::{
     address::{AztecAddress, EthAddress},
     contrakt::deployment_data::ContractDeploymentData,
     constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_NULLIFIERS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
@@ -214,8 +213,6 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
         if new_nullifier.value != 0 {
             let siloed_note_hash = if new_nullifier.note_hash == 0 {
                 0
-            } else if new_nullifier.note_hash == EMPTY_NULLIFIED_COMMITMENT {
-                EMPTY_NULLIFIED_COMMITMENT
             } else {
                 silo_commitment(storage_contract_address, new_nullifier.note_hash)
             };
@@ -350,7 +347,7 @@ pub fn contract_logic(
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
         public_inputs.end.new_nullifiers.push(
-            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: EMPTY_NULLIFIED_COMMITMENT, counter: 0 }
+            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 0 }
         );
     } else {
         // non-contract deployments must specify contract address being interacted with

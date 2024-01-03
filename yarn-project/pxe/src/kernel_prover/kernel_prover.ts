@@ -3,7 +3,6 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CallRequest,
-  EMPTY_NULLIFIED_COMMITMENT,
   Fr,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -307,7 +306,7 @@ export class KernelProver {
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedCommitments[i].isZero() && !nullifiedCommitments[i].equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
+      if (!nullifiedCommitments[i].isZero()) {
         const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
         const result = commitments.findIndex(equalToCommitment);
         if (result == -1) {

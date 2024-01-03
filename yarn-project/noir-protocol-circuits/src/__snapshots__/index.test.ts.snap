@@ -6538,7 +6538,7 @@ KernelCircuitPublicInputs {
           },
         },
         "noteHash": Fr {
-          "asBigInt": 1000000n,
+          "asBigInt": 0n,
           "asBuffer": {
             "data": [
               0,
@@ -6570,9 +6570,9 @@ KernelCircuitPublicInputs {
               0,
               0,
               0,
-              15,
-              66,
-              64,
+              0,
+              0,
+              0,
             ],
             "type": "Buffer",
           },
@@ -6782,7 +6782,7 @@ KernelCircuitPublicInputs {
           },
         },
         "noteHash": Fr {
-          "asBigInt": 1000000n,
+          "asBigInt": 0n,
           "asBuffer": {
             "data": [
               0,
@@ -6814,9 +6814,9 @@ KernelCircuitPublicInputs {
               0,
               0,
               0,
-              15,
-              66,
-              64,
+              0,
+              0,
+              0,
             ],
             "type": "Buffer",
           },

@@ -15,7 +15,6 @@ use dep::protocol_types::{
         EthAddress,
     },
     constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,
@@ -193,17 +192,10 @@ impl PrivateContext {
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    // We never push a zero nullified_commitment as zero is used to indicate the end
-    // of a field array in private kernel. This routine transparently replaces a
-    // zero value into the special placeholder: EMPTY_NULLIFIED_COMMITMENT.
     pub fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
-        let mut non_zero_nullified = nullified_commitment;
-        if (non_zero_nullified == 0) {
-            non_zero_nullified = EMPTY_NULLIFIED_COMMITMENT;
-        }
         let side_effect = SideEffectLinkedToNoteHash {
             value: nullifier,
-            note_hash: non_zero_nullified,
+            note_hash: nullified_commitment,
             counter: self.side_effect_counter,
         };
         self.new_nullifiers.push(side_effect);
@@ -232,7 +224,7 @@ impl PrivateContext {
         let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, self.this_address(), self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        self.push_new_nullifier(nullifier, 0)
     }
     // docs:end:consume_l1_to_l2_message
 
@@ -570,7 +562,7 @@ impl PublicContext {
     pub fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
         let side_effect = SideEffectLinkedToNoteHash {
             value: nullifier,
-            note_hash: EMPTY_NULLIFIED_COMMITMENT, // cannot nullify pending notes in public context
+            note_hash: 0, // cannot nullify pending notes in public context
             counter: self.side_effect_counter
         };
         self.new_nullifiers.push(side_effect);
@@ -588,7 +580,7 @@ impl PublicContext {
         let nullifier = process_l1_to_l2_message(self.block_header.l1_to_l2_messages_tree_root, this, self.this_portal_address(), self.chain_id(), self.version(), msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        self.push_new_nullifier(nullifier, 0)
     }
 
     pub fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {

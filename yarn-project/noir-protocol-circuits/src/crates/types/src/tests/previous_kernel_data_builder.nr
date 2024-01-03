@@ -21,7 +21,6 @@ use crate::{
     transaction::context::TxContext,
 };
 use crate::constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
@@ -47,7 +46,7 @@ impl PreviousKernelDataBuilder {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         end.new_nullifiers.push(SideEffectLinkedToNoteHash{
             value: 321,
-            note_hash: EMPTY_NULLIFIED_COMMITMENT,
+            note_hash: 0,
             counter: 0
         }); // 0th nullifier must be non-zero.
 

@@ -7,7 +7,6 @@ use dep::types::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, KernelCircuitPublicInputsBuilder},
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    constants::EMPTY_NULLIFIED_COMMITMENT,
     mocked::{Proof, verify_previous_kernel_state},
     transaction::request::TxRequest,
     utils::arrays::{is_empty_array, is_empty_struct_array},
@@ -69,7 +68,7 @@ impl PrivateKernelInputsInit {
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
         public_inputs.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
             value: self.tx_request.hash(),
-            note_hash: EMPTY_NULLIFIED_COMMITMENT,
+            note_hash: 0,
             counter: 0,
         });
 

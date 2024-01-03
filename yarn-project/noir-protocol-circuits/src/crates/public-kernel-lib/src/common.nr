@@ -19,7 +19,6 @@ use dep::types::{
         storage_update_request::StorageUpdateRequest,
     },
     constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
         MAX_NEW_COMMITMENTS_PER_CALL,
         MAX_NEW_NULLIFIERS_PER_CALL,

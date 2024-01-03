@@ -2,7 +2,6 @@ contract EasyPrivateVoting {
     // docs:start:imports
     use dep::protocol_types::{
         address::AztecAddress,
-        constants::EMPTY_NULLIFIED_COMMITMENT,
     };
     use dep::aztec::{
         context::{PrivateContext, Context},
@@ -74,7 +73,7 @@ contract EasyPrivateVoting {
     fn cast_vote(candidate: Field) {
         let secret = get_secret_key(context.msg_sender()); // get secret key of caller of function
         let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret.low, secret.high]); // compute nullifier with this secret key so others can't descrypt it
-        context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT); // push nullifier
+        context.push_new_nullifier(nullifier, 0); // push nullifier
         context.call_public_function(
             context.this_address(),
             compute_selector("add_to_tally_public(Field)"),
