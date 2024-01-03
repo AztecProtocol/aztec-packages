@@ -66,13 +66,13 @@ impl PrivateKernelInputsOrdering {
     fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
-        let nullified_commitments = public_inputs.end.nullified_commitments.storage;
         let mut new_commitments = public_inputs.end.new_commitments.storage;
         let mut new_nullifiers = public_inputs.end.new_nullifiers.storage;
 
         for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            let nullifier = new_nullifiers[n_idx];
             // TODO - should not be able to squash the first nullifier.
-            let nullified_commitment = nullified_commitments[n_idx];
+            let nullified_commitment = nullifier.note_hash;
             let nullifier_commitment_hint = self.nullifier_commitment_hints[n_idx];
             let hint_pos = nullifier_commitment_hint as u64;
 
@@ -80,7 +80,7 @@ impl PrivateKernelInputsOrdering {
             // nullifier in which case no attempt will be made to match it to a commitment.
             // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a commitment below!
             // 0-valued nullified_commitment is empty and will be ignored
-            if (nullified_commitments[n_idx] != 0) & (nullified_commitments[n_idx] != EMPTY_NULLIFIED_COMMITMENT) {
+            if (nullified_commitment != 0) & (nullified_commitment != EMPTY_NULLIFIED_COMMITMENT) {
                 assert(hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64, "New nullifier is transient but hint is invalid");
                 assert_eq(nullified_commitment, new_commitments[hint_pos].value, "Hinted commitment does not match");
                 // match found!
@@ -148,9 +148,6 @@ impl PrivateKernelInputsOrdering {
         
         // Do this before any functions can modify the inputs.
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
-
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
-        // len(nullified_commitments)`
 
         self.match_reads_to_commitments(&mut public_inputs);
 
@@ -231,7 +228,7 @@ mod tests {
         }
         
         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {
-            self.previous_kernel.end.nullified_commitments.storage[nullifier_index] = self.previous_kernel.end.new_commitments.get(commitment_index).value;
+            self.previous_kernel.end.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.end.new_commitments.get(commitment_index).value;
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
         }
 

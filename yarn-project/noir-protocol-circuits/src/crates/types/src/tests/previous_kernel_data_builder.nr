@@ -47,9 +47,9 @@ impl PreviousKernelDataBuilder {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
         end.new_nullifiers.push(SideEffectLinkedToNoteHash{
             value: 321,
-            note_hash: 0,
-            counter: 0}); // 0th nullifier must be non-zero.
-        end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
+            note_hash: EMPTY_NULLIFIED_COMMITMENT,
+            counter: 0
+        }); // 0th nullifier must be non-zero.
 
         let tx_context = build_tx_context(false);
 

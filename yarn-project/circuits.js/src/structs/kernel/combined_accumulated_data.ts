@@ -309,11 +309,6 @@ export class CombinedAccumulatedData {
      */
     public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
      * Current private call stack.
      */
     public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -367,7 +362,6 @@ export class CombinedAccumulatedData {
       this.readRequests,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -398,7 +392,6 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -419,7 +412,6 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       finalData.newCommitments,
       finalData.newNullifiers,
-      finalData.nullifiedCommitments,
       finalData.privateCallStack,
       finalData.publicCallStack,
       finalData.newL2ToL1Msgs,
@@ -449,7 +441,6 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
@@ -483,11 +474,6 @@ export class FinalAccumulatedData {
      * The new nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      * TODO(#3417): Given this field must empty, should we just remove it?
@@ -534,7 +520,6 @@ export class FinalAccumulatedData {
       this.aggregationObject,
       this.newCommitments,
       this.newNullifiers,
-      this.nullifiedCommitments,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -562,7 +547,6 @@ export class FinalAccumulatedData {
       reader.readObject(AggregationObject),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -589,7 +573,6 @@ export class FinalAccumulatedData {
       AggregationObject.makeFake(),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),

@@ -35,7 +35,6 @@ struct PrivateCircuitPublicInputs {
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
     // todo: add the notehash to these, for squashing
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
-    nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
 
     // todo: include counters as part of the hash?
     private_call_stack_hashes: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
@@ -75,7 +74,6 @@ impl PrivateCircuitPublicInputs {
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
             fields.push_array(self.new_nullifiers[i].serialize());
         }
-        fields.push_array(self.nullified_commitments);
         fields.push_array(self.private_call_stack_hashes);
         fields.push_array(self.public_call_stack_hashes);
         fields.push_array(self.new_l2_to_l1_msgs);
@@ -119,6 +117,21 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
+
+        assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+
         fields.storage
     }
+}
+
+#[test]
+fn serialization_smoke() {
+    let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let _serialized = pcpi.serialize();
+}
+
+#[test]
+fn hash_smoke() {
+    let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let _hashed = pcpi.hash();
 }

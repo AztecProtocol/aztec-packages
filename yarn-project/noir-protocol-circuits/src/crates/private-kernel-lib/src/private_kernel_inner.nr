@@ -507,15 +507,6 @@ mod tests {
     }
 
     #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_nullified_commitments() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.nullified_commitments.push_array([0, EMPTY_NULLIFIED_COMMITMENT]);
-        
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
     fn input_validation_malformed_arrays_private_call_stack() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 

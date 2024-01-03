@@ -71,11 +71,7 @@ impl PrivateKernelInputsInit {
             value: self.tx_request.hash(),
             note_hash: EMPTY_NULLIFIED_COMMITMENT,
             counter: 0,
-            });
-        
-        // Push an empty nullified commitment too since each nullifier must
-        // be paired with a nonzero (real or "empty") nullified commitment
-        public_inputs.end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
+        });
 
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
@@ -307,15 +303,6 @@ mod tests {
             SideEffectLinkedToNoteHash { value: 9123, note_hash: 0, counter: 1 }
         ]
         );
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_nullified_commitments() {
-        let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
-
-        builder.private_call.public_inputs.nullified_commitments.push_array([0, 9123]);
 
         builder.failed();
     }

@@ -113,9 +113,6 @@ describe('Private kernel', () => {
       Fr.ZERO,
     );
 
-    const nullifiedCommitments = makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, () => Fr.ZERO);
-    nullifiedCommitments[0] = Fr.fromString('0x0f4240');
-
     const callContext = new CallContext(
       AztecAddress.ZERO,
       contractAddress,
@@ -145,7 +142,6 @@ describe('Private kernel', () => {
       makeTuple(MAX_READ_REQUESTS_PER_CALL, () => SideEffect.empty()),
       newCommitments,
       newNullifiers,
-      nullifiedCommitments,
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, () => Fr.ZERO),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => Fr.ZERO),
@@ -223,16 +219,11 @@ describe('Private kernel', () => {
       Fr.ZERO,
     );
 
-    const nullifiedCommitments = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => Fr.ZERO);
-    nullifiedCommitments[0] = Fr.fromString('0x0f4240');
-    nullifiedCommitments[1] = Fr.fromString('0x0f4240');
-
     const combinedAccumulatedData = new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty()),
       newCommitments,
       newNullifiers,
-      nullifiedCommitments,
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty()),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, () => CallRequest.empty()),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, () => new Fr(0n)),

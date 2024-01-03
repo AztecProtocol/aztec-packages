@@ -85,7 +85,6 @@ export interface CombinedAccumulatedData {
   read_requests: FixedLengthArray<SideEffect, 128>;
   new_commitments: FixedLengthArray<SideEffect, 64>;
   new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
-  nullified_commitments: FixedLengthArray<Field, 64>;
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
@@ -164,7 +163,6 @@ export interface FinalAccumulatedData {
   aggregation_object: AggregationObject;
   new_commitments: FixedLengthArray<SideEffect, 64>;
   new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
-  nullified_commitments: FixedLengthArray<Field, 64>;
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;

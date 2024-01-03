@@ -180,7 +180,6 @@ export function extractPrivateCircuitPublicInputs(
   const readRequests = witnessReader.readSideEffectArray(MAX_READ_REQUESTS_PER_CALL);
   const newCommitments = witnessReader.readSideEffectArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readSideEffectLinkedToNoteHashArray(MAX_NEW_NULLIFIERS_PER_CALL);
-  const nullifiedCommitments = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
@@ -219,7 +218,6 @@ export function extractPrivateCircuitPublicInputs(
     readRequests,
     newCommitments,
     newNullifiers,
-    nullifiedCommitments,
     privateCallStack,
     publicCallStack,
     newL2ToL1Msgs,

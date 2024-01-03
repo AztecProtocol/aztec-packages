@@ -49,10 +49,6 @@ export class PrivateCircuitPublicInputs {
      */
     public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
-     * The commitments those were nullified by the above newNullifiers.
-     */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
-    /**
      * Private call stack at the current kernel iteration.
      */
     public privateCallStackHashes: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
@@ -125,7 +121,6 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
@@ -152,7 +147,6 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
@@ -179,7 +173,6 @@ export class PrivateCircuitPublicInputs {
       isSideEffectArrayEmpty(this.readRequests) &&
       isSideEffectArrayEmpty(this.newCommitments) &&
       isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
-      isFrArrayEmpty(this.nullifiedCommitments) &&
       isFrArrayEmpty(this.privateCallStackHashes) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
@@ -207,7 +200,6 @@ export class PrivateCircuitPublicInputs {
       fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,
-      fields.nullifiedCommitments,
       fields.privateCallStackHashes,
       fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,

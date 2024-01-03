@@ -32,9 +32,6 @@ struct CombinedAccumulatedData {
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
-    // TODO: delete nullified_commitments
-    nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
@@ -61,11 +58,6 @@ struct FinalAccumulatedData {
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
-    // TODO: delete nullified_commitments
-    nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-
-    // For pending nullifiers, we have:
-    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
     private_call_stack: [CallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
@@ -90,7 +82,6 @@ struct CombinedAccumulatedDataBuilder {
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
@@ -122,7 +113,6 @@ impl CombinedAccumulatedDataBuilder {
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
 
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
@@ -154,7 +144,6 @@ impl CombinedAccumulatedDataBuilder {
 
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
 
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,

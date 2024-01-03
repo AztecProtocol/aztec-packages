@@ -544,7 +544,6 @@ function computePrivateInputsHash(input: PrivateCircuitPublicInputs) {
       .map(selinked => selinked.toFieldArray())
       .flat()
       .map(fr => fr.toBuffer()),
-    ...input.nullifiedCommitments.map(fr => fr.toBuffer()),
     ...input.privateCallStackHashes.map(fr => fr.toBuffer()),
     ...input.publicCallStackHashes.map(fr => fr.toBuffer()),
     ...input.newL2ToL1Msgs.map(fr => fr.toBuffer()),
