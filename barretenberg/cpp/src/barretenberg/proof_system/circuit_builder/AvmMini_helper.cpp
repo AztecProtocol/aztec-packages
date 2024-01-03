@@ -1,9 +1,4 @@
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
-
-#include "./AvmMini_helper.hpp"
-#include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
-#include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
+#include "AvmMini_helper.hpp"
 
 namespace proof_system {
 

@@ -8,8 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "./AvmMini_trace.hpp"
-#include "./generated/AvmMini_circuit_builder.hpp"
+#include "AvmMini_trace.hpp"
 
 namespace proof_system {
 
