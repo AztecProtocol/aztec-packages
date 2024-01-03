@@ -121,7 +121,7 @@ impl PublicCallDataBuilder {
     }
 
     pub fn append_read_requests(&mut self, num_reads: Field) {
-        let value_offset = self.public_inputs.contract_storage_reads.len();
+        let value_offset = self.public_inputs.storage_reads.len();
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i as u64 < num_reads as u64 {
                 let read_request = StorageRead {
@@ -130,7 +130,7 @@ impl PublicCallDataBuilder {
                     // The default value is its index + 999.
                     current_value: value_offset + i + 999,
                 };
-                self.public_inputs.contract_storage_reads.push(read_request);
+                self.public_inputs.storage_reads.push(read_request);
             }
         }
     }
@@ -138,13 +138,13 @@ impl PublicCallDataBuilder {
     pub fn append_empty_read_requests(&mut self, num_reads: Field) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i as u64 < num_reads as u64 {
-                self.public_inputs.contract_storage_reads.push(StorageRead::empty());
+                self.public_inputs.storage_reads.push(StorageRead::empty());
             }
         }
     }
 
     pub fn append_update_requests(&mut self, num_updates: Field) {
-        let value_offset = self.public_inputs.contract_storage_update_requests.len();
+        let value_offset = self.public_inputs.storage_update_requests.len();
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i as u64 < num_updates as u64 {
                 let update_request = StorageUpdateRequest {
@@ -155,7 +155,7 @@ impl PublicCallDataBuilder {
                     // The default value is its index + 890.
                     new_value: value_offset + i + 890,
                 };
-                self.public_inputs.contract_storage_update_requests.push(update_request);
+                self.public_inputs.storage_update_requests.push(update_request);
             }
         }
     }
@@ -163,7 +163,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_update_requests(&mut self, num_updates: Field) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i as u64 < num_updates as u64 {
-                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
+                self.public_inputs.storage_update_requests.push(StorageUpdateRequest::empty());
             }
         }
     }

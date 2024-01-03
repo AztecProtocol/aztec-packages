@@ -30,8 +30,8 @@ struct PublicCircuitPublicInputs{
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
 
-    contract_storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-    contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
+    storage_update_requests: [StorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+    storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
@@ -57,10 +57,10 @@ impl PublicCircuitPublicInputs{
         inputs.push(self.args_hash);
         inputs.push_array(self.return_values);
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
-            inputs.push(self.contract_storage_update_requests[i].hash());
+            inputs.push(self.storage_update_requests[i].hash());
         }
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
-            inputs.push(self.contract_storage_reads[i].hash());
+            inputs.push(self.storage_reads[i].hash());
         }
         inputs.push_array(self.public_call_stack_hashes);
         inputs.push_array(self.new_commitments);
@@ -82,10 +82,10 @@ impl PublicCircuitPublicInputs{
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
-            fields.push_array(self.contract_storage_update_requests[i].serialize());
+            fields.push_array(self.storage_update_requests[i].serialize());
         }
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
-            fields.push_array(self.contract_storage_reads[i].serialize());
+            fields.push_array(self.storage_reads[i].serialize());
         }
         fields.push_array(self.public_call_stack_hashes);
         fields.push_array(self.new_commitments);

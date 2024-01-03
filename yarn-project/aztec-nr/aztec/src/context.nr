@@ -399,8 +399,8 @@ impl PrivateContext {
                 },
                 args_hash: fields[12],
                 return_values: [0; RETURN_VALUES_LENGTH],
-                contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-                contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
+                storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
                 new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
@@ -438,8 +438,8 @@ struct PublicContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
-    contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
+    storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
+    storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
     new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
@@ -464,8 +464,8 @@ impl PublicContext {
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            contract_storage_update_requests: BoundedVec::new(empty_storage_update),
-            contract_storage_reads: BoundedVec::new(empty_storage_read),
+            storage_update_requests: BoundedVec::new(empty_storage_update),
+            storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
 
             new_commitments: BoundedVec::new(0),
@@ -528,8 +528,8 @@ impl PublicContext {
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
-            contract_storage_update_requests: self.contract_storage_update_requests.storage,
-            contract_storage_reads: self.contract_storage_reads.storage,
+            storage_update_requests: self.storage_update_requests.storage,
+            storage_reads: self.storage_reads.storage,
             return_values: self.return_values.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,

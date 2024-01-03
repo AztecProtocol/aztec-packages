@@ -1054,11 +1054,8 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
-    contract_storage_update_requests: mapTuple(
-      publicInputs.contractStorageUpdateRequests,
-      mapStorageUpdateRequestToNoir,
-    ),
-    contract_storage_reads: mapTuple(publicInputs.contractStorageReads, mapStorageReadToNoir),
+    storage_update_requests: mapTuple(publicInputs.contractStorageUpdateRequests, mapStorageUpdateRequestToNoir),
+    storage_reads: mapTuple(publicInputs.contractStorageReads, mapStorageReadToNoir),
     public_call_stack_hashes: mapTuple(publicInputs.publicCallStackHashes, mapFieldToNoir),
     new_commitments: mapTuple(publicInputs.newCommitments, mapFieldToNoir),
     new_nullifiers: mapTuple(publicInputs.newNullifiers, mapFieldToNoir),

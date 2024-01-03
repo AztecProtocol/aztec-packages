@@ -167,8 +167,8 @@ export interface PublicCircuitPublicInputs {
   call_context: CallContext;
   args_hash: Field;
   return_values: FixedLengthArray<Field, 4>;
-  contract_storage_update_requests: FixedLengthArray<StorageUpdateRequest, 16>;
-  contract_storage_reads: FixedLengthArray<StorageRead, 16>;
+  storage_update_requests: FixedLengthArray<StorageUpdateRequest, 16>;
+  storage_reads: FixedLengthArray<StorageRead, 16>;
   public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_commitments: FixedLengthArray<Field, 16>;
   new_nullifiers: FixedLengthArray<Field, 16>;

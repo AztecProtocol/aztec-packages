@@ -105,11 +105,10 @@ void common_validate_call_stack(DummyBuilder& builder, KernelInput const& public
                                  "; does not reconcile for a delegate call"),
                           CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_INVALID_PORTAL_ADDRESS);
 
-        const auto num_contract_storage_update_requests =
-            array_length(preimage.public_inputs.contract_storage_update_requests);
+        const auto num_storage_update_requests = array_length(preimage.public_inputs.storage_update_requests);
         builder.do_assert(
-            !is_static_call || num_contract_storage_update_requests == 0,
-            format("contract_storage_update_requests[", i, "] should be empty for a static call"),
+            !is_static_call || num_storage_update_requests == 0,
+            format("storage_update_requests[", i, "] should be empty for a static call"),
             CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_CONTRACT_STORAGE_UPDATES_PROHIBITED_FOR_STATIC_CALL);
     }
 };
@@ -128,17 +127,15 @@ void common_validate_call_context(DummyBuilder& builder, KernelInput const& publ
     const auto is_static_call = call_stack_item.public_inputs.call_context.is_static_call;
     const auto contract_address = call_stack_item.contract_address;
     const auto storage_contract_address = call_stack_item.public_inputs.call_context.storage_contract_address;
-    const auto contract_storage_update_requests_length =
-        array_length(call_stack_item.public_inputs.contract_storage_update_requests);
+    const auto storage_update_requests_length = array_length(call_stack_item.public_inputs.storage_update_requests);
 
     builder.do_assert(!is_delegate_call || contract_address != storage_contract_address,
                       std::string("curent contract address must not match storage contract address for delegate calls"),
                       CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 
-    builder.do_assert(
-        !is_static_call || contract_storage_update_requests_length == 0,
-        std::string("No contract storage update requests are allowed for static calls"),
-        CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
+    builder.do_assert(!is_static_call || storage_update_requests_length == 0,
+                      std::string("No contract storage update requests are allowed for static calls"),
+                      CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL);
 };
 
 /**
@@ -227,7 +224,7 @@ void propagate_valid_public_data_update_requests(Builder& builder,
 {
     const auto& contract_address = public_kernel_inputs.public_call.call_stack_item.contract_address;
     const auto& update_requests =
-        public_kernel_inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests;
+        public_kernel_inputs.public_call.call_stack_item.public_inputs.storage_update_requests;
     for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; ++i) {
         const auto& update_request = update_requests[i];
         if (update_request.is_empty()) {
@@ -258,7 +255,7 @@ void propagate_valid_public_data_reads(Builder& builder,
                                        KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
     const auto& contract_address = public_kernel_inputs.public_call.call_stack_item.contract_address;
-    const auto& reads = public_kernel_inputs.public_call.call_stack_item.public_inputs.contract_storage_reads;
+    const auto& reads = public_kernel_inputs.public_call.call_stack_item.public_inputs.storage_reads;
     for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; ++i) {
         const auto& contract_storage_read = reads[i];
         if (contract_storage_read.is_empty()) {

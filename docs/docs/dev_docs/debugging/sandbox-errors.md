@@ -116,7 +116,7 @@ Cannot call a contract with no function (i.e. function signature of 0) publicly.
 
 For static calls, no contract storage change requests are allowed.
 
-#### 3024 - PUBLIC_KERNEL\_\_CALL_CONTEXT_CONTRACT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL
+#### 3024 - PUBLIC_KERNEL\_\_CALL_CONTEXT_STORAGE_UPDATE_REQUESTS_PROHIBITED_FOR_STATIC_CALL
 
 Same as [3022](#3022---public_kernel__public_call_stack_contract_storage_updates_prohibited_for_static_call), no contract changes are allowed for static calls.
 
