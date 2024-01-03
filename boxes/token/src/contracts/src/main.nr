@@ -270,7 +270,7 @@ contract Token {
 
         storage.balances.at(from).sub(SafeU120::new(amount));
 
-        let selector = compute_selector("_increase_public_balance((Field),Field)");
+        let selector = FunctionSelector::from_signature("_increase_public_balance((Field),Field)");
         let _void = context.call_public_function(context.this_address(), selector, [to.to_field(), amount]);
     }
     // docs:end:unshield
