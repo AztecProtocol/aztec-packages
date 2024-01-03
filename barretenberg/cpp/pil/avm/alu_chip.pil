@@ -37,6 +37,9 @@ namespace aluChip(256);
     pol commit alu_u16_r6;
     pol commit alu_u16_r7;
 
+    // 64-bit slice register
+    pol commit alu_u64_r0;
+
     // Carry flag
     pol commit alu_cf;
 
@@ -92,7 +95,6 @@ namespace aluChip(256);
     pol sum_64 =  sum_32     + alu_u16_r2 * 2**32 + alu_u16_r3 * 2**48; 
     pol sum_96 =  sum_64     + alu_u16_r4 * 2**64 + alu_u16_r5 * 2**80;
     pol sum_128 = sum_96     + alu_u16_r6 * 2**96 + alu_u16_r7 * 2**112;
-
 
     // ========= ADDITION Operation Constraints ===============================
 
@@ -161,3 +163,36 @@ namespace aluChip(256);
     // u64 multiplication
     alu_u64_tag * alu_op_mul * (sum_128 - alu_ia * alu_ib) = 0;
     alu_u64_tag * alu_op_mul * (sum_64 - alu_ic) = 0;
+
+    // ========= u128 MULTIPLICATION Operation Constraints ===============================
+    //
+    // We express a, b in 64-bit slices: a = a_l + a_h * 2^64
+    //                                   b = b_l + b_h * 2^64
+    // We show that c satisfies: a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 = R * 2^128 + c
+    // for a R < 2^65. Equivalently:
+    // a * b_l + a_l * b_h * 2^64 = (CF * 2^65 + R') * 2^128 + c
+    // for a bit carry flag CF and R' range constrained to 64 bits.
+    // We use two lines in the execution trace. First line represents a 
+    // as decomposed over 16-bit registers. Second line represents b.
+    // Selector flag is only toggled in the first line and we access b through
+    // shifted polynomials.
+    // R' is stored in alu_u64_r0
+
+    // 64-bit higher limb
+    pol sum_high_64 = alu_u16_r4 + alu_u16_r5 * 2**16 + alu_u16_r6 * 2**32 + alu_u16_r7 * 2**48;
+
+    // 64-bit lower limb for next row
+    pol sum_shifted_64 = alu_u16_r0' + alu_u16_r1' * 2**16 + alu_u16_r2' * 2**32 + alu_u16_r3' * 2**48;
+
+    // 64-bit higher limb for next row
+    pol sum_high_shifted_64 = alu_u16_r4' + alu_u16_r5' * 2**16 + alu_u16_r6' * 2**32 + alu_u16_r7' * 2**48;
+
+    // Arithmetic relations
+    alu_u128_tag * alu_op_mul * (sum_64 + sum_high_64 * 2**64 - alu_ia) = 0;
+    alu_u128_tag * alu_op_mul * (sum_shifted_64 + sum_high_shifted_64 * 2**64 - alu_ib) = 0;
+    alu_u128_tag * alu_op_mul * (
+            alu_ia * sum_shifted_64
+          + sum_64 * sum_high_shifted_64 * 2**64
+          - (alu_cf * 2**65 + alu_u64_r0) * 2**128
+          - alu_ic
+        ) = 0;

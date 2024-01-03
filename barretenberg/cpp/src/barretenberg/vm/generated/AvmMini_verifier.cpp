@@ -98,6 +98,8 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u128_tag);
     commitments.aluChip_alu_u8_r0 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_r0);
+    commitments.aluChip_alu_u8_r1 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_r1);
     commitments.aluChip_alu_u16_r0 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r0);
     commitments.aluChip_alu_u16_r1 =
@@ -114,6 +116,8 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r6);
     commitments.aluChip_alu_u16_r7 =
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u16_r7);
+    commitments.aluChip_alu_u64_r0 =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u64_r0);
     commitments.aluChip_alu_cf = transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_cf);
     commitments.avmMini_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_pc);
     commitments.avmMini_internal_return_ptr =

@@ -29,6 +29,7 @@
     [[maybe_unused]] auto aluChip_alu_u64_tag = View(new_term.aluChip_alu_u64_tag);                                    \
     [[maybe_unused]] auto aluChip_alu_u128_tag = View(new_term.aluChip_alu_u128_tag);                                  \
     [[maybe_unused]] auto aluChip_alu_u8_r0 = View(new_term.aluChip_alu_u8_r0);                                        \
+    [[maybe_unused]] auto aluChip_alu_u8_r1 = View(new_term.aluChip_alu_u8_r1);                                        \
     [[maybe_unused]] auto aluChip_alu_u16_r0 = View(new_term.aluChip_alu_u16_r0);                                      \
     [[maybe_unused]] auto aluChip_alu_u16_r1 = View(new_term.aluChip_alu_u16_r1);                                      \
     [[maybe_unused]] auto aluChip_alu_u16_r2 = View(new_term.aluChip_alu_u16_r2);                                      \
@@ -37,6 +38,7 @@
     [[maybe_unused]] auto aluChip_alu_u16_r5 = View(new_term.aluChip_alu_u16_r5);                                      \
     [[maybe_unused]] auto aluChip_alu_u16_r6 = View(new_term.aluChip_alu_u16_r6);                                      \
     [[maybe_unused]] auto aluChip_alu_u16_r7 = View(new_term.aluChip_alu_u16_r7);                                      \
+    [[maybe_unused]] auto aluChip_alu_u64_r0 = View(new_term.aluChip_alu_u64_r0);                                      \
     [[maybe_unused]] auto aluChip_alu_cf = View(new_term.aluChip_alu_cf);                                              \
     [[maybe_unused]] auto avmMini_pc = View(new_term.avmMini_pc);                                                      \
     [[maybe_unused]] auto avmMini_internal_return_ptr = View(new_term.avmMini_internal_return_ptr);                    \
@@ -65,9 +67,17 @@
     [[maybe_unused]] auto avmMini_mem_idx_b = View(new_term.avmMini_mem_idx_b);                                        \
     [[maybe_unused]] auto avmMini_mem_idx_c = View(new_term.avmMini_mem_idx_c);                                        \
     [[maybe_unused]] auto avmMini_last = View(new_term.avmMini_last);                                                  \
-    [[maybe_unused]] auto avmMini_internal_return_ptr_shift = View(new_term.avmMini_internal_return_ptr_shift);        \
-    [[maybe_unused]] auto avmMini_pc_shift = View(new_term.avmMini_pc_shift);                                          \
     [[maybe_unused]] auto memTrace_m_tag_shift = View(new_term.memTrace_m_tag_shift);                                  \
-    [[maybe_unused]] auto memTrace_m_val_shift = View(new_term.memTrace_m_val_shift);                                  \
+    [[maybe_unused]] auto memTrace_m_rw_shift = View(new_term.memTrace_m_rw_shift);                                    \
     [[maybe_unused]] auto memTrace_m_addr_shift = View(new_term.memTrace_m_addr_shift);                                \
-    [[maybe_unused]] auto memTrace_m_rw_shift = View(new_term.memTrace_m_rw_shift);
+    [[maybe_unused]] auto memTrace_m_val_shift = View(new_term.memTrace_m_val_shift);                                  \
+    [[maybe_unused]] auto avmMini_pc_shift = View(new_term.avmMini_pc_shift);                                          \
+    [[maybe_unused]] auto avmMini_internal_return_ptr_shift = View(new_term.avmMini_internal_return_ptr_shift);        \
+    [[maybe_unused]] auto aluChip_alu_u16_r2_shift = View(new_term.aluChip_alu_u16_r2_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r0_shift = View(new_term.aluChip_alu_u16_r0_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r5_shift = View(new_term.aluChip_alu_u16_r5_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r6_shift = View(new_term.aluChip_alu_u16_r6_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r1_shift = View(new_term.aluChip_alu_u16_r1_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r7_shift = View(new_term.aluChip_alu_u16_r7_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r4_shift = View(new_term.aluChip_alu_u16_r4_shift);                          \
+    [[maybe_unused]] auto aluChip_alu_u16_r3_shift = View(new_term.aluChip_alu_u16_r3_shift);
