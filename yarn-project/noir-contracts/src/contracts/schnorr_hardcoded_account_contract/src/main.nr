@@ -58,10 +58,12 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        let verification = std::schnorr::verify_signature(public_key_x,
+        let verification = std::schnorr::verify_signature(
+            public_key_x,
             public_key_y,
             signature,
-            message_hash.to_be_bytes(32));
+            message_hash.to_be_bytes(32)
+        );
         assert(verification == true);
         true
     }

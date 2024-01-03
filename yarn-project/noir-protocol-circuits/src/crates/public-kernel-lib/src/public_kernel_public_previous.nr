@@ -5,7 +5,6 @@ use dep::types::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputsBui
 use crate::common;
 use dep::std::unsafe;
 
-
 struct PublicKernelPublicPreviousInputs {
     previous_kernel: PreviousKernelData,
     public_call: PublicCallData,
@@ -56,7 +55,7 @@ mod tests {
             compute_public_data_update_requests,
         },
     };
-     use dep::types::{
+    use dep::types::{
         abis::{
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             public_data_read::PublicDataRead,
@@ -80,7 +79,6 @@ mod tests {
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     };
-
 
     struct PublicKernelPublicPreviousInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,
@@ -234,17 +232,28 @@ mod tests {
         let prev_unencrypted_logs_hash = [956, 112];
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(prev_unencrypted_logs_hash, prev_unencrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
 
         let public_inputs = builder.execute();
-        assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, public_data_update_requests);
-        assert_eq_public_data_reads(public_inputs.end.public_data_reads, public_data_read_requests);
+        assert_eq_public_data_update_requests(
+            public_inputs.end.public_data_update_requests,
+            public_data_update_requests
+        );
+        assert_eq_public_data_reads(
+            public_inputs.end.public_data_reads,
+            public_data_read_requests
+        );
         assert(array_eq(public_inputs.end.new_commitments, new_commitments));
         assert(array_eq(public_inputs.end.new_nullifiers, new_nullifiers));
         assert(array_eq(public_inputs.end.new_l2_to_l1_msgs, new_l2_to_l1_msgs));
 
         assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
 
         assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
 

@@ -88,7 +88,10 @@ struct Deck {
     set: Set<ValueNote, VALUE_NOTE_LEN>,
 }
 
-pub fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desired_cards: [Card; N]) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
+pub fn filter_cards<N>(
+    notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL],
+    desired_cards: [Card; N]
+) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
@@ -210,8 +213,10 @@ pub fn get_pack_cards(seed: Field, owner: AztecAddress) -> [Card; PACK_CARDS] {
 }
 
 pub fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
-    cards.fold(0,
+    cards.fold(
+        0,
         |acc, card: Card| {
         acc + card.strength as Field
-    })
+    }
+    )
 }

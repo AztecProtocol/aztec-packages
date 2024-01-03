@@ -25,14 +25,20 @@ unconstrained pub fn get_membership_witness<N, M>(block_number: u32, tree_id: Fi
     MembershipWitness { index: fields[0], path: arr_copy_slice(fields, [0; N], 1) }
 }
 
-unconstrained pub fn get_contract_membership_witness(block_number: u32, leaf_value: Field) -> MembershipWitness<CONTRACT_TREE_HEIGHT, CONTRACT_TREE_HEIGHT + 1> {
+unconstrained pub fn get_contract_membership_witness(
+    block_number: u32,
+    leaf_value: Field
+) -> MembershipWitness<CONTRACT_TREE_HEIGHT, CONTRACT_TREE_HEIGHT + 1> {
     let contract_tree_id = 0; // TODO(#3443)
     get_membership_witness(block_number, contract_tree_id, leaf_value)
 }
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 
-unconstrained pub fn get_note_hash_membership_witness<N, M>(block_number: u32, leaf_value: Field) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
+unconstrained pub fn get_note_hash_membership_witness<N, M>(
+    block_number: u32,
+    leaf_value: Field
+) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
     let note_hash_tree_id = 2; // TODO(#3443)
     get_membership_witness(block_number, note_hash_tree_id, leaf_value)
 }
@@ -40,7 +46,10 @@ unconstrained pub fn get_note_hash_membership_witness<N, M>(block_number: u32, l
 // There is no `get_public_data_membership_witness` function because it doesn't make sense to be getting a membership
 // witness for a value in the public data tree.
 
-unconstrained pub fn get_archive_membership_witness(block_number: u32, leaf_value: Field) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {
+unconstrained pub fn get_archive_membership_witness(
+    block_number: u32,
+    leaf_value: Field
+) -> MembershipWitness<ARCHIVE_HEIGHT, ARCHIVE_HEIGHT + 1> {
     let archive_tree_id = 5; // TODO(#3443)
     get_membership_witness(block_number, archive_tree_id, leaf_value)
 }
