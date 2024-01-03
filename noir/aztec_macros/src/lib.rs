@@ -483,11 +483,12 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 
 /// Generates the impl for an event selector
 ///
+/// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
 /// Inserts the following code:
 /// ```noir
 /// impl SomeStruct {
 ///    fn selector() -> FunctionSelector {
-///       aztec::selector::compute_selector("SIGNATURE_PLACEHOLDER")
+///       protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
 ///    }
 /// }
 /// ```
@@ -499,7 +500,8 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     let struct_type = make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![]));
 
     let selector_fun_body = BlockExpression(vec![make_statement(StatementKind::Expression(call(
-        variable_path(chained_path!("aztec", "selector", "compute_selector")),
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
+        variable_path(chained_path!("protocol_types", "abis", "function_selector", "FunctionSelector", "from_signature")),
         vec![expression(ExpressionKind::Literal(Literal::Str(SIGNATURE_PLACEHOLDER.to_string())))],
     )))]);
 
