@@ -1,12 +1,12 @@
 contract EasyPrivateVoting {
     // docs:start:imports
     use dep::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::AztecAddress,
     };
     use dep::aztec::{
         context::{PrivateContext, Context},
         oracle::get_secret_key::get_secret_key, // used to compute nullifier
-        selector::compute_selector, // used to compute function selector for calling a function 
         state_vars::{ map::Map, public_state::PublicState,}, 
         types::type_serialization::{ // serialization methods for using booleans and aztec addresses
             bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
@@ -56,7 +56,7 @@ contract EasyPrivateVoting {
         context.call_public_function(
             // we cannot update public state directly from private function but we can call public function (which queues it)
             context.this_address(),// contract address whose method we want to call
-            compute_selector("_initialize((Field))"), // function selector
+            FunctionSelector::from_signature("_initialize((Field))"), // function selector
             [admin.to_field()] // parameters
         );
     }
@@ -76,7 +76,7 @@ contract EasyPrivateVoting {
         context.push_new_nullifier(nullifier, 0); // push nullifier
         context.call_public_function(
             context.this_address(),
-            compute_selector("add_to_tally_public(Field)"),
+            FunctionSelector::from_signature("add_to_tally_public(Field)"),
             [candidate]
         );
     }
