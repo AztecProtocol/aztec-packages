@@ -6,7 +6,7 @@ PRESET=${1:-xray}
 # pass "" to run and 1 to reuse old results
 ONLY_PROCESS=${2:-}
 # pass the executable name from build/bin
-EXECUTABLE=${3:-goblin_bench}
+EXECUTABLE=${3:-ultra_honk_rounds_bench}
 # by default run the executable, but we can provide an alt command e.g. use taskset and benchmark flags
 COMMAND=${4:-./bin/$EXECUTABLE}
 
@@ -42,12 +42,11 @@ function shorten_cpp_names() {
          '
 }
 
-  # | shorten_cpp_names \
-
 # Process benchmark file.
 llvm-xray-16 stack xray-log.$EXECUTABLE.* \
   --instr_map=./bin/$EXECUTABLE --stack-format=flame --aggregate-threads --aggregation-type=time --all-stacks \
   | node ../scripts/llvm_xray_stack_flame_corrector.js \
+  | shorten_cpp_names \
   | ../scripts/flamegraph.pl --width 1200 --fontsize 10 \
   > xray.svg
 echo "Profiling complete, now you can do e.g. 'scp mainframe:`readlink -f xray.svg` .' on a local terminal and open the SVG in a browser."
