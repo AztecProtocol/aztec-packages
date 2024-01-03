@@ -240,7 +240,7 @@ class Goblin {
 
         insert(accumulator.proof.proof_data);
 
-        // WORKTODO:
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator proof for now
         // std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
         // insert(goblin_proof);
 
@@ -256,7 +256,7 @@ class Goblin {
         GoblinUltraVerifier verifier{ accumulator.verification_key };
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
 
-        // WORKTODO
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator verification for now
         // const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         // auto goblin_proof = extract_goblin_proof(proof);
         // verified = verified && verify_for_acir(goblin_proof);
