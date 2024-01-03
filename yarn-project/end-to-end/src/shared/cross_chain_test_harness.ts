@@ -22,7 +22,7 @@ import {
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts/Token';
-import { TokenBridgeContract, } from '@aztec/noir-contracts/TokenBridge';
+import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
 

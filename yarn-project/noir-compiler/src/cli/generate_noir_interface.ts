@@ -1,8 +1,8 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import path from 'path';
 
 import { generateContractArtifact } from '../contract-interface-gen/abi.js';
 import { generateNoirContractInterface } from '../contract-interface-gen/noir.js';
-import path from 'path';
 
 /**
  *

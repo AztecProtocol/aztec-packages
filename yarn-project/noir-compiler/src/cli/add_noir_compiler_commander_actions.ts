@@ -53,10 +53,11 @@ export function addGenerateTypescriptCommanderAction(program: Command, _: LogFn 
     .command('generate-typescript')
     .argument('<noir-abi-path>', 'Path to the Noir ABI or project dir.')
     .option('-o, --outdir <path>', 'Output folder for the generated typescript.')
+    .option('-d, --debug', 'Include debug info.')
     .description('Generates TypeScript interface from the given abi.')
-    .action(async (noirAbiPath: string, { debugPath, outdir }) => {
+    .action(async (noirAbiPath: string, { debug, outdir }) => {
       const { generateTypescriptInterface } = await import('./generate_typescript_interface.js');
-      await generateTypescriptInterface(outdir || dirname(noirAbiPath), noirAbiPath);
+      generateTypescriptInterface(outdir || dirname(noirAbiPath), noirAbiPath, debug);
     });
 }
 
@@ -71,6 +72,6 @@ export function addGenerateNoirInterfaceCommanderAction(program: Command, _: Log
     .description('Generates Noir interfaces from the artifacts in the given project')
     .action(async (noirAbiPath: string, { outdir }) => {
       const { generateNoirInterface } = await import('./generate_noir_interface.js');
-      await generateNoirInterface(outdir || dirname(noirAbiPath), noirAbiPath);
+      generateNoirInterface(outdir || dirname(noirAbiPath), noirAbiPath);
     });
 }

@@ -1,7 +1,8 @@
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import path from 'path';
+
 import { generateContractArtifact } from '../contract-interface-gen/abi.js';
 import { generateTypescriptContractInterface } from '../contract-interface-gen/contractTypescript.js';
-import { existsSync, statSync, readdirSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import path from 'path';
 
 /**
  *
@@ -34,6 +35,9 @@ function generateTypescriptInterfaceFromNoirAbi(outputPath: string, noirAbiPath:
   writeFileSync(`${outputPath}/${aztecAbi.name}.json`, JSON.stringify(aztecAbi, undefined, 2));
 }
 
+/**
+ *
+ */
 function getDebugFilePath(filePath: string) {
   const dirname = path.dirname(filePath);
   const basename = path.basename(filePath);

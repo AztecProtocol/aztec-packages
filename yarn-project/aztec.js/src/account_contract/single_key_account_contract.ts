@@ -33,10 +33,7 @@ export class SingleKeyAccountContract extends BaseAccountContract {
  * by reconstructing the current address.
  */
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
-  constructor(
-    private privateKey: GrumpkinPrivateKey,
-    private partialAddress: PartialAddress,
-  ) {}
+  constructor(private privateKey: GrumpkinPrivateKey, private partialAddress: PartialAddress) {}
 
   createAuthWitness(message: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
