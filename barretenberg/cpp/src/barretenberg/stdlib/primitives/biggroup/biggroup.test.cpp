@@ -820,12 +820,17 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
 enum UseBigfield { No, Yes };
 using TestTypes = testing::Types<TestType<stdlib::bn254<proof_system::StandardCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<proof_system::UltraCircuitBuilder>, UseBigfield::Yes>>;
+                                 TestType<stdlib::bn254<proof_system::UltraCircuitBuilder>, UseBigfield::Yes>,
+                                 TestType<stdlib::bn254<proof_system::GoblinUltraCircuitBuilder>, UseBigfield::No>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
+template <typename T>
+concept HasGoblinBuilder = IsGoblinBuilder<typename T::Curve::Builder>;
+
 TYPED_TEST(stdlib_biggroup, add)
 {
+
     TestFixture::test_add();
 }
 TYPED_TEST(stdlib_biggroup, sub)
@@ -838,7 +843,11 @@ TYPED_TEST(stdlib_biggroup, dbl)
 }
 TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {
-    TestFixture::test_montgomery_ladder();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_montgomery_ladder();
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
@@ -846,15 +855,27 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
-    TestFixture::test_twin_mul();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_twin_mul();
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
-    TestFixture::test_triple_mul();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_triple_mul();
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, quad_mul)
 {
-    TestFixture::test_quad_mul();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_quad_mul();
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
@@ -867,12 +888,20 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
 
-    TestFixture::test_chain_add();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_chain_add();
+    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 {
 
-    TestFixture::test_multiple_montgomery_ladder();
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+    } else {
+        TestFixture::test_multiple_montgomery_ladder();
+    };
 }
 
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
@@ -892,7 +921,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        TestFixture::test_compute_wnaf();
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        } else {
+            TestFixture::test_compute_wnaf();
+        };
     } else {
         GTEST_SKIP();
     }
@@ -916,7 +949,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        TestFixture::test_batch_mul_short_scalars();
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        } else {
+            TestFixture::test_batch_mul_short_scalars();
+        };
     }
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
@@ -924,7 +961,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        TestFixture::test_wnaf_batch_mul_128_bit();
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        } else {
+            TestFixture::test_wnaf_batch_mul_128_bit();
+        };
     }
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
@@ -940,7 +981,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 {
     if constexpr (TypeParam::Curve::type == proof_system::CurveType::BN254 && !TypeParam::use_bigfield) {
-        TestFixture::test_bn254_endo_batch_mul();
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        } else {
+            TestFixture::test_bn254_endo_batch_mul();
+        };
     } else {
         GTEST_SKIP();
     }
@@ -948,7 +993,11 @@ HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == proof_system::CurveType::BN254 && !TypeParam::use_bigfield) {
-        TestFixture::test_mixed_mul_bn254_endo();
+        if constexpr (HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        } else {
+            TestFixture::test_mixed_mul_bn254_endo();
+        };
     } else {
         GTEST_SKIP();
     }

@@ -706,28 +706,28 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
         std::vector<element> points{ *this };
         std::vector<Fr> scalars{ scalar };
         return goblin_batch_mul(points, scalars);
+    } else {
+        constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
+
+        std::vector<bool_t<C>> naf_entries = compute_naf(scalar);
+
+        const auto offset_generators = compute_offset_generators(num_rounds);
+
+        element accumulator = *this + offset_generators.first;
+
+        for (size_t i = 1; i < num_rounds; ++i) {
+            bool_t<C> predicate = naf_entries[i];
+            bigfield y_test = y.conditional_negate(predicate);
+            element to_add(x, y_test);
+            accumulator = accumulator.montgomery_ladder(to_add);
+        }
+
+        element skew_output = accumulator - (*this);
+
+        Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
+        Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
+
+        return element(out_x, out_y) - element(offset_generators.second);
     }
-
-    constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
-
-    std::vector<bool_t<C>> naf_entries = compute_naf(scalar);
-
-    const auto offset_generators = compute_offset_generators(num_rounds);
-
-    element accumulator = *this + offset_generators.first;
-
-    for (size_t i = 1; i < num_rounds; ++i) {
-        bool_t<C> predicate = naf_entries[i];
-        bigfield y_test = y.conditional_negate(predicate);
-        element to_add(x, y_test);
-        accumulator = accumulator.montgomery_ladder(to_add);
-    }
-
-    element skew_output = accumulator - (*this);
-
-    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
-    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-    return element(out_x, out_y) - element(offset_generators.second);
 }
 } // namespace proof_system::plonk::stdlib
