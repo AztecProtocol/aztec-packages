@@ -245,21 +245,22 @@ class Goblin {
     // ACIRHACK
     std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
     {
-        // info("goblin: construct_proof");
+        // Construct a GUH proof
         accumulate_for_acir(builder);
-        // info("accumulate complete.");
-        std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
-        std::vector<uint8_t> result(accumulator.proof.proof_data.size() + goblin_proof.size());
+
+        std::vector<uint8_t> result(accumulator.proof.proof_data.size());
 
         const auto insert = [&result](const std::vector<uint8_t>& buf) {
             result.insert(result.end(), buf.begin(), buf.end());
         };
-        insert(accumulator.proof.proof_data);
-        insert(goblin_proof);
-        return result;
 
-        // std::vector<uint8_t> result;
-        // return result;
+        insert(accumulator.proof.proof_data);
+
+        // WORKTODO:
+        // std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
+        // insert(goblin_proof);
+
+        return result;
     }
 
     // ACIRHACK
@@ -269,21 +270,19 @@ class Goblin {
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };
 
         GoblinUltraVerifier verifier{ accumulator.verification_key };
-        // info("constructed GUH verifier");
         bool verified = verifier.verify_proof(extract_final_kernel_proof(proof));
-        if (verified) {
-            info("GUH verification SUCCEEDED");
-        } else {
-            info("GUH verification FAILED");
-        }
+        // if (verified) {
+        //     info("GUH verification SUCCEEDED");
+        // } else {
+        //     info("GUH verification FAILED");
+        // }
 
-        const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
-        auto goblin_proof = extract_goblin_proof(proof);
-        // info("extracted goblin proof");
-        verified = verified && verify_for_acir(goblin_proof);
-        // info("verified goblin proof");
+        // WORKTODO
+        // const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
+        // auto goblin_proof = extract_goblin_proof(proof);
+        // verified = verified && verify_for_acir(goblin_proof);
+
         return verified;
-        // return true;
     }
 };
 } // namespace barretenberg
