@@ -43,7 +43,6 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
 import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -274,7 +273,7 @@ export class PublicProcessor {
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-    const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
+    const unencryptedLogsHash = Fr.fromBufferReduce(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({

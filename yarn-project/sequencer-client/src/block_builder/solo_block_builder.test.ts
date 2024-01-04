@@ -34,7 +34,6 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { to2Fields } from '@aztec/foundation/serialize';
 import {
   ContractData,
   ExtendedContractData,
@@ -326,8 +325,12 @@ describe('sequencer/solo_block_builder', () => {
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-      processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+      processedTx.data.end.encryptedLogsHash = Fr.fromBufferReduce(
+        L2Block.computeKernelLogsHash(processedTx.encryptedLogs),
+      );
+      processedTx.data.end.unencryptedLogsHash = Fr.fromBufferReduce(
+        L2Block.computeKernelLogsHash(processedTx.unencryptedLogs),
+      );
 
       return processedTx;
     };

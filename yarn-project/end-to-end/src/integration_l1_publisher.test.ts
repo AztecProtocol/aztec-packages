@@ -1,14 +1,5 @@
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  Fr,
-  GlobalVariables,
-  L2Actor,
-  L2Block,
-  createDebugLogger,
-  mockTx,
-  to2Fields,
-} from '@aztec/aztec.js';
+import { AztecAddress, Fr, GlobalVariables, L2Actor, L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
 import {
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,

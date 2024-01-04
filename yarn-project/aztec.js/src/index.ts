@@ -128,7 +128,7 @@ export { retry, retryUntil } from '@aztec/foundation/retry';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
 export { fileURLToPath } from '@aztec/foundation/url';
-export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
+export { toBigInt } from '@aztec/foundation/serialize';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 export { FieldsOf } from '@aztec/foundation/types';
