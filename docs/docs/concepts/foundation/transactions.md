@@ -33,7 +33,7 @@ _The transaction has still not been broadcasted to the sequencer network yet._
 
 _The transaction has still not been broadcasted to the sequencer network yet._
 
-4. **The PXE proves correct execution** – now that the user has approved the transfer, the PXE receives the authorization and proves correct execution (via zero-knowledge proofs) of the authorization and the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the [note hash tree](../advanced/data_structures/trees.md#note-hash-tree) and nullifiers stored in the [nullifiers tree](../advanced/data_structures/trees.md#nullifier-tree)) to the sequencer.
+4. **The PXE proves correct execution** – now that the user has approved the transfer, the PXE receives the authorization and proves correct execution (via zero-knowledge proofs) of the authorization and the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the [note hash tree](../advanced/data_structures/trees.md#note-hash-tree) and nullifiers stored in the [nullifiers tree](../advanced/data_structures/trees.md#nullifier-tree)) to the sequencer. Nullifiers are data that invalidate old commitments, ensuring that commitments can only be used once.
 
 The sequencer has received transaction proof and can begin to process the transaction (verify proofs and apply updates to the relevant [data trees](../advanced/data_structures/trees.md)) alongside other public and private transactions.
 
