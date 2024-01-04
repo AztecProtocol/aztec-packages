@@ -679,18 +679,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
         auto [x_challenge, z_challenge] = challenges_to_field_elements<FF>(transcript->get_challenges("ZM:x", "ZM:z"));
 
         // Compute commitment C_{\zeta_x}
-        // WORKTODO: Make sure only Goblinized operations are available.
-        [[maybe_unused]] auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
+        auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
         // Compute commitment C_{Z_x}
-        [[maybe_unused]] Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
-                                                          to_be_shifted_commitments,
-                                                          C_q_k,
-                                                          rho,
-                                                          batched_evaluation,
-                                                          x_challenge,
-                                                          multivariate_challenge,
-                                                          concatenation_group_commitments);
+        Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
+                                         to_be_shifted_commitments,
+                                         C_q_k,
+                                         rho,
+                                         batched_evaluation,
+                                         x_challenge,
+                                         multivariate_challenge,
+                                         concatenation_group_commitments);
 
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
