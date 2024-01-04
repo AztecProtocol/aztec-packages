@@ -69,7 +69,7 @@ TEST_F(AvmMiniMemoryTests, mismatchedTag)
 
     // Find the memory trace position corresponding to the add sub-operation of register ia.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     EXPECT_TRUE(row != trace.end());
@@ -80,7 +80,7 @@ TEST_F(AvmMiniMemoryTests, mismatchedTag)
 
     // Find the memory trace position corresponding to the add sub-operation of register ib.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_B;
+        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_B;
     });
 
     EXPECT_TRUE(row != trace.end());
@@ -112,7 +112,7 @@ TEST_F(AvmMiniMemoryTests, mLastAccessViolation)
     // Find the row for memory trace with last memory entry for address 1 (read for subtraction)
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
         return r.memTrace_m_clk == clk && r.memTrace_m_addr == FF(1) &&
-               r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+               r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     EXPECT_TRUE(row != trace.end());
@@ -142,7 +142,7 @@ TEST_F(AvmMiniMemoryTests, readWriteConsistencyValViolation)
     // Find the row for memory trace with last memory entry for address 2 (read for multiplication)
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
         return r.memTrace_m_clk == clk && r.memTrace_m_addr == FF(2) &&
-               r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+               r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     EXPECT_TRUE(row != trace.end());
@@ -172,7 +172,7 @@ TEST_F(AvmMiniMemoryTests, readWriteConsistencyTagViolation)
     // Find the row for memory trace with last memory entry for address 2 (read for multiplication)
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
         return r.memTrace_m_clk == clk && r.memTrace_m_addr == FF(2) &&
-               r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+               r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     EXPECT_TRUE(row != trace.end());
@@ -212,7 +212,7 @@ TEST_F(AvmMiniMemoryTests, mismatchedTagErrorViolation)
 
     // Find the memory trace position corresponding to the subtraction sub-operation of register ia.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     row->memTrace_m_tag_err = FF(0);
@@ -246,7 +246,7 @@ TEST_F(AvmMiniMemoryTests, consistentTagNoErrorViolation)
 
     // Find the memory trace position corresponding to the div sub-operation of register ia.
     row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniTraceBuilder::SUB_CLK_LOAD_A;
+        return r.memTrace_m_clk == clk && r.memTrace_m_sub_clk == AvmMiniMemTraceBuilder::SUB_CLK_LOAD_A;
     });
 
     row->memTrace_m_tag_err = FF(1);

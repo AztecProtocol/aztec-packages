@@ -3,6 +3,7 @@
 #include <stack>
 
 #include "AvmMini_common.hpp"
+#include "AvmMini_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
@@ -16,17 +17,7 @@ namespace proof_system {
 class AvmMiniTraceBuilder {
 
   public:
-    // Number of rows
-    static const size_t N = 256;
-    static const size_t MEM_SIZE = 1024;
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
-
-    static const uint32_t SUB_CLK_LOAD_A = 0;
-    static const uint32_t SUB_CLK_LOAD_B = 1;
-    static const uint32_t SUB_CLK_LOAD_C = 2;
-    static const uint32_t SUB_CLK_STORE_A = 3;
-    static const uint32_t SUB_CLK_STORE_B = 4;
-    static const uint32_t SUB_CLK_STORE_C = 5;
 
     AvmMiniTraceBuilder();
 
@@ -70,34 +61,11 @@ class AvmMiniTraceBuilder {
     std::vector<FF> returnOP(uint32_t retOffset, uint32_t retSize);
 
   private:
-    struct MemoryTraceEntry {
-        uint32_t m_clk;
-        uint32_t m_sub_clk;
-        uint32_t m_addr;
-        FF m_val{};
-        AvmMemoryTag m_tag;
-        AvmMemoryTag m_in_tag;
-        bool m_rw = false;
-        bool m_tag_err = false;
-        FF m_one_min_inv{};
-    };
-
     std::vector<Row> mainTrace;
-    std::vector<MemoryTraceEntry> memTrace;         // Entries will be sorted by m_clk, m_sub_clk after finalize().
-    std::array<FF, MEM_SIZE> memory{};              // Memory table (used for simulation)
-    std::array<AvmMemoryTag, MEM_SIZE> memoryTag{}; // The tag of the corresponding memory
-                                                    // entry (aligned with the memory array).
+    AvmMiniMemTraceBuilder memTraceBuilder;
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;
     std::stack<uint32_t> internal_call_stack = {};
-
-    static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
-    void insertInMemTrace(
-        uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, bool m_rw);
-    void loadMismatchTagInMemTrace(
-        uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF m_val, AvmMemoryTag m_in_tag, AvmMemoryTag m_tag);
-    bool loadInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
-    void storeInMemTrace(IntermRegister intermReg, uint32_t addr, FF val, AvmMemoryTag m_in_tag);
 };
 } // namespace proof_system
