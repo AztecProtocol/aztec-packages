@@ -18,3 +18,7 @@ mod merkle_tree;
 mod tests;
 
 mod indexed_tree;
+
+mod state_reference;
+
+mod partial_state_reference;

@@ -2,6 +2,7 @@
 use dep::types::constants::NUM_FIELDS_PER_SHA256;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
+use crate::partial_state_reference::PartialStateReference;
 use dep::types::mocked::AggregationObject;
 
 global BASE_ROLLUP_TYPE = 0;
@@ -17,18 +18,9 @@ struct BaseOrMergeRollupPublicInputs {
     end_aggregation_object : AggregationObject,
     constants : ConstantRollupData,
 
-    start_note_hash_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_note_hash_tree_snapshot : AppendOnlyTreeSnapshot,
-    
-    start_nullifier_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_nullifier_tree_snapshot : AppendOnlyTreeSnapshot,
+    start: PartialStateReference,
+    end: PartialStateReference,
 
-    start_contract_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_contract_tree_snapshot : AppendOnlyTreeSnapshot,
-
-    start_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
-    
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
