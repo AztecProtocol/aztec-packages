@@ -231,21 +231,11 @@ pub fn compute_constructor_hash(
     )
 }
 
-// sha256 hash is stored in two fields to accommodate all 256-bits of the hash
-global NUM_FIELDS_PER_SHA256 : Field = 2;
-
-// Computes sha256 hash of 2 input hashes stored in 4 fields.
-// 
-// This method is bn254 specific. Two fields is needed in order to 
-// encode the sha256 output. It can be abstracted away with any 4-2 hash function.
-//
-// TODO(Jan and David): This is used for the encrypted_log hashes.
-// Can we check to see if we can just use hash_to_field or pedersen_compress here?
-//
-// Returning a Field would be desirable because then this can be replaced with 
+// for log hashes, the sha256 hash is stored in single Field to despite 
+// being two bits too small to accommodate all 256-bits of the hash.
+// Returning a single Field is desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
-//
-pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn accumulate_sha256(input: [Field, 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -255,9 +245,8 @@ pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
     //
-    // Concatenate 4 u128 bit integers into a byte array.
-    let mut hash_input_flattened = [0; 64];
-    for offset in 0..4 {
+    let mut hash_input_flattened = [0; 32];
+    for offset in 0..2 {
         let input_as_bytes = input[offset].to_be_bytes();
         for byte_index in 0..16 {
             hash_input_flattened[offset * 16 + byte_index] = input_as_bytes[byte_index];
@@ -266,20 +255,18 @@ pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
 
     let sha_digest = dep::std::hash::sha256(hash_input_flattened);
 
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    sha256_to_field(hash_input_flattened)
 }
 
 pub fn compute_logs_hash(
-    previous_log_hash: [Field; 2],
-    current_log_hash: [Field; 2]
-) -> [Field; NUM_FIELDS_PER_SHA256] {
+    previous_log_hash: Field,
+    current_log_hash: Field
+) -> Field {
     accumulate_sha256(
         [
-        U128::from_field(previous_log_hash[0]),
-        U128::from_field(previous_log_hash[1]),
-        U128::from_field(current_log_hash[0]),
-        U128::from_field(current_log_hash[1])
-    ]
+            previous_log_hash,
+            current_log_hash
+        ]
     )
 }
 

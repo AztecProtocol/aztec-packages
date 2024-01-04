@@ -10,7 +10,6 @@ use crate::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    hash::NUM_FIELDS_PER_SHA256,
     tests::fixtures,
     utils::bounded_vec::BoundedVec,
 };
@@ -34,7 +33,7 @@ struct PublicCircuitPublicInputsBuilder {
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: Field,
     unencrypted_log_preimages_length: Field,
     block_header: BlockHeader,
     prover_address: AztecAddress,

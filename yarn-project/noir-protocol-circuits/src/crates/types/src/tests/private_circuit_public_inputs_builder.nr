@@ -7,7 +7,7 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     contrakt::deployment_data::ContractDeploymentData,
-    hash::{compute_constructor_hash, NUM_FIELDS_PER_SHA256, hash_args},
+    hash::{compute_constructor_hash, hash_args},
     tests::{
         fixtures,
         testing_harness::build_contract_deployment_data,
@@ -39,8 +39,8 @@ struct PrivateCircuitPublicInputsBuilder {
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash: Field,
+    unencrypted_logs_hash: Field,
 
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,

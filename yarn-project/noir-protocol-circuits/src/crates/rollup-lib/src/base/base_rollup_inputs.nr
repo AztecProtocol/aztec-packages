@@ -16,7 +16,6 @@ use dep::types::constants::{
     MAX_NEW_CONTRACTS_PER_TX,
     NOTE_HASH_SUBTREE_HEIGHT,
     CONTRACT_SUBTREE_HEIGHT,
-    NUM_FIELDS_PER_SHA256,
     MAX_NEW_COMMITMENTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX,
@@ -253,7 +252,7 @@ impl BaseRollupInputs {
     // Computes the calldata hash for a base rollup
     // TODO(Kev): move this into components module
     // TODO(Alvaro): This is too slow for brillig without the array optimization
-    fn components_compute_kernel_calldata_hash(kernel_data : PreviousKernelData) -> [Field; NUM_FIELDS_PER_SHA256]{
+    fn components_compute_kernel_calldata_hash(kernel_data : PreviousKernelData) -> Field{
         // Compute calldata hashes
         // Consist of 
         // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
@@ -308,17 +307,14 @@ impl BaseRollupInputs {
 
         offset += MAX_NEW_CONTRACTS_PER_TX * 2;
 
-        for j in 0..NUM_FIELDS_PER_SHA256 {
-            calldata_hash_inputs[offset + j] = encryptedLogsHash[j];
-        }
+        calldata_hash_inputs[offset] = encryptedLogsHash;
 
-        offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
+        offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX;
 
-        for j in 0..NUM_FIELDS_PER_SHA256 {
-            calldata_hash_inputs[offset + j] = unencryptedLogsHash[j];
-        }
+        calldata_hash_inputs[offset] = unencryptedLogsHash;
         
-        offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
+        offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
+
         assert_eq(offset, CALLDATA_HASH_INPUT_SIZE); // Sanity check
 
 
@@ -337,8 +333,7 @@ impl BaseRollupInputs {
             }
         }
 
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        U256::from_bytes32(sha_digest).to_u128_limbs()
+        sha256_to_field(hash_input_flattened)
     }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
@@ -497,7 +492,7 @@ fn consistent_not_hash_subtree_width() {
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 169;
+global CALLDATA_HASH_INPUT_SIZE = 167;
 
 #[test]
 fn consistent_calldata_hash_input_size() {
@@ -506,18 +501,18 @@ fn consistent_calldata_hash_input_size() {
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
         + MAX_NEW_CONTRACTS_PER_TX * 3
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
+        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX;
     assert(CALLDATA_HASH_INPUT_SIZE == expected_size, "calldata hash input size is incorrect");
 }
 
-global CALL_DATA_HASH_LOG_FIELDS = 4;
+global CALL_DATA_HASH_LOG_FIELDS = 2;
 
 #[test]
 fn consistent_call_data_hash_log_fields() {
     assert_eq(
-        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "calldata hash log fields is incorrect"
+        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, "calldata hash log fields is incorrect"
     );
 }
 
@@ -592,7 +587,6 @@ mod tests {
         PUBLIC_DATA_TREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        NUM_FIELDS_PER_SHA256,
     };
     use dep::types::{
         abis::membership_witness::ArchiveRootMembershipWitness,
@@ -1223,11 +1217,8 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
         let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
-        for i in 0..NUM_FIELDS_PER_SHA256 {
-            assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
-        }
+        let expected_calldata_hash = accumulate_sha256(hash_input_flattened);
+        assert_eq(outputs.calldata_hash, expected_calldata_hash);
     }
 
     #[test(should_fail_with = "membership check failed")]

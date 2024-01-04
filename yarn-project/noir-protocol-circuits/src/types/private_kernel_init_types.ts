@@ -98,8 +98,8 @@ export interface PrivateCircuitPublicInputs {
   public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
   end_side_effect_counter: Field;
-  encrypted_logs_hash: FixedLengthArray<Field, 2>;
-  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: Field;
+  unencrypted_logs_hash: Field;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   block_header: BlockHeader;

@@ -23,7 +23,6 @@ use dep::protocol_types::{
         MAX_PUBLIC_DATA_READS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_READ_REQUESTS_PER_CALL,
-        NUM_FIELDS_PER_SHA256,
         RETURN_VALUES_LENGTH,
     },
     contrakt::{
@@ -147,8 +146,8 @@ impl PrivateContext {
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let encrypted_logs_hash = 0;
+        let unencrypted_logs_hash = 0;
         let encrypted_log_preimages_length = 0;
         let unencrypted_log_preimages_length = 0;
 
@@ -301,8 +300,8 @@ impl PrivateContext {
                 public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
                 new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
                 end_side_effect_counter: reader.read(),
-                encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
-                unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+                encrypted_logs_hash: reader.read()
+                unencrypted_logs_hash: reader.read(),
                 encrypted_log_preimages_length: reader.read(),
                 unencrypted_log_preimages_length: reader.read(),
                 block_header: BlockHeader{
@@ -412,7 +411,7 @@ impl PrivateContext {
                 new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
-                unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
+                unencrypted_logs_hash:0,
                 unencrypted_log_preimages_length: 0,
                 block_header: BlockHeader::empty(),
                 prover_address: AztecAddress::zero(),
@@ -455,7 +454,7 @@ struct PublicContext {
 
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
+    unencrypted_logs_hash: Field,
     unencrypted_logs_preimages_length: Field,
 
     block_header: BlockHeader,
@@ -483,7 +482,7 @@ impl PublicContext {
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
             
-            unencrypted_logs_hash: BoundedVec::new(0),
+            unencrypted_logs_hash: 0,
             unencrypted_logs_preimages_length: 0,
 
             block_header: inputs.block_header,
@@ -529,7 +528,7 @@ impl PublicContext {
 
     pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let unencrypted_logs_hash = 0;
         let unencrypted_log_preimages_length = 0;
 
 

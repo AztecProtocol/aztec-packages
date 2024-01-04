@@ -12,7 +12,6 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{AztecAddress, EthAddress},
-    hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
         fixtures,
@@ -142,12 +141,12 @@ impl PreviousKernelDataBuilder {
         }
     }
 
-    pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.end.encrypted_logs_hash = hash;
         self.end.encrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.end.unencrypted_logs_hash = hash;
         self.end.unencrypted_log_preimages_length = preimages_length;
     }

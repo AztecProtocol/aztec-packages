@@ -2,7 +2,6 @@ use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInpu
 use dep::types::mocked::AggregationObject;
 use dep::types::hash::{accumulate_sha256, assert_check_membership, root_from_sibling_path};
 use dep::types::utils::uint128::U128;
-use dep::types::constants::NUM_FIELDS_PER_SHA256;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 
@@ -81,16 +80,14 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
  * @brief From two previous rollup data, compute a single calldata hash
  *
  * @param previous_rollup_data
- * @return calldata hash stored in 2 fields
+ * @return calldata hash truncated to Fr
  */
-pub fn compute_calldata_hash(previous_rollup_data: [PreviousRollupData; 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn compute_calldata_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
     accumulate_sha256(
         [
-        U128::from_field(previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0]),
-        U128::from_field(previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1]),
-        U128::from_field(previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0]),
-        U128::from_field(previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1])
-    ]
+        previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash,
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash
+        ]
     )
 }
 

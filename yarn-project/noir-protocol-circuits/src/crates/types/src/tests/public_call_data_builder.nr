@@ -23,7 +23,6 @@ use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    NUM_FIELDS_PER_SHA256,
 };
 
 struct PublicCallDataBuilder {
@@ -173,7 +172,8 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        // this is the truncated hash, which may have lost precision due to reduction to the 254 prime field modulus
         self.public_inputs.unencrypted_logs_hash = hash;
         self.public_inputs.unencrypted_log_preimages_length = preimages_length;
     }

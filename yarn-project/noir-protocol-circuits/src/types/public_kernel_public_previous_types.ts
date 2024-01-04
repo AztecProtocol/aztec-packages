@@ -88,8 +88,8 @@ export interface CombinedAccumulatedData {
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  encrypted_logs_hash: FixedLengthArray<Field, 2>;
-  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: Field;
+  unencrypted_logs_hash: Field;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   new_contracts: FixedLengthArray<NewContractData, 1>;
@@ -185,7 +185,7 @@ export interface PublicCircuitPublicInputs {
   new_commitments: FixedLengthArray<SideEffect, 16>;
   new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 16>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
+  unencrypted_logs_hash: Field;
   unencrypted_log_preimages_length: Field;
   block_header: BlockHeader;
   prover_address: AztecAddress;

@@ -6,7 +6,6 @@ use crate::{
     },
     contrakt::deployment_data::ContractDeploymentData,
     hash::{
-        NUM_FIELDS_PER_SHA256,
         pedersen_hash,
     },
     utils::bounded_vec::BoundedVec,
@@ -39,8 +38,8 @@ struct PrivateCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     end_side_effect_counter : Field,
 
-    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash: Field,
+    unencrypted_logs_hash: Field,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -76,8 +75,8 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.public_call_stack_hashes);
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push(self.end_side_effect_counter);
-        fields.push_array(self.encrypted_logs_hash);
-        fields.push_array(self.unencrypted_logs_hash);
+        fields.push(self.encrypted_logs_hash);
+        fields.push(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.block_header.serialize());
@@ -109,8 +108,8 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.public_call_stack_hashes);
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push(self.end_side_effect_counter);
-        fields.push_array(self.encrypted_logs_hash);
-        fields.push_array(self.unencrypted_logs_hash);
+        fields.push(self.encrypted_logs_hash);
+        fields.push(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.block_header.serialize());

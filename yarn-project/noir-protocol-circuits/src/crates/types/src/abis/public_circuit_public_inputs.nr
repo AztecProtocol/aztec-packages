@@ -21,7 +21,6 @@ use crate::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
     },
-    hash::{NUM_FIELDS_PER_SHA256},
     utils::bounded_vec::BoundedVec,
 };
 
@@ -40,7 +39,7 @@ struct PublicCircuitPublicInputs{
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: Field,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -73,7 +72,7 @@ impl PublicCircuitPublicInputs{
             inputs.push(self.new_nullifiers[i].hash());
         }
         inputs.push_array(self.new_l2_to_l1_msgs);
-        inputs.push_array(self.unencrypted_logs_hash);
+        inputs.push(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
         inputs.push_array(self.block_header.serialize());
         inputs.push(self.prover_address.to_field());
@@ -103,7 +102,7 @@ impl PublicCircuitPublicInputs{
             fields.push_array(self.new_nullifiers[i].serialize());
         }
         fields.push_array(self.new_l2_to_l1_msgs);
-        fields.push_array(self.unencrypted_logs_hash);
+        fields.push(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.block_header.serialize());
         fields.push(self.prover_address.to_field());
