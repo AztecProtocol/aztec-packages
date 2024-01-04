@@ -12,7 +12,4 @@ RUN apk update \
         doxygen
 WORKDIR /usr/src/barretenberg/cpp/
 COPY . .
-RUN cd docs
-RUN doxygen --version
-RUN doxygen .
-RUN ls build
+RUN doxygen docs/Doxyfile

@@ -3,10 +3,10 @@
 # Project related configuration options
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "barretenberg"
-OUTPUT_DIRECTORY       = ./build
 
 # Paths and filenames
-INPUT                  = ../src/barretenberg
+INPUT                  = src/barretenberg
+HTML_OUTPUT            = docs/build
 FILE_PATTERNS          = *.c \
                          *.cpp \
                          *.h \
@@ -15,4 +15,5 @@ RECURSIVE              = YES
 
 # Output format options
 GENERATE_HTML          = YES
-HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+HAVE_DOT               = NO
