@@ -23,10 +23,10 @@ class GoblinMockCircuits {
     using KernelInput = Goblin::AccumulationOutput;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
 
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t num_gates = 1)
     {
         // Add some arithmetic gates that utilize public inputs
-        for (size_t i = 0; i < 10; ++i) {
+        for (size_t i = 0; i < num_gates; ++i) {
             FF a = FF::random_element();
             FF b = FF::random_element();
             FF c = FF::random_element();
@@ -117,7 +117,7 @@ class GoblinMockCircuits {
     static void construct_mock_kernel_circuit(GoblinUltraBuilder& builder, KernelInput& kernel_input)
     {
         // Generic operations e.g. state updates (just arith gates for now)
-        GoblinMockCircuits::construct_arithmetic_circuit(builder);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder, /*num_gates=*/1 << 4);
 
         // Execute recursive aggregation of previous kernel proof
         RecursiveVerifier verifier{ &builder, kernel_input.verification_key };
