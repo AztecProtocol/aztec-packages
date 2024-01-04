@@ -34,7 +34,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     // Add a single arbitrary value to the calldata and create a read gate
     add_public_calldata(FF(25));
     uint32_t read_idx = 0; // index into calldata array at which we want to read
-    create_calldata_read_gate(read_idx);
+    read_calldata_at_index(read_idx);
 
     // mock gates that use poseidon selectors, with all zeros as input
     this->w_l().emplace_back(this->zero_idx);
@@ -228,11 +228,12 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
  * @tparam FF
  * @param read_index Raw index into calldata array
  */
-template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const uint32_t& read_index)
+template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata_at_index(const uint32_t& read_index)
 {
     // Construct gate corresponding to a single calldata read
     // read_index is raw index into calldata array at which we want to read
-    this->w_l().emplace_back(public_calldata[read_index]);    // populate with value of calldata at read index
+    uint32_t calldata_value_idx = public_calldata[read_index];
+    this->w_l().emplace_back(calldata_value_idx);             // populate with value of calldata at read index
     this->w_r().emplace_back(this->add_variable(read_index)); // populate with read index as witness
     calldata_read_counts[read_index]++;                       // increment read count at read index
     q_busread().emplace_back(1);                              // read selector on
@@ -255,6 +256,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_calldata_read
     this->q_poseidon2_internal().emplace_back(0);
 
     ++this->num_gates;
+
+    return calldata_value_idx;
 }
 
 template <typename FF>
