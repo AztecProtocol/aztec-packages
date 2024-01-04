@@ -1136,7 +1136,7 @@ class GoblinTranslator {
         }
     };
 
-    using Transcript = BaseTranscript;
+    using Transcript = BaseTranscript<FF>;
 };
 } // namespace proof_system::honk::flavor
 

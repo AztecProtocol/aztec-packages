@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
@@ -9,6 +9,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
   public:
     using Curve = bn254<CircuitBuilder>;
     using FF = typename Curve::ScalarField;
+    using NativeFF = typename curve::BN254::ScalarField;
     using Commitment = typename Curve::Element;
     using GroupElement = typename Curve::Element;
     using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve>;
@@ -23,7 +24,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 
-    PairingPoints verify_proof(const plonk::proof& proof);
+    PairingPoints verify_proof(const proof_system::honk::proof<NativeFF>& proof);
 };
 
 extern template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;

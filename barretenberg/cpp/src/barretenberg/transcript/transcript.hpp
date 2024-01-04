@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
@@ -60,9 +61,12 @@ class TranscriptManifest {
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-class BaseTranscript {
+template <typename FF> class BaseTranscript {
   public:
-    using Proof = std::vector<uint8_t>;
+    using Poseidon2Params = std::conditional_t<std::same_as<FF, barretenberg::fr>,
+                                               crypto::Poseidon2Bn254ScalarFieldParams,
+                                               crypto::Poseidon2GrumpkinScalarFieldParams>;
+    using Proof = honk::proof<FF>;
 
     BaseTranscript() = default;
 
@@ -84,8 +88,8 @@ class BaseTranscript {
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
-    std::array<uint8_t, HASH_OUTPUT_SIZE> previous_challenge_buffer{}; // default-initialized to zeros
-    std::vector<uint8_t> current_round_data;
+    FF previous_challenge{};        // default-initialized to zeros
+    std::vector<FF> current_round_data;
 
     // "Manifest" object that records a summary of the transcript interactions
     TranscriptManifest manifest;
@@ -94,11 +98,11 @@ class BaseTranscript {
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
      * @details This function computes a new challenge for the current round using the previous challenge
      * and the current round data, if they are exist. It clears the current_round_data if nonempty after
-     * computing the challenge to minimize how much we compress. It also sets previous_challenge_buffer
+     * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<uint8_t, HASH_OUTPUT_SIZE>
+     * @return std::array<FF, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] std::array<uint8_t, HASH_OUTPUT_SIZE> get_next_challenge_buffer()
+    [[nodiscard]] FF get_next_challenge_buffer()
     {
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
@@ -110,10 +114,10 @@ class BaseTranscript {
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from having
         // to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<uint8_t> full_buffer;
+        std::vector<FF> full_buffer;
         if (!is_first_challenge) {
-            // if not the first challenge, we can use the previous_challenge_buffer
-            full_buffer.insert(full_buffer.end(), previous_challenge_buffer.begin(), previous_challenge_buffer.end());
+            // if not the first challenge, we can use the previous_challenge
+            full_buffer.emplace_back(previous_challenge);
         } else {
             // Update is_first_challenge for the future
             is_first_challenge = false;
@@ -126,14 +130,13 @@ class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a random
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
-        std::vector<uint8_t> base_hash =
-            to_buffer(crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash_buffer(full_buffer));
+        FF base_hash = crypto::Poseidon2<Poseidon2Params>::hash(full_buffer);
 
-        std::array<uint8_t, HASH_OUTPUT_SIZE> new_challenge_buffer;
-        std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
+        FF new_challenge = base_hash;
+        // std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
         // update previous challenge buffer for next time we call this function
-        previous_challenge_buffer = new_challenge_buffer;
-        return new_challenge_buffer;
+        previous_challenge = new_challenge;
+        return new_challenge;
     };
 
   protected:
@@ -143,7 +146,7 @@ class BaseTranscript {
      * @param label of the element sent
      * @param element_bytes serialized
      */
-    void consume_prover_element_bytes(const std::string& label, std::span<const uint8_t> element_bytes)
+    void consume_prover_element_bytes(const std::string& label, std::span<const FF> element_bytes)
     {
         // Add an entry to the current round of the manifest
         manifest.add_entry(round_number, label, element_bytes.size());
@@ -196,16 +199,16 @@ class BaseTranscript {
      * @brief Return the proof data starting at proof_start
      * @details This is useful for when two different provers share a transcript.
      */
-    std::vector<uint8_t> export_proof()
+    std::vector<FF> export_proof()
     {
-        std::vector<uint8_t> result(num_bytes_written);
+        std::vector<FF> result(num_bytes_written);
         std::copy_n(proof_data.begin() + proof_start, num_bytes_written, result.begin());
         proof_start += static_cast<std::ptrdiff_t>(num_bytes_written);
         num_bytes_written = 0;
         return result;
     };
 
-    void load_proof(const std::vector<uint8_t>& proof)
+    void load_proof(const std::vector<FF>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
@@ -219,9 +222,9 @@ class BaseTranscript {
      * multiple challenges.
      *
      * @param labels human-readable names for the challenges for the manifest
-     * @return std::array<uint256_t, num_challenges> challenges for this round.
+     * @return std::array<FF, num_challenges> challenges for this round.
      */
-    template <typename... Strings> std::array<uint256_t, sizeof...(Strings)> get_challenges(const Strings&... labels)
+    template <typename... Strings> std::array<FF, sizeof...(Strings)> get_challenges(const Strings&... labels)
     {
         constexpr size_t num_challenges = sizeof...(Strings);
 
@@ -231,19 +234,19 @@ class BaseTranscript {
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from bytes.
-        std::array<uint256_t, num_challenges> challenges{};
+        std::array<FF, num_challenges> challenges{};
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
-            std::array<uint8_t, sizeof(uint256_t)> field_element_buffer{};
+            FF field_element_buffer = next_challenge_buffer;
             // copy half of the hash to lower 128 bits of challenge
             // Note: because of how read() from buffers to fields works (in field_declarations.hpp),
             // we use the later half of the buffer
-            std::copy_n(next_challenge_buffer.begin(),
-                        HASH_OUTPUT_SIZE / 2,
-                        field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            challenges[i] = from_buffer<uint256_t>(field_element_buffer);
+            // std::copy_n(next_challenge_buffer.begin(),
+            //             HASH_OUTPUT_SIZE / 2,
+            //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
+            challenges[i] = field_element_buffer;
         }
 
         // Prepare for next round.
@@ -267,19 +270,21 @@ class BaseTranscript {
      */
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
-        using serialize::write;
+        static_cast<void>(label);
+        static_cast<void>(element);
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
-        auto element_bytes = to_buffer(element);
-        proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
+        // convert element to field elements
+        // auto element_field_elements = to_field_elements(element);
+        // proof_data.insert(proof_data.end(), element_field_elements.begin(), element_field_elements.end());
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::consume_prover_element_bytes(label, element_bytes);
+        // BaseTranscript::consume_prover_element_field_elements(label, element_field_elements);
     }
 
     /**
@@ -336,9 +341,9 @@ class BaseTranscript {
         return verifier_transcript;
     };
 
-    uint256_t get_challenge(const std::string& label)
+    FF get_challenge(const std::string& label)
     {
-        uint256_t result = get_challenges(label)[0];
+        FF result = get_challenges(label)[0];
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
 #endif
@@ -350,6 +355,7 @@ class BaseTranscript {
     void print() { manifest.print(); }
 };
 
+// might be useless now
 /**
  * @brief Convert an array of uint256_t's to an array of field elements
  * @details The syntax `std::array<FF, 2> [a, b] = transcript.get_challenges("a", "b")` is unfortunately not allowed

@@ -18,7 +18,8 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
+    const proof_system::honk::proof<NativeFF>& proof)
 {
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
@@ -30,7 +31,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
 
-    transcript = std::make_shared<Transcript>(builder, proof.proof_data);
+    transcript = std::make_shared<Transcript>(builder, proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

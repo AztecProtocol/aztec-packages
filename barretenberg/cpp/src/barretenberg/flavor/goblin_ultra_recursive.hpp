@@ -46,6 +46,7 @@ class GoblinUltraRecursive {
     using FF = Curve::ScalarField;
     using Commitment = Curve::Element;
     using CommitmentHandle = Curve::Element;
+    using NativeFF = typename curve::BN254::ScalarField;
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all

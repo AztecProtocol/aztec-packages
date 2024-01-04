@@ -3,6 +3,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -509,7 +510,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    template <typename Commitment> class Transcript_ : public BaseTranscript {
+    template <typename Commitment> class Transcript_ : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -537,8 +538,8 @@ class GoblinUltra {
 
         Transcript_() = default;
 
-        Transcript_(const std::vector<uint8_t>& proof)
-            : BaseTranscript(proof)
+        Transcript_(const honk::proof<FF>& proof)
+            : BaseTranscript<FF>(proof)
         {}
 
         void deserialize_full_transcript()

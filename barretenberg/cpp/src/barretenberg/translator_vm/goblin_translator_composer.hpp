@@ -19,7 +19,7 @@ class GoblinTranslatorComposer {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Polynomial = typename Flavor::Polynomial;
-    using Transcript = BaseTranscript;
+    using Transcript = BaseTranscript<Flavor::FF>;
     static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
 
     static constexpr std::string_view NAME_STRING = "GoblinTranslator";

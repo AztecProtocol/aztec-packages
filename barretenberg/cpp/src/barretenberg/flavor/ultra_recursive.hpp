@@ -54,6 +54,7 @@ template <typename BuilderType> class UltraRecursive_ {
     using Commitment = typename Curve::Element;
     using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
+    using NativeFF = typename curve::BN254::ScalarField;
     using NativeVerificationKey = flavor::Ultra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all

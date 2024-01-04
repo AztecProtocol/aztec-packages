@@ -6,7 +6,7 @@ namespace barretenberg::honk_transcript_tests {
 using FF = barretenberg::fr;
 using Fr = barretenberg::fr;
 using Fq = barretenberg::fq;
-using Transcript = proof_system::honk::BaseTranscript;
+using Transcript = proof_system::honk::BaseTranscript<FF>;
 
 /**
  * @brief Test sending, receiving, and exporting proofs

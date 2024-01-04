@@ -459,7 +459,7 @@ class AvmMiniFlavor {
         }
     };
 
-    class Transcript : public BaseTranscript {
+    class Transcript : public BaseTranscript<FF> {
       public:
         uint32_t circuit_size;
 
@@ -510,8 +510,8 @@ class AvmMiniFlavor {
 
         Transcript() = default;
 
-        Transcript(const std::vector<uint8_t>& proof)
-            : BaseTranscript(proof)
+        Transcript(const std::vector<FF>& proof)
+            : BaseTranscript<FF>(proof)
         {}
 
         void deserialize_full_transcript()
