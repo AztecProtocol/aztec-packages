@@ -1,8 +1,15 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_READ;
+use dep::std::ops::Eq;
 
 struct PublicDataRead {
     leaf_slot : Field,
     value : Field,
+}
+
+impl Eq for PublicDataRead {
+    fn eq(self, public_data_read: PublicDataRead) -> bool {
+        (public_data_read.leaf_slot == self.leaf_slot) & (public_data_read.value == self.value)
+    }
 }
 
 impl PublicDataRead {
@@ -22,9 +29,5 @@ impl PublicDataRead {
 
     pub fn is_empty(self) -> bool {
         (self.leaf_slot == 0) & (self.value == 0)
-    }
-
-    pub fn eq(self, public_data_read: PublicDataRead) -> bool {
-        (public_data_read.leaf_slot == self.leaf_slot) & (public_data_read.value == self.value)
     }
 }

@@ -12,6 +12,7 @@ mod affine {
     use crate::ec::safe_inverse;
     use crate::ec::sqrt;
     use crate::ec::ZETA;
+    use crate::ops::Eq;
     // Curve specification
     struct Curve { // Montgomery Curve configuration (ky^2 = x^3 + j*x^2 + x)
         j: Field,
@@ -26,6 +27,9 @@ mod affine {
         infty: bool // Indicator for point at infinity
     }
 
+    // Check for equality
+    impl Eq for Point { fn eq(self, p: Self) -> bool { (self.infty & p.infty) | (!self.infty & !p.infty & (self.x == p.x) & (self.y == p.y))}}
+
     impl Point {
         // Point constructor
         pub fn new(x: Field, y: Field) -> Self {
@@ -33,9 +37,7 @@ mod affine {
         }
 
         // Check for equality
-        fn eq(self, p: Self) -> bool {
-            (self.infty & p.infty) | (!self.infty & !p.infty & (self.x == p.x) & (self.y == p.y))
-        }
+ 
 
         // Check if zero
         pub fn is_zero(self) -> bool {

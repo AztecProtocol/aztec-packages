@@ -1,4 +1,5 @@
 use crate::address::AztecAddress;
+use dep::std::ops::Eq;
 
 struct CallerContext {
     msg_sender: AztecAddress,
@@ -31,6 +32,16 @@ struct CallRequest {
     end_side_effect_counter: Field,
 }
 
+impl Eq for CallRequest {
+    fn eq(self, call_request: CallRequest) -> bool {
+        (call_request.hash == self.hash)
+            & (call_request.caller_contract_address.eq(self.caller_contract_address))
+            & (call_request.caller_context.eq(self.caller_context))
+            & (call_request.start_side_effect_counter == self.start_side_effect_counter)
+            & (call_request.end_side_effect_counter == self.end_side_effect_counter)
+    }
+}
+
 impl CallRequest {
     pub fn empty() -> Self {
         Self {
@@ -44,13 +55,5 @@ impl CallRequest {
 
     pub fn is_empty(self) -> bool {
         self.hash == 0
-    }
-
-    pub fn eq(self, call_request: CallRequest) -> bool {
-        (call_request.hash == self.hash)
-            & (call_request.caller_contract_address.eq(self.caller_contract_address))
-            & (call_request.caller_context.eq(self.caller_context))
-            & (call_request.start_side_effect_counter == self.start_side_effect_counter)
-            & (call_request.end_side_effect_counter == self.end_side_effect_counter)
     }
 }

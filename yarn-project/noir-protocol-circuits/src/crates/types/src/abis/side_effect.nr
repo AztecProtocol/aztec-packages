@@ -1,8 +1,16 @@
 use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
+use dep::std::ops::Eq;
 
 struct SideEffect{
     value: Field,
     counter: Field,
+}
+
+impl Eq for SideEffect {
+    fn eq(self, side_effect: SideEffect) -> bool {
+        (self.value == side_effect.value)
+        & (self.counter == side_effect.counter)
+    }
 }
 
 impl SideEffect {
@@ -26,11 +34,6 @@ impl SideEffect {
         & (self.counter == 0)
     }
 
-    pub fn eq(self, side_effect: SideEffect) -> bool {
-        (self.value == side_effect.value)
-        & (self.counter == side_effect.counter)
-    }
-
     pub fn empty() -> SideEffect {
         SideEffect {
             value: 0,
@@ -43,6 +46,14 @@ struct SideEffectLinkedToNoteHash{
     value: Field,
     note_hash: Field,
     counter: Field,
+}
+
+impl Eq for SideEffectLinkedToNoteHash {
+    fn eq(self, side_effect: SideEffectLinkedToNoteHash) -> bool {
+        (self.value == side_effect.value)
+            & (self.note_hash == side_effect.note_hash) 
+            & (self.counter == side_effect.counter)
+    }
 }
 
 impl SideEffectLinkedToNoteHash{
@@ -68,12 +79,6 @@ impl SideEffectLinkedToNoteHash{
         (self.value == 0)
         &  (self.note_hash == 0)
         & (self.counter == 0)
-    }
-
-    pub fn eq(self, side_effect: SideEffectLinkedToNoteHash) -> bool {
-        (self.value == side_effect.value)
-            & (self.note_hash == side_effect.note_hash) 
-            & (self.counter == side_effect.counter)
     }
 
     pub fn empty() -> SideEffectLinkedToNoteHash {

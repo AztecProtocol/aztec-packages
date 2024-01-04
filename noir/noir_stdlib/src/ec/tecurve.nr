@@ -9,6 +9,7 @@ mod affine {
     use crate::ec::montcurve::affine::Point as MPoint;
     use crate::ec::swcurve::affine::Curve as SWCurve;
     use crate::ec::swcurve::affine::Point as SWPoint;
+    use crate::ops::Eq;
     // Curve specification
     struct Curve { // Twisted Edwards curve
         // Coefficients in defining equation ax^2 + y^2 = 1 + dx^2y^2
@@ -23,18 +24,20 @@ mod affine {
         y: Field
     }
 
-    impl Point {
-        // Point constructor
-        pub fn new(x: Field, y: Field) -> Self {
-            Self { x, y }
-        }
-
-        // Check for equality
+    // Check for equality
+    impl Eq for Point {  
         fn eq(self, p: Point) -> bool {
             let Self {x: x1, y: y1} = self;
             let Self {x: x2, y: y2} = p;
 
             (x1 == x2) & (y1 == y2)
+        }
+    }
+
+    impl Point {
+        // Point constructor
+        pub fn new(x: Field, y: Field) -> Self {
+            Self { x, y }
         }
 
         // Check if zero
@@ -198,6 +201,7 @@ mod curvegroup {
     use crate::ec::montcurve::curvegroup::Point as MPoint;
     use crate::ec::swcurve::curvegroup::Curve as SWCurve;
     use crate::ec::swcurve::curvegroup::Point as SWPoint;
+    use crate::ops::Eq;
     // Curve specification
     struct Curve { // Twisted Edwards curve
         // Coefficients in defining equation a(x^2 + y^2)z^2 = z^4 + dx^2y^2
@@ -214,18 +218,20 @@ mod curvegroup {
         z: Field
     }
 
-    impl Point {
-        // Point constructor
-        pub fn new(x: Field, y: Field, t: Field, z: Field) -> Self {
-            Self {x, y, t, z}
-        }
-
-        // Check for equality
+    // Check for equality
+    impl Eq for Point {  
         fn eq(self, p: Point) -> bool {
             let Self {x: x1, y: y1, t: _t1, z: z1} = self;
             let Self {x: x2, y: y2, t: _t2, z:z2} = p;
 
             (x1*z2 == x2*z1) & (y1*z2 == y2*z1)
+        }
+    }
+
+    impl Point {
+        // Point constructor
+        pub fn new(x: Field, y: Field, t: Field, z: Field) -> Self {
+            Self {x, y, t, z}
         }
 
         // Check if zero

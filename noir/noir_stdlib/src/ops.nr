@@ -1,4 +1,3 @@
-
 trait Add {
     fn add(self, other: Self) -> Self;
 }
