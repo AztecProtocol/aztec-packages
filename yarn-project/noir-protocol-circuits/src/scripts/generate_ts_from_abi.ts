@@ -2,6 +2,7 @@ import { ABIType } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { NoirCompiledCircuit, NoirFunctionAbi } from '@aztec/noir-compiler';
 
+import { exec } from 'child_process';
 import fs from 'fs/promises';
 
 const log = createConsoleLogger('aztec:noir-contracts');
@@ -197,6 +198,22 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
   );
 }
 
+/**
+ * Format the generated files
+ */
+function runLintAndFormat(filePath: string) {
+  const command = `NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ${filePath} && run -T prettier -w ${filePath}`;
+
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      throw error;
+    }
+    if (stderr) {
+      throw Error(stderr);
+    }
+  });
+}
+
 const circuits = [
   'private_kernel_init',
   'private_kernel_inner',
@@ -219,7 +236,10 @@ const main = async () => {
     const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
     const abiObj: NoirCompiledCircuit = JSON.parse(rawData);
     const generatedInterface = generateTsInterface(abiObj.abi);
-    await fs.writeFile(`./src/types/${circuit}_types.ts`, generatedInterface);
+
+    const outputFile = `./src/types/${circuit}_types.ts`;
+    await fs.writeFile(outputFile, generatedInterface);
+    runLintAndFormat(outputFile);
   }
 };
 
