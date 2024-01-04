@@ -69,7 +69,7 @@ class PartialStateReference {
 }
 
 class StateReference {
-    l1_to_l2_messages_tree: Snapshot
+    l1_to_l2_message_tree: Snapshot
     partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
@@ -186,9 +186,9 @@ class State {
   nullifier_tree: NullifierTree
   public_data_tree: PublicDataTree
   contract_tree: ContractTree
-  l1_to_l2_messages_tree: L1ToL2MessageTree
+  l1_to_l2_message_tree: L1ToL2MessageTree
 }
-State *-- L1ToL2MessageTree : l1_to_l2_messages_tree
+State *-- L1ToL2MessageTree : l1_to_l2_message_tree
 State *-- Archive : archive
 State *-- NoteHashTree : note_hash_tree
 State *-- NullifierTree : nullifier_tree
