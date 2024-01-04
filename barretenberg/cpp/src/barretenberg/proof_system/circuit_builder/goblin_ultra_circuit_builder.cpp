@@ -31,19 +31,9 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     // All that remains is to handle databus related and poseidon2 related polynomials. In what follows we populate the
     // calldata with some mock data then constuct a single calldata read gate
 
-    // Populate the calldata with some data
-    public_calldata.emplace_back(this->add_variable(FF(5)));
-    public_calldata.emplace_back(this->add_variable(FF(7)));
-    public_calldata.emplace_back(this->add_variable(FF(9)));
-
-    // Construct read counts with length of calldata
-    calldata_read_counts.resize(public_calldata.size());
-    for (auto& val : calldata_read_counts) {
-        val = 0;
-    }
-
-    // Construct gate corresponding to a single calldata read
-    uint32_t read_idx = 1; // index into calldata array at which we want to read
+    // Add a single arbitrary value to the calldata and create a read gate
+    add_public_calldata(FF(25));
+    uint32_t read_idx = 0; // index into calldata array at which we want to read
     create_calldata_read_gate(read_idx);
 
     // mock gates that use poseidon selectors, with all zeros as input

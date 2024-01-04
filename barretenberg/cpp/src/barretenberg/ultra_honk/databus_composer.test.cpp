@@ -3,8 +3,10 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/instance_inspector.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
@@ -26,59 +28,37 @@ class DataBusComposerTests : public ::testing::Test {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
 
     /**
-     * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
+     * @brief Generate a simple test circuit that includes calldata lookup gates
      *
      * @param builder
      */
     void generate_test_circuit(auto& builder)
     {
-        // Add some ecc op gates
-        for (size_t i = 0; i < 3; ++i) {
-            auto point = Point::one() * FF::random_element();
-            auto scalar = FF::random_element();
-            builder.queue_ecc_mul_accum(point, scalar);
+        // Add some ecc op gates and arithmetic gates
+        barretenberg::GoblinTestingUtils::construct_goblin_ecc_op_circuit(builder);
+        barretenberg::GoblinTestingUtils::construct_arithmetic_circuit(builder);
+
+        // Add some values to calldata and then create some calldata lookup gates
+        std::array<FF, 5> calldata_inputs = { 7, 10, 3, 12, 1 };
+        for (auto& val : calldata_inputs) {
+            builder.add_public_calldata(val);
         }
-        builder.queue_ecc_eq();
 
-        // Add some conventional gates that utilize public inputs
-        for (size_t i = 0; i < 10; ++i) {
-            FF a = FF::random_element();
-            FF b = FF::random_element();
-            FF c = FF::random_element();
-            FF d = a + b + c;
-            uint32_t a_idx = builder.add_public_variable(a);
-            uint32_t b_idx = builder.add_variable(b);
-            uint32_t c_idx = builder.add_variable(c);
-            uint32_t d_idx = builder.add_variable(d);
-
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+        std::array<uint32_t, 2> read_indices = { 1, 4 };
+        for (auto& idx : read_indices) {
+            builder.create_calldata_read_gate(idx);
         }
-    }
-
-    /**
-     * @brief Construct and a verify a Honk proof
-     *
-     */
-    bool construct_and_verify_honk_proof(auto& composer, auto& builder)
-    {
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-
-        return verified;
     }
 };
 
 /**
- * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
+ * @brief Test proof construction/verification for a circuit with calldata lookup gates
  * gates
  * @note We simulate op queue interactions with a previous circuit so the actual circuit under test utilizes an op queue
  * with non-empty 'previous' data. This avoid complications with zero-commitments etc.
  *
  */
-TEST_F(DataBusComposerTests, SingleCircuit)
+TEST_F(DataBusComposerTests, CallDataRead)
 {
     auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
 
@@ -92,8 +72,13 @@ TEST_F(DataBusComposerTests, SingleCircuit)
     auto composer = GoblinUltraComposer();
 
     // Construct and verify Honk proof
-    auto honk_verified = construct_and_verify_honk_proof(composer, builder);
-    EXPECT_TRUE(honk_verified);
+    auto instance = composer.create_instance(builder);
+    // For debugging, use "instance_inspector::print_databus_info(instance)"
+    auto prover = composer.create_prover(instance);
+    auto verifier = composer.create_verifier(instance);
+    auto proof = prover.construct_proof();
+    bool verified = verifier.verify_proof(proof);
+    EXPECT_TRUE(verified);
 }
 
 } // namespace test_ultra_honk_composer
