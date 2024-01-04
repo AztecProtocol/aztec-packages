@@ -2,7 +2,6 @@ import { ABIType } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { NoirCompiledCircuit, NoirFunctionAbi } from '@aztec/noir-compiler';
 
-import { exec } from 'child_process';
 import fs from 'fs/promises';
 
 const log = createConsoleLogger('aztec:noir-contracts');
