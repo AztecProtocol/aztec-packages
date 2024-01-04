@@ -22,6 +22,7 @@ use crate::constants::{
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
         GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
+use crate::traits::Hash;
 
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
@@ -54,8 +55,8 @@ struct PrivateCircuitPublicInputs {
     version: Field,
 }
 
-impl PrivateCircuitPublicInputs {
-    fn hash(self) -> Field {
+impl Hash for PrivateCircuitPublicInputs {
+        fn hash(self) -> Field {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3595)
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0); 
         fields.push(self.call_context.hash());
@@ -88,7 +89,9 @@ impl PrivateCircuitPublicInputs {
 
         pedersen_hash(fields.storage, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
+}
 
+impl PrivateCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields.push_array(self.call_context.serialize());
