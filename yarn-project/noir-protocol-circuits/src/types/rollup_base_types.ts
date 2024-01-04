@@ -88,8 +88,8 @@ export interface CombinedAccumulatedData {
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  encrypted_logs_hash: FixedLengthArray<Field, 2>;
-  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: Field;
+  unencrypted_logs_hash: Field;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   new_contracts: FixedLengthArray<NewContractData, 1>;
@@ -108,13 +108,13 @@ export interface BlockHeader {
   global_variables_hash: Field;
 }
 
-export interface Point {
+export interface GrumpkinPoint {
   x: Field;
   y: Field;
 }
 
 export interface ContractDeploymentData {
-  deployer_public_key: Point;
+  deployer_public_key: GrumpkinPoint;
   constructor_vk_hash: Field;
   function_tree_root: Field;
   contract_address_salt: Field;
@@ -245,7 +245,7 @@ export interface BaseOrMergeRollupPublicInputs {
   end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
   start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
   end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  calldata_hash: FixedLengthArray<Field, 2>;
+  calldata_hash: Field;
 }
 
 export type ReturnType = BaseOrMergeRollupPublicInputs;

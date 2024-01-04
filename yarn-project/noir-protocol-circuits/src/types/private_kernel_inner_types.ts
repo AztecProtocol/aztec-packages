@@ -108,13 +108,13 @@ export interface BlockHeader {
   global_variables_hash: Field;
 }
 
-export interface Point {
+export interface GrumpkinPoint {
   x: Field;
   y: Field;
 }
 
 export interface ContractDeploymentData {
-  deployer_public_key: Point;
+  deployer_public_key: GrumpkinPoint;
   constructor_vk_hash: Field;
   function_tree_root: Field;
   contract_address_salt: Field;

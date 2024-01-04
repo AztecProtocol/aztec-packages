@@ -11,7 +11,7 @@ export interface AztecAddress {
   inner: Field;
 }
 
-export interface Point {
+export interface GrumpkinPoint {
   x: Field;
   y: Field;
 }
@@ -21,7 +21,7 @@ export interface EthAddress {
 }
 
 export interface ContractDeploymentData {
-  deployer_public_key: Point;
+  deployer_public_key: GrumpkinPoint;
   constructor_vk_hash: Field;
   function_tree_root: Field;
   contract_address_salt: Field;
@@ -205,8 +205,8 @@ export interface CombinedAccumulatedData {
   private_call_stack: FixedLengthArray<CallRequest, 8>;
   public_call_stack: FixedLengthArray<CallRequest, 8>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  encrypted_logs_hash: FixedLengthArray<Field, 2>;
-  unencrypted_logs_hash: FixedLengthArray<Field, 2>;
+  encrypted_logs_hash: Field;
+  unencrypted_logs_hash: Field;
   encrypted_log_preimages_length: Field;
   unencrypted_log_preimages_length: Field;
   new_contracts: FixedLengthArray<NewContractData, 1>;

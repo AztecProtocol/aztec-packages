@@ -43,7 +43,7 @@ export interface BaseOrMergeRollupPublicInputs {
   end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
   start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
   end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  calldata_hash: FixedLengthArray<Field, 2>;
+  calldata_hash: Field;
 }
 
 export interface Proof {}
@@ -87,8 +87,8 @@ export interface RootRollupPublicInputs {
   end_l1_to_l2_messages_tree_snapshot: AppendOnlyTreeSnapshot;
   start_archive_snapshot: AppendOnlyTreeSnapshot;
   end_archive_snapshot: AppendOnlyTreeSnapshot;
-  calldata_hash: FixedLengthArray<Field, 2>;
-  l1_to_l2_messages_hash: FixedLengthArray<Field, 2>;
+  calldata_hash: Field;
+  l1_to_l2_messages_hash: Field;
 }
 
 export type ReturnType = RootRollupPublicInputs;
