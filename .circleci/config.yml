@@ -200,13 +200,12 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build barretenberg-docs"
+          name: "Build barretenberg docs"
           command: build barretenberg-docs
       - run:
-          name: "Deploy docs"
-          working_directory:
+          name: "Deploy barretenberg docs"
           command: |
-            docs/deploy_netlify.sh
+            barretenberg/cpp/docs/deploy_doxygen.sh
 
   barretenberg-stdlib-tests:
     docker:
