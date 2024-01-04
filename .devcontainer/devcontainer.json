@@ -1,0 +1,13 @@
+{
+	"image": "node:lts-bookworm-slim",
+	"features": { "ghcr.io/devcontainers/features/docker-in-docker:2": {}},
+	"postCreateCommand": "cat /root/workspace/aztec-up/bin/aztec-install | VERSION=master NON_INTERACTIVE=1 BIN_PATH=/usr/local/bin bash -s",
+	"customizations": {
+		"vscode": {
+			"settings": {},
+			"extensions": ["noir-lang.vscode-noir"]
+		}
+	},
+	"workspaceMount": "source=${localWorkspaceFolder},target=/root/workspace,type=bind",
+    "workspaceFolder": "/root/workspace"
+}
