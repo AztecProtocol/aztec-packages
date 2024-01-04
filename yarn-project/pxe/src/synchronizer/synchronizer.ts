@@ -2,7 +2,7 @@ import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { InterruptibleSleep } from '@aztec/foundation/sleep';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, L2BlockL2Logs, LogType } from '@aztec/types';
 import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
 
@@ -17,9 +17,8 @@ import { NoteProcessor } from '../note_processor/index.js';
  * in sync with the blockchain while handling retries and errors gracefully.
  */
 export class Synchronizer {
-  private runningPromise?: Promise<void>;
+  private runningPromise?: RunningPromise;
   private noteProcessors: NoteProcessor[] = [];
-  private interruptibleSleep = new InterruptibleSleep();
   private running = false;
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: DebugLogger;
@@ -37,40 +36,17 @@ export class Synchronizer {
    * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
-  public start(limit = 1, retryInterval = 1000) {
+  public async start(limit = 1, retryInterval = 1000) {
     if (this.running) {
       return;
     }
     this.running = true;
 
-    this.jobQueue
-      .put(() => this.initialSync())
-      .catch(err => {
-        this.log.error(`Error in synchronizer initial sync`, err);
-        this.running = false;
-        throw err;
-      });
-
-    const run = async () => {
-      while (this.running) {
-        await this.jobQueue.put(async () => {
-          let moreWork = true;
-          while (moreWork && this.running) {
-            if (this.noteProcessorsToCatchUp.length > 0) {
-              // There is a note processor that needs to catch up. We hijack the main loop to catch up the note processor.
-              moreWork = await this.workNoteProcessorCatchUp(limit);
-            } else {
-              // No note processor needs to catch up. We continue with the normal flow.
-              moreWork = await this.work(limit);
-            }
-          }
-        });
-        await this.interruptibleSleep.sleep(retryInterval);
-      }
-    };
-
-    this.runningPromise = run();
-    this.log('Started');
+    await this.jobQueue.put(() => this.initialSync());
+    this.log('Initial sync complete');
+    this.runningPromise = new RunningPromise(() => this.sync(limit), retryInterval);
+    this.runningPromise.start();
+    this.log('Started loop');
   }
 
   protected async initialSync() {
@@ -81,6 +57,33 @@ export class Synchronizer {
     ]);
     this.initialSyncBlockNumber = latestBlockNumber;
     await this.db.setBlockData(latestBlockNumber, latestBlockHeader);
+  }
+
+  /**
+   * Fetches encrypted logs and blocks from the Aztec node and processes them for all note processors.
+   * If needed, catches up note processors that are lagging behind the main sync, e.g. because we just added a new account.
+   *
+   * Uses the job queue to ensure that
+   * - sync does not overlap with pxe simulations.
+   * - one sync is running at a time.
+   *
+   * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
+   * @returns a promise that resolves when the sync is complete
+   */
+  protected sync(limit: number) {
+    return this.jobQueue.put(async () => {
+      let moreWork = true;
+      // keep external this.running flag to interrupt greedy sync
+      while (moreWork && this.running) {
+        if (this.noteProcessorsToCatchUp.length > 0) {
+          // There is a note processor that needs to catch up. We hijack the main loop to catch up the note processor.
+          moreWork = await this.workNoteProcessorCatchUp(limit);
+        } else {
+          // No note processor needs to catch up. We continue with the normal flow.
+          moreWork = await this.work(limit);
+        }
+      }
+    });
   }
 
   /**
@@ -246,8 +249,7 @@ export class Synchronizer {
    */
   public async stop() {
     this.running = false;
-    this.interruptibleSleep.interrupt();
-    await this.runningPromise;
+    await this.runningPromise?.stop();
     this.log('Stopped');
   }
 

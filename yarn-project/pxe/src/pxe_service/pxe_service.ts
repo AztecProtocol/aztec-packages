@@ -99,11 +99,9 @@ export class PXEService implements PXE {
    */
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
-    this.synchronizer.start(1, l2BlockPollingIntervalMS);
     this.jobQueue.start();
     this.log.info('Started Job Queue');
-    await this.jobQueue.syncPoint();
-    this.log.info('Synced Job Queue');
+    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
