@@ -1,7 +1,5 @@
-#include "barretenberg/vm/tests/helpers.test.hpp"
-#include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
+#include "helpers.test.hpp"
 #include "barretenberg/proof_system/circuit_builder/AvmMini_helper.hpp"
-#include "barretenberg/proof_system/circuit_builder/AvmMini_trace.hpp"
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"

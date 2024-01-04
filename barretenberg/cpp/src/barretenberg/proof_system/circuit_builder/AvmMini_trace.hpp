@@ -2,23 +2,12 @@
 
 #include <stack>
 
+#include "AvmMini_common.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/AvmMini_circuit_builder.hpp"
-
-#include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
 
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
 
-using Flavor = proof_system::honk::flavor::AvmMiniFlavor;
-using FF = Flavor::FF;
-using Row = proof_system::AvmMiniFullRow<FF>;
-
 namespace proof_system {
-
-enum class IntermRegister : uint32_t { ia = 0, ib = 1, ic = 2 };
-enum class AvmMemoryTag : uint32_t { u0 = 0, u8 = 1, u16 = 2, u32 = 3, u64 = 4, u128 = 5, ff = 6 };
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
