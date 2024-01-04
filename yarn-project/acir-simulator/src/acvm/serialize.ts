@@ -150,8 +150,8 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.publicCallStackHashes.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
     toACVMField(publicInputs.endSideEffectCounter),
-    ...publicInputs.encryptedLogsHash.map(toACVMField),
-    ...publicInputs.unencryptedLogsHash.map(toACVMField),
+    toACVMField(publicInputs.encryptedLogsHash),
+    toACVMField(publicInputs.unencryptedLogsHash),
 
     toACVMField(publicInputs.encryptedLogPreimagesLength),
     toACVMField(publicInputs.unencryptedLogPreimagesLength),

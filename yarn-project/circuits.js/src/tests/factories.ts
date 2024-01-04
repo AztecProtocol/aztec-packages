@@ -57,7 +57,6 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
@@ -235,8 +234,8 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
@@ -261,8 +260,8 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
@@ -353,7 +352,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, makeNewSideEffect, seed + 0x700),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, makeNewSideEffectLinkedToNoteHash, seed + 0x800),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
-    tupleGenerator(2, fr, seed + 0x901),
+    fr(seed + 0x901),
     fr(seed + 0x902),
     makeBlockHeader(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
@@ -693,8 +692,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicCallStackHashes: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
     endSideEffectCounter: fr(seed + 0x850),
-    encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
-    unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
+    encryptedLogsHash: fr(seed + 0x900),
+    unencryptedLogsHash: fr(seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     blockHeader: makeBlockHeader(seed + 0xd00),

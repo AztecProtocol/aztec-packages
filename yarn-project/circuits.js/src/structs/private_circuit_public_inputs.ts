@@ -9,7 +9,6 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
@@ -66,14 +65,12 @@ export class PrivateCircuitPublicInputs {
     public endSideEffectCounter: Fr,
     /**
      * Hash of the encrypted logs emitted in this function call.
-     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Hash of the unencrypted logs emitted in this function call.
-     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHash: Fr,
     /**
      * Length of the encrypted log preimages emitted in this function call.
      * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
@@ -129,8 +126,8 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr),
       reader.readObject(Fr),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -156,8 +153,8 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       Fr.ZERO,
-      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
-      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
+      Fr.ZERO,
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -182,8 +179,8 @@ export class PrivateCircuitPublicInputs {
       isFrArrayEmpty(this.privateCallStackHashes) &&
       isFrArrayEmpty(this.publicCallStackHashes) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
-      isFrArrayEmpty(this.encryptedLogsHash) &&
-      isFrArrayEmpty(this.unencryptedLogsHash) &&
+      this.encryptedLogsHash.isZero() &&
+      this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.blockHeader.isEmpty() &&
