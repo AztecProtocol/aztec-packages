@@ -6,8 +6,8 @@ import { PartialStateReference } from './partial_state_reference.js';
  */
 export class StateReference {
   constructor(
-    /** Snapshot of the l1 to l2 messages tree. */
-    public l1ToL2MessagesTree: AppendOnlyTreeSnapshot,
+    /** Snapshot of the l1 to l2 message tree. */
+    public l1ToL2MessageTree: AppendOnlyTreeSnapshot,
     /** Reference to the rest of the state. */
     public partial: PartialStateReference,
   ) {}
