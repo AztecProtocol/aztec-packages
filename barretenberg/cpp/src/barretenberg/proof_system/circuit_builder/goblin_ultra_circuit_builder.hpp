@@ -163,7 +163,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     {
         const uint32_t index = this->add_variable(in);
         public_calldata.emplace_back(index);
-        // WORKTODO: this would be inefficent to do every time but need a safe place to do this
+        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
         calldata_read_counts.resize(public_calldata.size());
         return index;
     }
