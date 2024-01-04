@@ -23,7 +23,7 @@ class PartialStateReference {
 }
 
 class StateReference {
-    l1_to_l2_message_tree: Snapshot
+    l1_to_l2_messages_tree: Snapshot
     partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial

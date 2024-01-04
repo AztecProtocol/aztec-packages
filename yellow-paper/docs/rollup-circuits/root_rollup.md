@@ -31,7 +31,7 @@ class PartialStateReference {
 }
 
 class StateReference {
-    l1_to_l2_message_tree: Snapshot
+    l1_to_l2_messages_tree: Snapshot
     partial: PartialStateReference
 }
 StateReference *-- PartialStateReference: partial
@@ -174,7 +174,7 @@ def RootRollupCircuit(
 
     l1_to_l2_msg_subtree = MerkleTree(l1_to_l2_msgs)
     l1_to_l2_msg_tree = merkle_insertion(
-        parent.state.l1_to_l2_message_tree, 
+        parent.state.l1_to_l2_messages_tree, 
         l1_to_l2_msg_subtree.root, 
         l1_to_l2_msgs_sibling_path, 
         L1_TO_L2_SUBTREE_HEIGHT, 
@@ -188,7 +188,7 @@ def RootRollupCircuit(
         last_archive = left.inputs.constants.last_archive,
         body_hash = SHA256(txs_hash | out_hash | SHA256(l1_to_l2_msgs)),
         state = StateReference(
-            l1_to_l2_message_tree = l1_to_l2_msg_tree,
+            l1_to_l2_messages_tree = l1_to_l2_msg_tree,
             partial = right.inputs.end,
         ),
         global_variables = left.inputs.constants.global_variables,
