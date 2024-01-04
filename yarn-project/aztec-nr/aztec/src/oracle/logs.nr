@@ -18,7 +18,7 @@ unconstrained pub fn emit_encrypted_log<N>(
     encryption_pub_key: GrumpkinPoint,
     preimage: [Field; N]
 ) -> Field {
-    [emit_encrypted_log_oracle(contract_address, storage_slot, encryption_pub_key, preimage), 0]
+    emit_encrypted_log_oracle(contract_address, storage_slot, encryption_pub_key, preimage)
 }
 
 #[oracle(emitUnencryptedLog)]
@@ -30,5 +30,5 @@ unconstrained pub fn emit_unencrypted_log<T>(
     message: T
 ) -> Field {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
-    [emit_unencrypted_log_oracle(contract_address, event_selector, message), 0]
+    emit_unencrypted_log_oracle(contract_address, event_selector, message)
 }

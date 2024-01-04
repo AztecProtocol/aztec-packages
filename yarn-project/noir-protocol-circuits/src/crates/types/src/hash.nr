@@ -235,7 +235,7 @@ pub fn compute_constructor_hash(
 // being two bits too small to accommodate all 256-bits of the hash.
 // Returning a single Field is desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
-pub fn accumulate_sha256(input: [Field, 2]) -> Field {
+pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
