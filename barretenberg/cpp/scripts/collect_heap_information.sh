@@ -3,7 +3,7 @@ set -eu
 
 PRESET=gperftools
 ONLY_PROCESS=${1:-}
-EXECUTABLE=${2:-goblin_bench}
+EXECUTABLE=${2:-ultra_honk_rounds_bench}
 
 # Move above script dir.
 cd $(dirname $0)/..
