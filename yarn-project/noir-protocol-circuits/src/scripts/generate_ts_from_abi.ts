@@ -198,22 +198,6 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
   );
 }
 
-/**
- * Format the generated files
- */
-function runLintAndFormat(filePath: string) {
-  const command = `NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ${filePath} && run -T prettier -w ${filePath}`;
-
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      throw error;
-    }
-    if (stderr) {
-      throw Error(stderr);
-    }
-  });
-}
-
 const circuits = [
   'private_kernel_init',
   'private_kernel_inner',
@@ -239,7 +223,6 @@ const main = async () => {
 
     const outputFile = `./src/types/${circuit}_types.ts`;
     await fs.writeFile(outputFile, generatedInterface);
-    runLintAndFormat(outputFile);
   }
 };
 
