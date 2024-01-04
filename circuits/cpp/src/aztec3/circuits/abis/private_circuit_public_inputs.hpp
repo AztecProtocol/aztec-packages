@@ -76,10 +76,10 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     {
         return call_context == other.call_context && args_hash == other.args_hash &&
                return_values == other.return_values && read_requests == other.read_requests &&
-               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
-               nullified_commitments == other.nullified_commitments && private_call_stack == other.private_call_stack &&
-               public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
-               encrypted_logs_hash == other.encrypted_logs_hash &&
+               new_commitments == other.new_commitments &&
+               new_nullifiers == other.new_nullifiers && nullified_commitments == other.nullified_commitments &&
+               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
+               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
                encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
                unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
