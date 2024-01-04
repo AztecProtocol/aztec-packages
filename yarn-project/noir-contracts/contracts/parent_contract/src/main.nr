@@ -10,7 +10,7 @@ contract Parent {
 
     // Private function to call another private function in the targetContract using the provided selector
     #[aztec(private)]
-    fn entryPoint(targetContract: AztecAddress, targetSelector: FunctionSelector) -> Field {
+    fn entryPoint(targetContract : AztecAddress, targetSelector: FunctionSelector) -> Field {
         // Call the target private function
         let return_values = context.call_private_function(targetContract, targetSelector, [0]);
 
