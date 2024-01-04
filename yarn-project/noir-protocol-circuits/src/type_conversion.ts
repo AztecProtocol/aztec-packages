@@ -38,7 +38,6 @@ import {
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
-  NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
@@ -812,8 +811,8 @@ export function mapCombinedAccumulatedDataFromNoir(
       mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.encrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
+    mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
+    mapFieldFromNoir(combinedAccumulatedData.unencrypted_logs_hash),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
     mapTupleFromNoir(combinedAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
@@ -1173,7 +1172,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     end_public_data_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
       baseOrMergeRollupPublicInputs.endPublicDataTreeSnapshot,
     ),
-    calldata_hash: mapTuple(baseOrMergeRollupPublicInputs.calldataHash, mapFieldToNoir),
+    calldata_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.calldataHash),
   };
 }
 
@@ -1226,7 +1225,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_contract_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.start_public_data_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(baseOrMergeRollupPublicInputs.end_public_data_tree_snapshot),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.calldata_hash),
   );
 }
 

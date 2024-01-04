@@ -257,10 +257,8 @@ describe('sequencer/solo_block_builder', () => {
     });
 
     const callDataHash = l2Block.getCalldataHash();
-    const high = Fr.fromBuffer(callDataHash.slice(0, 16));
-    const low = Fr.fromBuffer(callDataHash.slice(16, 32));
 
-    rootRollupOutput.calldataHash = [high, low];
+    rootRollupOutput.calldataHash = Fr.fromBuffer(callDataHash);
 
     return txs;
   };

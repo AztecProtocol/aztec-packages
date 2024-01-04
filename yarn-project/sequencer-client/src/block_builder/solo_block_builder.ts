@@ -182,11 +182,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       newUnencryptedLogs,
     });
 
-    if (!l2Block.getCalldataHash().equals(circuitsOutput.sha256CalldataHash())) {
+    if (!Fr.fromBuffer(l2Block.getCalldataHash()).equals(circuitsOutput.calldataHash)) {
       throw new Error(
-        `Calldata hash mismatch, ${l2Block.getCalldataHash().toString('hex')} == ${circuitsOutput
-          .sha256CalldataHash()
-          .toString('hex')} `,
+        `Truncated Calldata hash mismatch, ${Fr.fromBuffer(
+          l2Block.getCalldataHash(),
+        ).toString()} == ${circuitsOutput.calldataHash.toString()} `,
       );
     }
 

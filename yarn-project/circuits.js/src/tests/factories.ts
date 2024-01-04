@@ -821,7 +821,7 @@ export function makeBaseOrMergeRollupPublicInputs(
     makeAppendOnlyTreeSnapshot(seed + 0x800),
     makeAppendOnlyTreeSnapshot(seed + 0x900),
     makeAppendOnlyTreeSnapshot(seed + 0x1000),
-    [fr(seed + 0x901), fr(seed + 0x902)],
+    fr(seed + 0x901),
   );
 }
 
@@ -887,8 +887,8 @@ export function makeRootRollupPublicInputs(
     endL1ToL2MessagesTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endArchiveSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
-    calldataHash: [new Fr(1n), new Fr(2n)],
-    l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
+    calldataHash: new Fr(1n),
+    l1ToL2MessagesHash: new Fr(2n),
   });
 }
 

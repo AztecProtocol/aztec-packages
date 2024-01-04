@@ -641,7 +641,7 @@ export class L2Block {
    * Computes the calldata hash for the L2 block
    * This calldata hash is also computed by the rollup contract when the block is submitted,
    * and inside the circuit, it is part of the public inputs.
-   * @returns The calldata hash.
+   * @returns The calldata hash, but already truncated to 254 bits.
    */
   getCalldataHash() {
     if (this.newEncryptedLogs === undefined) {
@@ -714,7 +714,8 @@ export class L2Block {
       leafs.push(sha256(inputValue));
     }
 
-    return computeRoot(leafs);
+    // is it OK to reduce here?? so we never work with the full hash output
+    return Fr.fromBufferReduce(computeRoot(leafs)).toBuffer();
   }
 
   /**
@@ -725,7 +726,9 @@ export class L2Block {
   getL1ToL2MessagesHash(): Buffer {
     // Create a long buffer of all of the l1 to l2 messages
     const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.map(message => message.toBuffer()));
-    return sha256(l1ToL2Messages);
+
+    // same question -  is it OK to reduce here?? so we never work with the full hash output
+    return Fr.fromBufferReduce(sha256(l1ToL2Messages)).toBuffer();
   }
 
   /**

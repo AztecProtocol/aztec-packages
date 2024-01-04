@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { NUM_FIELDS_PER_SHA256 } from '../../constants.gen.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import { RollupTypes } from '../shared.js';
@@ -69,10 +68,9 @@ export class BaseOrMergeRollupPublicInputs {
     public endPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
-     * SHA256 hashes of calldata. Used to make public inputs constant-sized (to then be unpacked on-chain).
-     * Note: Length 2 for high and low.
+     * Truncated SHA256 hashes of calldata. Used to make public inputs constant-sized (to then be unpacked on-chain).
      */
-    public calldataHash: [Fr, Fr],
+    public calldataHash: Fr,
   ) {}
 
   /**
@@ -96,7 +94,7 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
+      Fr.fromBuffer(reader),
     );
   }
 
