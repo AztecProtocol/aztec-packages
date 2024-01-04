@@ -7,7 +7,7 @@ use dep::types::utils::uint256::U256;
 use dep::types::constants::{NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
 use crate::{components, hash::compute_block_hash_with_globals};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
-use crate::hash::sha256_to_field;
+use dep::types::hash::sha256_to_field;
 
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {

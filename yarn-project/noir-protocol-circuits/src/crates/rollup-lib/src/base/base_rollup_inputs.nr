@@ -2,7 +2,7 @@ use crate::abis::public_data_tree_leaf::{PublicDataTreeLeaf, PublicDataTreeLeafP
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE};
-use crate::hash::sha256_to_field;
+use dep::types::hash::sha256_to_field;
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 use crate::components;
 use dep::types::utils::uint256::U256;
@@ -599,7 +599,7 @@ mod tests {
         abis::previous_kernel_data::PreviousKernelData,
         abis::side_effect::SideEffect,
         address::{AztecAddress, EthAddress},
-        hash::accumulate_sha256,
+        hash::{accumulate_sha256, sha256_to_field},
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
@@ -1219,7 +1219,7 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
         let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
-        let expected_calldata_hash = accumulate_sha256(hash_input_flattened);
+        let expected_calldata_hash = sha256_to_field(hash_input_flattened);
         assert_eq(outputs.calldata_hash, expected_calldata_hash);
     }
 
