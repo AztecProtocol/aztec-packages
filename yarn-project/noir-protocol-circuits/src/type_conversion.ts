@@ -1328,8 +1328,8 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_l1_to_l2_messages_tree_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.start_archive_snapshot),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive_snapshot),
-    mapTupleFromNoir(rootRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
-    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
+    mapFieldFromNoir(rootRollupPublicInputs.calldata_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash),
   );
 }
 
