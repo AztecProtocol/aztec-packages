@@ -45,6 +45,11 @@ In addition to the current rollup implementation deciding to propose a vote, tok
 
 In a worst case scenario, the rollup's sequencer set could be malicious and censor potentially honest upgrade proposals from going through. In this scenario, there needs to be the ability to add a proposal "to the queue" via the token locking mechanism articulated above which is guaranteed to be executed when the previous vote completes. 
 
+#### Quorum 
+For any proposal to be considered valid and ready for voting, there must be a quorum of voting power eligible to participate. The purpose of this is to ensure that the network cannot be upgraded without a minimum of participation, keeping the governance more protected from takeover at genesis.
+
+The exact amount of voting power required is to be determined through modelling, but we expect that around 5% of total supply. Assuming that 20% of the supply is circulating at launch and that 25% of this is staked towards the initial instance, this would allow the initial instance to reach quorum on its own.
+
 ### Voting
 
 #### Participation
@@ -62,19 +67,14 @@ Tokens whose power did not vote "yes" are free to leave whenever they chose. Thi
 Rollup instances themselves will need to deposit their stake into the governance, in order to earn rewards and participate within the vote. Further, they can apply their own enter/exit delays on top of the governance contract's. For example to ensure stability of the sequencer set over short timeframes, if using $AZTC stake as a requirement for sequencing, they may wish to impose longer entry and exit queues.
 
 #### Results
+A vote is defined as passing if a majority of the voting weight votes "yes" to the proposal.
+
 If the vote fails, there is no action needed.
 
 If the vote passes, and a new rollup has been determined to be the next canonical instance, it will become canonical in the amount of days defined within the vote's timelock. It is likely there are defined limitations around this parameter, e.g., it must be a 3-30 day timelock. This is explained more in the timing section below. At this block height, portals that desire to follow governance should start referencing the new canonical instance to ensure as many bridged assets are backed on the latest version as possible.
 
 :::danger
-**Question**: what is needed to pass a vote? 
-
-Current thinking is that it should likely be the amount expected to be held in the initial instance of the rollup, e.g. 20% circulating & 25% of that is staked -> 5% of total supply, so locked tokens do not need to participate whatsoever in a happy path upgrade to v1.
-
-
-**Lasse**: 
-- This needs to be clarified. I don't understand the sentence.
-- note that if the portals follow the governance registry blindly, they assume that new inbox/outbox will always be backwards compatible
+Portals that blindly follow governance inherently assume that the new inbox/outbox will always be backwards compatible. If it is not, it might break the portals.
 :::
 
 ### Timing
