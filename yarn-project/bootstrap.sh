@@ -37,7 +37,7 @@ yarn workspace @aztec/noir-contracts build:contracts
 # TODO: Contracts should not be baked into aztec.js.
 yarn workspace @aztec/aztec.js build:copy-contracts
 # Build protocol circuits. TODO: move pre yarn-project.
-yarn workspace @aztec/noir-protocol-circuits build:noir
+yarn workspace @aztec/noir-protocol-circuits build
 
 yarn build
 
