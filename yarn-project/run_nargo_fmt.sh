@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -eu
 
 # We set the executable path as if we were in CI
 nargo_executable="/usr/src/noir/target/release/nargo"
