@@ -1,10 +1,10 @@
 use crate::address::{AztecAddress, EthAddress};
 use crate::mocked::VerificationKey;
-use crate::point::Point;
 use crate::abis::function_selector::FunctionSelector;
 use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::abis::new_contract_data::NewContractData as ContractLeafPreimage;
 use crate::abis::function_data::FunctionData;
+use crate::abis::side_effect::{SideEffect};
 use crate::utils::uint128::U128;
 use crate::utils::uint256::U256;
 use crate::utils::bounded_vec::BoundedVec;
@@ -250,26 +250,6 @@ pub fn compute_logs_hash(previous_log_hash : [Field;2], current_log_hash : [Fiel
     ])
 }
 
-pub fn compute_partial_address(contract_address_salt : Field, function_tree_root : Field, constructor_hash : Field) -> Field {
-    pedersen_hash([
-        // TODO why the zeroes?
-        0,
-        0,
-        contract_address_salt,
-        function_tree_root,
-        constructor_hash
-    ], GENERATOR_INDEX__PARTIAL_ADDRESS)
-}
-
-pub fn compute_contract_address_from_partial(point : Point, partial_address : Field) -> AztecAddress {
-    let field = pedersen_hash([
-        point.x,
-        point.y,
-        partial_address
-    ], GENERATOR_INDEX__CONTRACT_ADDRESS);
-    AztecAddress::from_field(field)
-}
-
 pub fn compute_commitment_nonce(first_nullifier : Field, commitment_index : Field) -> Field {
     pedersen_hash([
         first_nullifier,
@@ -284,13 +264,16 @@ pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) 
     ], GENERATOR_INDEX__UNIQUE_COMMITMENT)
 }
 
-pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [Field; N]) -> [Field; N] {
-    let mut unique_siloed_commitments = [0; N];
+pub fn compute_unique_siloed_commitments<N>(first_nullifier: Field, siloed_commitments: [SideEffect; N]) -> [SideEffect; N] {
+    let mut unique_siloed_commitments = [SideEffect::empty(); N];
     for i in 0..N {
         let siloed_commitment = siloed_commitments[i];
-        if siloed_commitment != 0 {
+        if siloed_commitment.value != 0 {
             let nonce = compute_commitment_nonce(first_nullifier, i);
-            unique_siloed_commitments[i] = compute_unique_siloed_commitment(nonce, siloed_commitment);
+            unique_siloed_commitments[i] = SideEffect {
+                value: compute_unique_siloed_commitment(nonce, siloed_commitment.value),
+                counter: siloed_commitment.counter
+                };
         }
     }
     unique_siloed_commitments
