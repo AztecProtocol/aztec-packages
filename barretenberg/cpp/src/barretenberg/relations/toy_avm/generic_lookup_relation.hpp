@@ -11,8 +11,6 @@
  * + READ - the action of looking up the value in the table
  * + WRITE - the action of adding the value to the lookup table
  *
- * TODO(@Rumata888): Talk to Zac why "lookup_read_count" refers to the count of the looked up element in the multiset.
- * (The value is applied to the write predicate, so it is confusing).
  */
 #pragma once
 #include <array>
@@ -92,6 +90,27 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         }
         return maximum_degree;
     }
+    /**
+     * @brief Compute the minimum degree of write terms
+     *
+     *@details We need this to evaluate the length of the subrelations correctly (specifically the logderivative
+     *relation)
+     * @return constexpr size_t
+     */
+    static constexpr size_t compute_minimum_write_term_degree()
+    {
+        size_t minimum_degree = SIZE_MAX;
+        for (size_t i = 0; i < WRITE_TERMS; i++) {
+            size_t current_degree = 0;
+            if (Settings::WRITE_TERM_TYPES[i] == WRITE_BASIC_TUPLE) {
+                current_degree = 1;
+            } else {
+                current_degree = Settings::WRITE_TERM_DEGREE;
+            }
+            minimum_degree = std::min(current_degree, minimum_degree);
+        }
+        return minimum_degree;
+    }
 
     /**
      * @brief Compute the degree of of the product of read terms
@@ -155,9 +174,12 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
                  Settings::INVERSE_EXISTS_POLYNOMIAL_DEGREE) +
         1;
 
-    // Compute the length of the log-derived term subrelation MAX(read term * enable read, write term * write count *
-    // enable write)
-    static constexpr size_t SECOND_SUBRELATION_LENGTH = std::max(READ_TERM_DEGREE + 1, WRITE_TERM_DEGREE + 2);
+    // Compute the length of the seconds subrelation (inverse_polynomial⋅ ∏read_terms ⋅ ∏(write_terms other than
+    // current)⋅ enable_write⋅ lookup_read_count).
+
+    static constexpr size_t SECOND_SUBRELATION_LENGTH = compute_read_term_product_degree() +
+                                                        compute_write_term_product_degree() -
+                                                        compute_minimum_write_term_degree() + 2;
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = std::max(FIRST_SUBRELATION_LENGTH, SECOND_SUBRELATION_LENGTH);
 
