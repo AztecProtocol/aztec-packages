@@ -6,6 +6,7 @@ use crate::{
     hash::pedersen_hash,
 };
 use dep::std::ops::Eq;
+use crate::traits::{Hash, Empty};
 
 struct StorageUpdateRequest{
     storage_slot : Field,
@@ -22,21 +23,25 @@ impl Eq for StorageUpdateRequest {
     }
 }
 
-impl StorageUpdateRequest {
-    pub fn empty() -> Self {
+impl Empty for StorageUpdateRequest {
+    fn empty() -> Self {
         StorageUpdateRequest {
             storage_slot: 0,
             old_value: 0,
             new_value: 0,
         }
     }
+}
 
+impl Hash for StorageUpdateRequest {
+    fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+    }
+}
+
+impl StorageUpdateRequest {
     pub fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value]
-    }
-
-    pub fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 
     pub fn is_empty(self) -> bool {

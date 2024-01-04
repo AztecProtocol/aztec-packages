@@ -8,6 +8,7 @@ use crate::{
     hash::pedersen_hash,
 };
 use dep::std::ops::Eq;
+use crate::traits::Hash;
 
 // docs:start:call-context
 struct CallContext {
@@ -39,6 +40,12 @@ impl Eq for CallContext {
     }
 }
 
+impl Hash for CallContext {
+    fn hash(self) -> Field {
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
+    }
+}
+
 impl CallContext {
     fn serialize(self) -> [Field; CALL_CONTEXT_LENGTH] {
         [
@@ -51,10 +58,6 @@ impl CallContext {
             self.is_contract_deployment as Field,
             self.start_side_effect_counter,
         ]
-    }
-
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_CONTEXT)
     }
 
     fn assert_is_zero(self) {

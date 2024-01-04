@@ -8,6 +8,7 @@ use crate::{
     grumpkin_point::GrumpkinPoint,
 };
 use dep::std::ops::Eq;
+use crate::traits::Empty;
 
 // Aztec address
 struct AztecAddress {
@@ -20,16 +21,18 @@ impl Eq for AztecAddress {
     }
 }
 
+impl Empty for AztecAddress {
+    fn empty() -> Self {
+        Self {
+            inner : 0
+        }
+    }
+}
+
 impl AztecAddress {
     pub fn zero() -> Self {
         Self {
             inner: 0
-        }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            inner : 0
         }
     }
 
@@ -88,16 +91,18 @@ impl Eq for EthAddress {
     }
 }
 
+impl Empty for EthAddress {
+    fn empty() -> Self {
+        Self {
+            inner : 0
+        }
+    }
+}
+
 impl EthAddress{
     pub fn zero() -> Self {
         Self {
             inner: 0
-        }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            inner : 0
         }
     }
 

@@ -1,5 +1,6 @@
 use dep::types::constants::GENERATOR_INDEX__GLOBAL_VARIABLES;
 use dep::std::ops::Eq;
+use dep::types::traits::Hash;
 
 struct GlobalVariables {
     chain_id : Field,
@@ -17,8 +18,8 @@ impl Eq for GlobalVariables {
     }
 }
 
-impl GlobalVariables {
-    pub fn hash(self) -> Field {
+impl Hash for GlobalVariables {
+    fn hash(self) -> Field {
         dep::std::hash::pedersen_hash_with_separator([
             self.chain_id, 
             self.version, 

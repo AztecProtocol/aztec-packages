@@ -1,5 +1,6 @@
 use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
 use dep::std::ops::Eq;
+use crate::traits::{Empty, Hash};
 
 struct SideEffect{
     value: Field,
@@ -10,6 +11,22 @@ impl Eq for SideEffect {
     fn eq(self, side_effect: SideEffect) -> bool {
         (self.value == side_effect.value)
         & (self.counter == side_effect.counter)
+    }
+}
+
+impl Empty for SideEffect {
+    fn empty() -> Self {
+        SideEffect {
+            value: 0,
+            counter: 0,
+        }
+    }
+}
+
+impl Hash for SideEffect {
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_hash_with_separator(
+            self.serialize() , GENERATOR_INDEX__SIDE_EFFECT)
     }
 }
 
@@ -24,21 +41,10 @@ impl SideEffect {
             counter: values[1],
         }
     }
-    pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator(
-            self.serialize() , GENERATOR_INDEX__SIDE_EFFECT)
-    }
 
     pub fn is_empty(self) -> bool {
         (self.value == 0)
         & (self.counter == 0)
-    }
-
-    pub fn empty() -> SideEffect {
-        SideEffect {
-            value: 0,
-            counter: 0,
-        }
     }
 }
 
@@ -56,6 +62,24 @@ impl Eq for SideEffectLinkedToNoteHash {
     }
 }
 
+impl Empty for SideEffectLinkedToNoteHash {
+    fn empty() -> Self {
+        SideEffectLinkedToNoteHash {
+            value: 0,
+            note_hash: 0,
+            counter: 0,
+        }
+    }
+}
+
+impl Hash for SideEffectLinkedToNoteHash {
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_hash_with_separator(
+            self.serialize(),
+        GENERATOR_INDEX__SIDE_EFFECT)
+    }
+}
+
 impl SideEffectLinkedToNoteHash{
     pub fn serialize(self) -> [Field; 3] {
         [self.value, self.note_hash, self.counter]
@@ -69,24 +93,10 @@ impl SideEffectLinkedToNoteHash{
         }
     }
 
-    pub fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator(
-            self.serialize(),
-        GENERATOR_INDEX__SIDE_EFFECT)
-    }
-
     pub fn is_empty(self) -> bool {
         (self.value == 0)
         &  (self.note_hash == 0)
         & (self.counter == 0)
-    }
-
-    pub fn empty() -> SideEffectLinkedToNoteHash {
-        SideEffectLinkedToNoteHash {
-            value: 0,
-            note_hash: 0,
-            counter: 0,
-        }
     }
 }
 
