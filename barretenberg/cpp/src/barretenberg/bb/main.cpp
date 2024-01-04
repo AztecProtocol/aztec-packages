@@ -54,16 +54,16 @@ void init_reference_strings()
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size. Currently set to
     // max circuit size present in acir tests suite.
-    size_t subgroup_size = 262144;
+    size_t hardcoded_subgroup_size_hack = 262144;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
     // Must +1!
-    auto g1_data = get_bn254_g1_data(CRS_PATH, subgroup_size + 1);
+    auto g1_data = get_bn254_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(g1_data, g2_data);
 
     // Must +1!
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, subgroup_size + 1);
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
