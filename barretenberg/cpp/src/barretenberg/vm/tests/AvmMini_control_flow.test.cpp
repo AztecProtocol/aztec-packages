@@ -73,7 +73,7 @@ TEST_F(AvmMiniControlFlowTests, simpleCall)
         EXPECT_EQ(halt_row->avmMini_pc, FF(CALL_ADDRESS));
         EXPECT_EQ(halt_row->avmMini_internal_return_ptr, FF(AvmMiniTraceBuilder::CALLSTACK_OFFSET + 1));
     }
-    validateTraceProof(std::move(trace));
+    validate_trace_proof(std::move(trace));
 }
 
 TEST_F(AvmMiniControlFlowTests, simpleJump)
@@ -106,7 +106,7 @@ TEST_F(AvmMiniControlFlowTests, simpleJump)
         EXPECT_TRUE(halt_row != trace.end());
         EXPECT_EQ(halt_row->avmMini_pc, FF(JUMP_ADDRESS));
     }
-    validateTraceProof(std::move(trace));
+    validate_trace_proof(std::move(trace));
 }
 
 TEST_F(AvmMiniControlFlowTests, simpleCallAndReturn)
@@ -156,7 +156,7 @@ TEST_F(AvmMiniControlFlowTests, simpleCallAndReturn)
         EXPECT_EQ(halt_row->avmMini_pc, FF(RETURN_ADDRESS));
     }
 
-    validateTraceProof(std::move(trace));
+    validate_trace_proof(std::move(trace));
 }
 
 TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
@@ -298,6 +298,6 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
     EXPECT_TRUE(halt_row != trace.end());
     EXPECT_EQ(halt_row->avmMini_pc, FF(1));
 
-    validateTraceProof(std::move(trace));
+    validate_trace_proof(std::move(trace));
 }
 } // namespace tests_avm

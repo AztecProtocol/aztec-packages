@@ -21,30 +21,27 @@ class AvmMiniTraceBuilder {
 
     AvmMiniTraceBuilder();
 
-    // Temporary helper to initialize memory.
-    void setFFMem(size_t idx, FF el, AvmMemoryTag tag);
-
     std::vector<Row> finalize();
     void reset();
 
     // Addition with direct memory access.
-    void add(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset, AvmMemoryTag inTag);
+    void add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Subtraction with direct memory access.
-    void sub(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset, AvmMemoryTag inTag);
+    void sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Multiplication with direct memory access.
-    void mul(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset, AvmMemoryTag inTag);
+    void mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Division with direct memory access.
-    void div(uint32_t aOffset, uint32_t bOffset, uint32_t dstOffset, AvmMemoryTag inTag);
+    void div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Jump to a given program counter.
-    void jump(uint32_t jmpDest);
+    void jump(uint32_t jmp_dest);
 
     // Jump to a given program counter; storing the return location on a call stack.
     // TODO(md): this program counter MUST be an operand to the OPCODE.
-    void internal_call(uint32_t jmpDest);
+    void internal_call(uint32_t jmp_dest);
 
     // Return from a jump.
     void internal_return();
@@ -53,16 +50,19 @@ class AvmMiniTraceBuilder {
     void halt();
 
     // CALLDATACOPY opcode with direct memory access, i.e.,
-    // M[dstOffset:dstOffset+copySize] = calldata[cdOffset:cdOffset+copySize]
-    void callDataCopy(uint32_t cdOffset, uint32_t copySize, uint32_t dstOffset, std::vector<FF> const& callDataMem);
+    // M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+    void call_data_copy(uint32_t cd_offset,
+                        uint32_t copy_size,
+                        uint32_t dst_offset,
+                        std::vector<FF> const& call_data_mem);
 
     // RETURN opcode with direct memory access, i.e.,
-    // return(M[retOffset:retOffset+retSize])
-    std::vector<FF> returnOP(uint32_t retOffset, uint32_t retSize);
+    // return(M[ret_offset:ret_offset+ret_size])
+    std::vector<FF> return_op(uint32_t ret_offset, uint32_t ret_size);
 
   private:
-    std::vector<Row> mainTrace;
-    AvmMiniMemTraceBuilder memTraceBuilder;
+    std::vector<Row> main_trace;
+    AvmMiniMemTraceBuilder mem_trace_builder;
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

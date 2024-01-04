@@ -13,7 +13,7 @@ using namespace proof_system;
  *
  * @param trace The execution trace
  */
-void validateTraceProof(std::vector<Row>&& trace)
+void validate_trace_proof(std::vector<Row>&& trace)
 {
     auto circuit_builder = AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
@@ -40,7 +40,7 @@ void validateTraceProof(std::vector<Row>&& trace)
  * @param selectRow Lambda serving to select the row in trace
  * @param newValue The value that will be written in intermediate register Ic at the selected row.
  */
-void mutateIcInTrace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue)
+void mutate_ic_in_trace(std::vector<Row>& trace, std::function<bool(Row)>&& selectRow, FF const& newValue)
 {
     // Find the first row matching the criteria defined by selectRow
     auto row = std::ranges::find_if(trace.begin(), trace.end(), selectRow);
@@ -56,12 +56,12 @@ void mutateIcInTrace(std::vector<Row>& trace, std::function<bool(Row)>&& selectR
     auto const addr = row->avmMini_mem_idx_c;
 
     // Find the relevant memory trace entry.
-    auto memRow = std::ranges::find_if(trace.begin(), trace.end(), [clk, addr](Row r) {
+    auto mem_row = std::ranges::find_if(trace.begin(), trace.end(), [clk, addr](Row r) {
         return r.memTrace_m_clk == clk && r.memTrace_m_addr == addr;
     });
 
-    EXPECT_TRUE(memRow != trace.end());
-    memRow->memTrace_m_val = newValue;
+    EXPECT_TRUE(mem_row != trace.end());
+    mem_row->memTrace_m_val = newValue;
 };
 
 } // namespace tests_avm

@@ -29,7 +29,7 @@ class AvmMiniMemTraceBuilder {
 
     // Structure to return value and tag matching boolean after a memory read.
     struct MemRead {
-        bool tagMatch;
+        bool tag_match;
         FF val;
     };
 
@@ -39,27 +39,30 @@ class AvmMiniMemTraceBuilder {
 
     std::vector<MemoryTraceEntry> finalize();
 
-    MemRead readAndLoadFromMemory(uint32_t clk, IntermRegister intermReg, uint32_t addr, AvmMemoryTag m_in_tag);
-    void writeIntoMemory(uint32_t clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
+    MemRead read_and_load_from_memory(uint32_t clk, IntermRegister interm_reg, uint32_t addr, AvmMemoryTag m_in_tag);
+    void write_into_memory(
+        uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
 
   private:
-    std::vector<MemoryTraceEntry> memTrace;         // Entries will be sorted by m_clk, m_sub_clk after finalize().
-    std::array<FF, MEM_SIZE> memory{};              // Memory table (used for simulation)
-    std::array<AvmMemoryTag, MEM_SIZE> memoryTag{}; // The tag of the corresponding memory
-                                                    // entry (aligned with the memory array).
+    std::vector<MemoryTraceEntry> mem_trace;         // Entries will be sorted by m_clk, m_sub_clk after finalize().
+    std::array<FF, MEM_SIZE> memory{};               // Memory table (used for simulation)
+    std::array<AvmMemoryTag, MEM_SIZE> memory_tag{}; // The tag of the corresponding memory
+                                                     // entry (aligned with the memory array).
 
-    static bool compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
+    static bool compare_mem_entries(const MemoryTraceEntry& left, const MemoryTraceEntry& right);
 
-    void insertInMemTrace(
+    void insert_in_mem_trace(
         uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF const& m_val, AvmMemoryTag m_in_tag, bool m_rw);
-    void loadMismatchTagInMemTrace(uint32_t m_clk,
-                                   uint32_t m_sub_clk,
-                                   uint32_t m_addr,
-                                   FF const& m_val,
-                                   AvmMemoryTag m_in_tag,
-                                   AvmMemoryTag m_tag);
+    void load_mismatch_tag_in_mem_trace(uint32_t m_clk,
+                                        uint32_t m_sub_clk,
+                                        uint32_t m_addr,
+                                        FF const& m_val,
+                                        AvmMemoryTag m_in_tag,
+                                        AvmMemoryTag m_tag);
 
-    bool loadInMemTrace(uint32_t clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
-    void storeInMemTrace(uint32_t clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
+    bool load_in_mem_trace(
+        uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
+    void store_in_mem_trace(
+        uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
 };
 } // namespace proof_system

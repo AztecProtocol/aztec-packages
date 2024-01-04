@@ -8,7 +8,7 @@ namespace proof_system {
  */
 AvmMiniMemTraceBuilder::AvmMiniMemTraceBuilder()
 {
-    memTrace.reserve(AVM_TRACE_SIZE);
+    mem_trace.reserve(AVM_TRACE_SIZE);
 }
 
 /**
@@ -17,7 +17,7 @@ AvmMiniMemTraceBuilder::AvmMiniMemTraceBuilder()
  */
 void AvmMiniMemTraceBuilder::reset()
 {
-    memTrace.clear();
+    mem_trace.clear();
     memory.fill(FF(0));
 }
 
@@ -25,7 +25,7 @@ void AvmMiniMemTraceBuilder::reset()
  * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm.
  *
  */
-bool AvmMiniMemTraceBuilder::compareMemEntries(const MemoryTraceEntry& left, const MemoryTraceEntry& right)
+bool AvmMiniMemTraceBuilder::compare_mem_entries(const MemoryTraceEntry& left, const MemoryTraceEntry& right)
 {
     if (left.m_addr < right.m_addr) {
         return true;
@@ -56,8 +56,8 @@ bool AvmMiniMemTraceBuilder::compareMemEntries(const MemoryTraceEntry& left, con
 std::vector<AvmMiniMemTraceBuilder::MemoryTraceEntry> AvmMiniMemTraceBuilder::finalize()
 {
     // Sort memTrace
-    std::sort(memTrace.begin(), memTrace.end(), compareMemEntries);
-    return std::move(memTrace);
+    std::sort(mem_trace.begin(), mem_trace.end(), compare_mem_entries);
+    return std::move(mem_trace);
 }
 
 /**
@@ -70,14 +70,14 @@ std::vector<AvmMiniMemTraceBuilder::MemoryTraceEntry> AvmMiniMemTraceBuilder::fi
  * @param m_in_tag Memory tag pertaining to the instruction
  * @param m_rw Boolean telling whether it is a load (false) or store operation (true).
  */
-void AvmMiniMemTraceBuilder::insertInMemTrace(uint32_t const m_clk,
-                                              uint32_t const m_sub_clk,
-                                              uint32_t const m_addr,
-                                              FF const& m_val,
-                                              AvmMemoryTag const m_in_tag,
-                                              bool const m_rw)
+void AvmMiniMemTraceBuilder::insert_in_mem_trace(uint32_t const m_clk,
+                                                 uint32_t const m_sub_clk,
+                                                 uint32_t const m_addr,
+                                                 FF const& m_val,
+                                                 AvmMemoryTag const m_in_tag,
+                                                 bool const m_rw)
 {
-    memTrace.emplace_back(MemoryTraceEntry{
+    mem_trace.emplace_back(MemoryTraceEntry{
         .m_clk = m_clk,
         .m_sub_clk = m_sub_clk,
         .m_addr = m_addr,
@@ -103,22 +103,22 @@ void AvmMiniMemTraceBuilder::insertInMemTrace(uint32_t const m_clk,
  * @param m_in_tag Memory tag pertaining to the instruction
  * @param m_tag Memory tag pertaining to the address
  */
-void AvmMiniMemTraceBuilder::loadMismatchTagInMemTrace(uint32_t const m_clk,
-                                                       uint32_t const m_sub_clk,
-                                                       uint32_t const m_addr,
-                                                       FF const& m_val,
-                                                       AvmMemoryTag const m_in_tag,
-                                                       AvmMemoryTag const m_tag)
+void AvmMiniMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
+                                                            uint32_t const m_sub_clk,
+                                                            uint32_t const m_addr,
+                                                            FF const& m_val,
+                                                            AvmMemoryTag const m_in_tag,
+                                                            AvmMemoryTag const m_tag)
 {
     FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
-    memTrace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
-                                            .m_sub_clk = m_sub_clk,
-                                            .m_addr = m_addr,
-                                            .m_val = m_val,
-                                            .m_tag = m_tag,
-                                            .m_in_tag = m_in_tag,
-                                            .m_tag_err = true,
-                                            .m_one_min_inv = one_min_inv });
+    mem_trace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
+                                             .m_sub_clk = m_sub_clk,
+                                             .m_addr = m_addr,
+                                             .m_val = m_val,
+                                             .m_tag = m_tag,
+                                             .m_in_tag = m_in_tag,
+                                             .m_tag_err = true,
+                                             .m_one_min_inv = one_min_inv });
 }
 
 /**
@@ -126,16 +126,16 @@ void AvmMiniMemTraceBuilder::loadMismatchTagInMemTrace(uint32_t const m_clk,
  *        passed register.
  *
  * @param clk The main clock
- * @param intermReg The intermediate register
+ * @param interm_reg The intermediate register
  * @param addr The memory address
  * @param val The value to be loaded
  * @param m_in_tag The memory tag of the instruction
  */
-bool AvmMiniMemTraceBuilder::loadInMemTrace(
-    uint32_t clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
+bool AvmMiniMemTraceBuilder::load_in_mem_trace(
+    uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     uint32_t sub_clk = 0;
-    switch (intermReg) {
+    switch (interm_reg) {
     case IntermRegister::ia:
         sub_clk = SUB_CLK_LOAD_A;
         break;
@@ -147,14 +147,14 @@ bool AvmMiniMemTraceBuilder::loadInMemTrace(
         break;
     }
 
-    auto m_tag = memoryTag.at(addr);
+    auto m_tag = memory_tag.at(addr);
     if (m_tag == AvmMemoryTag::u0 || m_tag == m_in_tag) {
-        insertInMemTrace(clk, sub_clk, addr, val, m_in_tag, false);
+        insert_in_mem_trace(clk, sub_clk, addr, val, m_in_tag, false);
         return true;
     }
 
     // Handle memory tag inconsistency
-    loadMismatchTagInMemTrace(clk, sub_clk, addr, val, m_in_tag, m_tag);
+    load_mismatch_tag_in_mem_trace(clk, sub_clk, addr, val, m_in_tag, m_tag);
     return false;
 }
 
@@ -163,16 +163,16 @@ bool AvmMiniMemTraceBuilder::loadInMemTrace(
  *        register.
  *
  * @param clk The main clock
- * @param intermReg The intermediate register
+ * @param interm_reg The intermediate register
  * @param addr The memory address
  * @param val The value to be stored
  * @param m_in_tag The memory tag of the instruction
  */
-void AvmMiniMemTraceBuilder::storeInMemTrace(
-    uint32_t clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
+void AvmMiniMemTraceBuilder::store_in_mem_trace(
+    uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     uint32_t sub_clk = 0;
-    switch (intermReg) {
+    switch (interm_reg) {
     case IntermRegister::ia:
         sub_clk = SUB_CLK_STORE_A;
         break;
@@ -184,7 +184,7 @@ void AvmMiniMemTraceBuilder::storeInMemTrace(
         break;
     }
 
-    insertInMemTrace(clk, sub_clk, addr, val, m_in_tag, true);
+    insert_in_mem_trace(clk, sub_clk, addr, val, m_in_tag, true);
 }
 
 /**
@@ -193,22 +193,22 @@ void AvmMiniMemTraceBuilder::storeInMemTrace(
  *        is added.
  *
  * @param clk Main clock
- * @param intermReg Intermediate register where we load the value
+ * @param interm_reg Intermediate register where we load the value
  * @param addr Memory address to be read and loaded
  * @param m_in_tag Memory instruction tag
  * @return Result of the read operation containing the value and a boolean telling
  *         potential mismatch between instruction tag and memory tag of the address.
  */
-AvmMiniMemTraceBuilder::MemRead AvmMiniMemTraceBuilder::readAndLoadFromMemory(uint32_t const clk,
-                                                                              IntermRegister const intermReg,
-                                                                              uint32_t const addr,
-                                                                              AvmMemoryTag const m_in_tag)
+AvmMiniMemTraceBuilder::MemRead AvmMiniMemTraceBuilder::read_and_load_from_memory(uint32_t const clk,
+                                                                                  IntermRegister const interm_reg,
+                                                                                  uint32_t const addr,
+                                                                                  AvmMemoryTag const m_in_tag)
 {
     FF val = memory.at(addr);
-    bool tagMatch = loadInMemTrace(clk, intermReg, addr, val, m_in_tag);
+    bool tagMatch = load_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
 
     return MemRead{
-        .tagMatch = tagMatch,
+        .tag_match = tagMatch,
         .val = val,
     };
 }
@@ -219,17 +219,17 @@ AvmMiniMemTraceBuilder::MemRead AvmMiniMemTraceBuilder::readAndLoadFromMemory(ui
  *        is added.
  *
  * @param clk Main clock
- * @param intermReg Intermediate register where we write the value
+ * @param interm_reg Intermediate register where we write the value
  * @param addr Memory address to be written to
  * @param val Value to be written into memory
  * @param m_in_tag Memory instruction tag
  */
-void AvmMiniMemTraceBuilder::writeIntoMemory(
-    uint32_t const clk, IntermRegister intermReg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
+void AvmMiniMemTraceBuilder::write_into_memory(
+    uint32_t const clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
     memory.at(addr) = val;
-    memoryTag.at(addr) = m_in_tag;
-    storeInMemTrace(clk, intermReg, addr, val, m_in_tag);
+    memory_tag.at(addr) = m_in_tag;
+    store_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
 }
 
 } // namespace proof_system
