@@ -171,6 +171,9 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         }
         public_calldata.emplace_back(witness_index);
     }
+
+    void create_calldata_read_gate(const uint32_t& read_index);
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
