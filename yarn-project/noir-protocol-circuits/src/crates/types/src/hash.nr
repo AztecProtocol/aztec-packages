@@ -231,29 +231,18 @@ pub fn compute_constructor_hash(
     )
 }
 
-// for log hashes, the sha256 hash is stored in single Field to despite 
+pub fn accumulate_sha256(input: [Field; 2]) -> Field {
+// for accumulator hashes, the sha256 hash is stored in single Field to despite 
 // being two bits too small to accommodate all 256-bits of the hash.
 // Returning a single Field is desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
-pub fn accumulate_sha256(input: [Field; 2]) -> Field {
-    // This is a note about the cpp code, since it takes an array of Fields
-    // instead of a U128.
-    // 4 Field elements when converted to bytes will usually 
-    // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field 
-    // only occupies 128 bits.
-    //
-    // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-    //
-    let mut hash_input_flattened = [0; 32];
+    let mut hash_input_flattened = [0; 64];
     for offset in 0..2 {
-        let input_as_bytes = input[offset].to_be_bytes();
-        for byte_index in 0..16 {
-            hash_input_flattened[offset * 16 + byte_index] = input_as_bytes[byte_index];
+        let input_as_bytes = input[offset].to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
     }
-
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
 
     sha256_to_field(hash_input_flattened)
 }

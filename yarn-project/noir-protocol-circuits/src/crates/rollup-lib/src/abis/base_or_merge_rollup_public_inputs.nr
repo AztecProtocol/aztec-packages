@@ -32,5 +32,5 @@ struct BaseOrMergeRollupPublicInputs {
     // So we want to constrain it when casting these fields to U128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    calldata_hash : [Field; 2],
+    calldata_hash : Field,
 }

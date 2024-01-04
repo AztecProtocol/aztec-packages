@@ -300,7 +300,7 @@ impl PrivateContext {
                 public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
                 new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
                 end_side_effect_counter: reader.read(),
-                encrypted_logs_hash: reader.read()
+                encrypted_logs_hash: reader.read(),
                 unencrypted_logs_hash: reader.read(),
                 encrypted_log_preimages_length: reader.read(),
                 unencrypted_log_preimages_length: reader.read(),
