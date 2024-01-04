@@ -22,6 +22,8 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
+// only 10 accounts with ETH (9 and not 10 because first account is used by sandbox).
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
 const NUM_TXS_PER_NODE = 2;
