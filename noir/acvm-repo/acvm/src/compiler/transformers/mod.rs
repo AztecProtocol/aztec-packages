@@ -112,6 +112,7 @@ pub(super) fn transform_internal(
                         outputs,
                         ..
                     }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Keccakf1600 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation {
                         output_aggregation_object: outputs,
                         ..

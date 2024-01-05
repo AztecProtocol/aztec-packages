@@ -38,6 +38,8 @@ pub enum BlackBoxFunc {
     FixedBaseScalarMul,
     /// Calculates the Keccak256 hash of the inputs.
     Keccak256,
+    /// Keccak Permutation function of 1600 width
+    Keccakf1600,
     /// Compute a recursive aggregation object when verifying a proof inside another circuit.
     /// This outputted aggregation object will then be either checked in a top-level verifier or aggregated upon again.
     RecursiveAggregation,
@@ -63,6 +65,7 @@ impl BlackBoxFunc {
             BlackBoxFunc::XOR => "xor",
             BlackBoxFunc::RANGE => "range",
             BlackBoxFunc::Keccak256 => "keccak256",
+            BlackBoxFunc::Keccakf1600 => "keccak_f1600",
             BlackBoxFunc::RecursiveAggregation => "recursive_aggregation",
             BlackBoxFunc::EcdsaSecp256r1 => "ecdsa_secp256r1",
         }
@@ -81,6 +84,7 @@ impl BlackBoxFunc {
             "xor" => Some(BlackBoxFunc::XOR),
             "range" => Some(BlackBoxFunc::RANGE),
             "keccak256" => Some(BlackBoxFunc::Keccak256),
+            "keccakf1600" => Some(BlackBoxFunc::Keccakf1600),
             "recursive_aggregation" => Some(BlackBoxFunc::RecursiveAggregation),
             _ => None,
         }
