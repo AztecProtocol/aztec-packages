@@ -224,6 +224,7 @@ mod tests {
         
         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {
             self.previous_kernel.end.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.end.new_commitments.get(commitment_index).value;
+            self.previous_kernel.end.new_nullifiers.storage[nullifier_index].counter = self.previous_kernel.end.new_commitments.get(commitment_index).counter + 1;
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
         }
 
