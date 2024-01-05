@@ -18,25 +18,16 @@ namespace acir_format {
  */
 template <typename Builder>
 void populate_variables_and_public_inputs(Builder& builder,
-                                          WitnessVector const& witness,
-                                          acir_format const& constraint_system)
+                                          acir_format const& constraint_system,
+                                          WitnessVector const& witness = {})
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/815): Since we're using add_var, the pre-offset wire
+    // indices will be correct. Also, were using the pre-offset public_inputs (not the corrected) to set
+    // builder.public_inputs. TO remove the pre-offset in noir, we'll need to instead construct a builder directly from
+    // this data as we now do with GUH.
     for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
         fr value = idx < witness.size() ? witness[idx] : 0;
         builder.add_variable(value);
-    }
-    builder.public_inputs = constraint_system.public_inputs;
-}
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/815): This function does two things: 1) emplaces back
-// varnum-many 0s into builder.variables (.. why), and (2) populates builder.public_inputs with the correct indices into
-// the variables vector (which at this stage will be populated with zeros). The actual entries of the variables vector
-// are populated in "read_witness"
-template <typename Builder> void add_public_vars(Builder& builder, acir_format const& constraint_system)
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): i = 1 acounting for const 0 in first position?
-    for (size_t i = 1; i < constraint_system.varnum; ++i) {
-        builder.add_variable(0);
     }
     builder.public_inputs = constraint_system.public_inputs;
 }
@@ -209,7 +200,7 @@ template <typename Builder> Builder create_circuit(const acir_format& constraint
         info("create_circuit: too many public inputs!");
     }
 
-    add_public_vars(builder, constraint_system);
+    populate_variables_and_public_inputs(builder, constraint_system);
     build_constraints(builder, constraint_system, false);
 
     return builder;
@@ -225,7 +216,7 @@ Builder create_circuit_with_witness(acir_format const& constraint_system,
     }
 
     // Populate builder.variables and buider.public_inputs
-    populate_variables_and_public_inputs(builder, witness, constraint_system);
+    populate_variables_and_public_inputs(builder, constraint_system, witness);
 
     build_constraints(builder, constraint_system, true);
     return builder;
