@@ -1,12 +1,12 @@
 #include "helpers.test.hpp"
-#include "barretenberg/proof_system/circuit_builder/AvmMini_helper.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
 #include <gtest/gtest.h>
 
 namespace tests_avm {
-using namespace proof_system;
+using namespace avm_trace;
 
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
@@ -15,12 +15,12 @@ using namespace proof_system;
  */
 void validate_trace_proof(std::vector<Row>&& trace)
 {
-    auto circuit_builder = AvmMiniCircuitBuilder();
+    auto circuit_builder = proof_system::AvmMiniCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
     EXPECT_TRUE(circuit_builder.check_circuit());
 
-    auto composer = honk::AvmMiniComposer();
+    auto composer = proof_system::honk::AvmMiniComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto proof = prover.construct_proof();
 

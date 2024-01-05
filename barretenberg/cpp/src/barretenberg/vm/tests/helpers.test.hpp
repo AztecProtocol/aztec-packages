@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/AvmMini_trace.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_trace.hpp"
 
 #define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
     try {                                                                                                              \

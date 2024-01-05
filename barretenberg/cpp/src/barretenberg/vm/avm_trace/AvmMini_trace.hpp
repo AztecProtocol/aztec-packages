@@ -8,7 +8,7 @@
 
 #include "barretenberg/relations/generated/AvmMini/avm_mini.hpp"
 
-namespace proof_system {
+namespace avm_trace {
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
 // to iteratively build the whole trace. This is effectively performing witness generation.
@@ -68,4 +68,4 @@ class AvmMiniTraceBuilder {
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;
     std::stack<uint32_t> internal_call_stack = {};
 };
-} // namespace proof_system
+} // namespace avm_trace

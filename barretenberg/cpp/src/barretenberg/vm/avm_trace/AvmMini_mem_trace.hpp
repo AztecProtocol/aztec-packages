@@ -2,7 +2,7 @@
 
 #include "AvmMini_common.hpp"
 
-namespace proof_system {
+namespace avm_trace {
 
 class AvmMiniMemTraceBuilder {
 
@@ -65,4 +65,4 @@ class AvmMiniMemTraceBuilder {
     void store_in_mem_trace(
         uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
 };
-} // namespace proof_system
+} // namespace avm_trace

@@ -1,6 +1,6 @@
 #include "AvmMini_helper.hpp"
 
-namespace proof_system {
+namespace avm_trace {
 
 /**
  * @brief Routine to log some slice of a trace of the AVM. Used to debug or in some unit tests.
@@ -65,4 +65,4 @@ void log_avmMini_trace(std::vector<Row> const& trace, size_t beg, size_t end)
     }
 }
 
-} // namespace proof_system
+} // namespace avm_trace

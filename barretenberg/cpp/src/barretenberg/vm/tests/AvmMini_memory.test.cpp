@@ -1,4 +1,4 @@
-#include "barretenberg/proof_system/circuit_builder/AvmMini_helper.hpp"
+#include "barretenberg/vm/avm_trace/AvmMini_helper.hpp"
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
@@ -11,7 +11,7 @@
 #include <vector>
 
 namespace tests_avm {
-using namespace proof_system;
+using namespace avm_trace;
 
 class AvmMiniMemoryTests : public ::testing::Test {
   public:

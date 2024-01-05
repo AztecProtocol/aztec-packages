@@ -10,7 +10,7 @@
 
 #include "AvmMini_trace.hpp"
 
-namespace proof_system {
+namespace avm_trace {
 
 /**
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
@@ -594,4 +594,4 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
     return trace;
 }
 
-} // namespace proof_system
+} // namespace avm_trace
