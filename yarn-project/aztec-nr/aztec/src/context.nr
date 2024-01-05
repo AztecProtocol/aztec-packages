@@ -388,26 +388,29 @@ impl PrivateContext {
             args_hash,
             self.side_effect_counter
         );
+
+        let mut reader = Reader::new(fields);
+
         let item = PublicCallStackItem {
-            contract_address:  AztecAddress::from_field(fields[0]),
+            contract_address:  AztecAddress::from_field(reader.read()),
             function_data: FunctionData {
-                selector: FunctionSelector::from_field(fields[1]),
-                is_internal: fields[2] as bool,
-                is_private: fields[3] as bool,
-                is_constructor: fields[4] as bool,
+                selector: FunctionSelector::from_field(reader.read()),
+                is_internal: reader.read() as bool,
+                is_private: reader.read() as bool,
+                is_constructor: reader.read() as bool,
             },
             public_inputs: PublicCircuitPublicInputs {
                 call_context: CallContext {
-                    msg_sender : AztecAddress::from_field(fields[5]),
-                    storage_contract_address : AztecAddress::from_field(fields[6]),
-                    portal_contract_address : EthAddress::from_field(fields[7]),
-                    function_selector: FunctionSelector::from_field(fields[8]), // practically same as fields[1]
-                    is_delegate_call : fields[9] as bool,
-                    is_static_call : fields[10] as bool,
-                    is_contract_deployment: fields[11] as bool,
-                    start_side_effect_counter: fields[12],
+                    msg_sender : AztecAddress::from_field(reader.read()),
+                    storage_contract_address : AztecAddress::from_field(reader.read()),
+                    portal_contract_address : EthAddress::from_field(reader.read()),
+                    function_selector: FunctionSelector::from_field(reader.read()), // practically same as fields[1]
+                    is_delegate_call : reader.read() as bool,
+                    is_static_call : reader.read() as bool,
+                    is_contract_deployment: reader.read() as bool,
+                    start_side_effect_counter: reader.read(),
                 },
-                args_hash: fields[13],
+                args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
@@ -422,6 +425,7 @@ impl PrivateContext {
             },
             is_execution_request: true,
         };
+        reader.finish();
 
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));

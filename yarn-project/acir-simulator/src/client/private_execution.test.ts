@@ -583,7 +583,6 @@ describe('Private Execution test suite', () => {
           isStaticCall: false,
           startSideEffectCounter: 1,
         }),
-        sideEffectCounter: 1,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();

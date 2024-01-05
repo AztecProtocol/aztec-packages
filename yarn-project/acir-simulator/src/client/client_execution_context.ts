@@ -390,7 +390,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetArtifact),
       contractAddress: targetContractAddress,
-      sideEffectCounter,
     });
 
     // TODO($846): if enqueued public calls are associated with global

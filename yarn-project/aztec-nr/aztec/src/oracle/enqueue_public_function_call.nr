@@ -6,8 +6,8 @@ use dep::protocol_types::{
 // contract_address + 
 // args_hash +
 // crate::abi::FUNCTION_DATA_SIZE +
-// crate::abi::CALL_CONTEXT_SIZE + side_effect_counter
-// = 2 + 4 + 7 + 1
+// crate::abi::CALL_CONTEXT_SIZE
+// = 2 + 4 + 8
 global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_SIZE: Field = 14;
 
 #[oracle(enqueuePublicFunctionCall)]
