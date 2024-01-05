@@ -15,6 +15,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install bleeding edge cmake
+        run: |
+          sudo apt -y remove --purge cmake
+          sudo snap install cmake --classic
+
+      - name: Create Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install ninja-build
+
+      - name: Install Clang16
+        run: |
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.0/clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          tar -xvf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          sudo cp clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/bin/* /usr/local/bin/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/include/* /usr/local/include/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
+
+      - name: Compile Barretenberg
+        run: |
+          cd barretenberg/cpp
+
+          cmake --preset default -DCMAKE_CXX_FLAGS="-stdlib=libc++" -DCMAKE_BUILD_TYPE=RelWithAssert -DTARGET_ARCH=westmere
+          cmake --build --preset default --target bb
+
       - name: Install noirup
         run: |
           curl -L $INSTALL_URL | bash
@@ -39,6 +65,12 @@ jobs:
         run: noirup $toolchain
         env:
           toolchain: --path ./noir
+
+      - name: Set BB Binary
+        run: cp barretenberg/cpp/build/bin/bb ~/.nargo/backends/acvm-backend-barretenberg/backend_binary
+
+      - name: Check
+        run: ls -la ~/.nargo/backends/acvm-backend-barretenberg/
 
       - name: Check nargo installation
         run: nargo --version
