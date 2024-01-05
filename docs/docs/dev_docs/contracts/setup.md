@@ -37,7 +37,7 @@ cd contracts
 aztec-nargo new --contract example_contract
 ```
 
-This creates `example_contract` directory within contracts which is a noir project with:
+This creates `example_contract` directory within contracts which is a Noir project with:
 
 - a Nargo.toml (which is the manifest file of the project) at `example_contract/Nargo.toml`.
 - a main.nr file (the file where our contract will reside) at `example_contract/src/main.nr`.
