@@ -60,7 +60,7 @@ export {
 
 export { getSchnorrAccount, AccountManager, getUnsafeSchnorrAccount } from './account_manager/index.js';
 
-export { waitForSandbox, getSandboxAccountsWallets, deployInitialSandboxAccounts } from './sandbox/index.js';
+export { getSandboxAccountsWallets, deployInitialSandboxAccounts } from './sandbox/index.js';
 
 export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
 

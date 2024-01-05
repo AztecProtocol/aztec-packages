@@ -68,14 +68,15 @@ const getAztecNodeUrl = () => {
   return url.toString();
 };
 
-export const waitForPXE = async (pxe: PXE, logger: DebugLogger) => {
+export const waitForPXE = async (pxe?: PXE, logger?: DebugLogger) => {
+  pxe = pxe ?? createPXEClient(PXE_URL);
   await retryUntil(async () => {
     try {
-      logger('Attempting to contact PXE...');
-      await pxe.getNodeInfo();
+      logger?.('Attempting to contact PXE...');
+      await pxe!.getNodeInfo();
       return true;
     } catch (error) {
-      logger('Failed to contact PXE!');
+      logger?.('Failed to contact PXE!');
     }
     return undefined;
   }, 'RPC Get Node Info');

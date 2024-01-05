@@ -11,7 +11,6 @@ export const cliTestSuite = (
   setup: () => Promise<PXE>,
   cleanup: () => Promise<void>,
   debug: DebugLogger,
-  rpcUrl = 'http://localhost:8080',
 ) =>
   describe(name, () => {
     let cli: ReturnType<typeof getProgram>;
@@ -46,11 +45,8 @@ export const cliTestSuite = (
     });
 
     // Run a command on the CLI
-    const run = (cmd: string, addRpcUrl = true) => {
+    const run = (cmd: string) => {
       const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
-      if (addRpcUrl) {
-        args.push('--rpc-url', rpcUrl);
-      }
       const res = cli.parseAsync(args);
       resetCli();
       return res;
@@ -112,7 +108,7 @@ export const cliTestSuite = (
     it('deploys a contract & sends transactions', async () => {
       // generate a private key
       debug('Create an account using a private key');
-      await run('generate-private-key', false);
+      await run('generate-private-key');
       const privKey = findInLogs(/Private\sKey:\s+0x(?<privKey>[a-fA-F0-9]+)/)?.groups?.privKey;
       expect(privKey).toHaveLength(64);
       await run(`create-account --private-key ${privKey}`);

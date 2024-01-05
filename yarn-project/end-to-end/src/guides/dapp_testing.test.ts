@@ -10,10 +10,10 @@ import {
   createAccount,
   createPXEClient,
   getSandboxAccountsWallets,
-  waitForSandbox,
 } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts/Test';
 import { TokenContract } from '@aztec/noir-contracts/Token';
+import { waitForPXE } from '../fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -21,7 +21,7 @@ describe('guides/dapp/testing', () => {
   describe('on local sandbox', () => {
     beforeAll(async () => {
       const pxe = createPXEClient(PXE_URL);
-      await waitForSandbox(pxe);
+      await waitForPXE(pxe);
     });
 
     // docs:start:sandbox-example

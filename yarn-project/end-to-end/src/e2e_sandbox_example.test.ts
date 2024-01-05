@@ -10,11 +10,11 @@ import {
   createPXEClient,
   getSandboxAccountsWallets,
   getSchnorrAccount,
-  waitForSandbox,
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { format } from 'util';
+import { waitForPXE } from './fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
@@ -28,7 +28,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     const nodeInfo = await pxe.getNodeInfo();
 
@@ -167,7 +167,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     // docs:start:create_accounts
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////

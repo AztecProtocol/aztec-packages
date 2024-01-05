@@ -65,19 +65,3 @@ export async function deployInitialSandboxAccounts(pxe: PXE) {
   );
   return accounts;
 }
-
-/**
- * Function to wait until the sandbox becomes ready for use.
- * @param pxe - The pxe client connected to the sandbox.
- */
-export async function waitForSandbox(pxe?: PXE) {
-  pxe = pxe ?? createPXEClient(PXE_URL);
-  while (true) {
-    try {
-      await pxe.getNodeInfo();
-      break;
-    } catch (err) {
-      await sleep(1000);
-    }
-  }
-}
