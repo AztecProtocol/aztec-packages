@@ -25,23 +25,19 @@ The accompanying diagram illustrates the flow of interactions between a user, th
 
 _The transaction has not been broadcasted to the sequencer network yet._
 
-2. **The wallet and PXE interact** – once the user has confirmed the transfer, the wallet sends an execution request to the PXE, which is running locally on the user device. The PXE executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user’s intention, which is shared with the wallet to be displayed to the user.
+2. **The PXE executes transfer locally** – The PXE, running locally on the user's device, executes the transfer method on the DAI token contract on Aztec and computes the state difference based on the user’s intention.
 
 _The transaction has still not been broadcasted to the sequencer network yet._
 
-3. **The wallet asks the user for approval** – the user sees the state difference and can confirm that this matches the intended transaction. This is not a required part of the protocol, but is good wallet UX. The user can then approve the transaction using their existing, selected authorization mechanism (e.g., FaceID, ECDSA signature, etc.).
-
-_The transaction has still not been broadcasted to the sequencer network yet._
-
-4. **The PXE proves correct execution** – now that the user has approved the transfer, the PXE receives the authorization and proves correct execution (via zero-knowledge proofs) of the authorization and the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the [note hash tree](../advanced/data_structures/trees.md#note-hash-tree) and nullifiers stored in the [nullifiers tree](../advanced/data_structures/trees.md#nullifier-tree)) to the sequencer. Nullifiers are data that invalidate old commitments, ensuring that commitments can only be used once.
+3. **The PXE proves correct execution** – the PXE proves correct execution (via zero-knowledge proofs) of the authorization and the private transfer method. Once the proofs have been generated, the PXE sends the proofs and required inputs (inputs are new note commitments, stored in the [note hash tree](../advanced/data_structures/trees.md#note-hash-tree) and nullifiers stored in the [nullifiers tree](../advanced/data_structures/trees.md#nullifier-tree)) to the sequencer. Nullifiers are data that invalidate old commitments, ensuring that commitments can only be used once.
 
 The sequencer has received transaction proof and can begin to process the transaction (verify proofs and apply updates to the relevant [data trees](../advanced/data_structures/trees.md)) alongside other public and private transactions.
 
-5. **The sequencer has the necessary information to act** – the randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs (e.g. the note commitments and nullifiers) for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. The sequencer updates the corresponding data trees and does the same for other private transactions. The sequencer requests proofs from a prover network that will be bundled into a final rollup proof.
+4. **The sequencer has the necessary information to act** – the randomly-selected sequencer (based on the Fernet sequencer selection protocol) validates the transaction proofs along with required inputs (e.g. the note commitments and nullifiers) for this private transfer. The sequencer also executes public functions and requests proofs of public execution from a prover network. The sequencer updates the corresponding data trees and does the same for other private transactions. The sequencer requests proofs from a prover network that will be bundled into a final rollup proof.
 
 _The sequencer has passed the transaction information – proofs of correct execution and authorization, or public function execution information – to the prover, who will submit the new state root to Ethereum._
 
-6. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
+5. **The transaction settles to L1** – the verifier contract on Ethereum can now validate the rollup proof and record a new state root. The state root is submitted to the rollup smart contract. Once the state root is verified in an Ethereum transaction, the private transfer has settled and the transaction is considered final.
 
 ### Going deeper
 
