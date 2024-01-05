@@ -128,51 +128,12 @@ mod tests {
     }
 
     #[test]
-    fn start_and_end_snapshots() {
+    fn start_and_end_partial_states() {
         let mut inputs = default_merge_rollup_inputs();
         let outputs = inputs.merge_rollup_circuit();
 
-        assert(
-            outputs.start_note_hash_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_note_hash_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot
-            )
-        );
-
-        assert(
-            outputs.start_nullifier_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_nullifier_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_nullifier_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot
-            )
-        );
-
-        assert(
-            outputs.start_contract_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_contract_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_contract_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot)
-        );
-
-        assert(
-            outputs.start_public_data_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_public_data_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_public_data_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_public_data_tree_snapshot
-            )
-        );
+        assert(outputs.start.eq(inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start));
+        assert(outputs.end.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end));
     }
 
     #[test]

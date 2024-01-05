@@ -162,56 +162,30 @@ mod tests {
         let outputs = inputs.root_rollup_circuit();
 
         // check calldata hash
-        assert_eq(outputs.calldata_hash, expected_calldata_hash);
+        assert_eq(outputs.header.body_hash, expected_calldata_hash);
         // Check messages hash
         assert_eq(outputs.l1_to_l2_messages_hash, expected_messages_hash);
     }
 
     #[test]
-    fn start_and_end_snapshots() {
+    fn end_state() {
         let inputs = default_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();
 
         assert(
-            outputs.start_note_hash_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_note_hash_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot
-            )
+            outputs.header.state.partial.note_hash_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.note_hash_tree)
         );
 
         assert(
-            outputs.start_nullifier_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_nullifier_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_nullifier_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot
-            )
+            outputs.header.state.partial.nullifier_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.nullifier_tree)
         );
 
         assert(
-            outputs.start_contract_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_contract_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_contract_tree_snapshot.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot)
+            outputs.header.state.partial.contract_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.contract_tree)
         );
 
         assert(
-            outputs.start_public_data_tree_snapshot.eq(
-                inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_public_data_tree_snapshot
-            )
-        );
-        assert(
-            outputs.end_public_data_tree_snapshot.eq(
-                inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_public_data_tree_snapshot
-            )
+            outputs.header.state.partial.public_data_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.public_data_tree)
         );
     }
 }

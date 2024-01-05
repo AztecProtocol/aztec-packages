@@ -64,16 +64,16 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     right: BaseOrMergeRollupPublicInputs
 ) {
     assert(
-        left.end_note_hash_tree_snapshot.eq(right.start_note_hash_tree_snapshot), "input proofs have different note hash tree snapshots"
+        left.end.note_hash_tree.eq(right.start.note_hash_tree), "input proofs have different note hash tree snapshots"
     );
     assert(
-        left.end_nullifier_tree_snapshot.eq(right.start_nullifier_tree_snapshot), "input proofs have different nullifier tree snapshots"
+        left.end.nullifier_tree.eq(right.start.nullifier_tree), "input proofs have different nullifier tree snapshots"
     );
     assert(
-        left.end_contract_tree_snapshot.eq(right.start_contract_tree_snapshot), "input proofs have different contract tree snapshots"
+        left.end.contract_tree.eq(right.start.contract_tree), "input proofs have different contract tree snapshots"
     );
     assert(
-        left.end_public_data_tree_snapshot.eq(right.start_public_data_tree_snapshot), "input proofs have different public data tree snapshots"
+        left.end.public_data_tree.eq(right.start.public_data_tree), "input proofs have different public data tree snapshots"
     );
 }
 

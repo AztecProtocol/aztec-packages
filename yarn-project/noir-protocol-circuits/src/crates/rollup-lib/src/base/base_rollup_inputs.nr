@@ -889,14 +889,17 @@ mod tests {
                 self.pre_existing_public_data
             );
 
+            let start = PartialStateReference {
+                note_hash_tree: start_note_hash_tree_snapshot,
+                nullifier_tree: start_nullifier_tree_snapshot,
+                contract_tree: start_contract_tree_snapshot,
+                public_data_tree: start_public_data_tree_snapshot
+            };
+
             BaseRollupInputs {
                 kernel_data: kernel_data,
-                start: PartialStateReference {
-                    note_hash_tree: start_note_hash_tree_snapshot,
-                    nullifier_tree: start_nullifier_tree_snapshot,
-                    contract_tree: start_contract_tree_snapshot,
-                    public_data_tree: start_public_data_tree_snapshot,
-                },
+                start,
+
                 archive: archive_snapshot,
 
                 sorted_new_nullifiers,
