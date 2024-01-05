@@ -25,6 +25,51 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [field])).toEqual([field]);
   });
 
+  it('serializes arrays of fields', () => {
+    const abi: FunctionAbi = {
+      name: 'constructor',
+      functionType: FunctionType.SECRET,
+      isInternal: false,
+      parameters: [
+        {
+          name: 'owner',
+          type: {
+            kind: 'array',
+            length: 2,
+            type: { kind: 'field' },
+          },
+          visibility: ABIParameterVisibility.SECRET,
+        },
+      ],
+      returnTypes: [],
+    };
+
+    const arr = [Fr.random(), Fr.random()];
+    expect(encodeArguments(abi, [arr])).toEqual(arr);
+  });
+
+  it('serializes string', () => {
+    const abi: FunctionAbi = {
+      name: 'constructor',
+      functionType: FunctionType.SECRET,
+      isInternal: false,
+      parameters: [
+        {
+          name: 'owner',
+          type: {
+            kind: 'string',
+            length: 3,
+          },
+          visibility: ABIParameterVisibility.SECRET,
+        },
+      ],
+      returnTypes: [],
+    };
+
+    const arr = 'abc';
+    expect(encodeArguments(abi, [arr])).toEqual(arr);
+  });
+
   it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
