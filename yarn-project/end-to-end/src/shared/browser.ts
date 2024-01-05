@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
+import * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -16,7 +18,7 @@ declare global {
     /**
      * The aztec.js library.
      */
-    AztecJs: any;
+    AztecJs: typeof AztecJs & typeof AztecAccountsSingleKey & typeof AztecAccountsTesting;
   }
 }
 
