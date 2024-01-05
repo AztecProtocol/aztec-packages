@@ -605,6 +605,7 @@ mod tests {
         address::{AztecAddress, EthAddress},
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
+        partial_state_reference::PartialStateReference,
     };
     use dep::std::option::Option;
 
