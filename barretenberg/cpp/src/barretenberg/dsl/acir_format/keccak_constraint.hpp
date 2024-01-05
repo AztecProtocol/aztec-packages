@@ -43,8 +43,8 @@ struct KeccakVarConstraint {
     friend bool operator==(KeccakVarConstraint const& lhs, KeccakVarConstraint const& rhs) = default;
 };
 
-void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint);
-void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& constraint);
-void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint);
+template <typename Builder> void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint);
+template <typename Builder> void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& constraint);
+template <typename Builder> void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint);
 
 } // namespace acir_format

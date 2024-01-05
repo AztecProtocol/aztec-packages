@@ -155,10 +155,6 @@ impl GeneratedAcir {
             BlackBoxFunc::Blake2s => {
                 BlackBoxFuncCall::Blake2s { inputs: inputs[0].clone(), outputs }
             }
-            BlackBoxFunc::HashToField128Security => BlackBoxFuncCall::HashToField128Security {
-                inputs: inputs[0].clone(),
-                output: outputs[0],
-            },
             BlackBoxFunc::SchnorrVerify => {
                 BlackBoxFuncCall::SchnorrVerify {
                     public_key_x: inputs[0][0],
@@ -577,8 +573,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         | BlackBoxFunc::SHA256
         | BlackBoxFunc::Blake2s
         | BlackBoxFunc::PedersenCommitment
-        | BlackBoxFunc::PedersenHash
-        | BlackBoxFunc::HashToField128Security => None,
+        | BlackBoxFunc::PedersenHash => None,
 
         BlackBoxFunc::Keccakf1600 => Some(25),
 

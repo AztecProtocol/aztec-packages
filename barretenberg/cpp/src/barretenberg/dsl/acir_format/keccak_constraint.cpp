@@ -1,11 +1,14 @@
 #include "keccak_constraint.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "round.hpp"
 
 namespace acir_format {
 
-void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint)
+template <typename Builder> void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint)
 {
+    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
+    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
 
     // Create byte array struct
     byte_array_ct arr(&builder);
@@ -35,8 +38,11 @@ void create_keccak_constraints(Builder& builder, const KeccakConstraint& constra
     }
 }
 
-void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& constraint)
+template <typename Builder> void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& constraint)
 {
+    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
+    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using uint32_ct = proof_system::plonk::stdlib::uint32<Builder>;
 
     // Create byte array struct
     byte_array_ct arr(&builder);
@@ -68,8 +74,10 @@ void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& 
     }
 }
 
-void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint)
+template <typename Builder> void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint)
 {
+    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+
     // Create the array containing the permuted state
     std::array<field_ct, proof_system::plonk::stdlib::keccak<Builder>::NUM_KECCAK_LANES> state;
 
@@ -87,5 +95,19 @@ void create_keccak_permutations(Builder& builder, const Keccakf1600& constraint)
         builder.assert_equal(output_state[i].normalize().witness_index, constraint.result[i]);
     }
 }
+template void create_keccak_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                             const KeccakConstraint& constraint);
+template void create_keccak_var_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                                 const KeccakVarConstraint& constraint);
+template void create_keccak_permutations<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
+                                                              const Keccakf1600& constraint);
+
+template void create_keccak_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                   const KeccakConstraint& constraint);
+template void create_keccak_var_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                       const KeccakVarConstraint& constraint);
+
+template void create_keccak_permutations<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
+                                                                    const Keccakf1600& constraint);
 
 } // namespace acir_format

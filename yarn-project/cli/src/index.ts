@@ -1,6 +1,9 @@
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { addNoirCompilerCommanderActions } from '@aztec/noir-compiler/cli';
+import {
+  addGenerateNoirInterfaceCommanderAction,
+  addGenerateTypescriptCommanderAction,
+} from '@aztec/noir-compiler/cli';
 
 import { Command, Option } from 'commander';
 import { lookup } from 'dns/promises';
@@ -33,7 +36,7 @@ const getLocalhost = () =>
     .catch(() => 'localhost');
 
 const LOCALHOST = await getLocalhost();
-const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY } = process.env;
+const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
 
 /**
  * Returns commander program that defines the CLI.
@@ -45,7 +48,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion: string = CLI_VERSION || JSON.parse(readFileSync(packageJsonPath).toString()).version;
   const logJson = (obj: object) => log(JSON.stringify(obj, null, 2));
 
   program.name('aztec-cli').description('CLI for interacting with Aztec.').version(cliVersion);
@@ -444,7 +447,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async (contractName, localDirectory) => {
       const { unbox } = await import('./cmds/unbox.js');
-      await unbox(contractName, localDirectory, cliVersion, log);
+      unbox(contractName, localDirectory, cliVersion, log);
     });
 
   program
@@ -490,7 +493,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       await update(projectPath, contract, rpcUrl, aztecVersion, log);
     });
 
-  addNoirCompilerCommanderActions(program, log);
+  addGenerateTypescriptCommanderAction(program, log);
+  addGenerateNoirInterfaceCommanderAction(program, log);
 
   return program;
 }
