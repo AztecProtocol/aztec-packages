@@ -14,8 +14,8 @@ namespace proof_system::plonk::stdlib {
  * @return State
  */
 template <typename Params, typename Builder>
-Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
-    Builder* builder, const Poseidon2Permutation<Params, Builder>::State& input)
+typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
+    Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
 {
     // deep copy
     State current_state(input);
@@ -106,7 +106,7 @@ Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builde
  */
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::initial_external_matrix_multiplication(
-    Builder* builder, Poseidon2Permutation<Params, Builder>::State& state)
+    Builder* builder, typename Poseidon2Permutation<Params, Builder>::State& state)
 {
     // create the 6 gates for the initial matrix multiplication
     // gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
