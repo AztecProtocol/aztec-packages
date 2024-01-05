@@ -12,8 +12,8 @@ To compile a contract using the Aztec CLI, first [install it](../cli/cli-command
 
 Then run the `compile` command with the path to your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
-```
-aztec-cli compile ./path/to/my_aztec_contract_project
+```bash
+aztec-nargo compile
 ```
 
 This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing their artifact, which you can use for deploying or interacting with your contracts.

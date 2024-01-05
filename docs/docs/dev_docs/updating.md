@@ -80,7 +80,7 @@ E.g.:
 +value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note" }
 ```
 
-Go to the project directory and try compiling it with `aztec-cli` to verify that the update was successful:
+Go to the project directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:
 
 ```shell
 cd /your/project/root
