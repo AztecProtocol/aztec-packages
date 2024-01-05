@@ -462,10 +462,18 @@ If you don't yet have any private state variables defined put there a placeholde
 
 ## Compiling
 
-Now that the contract is complete, you should be able to compile it with the `aztec-cli`. See the [CLI page](../cli/main.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../cli/sandbox-reference.md) for instructions on setting it up.
+
+Run the following command in the directory where your `Nargo.toml` file is located:
 
 ```bash
-aztec-cli compile /path/to/token_contracts_folder
+aztec-nargo compile
+```
+
+Once your contract is compiled, generate the Aztec contract ABI with the following command:
+
+```bash
+aztec-cli generate-typescript target -o src/artifacts
 ```
 
 ## Next Steps
