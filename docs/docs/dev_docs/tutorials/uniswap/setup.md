@@ -76,7 +76,13 @@ This creates interfaces for the `Token` contract and `TokenBridge` contract
 You will need a running sandbox.
 
 ```bash
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+bash -i <(curl -s install.aztec.network)
+```
+
+Then
+
+```bash
+aztec-sandbox
 ```
 
 In the next step, we will write the L1 Uniswap Portal.

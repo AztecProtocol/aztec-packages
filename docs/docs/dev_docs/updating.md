@@ -29,7 +29,7 @@ npm -g uninstall @aztec/aztec-sandbox @aztec/cli
 1. Updating the sandbox and CLI:
 
 ```shell
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+aztec-up latest
 ```
 
 2. Updating aztec-nr and individual @aztec dependencies:
@@ -84,13 +84,15 @@ Go to the project directory and try compiling it with `aztec-cli` to verify that
 
 ```shell
 cd /your/project/root
-aztec-cli compile ./
+aztec-nargo compile
 ```
 
 If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/tags).
 
-## Updating `nargo`
+## Updating `aztec-nargo`
 
-Nargo is not strictly required, but you may want to use it for the LSP or testing. More info [here](./getting_started/aztecnr-getting-started.md#install-nargo-recommended).
+`aztec-nargo` is updated by running:
 
-<InstallNargoInstructions />
+```bash
+aztec-up latest
+```

@@ -11,37 +11,39 @@ You can run the Sandbox using Docker. See the [Quickstart](../getting_started/qu
 ### With Docker
 
 ```bash
-/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+bash -i <(curl -s install.aztec.network)
+```
+
+This will install the following:
+
+- **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
+- **aztec-cli** - a command line tool for interfacing and experimenting with infrastructure.
+- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
+- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+
+Once these have been installed, to start the sandbox, run:
+
+```bash
+aztec-sandbox
 ```
 
 This will attempt to run the Sandbox on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
 
-This command also installs or updates the CLI. If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
+If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
 
 To install a specific version of the sandbox, you can set the environment variable `SANDBOX_VERSION`
 
 ```bash
-SANDBOX_VERSION=<version> /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+VERSION=<version> bash -i <(curl -s install.aztec.network)
 ```
 
 ## Running
 
-The installation command will run the sandbox, and once installed you can run like so:
+The installation command will run the sandbox. Alternatively, once installed you can run like so:
 
 ```bash
 cd ~/.aztec && docker-compose up
-```
-
-## Running Aztec PXE / Node / P2P-Bootstrap node
-
-If you wish to run components of the Aztec network stack separately, you can still use the Sandbox by including a `MODE` variable.
-The values for `MODE` can be:
-
-```
-- sandbox (default)
-- node
-- pxe
-- p2p-bootstrap
 ```
 
 ## Environment Variables
@@ -152,21 +154,25 @@ We have shipped a number of example contracts in the `@aztec/noir-contracts` [np
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
+CounterContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
+EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
 ImportTestContractArtifact
+InclusionProofsContractArtifact
 LendingContractArtifact
 ParentContractArtifact
 PendingCommitmentsContractArtifact
-PokeableTokenContractArtifact
 PriceFeedContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
+SlowTreeContractArtifact
 StatefulTestContractArtifact
 TestContractArtifact
+TokenBlacklistContractArtifact
 TokenBridgeContractArtifact
 TokenContractArtifact
 UniswapContractArtifact
