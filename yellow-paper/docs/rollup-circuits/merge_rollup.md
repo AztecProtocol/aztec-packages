@@ -80,7 +80,7 @@ def MergeRollupCircuit(
     assert right.proof.is_valid(right.public_inputs)
 
     assert left.public_inputs.constants == right.public_inputs.constants
-    assert right.public_inputs.start == left.public_inputs.end
+    assert left.public_inputs.end == right.public_inputs.start
     assert left.public_inputs.type == right.public_inputs.type
     assert left.public_inputs.height_in_block_tree == right.public_inputs.height_in_block_tree
 
