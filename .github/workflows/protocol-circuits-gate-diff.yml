@@ -77,12 +77,17 @@ jobs:
 
       - name: Check nargo installation
         run: nargo --version
+        env:
+          NARGO_BACKEND_PATH: ~/.nargo/backends/acvm-backend-barretenberg/backend_binary
 
       - name: Generate gates report
         working-directory: ./yarn-project/noir-protocol-circuits/src
         run: |
-          NARGO_BACKEND_PATH=~/.nargo/backends/acvm-backend-barretenberg/backend_binary nargo info --json > protocol_circuits_report.json
+          NARGO_BACKEND_PATH=nargo info --json > protocol_circuits_report.json
           mv protocol_circuits_report.json ../../../protocol_circuits_report.json
+        env:
+          NARGO_BACKEND_PATH: ~/.nargo/backends/acvm-backend-barretenberg/backend_binary
+
       - name: Compare gates reports
         id: gates_diff
         uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
