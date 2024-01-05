@@ -1,8 +1,6 @@
 # Each source represents a separate benchmark suite 
 set(BENCHMARK_SOURCES
   standard_plonk.bench.cpp
-  goblin.bench.cpp
-  eccvm.bench.cpp
   ultra_honk.bench.cpp
   ultra_honk_rounds.bench.cpp
   ultra_plonk.bench.cpp
@@ -12,11 +10,9 @@ set(BENCHMARK_SOURCES
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
   ultra_honk
-  eccvm
   stdlib_sha256
   stdlib_keccak
   stdlib_merkle_tree
-  stdlib_recursion
   benchmark::benchmark
 )
 
@@ -27,6 +23,3 @@ foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
   target_link_libraries(${BENCHMARK_NAME}_bench ${LINKED_LIBRARIES})
   add_custom_target(run_${BENCHMARK_NAME} COMMAND ${BENCHMARK_NAME} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endforeach()
-
-add_executable(ultra_honk_simple_bench ultra_honk.simple.cpp benchmark_utilities.hpp)
-target_link_libraries(ultra_honk_simple_bench ${LINKED_LIBRARIES})

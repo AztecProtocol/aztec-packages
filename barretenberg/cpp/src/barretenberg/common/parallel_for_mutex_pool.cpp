@@ -1,7 +1,6 @@
 #include "log.hpp"
 #include "thread.hpp"
 #include <atomic>
-#include <chrono> // Include chrono for timing
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -122,22 +121,9 @@ void ThreadPool::worker_loop(size_t /*unused*/)
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    // static int porcupine = 0;
     static ThreadPool pool(get_num_cpus() - 1);
 
     // info("starting job with iterations: ", num_iterations);
-    // auto start_time = std::chrono::high_resolution_clock::now(); // Start timing
-
     pool.start_tasks(num_iterations, func);
     // info("done");
-
-    // auto end_time = std::chrono::high_resolution_clock::now(); // End timing
-    // auto duration =
-    //     std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count(); // Calculate duration
-
-    // // Log the time taken for this iteration
-    // if (porcupine == 113) {
-    //     abort();
-    // }
-    // info("Iteration ", porcupine++, " took ", duration, " microseconds.\n");
 }

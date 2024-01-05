@@ -141,8 +141,7 @@ template <typename Flavor> class SumcheckProverRound {
             // For each edge_idx = 2i, we need to multiply the whole contribution by zeta^{2^{2i}}
             // This means that each univariate for each relation needs an extra multiplication.
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                (void)polynomials;
-                // extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
+                extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
 
                 // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
                 FF pow_challenge = pow_challenges[edge_idx >> 1];
