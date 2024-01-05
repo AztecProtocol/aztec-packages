@@ -736,7 +736,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startContractTreeSnapshot,
       startNoteHashTreeSnapshot,
       startPublicDataTreeSnapshot,
-      archiveSnapshot: startArchiveSnapshot,
+      archive: startArchiveSnapshot,
       sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
       sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
       lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
@@ -744,7 +744,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       publicDataWritesSubtreeSiblingPath: txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
 
       sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
-      sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortednewNullifiersIndexes[i]),
+      sortedNewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortednewNullifiersIndexes[i]),
       newCommitmentsSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
 

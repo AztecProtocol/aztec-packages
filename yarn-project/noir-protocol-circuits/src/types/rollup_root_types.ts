@@ -30,19 +30,20 @@ export interface ConstantRollupData {
   global_variables: GlobalVariables;
 }
 
+export interface PartialStateReference {
+  note_hash_tree: AppendOnlyTreeSnapshot;
+  nullifier_tree: AppendOnlyTreeSnapshot;
+  contract_tree: AppendOnlyTreeSnapshot;
+  public_data_tree: AppendOnlyTreeSnapshot;
+}
+
 export interface BaseOrMergeRollupPublicInputs {
   rollup_type: u32;
   rollup_subtree_height: Field;
-  end_aggregation_object: AggregationObject;
+  aggregation_object: AggregationObject;
   constants: ConstantRollupData;
-  start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
+  start: PartialStateReference;
+  end: PartialStateReference;
   calldata_hash: FixedLengthArray<Field, 2>;
 }
 
@@ -72,22 +73,22 @@ export interface RootRollupInputs {
   new_archive_sibling_path: FixedLengthArray<Field, 16>;
 }
 
-export interface RootRollupPublicInputs {
-  end_aggregation_object: AggregationObject;
+export interface StateReference {
+  l1_to_l2_message_tree: AppendOnlyTreeSnapshot;
+  partial: PartialStateReference;
+}
+
+export interface Header {
+  last_archive: AppendOnlyTreeSnapshot;
+  body_hash: FixedLengthArray<Field, 2>;
+  state: StateReference;
   global_variables: GlobalVariables;
-  start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_archive_snapshot: AppendOnlyTreeSnapshot;
-  end_archive_snapshot: AppendOnlyTreeSnapshot;
-  calldata_hash: FixedLengthArray<Field, 2>;
+}
+
+export interface RootRollupPublicInputs {
+  aggregation_object: AggregationObject;
+  global_variables: GlobalVariables;
+  header: Header;
   l1_to_l2_messages_hash: FixedLengthArray<Field, 2>;
 }
 

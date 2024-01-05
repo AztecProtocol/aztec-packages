@@ -108,13 +108,13 @@ export interface BlockHeader {
   global_variables_hash: Field;
 }
 
-export interface Point {
+export interface GrumpkinPoint {
   x: Field;
   y: Field;
 }
 
 export interface ContractDeploymentData {
-  deployer_public_key: Point;
+  deployer_public_key: GrumpkinPoint;
   constructor_vk_hash: Field;
   function_tree_root: Field;
   contract_address_salt: Field;
@@ -156,6 +156,13 @@ export interface PreviousKernelData {
 export interface AppendOnlyTreeSnapshot {
   root: Field;
   next_available_leaf_index: u32;
+}
+
+export interface PartialStateReference {
+  note_hash_tree: AppendOnlyTreeSnapshot;
+  nullifier_tree: AppendOnlyTreeSnapshot;
+  contract_tree: AppendOnlyTreeSnapshot;
+  public_data_tree: AppendOnlyTreeSnapshot;
 }
 
 export interface NullifierLeafPreimage {
@@ -209,11 +216,8 @@ export interface ConstantRollupData {
 
 export interface BaseRollupInputs {
   kernel_data: PreviousKernelData;
-  start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  archive_snapshot: AppendOnlyTreeSnapshot;
+  start: PartialStateReference;
+  archive: AppendOnlyTreeSnapshot;
   sorted_new_nullifiers: FixedLengthArray<Field, 64>;
   sorted_new_nullifiers_indexes: FixedLengthArray<u32, 64>;
   low_nullifier_leaf_preimages: FixedLengthArray<NullifierLeafPreimage, 64>;
@@ -235,16 +239,10 @@ export interface BaseRollupInputs {
 export interface BaseOrMergeRollupPublicInputs {
   rollup_type: u32;
   rollup_subtree_height: Field;
-  end_aggregation_object: AggregationObject;
+  aggregation_object: AggregationObject;
   constants: ConstantRollupData;
-  start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
+  start: PartialStateReference;
+  end: PartialStateReference;
   calldata_hash: FixedLengthArray<Field, 2>;
 }
 

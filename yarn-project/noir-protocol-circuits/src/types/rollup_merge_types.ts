@@ -30,19 +30,20 @@ export interface ConstantRollupData {
   global_variables: GlobalVariables;
 }
 
+export interface PartialStateReference {
+  note_hash_tree: AppendOnlyTreeSnapshot;
+  nullifier_tree: AppendOnlyTreeSnapshot;
+  contract_tree: AppendOnlyTreeSnapshot;
+  public_data_tree: AppendOnlyTreeSnapshot;
+}
+
 export interface BaseOrMergeRollupPublicInputs {
   rollup_type: u32;
   rollup_subtree_height: Field;
-  end_aggregation_object: AggregationObject;
+  aggregation_object: AggregationObject;
   constants: ConstantRollupData;
-  start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_note_hash_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_nullifier_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_contract_tree_snapshot: AppendOnlyTreeSnapshot;
-  start_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
-  end_public_data_tree_snapshot: AppendOnlyTreeSnapshot;
+  start: PartialStateReference;
+  end: PartialStateReference;
   calldata_hash: FixedLengthArray<Field, 2>;
 }
 
