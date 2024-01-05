@@ -63,7 +63,6 @@ export const browserTestSuite = (
 
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
-      pageLogger(`AWait launch`);
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
         headless: 'new',
@@ -76,9 +75,7 @@ export const browserTestSuite = (
           '--remote-debugging-port=9222',
         ],
       });
-      pageLogger(`Test Starting 1`);
       page = await browser.newPage();
-      pageLogger(`Test Starting 2`);
       page.on('console', msg => {
         pageLogger(msg.text());
       });
@@ -86,7 +83,6 @@ export const browserTestSuite = (
         pageLogger.error(err.toString());
       });
       await page.goto(`http://localhost:${PORT}/index.html`);
-      pageLogger(`Test Starting 3`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
@@ -107,9 +103,8 @@ export const browserTestSuite = (
     });
 
     it('Creates an account', async () => {
-      const result = await page.evaluate(async privateKeyString => {
+      const result = await page.evaluate(async (privateKeyString, pxe) => {
         const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
-        const pxe = testClient;
         const privateKey = GrumpkinScalar.fromString(privateKeyString);
         const account = getUnsafeSchnorrAccount(pxe, privateKey);
         await account.waitDeploy();
@@ -117,7 +112,7 @@ export const browserTestSuite = (
         const addressString = completeAddress.address.toString();
         console.log(`Created Account: ${addressString}`);
         return addressString;
-      }, privKey.toString());
+      }, privKey.toString(), testClient);
       const accounts = await testClient.getRegisteredAccounts();
       const stringAccounts = accounts.map(acc => acc.address.toString());
       expect(stringAccounts.includes(result)).toBeTruthy();
@@ -142,9 +137,8 @@ export const browserTestSuite = (
 
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
-        async (contractAddress, TokenContractArtifact) => {
+        async (contractAddress, TokenContractArtifact, pxe) => {
           const { Contract, AztecAddress } = window.AztecJs;
-          const pxe = testClient;
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
@@ -153,16 +147,16 @@ export const browserTestSuite = (
         },
         (await getTokenAddress()).toString(),
         TokenContractArtifact,
+        testClient,
       );
       expect(result).toEqual(initialBalance);
     });
 
     it('Sends a transfer TX', async () => {
       const result = await page.evaluate(
-        async (contractAddress, transferAmount, TokenContractArtifact) => {
+        async (contractAddress, transferAmount, TokenContractArtifact, pxe) => {
           console.log(`Starting transfer tx`);
           const { AztecAddress, Contract } = window.AztecJs;
-          const pxe = testClient;
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
@@ -174,13 +168,14 @@ export const browserTestSuite = (
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractArtifact,
+        testClient,
       );
       expect(result).toEqual(transferAmount);
     }, 60_000);
 
     const deployTokenContract = async () => {
       const txHash = await page.evaluate(
-        async (privateKeyString, initialBalance, TokenContractArtifact) => {
+        async (privateKeyString, initialBalance, TokenContractArtifact, pxe) => {
           const {
             GrumpkinScalar,
             DeployMethod,
@@ -192,7 +187,6 @@ export const browserTestSuite = (
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
-          const pxe = testClient;
           let accounts = await pxe.getRegisteredAccounts();
           if (accounts.length === 0) {
             // This test needs an account for deployment. We create one in case there is none available in the PXE.
@@ -234,6 +228,7 @@ export const browserTestSuite = (
         privKey.toString(),
         initialBalance,
         TokenContractArtifact,
+        testClient,
       );
 
       const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
