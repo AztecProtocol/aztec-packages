@@ -250,7 +250,7 @@ mod tests {
             input: FunctionInput { witness: Witness(1), num_bits: 8 },
         })
     }
-    fn perm_opcode() -> Opcode {
+    fn keccakf1600_opcode() -> Opcode {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::Keccakf1600 {
             inputs: vec![
                 FunctionInput { witness: Witness(1), num_bits: 64 },
@@ -342,7 +342,7 @@ mod tests {
                 }),
                 range_opcode(),
                 and_opcode(),
-                perm_opcode(),
+                keccakf1600_opcode(),
             ],
             private_parameters: BTreeSet::new(),
             public_parameters: PublicInputs(BTreeSet::from_iter(vec![Witness(2)])),
