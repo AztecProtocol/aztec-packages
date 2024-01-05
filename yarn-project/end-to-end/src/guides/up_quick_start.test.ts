@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+
 import { waitForPXE } from '../fixtures/utils.js';
 
 // Entrypoint for running the up-quick-start script on the CI

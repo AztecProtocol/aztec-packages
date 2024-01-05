@@ -1,5 +1,6 @@
 import { createPXEClient } from '@aztec/aztec.js';
 import { pxeTestSuite } from '@aztec/pxe';
+
 import { waitForPXE } from './fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;

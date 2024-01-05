@@ -83,9 +83,11 @@ describe('e2e_card_game', () => {
 
     const toRegister = ENCRYPTION_KEYS.filter(key => {
       const publicKey = generatePublicKey(key);
-      return preRegisteredAccounts.find(preRegisteredAccount => {
-        return preRegisteredAccount.publicKey.equals(publicKey);
-      }) == undefined;
+      return (
+        preRegisteredAccounts.find(preRegisteredAccount => {
+          return preRegisteredAccount.publicKey.equals(publicKey);
+        }) == undefined
+      );
     });
 
     for (let i = 0; i < toRegister.length; i++) {

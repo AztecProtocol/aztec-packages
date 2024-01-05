@@ -7,6 +7,7 @@ import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
+
 import { waitForPXE } from '../fixtures/utils.js';
 
 declare global {
@@ -28,15 +29,19 @@ const PORT = 3000;
 
 const privKey = AztecJs.GrumpkinScalar.random();
 
-export const browserTestSuite = (setup: () => Promise<{ 
-/**
- * The webserver instance.
- */
-server: Server, 
-/**
- * The PXE interface.
- */
-pxe: AztecJs.PXE }>, pageLogger: AztecJs.DebugLogger) =>
+export const browserTestSuite = (
+  setup: () => Promise<{
+    /**
+     * The webserver instance.
+     */
+    server: Server;
+    /**
+     * The PXE interface.
+     */
+    pxe: AztecJs.PXE;
+  }>,
+  pageLogger: AztecJs.DebugLogger,
+) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
     const transferAmount = 3n;
@@ -102,20 +107,17 @@ pxe: AztecJs.PXE }>, pageLogger: AztecJs.DebugLogger) =>
     });
 
     it('Creates an account', async () => {
-      const result = await page.evaluate(
-        async (privateKeyString) => {
-          const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
-          const pxe = testClient;
-          const privateKey = GrumpkinScalar.fromString(privateKeyString);
-          const account = getUnsafeSchnorrAccount(pxe, privateKey);
-          await account.waitDeploy();
-          const completeAddress = account.getCompleteAddress();
-          const addressString = completeAddress.address.toString();
-          console.log(`Created Account: ${addressString}`);
-          return addressString;
-        },
-        privKey.toString(),
-      );
+      const result = await page.evaluate(async privateKeyString => {
+        const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
+        const pxe = testClient;
+        const privateKey = GrumpkinScalar.fromString(privateKeyString);
+        const account = getUnsafeSchnorrAccount(pxe, privateKey);
+        await account.waitDeploy();
+        const completeAddress = account.getCompleteAddress();
+        const addressString = completeAddress.address.toString();
+        console.log(`Created Account: ${addressString}`);
+        return addressString;
+      }, privKey.toString());
       const accounts = await testClient.getRegisteredAccounts();
       const stringAccounts = accounts.map(acc => acc.address.toString());
       expect(stringAccounts.includes(result)).toBeTruthy();
@@ -159,7 +161,7 @@ pxe: AztecJs.PXE }>, pageLogger: AztecJs.DebugLogger) =>
       const result = await page.evaluate(
         async (contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract} = window.AztecJs;
+          const { AztecAddress, Contract } = window.AztecJs;
           const pxe = testClient;
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
