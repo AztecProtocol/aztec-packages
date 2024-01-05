@@ -22,5 +22,5 @@ RUN apk update && apk add curl bash libstdc++
 COPY . .
 
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+#COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
 RUN HARDWARE_CONCURRENCY=128 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh

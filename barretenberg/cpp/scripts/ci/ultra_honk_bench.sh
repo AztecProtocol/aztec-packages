@@ -6,6 +6,6 @@ set -eu
 cd "$(dirname $0)"
 cd ../../srs_db
 ./download_ignition.sh 1
+./download_grumpkin.sh
 cd ../build
-./bin/grumpkin_srs_gen 1048576
 time ./bin/ultra_honk_rounds_bench
