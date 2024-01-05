@@ -73,11 +73,7 @@ struct acir_format {
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
 template <typename Builder = UltraCircuitBuilder>
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0);
-
-Builder create_circuit_with_witness(const acir_format& constraint_system,
-                                    WitnessVector const& witness,
-                                    size_t size_hint = 0);
+Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
 
 template <typename Builder>
 void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments);

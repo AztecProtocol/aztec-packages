@@ -192,7 +192,17 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     }
 }
 
-template <typename Builder> Builder create_circuit(const acir_format& constraint_system, size_t size_hint)
+/**
+ * @brief Create a circuit from acir constraints and optionally a witness
+ *
+ * @tparam Builder
+ * @param constraint_system
+ * @param size_hint
+ * @param witness
+ * @return Builder
+ */
+template <typename Builder>
+Builder create_circuit(const acir_format& constraint_system, size_t size_hint, WitnessVector const& witness)
 {
     Builder builder(size_hint);
 
@@ -200,30 +210,17 @@ template <typename Builder> Builder create_circuit(const acir_format& constraint
         info("create_circuit: too many public inputs!");
     }
 
-    populate_variables_and_public_inputs(builder, constraint_system);
-    build_constraints(builder, constraint_system, false);
-
-    return builder;
-}
-
-Builder create_circuit_with_witness(acir_format const& constraint_system,
-                                    WitnessVector const& witness,
-                                    size_t size_hint)
-{
-    Builder builder(size_hint);
-    if (constraint_system.public_inputs.size() > constraint_system.varnum) {
-        info("create_circuit_with_witness: too many public inputs!");
-    }
-
-    // Populate builder.variables and buider.public_inputs
     populate_variables_and_public_inputs(builder, constraint_system, witness);
 
-    build_constraints(builder, constraint_system, true);
+    bool has_valid_witness_assignments = !witness.empty();
+    build_constraints(builder, constraint_system, has_valid_witness_assignments);
+
     return builder;
 }
 
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
-                                                                 size_t size_hint);
+                                                                 size_t size_hint,
+                                                                 WitnessVector const& witness);
 template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
 
 } // namespace acir_format
