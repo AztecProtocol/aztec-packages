@@ -233,11 +233,10 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in)
 {
-    // Construct gate corresponding to a single calldata read
-    this->w_l().emplace_back(in.value); // populate with value of calldata at read index
-    this->w_r().emplace_back(in.index); // populate with read index as witness
-    calldata_read_counts[static_cast<size_t>(this->get_variable(in.index))]++; // increment read count at read index
-    q_busread().emplace_back(1);                                               // read selector on
+    this->w_l().emplace_back(in.value);
+    this->w_r().emplace_back(in.index);
+    calldata_read_counts[static_cast<size_t>(this->get_variable(in.index))]++; // increment read count at raw read index
+    q_busread().emplace_back(1);
 
     // populate all other components with zero
     this->w_o().emplace_back(this->zero_idx);
