@@ -16,6 +16,5 @@ mod traits;
 mod interop_testing;
 
 mod tests;
-mod traits;
 
 use abis::kernel_circuit_public_inputs::{ KernelCircuitPublicInputs, KernelCircuitPublicInputsFinal };
