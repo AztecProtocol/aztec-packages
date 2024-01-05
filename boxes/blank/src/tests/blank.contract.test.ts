@@ -11,7 +11,7 @@ import {
   Wallet,
   createDebugLogger,
 } from '@aztec/aztec.js';
-import { setupSandbox } from '../../../sandbox/index.js';
+import { setupSandbox } from '../sandbox/index.js';
 
 const logger = createDebugLogger('aztec:blank-box-test');
 

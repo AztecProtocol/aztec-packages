@@ -103,16 +103,20 @@ export const browserTestSuite = (
     });
 
     it('Creates an account', async () => {
-      const result = await page.evaluate(async (privateKeyString, pxe) => {
-        const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
-        const privateKey = GrumpkinScalar.fromString(privateKeyString);
-        const account = getUnsafeSchnorrAccount(pxe, privateKey);
-        await account.waitDeploy();
-        const completeAddress = account.getCompleteAddress();
-        const addressString = completeAddress.address.toString();
-        console.log(`Created Account: ${addressString}`);
-        return addressString;
-      }, privKey.toString(), testClient);
+      const result = await page.evaluate(
+        async (privateKeyString, pxe) => {
+          const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
+          const privateKey = GrumpkinScalar.fromString(privateKeyString);
+          const account = getUnsafeSchnorrAccount(pxe, privateKey);
+          await account.waitDeploy();
+          const completeAddress = account.getCompleteAddress();
+          const addressString = completeAddress.address.toString();
+          console.log(`Created Account: ${addressString}`);
+          return addressString;
+        },
+        privKey.toString(),
+        testClient,
+      );
       const accounts = await testClient.getRegisteredAccounts();
       const stringAccounts = accounts.map(acc => acc.address.toString());
       expect(stringAccounts.includes(result)).toBeTruthy();

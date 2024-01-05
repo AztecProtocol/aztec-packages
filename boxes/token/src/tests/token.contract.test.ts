@@ -16,7 +16,7 @@ import {
   getSandboxAccountsWallets,
 } from '@aztec/aztec.js';
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-import { setupSandbox } from '../../../sandbox/index.js';
+import { setupSandbox } from '../sandbox/index.js';
 
 const TIMEOUT = 60_000;
 
