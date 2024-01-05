@@ -81,7 +81,7 @@ jobs:
       - name: Generate gates report
         working-directory: ./yarn-project/noir-protocol-circuits/src
         run: |
-          NARGO_BACKEND_PATH=~/.nargo/backends/acvm-backend-barretenberg nargo info --json > protocol_circuits_report.json
+          NARGO_BACKEND_PATH=~/.nargo/backends/acvm-backend-barretenberg/backend_binary nargo info --json > protocol_circuits_report.json
           mv protocol_circuits_report.json ../../../protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
