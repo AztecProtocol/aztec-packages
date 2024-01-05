@@ -373,7 +373,7 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     callContext.is_delegate_call,
     callContext.is_static_call,
     callContext.is_contract_deployment,
-    Fr.ZERO, // TODO: actual counter
+    mapNumberFromNoir(callContext.start_side_effect_counter),
   );
 }
 
@@ -391,7 +391,7 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
     is_contract_deployment: callContext.isContractDeployment,
-    start_side_effect_counter: mapFieldToNoir(callContext.startSideEffectCounter),
+    start_side_effect_counter: mapNumberToNoir(callContext.startSideEffectCounter),
   };
 }
 

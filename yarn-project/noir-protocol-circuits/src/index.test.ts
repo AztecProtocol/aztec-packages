@@ -113,16 +113,7 @@ describe('Private kernel', () => {
       Fr.ZERO,
     );
 
-    const callContext = new CallContext(
-      AztecAddress.ZERO,
-      contractAddress,
-      Fr.ZERO,
-      selector,
-      false,
-      false,
-      true,
-      Fr.ZERO,
-    );
+    const callContext = new CallContext(AztecAddress.ZERO, contractAddress, Fr.ZERO, selector, false, false, true, 0);
 
     const blockHeader = new BlockHeader(
       Fr.fromString('0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb'),

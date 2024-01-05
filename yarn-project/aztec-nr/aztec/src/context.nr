@@ -93,9 +93,7 @@ impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
             inputs: inputs,
-            // starts at 1 because all private calls have txhash nullifier as 0th nullifier
-            // and therefore 0th sideeffect. increment this for each side effect in this context
-            side_effect_counter: 1,
+            side_effect_counter: inputs.call_context.start_side_effect_counter,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
@@ -270,6 +268,7 @@ impl PrivateContext {
             contract_address,
             function_selector, 
             args_hash,
+            self.side_effect_counter,
         );
         let mut reader = Reader::new(fields);
 
@@ -332,6 +331,9 @@ impl PrivateContext {
         };
 
         reader.finish();
+
+        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
         
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
@@ -383,7 +385,8 @@ impl PrivateContext {
         let fields = enqueue_public_function_call_internal(
             contract_address, 
             function_selector, 
-            args_hash
+            args_hash,
+            self.side_effect_counter
         );
         let item = PublicCallStackItem {
             contract_address:  AztecAddress::from_field(fields[0]),
@@ -422,6 +425,9 @@ impl PrivateContext {
 
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
+
+        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        self.side_effect_counter = self.side_effect_counter + 1;
         
         assert(args_hash == item.public_inputs.args_hash);
 
@@ -468,7 +474,7 @@ impl PublicContext {
         let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs: inputs,
-            side_effect_counter: 0, // no initial nullifier in new public context.  increment on every side effect
+            side_effect_counter: inputs.call_context.start_side_effect_counter,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),

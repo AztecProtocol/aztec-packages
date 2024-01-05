@@ -88,7 +88,7 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
-      Fr.ZERO, // TODO(dan): actual value
+      1, // TODO(alvaro): reevaluate this
     );
     const context = new ClientExecutionContext(
       contractAddress,
