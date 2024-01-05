@@ -28,7 +28,9 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
-This will attempt to run the Sandbox on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
+This will attempt to run the Sandbox with the PXE listening on ` localhost:8080`. You can change the port defined in `./.aztec/docker-compose.yml` or by setting the `PXE_PORT` environment variable. Running the install command again will overwrite any changes made to the `docker-compose.yml`.
+
+See the full list of configurable environment variables [here](#environment-variables).
 
 If you have previously installed the CLI via a node package manager, you will need to uninstall it and remove it from your project dependencies and install it via Docker.
 
@@ -40,11 +42,27 @@ VERSION=<version> bash -i <(curl -s install.aztec.network)
 
 ## Running
 
-The installation command will run the sandbox. Alternatively, once installed you can run like so:
+Once the installed, you can run the sandbox with:
+
+```bash
+aztec-sandbox
+```
+
+Alternatively, you can run like so:
 
 ```bash
 cd ~/.aztec && docker-compose up
 ```
+
+## Running Aztec PXE / Node / P2P-Bootstrap node
+
+If you wish to run components of the Aztec network stack separately, you can still use the Sandbox by including a `MODE` variable.
+The values for `MODE` can be:
+
+- sandbox (default)
+- node
+- pxe
+- p2p-bootstrap
 
 ## Environment Variables
 
@@ -186,4 +204,4 @@ You can see all of our example contracts in the monorepo [here](https://github.c
 
 The sandbox is shipped with full-stack Aztec project templates, with example Aztec.nr contracts, testing scripts, and web interfaces.
 
-You can read more information about how to use boxes [here](./blank_box.md)
+You can read more information about how to use boxes [here](./blank_box.md).
