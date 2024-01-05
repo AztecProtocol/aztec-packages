@@ -45,11 +45,10 @@ impl PrivateKernelInputsOrdering {
         for rr_idx in 0..MAX_READ_REQUESTS_PER_TX {
             let read_request = read_requests.get_unchecked(rr_idx);
             let read_commitment_hint = self.read_commitment_hints[rr_idx] as u64;
-            //TODO(David): Shouldn't this just be a uint64?
 
             if (read_request.value != 0) {
                 let commitment = new_commitments.get_unchecked(read_commitment_hint as Field);
-                assert_eq(read_request.value, commitment.value, "Hinted commitment does not match");
+                assert_eq(read_request.value, commitment.value, "Hinted commitment does not match read request");
                 assert(read_request.counter > commitment.counter, "Read request counter must be greater than commitment counter");
             }
         }
@@ -68,8 +67,7 @@ impl PrivateKernelInputsOrdering {
             let nullifier = new_nullifiers[n_idx];
             // TODO - should not be able to squash the first nullifier.
             let nullified_commitment = nullifier.note_hash;
-            let nullifier_commitment_hint = self.nullifier_commitment_hints[n_idx];
-            let hint_pos = nullifier_commitment_hint as u64;
+            let hint_pos = self.nullifier_commitment_hints[n_idx] as u64;
 
             // Nullified_commitment of value `0` implies non-transient (persistable)
             // nullifier in which case no attempt will be made to match it to a commitment.
@@ -77,7 +75,9 @@ impl PrivateKernelInputsOrdering {
             // 0-valued nullified_commitment is empty and will be ignored
             if nullified_commitment != 0 {
                 assert(hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64, "New nullifier is transient but hint is invalid");
-                assert_eq(nullified_commitment, new_commitments[hint_pos].value, "Hinted commitment does not match");
+                let commitment = new_commitments[hint_pos];
+                assert_eq(nullified_commitment, commitment.value, "Hinted commitment does not match");
+                assert(nullifier.counter > commitment.counter, "Nullifier counter must be greater than commitment counter");
                 // match found!
                 // squash both the nullifier and the commitment
                 // (set to 0 here and then rearrange array after loop)
@@ -285,7 +285,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with="read request is transient but does not match any commitment")]
+    #[test(should_fail_with="Hinted commitment does not match read request")]
     fn native_read_request_unknown_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
