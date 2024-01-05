@@ -1,9 +1,7 @@
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { sleep } from '@aztec/foundation/sleep';
 import { PXE } from '@aztec/types';
 
 import { getSchnorrAccount } from '../account_manager/index.js';
-import { createPXEClient } from '../pxe_client.js';
 import { AccountWalletWithPrivateKey } from '../wallet/index.js';
 
 export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
