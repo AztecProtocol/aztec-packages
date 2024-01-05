@@ -59,24 +59,25 @@ TEST_F(DataBusComposerTests, CallDataRead)
     // Create a general test circuit
     generate_test_circuit(builder);
 
-    // Add some values to calldata
-    std::array<FF, 5> calldata_inputs = { 7, 10, 3, 12, 1 };
-    for (auto& val : calldata_inputs) {
-        builder.add_public_calldata(val);
+    // Add some values to calldata and store the corresponding witness index
+    std::array<FF, 5> calldata_values = { 7, 10, 3, 12, 1 };
+    std::vector<uint32_t> calldata_value_indices;
+    for (auto& val : calldata_values) {
+        calldata_value_indices.emplace_back(builder.add_public_calldata(val));
+    }
+
+    // Add some read index values and store the corresponding witness index
+    std::array<uint32_t, 2> read_index_values = { 1, 4 };
+    std::vector<uint32_t> read_indices;
+    for (auto& val : read_index_values) {
+        read_indices.emplace_back(builder.add_variable(val));
     }
 
     // Create some calldata lookup gates
-    std::array<uint32_t, 2> read_indices = { 1, 4 };
-    std::vector<uint32_t> calldata_value_indices;
-    for (auto& idx : read_indices) {
-        calldata_value_indices.emplace_back(builder.read_calldata_at_index(idx));
-    }
-
-    // Sanity check: the values we read should match the calldata values set originally
     for (size_t i = 0; i < read_indices.size(); ++i) {
-        FF expected_value = calldata_inputs[read_indices[i]];
-        FF read_value = builder.get_variable(calldata_value_indices[i]);
-        EXPECT_EQ(expected_value, read_value);
+        uint32_t read_idx = read_indices[i];
+        uint32_t value_idx = calldata_value_indices[read_index_values[i]];
+        builder.create_calldata_lookup_gate({ read_idx, value_idx });
     }
 
     auto composer = GoblinUltraComposer();
