@@ -4,6 +4,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/types.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
@@ -81,18 +82,27 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
                                          acir_format::WitnessVector& witness)
 {
-    // Provide the builder with the op queue owned by the goblin instance
-    goblin_builder_.op_queue = goblin.op_queue;
+    // The public inputs in constraint_system do not index into "witness" but rather into the future "variables" which
+    // it assumes will be equal to witness but with a prepended zero. We want to remove this +1 so that public_inputs
+    // properly indexes into witness because we're about to make calls like add_variable(witness[public_inputs[idx]]).
+    // Once the +1 is removed from noir, this correction can be removed entirely and we can use
+    // constraint_system.public_inputs directly.
+    const uint32_t pre_applied_noir_offset = 1;
+    std::vector<uint32_t> corrected_public_inputs;
+    for (const auto& index : constraint_system.public_inputs) {
+        corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
+    }
 
-    create_circuit_with_witness(goblin_builder_, constraint_system, witness);
+    // Construct a builder using the witness and public input data from acir
+    goblin_builder_ =
+        acir_format::GoblinBuilder{ goblin.op_queue, witness, corrected_public_inputs, constraint_system.varnum };
 
-    info("after create_circuit_with_witness: num_gates = ", goblin_builder_.num_gates);
+    // Populate constraints in the builder via the data in constraint_system
+    acir_format::build_constraints(goblin_builder_, constraint_system, true);
 
-    // Correct for the addition of const variables in the builder constructor
-    acir_format::apply_wire_index_offset(goblin_builder_);
-
-    // Add some arbitrary op gates to ensure the associated polynomials are non-zero
-    GoblinTestingUtils::construct_goblin_ecc_op_circuit(goblin_builder_);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
+    // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.
+    GoblinMockCircuits::construct_goblin_ecc_op_circuit(goblin_builder_);
 }
 
 std::vector<uint8_t> AcirComposer::create_goblin_proof()
