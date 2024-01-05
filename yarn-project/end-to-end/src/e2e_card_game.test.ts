@@ -12,6 +12,8 @@ import { CardGameContract } from '@aztec/noir-contracts/CardGame';
 
 import { setup } from './fixtures/utils.js';
 
+/* eslint-disable camelcase */
+
 interface Card {
   points: bigint;
   strength: bigint;

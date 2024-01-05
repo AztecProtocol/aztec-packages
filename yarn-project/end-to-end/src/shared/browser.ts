@@ -28,7 +28,15 @@ const PORT = 3000;
 
 const privKey = AztecJs.GrumpkinScalar.random();
 
-export const browserTestSuite = (setup: () => Promise<{ server: Server, pxe: AztecJs.PXE }>, pageLogger: AztecJs.DebugLogger) =>
+export const browserTestSuite = (setup: () => Promise<{ 
+/**
+ * The webserver instance.
+ */
+server: Server, 
+/**
+ * The PXE interface.
+ */
+pxe: AztecJs.PXE }>, pageLogger: AztecJs.DebugLogger) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
     const transferAmount = 3n;
@@ -174,7 +182,6 @@ export const browserTestSuite = (setup: () => Promise<{ server: Server, pxe: Azt
           const {
             GrumpkinScalar,
             DeployMethod,
-            createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
