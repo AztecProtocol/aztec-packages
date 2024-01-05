@@ -246,7 +246,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     num_ecc_op_gates += 2;
 };
 
-/* @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation
+/**
+ * @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation
  */
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
@@ -272,7 +273,8 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseid
     ++this->num_gates;
 }
 
-/* @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation
+/**
+ * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation
  */
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
@@ -298,7 +300,12 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseid
     ++this->num_gates;
 }
 
-/* @brief Poseidon2 end round gate, needed because poseidon2 rounds compare with shifted wires
+/**
+ * @brief Poseidon2 end round gate, needed because poseidon2 rounds compare with shifted wires
+ * @details Poseidon2 rounds need to be a block of 65 rows, since the result of applying a round of Poseidon2 is stored
+ * in the next row (the shifted row). As a result, we need this end row to compare with the result from the 64th round
+ * of Poseidon2. Note that it does not activate any selectors since it only serves as a comparison through the shifted
+ * wires.
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
 {

@@ -5,9 +5,10 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 using namespace proof_system;
 
-/* Hash a vector of field_t.
+/**
+ * @brief Hash a vector of field_ct.
  */
-template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_t>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_ct>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
@@ -19,8 +20,7 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
 }
 
 /**
- * Hash a byte_array.
- *
+ * @brief Hash a byte_array.
  */
 template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const stdlib::byte_array<C>& input)
 {
@@ -28,7 +28,7 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
     const size_t bytes_per_element = 31; // 31 bytes in a fr element
     size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
 
-    std::vector<field_t> elements;
+    std::vector<field_ct> elements;
     for (size_t i = 0; i < num_elements; ++i) {
         size_t bytes_to_slice = 0;
         if (i == num_elements - 1) {
@@ -36,11 +36,8 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
         } else {
             bytes_to_slice = bytes_per_element;
         }
-        auto element = static_cast<field_t>(input.slice(i * bytes_per_element, bytes_to_slice));
+        auto element = static_cast<field_ct>(input.slice(i * bytes_per_element, bytes_to_slice));
         elements.emplace_back(element);
-    }
-    for (auto& x : elements) {
-        std::cout << x << std::endl;
     }
     return hash(builder, elements);
 }
