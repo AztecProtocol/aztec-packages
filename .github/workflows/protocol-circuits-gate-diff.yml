@@ -10,10 +10,10 @@ jobs:
   compare_protocol_circuits_gates:
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          ref: ${{ inputs.tag || env.GITHUB_REF }}
 
       - name: Install bleeding edge cmake
         run: |
@@ -66,11 +66,14 @@ jobs:
         env:
           toolchain: --path ./noir
 
+      - name: Create backend folder
+        run: mkdir -p ~/.nargo/backends/acvm-backend-barretenberg
+
       - name: Set BB Binary
         run: cp barretenberg/cpp/build/bin/bb ~/.nargo/backends/acvm-backend-barretenberg/backend_binary
 
       - name: Check
-        run: ls -la ~/.nargo/backends/acvm-backend-barretenberg/
+        run: ls -la ~/.nargo/backends/acvm-backend-barretenberg
 
       - name: Check nargo installation
         run: nargo --version
