@@ -35,28 +35,8 @@ class DataBusComposerTests : public ::testing::Test {
     void generate_test_circuit(auto& builder)
     {
         // Add some ecc op gates and arithmetic gates
-        barretenberg::GoblinTestingUtils::construct_goblin_ecc_op_circuit(builder);
-        barretenberg::GoblinTestingUtils::construct_arithmetic_circuit(builder);
-
-        // Add some values to calldata
-        std::array<FF, 5> calldata_inputs = { 7, 10, 3, 12, 1 };
-        for (auto& val : calldata_inputs) {
-            builder.add_public_calldata(val);
-        }
-
-        // Create some calldata lookup gates
-        std::array<uint32_t, 2> read_indices = { 1, 4 };
-        std::vector<uint32_t> calldata_value_indices;
-        for (auto& idx : read_indices) {
-            calldata_value_indices.emplace_back(builder.read_calldata_at_index(idx));
-        }
-
-        // Sanity check: the values we read should match the calldata values set originally
-        for (size_t i = 0; i < read_indices.size(); ++i) {
-            FF expected_value = calldata_inputs[read_indices[i]];
-            FF read_value = builder.get_variable(calldata_value_indices[i]);
-            EXPECT_EQ(expected_value, read_value);
-        }
+        GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
+        GoblinMockCircuits::construct_arithmetic_circuit(builder);
     }
 };
 
@@ -76,8 +56,28 @@ TEST_F(DataBusComposerTests, CallDataRead)
 
     auto builder = proof_system::GoblinUltraCircuitBuilder{ op_queue };
 
-    // Create a circuit including calldata lookups
+    // Create a general test circuit
     generate_test_circuit(builder);
+
+    // Add some values to calldata
+    std::array<FF, 5> calldata_inputs = { 7, 10, 3, 12, 1 };
+    for (auto& val : calldata_inputs) {
+        builder.add_public_calldata(val);
+    }
+
+    // Create some calldata lookup gates
+    std::array<uint32_t, 2> read_indices = { 1, 4 };
+    std::vector<uint32_t> calldata_value_indices;
+    for (auto& idx : read_indices) {
+        calldata_value_indices.emplace_back(builder.read_calldata_at_index(idx));
+    }
+
+    // Sanity check: the values we read should match the calldata values set originally
+    for (size_t i = 0; i < read_indices.size(); ++i) {
+        FF expected_value = calldata_inputs[read_indices[i]];
+        FF read_value = builder.get_variable(calldata_value_indices[i]);
+        EXPECT_EQ(expected_value, read_value);
+    }
 
     auto composer = GoblinUltraComposer();
 
