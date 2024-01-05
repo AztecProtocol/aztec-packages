@@ -1,9 +1,4 @@
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/AvmMini_helper.hpp"
-#include "barretenberg/proof_system/circuit_builder/AvmMini_trace.hpp"
-#include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/vm/generated/AvmMini_composer.hpp"
 #include "barretenberg/vm/generated/AvmMini_prover.hpp"
 #include "barretenberg/vm/generated/AvmMini_verifier.hpp"
@@ -15,9 +10,8 @@
 #include <string>
 #include <vector>
 
-using namespace proof_system;
-
 namespace tests_avm {
+using namespace proof_system;
 
 class AvmMiniMemoryTests : public ::testing::Test {
   public:
