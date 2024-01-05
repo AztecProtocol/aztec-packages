@@ -1,10 +1,10 @@
 use crate::abis::public_data_tree_leaf::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage};
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::constant_rollup_data::ConstantRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 use crate::components;
 use dep::types::utils::uint256::U256;
+use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::abis::public_data_update_request::PublicDataUpdateRequest;
 use dep::types::abis::public_data_read::PublicDataRead;
 use dep::types::mocked::{AggregationObject, Proof};
@@ -122,7 +122,7 @@ impl BaseRollupInputs {
         BaseOrMergeRollupPublicInputs {
             rollup_type : BASE_ROLLUP_TYPE,
             rollup_subtree_height : 0,
-            end_aggregation_object : aggregation_object,
+            aggregation_object : aggregation_object,
             constants : self.constants,
             start_note_hash_tree_snapshot : self.start_note_hash_tree_snapshot,
             end_note_hash_tree_snapshot : end_note_hash_tree_snapshot,
@@ -566,7 +566,6 @@ mod tests {
             full_field_less_than,
         },
         merkle_tree::{calculate_subtree, calculate_empty_tree_root},
-        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         abis::public_data_tree_leaf::{PublicDataTreeLeafPreimage, PublicDataTreeLeaf},
         abis::constant_rollup_data::ConstantRollupData,
@@ -595,6 +594,7 @@ mod tests {
         NUM_FIELDS_PER_SHA256,
     };
     use dep::types::{
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         abis::membership_witness::ArchiveRootMembershipWitness,
         abis::membership_witness::{NullifierMembershipWitness, PublicDataMembershipWitness},
         abis::new_contract_data::NewContractData,

@@ -1,5 +1,7 @@
-use crate::abis::global_variables::GlobalVariables;
-use dep::types::constants::GENERATOR_INDEX__BLOCK_HASH;
+use dep::types::{
+    abis::global_variables::GlobalVariables,
+    constants::GENERATOR_INDEX__BLOCK_HASH,
+};
 
 pub fn compute_block_hash_with_globals(
     globals: GlobalVariables,

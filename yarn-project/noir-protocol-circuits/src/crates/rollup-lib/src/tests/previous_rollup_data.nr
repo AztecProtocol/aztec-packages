@@ -1,6 +1,6 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BASE_ROLLUP_TYPE;
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use crate::abis::previous_rollup_data::PreviousRollupData;
+use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 
 pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     let mut previous_rollup_data: [PreviousRollupData; 2] = dep::std::unsafe::zeroed();

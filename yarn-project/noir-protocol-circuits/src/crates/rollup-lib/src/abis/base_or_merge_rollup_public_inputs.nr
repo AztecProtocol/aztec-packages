@@ -1,8 +1,9 @@
-// TODO(Kev): This constant is also defined in private-kernel-lib
-use dep::types::constants::NUM_FIELDS_PER_SHA256;
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use dep::types::{
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    constants::NUM_FIELDS_PER_SHA256,
+    partial_state_reference::PartialStateReference,
+};
 use crate::abis::constant_rollup_data::ConstantRollupData;
-use crate::partial_state_reference::PartialStateReference;
 use dep::types::mocked::AggregationObject;
 
 global BASE_ROLLUP_TYPE = 0;
@@ -15,7 +16,7 @@ struct BaseOrMergeRollupPublicInputs {
     // subtree height is always 0 for base.
     // so that we always pass-in two base/merge circuits of the same height into the next level of recursion
     rollup_subtree_height : Field,
-    end_aggregation_object : AggregationObject,
+    aggregation_object : AggregationObject,
     constants : ConstantRollupData,
 
     start: PartialStateReference,

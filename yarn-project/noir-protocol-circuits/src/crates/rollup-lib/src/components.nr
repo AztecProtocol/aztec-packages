@@ -4,7 +4,7 @@ use dep::types::hash::{accumulate_sha256, assert_check_membership, root_from_sib
 use dep::types::utils::uint128::U128;
 use dep::types::constants::NUM_FIELDS_PER_SHA256;
 use crate::abis::previous_rollup_data::PreviousRollupData;
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 
 /**
  * Create an aggregation object for the proofs that are provided
@@ -18,7 +18,7 @@ pub fn aggregate_proofs(
     right: BaseOrMergeRollupPublicInputs
 ) -> AggregationObject {
     // TODO: Similar to cpp code this does not do anything.
-    left.end_aggregation_object
+    left.aggregation_object
 }
 
 /**

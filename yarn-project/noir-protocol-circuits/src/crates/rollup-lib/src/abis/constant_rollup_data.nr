@@ -1,6 +1,8 @@
-use crate::abis::global_variables::GlobalVariables;
-use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::std::ops::Eq;
+use dep::types::abis::{
+    global_variables::GlobalVariables,
+    append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+};
 
 struct ConstantRollupData {
     // The very latest roots as at the very beginning of the entire rollup:

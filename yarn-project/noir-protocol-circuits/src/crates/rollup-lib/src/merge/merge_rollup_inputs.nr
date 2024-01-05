@@ -31,7 +31,7 @@ impl MergeRollupInputs {
         let public_inputs = BaseOrMergeRollupPublicInputs {
             rollup_type : MERGE_ROLLUP_TYPE,
             rollup_subtree_height : current_height + 1,
-            end_aggregation_object : aggregation_object,
+            aggregation_object : aggregation_object,
             constants : left.constants,
             start_note_hash_tree_snapshot : left.start_note_hash_tree_snapshot,
             end_note_hash_tree_snapshot : right.end_note_hash_tree_snapshot,
