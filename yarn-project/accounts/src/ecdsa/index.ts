@@ -1,3 +1,9 @@
+/**
+ * The `@aztec/accounts/ecdsa` export provides an ECDSA account contract implementation, that uses an ECDSA private key for authentication, and a Grumpkin key for encryption.
+ * Consider using this account type when working with integrations with Ethereum wallets.
+ *
+ * @packageDocumentation
+ */
 import { AccountManager, Salt } from '@aztec/aztec.js/account';
 import { AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { AztecAddress } from '@aztec/circuits.js';

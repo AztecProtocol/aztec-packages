@@ -1,3 +1,9 @@
+/**
+ * The `@aztec/accounts/schnorr` export provides an account contract implementation that uses Schnorr signatures with a Grumpkin key for authentication, and a separate Grumpkin key for encryption.
+ * This is the suggested account contract type for most use cases within Aztec.
+ *
+ * @packageDocumentation
+ */
 import { AccountManager, Salt } from '@aztec/aztec.js/account';
 import { AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { AztecAddress } from '@aztec/circuits.js';

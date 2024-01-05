@@ -1,3 +1,9 @@
+/**
+ * The `@aztec/accounts/single_key` export provides a testing account contract implementation that uses a single Grumpkin key for both authentication and encryption.
+ * It is not recommended to use this account type in production.
+ *
+ * @packageDocumentation
+ */
 import { AccountManager, Salt } from '@aztec/aztec.js/account';
 import { AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { AztecAddress } from '@aztec/circuits.js';
