@@ -1,4 +1,5 @@
 import { createDebugLogger, createPXEClient, fileURLToPath } from '@aztec/aztec.js';
+import { createPXERpcServer } from '@aztec/pxe';
 
 import Koa from 'koa';
 import serve from 'koa-static';
@@ -6,14 +7,13 @@ import path, { dirname } from 'path';
 
 import { setup } from './fixtures/utils.js';
 import { browserTestSuite } from './shared/browser.js';
-import { createPXERpcServer } from '@aztec/pxe';
 
 const { PXE_URL = '' } = process.env;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PORT = 3000;
-const PXE_PORT = 3001
+const PXE_PORT = 3001;
 
 const logger = createDebugLogger('aztec:canary_aztec.js:web');
 const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');

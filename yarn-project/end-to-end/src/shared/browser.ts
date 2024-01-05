@@ -32,13 +32,13 @@ const privKey = AztecJs.GrumpkinScalar.random();
 export const browserTestSuite = (
   setup: () => Promise<{
     /**
-     * The webserver instance.
+     *  The webserver instance.
      */
     server: Server;
     /**
-     * The PXE interface.
+     * The url of the PXE
      */
-    pxe: AztecJs.PXE;
+    pxeURL: string;
   }>,
   pageLogger: AztecJs.DebugLogger,
 ) =>
@@ -51,17 +51,21 @@ export const browserTestSuite = (
     let app: Koa;
     let testClient: AztecJs.PXE;
     let webServer: Server;
+    let rpcURL: string;
 
     let browser: Browser;
     let page: Page;
 
     beforeAll(async () => {
-      const { pxe, server } = await setup();
+      const { server, pxeURL } = await setup();
+      rpcURL = pxeURL;
       webServer = server;
-      testClient = pxe;
-      await waitForPXE(testClient, pageLogger);
+      testClient = AztecJs.createPXEClient(pxeURL);
+      await waitForPXE(testClient);
+
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
+
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
         headless: 'new',
@@ -103,8 +107,9 @@ export const browserTestSuite = (
 
     it('Creates an account', async () => {
       const result = await page.evaluate(
-        async (privateKeyString, pxe) => {
-          const { GrumpkinScalar, getUnsafeSchnorrAccount } = window.AztecJs;
+        async (rpcUrl, privateKeyString) => {
+          const { GrumpkinScalar, createPXEClient: createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
           const privateKey = GrumpkinScalar.fromString(privateKeyString);
           const account = getUnsafeSchnorrAccount(pxe, privateKey);
           await account.waitDeploy();
@@ -113,8 +118,8 @@ export const browserTestSuite = (
           console.log(`Created Account: ${addressString}`);
           return addressString;
         },
+        rpcURL,
         privKey.toString(),
-        testClient,
       );
       const accounts = await testClient.getRegisteredAccounts();
       const stringAccounts = accounts.map(acc => acc.address.toString());
@@ -140,26 +145,28 @@ export const browserTestSuite = (
 
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
-        async (contractAddress, TokenContractArtifact, pxe) => {
-          const { Contract, AztecAddress } = window.AztecJs;
+        async (rpcUrl, contractAddress, TokenContractArtifact) => {
+          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
         },
+        rpcURL,
         (await getTokenAddress()).toString(),
         TokenContractArtifact,
-        testClient,
       );
       expect(result).toEqual(initialBalance);
     });
 
     it('Sends a transfer TX', async () => {
       const result = await page.evaluate(
-        async (contractAddress, transferAmount, TokenContractArtifact, pxe) => {
+        async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract } = window.AztecJs;
+          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
           const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
@@ -168,20 +175,21 @@ export const browserTestSuite = (
           console.log(`Transferred ${transferAmount} tokens to new Account`);
           return await contract.methods.balance_of_private(receiver).view({ from: receiver });
         },
+        rpcURL,
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractArtifact,
-        testClient,
       );
       expect(result).toEqual(transferAmount);
     }, 60_000);
 
     const deployTokenContract = async () => {
       const txHash = await page.evaluate(
-        async (privateKeyString, initialBalance, TokenContractArtifact, pxe) => {
+        async (rpcUrl, privateKeyString, initialBalance, TokenContractArtifact) => {
           const {
             GrumpkinScalar,
             DeployMethod,
+            createPXEClient,
             getUnsafeSchnorrAccount,
             Contract,
             Fr,
@@ -190,6 +198,7 @@ export const browserTestSuite = (
             computeMessageSecretHash,
             getSandboxAccountsWallets,
           } = window.AztecJs;
+          const pxe = createPXEClient(rpcUrl!);
           let accounts = await pxe.getRegisteredAccounts();
           if (accounts.length === 0) {
             // This test needs an account for deployment. We create one in case there is none available in the PXE.
@@ -228,10 +237,10 @@ export const browserTestSuite = (
 
           return txHash.toString();
         },
+        rpcURL,
         privKey.toString(),
         initialBalance,
         TokenContractArtifact,
-        testClient,
       );
 
       const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
