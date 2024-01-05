@@ -1,7 +1,6 @@
 import {
   ExtendedNote,
   Fr,
-  L2BlockL2Logs,
   Note,
   computeMessageSecretHash,
   createPXEClient,

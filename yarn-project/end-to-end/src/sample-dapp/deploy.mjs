@@ -1,4 +1,4 @@
-import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { Contract, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
 import { writeFileSync } from 'fs';

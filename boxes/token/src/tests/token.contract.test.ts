@@ -13,20 +13,10 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
   createDebugLogger,
-  createPXEClient,
   getSandboxAccountsWallets,
-  waitForSandbox,
 } from '@aztec/aztec.js';
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-
-// assumes sandbox is running locally, which this script does not trigger
-// as well as anvil.  anvil can be started with yarn test:integration
-const setupSandbox = async () => {
-  const { PXE_URL = 'http://localhost:8080' } = process.env;
-  const pxe = createPXEClient(PXE_URL);
-  await waitForSandbox(pxe);
-  return pxe;
-};
+import { setupSandbox } from '../../../sandbox/index.js';
 
 const TIMEOUT = 60_000;
 
