@@ -78,6 +78,7 @@ TEST_F(DataBusComposerTests, CallDataRead)
         uint32_t read_idx = read_indices[i];
         uint32_t value_idx = calldata_value_indices[read_index_values[i]];
         builder.create_calldata_lookup_gate({ read_idx, value_idx });
+        builder.calldata_read_counts[read_index_values[i]]++;
     }
 
     auto composer = GoblinUltraComposer();
