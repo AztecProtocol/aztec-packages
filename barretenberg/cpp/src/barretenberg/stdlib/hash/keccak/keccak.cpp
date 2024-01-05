@@ -866,7 +866,7 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
 }
 
 // This function is the same as sponge_squeeze, except that it does not convert
-// from extented representation and assumes the input has already being converted
+// from extended representation and assumes the input has already being converted
 template <typename Builder>
 stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opcode(
     std::array<field_t<Builder>, NUM_KECCAK_LANES> lanes, Builder* context)
