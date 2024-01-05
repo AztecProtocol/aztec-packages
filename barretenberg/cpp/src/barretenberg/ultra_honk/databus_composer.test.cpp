@@ -28,7 +28,7 @@ class DataBusComposerTests : public ::testing::Test {
     using CommitmentKey = pcs::CommitmentKey<Curve>;
 
     /**
-     * @brief Generate a simple test circuit that includes calldata lookup gates
+     * @brief Generate a simple test circuit that includes arithmetic and goblin ecc op gates
      *
      * @param builder
      */
