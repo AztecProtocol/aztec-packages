@@ -119,6 +119,11 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         create_blake2s_constraints(builder, constraint);
     }
 
+    // Add blake3 constraints
+    for (const auto& constraint : constraint_system.blake3_constraints) {
+        create_blake3_constraints(builder, constraint);
+    }
+
     // Add keccak constraints
     for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);

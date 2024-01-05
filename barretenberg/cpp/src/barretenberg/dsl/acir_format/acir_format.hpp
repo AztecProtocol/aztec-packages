@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
+#include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
@@ -30,6 +31,7 @@ struct acir_format {
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
+    std::vector<Blake3Constraint> blake3_constraints;
     std::vector<KeccakConstraint> keccak_constraints;
     std::vector<KeccakVarConstraint> keccak_var_constraints;
     std::vector<Keccakf1600> keccak_permutations;
@@ -56,6 +58,7 @@ struct acir_format {
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
                    blake2s_constraints,
+                   blake3_constraints,
                    keccak_constraints,
                    keccak_var_constraints,
                    keccak_permutations,

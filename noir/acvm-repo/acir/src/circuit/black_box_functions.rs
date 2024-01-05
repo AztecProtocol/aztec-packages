@@ -19,6 +19,8 @@ pub enum BlackBoxFunc {
     SHA256,
     /// Calculates the Blake2s hash of the inputs.
     Blake2s,
+    /// Calculates the Blake3 hash of the inputs.
+    Blake3,
     /// Verifies a Schnorr signature over a curve which is "pairing friendly" with the curve on which the ACIR circuit is defined.
     ///
     /// The exact curve which this signature uses will vary based on the curve being used by ACIR.
@@ -57,6 +59,7 @@ impl BlackBoxFunc {
             BlackBoxFunc::SHA256 => "sha256",
             BlackBoxFunc::SchnorrVerify => "schnorr_verify",
             BlackBoxFunc::Blake2s => "blake2s",
+            BlackBoxFunc::Blake3 => "blake3",
             BlackBoxFunc::PedersenCommitment => "pedersen_commitment",
             BlackBoxFunc::PedersenHash => "pedersen_hash",
             BlackBoxFunc::EcdsaSecp256k1 => "ecdsa_secp256k1",
@@ -75,6 +78,7 @@ impl BlackBoxFunc {
             "sha256" => Some(BlackBoxFunc::SHA256),
             "schnorr_verify" => Some(BlackBoxFunc::SchnorrVerify),
             "blake2s" => Some(BlackBoxFunc::Blake2s),
+            "blake3" => Some(BlackBoxFunc::Blake3),
             "pedersen_commitment" => Some(BlackBoxFunc::PedersenCommitment),
             "pedersen_hash" => Some(BlackBoxFunc::PedersenHash),
             "ecdsa_secp256k1" => Some(BlackBoxFunc::EcdsaSecp256k1),
