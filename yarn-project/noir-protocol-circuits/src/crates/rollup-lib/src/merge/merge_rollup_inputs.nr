@@ -85,24 +85,24 @@ mod tests {
     #[test(should_fail_with="input proofs have different note hash tree snapshots")]
     fn previous_rollups_dont_follow_note_hash() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_note_hash_tree_snapshot.root = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_note_hash_tree_snapshot.root = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.note_hash_tree.root = 0;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start.note_hash_tree.root = 1;
         let _output = inputs.merge_rollup_circuit();
     }
 
     #[test(should_fail_with="input proofs have different nullifier tree snapshots")]
     fn previous_rollups_dont_follow_nullifier() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_nullifier_tree_snapshot.root = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_nullifier_tree_snapshot.root = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.nullifier_tree.root = 0;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start.nullifier_tree.root = 1;
         let _output = inputs.merge_rollup_circuit();
     }
 
     #[test(should_fail_with="input proofs have different contract tree snapshots")]
     fn previous_rollups_dont_follow_contracts() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_contract_tree_snapshot.root = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_contract_tree_snapshot.root = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.contract_tree.root = 0;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start.contract_tree.root = 1;
         let _output = inputs.merge_rollup_circuit();
     }
 

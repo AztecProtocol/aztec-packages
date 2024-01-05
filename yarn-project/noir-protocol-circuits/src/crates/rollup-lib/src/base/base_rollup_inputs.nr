@@ -39,7 +39,7 @@ use dep::types::partial_state_reference::PartialStateReference;
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
     start: PartialStateReference,
-    archive_snapshot: AppendOnlyTreeSnapshot,
+    archive: AppendOnlyTreeSnapshot,
 
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
@@ -891,11 +891,13 @@ mod tests {
 
             BaseRollupInputs {
                 kernel_data: kernel_data,
-                start_note_hash_tree_snapshot,
-                start_nullifier_tree_snapshot,
-                start_contract_tree_snapshot,
-                start_public_data_tree_snapshot,
-                archive_snapshot,
+                start: PartialStateReference {
+                    note_hash_tree: start_note_hash_tree_snapshot,
+                    nullifier_tree: start_nullifier_tree_snapshot,
+                    contract_tree: start_contract_tree_snapshot,
+                    public_data_tree: start_public_data_tree_snapshot,
+                },
+                archive: archive_snapshot,
 
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,

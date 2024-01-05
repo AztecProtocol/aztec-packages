@@ -44,17 +44,17 @@ impl RootRollupInputs {
             L1_TO_L2_MSG_SUBTREE_HEIGHT as u8 
         );
 
-        let state =                                                          StateReference {
-                                                            l1_to_l2_message_tree : new_l1_to_l2_message_tree_snapshot,
-                                                            partial: right.end,
-                                                        };
+        let state = StateReference {
+            l1_to_l2_message_tree : new_l1_to_l2_message_tree_snapshot,
+            partial: right.end,
+        };
 
         // Build the block hash for this iteration from the tree roots and global variables
         // Then insert the block into the archive tree
         let block_hash = compute_block_hash_with_globals(
-                                                        left.constants.global_variables,
-                                                        state,
-                                                      );
+            left.constants.global_variables,
+            state,
+        );
 
         // Update the archive
         let end_archive_snapshot = components::insert_subtree_to_snapshot_tree(
