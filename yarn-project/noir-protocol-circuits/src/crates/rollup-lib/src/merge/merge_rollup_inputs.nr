@@ -33,14 +33,8 @@ impl MergeRollupInputs {
             rollup_subtree_height : current_height + 1,
             aggregation_object : aggregation_object,
             constants : left.constants,
-            start_note_hash_tree_snapshot : left.start_note_hash_tree_snapshot,
-            end_note_hash_tree_snapshot : right.end_note_hash_tree_snapshot,
-            start_nullifier_tree_snapshot : left.start_nullifier_tree_snapshot,
-            end_nullifier_tree_snapshot : right.end_nullifier_tree_snapshot,
-            start_contract_tree_snapshot : left.start_contract_tree_snapshot,
-            end_contract_tree_snapshot : right.end_contract_tree_snapshot,
-            start_public_data_tree_snapshot : left.start_public_data_tree_snapshot,
-            end_public_data_tree_snapshot : right.end_public_data_tree_snapshot,
+            start : left.start,
+            end : right.end,
             calldata_hash : new_calldata_hash,
         };
 

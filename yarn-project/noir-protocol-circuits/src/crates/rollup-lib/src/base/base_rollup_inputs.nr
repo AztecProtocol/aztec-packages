@@ -34,13 +34,11 @@ use dep::types::abis::membership_witness::{NullifierMembershipWitness, PublicDat
 use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
 use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
 use dep::types::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
+use dep::types::partial_state_reference::PartialStateReference;
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
-    start_note_hash_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_contract_tree_snapshot: AppendOnlyTreeSnapshot,
-    start_public_data_tree_snapshot: AppendOnlyTreeSnapshot,
+    start: PartialStateReference,
     archive_snapshot: AppendOnlyTreeSnapshot,
 
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
@@ -88,7 +86,7 @@ impl BaseRollupInputs {
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
         let end_note_hash_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-            self.start_note_hash_tree_snapshot,
+            self.start.note_hash_tree,
             self.new_commitments_subtree_sibling_path,
             empty_commitments_subtree_root,
             commitments_tree_subroot,
@@ -98,7 +96,7 @@ impl BaseRollupInputs {
         // Insert contract subtrees:
         let empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
         let end_contract_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-            self.start_contract_tree_snapshot,
+            self.start.contract_tree,
             self.new_contracts_subtree_sibling_path,
             empty_contracts_subtree_root,
             contracts_tree_subroot,
@@ -124,14 +122,14 @@ impl BaseRollupInputs {
             rollup_subtree_height : 0,
             aggregation_object : aggregation_object,
             constants : self.constants,
-            start_note_hash_tree_snapshot : self.start_note_hash_tree_snapshot,
-            end_note_hash_tree_snapshot : end_note_hash_tree_snapshot,
-            start_nullifier_tree_snapshot : self.start_nullifier_tree_snapshot,
-            end_nullifier_tree_snapshot : end_nullifier_tree_snapshot,
-            start_contract_tree_snapshot : self.start_contract_tree_snapshot,
-            end_contract_tree_snapshot : end_contract_tree_snapshot,
-            start_public_data_tree_snapshot : self.start_public_data_tree_snapshot,
-            end_public_data_tree_snapshot: end_public_data_tree_snapshot,
+            start: self.start,
+            end: PartialStateReference {
+                note_hash_tree : end_note_hash_tree_snapshot,
+                nullifier_tree : end_nullifier_tree_snapshot,
+                contract_tree : end_contract_tree_snapshot,
+                public_data_tree : end_public_data_tree_snapshot,
+            },
+
             calldata_hash : calldata_hash,
         }
     }
@@ -172,7 +170,7 @@ impl BaseRollupInputs {
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         crate::indexed_tree::batch_insert(
-            self.start_nullifier_tree_snapshot,
+            self.start.nullifier_tree,
             self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
@@ -233,7 +231,7 @@ impl BaseRollupInputs {
         //                            self.new_public_data_reads_sibling_paths);
 
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
-            self.start_public_data_tree_snapshot,
+            self.start.public_data_tree,
             self.kernel_data.public_inputs.end.public_data_update_requests.map(|request: PublicDataUpdateRequest| {
                 PublicDataTreeLeaf {
                     slot: request.leaf_slot,
@@ -945,8 +943,8 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 3 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -971,11 +969,11 @@ mod tests {
         let outputs = builder.execute();
 
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
 
         expected_contracts_tree.update_leaf(2, new_contract.hash());
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -1002,11 +1000,11 @@ mod tests {
         let outputs = builder.execute();
 
         let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start_contract_tree_snapshot.eq(expected_start_contract_tree_snapshot));
+        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
 
         expected_contracts_tree.update_leaf(2, new_contract.hash());
         let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end_contract_tree_snapshot.eq(expected_end_contract_tree_snapshot));
+        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -1031,7 +1029,7 @@ mod tests {
             root: expected_commitments_tree.get_root(),
             next_available_leaf_index: MAX_NEW_COMMITMENTS_PER_TX as u32
         };
-        assert(outputs.start_note_hash_tree_snapshot.eq(expected_start_note_hash_tree_snapshot));
+        assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
         for i in 0..new_commitments.len() {
             expected_commitments_tree.update_leaf(
@@ -1043,7 +1041,7 @@ mod tests {
             root: expected_commitments_tree.get_root(),
             next_available_leaf_index: (MAX_NEW_COMMITMENTS_PER_TX * 2) as u32
         };
-        assert(outputs.end_note_hash_tree_snapshot.eq(expected_end_note_hash_tree_snapshot));
+        assert(outputs.end.note_hash_tree.eq(expected_end_note_hash_tree_snapshot));
     }
 
     #[test]
@@ -1112,7 +1110,7 @@ mod tests {
         let output = builder.execute();
 
         assert(
-            output.end_nullifier_tree_snapshot.eq(
+            output.end.nullifier_tree.eq(
                 AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_TX as u32 }
             )
         );
@@ -1170,7 +1168,7 @@ mod tests {
         );
 
         assert(
-            output.end_nullifier_tree_snapshot.eq(
+            output.end.nullifier_tree.eq(
                 AppendOnlyTreeSnapshot { root: end_nullifier_tree.get_root(), next_available_leaf_index: 2 * MAX_NEW_NULLIFIERS_PER_TX as u32 }
             )
         );
@@ -1303,7 +1301,7 @@ mod tests {
             [0; 1]
         );
 
-        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 
     #[test]
@@ -1380,6 +1378,6 @@ mod tests {
             [0; PUBLIC_DATA_SUBTREE_HEIGHT + 1]
         );
 
-        assert_eq(outputs.end_public_data_tree_snapshot.root, expected_public_data_tree.get_root());
+        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
     }
 }

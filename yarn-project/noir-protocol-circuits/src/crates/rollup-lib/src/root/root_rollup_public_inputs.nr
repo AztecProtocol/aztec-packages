@@ -18,7 +18,6 @@ struct RootRollupPublicInputs {
 
     header: Header,
 
-    // Should these really be removed?
-    // calldata_hash : [Field; NUM_FIELDS_PER_SHA256],
-    // l1_to_l2_messages_hash : [Field; NUM_FIELDS_PER_SHA256],
+    // TODO(benesjan): Nuke this once body hash/calldata hash is updated
+    l1_to_l2_messages_hash : [Field; NUM_FIELDS_PER_SHA256],
 }

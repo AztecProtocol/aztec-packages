@@ -2,9 +2,17 @@ mod root_rollup_inputs;
 use root_rollup_inputs::RootRollupInputs;
 mod root_rollup_public_inputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
-use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
-use dep::types::utils::uint256::U256;
-use dep::types::constants::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
+use dep::types::{
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    constants::{
+        NUM_FIELDS_PER_SHA256,
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    },
+    header::Header,
+    state_reference::StateReference,
+    utils::uint256::U256,
+};
 use crate::{components, hash::compute_block_hash_with_globals};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
 
@@ -36,14 +44,17 @@ impl RootRollupInputs {
             L1_TO_L2_MSG_SUBTREE_HEIGHT as u8 
         );
 
+        let state =                                                          StateReference {
+                                                            l1_to_l2_message_tree : new_l1_to_l2_message_tree_snapshot,
+                                                            partial: right.end,
+                                                        };
+
         // Build the block hash for this iteration from the tree roots and global variables
         // Then insert the block into the archive tree
-        let block_hash = compute_block_hash_with_globals(left.constants.global_variables,
-                                                      right.end_note_hash_tree_snapshot.root,
-                                                      right.end_nullifier_tree_snapshot.root,
-                                                      right.end_contract_tree_snapshot.root,
-                                                      new_l1_to_l2_message_tree_snapshot.root,
-                                                      right.end_public_data_tree_snapshot.root);
+        let block_hash = compute_block_hash_with_globals(
+                                                        left.constants.global_variables,
+                                                        state,
+                                                      );
 
         // Update the archive
         let end_archive_snapshot = components::insert_subtree_to_snapshot_tree(
@@ -59,22 +70,18 @@ impl RootRollupInputs {
             next_available_leaf_index : 0
         };
 
+        let header = Header {
+            last_archive: end_archive_snapshot,
+            body_hash: components::compute_calldata_hash(self.previous_rollup_data),
+            state,
+            global_variables : left.constants.global_variables
+        };
+
         RootRollupPublicInputs{
             aggregation_object : aggregation_object,
             global_variables : left.constants.global_variables,
-            start_note_hash_tree_snapshot : left.start_note_hash_tree_snapshot,
-            end_note_hash_tree_snapshot : right.end_note_hash_tree_snapshot,
-            start_nullifier_tree_snapshot : left.start_nullifier_tree_snapshot,
-            end_nullifier_tree_snapshot : right.end_nullifier_tree_snapshot,
-            start_contract_tree_snapshot : left.start_contract_tree_snapshot,
-            end_contract_tree_snapshot : right.end_contract_tree_snapshot,
-            start_public_data_tree_snapshot : left.start_public_data_tree_snapshot,
-            end_public_data_tree_snapshot : right.end_public_data_tree_snapshot,
-            start_l1_to_l2_message_tree_snapshot : self.start_l1_to_l2_message_tree_snapshot,
-            end_l1_to_l2_message_tree_snapshot : new_l1_to_l2_message_tree_snapshot,
-            start_archive_snapshot : self.start_archive_snapshot,
-            end_archive_snapshot : end_archive_snapshot,
-            calldata_hash : components::compute_calldata_hash(self.previous_rollup_data),
+            header,
+            // TODO(benesjan): Nuke this once body hash/calldata hash is updated
             l1_to_l2_messages_hash : compute_messages_hash(self.new_l1_to_l2_messages),
         }
     }
