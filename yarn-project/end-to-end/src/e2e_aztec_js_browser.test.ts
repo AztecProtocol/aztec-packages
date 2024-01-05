@@ -20,11 +20,11 @@ const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
 
 const setupApp = async () => {
   const { pxe: pxeService } = await setup(1);
-  let pxe = pxeService;
+  let pxeURL = PXE_URL;
   if (!PXE_URL) {
     const pxeRPCServer = createPXERpcServer(pxeService);
     pxeRPCServer.start(PXE_PORT);
-    pxe = createPXEClient(`http://localhost:${PXE_PORT}`);
+    pxeURL = `http://localhost:${PXE_PORT}`;
   }
 
   const app = new Koa();
@@ -33,7 +33,7 @@ const setupApp = async () => {
     logger(`Web Server started at http://localhost:${PORT}`);
   });
 
-  return { server, pxe };
+  return { server, pxeURL };
 };
 
 browserTestSuite(setupApp, pageLogger);
