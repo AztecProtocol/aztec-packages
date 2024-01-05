@@ -10,7 +10,6 @@ import {
 
 import camelCase from 'lodash.camelcase';
 import capitalize from 'lodash.capitalize';
-import compact from 'lodash.compact';
 import times from 'lodash.times';
 import upperFirst from 'lodash.upperfirst';
 
@@ -281,10 +280,8 @@ ${contractImpl}
  */
 export function generateNoirContractInterface(artifact: ContractArtifact) {
   // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
-  const methods = compact(
-    artifact.functions.filter(
-      f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
-    ),
+  const methods = artifact.functions.filter(
+    f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
   );
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const privateContractStruct = generateContractStruct(artifact.name, 'private', methods);
