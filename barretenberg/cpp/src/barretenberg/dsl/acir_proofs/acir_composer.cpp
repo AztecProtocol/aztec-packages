@@ -50,8 +50,8 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
                                                 bool is_recursive)
 {
     vinfo("building circuit with witness...");
-    builder_ = acir_format::Builder(size_hint_);
-    create_circuit_with_witness(builder_, constraint_system, witness);
+    builder_ = create_circuit_with_witness(constraint_system, witness, size_hint_);
+
     vinfo("gates: ", builder_.get_total_circuit_size());
 
     auto composer = [&]() {

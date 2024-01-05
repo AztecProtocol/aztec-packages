@@ -257,13 +257,6 @@ Builder create_circuit_with_witness(acir_format const& constraint_system,
                                     size_t size_hint)
 {
     Builder builder(size_hint);
-    create_circuit_with_witness(builder, constraint_system, witness);
-    return builder;
-}
-
-template <typename Builder>
-void create_circuit_with_witness(Builder& builder, acir_format const& constraint_system, WitnessVector const& witness)
-{
     if (constraint_system.public_inputs.size() > constraint_system.varnum) {
         info("create_circuit_with_witness: too many public inputs!");
     }
@@ -272,16 +265,11 @@ void create_circuit_with_witness(Builder& builder, acir_format const& constraint
     populate_variables_and_public_inputs(builder, witness, constraint_system);
 
     build_constraints(builder, constraint_system, true);
+    return builder;
 }
 
 template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
                                                                  size_t size_hint);
-template void create_circuit_with_witness<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                               acir_format const& constraint_system,
-                                                               WitnessVector const& witness);
-template void create_circuit_with_witness<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                     acir_format const& constraint_system,
-                                                                     WitnessVector const& witness);
 template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
 
 } // namespace acir_format

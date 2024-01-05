@@ -84,9 +84,6 @@ Builder create_circuit_with_witness(const acir_format& constraint_system,
                                     size_t size_hint = 0);
 
 template <typename Builder>
-void create_circuit_with_witness(Builder& builder, const acir_format& constraint_system, WitnessVector const& witness);
-
-template <typename Builder>
 void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments);
 
 } // namespace acir_format
