@@ -9,7 +9,6 @@ use dep::types::{
 };
 use dep::types::mocked::AggregationObject;
 
-
 struct RootRollupPublicInputs {
     // All below are shared between the base and merge rollups
     end_aggregation_object : AggregationObject,
@@ -28,8 +27,8 @@ struct RootRollupPublicInputs {
     start_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
     end_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
 
-    start_l1_to_l2_messages_tree_snapshot : AppendOnlyTreeSnapshot,
-    end_l1_to_l2_messages_tree_snapshot : AppendOnlyTreeSnapshot,
+    start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot,
+    end_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot,
 
     start_archive_snapshot : AppendOnlyTreeSnapshot,
     end_archive_snapshot : AppendOnlyTreeSnapshot,
