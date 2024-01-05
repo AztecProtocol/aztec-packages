@@ -22,8 +22,13 @@ void AvmMiniMemTraceBuilder::reset()
 }
 
 /**
- * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm.
+ * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm. We sort first by
+ *        ascending address (m_addr), then by clock (m_clk) and finally sub-clock (m_sub_clk).
  *
+ * @param left The left hand side memory trace entry
+ * @param right  The right hand side memory trace entry
+ *
+ * @return A boolean indicating whether left member is smaller than right member.
  */
 bool AvmMiniMemTraceBuilder::compare_mem_entries(const MemoryTraceEntry& left, const MemoryTraceEntry& right)
 {
@@ -130,6 +135,9 @@ void AvmMiniMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk
  * @param addr The memory address
  * @param val The value to be loaded
  * @param m_in_tag The memory tag of the instruction
+ *
+ * @return A boolean indicating that memory tag matches (resp. does not match) the
+ *         instruction tag. Set to false in case of a mismatch.
  */
 bool AvmMiniMemTraceBuilder::load_in_mem_trace(
     uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
@@ -196,6 +204,7 @@ void AvmMiniMemTraceBuilder::store_in_mem_trace(
  * @param interm_reg Intermediate register where we load the value
  * @param addr Memory address to be read and loaded
  * @param m_in_tag Memory instruction tag
+ *
  * @return Result of the read operation containing the value and a boolean telling
  *         potential mismatch between instruction tag and memory tag of the address.
  */
