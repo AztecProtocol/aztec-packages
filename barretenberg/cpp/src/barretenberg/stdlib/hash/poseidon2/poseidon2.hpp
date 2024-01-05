@@ -18,15 +18,15 @@ using namespace barretenberg;
 template <typename Builder> class poseidon2 {
 
   private:
-    using field_t = stdlib::field_t<Builder>;
-    using bool_t = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Permutation = Poseidon2Permutation<Params, Builder>;
     using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
 
   public:
-    static field_t hash(Builder& builder, const std::vector<field_t>& in);
-    static field_t hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
+    static field_ct hash(Builder& builder, const std::vector<field_ct>& in);
+    static field_ct hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 
 extern template class poseidon2<proof_system::GoblinUltraCircuitBuilder>;

@@ -52,7 +52,7 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
 }
 
 /**
- * Hash a byte_array.
+ * @brief Hash a byte_array.
  *
  * TODO(@zac-williamson #2796) Once Poseidon is implemented, replace this method with a more canonical hash algorithm
  * (that is less efficient)
