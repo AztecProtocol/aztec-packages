@@ -66,10 +66,10 @@ contract Bridge {
 This leaks information about the private function being called and the data which has been read. 
 :::
 
-### Writing public storage from private: when updating public state from private, you can call a public function from private, just make sure you mark public as internal
+### Writing public storage from private
+When calling a private function, you can update public state by calling a public function.
 
-When calling a public function from private, try to mark the public function as `internal`
-This ensures your flow works as intended and that no one can call the public function without going through the private function first!
+In this situation, try to mark the public function as `internal`. This ensures your flow works as intended and that no one can call the public function without going through the private function first!
 
 ### Moving public data into the private domain
 Let's say you have some storage in public and want to move them into the private domain. If you pass your aztec address that should receive the data, then that leaks privacy (as everyone will know who has the private notes). So what do you do?
@@ -90,6 +90,16 @@ When you send someone a note, the note hash gets added to the [note hash tree](.
 #include_code pxe_add_note yarn-project/end-to-end/src/e2e_cheat_codes.test.ts typescript
 
 In the token contract, TransparentNotes are stored in a set called "pending_shields" which is in storage slot 5. See [here](../../../tutorials/writing_token_contract.md#contract-storage)
+
+### Revealing encrypted logs conditionally
+
+An encrypted log can contain the details of a transaction. One could think this log is emitted as part of the transaction execution, so it wouldn't be revealed if the transaction fails.
+
+This is not true for Aztec, as the encrypted log is part of the transaction broadcast itself. If an encrypted log is broadcasted together with a commitment, there could be a situation where the commitment fails to be added to the note hash tree, or is reorg'd out of the chain later on.
+
+Example:
+
+> Alice and Bob want to reveal a shared secret if they both answer a question correctly. Alice can't simply send a note to Bob together with her answer, because Bob could immediately see Alice's part of the secret even if Alice's answer fails to be added to the note hash tree.
 
 ### Randomness in notes
 Notes are hashed and stored in the merkle tree. While notes do have a header with a `nonce` field that ensure two exact notes still can be added to the note hash tree (since hashes would be different), preimage analysis can be done to reverse-engineer the contents of the note.
