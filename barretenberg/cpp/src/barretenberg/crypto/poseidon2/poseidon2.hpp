@@ -8,7 +8,7 @@ namespace crypto {
 
 template <typename Params> class Poseidon2 {
   public:
-    using FF = Params::FF;
+    using FF = typename Params::FF;
 
     using Sponge = FieldSponge<FF, Params::t - 1, 1, Params::t, Poseidon2Permutation<Params>>;
 
