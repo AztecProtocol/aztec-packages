@@ -21,37 +21,11 @@ void populate_variables_and_public_inputs(Builder& builder,
                                           WitnessVector const& witness,
                                           acir_format const& constraint_system)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Decrement the indices in
-    // constraint_system.public_inputs by one to account for the +1 added by default to account for a const zero
-    // variable in noir. This entire block can be removed once the +1 is removed from noir.
-    const uint32_t pre_applied_noir_offset = 1;
-    std::vector<uint32_t> corrected_public_inputs;
-    for (const auto& index : constraint_system.public_inputs) {
-        corrected_public_inputs.emplace_back(index - pre_applied_noir_offset);
-    }
-
     for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/815) why is this needed?
         fr value = idx < witness.size() ? witness[idx] : 0;
-        if (std::find(corrected_public_inputs.begin(), corrected_public_inputs.end(), idx) !=
-            corrected_public_inputs.end()) {
-            builder.add_public_variable(value);
-        } else {
-            builder.add_variable(value);
-        }
+        builder.add_variable(value);
     }
-}
-
-template <typename Builder> void read_witness(Builder& builder, WitnessVector const& witness)
-{
-    builder.variables[0] =
-        0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): This the constant 0 hacked in. Bad.
-    for (size_t i = 0; i < witness.size(); ++i) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The i+1 accounts for the fact that 0 is added
-        // as a constant in variables in the UCB constructor. "witness" only contains the values that came directly from
-        // acir.
-        builder.variables[i + 1] = witness[i];
-    }
+    builder.public_inputs = constraint_system.public_inputs;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/815): This function does two things: 1) emplaces back
@@ -62,17 +36,9 @@ template <typename Builder> void add_public_vars(Builder& builder, acir_format c
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): i = 1 acounting for const 0 in first position?
     for (size_t i = 1; i < constraint_system.varnum; ++i) {
-        // If the index is in the public inputs vector, then we add it as a public input
-
-        if (std::find(constraint_system.public_inputs.begin(), constraint_system.public_inputs.end(), i) !=
-            constraint_system.public_inputs.end()) {
-
-            builder.add_public_variable(0);
-
-        } else {
-            builder.add_variable(0);
-        }
+        builder.add_variable(0);
     }
+    builder.public_inputs = constraint_system.public_inputs;
 }
 
 template <typename Builder>
@@ -235,20 +201,17 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     }
 }
 
-template <typename Builder> void create_circuit(Builder& builder, acir_format const& constraint_system)
+template <typename Builder> Builder create_circuit(const acir_format& constraint_system, size_t size_hint)
 {
+    Builder builder(size_hint);
+
     if (constraint_system.public_inputs.size() > constraint_system.varnum) {
         info("create_circuit: too many public inputs!");
     }
 
     add_public_vars(builder, constraint_system);
     build_constraints(builder, constraint_system, false);
-}
 
-template <typename Builder> Builder create_circuit(const acir_format& constraint_system, size_t size_hint)
-{
-    Builder builder(size_hint);
-    create_circuit(builder, constraint_system);
     return builder;
 }
 
