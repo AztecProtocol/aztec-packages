@@ -60,7 +60,6 @@ export const browserTestSuite = (
       webServer = server;
       testClient = pxe;
       await waitForPXE(testClient, pageLogger);
-
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
       browser = await launch({
