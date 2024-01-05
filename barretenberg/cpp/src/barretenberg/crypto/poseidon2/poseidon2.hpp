@@ -23,5 +23,5 @@ template <typename Params> class Poseidon2 {
     static FF hash_buffer(const std::vector<uint8_t>& input);
 };
 
-extern template class Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+extern template class Poseidon2<Poseidon2Bn254ScalarFieldParams>;
 } // namespace crypto

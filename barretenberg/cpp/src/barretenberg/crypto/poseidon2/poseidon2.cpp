@@ -15,7 +15,7 @@ Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<Poseidon2<Params
  * @brief Hashes vector of bytes by chunking it into 31 byte field elements and calling hash()
  * @details Slice function cuts out the required number of bytes from the byte vector
  */
-template <typename Params> Poseidon2<Params>::FF hash_buffer(const std::vector<uint8_t>& input)
+template <typename Params> Poseidon2<Params>::FF Poseidon2<Params>::hash_buffer(const std::vector<uint8_t>& input)
 {
     const size_t num_bytes = input.size();
     const size_t bytes_per_element = 31;
