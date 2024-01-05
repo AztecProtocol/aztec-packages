@@ -447,6 +447,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                    .ecdsa_k1_constraints = {},
                                    .ecdsa_r1_constraints = {},
                                    .blake2s_constraints = {},
+                                   .blake3_constraints = {},
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
                                    .keccak_permutations = { keccak_permutation },
