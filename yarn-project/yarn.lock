@@ -585,7 +585,6 @@ __metadata:
     "@types/lodash.camelcase": ^4.3.7
     "@types/lodash.capitalize": ^4.2.7
     "@types/lodash.times": ^4.3.7
-    "@types/lodash.upperfirst": ^4.3.7
     "@types/node": ^18.7.23
     "@types/pako": ^2.0.0
     "@types/semver": ^7.5.4
@@ -596,7 +595,6 @@ __metadata:
     lodash.camelcase: ^4.3.0
     lodash.capitalize: ^4.2.1
     lodash.times: ^4.3.2
-    lodash.upperfirst: ^4.3.1
     memfs: ^4.6.0
     pako: ^2.1.0
     semver: ^7.5.4
@@ -3586,15 +3584,6 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: f31e67c17124614afd392b10e26a5af38f0975edbe4e128c60affa0890a1f2fea502daa4839aee4b1f66b690f925254eff3e9dfcea5d7d3ace7315dba430335f
-  languageName: node
-  linkType: hard
-
-"@types/lodash.upperfirst@npm:^4.3.7":
-  version: 4.3.7
-  resolution: "@types/lodash.upperfirst@npm:4.3.7"
-  dependencies:
-    "@types/lodash": "*"
-  checksum: 17b1cad40b4065174f536305d64409bf6b9f5c42a19578fc2cd5bc6406bfbe842ebf9e5832dabfa2c28fd6acc0093e3285dcffd513b85268f1b0ce59ffafcca0
   languageName: node
   linkType: hard
 
@@ -9967,13 +9956,6 @@ __metadata:
   version: 4.3.2
   resolution: "lodash.times@npm:4.3.2"
   checksum: d26a9022e025d6061d356d3098fd80cdc062e7bf896bbbb56e643b2ae39156bf19b6167a4b046aa924b6d572a1e717853e552342ce34016fc5183308e329b575
-  languageName: node
-  linkType: hard
-
-"lodash.upperfirst@npm:^4.3.1":
-  version: 4.3.1
-  resolution: "lodash.upperfirst@npm:4.3.1"
-  checksum: cadec6955900afe1928cc60cdc4923a79c2ef991e42665419cc81630ed9b4f952a1093b222e0141ab31cbc4dba549f97ec28ff67929d71e01861c97188a5fa83
   languageName: node
   linkType: hard
 
