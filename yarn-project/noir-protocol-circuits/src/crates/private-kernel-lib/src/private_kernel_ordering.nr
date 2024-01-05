@@ -43,18 +43,14 @@ impl PrivateKernelInputsOrdering {
 
         // match reads to commitments from the previous call(s)
         for rr_idx in 0..MAX_READ_REQUESTS_PER_TX {
-            let read_request = read_requests.get_unchecked(rr_idx).value;
-            let read_commitment_hint = self.read_commitment_hints[rr_idx];
+            let read_request = read_requests.get_unchecked(rr_idx);
+            let read_commitment_hint = self.read_commitment_hints[rr_idx] as u64;
             //TODO(David): Shouldn't this just be a uint64?
-            let hint_pos = read_commitment_hint as u64;
 
-            if (read_request != 0) {
-                let mut match_pos = MAX_NEW_COMMITMENTS_PER_TX as u64;
-                if (hint_pos < MAX_NEW_COMMITMENTS_PER_TX as u64) {
-                    match_pos = if read_request == new_commitments.get_unchecked(hint_pos as Field).value { hint_pos } else { match_pos };
-                }
-            
-                assert(match_pos != MAX_NEW_COMMITMENTS_PER_TX as u64, "read request is transient but does not match any commitment");
+            if (read_request.value != 0) {
+                let commitment = new_commitments.get_unchecked(read_commitment_hint as Field);
+                assert_eq(read_request.value, commitment.value, "Hinted commitment does not match");
+                assert(read_request.counter > commitment.counter, "Read request counter must be greater than commitment counter");
             }
         }
 
@@ -124,13 +120,13 @@ impl PrivateKernelInputsOrdering {
             // Apply nonce to all non-zero/non-empty commitments
             // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_commitments array
             let nonce = compute_commitment_nonce(first_nullifier.value, c_idx);
-            let commitment = unique_commitments[c_idx].value;
-            if commitment != 0 {
-                let unique_commitment = compute_unique_siloed_commitment(nonce, commitment);
+            let commitment = unique_commitments[c_idx];
+            if commitment.value != 0 {
+                let unique_commitment = compute_unique_siloed_commitment(nonce, commitment.value);
                 unique_commitments[c_idx] = SideEffect{
                     value: unique_commitment,
-                    counter: 0
-                    };
+                    counter: commitment.counter
+                };
             }
         }
 

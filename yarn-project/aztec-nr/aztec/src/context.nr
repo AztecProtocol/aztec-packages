@@ -67,7 +67,7 @@ use dep::std::option::Option;
 struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
-    side_effect_counter: Field,
+    side_effect_counter: u32,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
@@ -289,7 +289,7 @@ impl PrivateContext {
                     is_delegate_call : reader.read() as bool,
                     is_static_call : reader.read() as bool,
                     is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read(),
+                    start_side_effect_counter: reader.read() as u32,
                 },
                 args_hash: reader.read(),
                 return_values: reader.read_array([0; RETURN_VALUES_LENGTH]), // +1
@@ -299,7 +299,7 @@ impl PrivateContext {
                 private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
                 public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
                 new_l2_to_l1_msgs: reader.read_array([0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
-                end_side_effect_counter: reader.read(),
+                end_side_effect_counter: reader.read() as u32,
                 encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
                 unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
                 encrypted_log_preimages_length: reader.read(),
@@ -408,7 +408,7 @@ impl PrivateContext {
                     is_delegate_call : reader.read() as bool,
                     is_static_call : reader.read() as bool,
                     is_contract_deployment: reader.read() as bool,
-                    start_side_effect_counter: reader.read(),
+                    start_side_effect_counter: reader.read() as u32,
                 },
                 args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
@@ -451,7 +451,7 @@ impl PrivateContext {
 
 struct PublicContext {
     inputs: PublicContextInputs,
-    side_effect_counter: Field,
+    side_effect_counter: u32,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,

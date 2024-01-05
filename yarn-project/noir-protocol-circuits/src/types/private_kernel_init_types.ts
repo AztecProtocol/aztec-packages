@@ -11,7 +11,7 @@ export interface AztecAddress {
   inner: Field;
 }
 
-export interface Point {
+export interface GrumpkinPoint {
   x: Field;
   y: Field;
 }
@@ -21,7 +21,7 @@ export interface EthAddress {
 }
 
 export interface ContractDeploymentData {
-  deployer_public_key: Point;
+  deployer_public_key: GrumpkinPoint;
   constructor_vk_hash: Field;
   function_tree_root: Field;
   contract_address_salt: Field;
@@ -63,18 +63,18 @@ export interface CallContext {
   is_delegate_call: boolean;
   is_static_call: boolean;
   is_contract_deployment: boolean;
-  start_side_effect_counter: Field;
+  start_side_effect_counter: u32;
 }
 
 export interface SideEffect {
   value: Field;
-  counter: Field;
+  counter: u32;
 }
 
 export interface SideEffectLinkedToNoteHash {
   value: Field;
   note_hash: Field;
-  counter: Field;
+  counter: u32;
 }
 
 export interface BlockHeader {
@@ -97,7 +97,7 @@ export interface PrivateCircuitPublicInputs {
   private_call_stack_hashes: FixedLengthArray<Field, 4>;
   public_call_stack_hashes: FixedLengthArray<Field, 4>;
   new_l2_to_l1_msgs: FixedLengthArray<Field, 2>;
-  end_side_effect_counter: Field;
+  end_side_effect_counter: u32;
   encrypted_logs_hash: FixedLengthArray<Field, 2>;
   unencrypted_logs_hash: FixedLengthArray<Field, 2>;
   encrypted_log_preimages_length: Field;

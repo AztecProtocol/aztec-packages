@@ -140,6 +140,31 @@ export async function executeOrdering(
     input: mapPrivateKernelInputsOrderingToNoir(privateKernelInputsOrdering),
   };
 
+  // console.log(
+  //   privateKernelInputsOrdering.previousKernel.publicInputs.end.newNullifiers
+  //     .filter(sideffect => !sideffect.value.isZero())
+  //     .map(sideffect => ({
+  //       val: sideffect.value.toString(),
+  //       counter: sideffect.counter.toString(),
+  //     })),
+  // );
+  // console.log(
+  //   privateKernelInputsOrdering.previousKernel.publicInputs.end.newCommitments
+  //     .filter(sideffect => !sideffect.value.isZero())
+  //     .map(sideffect => ({
+  //       val: sideffect.value.toString(),
+  //       counter: sideffect.counter.toString(),
+  //     })),
+  // );
+  // console.log(
+  //   privateKernelInputsOrdering.previousKernel.publicInputs.end.readRequests
+  //     .filter(sideffect => !sideffect.value.isZero())
+  //     .map(sideffect => ({
+  //       val: sideffect.value.toString(),
+  //       counter: sideffect.counter.toString(),
+  //     })),
+  // );
+
   const returnType = await executePrivateKernelOrderingWithACVM(params);
 
   return mapKernelCircuitPublicInputsFinalFromNoir(returnType);
