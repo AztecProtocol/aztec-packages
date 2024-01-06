@@ -211,8 +211,11 @@ describe('e2e_2_pxes', () => {
 
     await awaitServerSynchronized(pxeA);
 
-    const storedValue = await getChildStoredValue(childCompleteAddress, pxeB);
-    expect(storedValue).toEqual(newValueToSet);
+    const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
+    expect(storedValueOnB).toEqual(newValueToSet);
+
+    const storedValueOnA = await getChildStoredValue(childCompleteAddress, pxeA);
+    expect(storedValueOnA).toEqual(newValueToSet);
   });
 
   it('private state is "zero" when Private eXecution Environment (PXE) does not have the account private key', async () => {
@@ -269,5 +272,43 @@ describe('e2e_2_pxes', () => {
     await accountOnB.register();
     // registering should wait for the account to be synchronized
     await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
+  });
+
+  it('permits sending funds to a user before they have registered the contract', async () => {
+    const initialBalance = 987n;
+    const transferAmount1 = 654n;
+
+    const completeTokenAddress = await deployTokenContract(initialBalance, userA.address, pxeA);
+    const tokenAddress = completeTokenAddress.address;
+
+    // Add account B to wallet A
+    await pxeA.registerRecipient(userB);
+    // Add account A to wallet B
+    await pxeB.registerRecipient(userA);
+
+    // Check initial balances and logs are as expected
+    await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance);
+    // don't check userB yet
+
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
+
+    // // Transfer funds from A to B via PXE A
+    const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
+    const receiptAToB = await contractWithWalletA.methods
+      .transfer(userA.address, userB.address, transferAmount1, 0)
+      .send()
+      .wait();
+    expect(receiptAToB.status).toBe(TxStatus.MINED);
+
+    // now add the contract and check balances
+    await pxeB.addContracts([
+      {
+        artifact: TokenContract.artifact,
+        completeAddress: completeTokenAddress,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+    await expectTokenBalance(walletA, tokenAddress, userA.address, initialBalance - transferAmount1);
+    await expectTokenBalance(walletB, tokenAddress, userB.address, transferAmount1);
   });
 });

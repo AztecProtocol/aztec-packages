@@ -95,6 +95,8 @@ export class Synchronizer {
   protected async work(limit = 1): Promise<boolean> {
     const from = this.getSynchedBlockNumber() + 1;
     try {
+      // TODO: is getting logs redundant? see getBlocks within lmdb_archiver_store.ts
+      // It seems that getBlocks already returns the logs.
       let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         return false;
