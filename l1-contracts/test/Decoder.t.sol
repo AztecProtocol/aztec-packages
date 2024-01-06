@@ -152,8 +152,9 @@ contract DecoderTest is Test {
     bytes32 kernelPublicInputsLogsHash = bytes32(0);
     bytes32 privateCircuitPublicInputsLogsHash = Hash.sha256ToField(new bytes(0));
 
-    bytes32 referenceLogsHash =
-      Hash.sha256ToField(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+    bytes32 referenceLogsHash = Hash.sha256ToField(
+      abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
+    );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
@@ -198,9 +199,10 @@ contract DecoderTest is Test {
     (bytes32 logsHash, uint256 bytesAdvanced) = helper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      Hash.sha256ToField(abi.encodePacked(bytes32(0), Hash.sha256ToField(_message);(firstFunctionCallLogs)));
+      Hash.sha256ToField(abi.encodePacked(bytes32(0), Hash.sha256ToField(firstFunctionCallLogs)));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall = Hash.sha256ToField(secondFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
