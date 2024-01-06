@@ -109,7 +109,7 @@ fn compute_call_stack_item_request() {
 
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
-    assert_eq(call_stack_item.hash(), 0x0edc0b5221e098c129545ba693368cddc0e6950bb11baa4595b310fc1fa24b5f);
+    assert_eq(call_stack_item.hash(),0x2c64dd07503f41b1b563ba6f7db4615b9faed02fe78b127fbd61fea7b10fe6bb);
 }
 
 #[test]
@@ -125,5 +125,5 @@ fn compute_call_stack_item() {
 
     let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
-    assert_eq(call_stack_item.hash(), 0x10e265bf51be6945c10e526a86a928810429ac2d34c5fcda469245f0bb56abf6);
+    assert_eq(call_stack_item.hash(),0x197f34692f4cd974a7592ef02fcceffbdbd8c2098dab5750412f9c5023e50ed6 );
 }

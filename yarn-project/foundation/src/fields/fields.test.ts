@@ -1,3 +1,4 @@
+import { toBufferBE } from '../bigint-buffer/index.js';
 import { GrumpkinScalar } from './fields.js';
 
 describe('GrumpkinScalar Serialization', () => {
@@ -21,6 +22,16 @@ describe('GrumpkinScalar Serialization', () => {
 
     // Check if the deserialized instance is equal to the original
     expect(deserialized).toEqual(original);
+  });
+
+  // Test case for GrumpkinScalar.fromBufferReduce
+  it('fromBufferReduce should take modulus reduction correctly', () => {
+    const original = GrumpkinScalar.random();
+    const buffer = toBufferBE(original.toBigInt() + GrumpkinScalar.MODULUS, 32);
+    const modReduced = GrumpkinScalar.fromBufferReduce(buffer);
+
+    // Check if the modular reduced instance is equal to the original
+    expect(modReduced).toEqual(original);
   });
 
   // Test case for GrumpkinScalar.fromString

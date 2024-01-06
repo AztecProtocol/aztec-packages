@@ -877,6 +877,7 @@ export class L2Block {
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
     }
 
-    return kernelPublicInputsLogsHash;
+    // reduce by modulus of base field, to represent as single field element
+    return Fr.fromBufferReduce(kernelPublicInputsLogsHash).toBuffer();
   }
 }

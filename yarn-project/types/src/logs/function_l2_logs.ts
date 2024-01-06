@@ -1,5 +1,5 @@
 import { sha256 } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { randomBytes } from 'crypto';
@@ -46,7 +46,7 @@ export class FunctionL2Logs {
   public hash(): Buffer {
     // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
     const preimage = this.toBuffer().subarray(4);
-    return sha256(preimage);
+    return Fr.fromBufferReduce(sha256(preimage)).toBuffer();
   }
 
   /**

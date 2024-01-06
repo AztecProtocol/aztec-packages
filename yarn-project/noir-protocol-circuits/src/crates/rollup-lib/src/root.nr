@@ -87,7 +87,7 @@ global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES = 512;
 
 // Computes the messages hash from the leaves array
 //
-// Returns the hash split into two field elements
+// Returns the hash reduced by the Fr prime modulus
 fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> Field {
     // Slice variation
     // let mut hash_input_flattened = [];
