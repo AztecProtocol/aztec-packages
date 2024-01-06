@@ -8,7 +8,7 @@ const TRANSFER_BALANCE = 3000;
 
 export const cliTestSuite = (
   name: string,
-  setup: () => Promise<PXE>,
+  setup: () => Promise<{ pxe: PXE, rpcURL: string }>,
   cleanup: () => Promise<void>,
   debug: DebugLogger,
 ) =>
@@ -18,12 +18,15 @@ export const cliTestSuite = (
     let existingAccounts: CompleteAddress[];
     let contractAddress: AztecAddress;
     let log: (msg: string) => void;
+    let rpcURL = '';
 
     // All logs emitted by the cli will be collected here, and reset between tests
     const logs: string[] = [];
 
     beforeAll(async () => {
-      pxe = await setup();
+      const { pxe: pxeService, rpcURL: pxeURL } = await setup();
+      pxe = pxeService;
+      rpcURL = pxeURL;
       log = (msg: string) => {
         logs.push(msg);
         debug(msg);
@@ -45,8 +48,12 @@ export const cliTestSuite = (
     });
 
     // Run a command on the CLI
-    const run = (cmd: string) => {
+    const run = (cmd: string, addRpcUrl = true) => {
       const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
+      if (addRpcUrl) {
+        log(`Setting rpc-url == ${rpcURL}`);
+        args.push('--rpc-url', rpcURL);
+      }
       const res = cli.parseAsync(args);
       resetCli();
       return res;
@@ -108,7 +115,7 @@ export const cliTestSuite = (
     it('deploys a contract & sends transactions', async () => {
       // generate a private key
       debug('Create an account using a private key');
-      await run('generate-private-key');
+      await run('generate-private-key', false);
       const privKey = findInLogs(/Private\sKey:\s+0x(?<privKey>[a-fA-F0-9]+)/)?.groups?.privKey;
       expect(privKey).toHaveLength(64);
       await run(`create-account --private-key ${privKey}`);
