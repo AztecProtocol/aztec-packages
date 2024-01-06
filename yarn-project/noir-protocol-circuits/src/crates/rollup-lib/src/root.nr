@@ -137,10 +137,12 @@ mod tests {
     fn check_block_hashes_empty_blocks() {
         let expected_messages_hash = sha256_to_field([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
 
-        let expected_calldata_hash = accumulate_sha256([
+        let expected_calldata_hash = accumulate_sha256(
+            [
             0,
             1
-        ]);
+        ]
+        );
 
         let inputs = default_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();

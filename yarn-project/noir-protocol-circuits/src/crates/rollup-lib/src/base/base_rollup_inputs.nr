@@ -512,8 +512,7 @@ global CALL_DATA_HASH_LOG_FIELDS = 2;
 #[test]
 fn consistent_call_data_hash_log_fields() {
     assert_eq(
-        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, "calldata hash log fields is incorrect"
+        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, "calldata hash log fields is incorrect"
     );
 }
 

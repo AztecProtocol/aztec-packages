@@ -87,7 +87,7 @@ pub fn compute_calldata_hash(previous_rollup_data: [PreviousRollupData; 2]) -> F
         [
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash,
         previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash
-        ]
+    ]
     )
 }
 

@@ -186,9 +186,9 @@ mod tests {
         let mut inputs = default_merge_rollup_inputs();
         let expected_calldata_hash = accumulate_sha256(
             [
-                0,
-                1
-            ]
+            0,
+            1
+        ]
         );
         let outputs = inputs.merge_rollup_circuit();
 

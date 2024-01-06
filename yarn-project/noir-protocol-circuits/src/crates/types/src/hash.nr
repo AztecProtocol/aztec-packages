@@ -232,10 +232,10 @@ pub fn compute_constructor_hash(
 }
 
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
-// for accumulator hashes, the sha256 hash is stored in single Field to despite 
-// being two bits too small to accommodate all 256-bits of the hash.
-// Returning a single Field is desirable because then this can be replaced with 
-// poseidon without changing the rest of the code
+    // for accumulator hashes, the sha256 hash is stored in single Field to despite 
+    // being two bits too small to accommodate all 256-bits of the hash.
+    // Returning a single Field is desirable because then this can be replaced with 
+    // poseidon without changing the rest of the code
     let mut hash_input_flattened = [0; 64];
     for offset in 0..2 {
         let input_as_bytes = input[offset].to_be_bytes(32);
@@ -247,15 +247,12 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(
-    previous_log_hash: Field,
-    current_log_hash: Field
-) -> Field {
+pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
     accumulate_sha256(
         [
-            previous_log_hash,
-            current_log_hash
-        ]
+        previous_log_hash,
+        current_log_hash
+    ]
     )
 }
 
