@@ -8,7 +8,16 @@ const TRANSFER_BALANCE = 3000;
 
 export const cliTestSuite = (
   name: string,
-  setup: () => Promise<{ pxe: PXE, rpcURL: string }>,
+  setup: () => Promise<{
+    /**
+     * The PXE instance.
+     */
+    pxe: PXE;
+    /**
+     * The URL of the PXE RPC server.
+     */
+    rpcURL: string;
+  }>,
   cleanup: () => Promise<void>,
   debug: DebugLogger,
 ) =>
