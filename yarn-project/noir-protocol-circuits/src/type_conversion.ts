@@ -509,7 +509,7 @@ export function mapBlockHeaderToNoir(blockHeader: BlockHeader): BlockHeaderNoir 
     note_hash_tree_root: mapFieldToNoir(blockHeader.noteHashTreeRoot),
     nullifier_tree_root: mapFieldToNoir(blockHeader.nullifierTreeRoot),
     contract_tree_root: mapFieldToNoir(blockHeader.contractTreeRoot),
-    l1_to_l2_message_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessageTreeRoot),
+    l1_to_l2_messages_tree_root: mapFieldToNoir(blockHeader.l1ToL2MessageTreeRoot),
     archive_root: mapFieldToNoir(blockHeader.archiveRoot),
     public_data_tree_root: mapFieldToNoir(blockHeader.publicDataTreeRoot),
     global_variables_hash: mapFieldToNoir(blockHeader.globalVariablesHash),
@@ -1297,7 +1297,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
       rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
       mapFieldToNoir,
     ),
-    start_l1_to_l2_message_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
+    start_l1_to_l2_messages_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
       rootRollupInputs.startL1ToL2MessageTreeSnapshot,
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
