@@ -11,12 +11,9 @@ IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
 echo "Pulling $IMAGE_COMMIT_URI..."
 ecr_login
 retry docker pull $IMAGE_COMMIT_URI
-TEMP_CONTAINER=$(docker create $IMAGE_COMMIT_URI)
+TEMP_CONTAINER=$(docker create $IMAGE_COMMIT_URI dummy_cmd)
 
 echo "Extracting $EXTRACT_FROM from $REPOSITORY to $EXTRACT_TO..."
 mkdir -p $EXTRACT_TO
 docker cp $TEMP_CONTAINER:$EXTRACT_FROM $EXTRACT_TO
 docker rm -v $TEMP_CONTAINER >/dev/null
-
-echo "Extracted contents:"
-ls -al $EXTRACT_TO
