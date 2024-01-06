@@ -232,7 +232,7 @@ pub fn compute_constructor_hash(
 }
 
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
-    // for accumulator hashes, the sha256 hash is stored in single Field to despite 
+    // for accumulator hashes, the sha256 hash of two inputs is stored in single Field to despite 
     // being two bits too small to accommodate all 256-bits of the hash.
     // Returning a single Field is desirable because then this can be replaced with 
     // poseidon without changing the rest of the code

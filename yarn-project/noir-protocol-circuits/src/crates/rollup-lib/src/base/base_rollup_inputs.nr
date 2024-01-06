@@ -598,7 +598,7 @@ mod tests {
         abis::previous_kernel_data::PreviousKernelData,
         abis::side_effect::SideEffect,
         address::{AztecAddress, EthAddress},
-        hash::{accumulate_sha256, sha256_to_field},
+        hash::sha256_to_field,
         utils::bounded_vec::BoundedVec,
         utils::uint256::U256,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
