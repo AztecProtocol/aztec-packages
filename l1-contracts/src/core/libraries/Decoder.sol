@@ -329,7 +329,7 @@ library Decoder {
         )
       }
 
-      l1ToL2MsgsHash = sha256(abi.encodePacked(l1ToL2Msgs));
+      l1ToL2MsgsHash = Hash.sha256ToField(abi.encodePacked(l1ToL2Msgs));
     }
 
     return (diffRoot, l1ToL2MsgsHash, vars.l2ToL1Msgs, l1ToL2Msgs);
@@ -392,8 +392,9 @@ library Decoder {
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
-      kernelPublicInputsLogsHash =
-        Hash.sha256ToField(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+      kernelPublicInputsLogsHash = Hash.sha256ToField(
+        bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
+      );
     }
 
     return (kernelPublicInputsLogsHash, offset);
