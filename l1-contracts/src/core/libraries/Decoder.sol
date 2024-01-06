@@ -341,17 +341,17 @@ library Decoder {
    * @param _l2Block - The L2 block calldata.
    * @return The hash of the logs and offset in a block after processing the logs.
    * @dev We have logs preimages on the input and we need to perform the same hashing process as is done in the app
-   *      circuit (hashing the logs) and in the kernel circuit (accumulating the logs hashes). In each iteration of
-   *      kernel, the kernel computes a hash of the previous iteration's logs hash (the hash in the previous kernel's
+   *      circuit (hashing the logs modulo the prime field) and in the kernel circuit (accumulating the logs hashes, also modulo prime field).
+   *      In each iteration of the kernel, the kernel computes a hash of the previous iteration's logs hash (the hash in the previous kernel's
    *      public inputs) and the the current iteration private circuit public inputs logs hash.
    *
    *      E.g. for resulting logs hash of a kernel with 3 iterations would be computed as:
    *
-   *        kernelPublicInputsLogsHash = sha256(sha256(sha256(I1_LOGS), sha256(I2_LOGS)), sha256(I3_LOGS))
+   *        kernelPublicInputsLogsHash = sha256ToField(sha256ToField(sha256ToField(I1_LOGS), sha256ToField(I2_LOGS)), sha256ToField(I3_LOGS))
    *
    *      where I1_LOGS, I2_LOGS and I3_LOGS are logs emitted in the first, second and third function call.
    *
-   *      Note that `sha256(I1_LOGS)`, `sha256(I2_LOGS)` and `sha256(I3_LOGS)` are computed in the app circuit and not
+   *      Note that `sha256ToField(I1_LOGS)`, `sha256ToField(I2_LOGS)` and `sha256ToField(I3_LOGS)` are computed in the app circuit and not
    *      in the kernel circuit. The kernel circuit only accumulates the hashes.
    *
    * @dev For the example above, the logs are encoded in the following way:
@@ -386,14 +386,14 @@ library Decoder {
 
       // Hash the logs of this iteration's function call
       bytes32 privateCircuitPublicInputsLogsHash =
-        sha256(slice(_l2Block, offset, privateCircuitPublicInputLogsLength));
+        Hash.sha256ToField(slice(_l2Block, offset, privateCircuitPublicInputLogsLength));
       offset += privateCircuitPublicInputLogsLength;
 
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
       kernelPublicInputsLogsHash =
-        sha256(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+        Hash.sha256ToField(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
     }
 
     return (kernelPublicInputsLogsHash, offset);

@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak, sha256 } from '@aztec/foundation/crypto';
+import { keccak, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -871,13 +871,14 @@ export class L2Block {
 
     for (const functionLogs of logs.functionLogs) {
       logsHashes[0] = kernelPublicInputsLogsHash;
+      // note functionLogs.hash() also hashes to the prime field, *not* the full sha256 value
       logsHashes[1] = functionLogs.hash(); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
+      // as in Noir, reduce by modulus of base field, to represent as single field element
+      kernelPublicInputsLogsHash = sha256ToField(Buffer.concat(logsHashes)).toBuffer();
     }
 
-    // reduce by modulus of base field, to represent as single field element
-    return Fr.fromBufferReduce(kernelPublicInputsLogsHash).toBuffer();
+    return kernelPublicInputsLogsHash;
   }
 }
