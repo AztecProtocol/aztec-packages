@@ -234,17 +234,11 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 ## Private Inputs
 
-### Previous Kernel
+### _PreviousKernel_
 
-The data of the previous kernel iteration:
+The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previouskernel)_ of the inner private kernel circuit.
 
-- Proof of the kernel circuit. It must be:
-  - [Inner public kernel circuit](./public-kernel-inner.md).
-- Public inputs of the proof.
-- Verification key of the circuit.
-- Membership witness for the verification key.
-
-### Hints
+### _Hints_
 
 Data that aids in the verifications carried out in this circuit:
 
@@ -266,4 +260,60 @@ Data that aids in the verifications carried out in this circuit:
 
 ## Public Inputs
 
-The public inputs of this circuit align with that of the [tail private kernel circuit](./private-kernel-tail.md#public-inputs).
+### _ConstantData_
+
+These are constants that remain the same throughout the entire transaction. Its format aligns with the _[ConstantData](./private-kernel-initial.md#constantdata)_ of the initial private kernel circuit.
+
+### _AccumulatedData_
+
+Data accumulated during the execution of the transaction.
+
+| Field                              | Type                            | Description                                                 |
+| ---------------------------------- | ------------------------------- | ----------------------------------------------------------- |
+| _note_hashes_                      | [_field_; C]                    | Note hashes created in the transaction.                     |
+| _nullifiers_                       | [_field_; C]                    | Nullifiers created in the transaction.                      |
+| _l2_to_l1_messages_                | [_field_; C]                    | L2-to-L1 messages created in the transaction.               |
+| _new_contracts_                    | [_NewContract_; C]              | New contracts deployed in the transaction.                  |
+| _encrypted_logs_hash_              | [_field_; N]                    | Hash of the accumulated encrypted logs.                     |
+| _unencrypted_logs_hash_            | [_field_; N]                    | Hash of the accumulated unencrypted logs.                   |
+| _encrypted_log_preimages_length_   | _field_                         | Length of the accumulated encrypted log preimages.          |
+| _unencrypted_log_preimages_length_ | _field_                         | Length of the accumulated unencrypted log preimages.        |
+| _old_public_data_tree_snapshot_    | _[TreeSnapshot](#treesnapshot)_ | Snapshot of the public data tree prior to this transaction. |
+| _new_public_data_tree_snapshot_    | _[TreeSnapshot](#treesnapshot)_ | Snapshot of the public data tree after this transaction.    |
+
+### _TransientAccumulatedData_
+
+| Field                       | Type                                                                            | Description                                            |
+| --------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| _note_hash_contexts_        | [_[NoteHashContext](./private-kernel-initial.md#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
+| _nullifier_contexts_        | [_[NullifierContext](./private-kernel-initial.md#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
+| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](./private-kernel-initial.md#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
+| _new_contract_contexts_     | [_[NewContractContext](./private-kernel-initial.md#newcontractcontext)_; C]     | New contracts with extra data aiding verification.     |
+| _storage_reads_             | [_[StorageRead](#storageread)_; C]                                              | Reads of the public data.                              |
+| _storage_writes_            | [_[StorageWrite](#storagewrite)_; C]                                            | Writes of the public data.                             |
+| _public_call_requests_      | [_[CallRequest](./private-kernel-initial.md#callrequest)_; C]                   | Requests to call publics functions.                    |
+
+> The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
+
+## Types
+
+### _TreeSnapshot_
+
+| Field                       | Type  | Description                       |
+| --------------------------- | ----- | --------------------------------- |
+| _root_                      | field | Root of the tree.                 |
+| _next_available_leaf_index_ | field | The index to insert new value to. |
+
+### _StorageRead_
+
+| Field          | Type  | Description                       |
+| -------------- | ----- | --------------------------------- |
+| _storage_slot_ | field | Storage slot.                     |
+| _value_        | field | Value read from the storage slot. |
+
+### _StorageWrite_
+
+| Field          | Type  | Description                            |
+| -------------- | ----- | -------------------------------------- |
+| _storage_slot_ | field | Storage slot.                          |
+| _value_        | field | New value written to the storage slot. |

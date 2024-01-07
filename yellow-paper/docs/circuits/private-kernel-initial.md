@@ -12,27 +12,41 @@ In the **initial** kernel iteration, the process involves taking a transaction r
 
 #### Validating the correspondence of function call with caller's intent.
 
-This entails ensuring that the following data from the private call aligns with the specifications in the transaction request:
+This entails ensuring that the following from the _[private_call](#privatecalldata)_ aligns with the specifications in the _[transaction_request](#transactionrequest)_:
 
 - Contract address.
-- [Function data](#function_data).
-- Function arguments.
+- Function data.
+- Hash of the function arguments.
 
-> Although it's not enforced in the protocol, it is customary to provide a signature signed over the transaction request and verify it in the first function call. This practice guarantees that only the party possessing the key(s) can authorize a transaction with the exact transaction request.
+> Although it's not enforced in the protocol, it is customary to provide a signature signed over the transaction request and verify it in the first function call. This practice guarantees that only the party possessing the key(s) can authorize a transaction with the exact transaction request on behalf of an account.
 
 #### Verifying the legitimacy of the function as the entrypoint.
 
-- It must be a private function.
-- It must not be an internal function.
+For the _[function_data](#functiondata)_ in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem)_, the circuit verifies that:
+
+- It must be a private function:
+  - _function_data.function_type == private_
+- It must not be an internal function:
+  - _function_data.is_internal == false_
 
 #### Ensuring the function call is the first call.
 
-- It must not be a delegate call.
-- It must not be a static call.
+For the _[call_context](./private-function.md#callcontext)_ in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_, the circuit checks that:
+
+- It must not be a delegate call:
+  - _call_context.is_delegate_call == false_
+- It must not be a static call:
+  - _call_context.is_static_call == false_
 
 #### Ensuring transaction uniqueness.
 
-- It must emit the hash of the transaction request as the **first** nullifier.
+It must emit the hash of the _[transaction_request](#transactionrequest)_ as the **first** nullifier.
+
+The hash is computed as:
+
+_`hash(origin, function_data.hash(), args_hash, tx_context.hash())`_
+
+Where _function_data.hash()_ and _tx_context.hash()_ are the hashes of the serialized field elements.
 
 This nullifier serves multiple purposes:
 
@@ -75,89 +89,104 @@ It verifies that the private function was executed successfully with the provide
 
 #### Verifying the public inputs of the private function circuit.
 
-It ensures the private function circuit's intention by checking the following:
+It ensures the private function circuit's intention by checking the following in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-- The contract address for each non-empty item in the following arrays must equal the current contract address:
-  - Note hash contexts.
-  - Nullifier contexts.
-  - L2-to-L1 message contexts.
-  - Read requests.
-- The portal contract address for each non-empty L2-to-L1 message context must equal the current portal contract address.
-- If the new contract contexts array is not empty, the contract address must equal the precompiled deployment contract address.
-- The historical data must match the one in the constant data.
-
-> Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
-
-#### Verifying the call requests.
-
-For both private and public call requests initiated in the current function call, it ensures that for each request at index _i_:
-
-- Its hash equals the value at index _i_ within the call request hashes array in private function circuit's public inputs.
-- Its caller context is either empty or aligns with the call context of the current function call, including:
-  - _msg_sender_
-  - Storage contract address.
-
-> It is important to note that the caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
+- If _new_contracts_ is not empty, the _contract_address_ must equal the precompiled deployment contract address.
+- The _block_header_ must match the one in the _[constant_data](#constantdata)_.
 
 #### Verifying the counters.
 
-It verifies that each relevant value is associated with a legitimate counter.
+It verifies that each relevant value listed below is associated with a legitimate counter.
 
-1. For the current call:
+1. For the _[call_stack_item](#privatecallstackitem)_:
 
    - The _counter_start_ must be 0.
    - The _counter_end_ must be greater than the _counter_start_.
 
-2. For private call requests:
+2. For items in each ordered array in _[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-   - The _counter_end_ of each request must be greater than its _counter_start_.
-   - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
-   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
-   - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
-
-3. For items in each ordered array created in the current call:
-
-   - The counter of the first item much be greater than the _counter_start_ of the current call.
-   - The counter of each subsequent item much be greater than the counter of the previous item.
-   - The counter of the last item much be less than the _counter_end_ of the current call.
+   - The _counter_ of the first item much be greater than the _counter_start_ of the _call_stack_item_.
+   - The _counter_ of each subsequent item much be greater than the _counter_ of the previous item.
+   - The _counter_ of the last item much be less than the _counter_end_ of the _call_stack_item_.
 
    The ordered arrays include:
 
-   - Note hash contexts.
-   - Nullifier contexts.
-   - New contract contexts.
-   - Read requests.
-   - Public call requests.
+   - _note_hashes_
+   - _nullifiers_
+   - _new_contracts_
+   - _read_requests_
 
-   > Note that _counter_start_ is used in the above steps for public call requests to ensure their correct ordering. At this point, the _counter_end_ of public call request is unknown. Both counters will be [recalibrated](./private-kernel-tail.md#recalibrating-counters) in the tail circuit following the simulation of all public function calls.
+3. For the last _N_ non-empty items in the _private_call_requests_ in the _[transient_accumulated_data](#transientaccumulateddata)_:
+
+   - The _counter_end_ of each request must be greater than its _counter_start_.
+   - The _counter_end_ of the first request must be less than the _counter_end_ of the _call_stack_item_.
+   - The _counter_end_ of the second and subsequent requests must be less than the _counter_start_ of the previous request.
+   - The _counter_start_ of the last request must be greater than the _counter_start_ of the _call_stack_item_.
+
+   > _N_ is the number of non-zero hashes in the _private_call_stack_item_hashes_ in _[private_inputs](#private-inputs).[private_call](#privatecalldata).[public_inputs](./private-function.md#public-inputs)_.
+
+4. For the last _N_ non-empty items in the _public_call_requests_ in the _[transient_accumulated_data](#transientaccumulateddata)_:
+
+   - The _counter_start_ of the first request much be greater than the _counter_start_ of the _call_stack_item_.
+   - The _counter_start_ of each subsequent request much be greater than the _counter_start_ of the previous item.
+   - The _counter_start_ of the last item much be less than the _counter_end_ of the _call_stack_item_.
+
+   > _N_ is the number of non-zero hashes in the _public_call_stack_item_hashes_ in _[private_inputs](#private-inputs).[private_call](#privatecalldata).[public_inputs](./private-function.md#public-inputs)_.
+
+   > Note that the _counter_end_ of public call request is unknown at this point. Both counters will be [recalibrated](./public-kernel-initial.md#recalibrating-counters) in the initial public kernel circuit following the simulation of all public function calls.
+
+> Note that, for the initial private kernel circuit, all values within the _[transient_accumulated_data](#transientaccumulateddata)_ originate from the _[private_call](#privatecalldata)_. However, this process of counter verification is also applicable to the [inner private kernel circuit](./private-kernel-inner.md#verifying-the-counters), where the _transient_accumulated_data_ comprises values from previous iterations and the current function call. Therefor, only the last _N_ items need to be checked in the above operations.
 
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
-It verifies that the following values align with those in the private call data:
-
-- Log hashes.
-- Log lengths.
+It verifies that all the values in the _[accumulated_data](#accumulateddata)_ align with the corresponding values in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_.
 
 #### Verifying the transient accumulated data.
 
-1. It ensures that the following arrays match those in the private call data:
+Within the _[public_inputs](#public-inputs)_, the _[transient_accumulated_data](#transientaccumulateddata)_ encapsulates values reflecting the operations conducted by the _private_call_.
 
-   - Note hash contexts.
-   - Nullifier contexts.
-   - L2-to-L1 message contexts.
-   - New contract contexts.
-   - Read requests.
-   - Public call requests.
+This circuit verifies that the values in _[private_inputs](#private-inputs).[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_ (_private_function_public_inputs_) are aggregated into the _public_inputs_ correctly:
 
-2. It checks that the following aligns with the array in the private call data, with items arranged in **reverse** order:
+1. It ensures that the specified values in the following arrays match those in the corresponding arrays in the _private_function_public_inputs_:
 
-   - Private call requests.
+   - _note_hash_contexts_
+     - _value_, _counter_
+   - _nullifier_contexts_
+     - _value_, _counter_
+   - _l2_to_l1_message_contexts_
+     - _value_
+   - _new_contract_contexts_
+     - _contract_address_, _counter_
+   - _read_request_contexts_
+     - _note_hash_, _counter_
+   - _public_call_requests_
+     - _hash_
+
+2. It checks that the hashes in the _private_call_requests_ align with the values in the _private_call_stack_item_hashes_ in the _private_function_public_inputs_, but in **reverse** order.
 
    > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
 
-3. For the note hash contexts, it also verifies that each is associated with a nullifier counter, which is provided as a hint via the private inputs. The nullifier counter can be:
+3. For both _private_call_requests_ and _public_call_requests_, it checks that for each non-empty call request:
+
+   - The _caller_contract_address_ equals the _contract_address_ in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem)_.
+   - The _caller_context_ is either empty or aligns with the values in the _call_context_ in the _private_function_public_inputs_.
+
+   > The caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
+
+4. The _contract_address_ for each non-empty item in the following arrays must equal the _storage_contract_address_ defined in _private_function_public_inputs.call_context_:
+
+   - _note_hash_contexts_
+   - _nullifier_contexts_
+   - _l2_to_l1_message_contexts_
+   - _read_request_contexts_
+
+   > Ensuring the alignment of the contract addresses is crucial, as it is later used to [silo the values](./private-kernel-tail.md#siloing-values) and to establish associations with values within the same contract.
+
+5. The _portal_contract_address_ for each non-empty item in _l2_to_l1_message_contexts_ must equal the _portal_contract_address_ defined in _private_function_public_inputs_.call*context*.
+
+6. For the _note_hash_contexts_, it verifies that each is associated with a _nullifier_counter_. The value of the _nullifier_counter_ can be:
 
    - Zero: if the note is not nullified in the same transaction.
    - Greater than zero: if the note is nullified in the same transaction.
@@ -167,90 +196,171 @@ It verifies that the following values align with those in the private call data:
 
    > Zero can be used to indicate a non-existing transient nullifier, as this value can never serve as the counter of a nullifier. It corresponds to the _counter_start_ of the first function call.
 
+> Note that the verification process outlined above is also applicable to the inner private kernel circuit. However, given that the _transient_accumulated_data_ for the inner private kernel circuit comprises both values from previous iterations and the _private_call_, the above process specifically targets the values stemming from the _private_call_. The inner kernel circuit performs an [extra check](./private-kernel-inner.md#verifying-the-transient-accumulated-data) to ensure that the _transient_accumulated_data_ also contains values from the previous iterations.
+
 #### Verifying the constant data.
 
 It verifies that:
 
-- The transaction context matches the one in the transaction request.
+- The _tx_context_ in the _[constant_data](#constantdata)_ matches the _tx_context_ in the _[transaction_request](#transactionrequest)_.
 
-> The historical data must align with the data used in the private function circuit, as verified [earlier](#verifying-the-public-inputs-of-the-private-function-circuit).
+> The _block_header_ must align with the one used in the private function circuit, as verified [earlier](#verifying-the-public-inputs-of-the-private-function-circuit).
 
 ## Private Inputs
 
-### Transaction Request
+### _TransactionRequest_
 
-A transaction request represents the caller's intent. It contains:
+Data that represents the caller's intent.
 
-- Sender's address.
-- <a name="function_data">Function data</a>:
+| Field           | Type                                        | Description                                  |
+| --------------- | ------------------------------------------- | -------------------------------------------- |
+| _origin_        | _AztecAddress_                              | The Aztec address of the transaction sender. |
+| _function_data_ | _[FunctionData](#functiondata)_             | Data of the function being called.           |
+| _args_hash_     | _field_                                     | Hash of the function arguments.              |
+| _tx_context_    | _[TransactionContext](#transactioncontext)_ | Information about the transaction.           |
 
-  - Function selector.
-  - Function type (private/public/unconstrained).
-  - A flag indicating whether the function is an internal function.
+### _PrivateCallData_
 
-- Hash of the function arguments.
-- Transaction context
-  - A flag indicating whether it is a fee paying transaction.
-  - A flag indicating whether it is a fee rebate transaction.
-  - Chain ID.
-  - Version of the transaction.
+Data that holds details about the current private function call.
 
-### Private Call Data
-
-The private call data holds details about the current private function call:
-
-- Contract address.
-- Function data.
-- Private call requests.
-- Public call requests.
-- Private function circuit public inputs.
-- Proof of the private function circuit.
-- Verification key of the private function circuit.
-- Hash of the function bytecode.
-
-### Hints
-
-Data that aids in the verifications carried out in this circuit or later iterations:
-
-- Membership witness for the function leaf.
-- Membership witness for the contract leaf.
-- Transient note nullifier counters.
+| Field                              | Type                                            | Description                                          |
+| ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| _call_stack_item_                  | _[PrivateCallStackItem](#privatecallstackitem)_ | Information about the current private function call. |
+| _proof_                            | _Proof_                                         | Proof of the private function circuit.               |
+| _vk_                               | _VerificationKey_                               | Verification key of the private function circuit.    |
+| _bytecode_hash_                    | _field_                                         | Hash of the function bytecode.                       |
+| _function_leaf_membership_witness_ | _[MembershipWitness](#membershipwitness)_       | Membership witness for the function being called.    |
+| _contract_leaf_membership_witness_ | _[MembershipWitness](#membershipwitness)_       | Membership witness for the contract being called.    |
 
 ## Public Inputs
 
-### Constant Data
+### _ConstantData_
 
-These are constants that remain the same throughout the entire transaction:
+Data that remains the same throughout the entire transaction.
 
-- Historical data - representing the states of the block at which the transaction is constructed, including:
-  - Hash of the global variables.
-  - Roots of the trees:
-    - Note hash tree.
-    - Nullifier tree.
-    - Contract tree.
-    - L1-to-l2 message tree.
-    - Public data tree.
-- Transaction context
-  - A flag indicating whether it is a fee paying transaction.
-  - A flag indicating whether it is a fee rebate transaction.
-  - Chain ID.
-  - Version of the transaction.
+| Field          | Type                                               | Description                                                   |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------------- |
+| _block_header_ | _[BlockHeader](./private-function.md#blockheader)_ | Roots of the trees at the time the transaction was assembled. |
+| _tx_context_   | _[TransactionContext](#transactioncontext)_        | Context of the transaction.                                   |
 
-### Accumulated Data
+### _AccumulatedData_
 
-It contains the result from the current function call:
+| Field                              | Type         | Description                                          |
+| ---------------------------------- | ------------ | ---------------------------------------------------- |
+| _encrypted_logs_hash_              | [_field_; N] | Hash of the accumulated encrypted logs.              |
+| _unencrypted_logs_hash_            | [_field_; N] | Hash of the accumulated unencrypted logs.            |
+| _encrypted_log_preimages_length_   | _field_      | Length of the accumulated encrypted log preimages.   |
+| _unencrypted_log_preimages_length_ | _field_      | Length of the accumulated unencrypted log preimages. |
 
-- Log hashes.
-- Log lengths.
+> The above **N**s represent the number of _field_ of a hash. Its value depends on the hash function chosen by the protocol.
 
-### Transient Accumulated Data
+### _TransientAccumulatedData_
 
-It includes transient data accumulated during the execution of the transaction up to this point:
+| Field                       | Type                                                 | Description                                            |
+| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| _note_hash_contexts_        | [_[NoteHashContext](#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
+| _nullifier_contexts_        | [_[NullifierContext](#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
+| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
+| _new_contract_contexts_     | [_[NewContractContext](#newcontractcontext)_; C]     | New contracts with extra data aiding verification.     |
+| _read_request_contexts_     | [_[ReadRequestContext](#readrequestcontext)_; C]     | Requests to read notes in the note hash tree.          |
+| _private_call_requests_     | [_[CallRequest](#callrequest)_; C]                   | Requests to call private functions.                    |
+| _public_call_requests_      | [_[CallRequest](#callrequest)_; C]                   | Requests to call publics functions.                    |
 
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- New contract contexts.
-- Read requests.
-- Private call requests.
-- Public call requests.
+> The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
+
+## Types
+
+#### _FunctionData_
+
+| Field               | Type                               | Description                                         |
+| ------------------- | ---------------------------------- | --------------------------------------------------- |
+| _function_selector_ | _u32_                              | Selector of the function being called.              |
+| _function_type_     | private \| public \| unconstrained | Type of the function being called.                  |
+| _is_internal_       | _bool_                             | A flag indicating whether the function is internal. |
+
+#### _TransactionContext_
+
+| Field      | Type                                 | Description                  |
+| ---------- | ------------------------------------ | ---------------------------- |
+| _tx_type_  | standard \| fee_paying \| fee_rebate | Type of the transaction.     |
+| _chain_id_ | _field_                              | Chain ID of the transaction. |
+| _version_  | _field_                              | Version of the transaction.  |
+
+#### _PrivateCallStackItem_
+
+| Field              | Type                                                                 | Description                                               |
+| ------------------ | -------------------------------------------------------------------- | --------------------------------------------------------- |
+| _contract_address_ | _AztecAddress_                                                       | Address of the contract on which the function is invoked. |
+| _function_data_    | _[FunctionData](#functiondata)_                                      | Data of the function being called.                        |
+| _public_inputs_    | _[PrivateFunctionPublicInputs](./private-function.md#public-inputs)_ | Public inputs of the private function circuit.            |
+| _counter_start_    | _field_                                                              | Counter at which the function call was initiated.         |
+| _counter_end_      | _field_                                                              | Counter at which the function call ended.                 |
+
+#### _CallRequest_
+
+| Field             | Type                              | Description                                   |
+| ----------------- | --------------------------------- | --------------------------------------------- |
+| _hash_            | _field_                           | Hash of the call stack item.                  |
+| _caller_contract_ | _AztecAddress_                    | Address of the contract calling the function. |
+| _caller_context_  | _[CallerContext](#callercontext)_ | Context of the contract calling the function. |
+| _counter_start_   | _field_                           | Counter at which the call was initiated.      |
+| _counter_end_     | _field_                           | Counter at which the call ended.              |
+
+#### _CallerContext_
+
+| Field              | Type           | Description                                      |
+| ------------------ | -------------- | ------------------------------------------------ |
+| _msg_sender_       | _AztecAddress_ | Address of the caller contract.                  |
+| _storage_contract_ | _AztecAddress_ | Storage contract address of the caller contract. |
+
+#### _NoteHashContext_
+
+| Field               | Type           | Description                                              |
+| ------------------- | -------------- | -------------------------------------------------------- |
+| _value_             | _field_        | Hash of the note.                                        |
+| _contract_address_  | _AztecAddress_ | Address of the contract the note was created.            |
+| _counter_           | _field_        | Counter at which the note hash was created.              |
+| _nullifier_counter_ | _field_        | Counter at which the nullifier for the note was created. |
+
+#### _NullifierContext_
+
+| Field                 | Type           | Description                                                                                                                |
+| --------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| _value_               | _field_        | Value of the nullifier.                                                                                                    |
+| _contract_address_    | _AztecAddress_ | Address of the contract the nullifier was created.                                                                         |
+| _counter_             | _field_        | Counter at which the nullifier was created.                                                                                |
+| _nullified_note_hash_ | _field_        | The hash of the transient note the nullifier is created for. 0 if the nullifier does not associated with a transient note. |
+
+#### _L2toL1MessageContext_
+
+| Field                     | Type           | Description                                      |
+| ------------------------- | -------------- | ------------------------------------------------ |
+| _value_                   | _field_        | L2-to-l2 message.                                |
+| _contract_address_        | _AztecAddress_ | Address of the contract the message was created. |
+| _portal_contract_address_ | _AztecAddress_ | Address of the portal contract to the contract.  |
+
+#### _NewContractContext_
+
+| Field              | Type           | Description                                 |
+| ------------------ | -------------- | ------------------------------------------- |
+| _contract_address_ | _AztecAddress_ | Address of the contract.                    |
+| _counter_          | _field_        | Counter at which the contract was deployed. |
+
+// TODO - more fields
+
+#### _ReadRequestContext_
+
+| Field              | Type           | Description                                   |
+| ------------------ | -------------- | --------------------------------------------- |
+| _note_hash_        | _field_        | Hash of the note to be read.                  |
+| _contract_address_ | _AztecAddress_ | Address of the contract the request was made. |
+| _counter_          | _field_        | Counter at which the request was made.        |
+
+#### _MembershipWitness_
+
+| Field          | Type         | Description                           |
+| -------------- | ------------ | ------------------------------------- |
+| _leaf_index_   | _field_      | Index of the leaf in the tree.        |
+| _sibling_path_ | [_field_; H] | Sibling path to the leaf in the tree. |
+
+> **H** represents the height of the tree.

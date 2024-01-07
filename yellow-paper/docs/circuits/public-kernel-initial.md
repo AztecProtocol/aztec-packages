@@ -64,15 +64,10 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 ## Private Inputs
 
-### Previous Kernel
+### _PreviousKernel_
 
-The data of the previous kernel iteration:
-
-- Proof of the [tail private kernel circuit](./private-kernel-tail.md).
-- Public inputs of the proof.
-- Verification key of the kernel circuit.
-- Membership witness for the verification key.
+The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previouskernel)_ of the inner private kernel circuit.
 
 ## Public Inputs
 
-The public inputs of this circuit align with that of the [tail private kernel circuit](./private-kernel-tail.md#public-inputs).
+The format aligns with the _[Public Inputs](./public-kernel-tail.md#public-inputs)_ of the tail public kernel circuit.

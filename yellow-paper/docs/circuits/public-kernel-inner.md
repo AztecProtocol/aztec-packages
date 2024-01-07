@@ -200,38 +200,42 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 ## Private Inputs
 
-### Previous Kernel
+### _PreviousKernel_
 
-The data of the previous kernel iteration:
-
-- Proof of the kernel circuit. It could be one of the following:
-  - [Initial public kernel circuit](./public-kernel-initial.md).
-  - Inner public kernel circuit.
-- Public inputs of the proof.
-- Verification key of the kernel circuit.
-- Membership witness for the verification key.
+The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previouskernel)_ of the inner private kernel circuit.
 
 ### Public Call Data
 
-The call data holds details about the current public function call:
+Data that holds details about the current public function call.
 
-- Contract address.
-- Function data.
-- Public call requests.
-- Public function circuit public inputs.
-- Proof of the public function circuit.
-- Verification key.
-- Hash of the function bytecode.
+| Field                              | Type                                                               | Description                                         |
+| ---------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| _call_stack_item_                  | _[PublicCallStackItem](#publiccallstackitem)_                      | Information about the current public function call. |
+| _proof_                            | _Proof_                                                            | Proof of the public function circuit.               |
+| _vk_                               | _VerificationKey_                                                  | Verification key of the public function circuit.    |
+| _bytecode_hash_                    | _field_                                                            | Hash of the function bytecode.                      |
+| _function_leaf_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_ | Membership witness for the function being called.   |
+| _contract_leaf_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_ | Membership witness for the contract being called.   |
 
-### Hints
+### _Hints_
 
 Data that aids in the verifications carried out in this circuit or later iterations:
 
 - Index of the new contract.
-- Membership witness for the function leaf.
-- Membership witness for the contract leaf.
 - Update requests override counters.
 
 ## Public Inputs
 
-The public inputs of this circuit align with that of the [tail private kernel circuit](./private-kernel-tail.md#public-inputs).
+The format aligns with the _[Public Inputs](./public-kernel-tail.md#public-inputs)_ of the tail public kernel circuit.
+
+## Types
+
+### _PublicCallStackItem_
+
+| Field              | Type                            | Description                                               |
+| ------------------ | ------------------------------- | --------------------------------------------------------- |
+| _contract_address_ | _AztecAddress_                  | Address of the contract on which the function is invoked. |
+| _function_data_    | _[FunctionData](#functiondata)_ | Data of the function being called.                        |
+| _public_inputs_    | _PublicFunctionPublicInputs_    | Public inputs of the public vm circuit.                   |
+| _counter_start_    | _field_                         | Counter at which the function call was initiated.         |
+| _counter_end_      | _field_                         | Counter at which the function call ended.                 |
