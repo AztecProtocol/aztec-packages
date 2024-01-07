@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractDatabase, MerkleTreeId, NoteFilter } from '@aztec/types';
 
+import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 
 /**
@@ -59,6 +60,12 @@ export interface PxeDatabase extends ContractDatabase {
    * @param notes - An array of notes.
    */
   addNotes(notes: NoteDao[]): Promise<void>;
+
+  /**
+   * Add notes to the database that are intended for us, but we don't yet have the contract.
+   * @param deferredNotes - An array of deferred notes.
+   */
+  addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.

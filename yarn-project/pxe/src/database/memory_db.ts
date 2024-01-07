@@ -5,6 +5,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { MerkleTreeId, NoteFilter } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
+import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
@@ -52,6 +53,11 @@ export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
   public addNote(note: NoteDao): Promise<void> {
     this.notesTable.push(note);
     return Promise.resolve();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public addDeferredNotes(notes: DeferredNoteDao[]): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 
   public addCapsule(capsule: Fr[]): Promise<void> {

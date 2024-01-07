@@ -3,6 +3,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
 import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
+import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
@@ -32,6 +33,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByStorageSlot: AztecMultiMap<string, number>;
   #notesByTxHash: AztecMultiMap<string, number>;
   #notesByOwner: AztecMultiMap<string, number>;
+  #deferredNotes: AztecArray<Buffer>;
+  #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
   #db: AztecKVStore;
 
@@ -55,6 +58,9 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#notesByStorageSlot = db.createMultiMap('notes_by_storage_slot');
     this.#notesByTxHash = db.createMultiMap('notes_by_tx_hash');
     this.#notesByOwner = db.createMultiMap('notes_by_owner');
+
+    this.#deferredNotes = db.createArray('deferred_notes');
+    this.#deferredNotesByContract = db.createMultiMap('deferred_notes_by_contract');
   }
 
   async addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
@@ -93,6 +99,30 @@ export class KVPxeDatabase implements PxeDatabase {
         this.#notesByOwner.set(note.publicKey.toString(), noteId),
       ]);
     }
+  }
+
+  async addDeferredNotes(notes: DeferredNoteDao[]): Promise<void> {
+    const newLength = await this.#deferredNotes.push(...notes.map(note => note.toBuffer()));
+    for (const [index, note] of notes.entries()) {
+      const noteId = newLength - notes.length + index;
+      await this.#deferredNotesByContract.set(note.contractAddress.toString(), noteId);
+    }
+  }
+
+  getDeferredNotesByContract(contractAddress: AztecAddress): DeferredNoteDao[] {
+    const noteIds = this.#deferredNotesByContract.getValues(contractAddress.toString());
+    const notes: DeferredNoteDao[] = [];
+    for (const noteId of noteIds) {
+      const serializedNote = this.#deferredNotes.at(noteId);
+      if (!serializedNote) {
+        continue;
+      }
+
+      const note = DeferredNoteDao.fromBuffer(serializedNote);
+      notes.push(note);
+    }
+
+    return notes;
   }
 
   *#getAllNonNullifiedNotes(): IterableIterator<NoteDao> {
