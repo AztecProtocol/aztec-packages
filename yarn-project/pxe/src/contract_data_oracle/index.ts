@@ -1,5 +1,6 @@
-import { AztecAddress, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
-import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
+import { ContractNotFoundError } from '@aztec/acir-simulator';
+import { AztecAddress, ContractFunctionDao, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { ContractDatabase, StateInfoProvider } from '@aztec/types';
 
 import { ContractTree } from '../contract_tree/index.js';
@@ -47,20 +48,25 @@ export class ContractDataOracle {
   /**
    * Retrieves the artifact of a specified function within a given contract.
    * The function is identified by its name, which is unique within a contract.
+   * Throws if the contract has not been added to the database.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param functionName - The name of the function.
-   * @returns The corresponding function's artifact as an object.
+   * @returns The corresponding function's artifact as an object, or undefined if the function is not found.
    */
-  public async getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string) {
-    const contract = await this.db.getContract(contractAddress);
-    return contract?.functions.find(f => f.name === functionName);
+  public async getFunctionArtifactByName(
+    contractAddress: AztecAddress,
+    functionName: string,
+  ): Promise<ContractFunctionDao | undefined> {
+    const tree = await this.getTree(contractAddress);
+    return tree.contract.getFunctionArtifactByName(functionName);
   }
 
   /**
    * Retrieves the debug metadata of a specified function within a given contract.
    * The function is identified by its selector, which is a unique code generated from the function's signature.
    * Returns undefined if the debug metadata for the given function is not found.
+   * Throws if the contract has not been added to the database.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param selector - The function selector.
@@ -70,14 +76,14 @@ export class ContractDataOracle {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
-    const contract = await this.db.getContract(contractAddress);
-    const functionArtifact = contract?.functions.find(f => f.selector.equals(selector));
+    const tree = await this.getTree(contractAddress);
+    const functionArtifact = tree.contract.getFunctionArtifact(selector);
 
-    if (!contract || !functionArtifact) {
+    if (!functionArtifact) {
       return undefined;
     }
 
-    return getFunctionDebugMetadata(contract, functionArtifact.name);
+    return tree.contract.getFunctionDebugMetadataByName(functionArtifact.name);
   }
 
   /**
@@ -147,12 +153,12 @@ export class ContractDataOracle {
    * @returns A ContractTree instance associated with the specified contract address.
    * @throws An Error if the contract is not found in the ContractDatabase.
    */
-  private async getTree(contractAddress: AztecAddress) {
+  private async getTree(contractAddress: AztecAddress): Promise<ContractTree> {
     let tree = this.trees.find(t => t.contract.completeAddress.address.equals(contractAddress));
     if (!tree) {
       const contract = await this.db.getContract(contractAddress);
       if (!contract) {
-        throw new Error(`Unknown contract: ${contractAddress}`);
+        throw new ContractNotFoundError(contractAddress.toString());
       }
 
       tree = new ContractTree(contract, this.stateProvider);

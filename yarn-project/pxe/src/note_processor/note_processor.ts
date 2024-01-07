@@ -1,3 +1,4 @@
+import { ContractNotFoundError } from '@aztec/acir-simulator';
 import { MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
@@ -34,7 +35,7 @@ export class NoteProcessor {
   public readonly timer: Timer = new Timer();
 
   /** Stats accumulated for this processor. */
-  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, failed: 0, blocks: 0, txs: 0 };
+  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, deferred: 0, failed: 0, blocks: 0, txs: 0 };
 
   constructor(
     /**
@@ -154,8 +155,13 @@ export class NoteProcessor {
                 );
                 this.stats.decrypted++;
               } catch (e) {
-                this.stats.failed++;
-                this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+                if (e instanceof ContractNotFoundError) {
+                  this.stats.deferred++;
+                  this.log.warn(e.message);
+                } else {
+                  this.stats.failed++;
+                  this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+                }
               }
             }
           }
