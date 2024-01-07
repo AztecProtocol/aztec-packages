@@ -57,6 +57,7 @@ import { TxPXEProcessingStats } from '@aztec/types/stats';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
@@ -205,9 +206,11 @@ export class PXEService implements PXE {
     const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
+      const contractAztecAddress = contract.completeAddress.address;
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
+      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
+      await this.synchronizer.retryDeferredNotesForContract(contractAztecAddress);
     }
   }
 
@@ -486,6 +489,10 @@ export class PXEService implements PXE {
       l1ContractAddresses: contractAddresses,
     };
     return nodeInfo;
+  }
+
+  #retryDeferredNote(deferredNote: DeferredNoteDao) {
+    this.synchronizer;
   }
 
   /**

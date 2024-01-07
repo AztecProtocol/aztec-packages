@@ -109,7 +109,7 @@ export class KVPxeDatabase implements PxeDatabase {
     }
   }
 
-  getDeferredNotesByContract(contractAddress: AztecAddress): DeferredNoteDao[] {
+  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
     const noteIds = this.#deferredNotesByContract.getValues(contractAddress.toString());
     const notes: DeferredNoteDao[] = [];
     for (const noteId of noteIds) {
@@ -122,7 +122,7 @@ export class KVPxeDatabase implements PxeDatabase {
       notes.push(note);
     }
 
-    return notes;
+    return Promise.resolve(notes);
   }
 
   *#getAllNonNullifiedNotes(): IterableIterator<NoteDao> {

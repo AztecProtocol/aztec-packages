@@ -68,6 +68,12 @@ export interface PxeDatabase extends ContractDatabase {
   addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void>;
 
   /**
+   * Get deferred notes for a given contract address.
+   * @param contractAddress - The contract address to get the deferred notes for.
+   */
+  getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
+
+  /**
    * Remove nullified notes associated with the given account and nullifiers.
    *
    * @param nullifiers - An array of Fr instances representing nullifiers to be matched.

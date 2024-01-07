@@ -1,25 +1,17 @@
 import { ContractNotFoundError } from '@aztec/acir-simulator';
 import { MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, PublicKey } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  AztecNode,
-  INITIAL_L2_BLOCK_NUM,
-  KeyStore,
-  L1NotePayload,
-  L2BlockContext,
-  L2BlockL2Logs,
-  TxHash,
-} from '@aztec/types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs } from '@aztec/types';
 import { NoteProcessorStats } from '@aztec/types/stats';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { produceNoteDao } from './produce_note_dao.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -145,7 +137,9 @@ export class NoteProcessor {
               const txHash = blockContext.getTxHash(indexOfTxInABlock);
               const txNullifier = newNullifiers[0];
               try {
-                const noteDao = await this.produceNoteDao(
+                const noteDao = await produceNoteDao(
+                  this.simulator,
+                  this.publicKey,
                   payload,
                   txHash,
                   txNullifier,
@@ -160,6 +154,7 @@ export class NoteProcessor {
                   this.stats.deferred++;
                   this.log.warn(e.message);
                   const deferredNoteDao = new DeferredNoteDao(
+                    this.publicKey,
                     payload.note,
                     payload.contractAddress,
                     payload.storageSlot,
@@ -192,111 +187,6 @@ export class NoteProcessor {
     await this.db.setSynchedBlockNumberForPublicKey(this.publicKey, syncedToBlock);
 
     this.log(`Synched block ${syncedToBlock}`);
-  }
-
-  private async produceNoteDao(
-    payload: L1NotePayload,
-    txHash: TxHash,
-    txNullifier: Fr,
-    newCommitments: Fr[],
-    dataStartIndexForTx: number,
-    excludedIndices: Set<number>,
-  ): Promise<NoteDao> {
-    const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
-      newCommitments,
-      txNullifier,
-      payload,
-      excludedIndices,
-    );
-    const index = BigInt(dataStartIndexForTx + commitmentIndex);
-    excludedIndices?.add(commitmentIndex);
-    return new NoteDao(
-      payload.note,
-      payload.contractAddress,
-      payload.storageSlot,
-      txHash,
-      nonce,
-      innerNoteHash,
-      siloedNullifier,
-      index,
-      this.publicKey,
-    );
-  }
-
-  /**
-   * Find the index of the note in the note hash tree by computing the note hash with different nonce and see which
-   * commitment for the current tx matches this value.
-   * Compute a nullifier for a given l1NotePayload.
-   * The nullifier is calculated using the private key of the account,
-   * contract address, and the note associated with the l1NotePayload.
-   * This method assists in identifying spent commitments in the private state.
-   * @param commitments - Commitments in the tx. One of them should be the note's commitment.
-   * @param firstNullifier - First nullifier in the tx.
-   * @param l1NotePayload - An instance of l1NotePayload.
-   * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
-   * l1NotePayload. We need to find a different index for each replicate.
-   * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
-   * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
-   */
-  private async findNoteIndexAndNullifier(
-    commitments: Fr[],
-    firstNullifier: Fr,
-    { contractAddress, storageSlot, note }: L1NotePayload,
-    excludedIndices: Set<number>,
-  ) {
-    let commitmentIndex = 0;
-    let nonce: Fr | undefined;
-    let innerNoteHash: Fr | undefined;
-    let siloedNoteHash: Fr | undefined;
-    let uniqueSiloedNoteHash: Fr | undefined;
-    let innerNullifier: Fr | undefined;
-    for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      if (excludedIndices.has(commitmentIndex)) {
-        continue;
-      }
-
-      const commitment = commitments[commitmentIndex];
-      if (commitment.equals(Fr.ZERO)) {
-        break;
-      }
-
-      const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
-      ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, note));
-      if (commitment.equals(uniqueSiloedNoteHash)) {
-        nonce = expectedNonce;
-        break;
-      }
-    }
-
-    if (!nonce) {
-      let errorString;
-      if (siloedNoteHash == undefined) {
-        errorString = 'Cannot find a matching commitment for the note.';
-      } else {
-        errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
-This might be because the note was nullified in the same tx which created it.
-In that case, everything is fine. To check whether this is the case, look back through
-the logs for a notification
-'important: chopped commitment for siloed inner hash note
-${siloedNoteHash.toString()}'.
-If you can see that notification. Everything's fine.
-If that's not the case, and you can't find such a notification, something has gone wrong.
-There could be a problem with the way you've defined a custom note, or with the way you're
-serializing / deserializing / hashing / encrypting / decrypting that note.
-Please see the following github issue to track an improvement that we're working on:
-https://github.com/AztecProtocol/aztec-packages/issues/1641`;
-      }
-
-      throw new Error(errorString);
-    }
-
-    return {
-      commitmentIndex,
-      nonce,
-      innerNoteHash: innerNoteHash!,
-      siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
-    };
   }
 
   /**
@@ -347,6 +237,53 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
           } in tx ${noteDao.txHash.toString()}`,
         );
       });
+    }
+  }
+
+  /**
+   * Retry processing the given deferred notes because we now have the contract code.
+   *
+   * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
+   */
+  public async retryDeferredNotes(deferredNoteDaos: DeferredNoteDao[]) {
+    const excludedIndices: Set<number> = new Set();
+    const noteDaos: NoteDao[] = [];
+    for (const deferredNote of deferredNoteDaos) {
+      const { note, contractAddress, storageSlot, txHash, txNullifier, newCommitments, dataStartIndexForTx } =
+        deferredNote;
+      const payload = new L1NotePayload(note, contractAddress, storageSlot);
+
+      try {
+        const noteDao = await produceNoteDao(
+          this.simulator,
+          this.publicKey,
+          payload,
+          txHash,
+          txNullifier,
+          newCommitments,
+          dataStartIndexForTx,
+          excludedIndices,
+        );
+        noteDaos.push(noteDao);
+        this.stats.decrypted++;
+      } catch (e) {
+        this.stats.failed++;
+        this.log.warn(`Could not process deferred note because of "${e}". Skipping note...`);
+      }
+    }
+
+    if (noteDaos.length) {
+      await this.db.addNotes(noteDaos);
+      noteDaos.forEach(noteDao => {
+        this.log(
+          `Decoded and added deferred note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } with nullifier ${noteDao.siloedNullifier.toString()}`,
+        );
+      });
+
+      // TODO: Remove deferred notes from the database.
+      // TODO: keep track of the oldest deferred note that has been decoded, then reprocess nullifiers from that block onwards.
     }
   }
 }

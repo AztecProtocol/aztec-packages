@@ -60,6 +60,11 @@ export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
     throw new Error('Method not implemented.');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
+    throw new Error('Method not implemented.');
+  }
+
   public addCapsule(capsule: Fr[]): Promise<void> {
     this.capsuleStack.push(capsule);
     return Promise.resolve();

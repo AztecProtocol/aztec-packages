@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point, PublicKey, Vector } from '@aztec/circuits.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { BufferReader, Note, TxHash } from '@aztec/types';
 
@@ -9,6 +9,8 @@ import { BufferReader, Note, TxHash } from '@aztec/types';
  */
 export class DeferredNoteDao {
   constructor(
+    /** The public key associated with this note */
+    public publicKey: PublicKey,
     /** The note as emitted from the Noir contract. */
     public note: Note,
     /** The contract address this note is created in. */
@@ -27,6 +29,7 @@ export class DeferredNoteDao {
 
   toBuffer(): Buffer {
     return serializeToBuffer(
+      this.publicKey.toBuffer(),
       this.note.toBuffer(),
       this.contractAddress.toBuffer(),
       this.storageSlot.toBuffer(),
@@ -39,6 +42,7 @@ export class DeferredNoteDao {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new DeferredNoteDao(
+      reader.readObject(Point),
       reader.readObject(Note),
       reader.readObject(AztecAddress),
       reader.readObject(Fr),

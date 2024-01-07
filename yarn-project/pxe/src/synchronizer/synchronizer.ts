@@ -3,9 +3,18 @@ import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, L2BlockL2Logs, LogType } from '@aztec/types';
+import {
+  AztecNode,
+  INITIAL_L2_BLOCK_NUM,
+  KeyStore,
+  L2BlockContext,
+  L2BlockL2Logs,
+  LogType,
+  TxHash,
+} from '@aztec/types';
 import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
 
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
@@ -323,5 +332,29 @@ export class Synchronizer {
       blocks: lastBlockNumber,
       notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
     };
+  }
+
+  /**
+   * Retry decoding any deferred notes for the specified contract address.
+   * @param contractAddress - the contract address that has just been added
+   */
+  public async retryDeferredNotesForContract(contractAddress: AztecAddress) {
+    const deferredNotes = await this.db.getDeferredNotesByContract(contractAddress);
+
+    // group deferred notes by txHash to properly deal with possible duplicates
+    const txHashToDeferredNotes: Map<TxHash, DeferredNoteDao[]> = new Map();
+    for (const note of deferredNotes) {
+      const notesForTx = txHashToDeferredNotes.get(note.txHash) ?? [];
+      notesForTx.push(note);
+      txHashToDeferredNotes.set(note.txHash, notesForTx);
+    }
+
+    // now process each txHash
+    for (const deferredNotes of txHashToDeferredNotes.values()) {
+      // to be safe, try each note processor in case the deferred notes are for different accounts.
+      for (const processor of this.noteProcessors) {
+        await processor.retryDeferredNotes(deferredNotes.filter(n => n.publicKey.equals(processor.publicKey)));
+      }
+    }
   }
 }
