@@ -24,23 +24,6 @@ The previous proof and the proof for the current function call are verified usin
 
 ### Processing Private Function Call
 
-#### Ensuring the contract instance being called is deployed.
-
-It proves that either of the following conditions is true:
-
-1. The nullifier representing the contract exists in the contract tree.
-
-   - Specifically, this nullifier is the contract address siloed with the address of a precompiled deployment contract.
-
-2. The contract was deployed in a previous iteration within the same transaction.
-
-   - The contract is listed in the _new_contract_contexts_ within the _[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_ in the _public_inputs_ of the _[previous_kernel](#previouskernel)_:
-     - _`private_call.call_stack_item.contract_address == previous_kernel.public_inputs.transient_accumulated_data.new_contract_contexts[new_contract_index].contract_address`_
-   - The _counter_ of the _new_contract_context_ must be less than the _counter_start_ of the _[private_call](#privatecalldata).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_:
-     - _`private_call.call_stack_item.counter_start > previous_kernel.public_inputs.transient_accumulated_data.new_contract_contexts[new_contract_index].counter`_
-
-   > Where _new_contract_index_ is supplied as _[a hint](#hints)_ through private_inputs.
-
 #### Ensuring the function being called exists in the contract.
 
 This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract).
@@ -107,13 +90,11 @@ This circuit verifies this proof and [the proof for the previous function call](
 
 It ensures the private function circuit's intention by checking the following in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-- If _new_contracts_ is not empty, the _contract_address_ must equal the precompiled deployment contract address.
 - The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
 - If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
   - _note_hashes_
   - _nullifiers_
   - _l2_to_l1_messages_
-  - _new_contracts_
 
 #### Verifying the counters.
 
@@ -169,14 +150,6 @@ Data of the previous kernel iteration.
 ### _PrivateCallData_
 
 The format aligns with the _[PrivateCallData](./private-kernel-initial.md#privatecalldata)_ of the initial private kernel circuit.
-
-### _Hints_
-
-Data that aids in the verifications carried out in this circuit.
-
-| Field                | Type    | Description                                                                                           |
-| -------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| _new_contract_index_ | _field_ | Index of the contract in the _new_contract_contexts_ in the _public_inputs_ of the _previous_kernel_. |
 
 ## Public Inputs
 

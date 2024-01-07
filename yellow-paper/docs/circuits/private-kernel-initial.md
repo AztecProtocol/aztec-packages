@@ -58,30 +58,34 @@ This nullifier serves multiple purposes:
 
 ### Processing Private Function Call
 
-#### Ensuring the contract instance being called is deployed.
-
-It proves that the nullifier representing the contract exists in the contract tree.
-
-This nullifier is the contract address siloed with the address of a precompiled deployment contract.
-
 #### Ensuring the function being called exists in the contract.
 
-The contract address contains the contract class ID, which is a hash of the root of its function tree and additional values. This circuit leverages these characteristics to establish the validity of the function's association with the contract address.
+With the provided data:
 
-Each leaf of the function tree is a hash representing a function. The preimage is defined as the concatenation of:
+- _contract_address_ from _[private_inputs](#private-inputs).[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem)_.
+- _contract_data_ from _[private_inputs](#private-inputs).[private_call](#privatecalldata)_.
+- _contract_class_data_ from _[private_inputs](#private-inputs).[private_call](#privatecalldata)_.
+- _function_data_ from _[private_inputs](#private-inputs).[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem)_.
 
-- Function data.
-- Hash of the verification key.
-- Hash of the function bytecode.
+This circuit validates the existence of the function in the contract through the following checks:
 
-To ensure the function's existence, the circuit executes the following steps:
+1. Verify that the _contract_address_ can be derived from the _contract_data_:
 
-1. Computes the hash of the verification key.
-2. Calculates the function leaf: `hash(...function_data, vk_hash, bytecode_hash)`
-3. Derives the function tree root with the leaf and the specified sibling path.
-4. Computes the contract class ID using the function tree root and additional information.
-5. Generates the contract address using the contract class ID and other relevant details.
-6. Validates that the contract address matches the address specified in the private call data.
+   Refer to the details [here](../contract-deployment/instances.md#address) for the process of computing the address for a contract instance.
+
+2. Verify that the _contract_data.contract_class_id_ can be derived from the given _contract_class_data_:
+
+Refer to the details [here](../contract-deployment/classes.md#class-identifier) for the process of computing the _contract_class_id_.
+
+3. Verify that _contract_class_data.private_functions_ includes the function being called:
+
+   1. Compute the hash of the verification key:
+      - _`vk_hash = hash(private_call.vk)`_
+   2. Compute the function leaf:
+      - _`hash(function_data.selector, vk_hash, private_call.bytecode_hash)`_
+   3. Perform a membership check on the function leaf, where:
+      - The index and sibling path are in _function_leaf_membership_witness_ within _[private_call](#privatecalldata)_.
+      - The root is _contract_class_data.private_functions_.
 
 #### Verifying the private function proof.
 
@@ -91,7 +95,6 @@ It verifies that the private function was executed successfully with the provide
 
 It ensures the private function circuit's intention by checking the following in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-- If _new_contracts_ is not empty, the _contract_address_ must equal the precompiled deployment contract address.
 - The _block_header_ must match the one in the _[constant_data](#constantdata)_.
 
 #### Verifying the counters.
@@ -113,7 +116,6 @@ It verifies that each relevant value listed below is associated with a legitimat
 
    - _note_hashes_
    - _nullifiers_
-   - _new_contracts_
    - _read_requests_
 
 3. For the last _N_ non-empty items in the _private_call_requests_ in the _[transient_accumulated_data](#transientaccumulateddata)_:
@@ -157,8 +159,6 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
      - _value_, _counter_
    - _l2_to_l1_message_contexts_
      - _value_
-   - _new_contract_contexts_
-     - _contract_address_, _counter_
    - _read_request_contexts_
      - _note_hash_, _counter_
    - _public_call_requests_
@@ -223,14 +223,15 @@ Data that represents the caller's intent.
 
 Data that holds details about the current private function call.
 
-| Field                              | Type                                            | Description                                          |
-| ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
-| _call_stack_item_                  | _[PrivateCallStackItem](#privatecallstackitem)_ | Information about the current private function call. |
-| _proof_                            | _Proof_                                         | Proof of the private function circuit.               |
-| _vk_                               | _VerificationKey_                               | Verification key of the private function circuit.    |
-| _bytecode_hash_                    | _field_                                         | Hash of the function bytecode.                       |
-| _function_leaf_membership_witness_ | _[MembershipWitness](#membershipwitness)_       | Membership witness for the function being called.    |
-| _contract_leaf_membership_witness_ | _[MembershipWitness](#membershipwitness)_       | Membership witness for the contract being called.    |
+| Field                              | Type                                                                | Description                                          |
+| ---------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| _call_stack_item_                  | _[PrivateCallStackItem](#privatecallstackitem)_                     | Information about the current private function call. |
+| _proof_                            | _Proof_                                                             | Proof of the private function circuit.               |
+| _vk_                               | _VerificationKey_                                                   | Verification key of the private function circuit.    |
+| _bytecode_hash_                    | _field_                                                             | Hash of the function bytecode.                       |
+| _contract_data_                    | _[ContractInstance](../contract-deployment/instances.md#structure)_ | Data of the contract instance being called.          |
+| _contract_class_data_              | _[ContractClassData](#contractclassdata)_                           | Data of the contract class.                          |
+| _function_leaf_membership_witness_ | _[MembershipWitness](#membershipwitness)_                           | Membership witness for the function being called.    |
 
 ## Public Inputs
 
@@ -261,7 +262,6 @@ Data that remains the same throughout the entire transaction.
 | _note_hash_contexts_        | [_[NoteHashContext](#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
 | _nullifier_contexts_        | [_[NullifierContext](#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
 | _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
-| _new_contract_contexts_     | [_[NewContractContext](#newcontractcontext)_; C]     | New contracts with extra data aiding verification.     |
 | _read_request_contexts_     | [_[ReadRequestContext](#readrequestcontext)_; C]     | Requests to read notes in the note hash tree.          |
 | _private_call_requests_     | [_[CallRequest](#callrequest)_; C]                   | Requests to call private functions.                    |
 | _public_call_requests_      | [_[CallRequest](#callrequest)_; C]                   | Requests to call publics functions.                    |
@@ -277,6 +277,17 @@ Data that remains the same throughout the entire transaction.
 | _function_selector_ | _u32_                              | Selector of the function being called.              |
 | _function_type_     | private \| public \| unconstrained | Type of the function being called.                  |
 | _is_internal_       | _bool_                             | A flag indicating whether the function is internal. |
+
+#### _ContractClassData_
+
+| Field                     | Type           | Description                                                        |
+| ------------------------- | -------------- | ------------------------------------------------------------------ |
+| _version_                 | _u8_           | Version identifier.                                                |
+| _registerer_address_      | _AztecAddress_ | Address of the canonical contract used for registering this class. |
+| _artifact_hash_           | _field_        | Hash of the contract artifact.                                     |
+| _private_functions_       | _field_        | Merkle root of the private function tree.                          |
+| _public_functions_        | _field_        | Merkle root of the public function tree.                           |
+| _unconstrained_functions_ | _field_        | Merkle root of the unconstrained function tree.                    |
 
 #### _TransactionContext_
 

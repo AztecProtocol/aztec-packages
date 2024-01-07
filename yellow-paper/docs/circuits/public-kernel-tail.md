@@ -69,7 +69,6 @@ This circuit ensures the correct ordering of the following:
 - Note hashes.
 - Nullifiers.
 - L2-to-L1 messages.
-- New contracts.
 - Read requests.
 - Update requests.
 
@@ -210,7 +209,6 @@ After all the update requests are processed:
    - Note hashes.
    - Nullifiers.
    - L2-to-L1 messages.
-   - New contracts.
 
    > Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
 
@@ -236,7 +234,12 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 ### _PreviousKernel_
 
-The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previouskernel)_ of the inner private kernel circuit.
+| Field                | Type                                                                 | Description                                  |
+| -------------------- | -------------------------------------------------------------------- | -------------------------------------------- |
+| _public_inputs_      | _[PrivateKernelPublicInputs](#public-inputs)_                        | Public inputs of the proof.                  |
+| _proof_              | _Proof_                                                              | Proof of the kernel circuit.                 |
+| _vk_                 | _VerificationKey_                                                    | Verification key of the kernel circuit.      |
+| _membership_witness_ | _[MembershipWitness](./private-kernel-initial.md#membershipwitness)_ | Membership witness for the verification key. |
 
 ### _Hints_
 
@@ -273,7 +276,6 @@ Data accumulated during the execution of the transaction.
 | _note_hashes_                      | [_field_; C]                    | Note hashes created in the transaction.                     |
 | _nullifiers_                       | [_field_; C]                    | Nullifiers created in the transaction.                      |
 | _l2_to_l1_messages_                | [_field_; C]                    | L2-to-L1 messages created in the transaction.               |
-| _new_contracts_                    | [_NewContract_; C]              | New contracts deployed in the transaction.                  |
 | _encrypted_logs_hash_              | [_field_; N]                    | Hash of the accumulated encrypted logs.                     |
 | _unencrypted_logs_hash_            | [_field_; N]                    | Hash of the accumulated unencrypted logs.                   |
 | _encrypted_log_preimages_length_   | _field_                         | Length of the accumulated encrypted log preimages.          |
@@ -288,7 +290,6 @@ Data accumulated during the execution of the transaction.
 | _note_hash_contexts_        | [_[NoteHashContext](./private-kernel-initial.md#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
 | _nullifier_contexts_        | [_[NullifierContext](./private-kernel-initial.md#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
 | _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](./private-kernel-initial.md#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
-| _new_contract_contexts_     | [_[NewContractContext](./private-kernel-initial.md#newcontractcontext)_; C]     | New contracts with extra data aiding verification.     |
 | _storage_reads_             | [_[StorageRead](#storageread)_; C]                                              | Reads of the public data.                              |
 | _storage_writes_            | [_[StorageWrite](#storagewrite)_; C]                                            | Writes of the public data.                             |
 | _public_call_requests_      | [_[CallRequest](./private-kernel-initial.md#callrequest)_; C]                   | Requests to call publics functions.                    |

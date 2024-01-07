@@ -21,35 +21,19 @@ The preceding proof can be:
 
 ### Processing Public Function Call
 
-#### Ensuring the contract instance being called is deployed.
-
-1. The nullifier representing the contract exists in the contract tree.
-
-   - Specifically, this nullifier is the contract address siloed with the address of a precompiled deployment contract.
-
-2. The contract is listed in the new contracts within the public inputs.
-
-   - The index of this contract in the new contracts array is supplied as a hint through private inputs.
-   - The counter of the new contract context must be less than the _counter_start_ of the current call.
-
 #### Ensuring the function being called exists in the contract.
 
-The contract address contains the contract class ID, which is a hash of the root of its function tree and additional values. This circuit leverages these characteristics to establish the validity of the function's association with the contract address.
+This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract).
 
-Each leaf of the function tree is a hash representing a function. The preimage is defined as the concatenation of:
+#### Ensuring the contract instance being called is deployed.
 
-- Function data.
-- Hash of the verification key.
-- Hash of the function bytecode.
+It verifies the public deployment of the contract instance by conducting a membership proof, where:
 
-To ensure the function's existence, the circuit executes the following steps:
-
-1. Computes the hash of the verification key.
-2. Calculates the function leaf: `hash(...function_data, vk_hash, bytecode_hash)`
-3. Derives the function tree root with the leaf and the specified sibling path.
-4. Computes the contract class ID using the function tree root and additional information.
-5. Generates the contract address using the contract class ID and other relevant details.
-6. Validates that the contract address matches the address specified in the call data.
+- The leaf is a nullifier emitting from the deployer contract, computed as _`hash(deployer_address, contract_address)`_, where:
+  - _deployer_address_ is from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[contract_data](../contract-deployment/instances.md#structure)_.
+  - _contract_data_ is from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem)_.
+- The index and sibling path are provided in _contract_deployment_membership_witness_ through _[private_inputs](#private-inputs).[public_call](#publiccalldata)_.
+- The root is the _nullifier_tree_root_ in the _[block_header](./private-function.md#blockheader)_ within _[public_inputs](#public-inputs).[constant_data](./private-kernel-initial.md#constantdata)_.
 
 #### Ensuring the function is legitimate:
 
@@ -157,7 +141,6 @@ It verifies that each relevant value is associated with a legitimate counter.
    - Note hashes.
    - Nullifiers.
    - L2-to-L1 messages.
-   - New contracts.
    - **Encrypted** log hash.
    - **Encrypted** log length.
    - Old public data tree snapshot.
@@ -202,26 +185,27 @@ It verifies that the constant data matches the one in the previous iteration's p
 
 ### _PreviousKernel_
 
-The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previouskernel)_ of the inner private kernel circuit.
+The format aligns with the _[PreviousKernel](./private-kernel-tail.md#previouskernel)_ of the tail public kernel circuit.
 
-### Public Call Data
+### _PublicCallData_
 
 Data that holds details about the current public function call.
 
-| Field                              | Type                                                               | Description                                         |
-| ---------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------- |
-| _call_stack_item_                  | _[PublicCallStackItem](#publiccallstackitem)_                      | Information about the current public function call. |
-| _proof_                            | _Proof_                                                            | Proof of the public function circuit.               |
-| _vk_                               | _VerificationKey_                                                  | Verification key of the public function circuit.    |
-| _bytecode_hash_                    | _field_                                                            | Hash of the function bytecode.                      |
-| _function_leaf_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_ | Membership witness for the function being called.   |
-| _contract_leaf_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_ | Membership witness for the contract being called.   |
+| Field                                    | Type                                                                 | Description                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| _call_stack_item_                        | _[PublicCallStackItem](#publiccallstackitem)_                        | Information about the current public function call.                 |
+| _proof_                                  | _Proof_                                                              | Proof of the public function circuit.                               |
+| _vk_                                     | _VerificationKey_                                                    | Verification key of the public function circuit.                    |
+| _bytecode_hash_                          | _field_                                                              | Hash of the function bytecode.                                      |
+| _contract_data_                          | _[ContractInstance](../contract-deployment/instances.md#structure)_  | Data of the contract instance being called.                         |
+| _contract_class_data_                    | _[ContractClassData](./private-kernel-initial.md#contractclassdata)_ | Data of the contract class.                                         |
+| _function_leaf_membership_witness_       | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_   | Membership witness for the function being called.                   |
+| _contract_deployment_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_   | Membership witness for the deployment of the contract being called. |
 
 ### _Hints_
 
 Data that aids in the verifications carried out in this circuit or later iterations:
 
-- Index of the new contract.
 - Update requests override counters.
 
 ## Public Inputs

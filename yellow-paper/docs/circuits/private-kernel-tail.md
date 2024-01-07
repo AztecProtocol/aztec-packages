@@ -84,8 +84,6 @@ This circuit ensures the correct ordering of the following arrays within _[publi
 - _note_hashes_
 - _nullifiers_
 - _public_call_requests_
-- New contracts (if public call request is empty).
-- New contract contexts (if public call request is not empty).
 
 The corresponding unordered array for each of the above is sourced from _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_.
 
@@ -136,28 +134,16 @@ A [hints](#hints) array is provided through _private_inputs_ for every unordered
 
 #### Recalibrating counters.
 
-1. For public call requests:
+While the _counter_start_ of a _public_call_request_ is initially assigned in the private function circuit to ensure proper ordering within the transaction, it should be modified in this step. As using _counter_start_ values obtained from private function circuits may leak information.
 
-   While the _counter_start_ of a _public_call_request_ is initially assigned in the private function circuit to ensure proper ordering within the transaction, it should be modified in this step. As using _counter_start_ values obtained from private function circuits may leak information.
+The _counter_start_ in the _public_call_requests_ within _public_inputs_ have been recalibrated. This circuit validates them through the following checks:
 
-   The _counter_start_ in the _public_call_requests_ within _public_inputs_ have been recalibrated. This circuit validates them through the following checks:
+- The _counter_start_ of the item at index _i_ must equal the _counter_start_ of the item at index _i + 1_ **plus 1**.
+- The _counter_start_ of the last item must be _1_.
 
-   - The _counter_start_ of the item at index _i_ must equal the _counter_start_ of the item at index _i + 1_ **plus 1**.
-   - The _counter_start_ of the last item must be _1_.
+> It's crucial for the _counter_start_ of the last item to be _1_, as it's assumed in the [tail public kernel circuit](./public-kernel-tail.md#grouping-update-requests) that no update requests have a counter _1_.
 
-   > It's crucial for the _counter_start_ of the last item to be _1_, as it's assumed in the [tail public kernel circuit](./public-kernel-tail.md#grouping-update-requests) that no update requests have a counter _1_.
-
-   > The _counter_end_ for a public call request is determined by the overall count of call requests, reads and writes, note hashes and nullifiers within its scope, including those nested within its child function executions. This calculation will be performed by the sequencer for the executions of public function calls.
-
-2. For new contract contexts:
-
-   If there's at least one non-empty public call request, the new contract contexts are forwarded for processing in the public kernels. However, the counters within new contract contexts must be adjusted to reflect changes in the counters for public call requests from the previous step.
-
-   For each new contract context in the transient accumulated data:
-
-   1. If its counter is greater than the **old** _counter_start_ of the public call request at index _0_, update it to be the **new** _counter_start_ of that public call request **plus 1** and skip the remaining steps.
-   2. Locate the public call request at index _i_ where the **old** _counter_start_ is greater than the counter, and the **old** _counter_start_ of the public call request at index _i + 1_ is less than the counter.
-   3. Update its counter to be the **new** _counter_start_ of the public call request at index _i_.
+> The _counter_end_ for a public call request is determined by the overall count of call requests, reads and writes, note hashes and nullifiers within its scope, including those nested within its child function executions. This calculation will be performed by the sequencer for the executions of public function calls.
 
 ### Validating Public Inputs
 
@@ -171,7 +157,6 @@ A [hints](#hints) array is provided through _private_inputs_ for every unordered
 
    - _note_hashes_
    - _nullifiers_
-   - _new_contracts_
 
 3. The following must match the respective values within _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[accumulated_data](./private-kernel-initial.md#accumulateddata)_:
 
@@ -187,11 +172,9 @@ A [hints](#hints) array is provided through _private_inputs_ for every unordered
 
 #### Verifying the transient accumulated data.
 
-It ensures that all data in the transient accumulated data is empty, with the exception of the _public_call_requests_ and new contract contexts.
+It ensures that all data in the transient accumulated data is empty, with the exception of the _public_call_requests_.
 
 The _public_call_requests_ must adhere to a specific order, as verified in a [previous step](#verifying-ordered-arrays).
-
-The new contract contexts should be empty when there are no public call requests. In the event of propagation to the public kernels, they must also [conform to a specific order](#verifying-ordered-arrays).
 
 #### Verifying the constant data.
 

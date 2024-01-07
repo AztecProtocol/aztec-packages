@@ -134,7 +134,6 @@ It ensures that the _accumulated_data_ in the _[public_inputs](#public-inputs)_ 
 The following must equal the corresponding array in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_:
 
 - _l2_to_l1_message_contexts_
-- _new_contract_contexts_
 - _private_call_requests_
 - _public_call_requests_
 

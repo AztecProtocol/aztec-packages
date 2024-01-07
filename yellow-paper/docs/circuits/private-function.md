@@ -28,7 +28,6 @@ The following format defines the ABI that is used by the private kernel circuit 
 | _read_requests_                    | [_[ReadRequest](#readrequest)_; C] | Requests to read notes in the note hash tree.                          |
 | _note_hashes_                      | [_[NoteHash](#notehash)_; C]       | New note hashes created in this function call.                         |
 | _nullifiers_                       | [_[Nullifier](#nullifier)_; C]     | New nullifiers created in this function call.                          |
-| _new_contracts_                    | [_[NewContract](#newcontract)_; C] | Data of contracts deployed in this function call.                      |
 | _l2_to_l1_messages_                | [_field_; C]                       | New L2 to L1 messages created in this function call.                   |
 | _encrypted_logs_hash_              | [_field_; N]                       | Hash of the encrypted logs emitted in this function call.              |
 | _unencrypted_logs_hash_            | [_field_; N]                       | Hash of the unencrypted logs emitted in this function call.            |
@@ -77,22 +76,12 @@ The following format defines the ABI that is used by the private kernel circuit 
 | _value_   | _field_ | Value of the nullifier.                     |
 | _counter_ | _field_ | Counter at which the nullifier was created. |
 
-#### _NewContract_
-
-| Field              | Type           | Description                                 |
-| ------------------ | -------------- | ------------------------------------------- |
-| _contract_address_ | _AztecAddress_ | Address of the contract.                    |
-| _counter_          | _field_        | Counter at which the contract was deployed. |
-
-// TODO - more fields
-
 #### _BlockHeader_
 
 | Field                         | Type    | Description                                                                                     |
 | ----------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
 | _note_hash_tree_root_         | _field_ | Root of the note hash tree.                                                                     |
 | _nullifier_tree_root_         | _field_ | Root of the nullifier tree.                                                                     |
-| _contract_tree_root_          | _field_ | Root of the contract tree.                                                                      |
 | _l1_to_l2_messages_tree_root_ | _field_ | Root of the l1-to-l2 messages tree.                                                             |
 | _public_data_tree_root_       | _field_ | Root of the public data tree.                                                                   |
 | _archive_tree_root_           | _field_ | Root of the state roots tree archived at the block prior to when the transaction was assembled. |
