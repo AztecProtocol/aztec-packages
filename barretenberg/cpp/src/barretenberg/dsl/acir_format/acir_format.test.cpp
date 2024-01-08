@@ -49,7 +49,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
     };
 
     WitnessVector witness{ 0, 0, 1 };
-    auto builder = create_circuit(constraint_system, 0, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -159,7 +159,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
     };
-    auto builder = create_circuit(constraint_system, 0, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -246,7 +246,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         witness[i] = message_string[i];
     }
 
-    auto builder = create_circuit(constraint_system, 0, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -336,7 +336,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     }
 
     // TODO: actually sign a schnorr signature!
-    auto builder = create_circuit(constraint_system, 0, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -412,7 +412,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
     };
 
     WitnessVector witness{ 4, 2, 6, 2 };
-    auto builder = create_circuit(constraint_system, 0, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);

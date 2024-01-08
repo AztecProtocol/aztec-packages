@@ -681,6 +681,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         w_r().reserve(size_hint);
         w_o().reserve(size_hint);
         w_4().reserve(size_hint);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Once the hardcoded +1 offset is removed from
+        // noir, we'll need to move the addition of the const zwero variable to after the addition of the acir witness
+        // to variables.
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
         for (size_t idx = 0; idx < varnum; ++idx) {

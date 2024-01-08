@@ -82,11 +82,11 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
                                          acir_format::WitnessVector& witness)
 {
-    // The public inputs in constraint_system do not index into "witness" but rather into the future "variables" which
-    // it assumes will be equal to witness but with a prepended zero. We want to remove this +1 so that public_inputs
-    // properly indexes into witness because we're about to make calls like add_variable(witness[public_inputs[idx]]).
-    // Once the +1 is removed from noir, this correction can be removed entirely and we can use
-    // constraint_system.public_inputs directly.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The public inputs in constraint_system do not
+    // index into "witness" but rather into the future "variables" which it assumes will be equal to witness but with a
+    // prepended zero. We want to remove this +1 so that public_inputs properly indexes into witness because we're about
+    // to make calls like add_variable(witness[public_inputs[idx]]). Once the +1 is removed from noir, this correction
+    // can be removed entirely and we can use constraint_system.public_inputs directly.
     const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {
