@@ -10,12 +10,14 @@ import {
   L2BlockContext,
   L2BlockL2Logs,
   LogType,
+  MerkleTreeId,
   TxHash,
 } from '@aztec/types';
 import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
@@ -338,7 +340,7 @@ export class Synchronizer {
    * Retry decoding any deferred notes for the specified contract address.
    * @param contractAddress - the contract address that has just been added
    */
-  public async retryDeferredNotesForContract(contractAddress: AztecAddress) {
+  public async reprocessDeferredNotesForContract(contractAddress: AztecAddress) {
     const deferredNotes = await this.db.getDeferredNotesByContract(contractAddress);
 
     // group deferred notes by txHash to properly deal with possible duplicates
@@ -349,12 +351,51 @@ export class Synchronizer {
       txHashToDeferredNotes.set(note.txHash, notesForTx);
     }
 
+    // keep track of decoded notes
+    const newNotes: NoteDao[] = [];
     // now process each txHash
     for (const deferredNotes of txHashToDeferredNotes.values()) {
       // to be safe, try each note processor in case the deferred notes are for different accounts.
       for (const processor of this.noteProcessors) {
-        await processor.retryDeferredNotes(deferredNotes.filter(n => n.publicKey.equals(processor.publicKey)));
+        const decodedNotes = await processor.decodeDeferredNotes(
+          deferredNotes.filter(n => n.publicKey.equals(processor.publicKey)),
+        );
+        newNotes.push(...decodedNotes);
       }
+    }
+
+    // now drop the deferred notes, and add the decoded notes
+    await this.db.removeDeferredNotesByContract(contractAddress);
+    await this.db.addNotes(newNotes);
+
+    newNotes.forEach(noteDao => {
+      this.log(
+        `Decoded deferred note for contract ${noteDao.contractAddress} at slot ${
+          noteDao.storageSlot
+        } with nullifier ${noteDao.siloedNullifier.toString()}`,
+      );
+    });
+
+    // now group the decoded notes by public key
+    const publicKeyToNotes: Map<PublicKey, NoteDao[]> = new Map();
+    for (const noteDao of newNotes) {
+      const notesForPublicKey = publicKeyToNotes.get(noteDao.publicKey) ?? [];
+      notesForPublicKey.push(noteDao);
+      publicKeyToNotes.set(noteDao.publicKey, notesForPublicKey);
+    }
+
+    // now for each group, look for the nullifiers in the nullifier tree
+    for (const [publicKey, notes] of publicKeyToNotes.entries()) {
+      const nullifiers = notes.map(n => n.siloedNullifier);
+      const relevantNullifiers: Fr[] = [];
+      for (const nullifier of nullifiers) {
+        // NOTE: this leaks information about the nullifiers I'm interested in to the node.
+        const found = await this.node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+        if (found) {
+          relevantNullifiers.push(nullifier);
+        }
+      }
+      await this.db.removeNullifiedNotes(relevantNullifiers, publicKey);
     }
   }
 }

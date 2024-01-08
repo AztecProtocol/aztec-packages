@@ -101,10 +101,10 @@ export class KVPxeDatabase implements PxeDatabase {
     }
   }
 
-  async addDeferredNotes(notes: DeferredNoteDao[]): Promise<void> {
-    const newLength = await this.#deferredNotes.push(...notes.map(note => note.toBuffer()));
-    for (const [index, note] of notes.entries()) {
-      const noteId = newLength - notes.length + index;
+  async addDeferredNotes(deferredNotes: DeferredNoteDao[]): Promise<void> {
+    const newLength = await this.#deferredNotes.push(...deferredNotes.map(note => note.toBuffer()));
+    for (const [index, note] of deferredNotes.entries()) {
+      const noteId = newLength - deferredNotes.length + index;
       await this.#deferredNotesByContract.set(note.contractAddress.toString(), noteId);
     }
   }
@@ -123,6 +123,36 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     return Promise.resolve(notes);
+  }
+
+  /**
+   * Removes all deferred notes for a given contract address.
+   * @param contractAddress - the contract address to remove deferred notes for
+   * @returns an array of the removed deferred notes
+   *
+   * @remarks We only remove indices from the deferred notes by contract map, but not the actual deferred notes.
+   * This is safe because our only getter for deferred notes is by contract address.
+   * If we should add a more general getter, we will need a delete vector for deferred notes as well,
+   * analogous to this.#nullifiedNotes.
+   */
+  removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
+    return this.#db.transaction(() => {
+      const deferredNotes: DeferredNoteDao[] = [];
+      const indices = this.#deferredNotesByContract.getValues(contractAddress.toString());
+
+      for (const index of indices) {
+        const deferredNoteBuffer = this.#deferredNotes.at(index);
+        if (!deferredNoteBuffer) {
+          continue;
+        } else {
+          deferredNotes.push(DeferredNoteDao.fromBuffer(deferredNoteBuffer));
+        }
+
+        void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
+      }
+
+      return deferredNotes;
+    });
   }
 
   *#getAllNonNullifiedNotes(): IterableIterator<NoteDao> {
@@ -185,6 +215,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]> {
+    if (nullifiers.length === 0) {
+      return Promise.resolve([]);
+    }
     const nullifierSet = new Set(nullifiers.map(n => n.toString()));
     return this.#db.transaction(() => {
       const notesIds = this.#notesByOwner.getValues(account.toString());

@@ -17,6 +17,7 @@ import { PxeDatabase } from './pxe_database.js';
  */
 export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
   private notesTable: NoteDao[] = [];
+
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private blockNumber: number | undefined;
@@ -62,6 +63,11 @@ export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
     throw new Error('Method not implemented.');
   }
 

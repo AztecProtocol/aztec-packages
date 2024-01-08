@@ -166,7 +166,7 @@ export class NoteProcessor {
                   deferredNoteDaos.push(deferredNoteDao);
                 } else {
                   this.stats.failed++;
-                  this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+                  this.log.warn(`Could not process note because of "${e}". Discarding note...`);
                 }
               }
             }
@@ -241,11 +241,15 @@ export class NoteProcessor {
   }
 
   /**
-   * Retry processing the given deferred notes because we now have the contract code.
+   * Retry decoding the given deferred notes because we now have the contract code.
    *
    * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
+   * @returns An array of NoteDaos that were successfully decoded.
+   *
+   * @remarks Caller is responsible for making sure that we have the contract for the
+   * deferred notes provided: we will not retry notes that fail again.
    */
-  public async retryDeferredNotes(deferredNoteDaos: DeferredNoteDao[]) {
+  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<NoteDao[]> {
     const excludedIndices: Set<number> = new Set();
     const noteDaos: NoteDao[] = [];
     for (const deferredNote of deferredNoteDaos) {
@@ -268,22 +272,10 @@ export class NoteProcessor {
         this.stats.decrypted++;
       } catch (e) {
         this.stats.failed++;
-        this.log.warn(`Could not process deferred note because of "${e}". Skipping note...`);
+        this.log.warn(`Could not process deferred note because of "${e}". Discarding note...`);
       }
     }
 
-    if (noteDaos.length) {
-      await this.db.addNotes(noteDaos);
-      noteDaos.forEach(noteDao => {
-        this.log(
-          `Decoded and added deferred note for contract ${noteDao.contractAddress} at slot ${
-            noteDao.storageSlot
-          } with nullifier ${noteDao.siloedNullifier.toString()}`,
-        );
-      });
-
-      // TODO: Remove deferred notes from the database.
-      // TODO: keep track of the oldest deferred note that has been decoded, then reprocess nullifiers from that block onwards.
-    }
+    return noteDaos;
   }
 }
