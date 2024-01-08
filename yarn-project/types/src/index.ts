@@ -1,3 +1,8 @@
+import { ContractDataSource } from './contract_data.js';
+import { L2LogsSource } from './index.js';
+import { L1ToL2MessageSource } from './l1_to_l2_message.js';
+import { L2BlockSource } from './l2_block_source.js';
+
 export * from './constants.js';
 export * from './contract_dao.js';
 export * from './contract_database.js';
@@ -22,5 +27,8 @@ export * from './packed_arguments.js';
 export * from './interfaces/index.js';
 export * from './sibling_path.js';
 export * from './auth_witness.js';
-export * from './aztec_node/rpc/index.js';
+
 export { CompleteAddress, PublicKey, PartialAddress, GrumpkinPrivateKey } from '@aztec/circuits.js';
+
+/** Helper type for archival data sources. */
+export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;

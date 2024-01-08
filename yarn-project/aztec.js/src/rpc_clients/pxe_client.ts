@@ -26,8 +26,6 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-export { makeFetch } from '@aztec/foundation/json-rpc/client';
-
 /**
  * Creates a JSON-RPC client to remotely talk to PXE.
  * @param url - The URL of the PXE.

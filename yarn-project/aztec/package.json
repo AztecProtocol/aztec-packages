@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/aztec-sandbox",
+  "name": "@aztec/aztec",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -10,12 +10,13 @@
     "entryPoints": [
       "./src/index.ts"
     ],
-    "name": "Sandbox",
+    "name": "Aztec Packages",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
+    "start:cli": "node --no-warnings ./dest/bin/cli.js",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -39,8 +40,10 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/types": "workspace:^",
     "abitype": "^0.8.11",
+    "commander": "^11.1.0",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
+    "lodash.pick": "^4.4.0",
     "viem": "^1.2.5",
     "winston": "^3.10.0",
     "winston-daily-rotate-file": "^4.7.1"

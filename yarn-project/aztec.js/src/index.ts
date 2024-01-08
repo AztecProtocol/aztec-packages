@@ -46,7 +46,7 @@ export {
   computeAuthWitMessageHash,
 } from './utils/index.js';
 
-export { createPXEClient } from './pxe_client.js';
+export { createPXEClient, createAztecNodeClient, createArchiverClient } from './rpc_clients/index.js';
 
 export { CompleteAddress, AuthWitnessProvider } from './account/index.js';
 
@@ -112,7 +112,6 @@ export {
   TxReceipt,
   TxStatus,
   UnencryptedL2Log,
-  createAztecNodeClient,
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
