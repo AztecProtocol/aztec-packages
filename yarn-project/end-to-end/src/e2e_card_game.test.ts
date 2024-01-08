@@ -99,7 +99,9 @@ describe('e2e_card_game', () => {
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
   }, 100_000);
 
-  beforeEach(async () => {await deployContract();})
+  beforeEach(async () => {
+    await deployContract();
+  });
 
   afterAll(() => teardown());
 
