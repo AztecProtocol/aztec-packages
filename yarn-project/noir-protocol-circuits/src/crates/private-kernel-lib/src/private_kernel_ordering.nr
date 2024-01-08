@@ -1,5 +1,6 @@
 use crate::common;
 use dep::std::unsafe;
+use dep::std::option::Option;
 use dep::std::ops::Eq;
 use dep::types::{
     abis::{
@@ -65,7 +66,7 @@ impl PrivateKernelInputsOrdering {
 
     fn assert_sorted_counters<T, N>(original: [T; N], sorted: [T; N], indexes: [u32; N]) where T: Eq + Ordered + Empty {
         let mut seen = [false; N];
-        let mut prev_counter = 0;
+        let mut prev_counter = Option::none();
         let mut prev_was_empty = false;
 
         for i in 0..N {
@@ -77,17 +78,18 @@ impl PrivateKernelInputsOrdering {
             seen[index] = true;
 
             assert(item.eq(original[index]), "Not equal");
+
             let counter = item.counter();
             let is_empty = is_empty(item);
 
             if prev_was_empty {
                 assert(is_empty, "Empty items must be at the end");
-            } else if !is_empty {
-                assert(counter >= prev_counter, "Not sorted");
+            } else if !is_empty & prev_counter.is_some() {
+                assert(counter > prev_counter.unwrap(), "Not sorted");
             }
 
             prev_was_empty = is_empty;
-            prev_counter = counter;
+            prev_counter = Option::some(counter);
         }
     }
 
