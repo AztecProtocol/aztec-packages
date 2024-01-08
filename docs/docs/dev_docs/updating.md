@@ -44,6 +44,7 @@ aztec-cli update . --contract src/contract1 --contract src/contract2
 The sandbox must be running for the update command to work. Make sure it is [installed and running](../dev_docs/cli/sandbox-reference.md).
 
 3. Refer [Migration Notes](../misc/migration_notes.md) on any breaking changes that might affect your dapp
+
 ---
 
 There are three components whose versions need to be kept compatible:
@@ -71,9 +72,9 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 ```diff
 [dependencies]
 -aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/aztec" }
-+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.16.9", directory="yarn-project/aztec-nr/aztec" }
++aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
 -value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="yarn-project/aztec-nr/value-note" }
-+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.16.9", directory="yarn-project/aztec-nr/value-note" }
++value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note" }
 ```
 
 Go to the contract directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:
