@@ -212,16 +212,12 @@ impl BlackBoxFuncCall {
                 proof,
                 public_inputs,
                 key_hash,
-                ..
             } => {
                 let mut inputs = Vec::new();
                 inputs.extend(key.iter().copied());
                 inputs.extend(proof.iter().copied());
                 inputs.extend(public_inputs.iter().copied());
                 inputs.push(*key_hash);
-                // NOTE: we do not return an input aggregation object as it will either be non-existent for the first recursive aggregation
-                // or the output aggregation object of a previous recursive aggregation. We do not simulate recursive aggregation
-                // thus the input aggregation object will always be unassigned until proving
                 inputs
             }
         }
