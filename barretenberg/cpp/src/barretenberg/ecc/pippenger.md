@@ -1,4 +1,6 @@
-# Implement cache-optimized, parallelizable pippenger implementation 
+# Pippenger's algorithm
+
+Goal: Implement cache-optimized, parallelizable pippenger implementation 
 
 ## The problem 
 

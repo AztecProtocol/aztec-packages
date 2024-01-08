@@ -176,9 +176,10 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::export_proof()
     return proof;
 }
 
+//! [ConstructProof]
 template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
+    // Add circuit size public input size and public inputs to transcript
     execute_preamble_round();
 
     // Compute first three wire commitments
@@ -203,6 +204,7 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
 
     return export_proof();
 }
+//! [ConstructProof]
 
 template class UltraProver_<honk::flavor::Ultra>;
 template class UltraProver_<honk::flavor::GoblinUltra>;

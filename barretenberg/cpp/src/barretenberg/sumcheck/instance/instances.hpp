@@ -40,7 +40,7 @@ template <typename Flavor_, size_t NUM_> struct ProverInstances_ {
      * @brief For a fixed row index and each polynomial, construct univariates from the corresponding value
      * from each instance.
      *
-     * @example if the row index is 2, and there are 4 instances visually we have
+     * @details If the row index is 2, and there are 4 instances visually we have
      *
      *           Instance 0       Instance 1       Instance 2       Instance 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...

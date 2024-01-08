@@ -1,4 +1,4 @@
-# BB
+# Bb binary
 
 ## Why is this needed?
 
