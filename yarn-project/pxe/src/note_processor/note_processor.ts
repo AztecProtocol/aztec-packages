@@ -101,7 +101,7 @@ export class NoteProcessor {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const blockContext = l2BlockContexts[blockIndex];
       const block = blockContext.block;
-      const dataStartIndexForBlock = block.startNoteHashTreeSnapshot.nextAvailableLeafIndex;
+      const dataStartIndexForBlock = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.

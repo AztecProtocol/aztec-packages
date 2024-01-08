@@ -93,7 +93,8 @@ describe('Note Processor', () => {
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
-      block.startNoteHashTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex =
+        firstBlockDataStartIndex + i * numCommitmentsPerBlock;
 
       const isTargetBlock = i === prependedBlocks;
       const {

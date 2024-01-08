@@ -14,8 +14,10 @@ struct RootRollupPublicInputs {
     // All below are shared between the base and merge rollups
     aggregation_object : AggregationObject,
 
-    global_variables : GlobalVariables,
+    // Snapshot of archive tree after this block/rollup been processed
+    archive: AppendOnlyTreeSnapshot,
 
+    // New block header
     header: Header,
 
     // TODO(benesjan): Nuke this once body hash/calldata hash is updated

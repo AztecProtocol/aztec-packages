@@ -6,7 +6,7 @@ use dep::types::abis::{
 
 struct ConstantRollupData {
     // The very latest roots as at the very beginning of the entire rollup:
-    archive_snapshot : AppendOnlyTreeSnapshot,
+    archive_snapshot : AppendOnlyTreeSnapshot, // TODO(benesjan): Rename to last_archive
 
     // TODO(Sean): Some members of this struct tbd
     private_kernel_vk_tree_root : Field,

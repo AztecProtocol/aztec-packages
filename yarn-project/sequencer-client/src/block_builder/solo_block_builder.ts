@@ -122,15 +122,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
-    const {
-      endNoteHashTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
-      endArchiveSnapshot,
-    } = circuitsOutput;
-
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
     const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
@@ -156,20 +147,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newUnencryptedLogs = new L2BlockL2Logs(unencryptedLogsArr);
 
     const l2Block = L2Block.fromFields({
-      number: Number(globalVariables.blockNumber.value),
-      globalVariables,
-      startNoteHashTreeSnapshot,
-      endNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot,
-      endNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      endContractTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      endPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot: startL1ToL2MessageTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot,
-      endArchiveSnapshot,
+      archive: circuitsOutput.archive,
+      header: circuitsOutput.header,
       newCommitments: newCommitments.map((c: SideEffect) => c.value),
       newNullifiers: newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
       newL2ToL1Msgs,

@@ -75,6 +75,8 @@ export class RootRollupPublicInputs {
   constructor(
     /** Native aggregation state at the end of the rollup. */
     public aggregationObject: AggregationObject,
+    /** Snapshot of archive tree after this block/rollup been processed */
+    public archive: AppendOnlyTreeSnapshot,
     /** A header of an L2 block. */
     public header: Header,
     /** Hash of the L1 to L2 messages. */
@@ -84,6 +86,7 @@ export class RootRollupPublicInputs {
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
     return [
       fields.aggregationObject,
+      fields.archive,
       fields.header,
       fields.l1ToL2MessagesHash,
     ] as const;
@@ -123,6 +126,7 @@ export class RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
       reader.readObject(AggregationObject),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
       [reader.readObject(Fr), reader.readObject(Fr)]
     );

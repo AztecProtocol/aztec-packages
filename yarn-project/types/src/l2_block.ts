@@ -8,9 +8,11 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PartialStateReference,
   STRING_ENCODING,
+  StateReference,
 } from '@aztec/circuits.js';
-import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
+import { makeAppendOnlyTreeSnapshot, makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -118,6 +120,10 @@ export class L2Block {
     this.#l1BlockNumber = l1BlockNumber;
   }
 
+  get number(): number {
+    return Number(this.header.globalVariables.blockNumber.toBigInt());
+  }
+
   /**
    * Creates an L2 block containing random data.
    * @param l2BlockNum - The number of the L2 block.
@@ -136,6 +142,8 @@ export class L2Block {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ): L2Block {
+    const globalVariables = makeGlobalVariables(0, l2BlockNum);
+
     const newNullifiers = times(MAX_NEW_NULLIFIERS_PER_TX * txsPerBlock, Fr.random);
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
@@ -158,20 +166,8 @@ export class L2Block {
 
     return L2Block.fromFields(
       {
-        number: l2BlockNum,
-        globalVariables: makeGlobalVariables(0, l2BlockNum),
-        startNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        startContractTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        startPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        startArchiveSnapshot: makeAppendOnlyTreeSnapshot(0),
-        endNoteHashTreeSnapshot: makeAppendOnlyTreeSnapshot(newCommitments.length),
-        endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(newNullifiers.length),
-        endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(newContracts.length),
-        endPublicDataTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-        endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
-        endArchiveSnapshot: makeAppendOnlyTreeSnapshot(1),
+        archive: makeAppendOnlyTreeSnapshot(1),
+        header: makeHeader(0, globalVariables),
         newCommitments,
         newNullifiers,
         newContracts,
@@ -329,7 +325,6 @@ export class L2Block {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const globalVariables = reader.readObject(GlobalVariables);
-    const number = Number(globalVariables.blockNumber.toBigInt());
     const startNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
@@ -351,21 +346,14 @@ export class L2Block {
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
 
+    const partial = new PartialStateReference(endNoteHashTreeSnapshot, endNullifierTreeSnapshot, endContractTreeSnapshot, endPublicDataTreeSnapshot);
+    const state = new StateReference(endL1ToL2MessageTreeSnapshot, partial);
+    // TODO(benesjan): populate bodyHash
+    const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables); 
+
     return L2Block.fromFields({
-      number,
-      globalVariables,
-      startNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot: startL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot,
-      endNoteHashTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
-      endArchiveSnapshot,
+      archive: endArchiveSnapshot,
+      header,
       newCommitments,
       newNullifiers,
       newPublicDataWrites,
@@ -624,7 +612,7 @@ export class L2Block {
   getTx(txIndex: number) {
     if (txIndex >= this.numberOfTxs) {
       throw new Error(
-        `Failed to get tx ${txIndex}. Block ${this.globalVariables.blockNumber} only has ${this.numberOfTxs} txs.`,
+        `Failed to get tx ${txIndex}. Block ${this.header.globalVariables.blockNumber.toBigInt()} only has ${this.numberOfTxs} txs.`,
       );
     }
 
@@ -684,7 +672,7 @@ export class L2Block {
     };
     return {
       txCount: this.numberOfTxs,
-      blockNumber: this.header.globalVariables.blockNumber,
+      blockNumber: this.number,
       ...encryptedLogsStats,
       ...unencryptedLogsStats,
     };

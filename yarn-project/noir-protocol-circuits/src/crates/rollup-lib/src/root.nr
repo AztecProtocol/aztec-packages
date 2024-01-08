@@ -57,7 +57,7 @@ impl RootRollupInputs {
         );
 
         // Update the archive
-        let end_archive_snapshot = components::insert_subtree_to_snapshot_tree(
+        let archive = components::insert_subtree_to_snapshot_tree(
             self.start_archive_snapshot,
             self.new_archive_sibling_path,
             0,
@@ -71,15 +71,15 @@ impl RootRollupInputs {
         };
 
         let header = Header {
-            last_archive: end_archive_snapshot,
+            last_archive: left.constants.archive_snapshot,
             body_hash: components::compute_calldata_hash(self.previous_rollup_data),
             state,
             global_variables : left.constants.global_variables
         };
 
         RootRollupPublicInputs{
-            aggregation_object : aggregation_object,
-            global_variables : left.constants.global_variables,
+            aggregation_object,
+            archive,
             header,
             // TODO(benesjan): Nuke this once body hash/calldata hash is updated
             l1_to_l2_messages_hash : compute_messages_hash(self.new_l1_to_l2_messages),

@@ -1298,6 +1298,7 @@ export function mapRootRollupPublicInputsFromNoir(
 ): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     AggregationObject.makeFake(),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
     mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
   );

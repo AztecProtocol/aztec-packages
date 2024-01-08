@@ -1,7 +1,6 @@
 import {
   AppendOnlyTreeSnapshot,
   Fr,
-  GlobalVariables,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -9,6 +8,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
@@ -41,6 +41,7 @@ const consumeNextBlocks = () => {
   return Promise.resolve(blocks);
 };
 
+// TODO: redundant to makeAppendOnlyTreeSnapshot
 const getMockTreeSnapshot = () => {
   return new AppendOnlyTreeSnapshot(Fr.random(), 16);
 };
@@ -49,36 +50,19 @@ const getMockContractData = () => {
   return ContractData.random();
 };
 
-const getMockGlobalVariables = () => {
-  return GlobalVariables.from({
-    chainId: Fr.random(),
-    version: Fr.random(),
-    blockNumber: Fr.random(),
-    timestamp: Fr.random(),
-  });
-};
-
 const getMockL1ToL2MessagesData = () => {
   return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
 };
 
+// TODO: this is very similar to L2Block.random, move the functions to a shared place
 const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
+  const randomSeed = Math.floor(Math.random() * 1000);
+  const globalVariables = makeGlobalVariables(randomSeed, blockNumber);
+
   const newEncryptedLogs = L2BlockL2Logs.random(1, 2, 3);
   const block = L2Block.fromFields({
-    number: blockNumber,
-    globalVariables: getMockGlobalVariables(),
-    startNoteHashTreeSnapshot: getMockTreeSnapshot(),
-    startNullifierTreeSnapshot: getMockTreeSnapshot(),
-    startContractTreeSnapshot: getMockTreeSnapshot(),
-    startPublicDataTreeSnapshot: getMockTreeSnapshot(),
-    startL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    startArchiveSnapshot: getMockTreeSnapshot(),
-    endNoteHashTreeSnapshot: getMockTreeSnapshot(),
-    endNullifierTreeSnapshot: getMockTreeSnapshot(),
-    endContractTreeSnapshot: getMockTreeSnapshot(),
-    endPublicDataTreeSnapshot: getMockTreeSnapshot(),
-    endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    endArchiveSnapshot: getMockTreeSnapshot(),
+    archive: getMockTreeSnapshot(),
+    header: makeHeader(0, globalVariables),
     newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
     newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],

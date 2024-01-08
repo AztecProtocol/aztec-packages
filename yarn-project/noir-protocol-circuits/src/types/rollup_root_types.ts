@@ -87,7 +87,7 @@ export interface Header {
 
 export interface RootRollupPublicInputs {
   aggregation_object: AggregationObject;
-  global_variables: GlobalVariables;
+  archive: AppendOnlyTreeSnapshot;
   header: Header;
   l1_to_l2_messages_hash: FixedLengthArray<Field, 2>;
 }
