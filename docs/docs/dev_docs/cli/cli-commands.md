@@ -15,20 +15,20 @@ The CLI will be installed automatically via Docker by running the command to ins
 
 :::info
 
-The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
+The `@aztec/aztec` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
 
 <Tabs>
   <TabItem value="yarn" label="yarn" default>
-    
+
 <code>
-yarn global remove @aztec/aztec-sandbox @aztec/cli
+yarn global remove @aztec/aztec @aztec/cli
 </code>
 
   </TabItem>
   <TabItem value="npm" label="npm">
 
 <code>
-npm -g uninstall @aztec/aztec-sandbox @aztec/cli
+npm -g uninstall @aztec/aztec @aztec/cli
 </code>
 
    </TabItem>
@@ -48,7 +48,6 @@ This command does a few things to manage updates:
 - It looks for a `package.json` and updates all `@aztec/` dependencies to the versions the sandbox expects.
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
-
 
 :::info
 

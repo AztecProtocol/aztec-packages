@@ -1,4 +1,4 @@
-import { startHttpRpcServer } from '@aztec/aztec-sandbox';
+import { startHttpRpcServer } from '@aztec/aztec';
 import { PXE, createDebugLogger } from '@aztec/aztec.js';
 import { createPXERpcServer } from '@aztec/pxe';
 

@@ -1,4 +1,4 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
+import { createSandbox } from '@aztec/aztec';
 import {
   AccountWallet,
   CheatCodes,

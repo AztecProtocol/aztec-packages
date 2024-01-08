@@ -3,20 +3,20 @@ title: Updating
 ---
 
 :::info
-The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./cli/sandbox-reference.md#with-docker).
+The `@aztec/aztec` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./cli/sandbox-reference.md#with-docker).
 
 <Tabs>
   <TabItem value="yarn" label="yarn" default>
-    
+
 <code>
-yarn global remove @aztec/aztec-sandbox @aztec/cli
+yarn global remove @aztec/aztec @aztec/cli
 </code>
 
   </TabItem>
   <TabItem value="npm" label="npm">
 
 <code>
-npm -g uninstall @aztec/aztec-sandbox @aztec/cli
+npm -g uninstall @aztec/aztec @aztec/cli
 </code>
 
    </TabItem>

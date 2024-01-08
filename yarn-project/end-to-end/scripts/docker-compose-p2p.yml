@@ -7,7 +7,7 @@ services:
       - '8545:8545'
 
   p2p-bootstrap:
-    image: aztecprotocol/aztec-sandbox:latest
+    image: aztecprotocol/aztec:latest
     ports:
       - '40400:40400'
     command: 'start'

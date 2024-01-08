@@ -98,4 +98,4 @@ deploy_package p2p
 deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
-deploy_package aztec-sandbox
+deploy_package aztec
