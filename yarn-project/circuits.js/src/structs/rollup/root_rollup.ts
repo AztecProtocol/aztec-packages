@@ -84,12 +84,7 @@ export class RootRollupPublicInputs {
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [
-      fields.aggregationObject,
-      fields.archive,
-      fields.header,
-      fields.l1ToL2MessagesHash,
-    ] as const;
+    return [fields.aggregationObject, fields.archive, fields.header, fields.l1ToL2MessagesHash] as const;
   }
 
   toBuffer() {
@@ -128,7 +123,7 @@ export class RootRollupPublicInputs {
       reader.readObject(AggregationObject),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
-      [reader.readObject(Fr), reader.readObject(Fr)]
+      [reader.readObject(Fr), reader.readObject(Fr)],
     );
   }
 }

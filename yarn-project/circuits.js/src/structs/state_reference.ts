@@ -1,7 +1,8 @@
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
-import { PartialStateReference } from './partial_state_reference.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import { serializeToBuffer } from '../utils/serialize.js';
+import { PartialStateReference } from './partial_state_reference.js';
+import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
 
 /**
  * Stores snapshots of all the trees but archive.
@@ -20,9 +21,6 @@ export class StateReference {
 
   static fromBuffer(buffer: Buffer | BufferReader): StateReference {
     const reader = BufferReader.asReader(buffer);
-    return new StateReference(
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(PartialStateReference),
-    );
+    return new StateReference(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(PartialStateReference));
   }
 }

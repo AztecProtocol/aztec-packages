@@ -18,11 +18,11 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import { GlobalVariables } from '../global_variables.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
+import { PartialStateReference } from '../partial_state_reference.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { NullifierLeaf, NullifierLeafPreimage } from './nullifier_leaf/index.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from './public_data_leaf/index.js';
-import { PartialStateReference } from '../partial_state_reference.js';
 
 export { NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage };
 

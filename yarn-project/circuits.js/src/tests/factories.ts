@@ -907,9 +907,9 @@ export function makeStateReference(seed = 0): StateReference {
 export function makePartialStateReference(seed = 0): PartialStateReference {
   return new PartialStateReference(
     makeAppendOnlyTreeSnapshot(seed),
-    makeAppendOnlyTreeSnapshot(seed  + 1),
+    makeAppendOnlyTreeSnapshot(seed + 1),
     makeAppendOnlyTreeSnapshot(seed + 2),
-    makeAppendOnlyTreeSnapshot(seed  + 3),
+    makeAppendOnlyTreeSnapshot(seed + 3),
   );
 }
 

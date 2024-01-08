@@ -1,6 +1,10 @@
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+
 import { serializeToBuffer } from '../utils/serialize.js';
-import { StateReference, AppendOnlyTreeSnapshot, Fr, GlobalVariables } from './index.js';
+import { GlobalVariables } from './global_variables.js';
+import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
+import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
 export class Header {

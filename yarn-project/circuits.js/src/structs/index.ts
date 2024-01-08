@@ -34,7 +34,6 @@ export * from './tx_context.js';
 export * from './tx_request.js';
 export * from './verification_key.js';
 export * from './state_reference.js';
-export * from './state_reference.js';
 export * from './partial_state_reference.js';
 
 export { FunctionSelector } from '@aztec/foundation/abi';
