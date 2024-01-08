@@ -10,6 +10,7 @@ template <typename Params> class Poseidon2 {
   public:
     using FF = typename Params::FF;
 
+    // We choose our rate to be t-1 and capacity to be 1.
     using Sponge = FieldSponge<FF, Params::t - 1, 1, Params::t, Poseidon2Permutation<Params>>;
 
     /**

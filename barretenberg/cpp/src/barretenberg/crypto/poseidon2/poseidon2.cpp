@@ -32,16 +32,14 @@ typename Poseidon2<Params>::FF Poseidon2<Params>::hash_buffer(const std::vector<
     };
 
     std::vector<FF> converted;
-    for (size_t i = 0; i < num_elements; ++i) {
-        size_t bytes_to_slice = 0;
-        if (i == num_elements - 1) {
-            bytes_to_slice = num_bytes - (i * bytes_per_element);
-        } else {
-            bytes_to_slice = bytes_per_element;
-        }
+    for (size_t i = 0; i < num_elements - 1; ++i) {
+        size_t bytes_to_slice = bytes_per_element;
         FF element = slice(input, i * bytes_per_element, bytes_to_slice);
         converted.emplace_back(element);
     }
+    size_t bytes_to_slice = num_bytes - ((num_elements - 1) * bytes_per_element);
+    FF element = slice(input, (num_elements - 1) * bytes_per_element, bytes_to_slice);
+    converted.emplace_back(element);
 
     return hash(converted);
 }
