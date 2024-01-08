@@ -27,8 +27,6 @@ declare global {
 const __filename = AztecJs.fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 3000;
-
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (
@@ -37,6 +35,10 @@ export const browserTestSuite = (
      *  The webserver instance.
      */
     server: Server;
+    /**
+     * The webserver URL.
+     */
+    webServerURL: string;
     /**
      * The url of the PXE
      */
@@ -57,6 +59,7 @@ export const browserTestSuite = (
     let app: Koa;
     let testClient: AztecJs.PXE;
     let webServer: Server;
+    let serverURL: string;
     let pxeWebServer: Server | undefined;
     let rpcURL: string;
 
@@ -64,10 +67,11 @@ export const browserTestSuite = (
     let page: Page;
 
     beforeAll(async () => {
-      const { server, pxeURL, pxeServer } = await setup();
+      const { server, pxeURL, pxeServer, webServerURL } = await setup();
       rpcURL = pxeURL;
       webServer = server;
       pxeWebServer = pxeServer;
+      serverURL = webServerURL;
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
 
@@ -93,7 +97,7 @@ export const browserTestSuite = (
       page.on('pageerror', err => {
         pageLogger.error(err.toString());
       });
-      await page.goto(`http://localhost:${PORT}/index.html`);
+      await page.goto(`${serverURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
