@@ -1,5 +1,5 @@
-import { createDebugLogger, fileURLToPath } from '@aztec/aztec.js';
-import { createPXERpcServer } from '@aztec/pxe';
+import { createDebugLogger, createPXEClient, fileURLToPath, waitForPXE } from '@aztec/aztec.js';
+import { createPXERpcServer, startPXEHttpServer } from '@aztec/pxe';
 
 import Koa from 'koa';
 import serve from 'koa-static';
@@ -12,11 +12,11 @@ const { PXE_URL = '' } = process.env;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PORT = 3000;
-const PXE_PORT = 3001;
+const PORT = 4000;
+const PXE_PORT = 4001;
 
-const logger = createDebugLogger('aztec:canary_aztec.js:web');
-const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
+const logger = createDebugLogger('aztec:e2e_aztec_browser.js:web');
+const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
 
 /**
  * This test is a bit of a special case as it's on a web browser and not only on anvil and node.js.
@@ -34,10 +34,11 @@ const pageLogger = createDebugLogger('aztec:canary_aztec.js:web:page');
 const setupApp = async () => {
   const { pxe: pxeService } = await setup(1);
   let pxeURL = PXE_URL;
+  let pxeServer = undefined;
   if (!PXE_URL) {
-    const pxeRPCServer = createPXERpcServer(pxeService);
-    pxeRPCServer.start(PXE_PORT);
+    pxeServer = startPXEHttpServer(pxeService, PXE_PORT);
     pxeURL = `http://localhost:${PXE_PORT}`;
+    await waitForPXE(createPXEClient(pxeURL));
   }
 
   const app = new Koa();
@@ -46,7 +47,7 @@ const setupApp = async () => {
     logger(`Web Server started at http://localhost:${PORT}`);
   });
 
-  return { server, pxeURL };
+  return { server, pxeURL, pxeServer };
 };
 
 browserTestSuite(setupApp, pageLogger);

@@ -41,6 +41,10 @@ export const browserTestSuite = (
      * The url of the PXE
      */
     pxeURL: string;
+    /**
+     *  The PXE webserver instance.
+     */
+    pxeServer: Server | undefined;
   }>,
   pageLogger: AztecJs.DebugLogger,
 ) =>
@@ -53,15 +57,17 @@ export const browserTestSuite = (
     let app: Koa;
     let testClient: AztecJs.PXE;
     let webServer: Server;
+    let pxeWebServer: Server | undefined;
     let rpcURL: string;
 
     let browser: Browser;
     let page: Page;
 
     beforeAll(async () => {
-      const { server, pxeURL } = await setup();
+      const { server, pxeURL, pxeServer } = await setup();
       rpcURL = pxeURL;
       webServer = server;
+      pxeWebServer = pxeServer;
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
 
@@ -97,6 +103,7 @@ export const browserTestSuite = (
     afterAll(async () => {
       await browser.close();
       webServer.close();
+      pxeWebServer?.close();
     });
 
     it('Loads Aztec.js in the browser', async () => {
@@ -149,6 +156,7 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
           const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          console.log(`RPC URL ${rpcURL}`);
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
