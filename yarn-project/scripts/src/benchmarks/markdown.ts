@@ -232,7 +232,9 @@ ${getTableContent(pick(benchmark, metricsByChainLength), baseBenchmark, 'blocks'
 Stats on running time and I/O sizes collected for every circuit run across all benchmarks.
 ${getTableContent(transpose(pick(benchmark, metricsByCircuitName)), transpose(baseBenchmark), '', 'Circuit')}
 
-Tree insertion stats
+### Tree insertion stats
+
+The duration to insert a fixed batch of leaves into each tree type.
 ${getTableContent(pick(benchmark, metricsByLeafCount), baseBenchmark, 'leaves')}
 
 ### Miscellaneous
