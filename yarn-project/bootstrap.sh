@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 # Check node version.
