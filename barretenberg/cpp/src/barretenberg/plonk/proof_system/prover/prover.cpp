@@ -340,6 +340,7 @@ template <typename settings> void ProverBase<settings>::execute_third_round()
         widget->compute_round_commitments(transcript, 3, queue);
     }
 
+    info("enqueue four FFTs");
     for (size_t i = 0; i < settings::program_width; ++i) {
         std::string wire_tag = "w_" + std::to_string(i + 1);
         queue.add_to_queue({
