@@ -20,7 +20,7 @@ When presented with a new [`ProvenBlock`](../rollup-circuits/root_rollup.md) and
 ```python
 def process(block: ProvenBlock, proof: Proof):
     assert self.archive == block.header.last_archive
-    assert proof.verify(block.header)
+    assert proof.verify(block.header, block.archive)
     assert self.inbox.consume(block.body.l1_to_l2_msgs)
     for tx_effect in block.body.tx_effects:
         assert self.outbox.insert(tx_effect.l2_to_l1_msgs)
