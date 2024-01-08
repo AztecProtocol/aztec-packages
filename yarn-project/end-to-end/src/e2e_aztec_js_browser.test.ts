@@ -1,5 +1,5 @@
 import { createDebugLogger, createPXEClient, fileURLToPath, waitForPXE } from '@aztec/aztec.js';
-import { createPXERpcServer, startPXEHttpServer } from '@aztec/pxe';
+import { startPXEHttpServer } from '@aztec/pxe';
 
 import Koa from 'koa';
 import serve from 'koa-static';
