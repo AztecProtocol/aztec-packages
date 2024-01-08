@@ -2,48 +2,57 @@
 title: CLI Commands
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Here you will find a reference to the commands available in the Aztec CLI.
 
 ## Installation
 
-### NPM
+### Docker
 
-This command will install the Aztec CLI as a dev dependency in your npm project.
-
-```bash
-npm install --save-dev @aztec/cli
-```
+The CLI will be installed automatically via Docker by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
 
 :::info
 
-You can install the CLI globally, but it is recommended that you install the CLI as a local dependency in your project. This will make it easier to keep the CLI version in sync with the sandbox version.
+The `@aztec/aztec-sandbox` and `@aztec/cli` packages published to npm **should not be used**, in favor of Docker. If you've installed the sandbox or the CLI via NPM, **uninstall** them and remove them from your project dependencies and [install via Docker](./sandbox-reference.md#with-docker).
 
+<Tabs>
+  <TabItem value="yarn" label="yarn" default>
+    
+<code>
+yarn global remove @aztec/aztec-sandbox @aztec/cli
+</code>
+
+  </TabItem>
+  <TabItem value="npm" label="npm">
+
+<code>
+npm -g uninstall @aztec/aztec-sandbox @aztec/cli
+</code>
+
+   </TabItem>
+</Tabs>
 :::
-
-### Docker
-
-The CLI will be installed automatically via Docker if it is not already found locally, by running the command to install and start the sandbox, [instructions here](./sandbox-reference.md#with-docker).
 
 ## Update
 
 The CLI comes with an update command.
 
 ```bash
-npx @aztec/cli@latest update . --contract src/contract1 --contract src/contract2
+aztec-cli update . --contract src/contract1 --contract src/contract2
 ```
 
 This command does a few things to manage updates:
 
-- If you installed the CLI globally via a node package manager, it updates to the specified version. Defaults to latest.
 - It looks for a `package.json` and updates all `@aztec/` dependencies to the versions the sandbox expects.
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
 
-The sandbox must be running for the update command to work unless there the project defines `@aztec/aztec-sandbox` as a dependency, in which case the command will compare against the version listed in `package.json`.
 
 :::info
 
-If you installed the CLI via Docker (with the sandbox install Docker command), the `aztec-cli update` command won't work. You can update the CLI it by [running the command again](./sandbox-reference.md#installation-with-docker).
+The update command won't update the CLI itself. To update these follow the [updating instructions which point to our curl command](./sandbox-reference.md#with-docker).
 
 :::
 
@@ -84,7 +93,7 @@ export ADDRESS2=<Account address printed by the above command>
 
 ## Deploying a Token Contract
 
-We will now deploy a token contract using the `deploy` command, and set an address of the admin via a constructor argument. You can find the contract we are deploying [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr) (or write it for yourself in [this tutorial!](../tutorials/writing_token_contract.md))
+We will now deploy a token contract using the `deploy` command, and set an address of the admin via a constructor argument. You can find the contract we are deploying [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/contracts/token_contract/src/main.nr) (or write it for yourself in [this tutorial!](../tutorials/writing_token_contract.md))
 Make sure to replace this address with one of the two you created earlier.
 
 #include_code deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
@@ -114,7 +123,7 @@ The `send` command expect the function name as the first unnamed argument and th
 
 #include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
-We called the [`mint_public`](https://github.com/AztecProtocol/aztec-packages/blob/87fa621347e55f82e36c70515c1824161eee5282/yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr#L157C10-L157C10) function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
+We called the [`mint_public`](https://github.com/AztecProtocol/aztec-packages/blob/87fa621347e55f82e36c70515c1824161eee5282/yarn-project/noir-contracts/contracts/token_contract/src/main.nr#L157C10-L157C10) function and provided it with the 2 arguments it expects: the recipient's address and the amount to be minted. Make sure to replace all addresses in this command with yours.
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 

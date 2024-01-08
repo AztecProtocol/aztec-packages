@@ -1,11 +1,11 @@
 use crate::constants::{
     CONTRACT_TREE_HEIGHT,
     FUNCTION_TREE_HEIGHT,
-    KERNELS_PER_BASE_ROLLUP,
     NULLIFIER_TREE_HEIGHT,
     NOTE_HASH_TREE_HEIGHT,
     ROLLUP_VK_TREE_HEIGHT,
     ARCHIVE_HEIGHT,
+    PUBLIC_DATA_TREE_HEIGHT,
 };
 
 struct MembershipWitness<N> {
@@ -35,6 +35,11 @@ struct VKMembershipWitness{
 struct NullifierMembershipWitness{
     leaf_index: Field,
     sibling_path: [Field; NULLIFIER_TREE_HEIGHT]
+}
+
+struct PublicDataMembershipWitness{
+    leaf_index: Field,
+    sibling_path: [Field; PUBLIC_DATA_TREE_HEIGHT]
 }
 
 struct ArchiveRootMembershipWitness{

@@ -9,8 +9,9 @@ use crate::{
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
-    address::{Address, EthAddress},
+    address::{AztecAddress, EthAddress},
     hash::NUM_FIELDS_PER_SHA256,
     mocked::{Proof, VerificationKey},
     tests::{
@@ -20,7 +21,6 @@ use crate::{
     transaction::context::TxContext,
 };
 use crate::constants::{
-        EMPTY_NULLIFIED_COMMITMENT,
         MAX_NEW_COMMITMENTS_PER_TX,
         MAX_NEW_NULLIFIERS_PER_TX,
         MAX_PUBLIC_DATA_READS_PER_TX,
@@ -29,7 +29,7 @@ use crate::constants::{
 };
 
 struct PreviousKernelDataBuilder {
-    contract_address: Address,
+    contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     end: CombinedAccumulatedDataBuilder,
     block_header: BlockHeader,
@@ -44,8 +44,11 @@ struct PreviousKernelDataBuilder {
 impl PreviousKernelDataBuilder {
     pub fn new() -> Self {
         let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        end.new_nullifiers.push(321); // 0th nullifier must be non-zero.
-        end.nullified_commitments.push(EMPTY_NULLIFIED_COMMITMENT);
+        end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+            value: 321,
+            note_hash: 0,
+            counter: 0
+        }); // 0th nullifier must be non-zero.
 
         let tx_context = build_tx_context(false);
 
@@ -79,7 +82,7 @@ impl PreviousKernelDataBuilder {
             if i as u64 < num_updates as u64 {
                 let update_request = PublicDataUpdateRequest {
                     // The default leaf index is its index + 23.
-                    leaf_index: value_offset + i + 23,
+                    leaf_slot: value_offset + i + 23,
                     // The default value is its index + 45.
                     old_value: value_offset + i + 45,
                     // The default value is its index + 678.
@@ -96,7 +99,7 @@ impl PreviousKernelDataBuilder {
             if i as u64 < num_reads as u64 {
                 let read_request = PublicDataRead {
                     // The default leaf index is its index + 34.
-                    leaf_index: value_offset + i + 34,
+                    leaf_slot: value_offset + i + 34,
                     // The default value is its index + 5566.
                     value: value_offset + i + 5566,
                 };
@@ -116,18 +119,25 @@ impl PreviousKernelDataBuilder {
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             if i as u64 < num_new_commitments as u64 {
                 // The default value is its index + 1.
-                self.end.new_commitments.push(i + mocked_value_offset);
+                self.end.new_commitments.push(SideEffect{
+                    value: i + mocked_value_offset,
+                    counter: 0
+                });
             }
         }
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: Field) {
         let first_nullifier = self.end.new_nullifiers.get(0);
-        let mocked_value_offset = first_nullifier + self.end.new_nullifiers.len();
+        let mocked_value_offset = first_nullifier.value + self.end.new_nullifiers.len();
         for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
             if i as u64 <= num_extra_nullifier as u64 {
                 // The default value is its index + the value of the first nullifier.
-                self.end.new_nullifiers.push(i + mocked_value_offset);
+                self.end.new_nullifiers.push(SideEffectLinkedToNoteHash{
+                    value: i + mocked_value_offset,
+                    note_hash: first_nullifier.note_hash,
+                    counter: 0
+                });
             }
         }
     }
@@ -162,6 +172,8 @@ impl PreviousKernelDataBuilder {
             hash,
             caller_contract_address: self.contract_address,
             caller_context,
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0,
         }
     }
 

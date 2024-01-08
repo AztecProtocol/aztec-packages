@@ -4,12 +4,16 @@ import {
   Fr,
   GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NullifierLeaf,
   NullifierLeafPreimage,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { Committable } from '@aztec/foundation/committable';
@@ -21,7 +25,6 @@ import {
   BatchInsertionResult,
   IndexedTree,
   Pedersen,
-  SparseTree,
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
@@ -32,17 +35,15 @@ import { Hasher, L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 
-import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE, MerkleTreeDb } from './merkle_tree_db.js';
 import {
   CurrentTreeRoots,
   HandleL2BlockResult,
-  INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
-  MerkleTreeDb,
   MerkleTreeOperations,
-  PublicTreeId,
   TreeInfo,
-} from './merkle_tree_db.js';
+} from './merkle_tree_operations.js';
+import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**
  * Data necessary to reinitialize the merkle trees from Db.
@@ -62,6 +63,15 @@ const LAST_GLOBAL_VARS_HASH = 'lastGlobalVarsHash';
 class NullifierTree extends StandardIndexedTree {
   constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
     super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
+/**
+ * The public data tree is an indexed tree.
+ */
+class PublicDataTree extends StandardIndexedTree {
+  constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+    super(db, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf, root);
   }
 }
 
@@ -108,18 +118,19 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
       NOTE_HASH_TREE_HEIGHT,
     );
-    const publicDataTree: UpdateOnlyTree = await initializeTree(
-      SparseTree,
+    const publicDataTree = await initializeTree(
+      PublicDataTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
       PUBLIC_DATA_TREE_HEIGHT,
+      INITIAL_PUBLIC_DATA_TREE_SIZE,
     );
-    const l1Tol2MessagesTree: AppendOnlyTree = await initializeTree(
+    const l1Tol2MessageTree: AppendOnlyTree = await initializeTree(
       StandardTree,
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
+      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
     const archive: AppendOnlyTree = await initializeTree(
@@ -129,7 +140,7 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.ARCHIVE]}`,
       ARCHIVE_HEIGHT,
     );
-    this.trees = [contractTree, nullifierTree, noteHashTree, publicDataTree, l1Tol2MessagesTree, archive];
+    this.trees = [contractTree, nullifierTree, noteHashTree, publicDataTree, l1Tol2MessageTree, archive];
 
     this.jobQueue.start();
 
@@ -184,8 +195,8 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, NOTE_HASH_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, NOTE_HASH_TREE, L1_TO_L2_MESSAGES_TREE).
+   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, NOTE_HASH_TREE_ROOTS_TREE, L1_TO_L2_MESSAGE_TREE_ROOTS_TREE)
+   * the current roots of the corresponding trees (CONTRACT_TREE, NOTE_HASH_TREE, L1_TO_L2_MESSAGE_TREE).
    * @param globalsHash - The current global variables hash.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
@@ -231,7 +242,7 @@ export class MerkleTrees implements MerkleTreeDb {
       noteHashTreeRoot: roots[0],
       nullifierTreeRoot: roots[1],
       contractDataTreeRoot: roots[2],
-      l1Tol2MessagesTreeRoot: roots[3],
+      l1Tol2MessageTreeRoot: roots[3],
       publicDataTreeRoot: roots[4],
       archiveRoot: roots[5],
     };
@@ -247,7 +258,7 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.NOTE_HASH_TREE,
       MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.CONTRACT_TREE,
-      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
       MerkleTreeId.PUBLIC_DATA_TREE,
       MerkleTreeId.ARCHIVE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
@@ -380,7 +391,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param index - The index to insert into.
    * @returns Empty promise.
    */
-  public async updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
+  public async updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
     return await this.synchronize(() => this._updateLeaf(treeId, leaf, index));
   }
 
@@ -493,7 +504,7 @@ export class MerkleTrees implements MerkleTreeDb {
     return await tree.appendLeaves(leaves);
   }
 
-  private async _updateLeaf(treeId: IndexedTreeId | PublicTreeId, leaf: Buffer, index: bigint): Promise<void> {
+  private async _updateLeaf(treeId: IndexedTreeId, leaf: Buffer, index: bigint): Promise<void> {
     const tree = this.trees[treeId];
     if (!('updateLeaf' in tree)) {
       throw new Error('Tree does not support `updateLeaf` method');
@@ -543,8 +554,8 @@ export class MerkleTrees implements MerkleTreeDb {
       [l2Block.endContractTreeSnapshot.root, MerkleTreeId.CONTRACT_TREE],
       [l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE],
       [l2Block.endNoteHashTreeSnapshot.root, MerkleTreeId.NOTE_HASH_TREE],
-      [l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE],
-      [l2Block.endL1ToL2MessagesTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      [l2Block.endPublicDataTreeSnapshot.root, MerkleTreeId.PUBLIC_DATA_TREE],
+      [l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
       [l2Block.endArchiveSnapshot.root, MerkleTreeId.ARCHIVE],
     ] as const;
     const compareRoot = (root: Fr, treeId: MerkleTreeId) => {
@@ -563,7 +574,7 @@ export class MerkleTrees implements MerkleTreeDb {
       for (const [tree, leaves] of [
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
         [MerkleTreeId.NOTE_HASH_TREE, l2Block.newCommitments],
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
         await this._appendLeaves(
           tree,
@@ -577,13 +588,16 @@ export class MerkleTrees implements MerkleTreeDb {
         NULLIFIER_SUBTREE_HEIGHT,
       );
 
-      // Sync the public data tree
-      for (const dataWrite of l2Block.newPublicDataWrites) {
-        if (dataWrite.isEmpty()) {
-          continue;
-        }
-        const { newValue, leafIndex } = dataWrite;
-        await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
+      const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
+
+      // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
+      for (let i = 0; i < l2Block.newPublicDataWrites.length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+        await publicDataTree.batchInsert(
+          l2Block.newPublicDataWrites
+            .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * i, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (i + 1))
+            .map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
       }
 
       // Sync and add the block to the blocks tree
@@ -611,7 +625,6 @@ export class MerkleTrees implements MerkleTreeDb {
         this.log(`Tree ${treeName} synched with size ${info.size} root ${rootStr}`);
       }
     }
-
     await this._snapshot(l2Block.number);
 
     return { isBlockOurs: ourBlock };

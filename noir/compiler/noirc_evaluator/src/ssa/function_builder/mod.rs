@@ -1,3 +1,5 @@
+pub(crate) mod data_bus;
+
 use std::{borrow::Cow, rc::Rc};
 
 use acvm::FieldElement;
@@ -265,15 +267,6 @@ impl FunctionBuilder {
     }
 
     /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
-    pub(crate) fn insert_shift_left(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
-        let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
-        let typ = self.current_function.dfg.type_of_value(lhs);
-        let pow = self.insert_cast(pow, typ);
-        self.insert_binary(lhs, BinaryOp::Mul, pow)
-    }
-
-    /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
     /// and truncate the result to bit_size
     pub(crate) fn insert_wrapping_shift_left(
         &mut self,
@@ -306,29 +299,32 @@ impl FunctionBuilder {
                 let one = self.numeric_constant(FieldElement::one(), Type::unsigned(1));
                 let predicate = self.insert_binary(overflow, BinaryOp::Eq, one);
                 let predicate = self.insert_cast(predicate, typ.clone());
-
-                let pow = self.pow(base, rhs);
+                // we can safely cast to unsigned because overflow_checks prevent bit-shift with a negative value
+                let rhs_unsigned = self.insert_cast(rhs, Type::unsigned(bit_size));
+                let pow = self.pow(base, rhs_unsigned);
                 let pow = self.insert_cast(pow, typ);
                 (FieldElement::max_num_bits(), self.insert_binary(predicate, BinaryOp::Mul, pow))
             };
 
-        let instruction = Instruction::Binary(Binary { lhs, rhs: pow, operator: BinaryOp::Mul });
         if max_bit <= bit_size {
-            self.insert_instruction(instruction, None).first()
+            self.insert_binary(lhs, BinaryOp::Mul, pow)
         } else {
-            let result = self.insert_instruction(instruction, None).first();
-            self.insert_instruction(
-                Instruction::Truncate { value: result, bit_size, max_bit_size: max_bit },
-                None,
-            )
-            .first()
+            let result = self.insert_binary(lhs, BinaryOp::Mul, pow);
+            self.insert_truncate(result, bit_size, max_bit)
         }
     }
 
     /// Insert ssa instructions which computes lhs >> rhs by doing lhs/2^rhs
-    pub(crate) fn insert_shift_right(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
+    pub(crate) fn insert_shift_right(
+        &mut self,
+        lhs: ValueId,
+        rhs: ValueId,
+        bit_size: u32,
+    ) -> ValueId {
         let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
+        // we can safely cast to unsigned because overflow_checks prevent bit-shift with a negative value
+        let rhs_unsigned = self.insert_cast(rhs, Type::unsigned(bit_size));
+        let pow = self.pow(base, rhs_unsigned);
         self.insert_binary(lhs, BinaryOp::Div, pow)
     }
 

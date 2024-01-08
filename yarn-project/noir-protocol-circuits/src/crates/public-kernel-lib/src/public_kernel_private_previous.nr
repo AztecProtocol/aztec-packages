@@ -73,7 +73,7 @@ mod tests {
             public_data_read::PublicDataRead,
             public_data_update_request::PublicDataUpdateRequest,
         },
-        address::{Address, EthAddress},
+        address::{AztecAddress, EthAddress},
         contrakt::storage_read::StorageRead,
         hash::compute_logs_hash,
         tests::{
@@ -224,8 +224,8 @@ mod tests {
 
         // Tweak the (storage) contract_address to be different to msg_sender.
         let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
-        builder.public_call.contract_address = Address::from_field(msg_sender + 1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = Address::from_field(msg_sender + 1);
+        builder.public_call.contract_address = AztecAddress::from_field(msg_sender + 1);
+        builder.public_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -233,7 +233,7 @@ mod tests {
     #[test(should_fail_with="Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
-        builder.public_call.contract_address = Address::zero();
+        builder.public_call.contract_address = AztecAddress::zero();
 
         builder.failed();
     }
@@ -264,10 +264,7 @@ mod tests {
         builder.previous_kernel.push_public_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.finish();
 
-        let kernel = PublicKernelPrivatePreviousInputs {
-            previous_kernel,
-            public_call,
-        };
+        let kernel = PublicKernelPrivatePreviousInputs { previous_kernel, public_call };
 
         let _ = kernel.public_kernel_private_previous();
     }
@@ -309,10 +306,7 @@ mod tests {
         builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.finish();
 
-        let kernel = PublicKernelPrivatePreviousInputs {
-            previous_kernel,
-            public_call,
-        };
+        let kernel = PublicKernelPrivatePreviousInputs { previous_kernel, public_call };
 
         let _ = kernel.public_kernel_private_previous();
     }
@@ -407,10 +401,10 @@ mod tests {
         let mut builder = PublicKernelPrivatePreviousInputsBuilder::new();
         let new_contracts = [
             NewContractData {
-                contract_address: Address::from_field(123),
+                contract_address: AztecAddress::from_field(123),
                 portal_contract_address: EthAddress::from_field(456),
-                function_tree_root: 78,
-            },
+                function_tree_root: 78
+            }
         ];
         builder.previous_kernel.end.new_contracts.push_array(new_contracts);
 
@@ -431,7 +425,10 @@ mod tests {
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
-        assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, update_requests);
+        assert_eq_public_data_update_requests(
+            public_inputs.end.public_data_update_requests,
+            update_requests
+        );
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
     }
 
@@ -489,12 +486,17 @@ mod tests {
         let prev_unencrypted_logs_hash = [956, 112];
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(prev_unencrypted_logs_hash, prev_unencrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
 
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
 
         assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
 

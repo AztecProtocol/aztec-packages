@@ -3,11 +3,11 @@
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
+#include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
 #include "fixed_base_scalar_mul.hpp"
-#include "hash_to_field.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "pedersen.hpp"
@@ -31,13 +31,15 @@ struct acir_format {
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
+    std::vector<Blake3Constraint> blake3_constraints;
     std::vector<KeccakConstraint> keccak_constraints;
     std::vector<KeccakVarConstraint> keccak_var_constraints;
+    std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
-    std::vector<HashToFieldConstraint> hash_to_field_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
@@ -56,11 +58,12 @@ struct acir_format {
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
                    blake2s_constraints,
+                   blake3_constraints,
                    keccak_constraints,
                    keccak_var_constraints,
+                   keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
-                   hash_to_field_constraints,
                    fixed_base_scalar_mul_constraints,
                    recursion_constraints,
                    constraints,
@@ -71,16 +74,21 @@ struct acir_format {
 
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
-void read_witness(Builder& builder, std::vector<barretenberg::fr> const& witness);
+template <typename Builder> void read_witness(Builder& builder, std::vector<barretenberg::fr> const& witness);
 
-void create_circuit(Builder& builder, const acir_format& constraint_system);
+template <typename Builder> void create_circuit(Builder& builder, const acir_format& constraint_system);
 
+template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0);
 
 Builder create_circuit_with_witness(const acir_format& constraint_system,
                                     WitnessVector const& witness,
                                     size_t size_hint = 0);
 
+template <typename Builder>
 void create_circuit_with_witness(Builder& builder, const acir_format& constraint_system, WitnessVector const& witness);
+
+template <typename Builder>
+void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments);
 
 } // namespace acir_format

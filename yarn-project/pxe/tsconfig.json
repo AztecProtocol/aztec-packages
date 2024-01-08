@@ -22,6 +22,9 @@
       "path": "../key-store"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../noir-compiler"
     },
     {

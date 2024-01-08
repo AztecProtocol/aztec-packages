@@ -3,9 +3,9 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
+#include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
 #include "barretenberg/dsl/acir_format/block_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
-#include "barretenberg/dsl/acir_format/hash_to_field.hpp"
 #include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
 #include "barretenberg/dsl/acir_format/logic_constraint.hpp"
 #include "barretenberg/dsl/acir_format/pedersen.hpp"
@@ -114,6 +114,17 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Blake3>) {
+                af.blake3_constraints.push_back(Blake3Constraint{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return Blake3Input{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::SchnorrVerify>) {
                 af.schnorr_constraints.push_back(SchnorrConstraint{
                     .message = map(arg.message, [](auto& e) { return e.witness.value; }),
@@ -133,17 +144,6 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                 af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
                     .scalars = map(arg.inputs, [](auto& e) { return e.witness.value; }),
                     .hash_index = arg.domain_separator,
-                    .result = arg.output.value,
-                });
-            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::HashToField128Security>) {
-                af.hash_to_field_constraints.push_back(HashToFieldConstraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      return HashToFieldInput{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
                     .result = arg.output.value,
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::EcdsaSecp256k1>) {
@@ -191,6 +191,11 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .var_message_size = arg.var_message_size.witness.value,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Keccakf1600>) {
+                af.keccak_permutations.push_back(Keccakf1600{
+                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::RecursiveAggregation>) {
                 auto c = RecursionConstraint{
@@ -265,6 +270,8 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
     acir_format af;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): this +1 seems to be accounting for the const 0 at
+    // the first index in variables
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
@@ -306,7 +313,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     size_t index = 1;
     for (auto& e : w.value) {
         while (index < e.first.value) {
-            wv.push_back(barretenberg::fr(0));
+            wv.push_back(barretenberg::fr(0)); // TODO(https://github.com/AztecProtocol/barretenberg/issues/816)?
             index++;
         }
         wv.push_back(barretenberg::fr(uint256_t(e.second)));

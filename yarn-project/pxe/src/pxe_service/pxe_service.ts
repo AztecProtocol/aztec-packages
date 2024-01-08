@@ -18,9 +18,10 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
-import { encodeArguments } from '@aztec/foundation/abi';
+import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
 import {
@@ -50,12 +51,11 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
-  toContractDao,
 } from '@aztec/types';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -71,16 +71,19 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: DebugLogger;
   private sandboxVersion: string;
+  // serialize synchronizer and calls to simulateTx.
+  // ensures that state is not changed while simulating
+  private jobQueue = new SerialQueue();
 
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
-    private db: Database,
+    private db: PxeDatabase,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:pxe_service_${logSuffix}` : `aztec:pxe_service`);
-    this.synchronizer = new Synchronizer(node, db, logSuffix);
+    this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
 
@@ -93,10 +96,29 @@ export class PXEService implements PXE {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    const { l2BlockPollingIntervalMS, l2StartingBlock } = this.config;
-    await this.synchronizer.start(l2StartingBlock, 1, l2BlockPollingIntervalMS);
+    const { l2BlockPollingIntervalMS } = this.config;
+    this.synchronizer.start(1, l2BlockPollingIntervalMS);
+    this.jobQueue.start();
+    this.log.info('Started Job Queue');
+    await this.jobQueue.syncPoint();
+    this.log.info('Synced Job Queue');
+    await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
+  }
+
+  private async restoreNoteProcessors() {
+    const publicKeys = await this.keyStore.getAccounts();
+    const publicKeysSet = new Set(publicKeys.map(k => k.toString()));
+
+    const registeredAddresses = await this.db.getCompleteAddresses();
+
+    for (const address of registeredAddresses) {
+      if (!publicKeysSet.has(address.publicKey.toString())) {
+        continue;
+      }
+      this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
   }
 
   /**
@@ -107,8 +129,10 @@ export class PXEService implements PXE {
    * @returns A Promise resolving once the server has been stopped successfully.
    */
   public async stop() {
+    await this.jobQueue.cancel();
+    this.log.info('Cancelled Job Queue');
     await this.synchronizer.stop();
-    this.log.info('Stopped');
+    this.log.info('Stopped Synchronizer');
   }
 
   /** Returns an estimate of the db size in bytes. */
@@ -128,7 +152,7 @@ export class PXEService implements PXE {
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
-      const pubKey = this.keyStore.addAccount(privKey);
+      const pubKey = await this.keyStore.addAccount(privKey);
       this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
@@ -178,7 +202,7 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.artifact, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
@@ -322,18 +346,21 @@ export class PXEService implements PXE {
       throw new Error(`Unspecified internal are not allowed`);
     }
 
-    // We get the contract address from origin, since contract deployments are signalled as origin from their own address
-    // TODO: Is this ok? Should it be changed to be from ZERO?
-    const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
-    const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
+    // all simulations must be serialized w.r.t. the synchronizer
+    return await this.jobQueue.put(async () => {
+      // We get the contract address from origin, since contract deployments are signalled as origin from their own address
+      // TODO: Is this ok? Should it be changed to be from ZERO?
+      const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
+      const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
-    const tx = await this.#simulateAndProve(txRequest, newContract);
-    if (simulatePublic) {
-      await this.#simulatePublicCalls(tx);
-    }
-    this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
+      const tx = await this.#simulateAndProve(txRequest, newContract);
+      if (simulatePublic) {
+        await this.#simulatePublicCalls(tx);
+      }
+      this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
-    return tx;
+      return tx;
+    });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -346,13 +373,21 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async viewTx(functionName: string, args: any[], to: AztecAddress, _from?: AztecAddress) {
-    // TODO - Should check if `from` has the permission to call the view function.
-    const functionCall = await this.#getFunctionCall(functionName, args, to);
-    const executionResult = await this.#simulateUnconstrained(functionCall);
+  public async viewTx(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    _from?: AztecAddress,
+  ): Promise<DecodedReturn> {
+    // all simulations must be serialized w.r.t. the synchronizer
+    return await this.jobQueue.put(async () => {
+      // TODO - Should check if `from` has the permission to call the view function.
+      const functionCall = await this.#getFunctionCall(functionName, args, to);
+      const executionResult = await this.#simulateUnconstrained(functionCall);
 
-    // TODO - Return typed result based on the function artifact.
-    return executionResult;
+      // TODO - Return typed result based on the function artifact.
+      return executionResult;
+    });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {

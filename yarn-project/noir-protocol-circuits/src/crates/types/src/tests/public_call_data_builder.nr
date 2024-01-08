@@ -7,7 +7,7 @@ use crate::{
         public_call_data::PublicCallData,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
-    address::{Address, EthAddress},
+    address::{AztecAddress, EthAddress},
     contrakt::{
         storage_read::StorageRead,
         storage_update_request::StorageUpdateRequest,
@@ -27,7 +27,7 @@ use crate::constants::{
 };
 
 struct PublicCallDataBuilder {
-    contract_address: Address,
+    contract_address: AztecAddress,
     public_inputs: PublicCircuitPublicInputsBuilder,
     is_execution_request: bool,
     function_data: FunctionData,
@@ -56,6 +56,7 @@ impl PublicCallDataBuilder {
             is_delegate_call: false,
             is_static_call: false,
             is_contract_deployment: false,
+            start_side_effect_counter: 0,  // needed?
         };
         
         PublicCallDataBuilder {
@@ -113,6 +114,10 @@ impl PublicCallDataBuilder {
                     hash,
                     caller_contract_address: self.contract_address,
                     caller_context,
+                    // todo: real values?
+                    start_side_effect_counter: i,
+                    end_side_effect_counter: i + 1,
+
                 };
                 self.public_inputs.public_call_stack_hashes.push(hash);
                 self.public_call_stack.push(call_request);

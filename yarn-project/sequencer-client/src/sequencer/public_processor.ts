@@ -36,6 +36,8 @@ import {
   PublicKernelInputs,
   PublicKernelPublicInputs,
   RETURN_VALUES_LENGTH,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/abis';
@@ -217,6 +219,9 @@ export class PublicProcessor {
       this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
 
+    // TODO(#3675): This should be done in a public kernel circuit
+    this.removeRedundantPublicDataWrites(kernelOutput);
+
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
@@ -276,8 +281,8 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
+      newCommitments: padArrayEnd(result.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
@@ -364,7 +369,7 @@ export class PublicProcessor {
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
       (accum, read) =>
-        accum && !!publicDataReads.find(item => item.leafIndex.equals(read.leafIndex) && item.value.equals(read.value)),
+        accum && !!publicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
       true,
     );
     const updatesAreEqual = simPublicDataUpdateRequests.reduce(
@@ -372,7 +377,7 @@ export class PublicProcessor {
         accum &&
         !!publicDataUpdateRequests.find(
           item =>
-            item.leafIndex.equals(update.leafIndex) &&
+            item.leafSlot.equals(update.leafSlot) &&
             item.oldValue.equals(update.oldValue) &&
             item.newValue.equals(update.newValue),
         ),
@@ -399,11 +404,11 @@ export class PublicProcessor {
     // most recently processed top/enqueued call.
     const numTotalReadsInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataReads,
-      f => f.leafIndex.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
     );
     const numTotalUpdatesInKernel = arrayNonEmptyLength(
       publicInputs.end.publicDataUpdateRequests,
-      f => f.leafIndex.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
+      f => f.leafSlot.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
     );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
     const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;
@@ -426,6 +431,24 @@ export class PublicProcessor {
         ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
         ...simPublicDataUpdateRequests,
       ],
+      PublicDataUpdateRequest.empty(),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+  }
+
+  private removeRedundantPublicDataWrites(publicInputs: KernelCircuitPublicInputs) {
+    const lastWritesMap = new Map();
+    for (const write of publicInputs.end.publicDataUpdateRequests) {
+      const key = write.leafSlot.toString();
+      lastWritesMap.set(key, write);
+    }
+
+    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(
+      write => lastWritesMap.get(write.leafSlot.toString()) === write,
+    );
+
+    publicInputs.end.publicDataUpdateRequests = padArrayEnd(
+      lastWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );

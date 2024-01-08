@@ -5,6 +5,8 @@ use crate::note::{
 };
 use crate::utils::arr_copy_slice;
 
+use dep::protocol_types::address::AztecAddress;
+
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(_storage_slot: Field, _serialized_note: [Field; N], _inner_note_hash: Field) -> Field {}
 
@@ -45,7 +47,8 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     mut placeholder_fields: [Field; S]
 ) -> [Field; S] {
     let return_size = placeholder_fields.len() as u32;
-    get_notes_oracle(storage_slot,
+    get_notes_oracle(
+        storage_slot,
         num_selects,
         select_by,
         select_values,
@@ -54,7 +57,8 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
         limit,
         offset,
         return_size,
-        placeholder_fields)
+        placeholder_fields
+    )
 }
 
 unconstrained pub fn get_notes<Note, N, M, S, NS>(
@@ -70,7 +74,8 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
     mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS] // TODO: Remove it and use `limit` to initialize the note array.
 ) -> [Option<Note>; S] {
-    let fields = get_notes_oracle_wrapper(storage_slot,
+    let fields = get_notes_oracle_wrapper(
+        storage_slot,
         num_selects,
         select_by,
         select_values,
@@ -78,9 +83,10 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
         sort_order,
         limit,
         offset,
-        placeholder_fields);
+        placeholder_fields
+    );
     let num_notes = fields[0] as u32;
-    let contract_address = fields[1];
+    let contract_address = AztecAddress::from_field(fields[1]);
     let deserialize = note_interface.deserialize;
     let set_header = note_interface.set_header;
     for i in 0..placeholder_opt_notes.len() {

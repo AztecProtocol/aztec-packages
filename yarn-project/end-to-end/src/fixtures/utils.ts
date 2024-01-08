@@ -1,3 +1,4 @@
+import { createAccounts, getSandboxAccountsWallets } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
@@ -12,12 +13,10 @@ import {
   LogType,
   PXE,
   SentTx,
-  createAccounts,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
-  getSandboxAccountsWallets,
   retryUntil,
 } from '@aztec/aztec.js';
 import {
@@ -151,7 +150,7 @@ export async function setupPXEService(
   logger: DebugLogger;
 }> {
   const pxeServiceConfig = getPXEServiceConfig();
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, {}, useLogSuffix);
+  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix);
 
   const wallets = await createAccounts(pxe, numberOfAccounts);
 

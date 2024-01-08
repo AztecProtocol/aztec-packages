@@ -17,6 +17,7 @@ use crate::ssa::{
 impl Ssa {
     /// Performs Dead Instruction Elimination (DIE) to remove any instructions with
     /// unused results.
+    #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn dead_instruction_elimination(mut self) -> Ssa {
         for function in self.functions.values_mut() {
             dead_instruction_elimination(function);
@@ -33,6 +34,10 @@ impl Ssa {
 /// of its instructions are needed elsewhere.
 fn dead_instruction_elimination(function: &mut Function) {
     let mut context = Context::default();
+    if let Some(call_data) = function.dfg.data_bus.call_data {
+        context.mark_used_instruction_results(&function.dfg, call_data);
+    }
+
     let blocks = PostOrder::with_function(function);
 
     for block in blocks.as_slice() {

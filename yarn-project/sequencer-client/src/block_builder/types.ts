@@ -3,11 +3,11 @@ import { AppendOnlyTreeSnapshot, BaseOrMergeRollupPublicInputs, RootRollupPublic
 /**
  * Type representing the names of the trees for the base rollup.
  */
-type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree';
+type BaseTreeNames = 'NoteHashTree' | 'ContractTree' | 'NullifierTree' | 'PublicDataTree';
 /**
  * Type representing the names of the trees.
  */
-export type TreeNames = BaseTreeNames | 'L1ToL2MessagesTree' | 'Archive';
+export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 
 /**
  * Type to assert that only the correct trees are checked when validating rollup tree outputs.
