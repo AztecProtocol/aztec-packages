@@ -147,6 +147,43 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
+        BlackBoxFunc::EcAdd => {
+            if let (
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y),
+                BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EcAdd {
+                    input1_x: *input1_x,
+                    input1_y: *input1_y,
+                    input2_x: *input2_x,
+                    input2_y: *input2_y,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: EcAdd expects four register arguments and one array result"
+                )
+            }
+        }       
+        BlackBoxFunc::EcDouble => {
+            if let (
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EcDouble {
+                    input1_x: *input1_x,
+                    input1_y: *input1_y,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: EcAdd expects two register arguments and one array result"
+                )
+            }
+        }
         _ => unimplemented!("ICE: Black box function {:?} is not implemented", bb_func),
     }
 }

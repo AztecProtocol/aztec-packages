@@ -153,6 +153,12 @@ pub(crate) fn solve(
         BlackBoxFuncCall::FixedBaseScalarMul { low, high, outputs } => {
             fixed_base_scalar_mul(backend, initial_witness, *low, *high, *outputs)
         }
+        BlackBoxFuncCall::EcAdd { outputs, input1_x, input1_y, input2_x, input2_y } => {
+            todo!();
+        }
+        BlackBoxFuncCall::EcDouble { outputs, input_x, input_y } => {
+            todo!();
+        }
         BlackBoxFuncCall::RecursiveAggregation { output_aggregation_object, .. } => {
             // Solve the output of the recursive aggregation to zero to prevent missing assignment errors
             // The correct value will be computed by the backend

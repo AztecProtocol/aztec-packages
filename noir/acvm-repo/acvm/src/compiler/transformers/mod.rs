@@ -125,6 +125,14 @@ pub(super) fn transform_internal(
                         outputs,
                         ..
                     }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EcAdd {
+                        outputs,
+                        ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EcDouble {
+                        outputs,
+                        ..
+                    }
                     | acir::circuit::opcodes::BlackBoxFuncCall::PedersenCommitment {
                         outputs,
                         ..

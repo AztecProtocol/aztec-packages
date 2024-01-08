@@ -404,7 +404,9 @@ fn simplify_black_box_func(
         BlackBoxFunc::FixedBaseScalarMul
         | BlackBoxFunc::SchnorrVerify
         | BlackBoxFunc::PedersenCommitment
-        | BlackBoxFunc::PedersenHash => {
+        | BlackBoxFunc::PedersenHash 
+        | BlackBoxFunc::EcAdd
+        | BlackBoxFunc::EcDouble => {
             // Currently unsolvable here as we rely on an implementation in the backend.
             SimplifyResult::None
         }

@@ -75,6 +75,18 @@ pub enum BlackBoxFuncCall {
         high: FunctionInput,
         outputs: (Witness, Witness),
     },
+    EcAdd {
+        input1_x: FunctionInput,
+        input1_y: FunctionInput,
+        input2_x: FunctionInput,
+        input2_y: FunctionInput,
+        outputs: (Witness, Witness),
+    },
+    EcDouble {
+        input_x: FunctionInput,
+        input_y: FunctionInput,
+        outputs: (Witness, Witness),
+    },
     Keccak256 {
         inputs: Vec<FunctionInput>,
         outputs: Vec<Witness>,
@@ -127,6 +139,8 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::EcdsaSecp256k1 { .. } => BlackBoxFunc::EcdsaSecp256k1,
             BlackBoxFuncCall::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
             BlackBoxFuncCall::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
+            BlackBoxFuncCall::EcAdd { .. } => BlackBoxFunc::EcAdd,
+            BlackBoxFuncCall::EcDouble { .. } => BlackBoxFunc::EcDouble,
             BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccak256VariableLength { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::RecursiveAggregation { .. } => BlackBoxFunc::RecursiveAggregation,
@@ -148,6 +162,8 @@ impl BlackBoxFuncCall {
                 vec![*lhs, *rhs]
             }
             BlackBoxFuncCall::FixedBaseScalarMul { low, high, .. } => vec![*low, *high],
+            BlackBoxFuncCall::EcAdd { input1_x, input1_y, input2_x, input2_y, .. } => vec![*input1_x, *input1_y, *input2_x, *input2_y],
+            BlackBoxFuncCall::EcDouble { input_x, input_y, .. } => vec![*input_x, *input_y],
             BlackBoxFuncCall::RANGE { input } => vec![*input],
             BlackBoxFuncCall::SchnorrVerify {
                 public_key_x,
@@ -241,7 +257,9 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::PedersenHash { output, .. }
             | BlackBoxFuncCall::EcdsaSecp256r1 { output, .. } => vec![*output],
             BlackBoxFuncCall::FixedBaseScalarMul { outputs, .. }
-            | BlackBoxFuncCall::PedersenCommitment { outputs, .. } => vec![outputs.0, outputs.1],
+            | BlackBoxFuncCall::PedersenCommitment { outputs, .. }
+            | BlackBoxFuncCall::EcAdd { outputs, .. }
+            | BlackBoxFuncCall::EcDouble { outputs, .. } => vec![outputs.0, outputs.1],
             BlackBoxFuncCall::RANGE { .. } => vec![],
             BlackBoxFuncCall::Keccak256VariableLength { outputs, .. } => outputs.to_vec(),
         }
