@@ -1,6 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   GlobalVariables,
+  Header,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -57,62 +58,10 @@ export class L2Block {
   #l1BlockNumber?: bigint;
 
   constructor(
-    /**
-     * The number of the L2 block.
-     */
-    public number: number,
-    /**
-     * The global variables for the L2 block.
-     */
-    public globalVariables: GlobalVariables,
-    /**
-     * The tree snapshot of the note hash tree at the start of the rollup.
-     */
-    public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the nullifier tree at the start of the rollup.
-     */
-    public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the contract tree at the start of the rollup.
-     */
-    public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the public data tree at the start of the rollup.
-     */
-    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the L2 message tree at the start of the rollup.
-     */
-    public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the archive at the start of the rollup.
-     */
-    public startArchiveSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
-    /**
-     * The tree snapshot of the note hash tree at the end of the rollup.
-     */
-    public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the nullifier tree at the end of the rollup.
-     */
-    public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the contract tree at the end of the rollup.
-     */
-    public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the public data tree at the end of the rollup.
-     */
-    public endPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the L2 message tree at the end of the rollup.
-     */
-    public endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the archive at the end of the rollup.
-     */
-    public endArchiveSnapshot: AppendOnlyTreeSnapshot,
+    /** Snapshot of archive tree after the block is applied. */
+    public archive: AppendOnlyTreeSnapshot,
+    /** L2 block header. */
+    public header: Header,
     /**
      * The commitments to be inserted into the note hash tree.
      */
@@ -248,62 +197,10 @@ export class L2Block {
    */
   static fromFields(
     fields: {
-      /**
-       * The number of the L2 block.
-       */
-      number: number;
-      /**
-       * The global variables of the L2 block.
-       */
-      globalVariables: GlobalVariables;
-      /**
-       * The tree snapshot of the note hash tree at the start of the rollup.
-       */
-      startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the nullifier tree at the start of the rollup.
-       */
-      startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the contract tree at the start of the rollup.
-       */
-      startContractTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the public data tree at the start of the rollup.
-       */
-      startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the L2 message tree at the start of the rollup.
-       */
-      startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the archive at the start of the rollup.
-       */
-      startArchiveSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the note hash tree at the end of the rollup.
-       */
-      endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the nullifier tree at the end of the rollup.
-       */
-      endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the contract tree at the end of the rollup.
-       */
-      endContractTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the public data tree at the end of the rollup.
-       */
-      endPublicDataTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the L2 message tree at the end of the rollup.
-       */
-      endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-      /**
-       * The tree snapshot of the archive at the end of the rollup.
-       */
-      endArchiveSnapshot: AppendOnlyTreeSnapshot;
+      /** Snapshot of archive tree after the block is applied. */
+      archive: AppendOnlyTreeSnapshot,
+      /** L2 block header. */
+      header: Header;
       /**
        * The commitments to be inserted into the note hash tree.
        */
@@ -345,20 +242,8 @@ export class L2Block {
     l1BlockNumber?: bigint,
   ) {
     return new this(
-      fields.number,
-      fields.globalVariables,
-      fields.startNoteHashTreeSnapshot,
-      fields.startNullifierTreeSnapshot,
-      fields.startContractTreeSnapshot,
-      fields.startPublicDataTreeSnapshot,
-      fields.startL1ToL2MessageTreeSnapshot,
-      fields.startArchiveSnapshot,
-      fields.endNoteHashTreeSnapshot,
-      fields.endNullifierTreeSnapshot,
-      fields.endContractTreeSnapshot,
-      fields.endPublicDataTreeSnapshot,
-      fields.endL1ToL2MessageTreeSnapshot,
-      fields.endArchiveSnapshot,
+      fields.archive,
+      fields.header,
       fields.newCommitments,
       fields.newNullifiers,
       fields.newPublicDataWrites,
@@ -381,19 +266,20 @@ export class L2Block {
    */
   toBuffer() {
     return serializeToBuffer(
-      this.globalVariables,
-      this.startNoteHashTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startPublicDataTreeSnapshot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startArchiveSnapshot,
-      this.endNoteHashTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endPublicDataTreeSnapshot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endArchiveSnapshot,
+      this.header.globalVariables,
+      // TODO(#3868)
+      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      this.header.lastArchive,
+      this.header.state.partial.noteHashTree,
+      this.header.state.partial.nullifierTree,
+      this.header.state.partial.contractTree,
+      this.header.state.partial.publicDataTree,
+      this.header.state.l1ToL2MessageTree,
+      this.archive,
       this.newCommitments.length,
       this.newCommitments,
       this.newNullifiers.length,
@@ -418,7 +304,7 @@ export class L2Block {
   toBufferWithLogs(): Buffer {
     if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
       throw new Error(
-        `newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData (block ${this.number})`,
+        `newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData (block ${this.header.globalVariables.blockNumber})`,
       );
     }
 
@@ -530,10 +416,10 @@ export class L2Block {
         L2Block.logger(`${logFieldName} logs already attached`);
         return;
       }
-      throw new Error(`Trying to attach different ${logFieldName} logs to block ${this.number}.`);
+      throw new Error(`Trying to attach different ${logFieldName} logs to block ${this.header.globalVariables.blockNumber}.`);
     }
 
-    L2Block.logger(`Attaching ${logFieldName} ${logs.getTotalLogCount()} logs to block ${this.number}`);
+    L2Block.logger(`Attaching ${logFieldName} ${logs.getTotalLogCount()} logs to block ${this.header.globalVariables.blockNumber}`);
 
     const numTxs = this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX;
 
@@ -583,19 +469,20 @@ export class L2Block {
    */
   getPublicInputsHash(): Fr {
     const buf = serializeToBuffer(
-      this.globalVariables,
-      this.startNoteHashTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startPublicDataTreeSnapshot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startArchiveSnapshot,
-      this.endNoteHashTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endPublicDataTreeSnapshot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endArchiveSnapshot,
+      this.header.globalVariables,
+      // TODO(#3868)
+      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      this.header.lastArchive,
+      this.header.state.partial.noteHashTree,
+      this.header.state.partial.nullifierTree,
+      this.header.state.partial.contractTree,
+      this.header.state.partial.publicDataTree,
+      this.header.state.l1ToL2MessageTree,
+      this.archive,
       this.getCalldataHash(),
       this.getL1ToL2MessagesHash(),
     );
@@ -609,13 +496,14 @@ export class L2Block {
    */
   getStartStateHash() {
     const inputValue = serializeToBuffer(
-      new Fr(this.number - 1),
-      this.startNoteHashTreeSnapshot,
-      this.startNullifierTreeSnapshot,
-      this.startContractTreeSnapshot,
-      this.startPublicDataTreeSnapshot,
-      this.startL1ToL2MessageTreeSnapshot,
-      this.startArchiveSnapshot,
+      new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
+      // TODO(#3868)
+      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
+      this.header.lastArchive,
     );
     return sha256(inputValue);
   }
@@ -626,13 +514,13 @@ export class L2Block {
    */
   getEndStateHash() {
     const inputValue = serializeToBuffer(
-      this.globalVariables.blockNumber,
-      this.endNoteHashTreeSnapshot,
-      this.endNullifierTreeSnapshot,
-      this.endContractTreeSnapshot,
-      this.endPublicDataTreeSnapshot,
-      this.endL1ToL2MessageTreeSnapshot,
-      this.endArchiveSnapshot,
+      this.header.globalVariables.blockNumber,
+      this.header.state.partial.noteHashTree,
+      this.header.state.partial.nullifierTree,
+      this.header.state.partial.contractTree,
+      this.header.state.partial.publicDataTree,
+      this.header.state.l1ToL2MessageTree,
+      this.archive,
     );
     return sha256(inputValue);
   }
@@ -767,7 +655,7 @@ export class L2Block {
       newContracts,
       newContractData,
       this.getBlockHash(),
-      this.number,
+      Number(this.header.globalVariables.blockNumber.toBigInt()),
     );
   }
 
@@ -796,64 +684,64 @@ export class L2Block {
     };
     return {
       txCount: this.numberOfTxs,
-      blockNumber: this.number,
+      blockNumber: this.header.globalVariables.blockNumber,
       ...encryptedLogsStats,
       ...unencryptedLogsStats,
     };
   }
 
-  /**
-   * Inspect for debugging purposes..
-   * @param maxBufferSize - The number of bytes to be extracted from buffer.
-   * @returns A human-friendly string representation of the l2Block.
-   */
-  inspect(maxBufferSize = 4): string {
-    const inspectHex = (fr: {
-      /**
-       * A function used to serialize the field element to a buffer.
-       */
-      toBuffer: () => Buffer;
-    }): string => `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
-    const inspectArray = <T>(arr: T[], inspector: (t: T) => string) => '[' + arr.map(inspector).join(', ') + ']';
+  // /**
+  //  * Inspect for debugging purposes..
+  //  * @param maxBufferSize - The number of bytes to be extracted from buffer.
+  //  * @returns A human-friendly string representation of the l2Block.
+  //  */
+  // inspect(maxBufferSize = 4): string {
+  //   const inspectHex = (fr: {
+  //     /**
+  //      * A function used to serialize the field element to a buffer.
+  //      */
+  //     toBuffer: () => Buffer;
+  //   }): string => `0x${fr.toBuffer().subarray(0, maxBufferSize).toString('hex')}`;
+  //   const inspectArray = <T>(arr: T[], inspector: (t: T) => string) => '[' + arr.map(inspector).join(', ') + ']';
 
-    const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
-      `(${s.nextAvailableLeafIndex}, ${inspectHex(s.root)})`;
-    const inspectGlobalVariables = (gv: GlobalVariables): string => {
-      return `(${gv.chainId}, ${gv.version}, ${gv.blockNumber}, ${gv.timestamp}))`;
-    };
-    const inspectFrArray = (arr: Fr[]): string => inspectArray(arr, inspectHex);
-    const inspectContractDataArray = (arr: ContractData[]): string =>
-      inspectArray(arr, cd => `(${inspectHex(cd.contractAddress)}, ${inspectHex(cd.portalContractAddress)})`);
-    const inspectPublicDataWriteArray = (arr: PublicDataWrite[]): string =>
-      inspectArray(arr, pdw => `(${inspectHex(pdw.leafIndex)}, ${inspectHex(pdw.newValue)})`);
+  //   const inspectTreeSnapshot = (s: AppendOnlyTreeSnapshot): string =>
+  //     `(${s.nextAvailableLeafIndex}, ${inspectHex(s.root)})`;
+  //   const inspectGlobalVariables = (gv: GlobalVariables): string => {
+  //     return `(${gv.chainId}, ${gv.version}, ${gv.blockNumber}, ${gv.timestamp}))`;
+  //   };
+  //   const inspectFrArray = (arr: Fr[]): string => inspectArray(arr, inspectHex);
+  //   const inspectContractDataArray = (arr: ContractData[]): string =>
+  //     inspectArray(arr, cd => `(${inspectHex(cd.contractAddress)}, ${inspectHex(cd.portalContractAddress)})`);
+  //   const inspectPublicDataWriteArray = (arr: PublicDataWrite[]): string =>
+  //     inspectArray(arr, pdw => `(${inspectHex(pdw.leafIndex)}, ${inspectHex(pdw.newValue)})`);
 
-    return [
-      `L2Block`,
-      `number: ${this.number}`,
-      `globalVariables: ${inspectGlobalVariables(this.globalVariables)}`,
-      `startNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.startNoteHashTreeSnapshot)}`,
-      `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
-      `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
-      `startPublicDataTreeSnapshot: ${this.startPublicDataTreeSnapshot.toString()}`,
-      `startL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.startL1ToL2MessageTreeSnapshot)}`,
-      `startArchiveSnapshot: ${inspectTreeSnapshot(this.startArchiveSnapshot)}`,
-      `endNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.endNoteHashTreeSnapshot)}`,
-      `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
-      `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
-      `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-      `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
-      `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
-      `endArchiveSnapshot: ${inspectTreeSnapshot(this.endArchiveSnapshot)}`,
-      `newCommitments: ${inspectFrArray(this.newCommitments)}`,
-      `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
-      `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-      `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,
-      `newContracts: ${inspectFrArray(this.newContracts)}`,
-      `newContractData: ${inspectContractDataArray(this.newContractData)}`,
-      `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
-      `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
-    ].join('\n');
-  }
+  //   return [
+  //     `L2Block`,
+  //     `number: ${this.header.globalVariables.blockNumber}`,
+  //     `globalVariables: ${inspectGlobalVariables(this.globalVariables)}`,
+  //     `startNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.startNoteHashTreeSnapshot)}`,
+  //     `startNullifierTreeSnapshot: ${inspectTreeSnapshot(this.startNullifierTreeSnapshot)}`,
+  //     `startContractTreeSnapshot: ${inspectTreeSnapshot(this.startContractTreeSnapshot)}`,
+  //     `startPublicDataTreeSnapshot: ${this.startPublicDataTreeSnapshot.toString()}`,
+  //     `startL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.startL1ToL2MessageTreeSnapshot)}`,
+  //     `startArchiveSnapshot: ${inspectTreeSnapshot(this.startArchiveSnapshot)}`,
+  //     `endNoteHashTreeSnapshot: ${inspectTreeSnapshot(this.endNoteHashTreeSnapshot)}`,
+  //     `endNullifierTreeSnapshot: ${inspectTreeSnapshot(this.endNullifierTreeSnapshot)}`,
+  //     `endContractTreeSnapshot: ${inspectTreeSnapshot(this.endContractTreeSnapshot)}`,
+  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
+  //     `endPublicDataTreeSnapshot: ${this.endPublicDataTreeSnapshot.toString()}`,
+  //     `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
+  //     `endArchiveSnapshot: ${inspectTreeSnapshot(this.endArchiveSnapshot)}`,
+  //     `newCommitments: ${inspectFrArray(this.newCommitments)}`,
+  //     `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
+  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
+  //     `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,
+  //     `newContracts: ${inspectFrArray(this.newContracts)}`,
+  //     `newContractData: ${inspectContractDataArray(this.newContractData)}`,
+  //     `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
+  //     `newL1ToL2Messages: ${inspectFrArray(this.newL1ToL2Messages)}`,
+  //   ].join('\n');
+  // }
 
   /**
    * Computes logs hash as is done in the kernel and app circuits.
