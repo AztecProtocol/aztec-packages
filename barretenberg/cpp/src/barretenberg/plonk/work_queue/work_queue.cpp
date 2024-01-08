@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#define DEBUG_TIMING
+// #define DEBUG_TIMING
 namespace proof_system::plonk {
 
 using namespace barretenberg;
@@ -201,8 +201,8 @@ void work_queue::add_to_queue(const work_item& item)
 
 void work_queue::process_queue()
 {
-    info("work queue time: ");
 #ifdef DEBUG_TIMING
+    info("work queue time: ");
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 #endif
 

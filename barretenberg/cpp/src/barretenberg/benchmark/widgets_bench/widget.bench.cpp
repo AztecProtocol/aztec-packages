@@ -3,8 +3,10 @@
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/elliptic_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/genperm_sort_widget.hpp"
+#include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_arithmetic_widget.hpp"
 #include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_auxiliary_widget.hpp"
-#include <benchmark/benchmark.h>
 
 namespace {
 auto& engine = numeric::random::get_debug_engine();
@@ -36,6 +38,7 @@ template <typename Flavor, typename Widget> void execute_widget(::benchmark::Sta
         widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
     }
 }
+
 void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
 {
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
@@ -56,14 +59,64 @@ void plookup_auxiliary_kernel(::benchmark::State& state) noexcept
 }
 BENCHMARK(plookup_auxiliary_kernel);
 
-void plookup_auxiliary_widget(::benchmark::State& state) noexcept
+void plookup_arithmetic_kernel(::benchmark::State& state) noexcept
 {
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
-    ProverPlookupAuxiliaryWidget<ultra_settings> widget(data.key.get());
+
+    using FFTGetter = ProverPlookupArithmeticWidget<ultra_settings>::FFTGetter;
+    using FFTKernel = ProverPlookupArithmeticWidget<ultra_settings>::FFTKernel;
+
+    auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
+    auto challenges = FFTGetter::get_challenges(
+        data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
+
     for (auto _ : state) {
-        widget.compute_quotient_contribution(barretenberg::fr::random_element(), data.transcript);
+        // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
+        // logic exactly
+        barretenberg::fr result{ 0 };
+        FFTKernel::accumulate_contribution(polynomials, challenges, result, 0);
     }
 }
-BENCHMARK(plookup_auxiliary_widget);
+BENCHMARK(plookup_arithmetic_kernel);
+
+void plookup_elliptic_kernel(::benchmark::State& state) noexcept
+{
+    BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
+
+    using FFTGetter = ProverEllipticWidget<ultra_settings>::FFTGetter;
+    using FFTKernel = ProverEllipticWidget<ultra_settings>::FFTKernel;
+
+    auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
+    auto challenges = FFTGetter::get_challenges(
+        data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
+
+    for (auto _ : state) {
+        // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
+        // logic exactly
+        barretenberg::fr result{ 0 };
+        FFTKernel::accumulate_contribution(polynomials, challenges, result, 0);
+    }
+}
+BENCHMARK(plookup_elliptic_kernel);
+
+void plookup_gen_perm_sort_kernel(::benchmark::State& state) noexcept
+{
+    BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
+
+    using FFTGetter = ProverGenPermSortWidget<ultra_settings>::FFTGetter;
+    using FFTKernel = ProverGenPermSortWidget<ultra_settings>::FFTKernel;
+
+    auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
+    auto challenges = FFTGetter::get_challenges(
+        data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
+
+    for (auto _ : state) {
+        // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
+        // logic exactly
+        barretenberg::fr result{ 0 };
+        FFTKernel::accumulate_contribution(polynomials, challenges, result, 0);
+    }
+}
+BENCHMARK(plookup_gen_perm_sort_kernel);
 
 } // namespace proof_system::plonk
