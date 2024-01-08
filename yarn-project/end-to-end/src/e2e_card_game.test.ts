@@ -1,8 +1,17 @@
-import { deployInitialSandboxAccounts, getSandboxAccountsWallets } from '@aztec/accounts/testing';
-import { AccountWallet, AztecAddress, DebugLogger, PXE, Wallet } from '@aztec/aztec.js';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { INITIAL_SANDBOX_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
+import {
+  AccountWallet,
+  AztecAddress,
+  DebugLogger,
+  GrumpkinScalar,
+  PXE,
+  Wallet,
+  generatePublicKey,
+} from '@aztec/aztec.js';
 import { CardGameContract } from '@aztec/noir-contracts/CardGame';
 
-import { INITIAL_ACCOUNT_ENCRYPTION_KEYS, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 
 /* eslint-disable camelcase */
 
@@ -44,7 +53,7 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 
 const GAME_ID = 42;
 
-const PLAYER_ENCRYPTION_KEYS = INITIAL_ACCOUNT_ENCRYPTION_KEYS;
+const PLAYER_ENCRYPTION_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
 
 describe('e2e_card_game', () => {
   let pxe: PXE;

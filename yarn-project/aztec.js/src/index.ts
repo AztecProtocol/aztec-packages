@@ -44,6 +44,7 @@ export {
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  waitForPXE,
 } from './utils/index.js';
 
 export { createPXEClient } from './pxe_client.js';

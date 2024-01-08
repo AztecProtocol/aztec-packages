@@ -1,4 +1,4 @@
-import { createAccount, getSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { createAccount } from '@aztec/accounts/testing';
 import { createSandbox } from '@aztec/aztec-sandbox';
 import {
   AccountWallet,
@@ -9,12 +9,12 @@ import {
   PXE,
   computeMessageSecretHash,
   createPXEClient,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts/Test';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
-import { waitForPXE } from '../fixtures/utils.js';
+import { getDeployedSandboxAccountsWallets } from '../fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -68,7 +68,7 @@ describe('guides/dapp/testing', () => {
       beforeEach(async () => {
         // docs:start:use-existing-wallets
         pxe = createPXEClient(PXE_URL);
-        [owner, recipient] = await getSandboxAccountsWallets(pxe);
+        [owner, recipient] = await getDeployedSandboxAccountsWallets(pxe);
         token = await TokenContract.deploy(owner, owner.getCompleteAddress()).send().deployed();
         // docs:end:use-existing-wallets
       }, 30_000);

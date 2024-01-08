@@ -12,17 +12,17 @@ export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
 
 export const INITIAL_SANDBOX_SIGNING_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
 
-export const INITIAL_SANDBOX_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
+export const INITIAL_SANDBOX_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 
 /**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export function getInitialSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
     INITIAL_SANDBOX_ENCRYPTION_KEYS.map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_SANDBOX_SIGNING_KEYS[i]!, INITIAL_SANDBOX_SALTS[i]).getWallet(),
+      getSchnorrAccount(pxe, encryptionKey!, INITIAL_SANDBOX_SIGNING_KEYS[i]!, INITIAL_SANDBOX_ACCOUNT_SALTS[i]).getWallet(),
     ),
   );
 }
@@ -34,7 +34,7 @@ export function getSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPr
  */
 export async function deployInitialSandboxAccounts(pxe: PXE) {
   const accounts = INITIAL_SANDBOX_ENCRYPTION_KEYS.map((privateKey, i) => {
-    const account = getSchnorrAccount(pxe, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_SALTS[i]);
+    const account = getSchnorrAccount(pxe, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_ACCOUNT_SALTS[i]);
     return {
       account,
       privateKey,

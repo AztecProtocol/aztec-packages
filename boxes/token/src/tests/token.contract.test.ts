@@ -13,8 +13,6 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
   createDebugLogger,
-  createPXEClient,
-  waitForSandbox,
 } from '@aztec/aztec.js';
 
 import { getSandboxAccountsWallets } from '@aztec/accounts/testing';

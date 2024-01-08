@@ -10,7 +10,7 @@ import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
 
-import { getInitialAccountsWallets, waitForPXE } from '../fixtures/utils.js';
+import { getDeployedSandboxAccountsWallets } from '../fixtures/utils.js';
 
 declare global {
   /**
@@ -63,7 +63,7 @@ export const browserTestSuite = (
       rpcURL = pxeURL;
       webServer = server;
       testClient = AztecJs.createPXEClient(pxeURL);
-      await waitForPXE(testClient);
+      await AztecJs.waitForPXE(testClient);
 
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
@@ -148,15 +148,10 @@ export const browserTestSuite = (
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const {
-            Contract,
-            AztecAddress,
-            createPXEClient: createPXEClient,
-            getSandboxAccountsWallets,
-          } = window.AztecJs;
+          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
-          const [wallet] = await getInitialAccountsWallets(pxe);
+          const [wallet] = await getDeployedSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
@@ -172,16 +167,11 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const {
-            AztecAddress,
-            Contract,
-            createPXEClient: createPXEClient,
-            getSandboxAccountsWallets,
-          } = window.AztecJs;
+          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
-          const [wallet] = await getInitialAccountsWallets(pxe);
+          const [wallet] = await getDeployedSandboxAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
@@ -217,7 +207,7 @@ export const browserTestSuite = (
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getInitialAccountsWallets(pxe);
+          const [owner] = await getDeployedSandboxAccountsWallets(pxe);
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             accounts[0].publicKey,

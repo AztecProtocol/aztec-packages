@@ -1,5 +1,4 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   AztecNode,

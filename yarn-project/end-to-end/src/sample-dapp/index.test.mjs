@@ -1,12 +1,5 @@
 import { createAccount } from '@aztec/accounts/testing';
-import {
-  Contract,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeMessageSecretHash,
-  createPXEClient,
-} from '@aztec/aztec.js';
+import { Contract, ExtendedNote, Fr, Note, computeMessageSecretHash, createPXEClient } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
 import { waitForPXE } from '../fixtures/utils.js';

@@ -1,6 +1,5 @@
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
 import {
   ExtendedNote,
   Fr,
@@ -10,12 +9,12 @@ import {
   computeMessageSecretHash,
   createDebugLogger,
   createPXEClient,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { format } from 'util';
-import { waitForPXE } from './fixtures/utils.js';
+import { getDeployedSandboxAccountsWallets } from './fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports
@@ -46,7 +45,7 @@ describe('e2e_sandbox_example', () => {
     // docs:start:load_accounts
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
-    const accounts = await getSandboxAccountsWallets(pxe);
+    const accounts = await getDeployedSandboxAccountsWallets(pxe);
     const aliceWallet = accounts[0];
     const bobWallet = accounts[1];
     const alice = aliceWallet.getAddress();

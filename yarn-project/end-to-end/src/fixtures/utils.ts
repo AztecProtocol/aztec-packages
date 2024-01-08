@@ -1,4 +1,10 @@
-import { createAccounts, getSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import {
+  INITIAL_SANDBOX_ACCOUNT_SALTS,
+  INITIAL_SANDBOX_ENCRYPTION_KEYS,
+  INITIAL_SANDBOX_SIGNING_KEYS,
+  createAccounts,
+} from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
@@ -8,8 +14,6 @@ import {
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
-  Fr,
-  GrumpkinScalar,
   L1ContractArtifactsForDeployment,
   L2BlockL2Logs,
   LogType,
@@ -20,8 +24,7 @@ import {
   createPXEClient,
   deployL1Contracts,
   generatePublicKey,
-  getSchnorrAccount,
-  retryUntil,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import {
   ContractDeploymentEmitterAbi,
@@ -58,31 +61,26 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-export const INITIAL_ACCOUNT_ENCRYPTION_KEYS = [
-  GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
-  GrumpkinScalar.fromString('aebd1b4be76efa44f5ee655c20bf9ea60f7ae44b9a7fd1fd9f189c7a0b0cdae'),
-  GrumpkinScalar.fromString('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c'),
-];
-
-export const INITIAL_ACCOUNT_SIGNING_KEYS = INITIAL_ACCOUNT_ENCRYPTION_KEYS;
-
-export const INITIAL_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
-
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
 /**
- * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the above initial accounts.
+ * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the sandbox initial accounts.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export async function getInitialAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export async function getDeployedSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
   return Promise.all(
-    INITIAL_ACCOUNT_ENCRYPTION_KEYS.filter(initialKey => {
+    INITIAL_SANDBOX_ENCRYPTION_KEYS.filter(initialKey => {
       const publicKey = generatePublicKey(initialKey);
       return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
     }).map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_ACCOUNT_SIGNING_KEYS[i]!, INITIAL_ACCOUNT_SALTS[i]).getWallet(),
+      getSchnorrAccount(
+        pxe,
+        encryptionKey!,
+        INITIAL_SANDBOX_SIGNING_KEYS[i]!,
+        INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+      ).getWallet(),
     ),
   );
 }
@@ -96,20 +94,6 @@ const getAztecNodeUrl = () => {
   const url = new URL(PXE_URL);
   url.port = '8079';
   return url.toString();
-};
-
-export const waitForPXE = async (pxe?: PXE, logger?: DebugLogger) => {
-  pxe = pxe ?? createPXEClient(PXE_URL);
-  await retryUntil(async () => {
-    try {
-      logger?.('Attempting to contact PXE...');
-      await pxe!.getNodeInfo();
-      return true;
-    } catch (error) {
-      logger?.('Failed to contact PXE!');
-    }
-    return undefined;
-  }, 'RPC Get Node Info');
 };
 
 export const setupL1Contracts = async (
@@ -220,7 +204,7 @@ async function setupWithRemoteEnvironment(
   logger(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing available wallets from already registered accounts...');
-  const wallets = await getInitialAccountsWallets(pxeClient);
+  const wallets = await getDeployedSandboxAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
     const numNewAccounts = numberOfAccounts - wallets.length;
