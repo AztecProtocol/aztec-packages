@@ -88,7 +88,7 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
-      1, // TODO(alvaro): reevaluate this
+      2, // 2 counters are reserved for tx hash and contract deployment nullifier
     );
     const context = new ClientExecutionContext(
       contractAddress,

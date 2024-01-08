@@ -91,13 +91,18 @@ impl PrivateKernelInputsOrdering {
         }
     }
 
+    fn sort_arrays(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
+        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
+        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
+        public_inputs.end.new_commitments.storage = self.sorted_new_commitments;
+        public_inputs.end.new_nullifiers.storage = self.sorted_new_nullifiers;
+    }
+
     fn match_nullifiers_to_commitments_and_squash(self, public_inputs: &mut KernelCircuitPublicInputsBuilder) {
         // Remark: The commitments in public_inputs.end have already been siloed by contract address!
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
-        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_commitments.storage, self.sorted_new_commitments, self.sorted_new_commitments_indexes);
-        PrivateKernelInputsOrdering::assert_sorted_counters(public_inputs.end.new_nullifiers.storage, self.sorted_new_nullifiers, self.sorted_new_nullifiers_indexes);
-        let mut new_commitments = self.sorted_new_commitments;
-        let mut new_nullifiers = self.sorted_new_nullifiers;
+        let mut new_commitments = public_inputs.end.new_commitments.storage;
+        let mut new_nullifiers = public_inputs.end.new_nullifiers.storage;
         // Order new_commitments and new_nullifiers arrays
         // new_commitments = new_commitments.sort_via(|a: SideEffect, b: SideEffect| a.counter < b.counter);
         // new_nullifiers = new_nullifiers.sort_via(|a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.counter < b.counter);
@@ -183,6 +188,8 @@ impl PrivateKernelInputsOrdering {
         
         // Do this before any functions can modify the inputs.
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
+
+        self.sort_arrays(&mut public_inputs);
 
         self.match_reads_to_commitments(&mut public_inputs);
 
