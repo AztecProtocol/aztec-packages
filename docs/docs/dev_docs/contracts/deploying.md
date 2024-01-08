@@ -36,7 +36,7 @@ aztec-nargo compile
 Generate the ABI and typescript class:
 
 ```bash
-aztec-cli generate-typescript ./aztec-nargo/output/target/path -o src/artifacts
+aztec-cli codegen ./aztec-nargo/output/target/path -o src/artifacts --ts
 ```
 
 This would create a typescript file like `Example.ts` in `./src/artifacts`. Read more on the [compiling page](./compiling.md).
