@@ -11,7 +11,7 @@ import {
   Wallet,
   createDebugLogger,
 } from '@aztec/aztec.js';
-import { setupSandbox } from '../sandbox/index.js';
+import { setupEnvironment } from '../environment/index.js';
 
 const logger = createDebugLogger('aztec:http-pxe-client');
 
@@ -34,7 +34,7 @@ describe('ZK Contract Tests', () => {
   let pxe: PXE;
 
   beforeAll(async () => {
-    pxe = await setupSandbox();
+    pxe = await setupEnvironment();
     const accounts = await pxe.getRegisteredAccounts();
     [owner, _account2, _account3] = accounts;
 

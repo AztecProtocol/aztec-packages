@@ -15,10 +15,10 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 
-import { getInitialSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-import { setupSandbox } from '../sandbox/index.js';
+import { setupSandbox } from '../environment/index.js';
 
 const TIMEOUT = 60_000;
 
@@ -46,7 +46,7 @@ describe('e2e_token_contract', () => {
     pxe = await setupSandbox();
     // wallets = await createAccounts(pxe, 3);
     accounts = await pxe.getRegisteredAccounts();
-    wallets = await getInitialSandboxAccountsWallets(pxe);
+    wallets = await getInitialTestAccountsWallets(pxe);
 
     logger(`Accounts: ${accounts.map(a => a.toReadableString())}`);
     logger(`Wallets: ${wallets.map(w => w.getAddress().toString())}`);

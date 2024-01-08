@@ -10,7 +10,7 @@ import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
 
-import { getDeployedSandboxAccountsWallets } from '../fixtures/utils.js';
+import { getDeployedTestAccountsWallets } from '../fixtures/utils.js';
 
 declare global {
   /**
@@ -151,7 +151,7 @@ export const browserTestSuite = (
           const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
-          const [wallet] = await getDeployedSandboxAccountsWallets(pxe);
+          const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
@@ -171,7 +171,7 @@ export const browserTestSuite = (
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
-          const [wallet] = await getDeployedSandboxAccountsWallets(pxe);
+          const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
@@ -207,7 +207,7 @@ export const browserTestSuite = (
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getDeployedSandboxAccountsWallets(pxe);
+          const [owner] = await getDeployedTestAccountsWallets(pxe);
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             accounts[0].publicKey,

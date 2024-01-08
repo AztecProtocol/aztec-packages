@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { INITIAL_SANDBOX_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
+import { INITIAL_TEST_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
 import {
   AccountWallet,
   AztecAddress,
@@ -53,7 +53,7 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 
 const GAME_ID = 42;
 
-const PLAYER_ENCRYPTION_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
+const PLAYER_ENCRYPTION_KEYS = INITIAL_TEST_ENCRYPTION_KEYS;
 
 describe('e2e_card_game', () => {
   let pxe: PXE;

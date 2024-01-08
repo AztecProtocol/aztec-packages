@@ -4,46 +4,46 @@ import { PXE } from '@aztec/types';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
 
-export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
+export const INITIAL_TEST_ENCRYPTION_KEYS = [
   GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
   GrumpkinScalar.fromString('aebd1b4be76efa44f5ee655c20bf9ea60f7ae44b9a7fd1fd9f189c7a0b0cdae'),
   GrumpkinScalar.fromString('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c'),
 ];
 
-export const INITIAL_SANDBOX_SIGNING_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
+export const INITIAL_TEST_SIGNING_KEYS = INITIAL_TEST_ENCRYPTION_KEYS;
 
-export const INITIAL_SANDBOX_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
+export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 
 /**
- * Gets a collection of wallets for the Aztec accounts that are initially stored in the sandbox.
+ * Gets a collection of wallets for the Aztec accounts that are initially stored in the test environment.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getInitialSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
-    INITIAL_SANDBOX_ENCRYPTION_KEYS.map((encryptionKey, i) =>
+    INITIAL_TEST_ENCRYPTION_KEYS.map((encryptionKey, i) =>
       getSchnorrAccount(
         pxe,
         encryptionKey!,
-        INITIAL_SANDBOX_SIGNING_KEYS[i]!,
-        INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+        INITIAL_TEST_SIGNING_KEYS[i]!,
+        INITIAL_TEST_ACCOUNT_SALTS[i],
       ).getWallet(),
     ),
   );
 }
 
 /**
- * Deploys the initial set of schnorr signature accounts to the sandbox
+ * Deploys the initial set of schnorr signature accounts to the test environment
  * @param pxe - PXE instance.
  * @returns The set of deployed Account objects and associated private encryption keys
  */
-export async function deployInitialSandboxAccounts(pxe: PXE) {
-  const accounts = INITIAL_SANDBOX_ENCRYPTION_KEYS.map((privateKey, i) => {
+export async function deployInitialTestAccounts(pxe: PXE) {
+  const accounts = INITIAL_TEST_ENCRYPTION_KEYS.map((privateKey, i) => {
     const account = getSchnorrAccount(
       pxe,
       privateKey,
-      INITIAL_SANDBOX_SIGNING_KEYS[i],
-      INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+      INITIAL_TEST_SIGNING_KEYS[i],
+      INITIAL_TEST_ACCOUNT_SALTS[i],
     );
     return {
       account,

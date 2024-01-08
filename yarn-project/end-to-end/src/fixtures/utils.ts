@@ -1,8 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  INITIAL_SANDBOX_ACCOUNT_SALTS,
-  INITIAL_SANDBOX_ENCRYPTION_KEYS,
-  INITIAL_SANDBOX_SIGNING_KEYS,
+  INITIAL_TEST_ACCOUNT_SALTS,
+  INITIAL_TEST_ENCRYPTION_KEYS,
+  INITIAL_TEST_SIGNING_KEYS,
   createAccounts,
 } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
@@ -64,22 +64,22 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
 
 /**
- * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the sandbox initial accounts.
+ * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the initial test accounts.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export async function getDeployedSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
   return Promise.all(
-    INITIAL_SANDBOX_ENCRYPTION_KEYS.filter(initialKey => {
+    INITIAL_TEST_ENCRYPTION_KEYS.filter(initialKey => {
       const publicKey = generatePublicKey(initialKey);
       return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
     }).map((encryptionKey, i) =>
       getSchnorrAccount(
         pxe,
         encryptionKey!,
-        INITIAL_SANDBOX_SIGNING_KEYS[i]!,
-        INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+        INITIAL_TEST_SIGNING_KEYS[i]!,
+        INITIAL_TEST_ACCOUNT_SALTS[i],
       ).getWallet(),
     ),
   );
@@ -204,7 +204,7 @@ async function setupWithRemoteEnvironment(
   logger(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing available wallets from already registered accounts...');
-  const wallets = await getDeployedSandboxAccountsWallets(pxeClient);
+  const wallets = await getDeployedTestAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
     const numNewAccounts = numberOfAccounts - wallets.length;
