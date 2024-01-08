@@ -1,4 +1,4 @@
-use dep::std::ops::Eq;
+use dep::std::cmp::Eq;
 use dep::types::abis::{
     global_variables::GlobalVariables,
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,

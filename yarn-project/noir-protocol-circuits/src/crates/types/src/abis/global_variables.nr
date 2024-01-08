@@ -1,4 +1,4 @@
-use dep::std::ops::Eq;
+use dep::std::cmp::Eq;
 use crate::{
     constants::GENERATOR_INDEX__GLOBAL_VARIABLES,
     traits::Hash,
