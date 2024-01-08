@@ -15,7 +15,7 @@ import {
   createDebugLogger,
 } from '@aztec/aztec.js';
 
-import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { getInitialSandboxAccountsWallets } from '@aztec/accounts/testing';
 
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
 import { setupSandbox } from '../sandbox/index.js';
@@ -46,7 +46,7 @@ describe('e2e_token_contract', () => {
     pxe = await setupSandbox();
     // wallets = await createAccounts(pxe, 3);
     accounts = await pxe.getRegisteredAccounts();
-    wallets = await getSandboxAccountsWallets(pxe);
+    wallets = await getInitialSandboxAccountsWallets(pxe);
 
     logger(`Accounts: ${accounts.map(a => a.toReadableString())}`);
     logger(`Wallets: ${wallets.map(w => w.getAddress().toString())}`);
