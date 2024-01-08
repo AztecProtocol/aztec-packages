@@ -8,7 +8,7 @@ import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
 
-import { waitForPXE } from '../fixtures/utils.js';
+import { getInitialAccountsWallets, waitForPXE } from '../fixtures/utils.js';
 
 declare global {
   /**
@@ -149,7 +149,7 @@ export const browserTestSuite = (
           const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
+          const [wallet] = await getInitialAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
@@ -169,7 +169,7 @@ export const browserTestSuite = (
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
+          const [wallet] = await getInitialAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
@@ -196,7 +196,6 @@ export const browserTestSuite = (
             ExtendedNote,
             Note,
             computeMessageSecretHash,
-            getSandboxAccountsWallets,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           let accounts = await pxe.getRegisteredAccounts();
@@ -206,7 +205,7 @@ export const browserTestSuite = (
             await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
             accounts = await pxe.getRegisteredAccounts();
           }
-          const [owner] = await getSandboxAccountsWallets(pxe);
+          const [owner] = await getInitialAccountsWallets(pxe);
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             accounts[0].publicKey,
