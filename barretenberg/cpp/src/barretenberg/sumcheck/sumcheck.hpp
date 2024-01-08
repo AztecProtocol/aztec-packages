@@ -89,6 +89,7 @@ template <typename Flavor> class SumcheckProver {
     {
 
         barretenberg::PowPolynomial<FF> pow_univariate(gate_challenges);
+        pow_univariate.compute_pow_polynomial_at_values();
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
