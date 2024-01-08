@@ -28,6 +28,8 @@ fi
 
 yarn install --immutable
 
+# Required to run remake-constants.
+yarn workspace @aztec/foundation build
 # Run remake constants before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
 yarn workspace @aztec/circuits.js remake-constants
 # This is actually our code generation tool. Needed to build contract typescript wrappers.
