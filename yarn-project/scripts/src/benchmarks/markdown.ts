@@ -180,6 +180,7 @@ export function getMarkdown() {
   const metricsByChainLength = Metrics.filter(m => m.groupBy === 'chain-length').map(m => m.name);
   const metricsByCircuitName = Metrics.filter(m => m.groupBy === 'circuit-name').map(m => m.name);
   const metricsByContractCount = Metrics.filter(m => m.groupBy === 'contract-count').map(m => m.name);
+  const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
 
   const baseHash = process.env.BASE_COMMIT_HASH;
   const baseUrl = baseHash && `[\`${baseHash.slice(0, 8)}\`](${S3_URL}/benchmarks-v1/master/${baseHash}.json)`;
@@ -202,7 +203,7 @@ ${getWarningsSummary(benchmark, baseBenchmark)}
 
 <summary>Detailed results</summary>
 
-All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write. 
+All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write.
 ${prSourceDataText}
 ${baseCommitText}
 
@@ -220,6 +221,9 @@ ${getTableContent(pick(benchmark, metricsByChainLength), baseBenchmark, 'blocks'
 
 Stats on running time and I/O sizes collected for every circuit run across all benchmarks.
 ${getTableContent(transpose(pick(benchmark, metricsByCircuitName)), transpose(baseBenchmark), '', 'Circuit')}
+
+Tree insertion stats
+${getTableContent(pick(benchmark, metricsByLeafCount), baseBenchmark, 'leaves')}
 
 ### Miscellaneous
 

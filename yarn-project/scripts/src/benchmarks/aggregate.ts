@@ -166,8 +166,12 @@ function processTxSequencerProcessingStats(entry: TxSequencerProcessingStats, re
 
 /** Process a tree insertion event and updates results */
 function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkCollectedResults) {
-  const bucket = entry.treeName + '_batch_' + entry.batchSize + '_leaves';
-  append(results, 'tree_insertion_time_in_ms', bucket, entry.duration);
+  const bucket = entry.batchSize;
+  if (entry.treeType === 'append-only') {
+    append(results, 'batch_insert_into_append_only_tree_ms', bucket, entry.duration);
+  } else if (entry.treeType === 'indexed') {
+    append(results, 'batch_insert_into_indexed_tree_ms', bucket, entry.duration);
+  }
 }
 
 /** Processes a parsed entry from a log-file and updates results */

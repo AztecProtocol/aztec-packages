@@ -6,7 +6,7 @@ export type MetricGroupBy =
   | 'chain-length'
   | 'circuit-name'
   | 'contract-count'
-  | 'tree-name'
+  | 'leaf-count'
   | 'private-writes'
   | 'public-writes';
 
@@ -147,9 +147,15 @@ export const Metrics = [
     events: ['tx-sequencer-processing'],
   },
   {
-    name: 'tree_insertion_time_in_ms',
-    groupBy: 'tree-name',
-    description: 'Time to insert a batch of leaves into a tree',
+    name: 'batch_insert_into_append_only_tree_ms',
+    groupBy: 'leaf-count',
+    description: 'Time to insert a batch of leaves into an append-only tree',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'batch_insert_into_indexed_tree_ms',
+    groupBy: 'leaf-count',
+    description: 'Time to insert a batch of leaves into an indexed tree',
     events: ['tree-insertion'],
   },
 ] as const satisfies readonly Metric[];
