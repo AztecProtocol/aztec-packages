@@ -63,14 +63,12 @@ flowchart TB
         INNER1(Inner Public Kernel)
         INNER2(Inner Public Kernel)
         INNER3(Inner Public Kernel)
-        RESET0(Reset Public Kernel)
         TAIL0(Tail Public Kernel)
         INIT0 --> INNER0
         INNER0 --> INNER1
         INNER1 --> INNER2
         INNER2 --> INNER3
-        INNER3 --> RESET0
-        RESET0 --> TAIL0
+        INNER3 --> TAIL0
     end
     subgraph Private Kernel
         init0(Initial Private Kernel)
@@ -126,3 +124,13 @@ flowchart TB
     MR2 --> ROOT
     MR3 --> ROOT
 ```
+
+A few things to note:
+
+- A transaction always starts with an [initial private kernel circuit](./private-kernel-initial.md).
+- An [inner private kernel circuit](./private-kernel-inner.md) won't be required if there is only one private function in a transaction.
+- A [reset private kernel circuit](./private-kernel-reset.md) can be executed between two private kernel circuits to "reset" transient data. The reset process can be repeated as needed.
+- Public functions are "enqueued" when invoked from a private function. Public kernel circuits will be executed after the completion of all private kernel iterations.
+- A [base rollup circuit](../rollup-circuits/base_rollup.md) can accept either a [tail public kernel circuit](./public-kernel-tail.md), or a [tail private kernel circuit](./private-kernel-tail.md) in cases where no public functions are present in the transaction.
+- A [merge rollup circuit](../rollup-circuits/merge_rollup.md) can merge two base rollup circuits or two merge rollup circuits.
+- The final step is the execution of the [root rollup circuit](../rollup-circuits/root_rollup.md), which combines two base rollup circuits or two merge rollup circuits.
