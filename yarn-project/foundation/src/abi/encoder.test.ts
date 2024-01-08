@@ -58,7 +58,7 @@ describe('abi/encoder', () => {
           name: 'owner',
           type: {
             kind: 'string',
-            length: 3,
+            length: 4,
           },
           visibility: ABIParameterVisibility.SECRET,
         },
@@ -66,8 +66,10 @@ describe('abi/encoder', () => {
       returnTypes: [],
     };
 
-    const arr = 'abc';
-    expect(encodeArguments(abi, [arr])).toEqual(arr);
+    const str = 'abc';
+    // As bigints padded with 0 for length 4
+    const expected = [new Fr(97), new Fr(98), new Fr(99), new Fr(0)];
+    expect(encodeArguments(abi, [str])).toEqual(expected);
   });
 
   it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
