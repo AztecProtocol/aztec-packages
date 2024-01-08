@@ -181,6 +181,12 @@ pub(crate) fn convert_black_box_call(
         BlackBoxFunc::RecursiveAggregation => unimplemented!(
             "ICE: `BlackBoxFunc::RecursiveAggregation` is not implemented by the Brillig VM"
         ),
+        BlackBoxFunc::Blake3 => {
+            unimplemented!("ICE: `BlackBoxFunc::Blake3` is not implemented by the Brillig VM")
+        }
+        BlackBoxFunc::Keccakf1600 => {
+            unimplemented!("ICE: `BlackBoxFunc::Keccakf1600` is not implemented by the Brillig VM")
+        }
     }
 }
 
