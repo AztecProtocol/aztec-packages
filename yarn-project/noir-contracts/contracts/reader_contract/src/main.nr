@@ -10,7 +10,7 @@ contract Reader {
     use dep::protocol_types;
     use dep::aztec::log::emit_unencrypted_log;
 
-    use dep::compressed_string::{FCS, FCSSerializationMethods};
+    use dep::compressed_string::{FixedsizeCompressedString, FixedsizeCompressedStringSerializationMethods};
 
     use dep::aztec::{
         context::Context,
@@ -48,8 +48,8 @@ contract Reader {
     fn check_name(who: AztecAddress, what: str<31>) {
         let selector = FunctionSelector::from_signature("public_get_name()");
         let ret = context.call_public_function_no_args(who, selector);
-        let name = FCS::from_field(ret[0]);
-        let _what = FCS::from_string(what);
+        let name = FixedsizeCompressedString::from_field(ret[0]);
+        let _what = FixedsizeCompressedString::from_string(what);
         assert(name.is_eq(_what));
     }
 
@@ -57,8 +57,8 @@ contract Reader {
     fn check_symbol(who: AztecAddress, what: str<31>) {
         let selector = FunctionSelector::from_signature("public_get_symbol()");
         let ret = context.call_public_function_no_args(who, selector);
-        let symbol = FCS::from_field(ret[0]);
-        let _what = FCS::from_string(what);
+        let symbol = FixedsizeCompressedString::from_field(ret[0]);
+        let _what = FixedsizeCompressedString::from_string(what);
         assert(symbol.is_eq(_what));
     }
 

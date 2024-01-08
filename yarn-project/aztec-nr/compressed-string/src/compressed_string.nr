@@ -2,12 +2,14 @@ use dep::aztec::types::type_serialization::TypeSerializationInterface;
 use dep::protocol_types::utils::field::field_from_bytes;
 use dep::std;
 
-struct FCS{
+// A Fixedsize Compressed String.
+// Essentially a special version of Compressed String for practical use.
+struct FixedsizeCompressedString{
   value: Field
 }
 
-impl FCS{
-  pub fn is_eq(self, other: FCS) -> bool {
+impl FixedsizeCompressedString{
+  pub fn is_eq(self, other: FixedsizeCompressedString) -> bool {
     self.value == other.value
   }
 
@@ -37,15 +39,15 @@ impl FCS{
   }
 }
 
-fn deserialize(fields: [Field; 1]) -> FCS {
-    FCS { value: fields[0] }
+fn deserialize(fields: [Field; 1]) -> FixedsizeCompressedString {
+    FixedsizeCompressedString { value: fields[0] }
 }
 
-fn serialize(value: FCS) -> [Field; 1] {
+fn serialize(value: FixedsizeCompressedString) -> [Field; 1] {
     value.serialize()
 }
 // Need to figure this out afterwards.
-global FCSSerializationMethods = TypeSerializationInterface {
+global FixedsizeCompressedStringSerializationMethods = TypeSerializationInterface {
   deserialize,
   serialize,
 };

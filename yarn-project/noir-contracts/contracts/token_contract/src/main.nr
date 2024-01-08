@@ -14,7 +14,7 @@ contract Token {
     use dep::std::option::Option;
 
     use dep::safe_math::SafeU120;
-    use dep::compressed_string::{FCS, FCSSerializationMethods};
+    use dep::compressed_string::{FixedsizeCompressedString, FixedsizeCompressedStringSerializationMethods};
 
     use dep::aztec::{
         note::{
@@ -70,8 +70,8 @@ contract Token {
         pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
         // docs:end:storage_pending_shields
         public_balances: Map<PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
-        symbol: PublicState<FCS, 1>,
-        name: PublicState<FCS, 1>,
+        symbol: PublicState<FixedsizeCompressedString, 1>,
+        name: PublicState<FixedsizeCompressedString, 1>,
         decimals: PublicState<u8, U8_SERIALIZED_LEN>,
     }
     // docs:end:storage_struct
@@ -125,12 +125,12 @@ contract Token {
                 symbol: PublicState::new(
                     context,
                     7,
-                    FCSSerializationMethods,
+                    FixedsizeCompressedStringSerializationMethods,
                 ),
                 name: PublicState::new(
                     context,
                     8,
-                    FCSSerializationMethods,
+                    FixedsizeCompressedStringSerializationMethods,
                 ),
                 decimals: PublicState::new(
                     context,
@@ -146,8 +146,8 @@ contract Token {
     #[aztec(private)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8)");
-        let name_s = FCS::from_string(name);
-        let symbol_s = FCS::from_string(symbol);
+        let name_s = FixedsizeCompressedString::from_string(name);
+        let symbol_s = FixedsizeCompressedString::from_string(symbol);
         context.call_public_function(
             context.this_address(),
             selector,
@@ -167,7 +167,7 @@ contract Token {
     // docs:end:set_admin
 
     #[aztec(public)]
-    fn public_get_name() -> pub FCS {
+    fn public_get_name() -> pub FixedsizeCompressedString {
         storage.name.read()
     }
 
@@ -176,7 +176,7 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn public_get_symbol() -> pub FCS {
+    fn public_get_symbol() -> pub FixedsizeCompressedString {
         storage.symbol.read()
     }
 
@@ -365,7 +365,12 @@ contract Token {
 
     // docs:start:initialize
     #[aztec(public)]
-    internal fn _initialize(new_admin: AztecAddress, name: FCS, symbol: FCS, decimals: u8) {
+    internal fn _initialize(
+        new_admin: AztecAddress,
+        name: FixedsizeCompressedString,
+        symbol: FixedsizeCompressedString,
+        decimals: u8
+    ) {
         assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
         storage.minters.at(new_admin.to_field()).write(true);
