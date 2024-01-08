@@ -168,31 +168,6 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 }
 
 /**
- * @brief Populate variables and public_inputs in builder given witness and constraint_system
- * @details This method replaces consecutive calls to add_public_vars then read_witness.
- *
- * @tparam Builder
- * @param builder
- * @param witness
- * @param constraint_system
- */
-template <typename Builder>
-void populate_variables_and_public_inputs(Builder& builder,
-                                          acir_format const& constraint_system,
-                                          WitnessVector const& witness = {})
-{
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/815): Since we're using add_var, the pre-offset wire
-    // indices will be correct. Also, were using the pre-offset public_inputs (not the corrected) to set
-    // builder.public_inputs. TO remove the pre-offset in noir, we'll need to instead construct a builder directly from
-    // this data as we now do with GUH.
-    for (size_t idx = 0; idx < constraint_system.varnum; ++idx) {
-        fr value = idx < witness.size() ? witness[idx] : 0;
-        builder.add_variable(value);
-    }
-    builder.public_inputs = constraint_system.public_inputs;
-}
-
-/**
  * @brief Create a circuit from acir constraints and optionally a witness
  *
  * @tparam Builder
