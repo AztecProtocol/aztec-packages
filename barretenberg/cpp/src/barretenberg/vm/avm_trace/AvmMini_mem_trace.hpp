@@ -16,12 +16,12 @@ class AvmMiniMemTraceBuilder {
     static const uint32_t SUB_CLK_STORE_C = 5;
 
     struct MemoryTraceEntry {
-        uint32_t m_clk;
-        uint32_t m_sub_clk;
-        uint32_t m_addr;
+        uint32_t m_clk{};
+        uint32_t m_sub_clk{};
+        uint32_t m_addr{};
         FF m_val{};
-        AvmMemoryTag m_tag;
-        AvmMemoryTag m_in_tag;
+        AvmMemoryTag m_tag{};
+        AvmMemoryTag m_in_tag{};
         bool m_rw = false;
         bool m_tag_err = false;
         FF m_one_min_inv{};
@@ -29,8 +29,8 @@ class AvmMiniMemTraceBuilder {
 
     // Structure to return value and tag matching boolean after a memory read.
     struct MemRead {
-        bool tag_match;
-        FF val;
+        bool tag_match = false;
+        FF val{};
     };
 
     AvmMiniMemTraceBuilder();

@@ -29,6 +29,7 @@ void AvmMiniTraceBuilder::reset()
 {
     main_trace.clear();
     mem_trace_builder.reset();
+    alu_trace_builder.reset();
 }
 
 /** TODO: Implement for non finite field types
@@ -544,14 +545,17 @@ void AvmMiniTraceBuilder::internal_return()
 std::vector<Row> AvmMiniTraceBuilder::finalize()
 {
     auto mem_trace = mem_trace_builder.finalize();
+    auto alu_trace = alu_trace_builder.finalize();
     size_t mem_trace_size = mem_trace.size();
     size_t main_trace_size = main_trace.size();
+    size_t alu_trace_size = alu_trace.size();
 
     // TODO: We will have to handle this through error handling and not an assertion
     // Smaller than N because we have to add an extra initial row to support shifted
     // elements
     assert(mem_trace_size < AVM_TRACE_SIZE);
     assert(main_trace_size < AVM_TRACE_SIZE);
+    assert(alu_trace_size < AVM_TRACE_SIZE);
 
     // Fill the rest with zeros.
     size_t zero_rows_num = AVM_TRACE_SIZE - main_trace_size - 1;
@@ -561,6 +565,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
 
     main_trace.at(main_trace_size - 1).avmMini_last = FF(1);
 
+    // Memory trace inclusion
     for (size_t i = 0; i < mem_trace_size; i++) {
         auto const& src = mem_trace.at(i);
         auto& dest = main_trace.at(i);
@@ -582,6 +587,37 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
             dest.memTrace_m_lastAccess = FF(1);
             dest.memTrace_m_last = FF(1);
         }
+    }
+
+    // Alu trace inclusion
+    for (size_t i = 0; i < alu_trace_size; i++) {
+        auto const& src = alu_trace.at(i);
+        auto& dest = main_trace.at(i);
+
+        dest.aluChip_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
+
+        dest.aluChip_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
+        dest.aluChip_alu_u16_tag = FF(static_cast<uint32_t>(src.alu_u16_tag));
+        dest.aluChip_alu_u32_tag = FF(static_cast<uint32_t>(src.alu_u32_tag));
+        dest.aluChip_alu_u64_tag = FF(static_cast<uint32_t>(src.alu_u64_tag));
+        dest.aluChip_alu_u128_tag = FF(static_cast<uint32_t>(src.alu_u128_tag));
+
+        dest.aluChip_alu_ia = src.alu_ia;
+        dest.aluChip_alu_ib = src.alu_ib;
+        dest.aluChip_alu_ic = src.alu_ic;
+
+        dest.aluChip_alu_cf = FF(static_cast<uint32_t>(src.alu_cf));
+
+        dest.aluChip_alu_u8_r0 = FF(src.alu_u8_r0);
+
+        dest.aluChip_alu_u16_r0 = FF(src.alu_u16_reg.at(0));
+        dest.aluChip_alu_u16_r1 = FF(src.alu_u16_reg.at(1));
+        dest.aluChip_alu_u16_r2 = FF(src.alu_u16_reg.at(2));
+        dest.aluChip_alu_u16_r3 = FF(src.alu_u16_reg.at(3));
+        dest.aluChip_alu_u16_r4 = FF(src.alu_u16_reg.at(4));
+        dest.aluChip_alu_u16_r5 = FF(src.alu_u16_reg.at(5));
+        dest.aluChip_alu_u16_r6 = FF(src.alu_u16_reg.at(6));
+        dest.aluChip_alu_u16_r7 = FF(src.alu_u16_reg.at(7));
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.

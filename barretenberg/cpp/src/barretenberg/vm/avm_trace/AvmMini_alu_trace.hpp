@@ -7,13 +7,31 @@ namespace avm_trace {
 class AvmMiniAluTraceBuilder {
 
   public:
-    struct AluTraceEntry {};
+    struct AluTraceEntry {
+        bool alu_op_add = false;
+
+        bool alu_u8_tag = false;
+        bool alu_u16_tag = false;
+        bool alu_u32_tag = false;
+        bool alu_u64_tag = false;
+        bool alu_u128_tag = false;
+
+        FF alu_ia{};
+        FF alu_ib{};
+        FF alu_ic{};
+
+        bool alu_cf = false;
+
+        uint8_t alu_u8_r0{};
+
+        std::array<uint16_t, 8> alu_u16_reg{};
+    };
 
     AvmMiniAluTraceBuilder();
-
     void reset();
-
     std::vector<AluTraceEntry> finalize();
+
+    FF add(FF const& a, FF const& b, AvmMemoryTag in_tag);
 
   private:
     std::vector<AluTraceEntry> alu_trace;

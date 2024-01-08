@@ -2,6 +2,7 @@
 
 #include <stack>
 
+#include "AvmMini_alu_trace.hpp"
 #include "AvmMini_common.hpp"
 #include "AvmMini_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -63,6 +64,7 @@ class AvmMiniTraceBuilder {
   private:
     std::vector<Row> main_trace;
     AvmMiniMemTraceBuilder mem_trace_builder;
+    AvmMiniAluTraceBuilder alu_trace_builder;
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;
