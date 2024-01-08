@@ -147,9 +147,9 @@ export type TxStats = {
 /**
  * Stats for a tx that has been processed by the public processor.
  */
-export type TxPrivatePartProcessedStats = {
+export type TxPXEProcessingStats = {
   /** Name of the event. */
-  eventName: 'tx-private-part-processed';
+  eventName: 'tx-pxe-processing';
   /** Duration in ms. */
   duration: number;
 } & TxStats;
@@ -157,9 +157,9 @@ export type TxPrivatePartProcessedStats = {
 /**
  * Stats for a tx that has been processed by the public processor.
  */
-export type TxPublicPartProcessedStats = {
+export type TxSequencerProcessingStats = {
   /** Name of the event. */
-  eventName: 'tx-public-part-processed';
+  eventName: 'tx-sequencer-processing';
   /** Duration in ms. */
   duration: number;
   /** Count of how many public writes this tx has made. Acts as a proxy for how 'heavy' this tx */
@@ -199,8 +199,8 @@ export type Stats =
   | L2BlockHandledStats
   | NoteProcessorCaughtUpStats
   | TxAddedToPoolStats
-  | TxPrivatePartProcessedStats
-  | TxPublicPartProcessedStats
+  | TxPXEProcessingStats
+  | TxSequencerProcessingStats
   | TreeInsertionStats;
 
 /** Set of event names across emitted stats. */

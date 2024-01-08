@@ -46,7 +46,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
-import { TxPublicPartProcessedStats } from '@aztec/types/stats';
+import { TxSequencerProcessingStats } from '@aztec/types/stats';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { getVerificationKeys } from '../index.js';
@@ -170,11 +170,11 @@ export class PublicProcessor {
 
       const processedTransaction = await makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
       this.log(`Processed public part of ${tx.data.end.newNullifiers[0]}`, {
-        eventName: 'tx-public-part-processed',
+        eventName: 'tx-sequencer-processing',
         duration: timer.ms(),
         publicDataUpdateRequests: processedTransaction.data.end.publicDataUpdateRequests.length ?? 0,
         ...tx.getStats(),
-      } satisfies TxPublicPartProcessedStats);
+      } satisfies TxSequencerProcessingStats);
 
       return processedTransaction;
     } else {

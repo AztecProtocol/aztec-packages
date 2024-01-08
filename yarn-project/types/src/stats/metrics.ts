@@ -135,16 +135,16 @@ export const Metrics = [
     events: ['tx-added-to-pool'],
   },
   {
-    name: 'tx_private_process_time_ms',
+    name: 'tx_pxe_processing_time_ms',
     groupBy: 'private-writes',
     description: 'Time to process the private part of a tx.',
-    events: ['tx-private-part-processed'],
+    events: ['tx-pxe-processing'],
   },
   {
-    name: 'tx_public_process_time_ms',
+    name: 'tx_sequencer_processing_time_ms',
     groupBy: 'public-writes',
     description: 'Time to process the public part of a tx.',
-    events: ['tx-private-part-processed'],
+    events: ['tx-sequencer-processing'],
   },
   {
     name: 'tree_insertion_time_in_ms',

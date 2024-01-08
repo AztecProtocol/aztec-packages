@@ -26,8 +26,8 @@ import {
   Stats,
   TreeInsertionStats,
   TxAddedToPoolStats,
-  TxPrivatePartProcessedStats,
-  TxPublicPartProcessedStats,
+  TxPXEProcessingStats,
+  TxSequencerProcessingStats,
 } from '@aztec/types/stats';
 
 import * as fs from 'fs';
@@ -155,13 +155,13 @@ function processTxAddedToPool(entry: TxAddedToPoolStats, results: BenchmarkColle
 }
 
 /** Process entries for events tx-private-part-processed, grouped by new commitments */
-function processTxPrivatePart(entry: TxPrivatePartProcessedStats, results: BenchmarkCollectedResults) {
-  append(results, 'tx_private_process_time_ms', entry.newCommitmentCount, entry.duration);
+function processTxPXEProcessingStats(entry: TxPXEProcessingStats, results: BenchmarkCollectedResults) {
+  append(results, 'tx_pxe_processing_time_ms', entry.newCommitmentCount, entry.duration);
 }
 
 /** Process entries for events tx-public-part-processed, grouped by public data writes */
-function processTxPublicPart(entry: TxPublicPartProcessedStats, results: BenchmarkCollectedResults) {
-  append(results, 'tx_public_process_time_ms', entry.publicDataUpdateRequests, entry.duration);
+function processTxSequencerProcessingStats(entry: TxSequencerProcessingStats, results: BenchmarkCollectedResults) {
+  append(results, 'tx_sequencer_processing_time_ms', entry.publicDataUpdateRequests, entry.duration);
 }
 
 /** Process a tree insertion event and updates results */
@@ -187,10 +187,10 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults) {
       return processNodeSyncedChain(entry, results);
     case 'tx-added-to-pool':
       return processTxAddedToPool(entry, results);
-    case 'tx-private-part-processed':
-      return processTxPrivatePart(entry, results);
-    case 'tx-public-part-processed':
-      return processTxPublicPart(entry, results);
+    case 'tx-pxe-processing':
+      return processTxPXEProcessingStats(entry, results);
+    case 'tx-sequencer-processing':
+      return processTxSequencerProcessingStats(entry, results);
     case 'tree-insertion':
       return processTreeInsertion(entry, results);
     default:

@@ -53,7 +53,7 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/types';
-import { TxPrivatePartProcessedStats } from '@aztec/types/stats';
+import { TxPXEProcessingStats } from '@aztec/types/stats';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -358,10 +358,10 @@ export class PXEService implements PXE {
       const timer = new Timer();
       const tx = await this.#simulateAndProve(txRequest, newContract);
       this.log(`Processed private part of ${tx.data.end.newNullifiers[0]}`, {
-        eventName: 'tx-private-part-processed',
+        eventName: 'tx-pxe-processing',
         duration: timer.ms(),
         ...tx.getStats(),
-      } satisfies TxPrivatePartProcessedStats);
+      } satisfies TxPXEProcessingStats);
       if (simulatePublic) {
         await this.#simulatePublicCalls(tx);
       }
