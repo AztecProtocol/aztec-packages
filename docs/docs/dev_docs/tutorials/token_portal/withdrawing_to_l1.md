@@ -76,7 +76,7 @@ And compile your Aztec.nr contracts like this:
 
 ```bash
 cd aztec-contracts/token-bridge
-aztec-nargo compile --typescript ../../src/test/fixtures token_bridge
+aztec-nargo compile
 ```
 
 And generate the TypeScript interface for the contract and add it to the test dir:
