@@ -14,7 +14,7 @@ fi
 
 function get_deps {
   local TYPE=$(yq -r ".\"$1\".dependencies | type" $MANIFEST)
-  if [ "$TYPE" == "!!str" ]; then
+  if [ "$TYPE" == "!!str" ] || [ "$TYPE" == "string" ]; then
     # Execute string as command relative to buildDir to retrieve dependencies.
     local BUILD_DIR=$($0 buildDir $1)
     local CMD=$BUILD_DIR/$(yq -r ".\"$1\".dependencies")
@@ -24,29 +24,29 @@ function get_deps {
     fi
     local PROJECT_DIR=$($0 projectDir $1)
     DEPS=($($CMD $PROJECT_DIR))
-  elif [ "$TYPE" == "!!null" ]; then
+  elif [ "$TYPE" == "!!null" ] || [ "$TYPE" == "null" ]; then
     DEPS=()
-  elif [ "$TYPE" == "!!seq" ]; then
+  elif [ "$TYPE" == "!!seq" ] || [ "$TYPE" == "array" ]; then
     DEPS=($(yq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
   else
-    >&2 echo "dependencies must be a array, string or null."
+    >&2 echo "Build manifest 'dependencies' must be array, string, or null (got $TYPE)."
     exit 1
   fi
 }
 
 function add_rebuild_patterns {
   local TYPE=$(yq -r ".\"$1\".rebuildPatterns | type" $MANIFEST)
-  if [ "$TYPE" == "!!str" ]; then
+  if [ "$TYPE" == "!!str" ] || [ "$TYPE" == "string" ]; then
     local FILE=$(yq -r ".\"$1\".rebuildPatterns" $MANIFEST)
     local PROJECT_DIR=$($0 projectDir $1)
     PATTERNS=(${PATTERNS[@]} $(cat $PROJECT_DIR/$FILE))
-  elif [ "$TYPE" == "!!seq" ]; then
+  elif [ "$TYPE" == "!!seq" ] || [ "$TYPE" == "array" ]; then
     PATTERNS=(${PATTERNS[@]} $(yq -r ".\"$1\".rebuildPatterns | .[]" $MANIFEST))
-  elif [ "$TYPE" == "!!null" ]; then
+  elif [ "$TYPE" == "!!null" ] || [ "$TYPE" == "null" ]; then
     local PROJECT_DIR=$($0 relativeProjectDir $1)
     PATTERNS=(${PATTERNS[@]} "^$PROJECT_DIR/")
   else
-    >&2 echo "rebuildPatterns must be array, string, or null."
+    >&2 echo "Build manifest 'rebuildPatterns' must be array, string, or null (got $TYPE)."
     exit 1
   fi
 }
