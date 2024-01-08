@@ -99,7 +99,7 @@ function getCell(
   const formattedValue = formatValue(value);
   const baseValue: number | undefined = base?.[row]?.[col];
   const percentDiff =
-    typeof baseValue === 'number' && typeof value === 'number'
+    typeof baseValue === 'number' && baseValue > 0 && typeof value === 'number'
       ? Math.round(((value - baseValue) / baseValue) * 100)
       : undefined;
   if (!percentDiff || Math.abs(percentDiff) < 1) {
