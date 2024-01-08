@@ -75,12 +75,7 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
       const publicKey = generatePublicKey(initialKey);
       return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
     }).map((encryptionKey, i) =>
-      getSchnorrAccount(
-        pxe,
-        encryptionKey!,
-        INITIAL_TEST_SIGNING_KEYS[i]!,
-        INITIAL_TEST_ACCOUNT_SALTS[i],
-      ).getWallet(),
+      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
     ),
   );
 }

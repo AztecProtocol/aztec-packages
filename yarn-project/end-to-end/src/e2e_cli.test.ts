@@ -1,5 +1,5 @@
-import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { PXE, createDebugLogger } from '@aztec/aztec.js';
+import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createPXERpcServer } from '@aztec/pxe';
 
 import { setup as e2eSetup } from './fixtures/utils.js';

@@ -22,12 +22,7 @@ export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
     INITIAL_TEST_ENCRYPTION_KEYS.map((encryptionKey, i) =>
-      getSchnorrAccount(
-        pxe,
-        encryptionKey!,
-        INITIAL_TEST_SIGNING_KEYS[i]!,
-        INITIAL_TEST_ACCOUNT_SALTS[i],
-      ).getWallet(),
+      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
     ),
   );
 }
@@ -39,12 +34,7 @@ export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWi
  */
 export async function deployInitialTestAccounts(pxe: PXE) {
   const accounts = INITIAL_TEST_ENCRYPTION_KEYS.map((privateKey, i) => {
-    const account = getSchnorrAccount(
-      pxe,
-      privateKey,
-      INITIAL_TEST_SIGNING_KEYS[i],
-      INITIAL_TEST_ACCOUNT_SALTS[i],
-    );
+    const account = getSchnorrAccount(pxe, privateKey, INITIAL_TEST_SIGNING_KEYS[i], INITIAL_TEST_ACCOUNT_SALTS[i]);
     return {
       account,
       privateKey,
