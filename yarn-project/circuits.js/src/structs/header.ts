@@ -5,7 +5,7 @@ import { StateReference, AppendOnlyTreeSnapshot, Fr, GlobalVariables } from './i
 /** A header of an L2 block. */
 export class Header {
   constructor(
-    /** Snapshot of archive at the end of the block. */
+    /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
     /** Hash of the body of an L2 block. */
     public bodyHash: [Fr, Fr],
