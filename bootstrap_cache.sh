@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "Remote cache is not supported on MacOS since CI builds are done on Ubuntu."
+  exit 1
+fi
+
 cd "$(dirname "$0")"
 
 source ./build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
