@@ -28,7 +28,7 @@ use crate::constants::{
 use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 // Convert a 32 byte array to a field element, dropping smallest byte to ensure size without doing modulus division
-fn truncated_bytes32_to_field(bytes32: [u8; 32]) -> Field {
+fn truncate_bytes32_to_field(bytes32: [u8; 32]) -> Field {
     // Convert it to a field element
     let mut v = 1;
     let mut value = 0 as Field;
@@ -45,7 +45,7 @@ pub fn sha256_truncate_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     // this truncates the right most 4 bytes of the sha256 byte and then interprets the result as a Field.
     // https://forum.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/14
     // links to justification - we should still have 126bits of security after doing this (reduced from 128 bits)
-    let sha256_hash_bytes = sha256(bytes_to_hash).as_slice();
+    let sha256_hash_bytes = sha256(bytes_to_hash);
 
     truncate_bytes32_to_field(sha256_hash_bytes)
 }
@@ -54,7 +54,7 @@ pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     // this is equivalent to taking the remainder of the sha256 hash, relative to the Fr characteristic prime
     // this is less prefer
     let sha256_hashed = sha256(bytes_to_hash);
-    crate::field::bytes32_to_field(sha256_hashed)
+    dep::std::field::bytes32_to_field(sha256_hashed)
 }
 
 pub fn hash_args<N>(args: [Field; N]) -> Field {
