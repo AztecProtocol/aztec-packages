@@ -156,7 +156,7 @@ function generateArtifactGetter(name: string) {
 function generateAbiStatement(name: string, artifactImportPath: string) {
   const stmts = [
     `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractArtifact = ${name}ContractArtifactJson as ContractArtifact;`,
+    `export const ${name}ContractArtifact = ${name}ContractArtifactJson as unknown as ContractArtifact;`,
   ];
   return stmts.join('\n');
 }
