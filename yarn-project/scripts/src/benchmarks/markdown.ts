@@ -182,6 +182,9 @@ export function getMarkdown() {
   const metricsByContractCount = Metrics.filter(m => m.groupBy === 'contract-count').map(m => m.name);
   const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
 
+  const metricsTxPxeProcessing = Metrics.filter(m => m.name === 'tx_pxe_processing_time_ms').map(m => m.name);
+  const metricsTxSeqProcessing = Metrics.filter(m => m.name === 'tx_sequencer_processing_time_ms').map(m => m.name);
+
   const baseHash = process.env.BASE_COMMIT_HASH;
   const baseUrl = baseHash && `[\`${baseHash.slice(0, 8)}\`](${S3_URL}/benchmarks-v1/master/${baseHash}.json)`;
   const baseCommitText = baseUrl
@@ -229,6 +232,10 @@ ${getTableContent(pick(benchmark, metricsByLeafCount), baseBenchmark, 'leaves')}
 
 Transaction sizes based on how many contracts are deployed in the tx.
 ${getTableContent(pick(benchmark, metricsByContractCount), baseBenchmark, 'deployed contracts')}
+
+Transaction processing duration by data writes.
+${getTableContent(pick(benchmark, metricsTxPxeProcessing), baseBenchmark, 'new commitments')}
+${getTableContent(pick(benchmark, metricsTxSeqProcessing), baseBenchmark, 'public data writes')}
 
 </details>
 ${COMMENT_MARK}

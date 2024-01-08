@@ -7,8 +7,7 @@ export type MetricGroupBy =
   | 'circuit-name'
   | 'contract-count'
   | 'leaf-count'
-  | 'private-writes'
-  | 'public-writes';
+  | 'data-writes';
 
 /** Definition of a metric to track in benchmarks. */
 export interface Metric {
@@ -136,13 +135,13 @@ export const Metrics = [
   },
   {
     name: 'tx_pxe_processing_time_ms',
-    groupBy: 'private-writes',
+    groupBy: 'data-writes',
     description: 'Time to process the private part of a tx.',
     events: ['tx-pxe-processing'],
   },
   {
     name: 'tx_sequencer_processing_time_ms',
-    groupBy: 'public-writes',
+    groupBy: 'data-writes',
     description: 'Time to process the public part of a tx.',
     events: ['tx-sequencer-processing'],
   },

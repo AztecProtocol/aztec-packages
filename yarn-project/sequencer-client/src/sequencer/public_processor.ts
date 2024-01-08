@@ -172,7 +172,8 @@ export class PublicProcessor {
       this.log(`Processed public part of ${tx.data.end.newNullifiers[0]}`, {
         eventName: 'tx-sequencer-processing',
         duration: timer.ms(),
-        publicDataUpdateRequests: processedTransaction.data.end.publicDataUpdateRequests.length ?? 0,
+        publicDataUpdateRequests:
+          processedTransaction.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
         ...tx.getStats(),
       } satisfies TxSequencerProcessingStats);
 
