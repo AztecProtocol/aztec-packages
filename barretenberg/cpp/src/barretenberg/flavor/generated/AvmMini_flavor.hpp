@@ -42,7 +42,7 @@ class AvmMiniFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 46;
 
-    using Relations = std::tuple<AvmMini_vm::mem_trace<FF>, AvmMini_vm::avm_mini<FF>>;
+    using Relations = std::tuple<AvmMini_vm::avm_mini<FF>, AvmMini_vm::mem_trace<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -202,12 +202,12 @@ class AvmMiniFlavor {
                               avmMini_mem_idx_b,
                               avmMini_mem_idx_c,
                               avmMini_last,
-                              memTrace_m_val_shift,
+                              avmMini_internal_return_ptr_shift,
+                              avmMini_pc_shift,
                               memTrace_m_addr_shift,
                               memTrace_m_tag_shift,
-                              memTrace_m_rw_shift,
-                              avmMini_internal_return_ptr_shift,
-                              avmMini_pc_shift)
+                              memTrace_m_val_shift,
+                              memTrace_m_rw_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -251,12 +251,12 @@ class AvmMiniFlavor {
                      avmMini_mem_idx_b,
                      avmMini_mem_idx_c,
                      avmMini_last,
-                     memTrace_m_val_shift,
+                     avmMini_internal_return_ptr_shift,
+                     avmMini_pc_shift,
                      memTrace_m_addr_shift,
                      memTrace_m_tag_shift,
-                     memTrace_m_rw_shift,
-                     avmMini_internal_return_ptr_shift,
-                     avmMini_pc_shift };
+                     memTrace_m_val_shift,
+                     memTrace_m_rw_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -303,17 +303,18 @@ class AvmMiniFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_tag, memTrace_m_rw, avmMini_internal_return_ptr,
-                     avmMini_pc };
+            return {
+                avmMini_internal_return_ptr, avmMini_pc, memTrace_m_addr, memTrace_m_tag, memTrace_m_val, memTrace_m_rw
+            };
         };
         RefVector<DataType> get_shifted()
         {
-            return { memTrace_m_val_shift,
+            return { avmMini_internal_return_ptr_shift,
+                     avmMini_pc_shift,
                      memTrace_m_addr_shift,
                      memTrace_m_tag_shift,
-                     memTrace_m_rw_shift,
-                     avmMini_internal_return_ptr_shift,
-                     avmMini_pc_shift };
+                     memTrace_m_val_shift,
+                     memTrace_m_rw_shift };
         };
     };
 
@@ -326,8 +327,9 @@ class AvmMiniFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { memTrace_m_val, memTrace_m_addr, memTrace_m_tag, memTrace_m_rw, avmMini_internal_return_ptr,
-                     avmMini_pc };
+            return {
+                avmMini_internal_return_ptr, avmMini_pc, memTrace_m_addr, memTrace_m_tag, memTrace_m_val, memTrace_m_rw
+            };
         };
 
         // The plookup wires that store plookup read data.

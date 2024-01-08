@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
+#include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
 #include "barretenberg/flavor/generated/AvmMini_flavor.hpp"
@@ -59,12 +60,12 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF memTrace_m_val_shift{};
-    FF memTrace_m_addr_shift{};
-    FF memTrace_m_tag_shift{};
-    FF memTrace_m_rw_shift{};
     FF avmMini_internal_return_ptr_shift{};
     FF avmMini_pc_shift{};
+    FF memTrace_m_addr_shift{};
+    FF memTrace_m_tag_shift{};
+    FF memTrace_m_val_shift{};
+    FF memTrace_m_rw_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -136,12 +137,12 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
-        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
-        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
-        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
         polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
+        polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
+        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
+        polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
+        polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
 
         return polys;
     }
@@ -179,12 +180,12 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
-        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
-                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
-            return false;
-        }
         if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini",
                                                                              AvmMini_vm::get_relation_label_avm_mini)) {
+            return false;
+        }
+        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
+                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
             return false;
         }
 
