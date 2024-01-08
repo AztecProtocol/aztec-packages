@@ -1,4 +1,5 @@
 import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
+
 import { deploy } from '../deploy.mjs';
 import { main } from '../index.mjs';
 
