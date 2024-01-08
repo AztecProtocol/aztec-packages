@@ -23,18 +23,18 @@ namespace proof_system::honk::sumcheck {
  * FF>>;)`
  *
  */
-class lookup_xor_inverses_lookup_settings {
+class lookup_xor_lookup_settings {
   public:
     /**
      * @brief The number of read terms (how many lookups we perform) in each row
      *
      */
-    static constexpr size_t READ_TERMS = 0;
+    static constexpr size_t READ_TERMS = 1;
     /**
      * @brief The number of write terms (how many additions to the lookup table we make) in each row
      *
      */
-    static constexpr size_t WRITE_TERMS = 0;
+    static constexpr size_t WRITE_TERMS = 1;
 
     /**
      * @brief The type of READ_TERM used for each read index (basic and scaled)
@@ -54,13 +54,13 @@ class lookup_xor_inverses_lookup_settings {
      * basic tuple
      *
      */
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 0;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
 
     /**
      * @brief The polynomial degree of the relation telling us if the inverse polynomial value needs to be computed
      *
      */
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 0;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
 
     /**
      * @brief The degree of the read term if implemented arbitrarily. This value is not used by basic and scaled read
@@ -84,7 +84,11 @@ class lookup_xor_inverses_lookup_settings {
      * @details If this is true then the lookup takes place in this row
      *
      */
-    static constexpr bool inverse_polynomial_is_computed_at_row = true;
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in.toy_q_xor == 1 || in.toy_q_xor_table == 1);
+    }
 
     /**
      * @brief Subprocedure for computing the value deciding if the inverse polynomial value needs to be checked in this
@@ -95,10 +99,14 @@ class lookup_xor_inverses_lookup_settings {
      * @param in Value/Univariate of all entities at row/edge
      * @return Accumulator
      */
+
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
-        return Accumulator(1);
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in.toy_q_xor);
+        const auto is_table_entry = View(in.toy_q_xor_table);
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
     /**
@@ -125,10 +133,10 @@ class lookup_xor_inverses_lookup_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.lookup_xor_inverses,
+        return std::forward_as_tuple(in.lookup_xor,
+                                     in.lookup_xor_counts,
                                      in.toy_q_xor,
-                                     in.toy_q_xor,
-                                     in.toy_q_xor,
+                                     in.toy_q_xor_table,
                                      in.toy_xor_a,
                                      in.toy_xor_b,
                                      in.toy_xor_c,
@@ -147,10 +155,10 @@ class lookup_xor_inverses_lookup_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.lookup_xor_inverses,
+        return std::forward_as_tuple(in.lookup_xor,
+                                     in.lookup_xor_counts,
                                      in.toy_q_xor,
-                                     in.toy_q_xor,
-                                     in.toy_q_xor,
+                                     in.toy_q_xor_table,
                                      in.toy_xor_a,
                                      in.toy_xor_b,
                                      in.toy_xor_c,
@@ -160,8 +168,7 @@ class lookup_xor_inverses_lookup_settings {
     }
 };
 
-template <typename FF_>
-using lookup_xor_inverses_relation = GenericLookupRelation<lookup_xor_inverses_lookup_settings, FF_>;
-template <typename FF_> using lookup_xor_inverses = GenericLookup<lookup_xor_inverses_lookup_settings, FF_>;
+template <typename FF_> using lookup_xor_relation = GenericLookupRelation<lookup_xor_lookup_settings, FF_>;
+template <typename FF_> using lookup_xor = GenericLookup<lookup_xor_lookup_settings, FF_>;
 
 } // namespace proof_system::honk::sumcheck

@@ -465,10 +465,10 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
-    void accumulate(ContainerOverSubrelations& accumulator,
-                    const AllEntities& in,
-                    const Parameters& params,
-                    const FF& scaling_factor)
+    static void accumulate(ContainerOverSubrelations& accumulator,
+                           const AllEntities& in,
+                           const Parameters& params,
+                           const FF& scaling_factor)
     {
         logderivative_library::
             accumulate_logderivative_lookup_subrelation_contributions<FF, GenericLookupRelationImpl<Settings, FF>>(
@@ -479,6 +479,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
 template <typename Settings, typename FF>
 using GenericLookupRelation = Relation<GenericLookupRelationImpl<Settings, FF>>;
 
-template <typename Settings, typename FF> using GenericPermutation = GenericLookupRelationImpl<Settings, FF>;
+template <typename Settings, typename FF> using GenericLookup = GenericLookupRelationImpl<Settings, FF>;
 
 } // namespace proof_system::honk::sumcheck

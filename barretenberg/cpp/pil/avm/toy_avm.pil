@@ -32,13 +32,17 @@ namespace toy(256);
     pol commit xor_c;
     
     // Precomputed tables
-    pol constant table_xor_a;
-    pol constant table_xor_b;
-    pol constant table_xor_c;
+    pol commit table_xor_a;
+    pol commit table_xor_b;
+    pol commit table_xor_c;
 
     pol commit q_xor;
+    pol commit q_xor_table;
 
     q_xor * (1 - q_xor) = 0;
+    q_xor_table * (1 - q_xor_table) = 0;
 
-    #[lookup_xor_inverses]
-    q_xor { xor_a, xor_b, xor_c } in { table_xor_a, table_xor_b, table_xor_c };
+    // Note - if no right hand side selector column is provided, then we will need to build the table ourselves
+    // Note - we can also take advantage of pil creating the lookup columns for us here -> I may be able to do some codegen here !
+    #[lookup_xor]
+    q_xor { xor_a, xor_b, xor_c } in q_xor_table { table_xor_a, table_xor_b, table_xor_c };
