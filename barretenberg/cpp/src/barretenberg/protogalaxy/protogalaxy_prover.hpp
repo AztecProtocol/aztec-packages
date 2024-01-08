@@ -270,11 +270,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const PowPolynomial<FF>& pow_betas)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         size_t common_instance_size = instances[0]->instance_size;
-
+        pow_betas.compute_pow_polynomial_at_values();
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.

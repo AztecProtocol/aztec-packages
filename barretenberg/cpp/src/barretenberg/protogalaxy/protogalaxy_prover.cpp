@@ -292,7 +292,8 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     combine_relation_parameters(instances);
     combine_alpha(instances);
-    auto combiner = compute_combiner(instances, PowPolynomial<FF>(instances.next_gate_challenges));
+    auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
+    auto combiner = compute_combiner(instances, pow_polynomial);
 
     auto compressed_perturbator = perturbator.evaluate(perturbator_challenge);
     auto combiner_quotient = compute_combiner_quotient(compressed_perturbator, combiner);

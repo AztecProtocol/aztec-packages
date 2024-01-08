@@ -74,9 +74,9 @@ class GoblinUltraRecursive {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This
-    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) to much.
+    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
+    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
+    // combiner) to much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using AlphaType = std::array<FF, NUM_SUBRELATIONS - 1>;
 
