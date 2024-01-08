@@ -43,10 +43,6 @@ acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 
-    // Must +1!
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, subgroup_size + 1);
-    srs::init_grumpkin_crs_factory(grumpkin_g1_data);
-
     return acir_composer;
 }
 
@@ -203,7 +199,8 @@ void prove(const std::string& bytecodePath,
 void gateCount(const std::string& bytecodePath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
-    auto acir_composer = init(constraint_system);
+    acir_proofs::AcirComposer acir_composer(0, verbose);
+    acir_composer.create_circuit(constraint_system);
     auto gate_count = acir_composer.get_total_circuit_size();
 
     writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
@@ -400,7 +397,7 @@ void acvm_info(const std::string& output_path)
         "width" : 3
     },
     "opcodes_supported" : ["arithmetic", "directive", "brillig", "memory_init", "memory_op"],
-    "black_box_functions_supported" : ["and", "xor", "range", "sha256", "blake2s", "keccak256", "schnorr_verify", "pedersen", "pedersen_hash", "ecdsa_secp256k1", "ecdsa_secp256r1", "fixed_base_scalar_mul", "recursive_aggregation"]
+    "black_box_functions_supported" : ["and", "xor", "range", "sha256", "blake2s", "keccak256", "keccak_f1600", "schnorr_verify", "pedersen", "pedersen_hash", "ecdsa_secp256k1", "ecdsa_secp256r1", "fixed_base_scalar_mul", "recursive_aggregation"]
     })";
 
     size_t length = strlen(jsonData);
