@@ -93,7 +93,7 @@ In the token contract, TransparentNotes are stored in a set called "pending_shie
 
 ### Revealing encrypted logs conditionally
 
-An encrypted log can contain the details of a transaction. One could think this log is emitted as part of the transaction execution, so it wouldn't be revealed if the transaction fails.
+An encrypted log can contain any information for a recipient, typically in the form of a note. One could think this log is emitted as part of the transaction execution, so it wouldn't be revealed if the transaction fails.
 
 This is not true for Aztec, as the encrypted log is part of the transaction broadcast itself. If an encrypted log is broadcasted together with a commitment, there could be a situation where the commitment fails to be added to the note hash tree, or is reorg'd out of the chain later on.
 
