@@ -99,7 +99,7 @@ This is not true for Aztec, as the encrypted log is part of the transaction obje
 
 Example:
 
-> Alice and Bob want to reveal a shared secret if they both answer a question correctly. Alice can't simply send a note to Bob together with her answer, because Bob could immediately see Alice's part of the secret even if Alice's answer fails to be added to the note hash tree.
+> Alice and Bob agree to a trade, where Alice sends Bob a passcode to collect funds from a web2 app, in exchange of on-chain tokens. Alice should only send Bob the passcode if the trade is successful. But just sending the passcode as an encrypted log doesn't work, since Bob could see the encrypted log from the transaction as soon as Alice broadcasts it, decrypt it to get the passcode, and withdraw his tokens from the trade to make the transaction fail.
 
 ### Randomness in notes
 Notes are hashed and stored in the merkle tree. While notes do have a header with a `nonce` field that ensure two exact notes still can be added to the note hash tree (since hashes would be different), preimage analysis can be done to reverse-engineer the contents of the note.
