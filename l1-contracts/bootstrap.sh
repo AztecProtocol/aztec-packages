@@ -18,8 +18,12 @@ fi
 # Clean
 rm -rf broadcast cache out serve
 
-# Install foundry.
-. ./scripts/install_foundry.sh
+# Install foundry if forge not found.
+if ! command -v forge &> /dev/null
+then
+    echo "Installing foundry..."
+    ./scripts/install_foundry.sh
+fi
 
 # Install
 forge install --no-commit
