@@ -60,7 +60,6 @@ export const cliTestSuite = (
     const run = (cmd: string, addRpcUrl = true) => {
       const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
       if (addRpcUrl) {
-        log(`Setting rpc-url == ${rpcURL}`);
         args.push('--rpc-url', rpcURL);
       }
       const res = cli.parseAsync(args);
