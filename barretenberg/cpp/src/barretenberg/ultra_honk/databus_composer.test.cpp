@@ -61,24 +61,27 @@ TEST_F(DataBusComposerTests, CallDataRead)
 
     // Add some values to calldata and store the corresponding witness index
     std::array<FF, 5> calldata_values = { 7, 10, 3, 12, 1 };
-    std::vector<uint32_t> calldata_value_indices;
     for (auto& val : calldata_values) {
-        calldata_value_indices.emplace_back(builder.add_public_calldata(val));
+        builder.add_public_calldata(val);
     }
 
-    // Add some read index values and store the corresponding witness index
+    // Define some indices at which to read calldata
     std::array<uint32_t, 2> read_index_values = { 1, 4 };
-    std::vector<uint32_t> read_indices;
-    for (auto& val : read_index_values) {
-        read_indices.emplace_back(builder.add_variable(val));
-    }
 
     // Create some calldata lookup gates
-    for (size_t i = 0; i < read_indices.size(); ++i) {
-        uint32_t read_idx = read_indices[i];
-        uint32_t value_idx = calldata_value_indices[read_index_values[i]];
-        builder.create_calldata_lookup_gate({ read_idx, value_idx });
-        builder.calldata_read_counts[read_index_values[i]]++;
+    for (uint32_t& read_index : read_index_values) {
+        // Create a variable corresponding to the index at which we want to read into calldata
+        uint32_t read_idx_witness_idx = builder.add_variable(read_index);
+
+        // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
+        // calldata via copy constraints (i.e. we create a unique variable for the result of each read)
+        ASSERT_LT(read_index, builder.public_calldata.size());
+        FF calldata_value = builder.get_variable(builder.public_calldata[read_index]);
+        uint32_t value_witness_idx = builder.add_variable(calldata_value);
+
+        builder.create_calldata_lookup_gate({ read_idx_witness_idx, value_witness_idx });
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
+        builder.calldata_read_counts[read_index]++;
     }
 
     auto composer = GoblinUltraComposer();

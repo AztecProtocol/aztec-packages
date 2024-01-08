@@ -35,8 +35,10 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     add_public_calldata(FF(25)); // ensure there is at least one entry in calldata
     uint32_t raw_read_idx = 0;   // read first entry in calldata
     auto read_idx = this->add_variable(raw_read_idx);
-    auto value_idx = public_calldata[raw_read_idx];
+    FF calldata_value = this->get_variable(public_calldata[raw_read_idx]);
+    auto value_idx = this->add_variable(calldata_value);
     create_calldata_lookup_gate({ read_idx, value_idx });
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
     calldata_read_counts[raw_read_idx]++;
 
     // mock gates that use poseidon selectors, with all zeros as input
@@ -236,8 +238,6 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_l
 {
     this->w_l().emplace_back(in.value);
     this->w_r().emplace_back(in.index);
-    // WORKTODO: is there a way to do this here? Should we?
-    // calldata_read_counts[static_cast<size_t>(this->get_variable(in.index))]++;
     q_busread().emplace_back(1);
 
     // populate all other components with zero
