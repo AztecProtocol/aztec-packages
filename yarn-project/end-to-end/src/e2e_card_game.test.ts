@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { CardGameContract } from '@aztec/noir-contracts/CardGame';
 
-import { setup } from './fixtures/utils.js';
+import { INITIAL_ACCOUNT_ENCRYPTION_KEYS, setup } from './fixtures/utils.js';
 
 /* eslint-disable camelcase */
 
@@ -52,11 +52,7 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 
 const GAME_ID = 42;
 
-const ENCRYPTION_KEYS = [
-  GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
-  GrumpkinScalar.fromString('aebd1b4be76efa44f5ee655c20bf9ea60f7ae44b9a7fd1fd9f189c7a0b0cdae'),
-  GrumpkinScalar.fromString('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c'),
-];
+const PLAYER_ENCRYPTION_KEYS = INITIAL_ACCOUNT_ENCRYPTION_KEYS;
 
 describe('e2e_card_game', () => {
   let pxe: PXE;
@@ -76,12 +72,12 @@ describe('e2e_card_game', () => {
   let contractAsSecondPlayer: CardGameContract;
   let contractAsThirdPlayer: CardGameContract;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     ({ pxe, logger, teardown, wallets } = await setup(0));
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
-    const toRegister = ENCRYPTION_KEYS.filter(key => {
+    const toRegister = PLAYER_ENCRYPTION_KEYS.filter(key => {
       const publicKey = generatePublicKey(key);
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
@@ -101,10 +97,11 @@ describe('e2e_card_game', () => {
 
     [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
-    await deployContract();
   }, 100_000);
 
-  afterEach(() => teardown());
+  beforeEach(async () => {await deployContract();})
+
+  afterAll(() => teardown());
 
   const deployContract = async () => {
     logger(`Deploying L2 contract...`);
