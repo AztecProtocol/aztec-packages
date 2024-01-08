@@ -82,7 +82,7 @@ aztec-nargo compile --typescript ../../src/test/fixtures token_bridge
 And generate the TypeScript interface for the contract and add it to the test dir:
 
 ```bash
-aztec-cli generate--typescript target -o ../../../src/test/fixtures
+aztec-cli codegen target -o ../../../src/test/fixtures --ts
 ```
 
 This will create a TS interface in our `src/test` folder!
