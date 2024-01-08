@@ -148,11 +148,7 @@ export const browserTestSuite = (
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const {
-            Contract,
-            AztecAddress,
-            createPXEClient: createPXEClient,
-          } = window.AztecJs;
+          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedSandboxAccountsWallets(pxe);
@@ -171,11 +167,7 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const {
-            AztecAddress,
-            Contract,
-            createPXEClient: createPXEClient,
-          } = window.AztecJs;
+          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;

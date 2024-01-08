@@ -22,7 +22,12 @@ export const INITIAL_SANDBOX_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 export function getInitialSandboxAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
     INITIAL_SANDBOX_ENCRYPTION_KEYS.map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_SANDBOX_SIGNING_KEYS[i]!, INITIAL_SANDBOX_ACCOUNT_SALTS[i]).getWallet(),
+      getSchnorrAccount(
+        pxe,
+        encryptionKey!,
+        INITIAL_SANDBOX_SIGNING_KEYS[i]!,
+        INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+      ).getWallet(),
     ),
   );
 }
@@ -34,7 +39,12 @@ export function getInitialSandboxAccountsWallets(pxe: PXE): Promise<AccountWalle
  */
 export async function deployInitialSandboxAccounts(pxe: PXE) {
   const accounts = INITIAL_SANDBOX_ENCRYPTION_KEYS.map((privateKey, i) => {
-    const account = getSchnorrAccount(pxe, privateKey, INITIAL_SANDBOX_SIGNING_KEYS[i], INITIAL_SANDBOX_ACCOUNT_SALTS[i]);
+    const account = getSchnorrAccount(
+      pxe,
+      privateKey,
+      INITIAL_SANDBOX_SIGNING_KEYS[i],
+      INITIAL_SANDBOX_ACCOUNT_SALTS[i],
+    );
     return {
       account,
       privateKey,
