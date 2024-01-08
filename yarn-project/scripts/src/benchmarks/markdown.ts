@@ -95,10 +95,13 @@ function getCell(
   row: string,
   col: string,
 ) {
-  const value = data[row][col];
+  const value: number | undefined = data[row][col];
   const formattedValue = formatValue(value);
-  const baseValue = base ? (base[row] ?? {})[col] : undefined;
-  const percentDiff = baseValue ? Math.round(((value - baseValue) / baseValue) * 100) : undefined;
+  const baseValue: number | undefined = base?.[row]?.[col];
+  const percentDiff =
+    typeof baseValue === 'number' && typeof value === 'number'
+      ? Math.round(((value - baseValue) / baseValue) * 100)
+      : undefined;
   if (!percentDiff || Math.abs(percentDiff) < 1) {
     return formattedValue;
   }
@@ -118,7 +121,11 @@ function withDesc(name: string) {
 }
 
 /** Formats a numeric value for display. */
-function formatValue(value: number) {
+function formatValue(value: number | undefined): string {
+  if (typeof value === 'undefined') {
+    return 'N/A';
+  }
+
   if (value < 100) {
     return value.toPrecision(3);
   }
