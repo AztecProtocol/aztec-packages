@@ -18,7 +18,7 @@ import {
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
-import { setupSandbox } from '../environment/index.js';
+import { setupEnvironment } from '../environment/index.js';
 
 const TIMEOUT = 60_000;
 
@@ -43,7 +43,7 @@ describe('e2e_token_contract', () => {
 
   beforeAll(async () => {
     logger = createDebugLogger('box:token_contract_test');
-    pxe = await setupSandbox();
+    pxe = await setupEnvironment();
     // wallets = await createAccounts(pxe, 3);
     accounts = await pxe.getRegisteredAccounts();
     wallets = await getInitialTestAccountsWallets(pxe);
