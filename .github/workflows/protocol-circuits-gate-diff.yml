@@ -34,6 +34,14 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            barretenberg/cpp/build
+            barretenberg/cpp/build-wasm
+            barretenberg/cpp/build-threads
+          key: ${{ runner.os }}-bb-build
+
       - name: Compile Barretenberg
         run: |
           cd barretenberg/cpp
@@ -65,9 +73,6 @@ jobs:
         run: noirup $toolchain
         env:
           toolchain: --path ./noir
-
-      - name: Check
-        run: ls -la ~/.nargo/backends/acvm-backend-barretenberg
 
       - name: Check nargo installation
         run: nargo --version
