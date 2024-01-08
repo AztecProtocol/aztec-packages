@@ -211,28 +211,33 @@ template <typename Curve> class IPA {
         // Compute G_zero
         // First construct s_vec
         std::vector<Fr> s_vec(poly_degree);
-        for (size_t i = 0; i < poly_degree; i++) {
-            Fr s_vec_scalar = Fr::one();
-            for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
-                auto bit = (i >> j) & 1;
-                bool b = static_cast<bool>(bit);
-                if (b) {
-                    s_vec_scalar *= round_challenges[log_poly_degree - 1 - j];
-                } else {
-                    s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
+        run_loop_in_parallel(
+            poly_degree, [&s_vec, &round_challenges, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
+                for (size_t i = start; i < end; i++) {
+                    Fr s_vec_scalar = Fr::one();
+                    for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
+                        auto bit = (i >> j) & 1;
+                        bool b = static_cast<bool>(bit);
+                        if (b) {
+                            s_vec_scalar *= round_challenges[log_poly_degree - 1 - j];
+                        } else {
+                            s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
+                        }
+                    }
+                    s_vec[i] = s_vec_scalar;
                 }
-            }
-            s_vec[i] = s_vec_scalar;
-        }
+            });
         auto srs_elements = vk->srs->get_monomial_points();
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_degree);
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
-        for (size_t i = 0; i < poly_degree * 2; i += 2) {
-            G_vec_local[i >> 1] = srs_elements[i];
-        }
+        run_loop_in_parallel(poly_degree, [&G_vec_local, srs_elements](size_t start, size_t end) {
+            for (size_t i = start * 2; i < end * 2; i += 2) {
+                G_vec_local[i >> 1] = srs_elements[i];
+            }
+        });
         // TODO(#473)
         auto G_zero = barretenberg::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &s_vec[0], &G_vec_local[0], poly_degree, vk->pippenger_runtime_state);
