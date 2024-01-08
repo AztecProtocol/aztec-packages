@@ -95,6 +95,8 @@ Builder create_inner_circuit()
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = { expr_a, expr_b, expr_c, expr_d },
                                    .block_constraints = {} };
@@ -252,6 +254,8 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = recursion_constraints,
                                    .constraints = {},
                                    .block_constraints = {} };
