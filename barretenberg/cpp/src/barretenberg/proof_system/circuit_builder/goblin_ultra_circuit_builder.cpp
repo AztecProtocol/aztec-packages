@@ -310,10 +310,10 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseid
 
 /**
  * @brief Poseidon2 end round gate, needed because poseidon2 rounds compare with shifted wires
- * @details The Poseidon2 permutation needs to be a block of 65 rows, since the result of applying a round of Poseidon2
- * is stored in the next row (the shifted row). As a result, we need this end row to compare with the result from the
- * 64th round of Poseidon2. Note that it does not activate any selectors since it only serves as a comparison through
- * the shifted wires.
+ * @details The Poseidon2 permutation is 64 rounds, but needs to be a block of 65 rows, since the result of applying a
+ * round of Poseidon2 is stored in the next row (the shifted row). As a result, we need this end row to compare with the
+ * result from the 64th round of Poseidon2. Note that it does not activate any selectors since it only serves as a
+ * comparison through the shifted wires.
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
 {
