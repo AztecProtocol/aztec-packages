@@ -155,7 +155,11 @@ export interface PreviousKernelData {
 
 export interface PrivateKernelInputsOrdering {
   previous_kernel: PreviousKernelData;
+  sorted_new_commitments: FixedLengthArray<SideEffect, 64>;
+  sorted_new_commitments_indexes: FixedLengthArray<u32, 64>;
   read_commitment_hints: FixedLengthArray<Field, 128>;
+  sorted_new_nullifiers: FixedLengthArray<SideEffectLinkedToNoteHash, 64>;
+  sorted_new_nullifiers_indexes: FixedLengthArray<u32, 64>;
   nullifier_commitment_hints: FixedLengthArray<Field, 64>;
 }
 

@@ -2,9 +2,19 @@ use crate::constants::{GENERATOR_INDEX__SIDE_EFFECT};
 use dep::std::ops::Eq;
 use crate::traits::{Empty, Hash};
 
+trait Ordered {
+    fn counter(self) -> u32;
+}
+
 struct SideEffect{
     value: Field,
     counter: u32,
+}
+
+impl Ordered for SideEffect {
+    fn counter(self) -> u32 {
+        self.counter
+    }
 }
 
 impl Eq for SideEffect {
@@ -52,6 +62,12 @@ struct SideEffectLinkedToNoteHash{
     value: Field,
     note_hash: Field,
     counter: u32,
+}
+
+impl Ordered for SideEffectLinkedToNoteHash {
+    fn counter(self) -> u32 {
+        self.counter
+    }
 }
 
 impl Eq for SideEffectLinkedToNoteHash {
