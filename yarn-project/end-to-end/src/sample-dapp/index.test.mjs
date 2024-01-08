@@ -1,8 +1,6 @@
 import { createAccount } from '@aztec/accounts/testing';
-import { Contract, ExtendedNote, Fr, Note, computeMessageSecretHash, createPXEClient } from '@aztec/aztec.js';
+import { Contract, ExtendedNote, Fr, Note, computeMessageSecretHash, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
-
-import { waitForPXE } from '../fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
