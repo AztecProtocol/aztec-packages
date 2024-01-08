@@ -55,15 +55,19 @@ template <typename Curve> class IPA {
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
-        for (size_t i = 0; i < poly_degree * 2; i += 2) {
-            G_vec_local[i >> 1] = srs_elements[i];
-        }
+        run_loop_in_parallel(poly_degree, [&G_vec_local, srs_elements](size_t start, size_t end) {
+            for (size_t i = start * 2; i < end * 2; i += 2) {
+                G_vec_local[i >> 1] = srs_elements[i];
+            }
+        });
         std::vector<Fr> b_vec(poly_degree);
-        Fr b_power = 1;
-        for (size_t i = 0; i < poly_degree; i++) {
-            b_vec[i] = b_power;
-            b_power *= opening_pair.challenge;
-        }
+        run_loop_in_parallel(poly_degree, [&b_vec, &opening_pair](size_t start, size_t end) {
+            Fr b_power = opening_pair.challenge.pow(start);
+            for (size_t i = start; i < end; i++) {
+                b_vec[i] = b_power;
+                b_power *= opening_pair.challenge;
+            }
+        });
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree));
         std::vector<GroupElement> L_elements(log_poly_degree);
@@ -77,12 +81,23 @@ template <typename Curve> class IPA {
         for (size_t i = 0; i < log_poly_degree; i++) {
             round_size >>= 1;
             // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
+            std::mutex addition_lock;
             Fr inner_prod_L = Fr::zero();
             Fr inner_prod_R = Fr::zero();
-            for (size_t j = 0; j < round_size; j++) {
-                inner_prod_L += a_vec[j] * b_vec[round_size + j];
-                inner_prod_R += a_vec[round_size + j] * b_vec[j];
-            }
+            run_loop_in_parallel(
+                round_size,
+                [&a_vec, &b_vec, &inner_prod_L, &inner_prod_R, round_size, &addition_lock](size_t start, size_t end) {
+                    Fr current_inner_prod_L = Fr::zero();
+                    Fr current_inner_prod_R = Fr::zero();
+                    for (size_t j = start; j < end; j++) {
+                        current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
+                        current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
+                    }
+                    addition_lock.lock();
+                    inner_prod_L += current_inner_prod_L;
+                    inner_prod_R += current_inner_prod_R;
+                    addition_lock.unlock();
+                });
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_elements[i] =
                 // TODO(#473)
@@ -104,23 +119,31 @@ template <typename Curve> class IPA {
             const Fr round_challenge = transcript->get_challenge("IPA:round_challenge_" + index);
             const Fr round_challenge_inv = round_challenge.invert();
 
-            std::vector<Commitment> G_lo(G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size));
-            std::vector<Commitment> G_hi(G_vec_local.begin() + static_cast<long>(round_size), G_vec_local.end());
-            G_lo = GroupElement::batch_mul_with_endomorphism(G_lo, round_challenge_inv);
-            G_hi = GroupElement::batch_mul_with_endomorphism(G_hi, round_challenge);
+            auto G_lo = GroupElement::batch_mul_with_endomorphism(
+                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
+                round_challenge_inv);
+            auto G_hi = GroupElement::batch_mul_with_endomorphism(
+                std::span{ G_vec_local.begin() + static_cast<long>(round_size),
+                           G_vec_local.begin() + static_cast<long>(round_size * 2) },
+                round_challenge);
 
             // Update the vectors a_vec, b_vec and G_vec.
             // a_vec_next = a_vec_lo * round_challenge + a_vec_hi * round_challenge_inv
             // b_vec_next = b_vec_lo * round_challenge_inv + b_vec_hi * round_challenge
             // G_vec_next = G_vec_lo * round_challenge_inv + G_vec_hi * round_challenge
-            for (size_t j = 0; j < round_size; j++) {
-                a_vec[j] *= round_challenge;
-                a_vec[j] += round_challenge_inv * a_vec[round_size + j];
-                b_vec[j] *= round_challenge_inv;
-                b_vec[j] += round_challenge * b_vec[round_size + j];
+            run_loop_in_parallel(
+                round_size,
+                [&a_vec, &b_vec, &G_vec_local, &G_lo, &G_hi, round_challenge, round_challenge_inv, round_size](
+                    size_t start, size_t end) {
+                    for (size_t j = start; j < end; j++) {
+                        a_vec[j] *= round_challenge;
+                        a_vec[j] += round_challenge_inv * a_vec[round_size + j];
+                        b_vec[j] *= round_challenge_inv;
+                        b_vec[j] += round_challenge * b_vec[round_size + j];
 
-                G_vec_local[j] = G_lo[j] + G_hi[j];
-            }
+                        G_vec_local[j] = G_lo[j] + G_hi[j];
+                    }
+                });
         }
 
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);

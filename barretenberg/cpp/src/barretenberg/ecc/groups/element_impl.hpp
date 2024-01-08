@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "element.hpp"
 
@@ -689,75 +690,118 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
 
 template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
-    const std::vector<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
+    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
 {
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
+    const size_t num_cpus = std::min(get_num_cpus(), num_points); // std::min(get_num_cpus(), num_points);
+
+    const size_t chunk_size = (num_points / num_cpus) + (num_points % num_cpus == 0 ? 0 : 1);
     std::vector<Fq> scratch_space(num_points);
 
     // we can mutate rhs but NOT lhs!
     // output is stored in rhs
-    const auto batch_affine_add = [num_points, &scratch_space](const affine_element* lhs, affine_element* rhs) {
-        Fq batch_inversion_accumulator = Fq::one();
+    const auto batch_affine_add_chunked =
+        [](const affine_element* lhs, affine_element* rhs, const size_t point_count, Fq* personal_scratch_space) {
+            Fq batch_inversion_accumulator = Fq::one();
 
-        for (size_t i = 0; i < num_points; i += 1) {
-            scratch_space[i] = lhs[i].x + rhs[i].x;  // x2 + x1
-            rhs[i].x -= lhs[i].x;                    // x2 - x1
-            rhs[i].y -= lhs[i].y;                    // y2 - y1
-            rhs[i].y *= batch_inversion_accumulator; // (y2 - y1)*accumulator_old
-            batch_inversion_accumulator *= (rhs[i].x);
-        }
-        batch_inversion_accumulator = batch_inversion_accumulator.invert();
+            for (size_t i = 0; i < point_count; i += 1) {
+                personal_scratch_space[i] = lhs[i].x + rhs[i].x; // x2 + x1
+                rhs[i].x -= lhs[i].x;                            // x2 - x1
+                rhs[i].y -= lhs[i].y;                            // y2 - y1
+                rhs[i].y *= batch_inversion_accumulator;         // (y2 - y1)*accumulator_old
+                batch_inversion_accumulator *= (rhs[i].x);
+            }
+            batch_inversion_accumulator = batch_inversion_accumulator.invert();
 
-        for (size_t i = (num_points)-1; i < num_points; i -= 1) {
-            rhs[i].y *= batch_inversion_accumulator; // update accumulator
-            batch_inversion_accumulator *= rhs[i].x;
-            rhs[i].x = rhs[i].y.sqr();
-            rhs[i].x = rhs[i].x - (scratch_space[i]); // x3 = lambda_squared - x2
-                                                      // - x1
-            scratch_space[i] = lhs[i].x - rhs[i].x;
-            scratch_space[i] *= rhs[i].y;
-            rhs[i].y = scratch_space[i] - lhs[i].y;
-        }
+            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
+                rhs[i].y *= batch_inversion_accumulator; // update accumulator
+                batch_inversion_accumulator *= rhs[i].x;
+                rhs[i].x = rhs[i].y.sqr();
+                rhs[i].x = rhs[i].x - (personal_scratch_space[i]); // x3 = lambda_squared - x2
+                                                                   // - x1
+                personal_scratch_space[i] = lhs[i].x - rhs[i].x;
+                personal_scratch_space[i] *= rhs[i].y;
+                rhs[i].y = personal_scratch_space[i] - lhs[i].y;
+            }
+        };
+
+    const auto batch_affine_add = [num_points, num_cpus, chunk_size, &scratch_space, &batch_affine_add_chunked](
+                                      const affine_element* lhs, affine_element* rhs) {
+        parallel_for(
+            num_cpus,
+            [lhs, &rhs, &scratch_space, num_points, chunk_size, &batch_affine_add_chunked](size_t chunk_index) {
+                if (chunk_size * chunk_index > num_points) {
+                    return;
+                }
+                size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
+
+                if (current_chunk_size == 0) {
+                    return;
+                }
+                batch_affine_add_chunked(lhs + (chunk_index * chunk_size),
+                                         rhs + (chunk_index * chunk_size),
+                                         current_chunk_size,
+                                         &scratch_space[0] + (chunk_index * chunk_size));
+            });
     };
 
     // double the elements in lhs
-    const auto batch_affine_double = [num_points, &scratch_space](affine_element* lhs) {
-        Fq batch_inversion_accumulator = Fq::one();
+    const auto batch_affine_double_chunked =
+        [](affine_element* lhs, const size_t point_count, Fq* personal_scratch_space) {
+            Fq batch_inversion_accumulator = Fq::one();
 
-        for (size_t i = 0; i < num_points; i += 1) {
+            for (size_t i = 0; i < point_count; i += 1) {
 
-            scratch_space[i] = lhs[i].x.sqr();
-            scratch_space[i] = scratch_space[i] + scratch_space[i] + scratch_space[i];
+                personal_scratch_space[i] = lhs[i].x.sqr();
+                personal_scratch_space[i] =
+                    personal_scratch_space[i] + personal_scratch_space[i] + personal_scratch_space[i];
 
-            scratch_space[i] *= batch_inversion_accumulator;
+                personal_scratch_space[i] *= batch_inversion_accumulator;
 
-            batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
-        }
-        batch_inversion_accumulator = batch_inversion_accumulator.invert();
+                batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
+            }
+            batch_inversion_accumulator = batch_inversion_accumulator.invert();
 
-        Fq temp;
-        for (size_t i = (num_points)-1; i < num_points; i -= 1) {
+            Fq temp;
+            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
 
-            scratch_space[i] *= batch_inversion_accumulator;
-            batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
+                personal_scratch_space[i] *= batch_inversion_accumulator;
+                batch_inversion_accumulator *= (lhs[i].y + lhs[i].y);
 
-            temp = lhs[i].x;
-            lhs[i].x = scratch_space[i].sqr() - (lhs[i].x + lhs[i].x);
-            lhs[i].y = scratch_space[i] * (temp - lhs[i].x) - lhs[i].y;
-        }
+                temp = lhs[i].x;
+                lhs[i].x = personal_scratch_space[i].sqr() - (lhs[i].x + lhs[i].x);
+                lhs[i].y = personal_scratch_space[i] * (temp - lhs[i].x) - lhs[i].y;
+            }
+        };
+    const auto batch_affine_double = [num_points, chunk_size, num_cpus, &scratch_space, &batch_affine_double_chunked](
+                                         affine_element* lhs) {
+        parallel_for(num_cpus,
+                     [&lhs, &scratch_space, num_points, chunk_size, &batch_affine_double_chunked](size_t chunk_index) {
+                         if (chunk_size * chunk_index > num_points) {
+                             return;
+                         }
+                         size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
+                         if (current_chunk_size == 0) {
+                             return;
+                         }
+                         batch_affine_double_chunked(lhs + (chunk_index * chunk_size),
+                                                     current_chunk_size,
+                                                     &scratch_space[0] + (chunk_index * chunk_size));
+                     });
     };
-
     // Compute wnaf for scalar
     const Fr converted_scalar = exponent.from_montgomery_form();
 
     if (converted_scalar.is_zero()) {
         affine_element result{ Fq::zero(), Fq::zero() };
         result.self_set_infinity();
-        std::vector<affine_element> results;
-        for (size_t i = 0; i < num_points; ++i) {
-            results.emplace_back(result);
-        }
+        std::vector<affine_element> results(num_points);
+        run_loop_in_parallel(num_points, [&results, result](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                results[i] = result;
+            }
+        });
         return results;
     }
 
@@ -769,16 +813,20 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         table.resize(num_points);
     }
     std::vector<affine_element> temp_point_vector(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        temp_point_vector[i] = points[i];
-        lookup_table[0][i] = points[i];
-    }
+    run_loop_in_parallel(num_points, [&temp_point_vector, &lookup_table, &points](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            temp_point_vector[i] = points[i];
+            lookup_table[0][i] = points[i];
+        }
+    });
+
     batch_affine_double(&temp_point_vector[0]);
     for (size_t j = 1; j < lookup_size; ++j) {
-
-        for (size_t i = 0; i < num_points; ++i) {
-            lookup_table[j][i] = lookup_table[j - 1][i];
-        }
+        run_loop_in_parallel(num_points, [j, &lookup_table](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                lookup_table[j][i] = lookup_table[j - 1][i];
+            }
+        });
         batch_affine_add(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
@@ -794,64 +842,77 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
     std::vector<affine_element> work_elements(num_points);
 
+    constexpr Fq beta = Fq::cube_root_of_unity();
     uint64_t wnaf_entry = 0;
     uint64_t index = 0;
     bool sign = 0;
-    Fq beta = Fq::cube_root_of_unity();
-
-    for (size_t i = 0; i < 2; ++i) {
-        for (size_t j = 0; j < num_points; ++j) {
-            wnaf_entry = wnaf_table[i];
-            index = wnaf_entry & 0x0fffffffU;
-            sign = static_cast<bool>((wnaf_entry >> 31) & 1);
-            const bool is_odd = ((i & 1) == 1);
-            auto to_add = lookup_table[static_cast<size_t>(index)][j];
-            to_add.y.self_conditional_negate(sign ^ is_odd);
-            if (is_odd) {
-                to_add.x *= beta;
-            }
-            if (i == 0) {
-                work_elements[j] = to_add;
-            } else {
-                temp_point_vector[j] = to_add;
-            }
-        }
-    }
-    batch_affine_add(&temp_point_vector[0], &work_elements[0]);
-
-    for (size_t i = 2; i < num_rounds * 2; ++i) {
-        wnaf_entry = wnaf_table[i];
+    for (size_t j = 0; j < 2; ++j) {
+        wnaf_entry = wnaf_table[j];
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
-        const bool is_odd = ((i & 1) == 1);
+        const bool is_odd = ((j & 1) == 1);
+        run_loop_in_parallel(num_points,
+                             [j, index, is_odd, sign, beta, &lookup_table, &work_elements, &temp_point_vector](
+                                 size_t start, size_t end) {
+                                 for (size_t i = start; i < end; ++i) {
+
+                                     auto to_add = lookup_table[static_cast<size_t>(index)][i];
+                                     to_add.y.self_conditional_negate(sign ^ is_odd);
+                                     if (is_odd) {
+                                         to_add.x *= beta;
+                                     }
+                                     if (j == 0) {
+                                         work_elements[i] = to_add;
+                                     } else {
+                                         temp_point_vector[i] = to_add;
+                                     }
+                                 }
+                             });
+    }
+    batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+    for (size_t j = 2; j < num_rounds * 2; ++j) {
+        wnaf_entry = wnaf_table[j];
+        index = wnaf_entry & 0x0fffffffU;
+        sign = static_cast<bool>((wnaf_entry >> 31) & 1);
+        const bool is_odd = ((j & 1) == 1);
         if (!is_odd) {
             for (size_t k = 0; k < 4; ++k) {
                 batch_affine_double(&work_elements[0]);
             }
         }
-        for (size_t j = 0; j < num_points; ++j) {
-            auto to_add = lookup_table[static_cast<size_t>(index)][j];
-            to_add.y.self_conditional_negate(sign ^ is_odd);
-            if (is_odd) {
-                to_add.x *= beta;
-            }
-            temp_point_vector[j] = to_add;
-        }
+        run_loop_in_parallel(num_points,
+                             [index, is_odd, sign, beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
+                                 for (size_t i = start; i < end; ++i) {
+
+                                     auto to_add = lookup_table[static_cast<size_t>(index)][i];
+                                     to_add.y.self_conditional_negate(sign ^ is_odd);
+                                     if (is_odd) {
+                                         to_add.x *= beta;
+                                     }
+                                     temp_point_vector[i] = to_add;
+                                 }
+                             });
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
     if (skew) {
-        for (size_t j = 0; j < num_points; ++j) {
-            temp_point_vector[j] = -lookup_table[0][j];
-        }
+        run_loop_in_parallel(num_points, [&lookup_table, &temp_point_vector](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+
+                temp_point_vector[i] = -lookup_table[0][i];
+            }
+        });
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
     if (endo_skew) {
-        for (size_t j = 0; j < num_points; ++j) {
-            temp_point_vector[j] = lookup_table[0][j];
-            temp_point_vector[j].x *= beta;
-        }
+        run_loop_in_parallel(num_points, [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+
+                temp_point_vector[i] = lookup_table[0][i];
+                temp_point_vector[i].x *= beta;
+            }
+        });
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
