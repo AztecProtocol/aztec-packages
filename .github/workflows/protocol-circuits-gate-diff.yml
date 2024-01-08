@@ -66,12 +66,6 @@ jobs:
         env:
           toolchain: --path ./noir
 
-      - name: Create backend folder
-        run: mkdir -p ~/.nargo/backends/acvm-backend-barretenberg
-
-      - name: Set BB Binary
-        run: cp barretenberg/cpp/build/bin/bb ~/.nargo/backends/acvm-backend-barretenberg/backend_binary
-
       - name: Check
         run: ls -la ~/.nargo/backends/acvm-backend-barretenberg
 
@@ -83,6 +77,9 @@ jobs:
         run: |
           nargo info --json > protocol_circuits_report.json
           mv protocol_circuits_report.json ../../../protocol_circuits_report.json
+        env: 
+          NARGO_BACKEND_PATH: ../../../barretenberg/cpp/build/bin/bb
+
       - name: Compare gates reports
         id: gates_diff
         uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
