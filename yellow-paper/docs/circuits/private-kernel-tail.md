@@ -60,7 +60,7 @@ Siloing a value with the address of the contract generating the value ensures th
 
    - _`nonce = hash(first_nullifier, index)`_
      - _first_nullifier_ is the [hash of the transaction request](./private-kernel-initial.md#ensuring-transaction-uniqueness).
-     - _`index = note_hash_indices[i]`_ is the index of the same note hash in the _note_hashes_ array within _public_inputs_. _note_hash_indices_ is provided as [hints](#hints) via _private_inputs_.
+     - _`index = note_hash_indices[i]`_ is the index of the same note hash in the _note_hashes_ array within _public_inputs_. _note_hash_indices_ is provided as [hints](#hints) via _private_inputs_ and are verified in the [following step](#verifying-ordered-arrays).
    - _`siloed_hash = hash(note_hash.contract_address, note_hash.value)`_
 
    > Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
@@ -172,13 +172,13 @@ The _counter_start_ in the _public_call_requests_ within _public_inputs_ have be
 
 #### Verifying the transient accumulated data.
 
-It ensures that all data in the transient accumulated data is empty, with the exception of the _public_call_requests_.
+It ensures that all data in the _[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_ within _[public_inputs](#public-inputs)_ is empty, with the exception of the _public_call_requests_.
 
 The _public_call_requests_ must adhere to a specific order, as verified in a [previous step](#verifying-ordered-arrays).
 
 #### Verifying the constant data.
 
-This section follows the same process as outlined in the [inner private kernel circuit](./private-kernel-inner.md#verifying-the-constant-data).
+This section follows the same [process](./private-kernel-inner.md#verifying-the-constant-data) as outlined in the inner private kernel circuit.
 
 ## Private Inputs
 
@@ -193,8 +193,8 @@ Data that aids in the verifications carried out in this circuit:
 | Field                       | Type         | Description                                                                                                                     |
 | --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | _note_hash_indices_         | [_field_, C] | Indices of _note_hashes_ for _note_hash_contexts_. The length C equals the length of _note_hashes_.                             |
-| _note_hash_hints_           | [_field_, C] | Indices of _note_hash_contexts_ for _note_hashes_. The length C equals the length of _note_hash_contexts_.                      |
-| _nullifier_hints_           | [_field_, C] | Indices of _nullifier_contexts_ for _nullifiers_. The length C equals the length of _nullifier_contexts_.                       |
+| _note_hash_hints_           | [_field_, C] | Indices of _note_hash_contexts_ for ordered _note_hashes_. The length C equals the length of _note_hash_contexts_.              |
+| _nullifier_hints_           | [_field_, C] | Indices of _nullifier_contexts_ for ordered _nullifiers_. The length C equals the length of _nullifier_contexts_.               |
 | _public_call_request_hints_ | [_field_, C] | Indices of _public_call_requests_ for ordered _public_call_requests_. The length C equals the length of _public_call_requests_. |
 
 ## Public Inputs

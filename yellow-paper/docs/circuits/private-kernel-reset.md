@@ -148,7 +148,7 @@ The following must remain the same for [transient note reset private kernel circ
 
 #### Verifying the constant data.
 
-This section follows the same process as outlined in the [inner private kernel circuit](./private-kernel-inner.md#verifying-the-constant-data).
+This section follows the same [process](./private-kernel-inner.md#verifying-the-constant-data) as outlined in the inner private kernel circuit.
 
 ## Private Inputs
 

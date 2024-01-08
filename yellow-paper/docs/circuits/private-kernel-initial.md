@@ -151,7 +151,7 @@ Within the _[public_inputs](#public-inputs)_, the _[transient_accumulated_data](
 
 This circuit verifies that the values in _[private_inputs](#private-inputs).[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_ (_private_function_public_inputs_) are aggregated into the _public_inputs_ correctly:
 
-1. It ensures that the specified values in the following arrays match those in the corresponding arrays in the _private_function_public_inputs_:
+1. Ensure that the specified values in the following arrays match those in the corresponding arrays in the _private_function_public_inputs_:
 
    - _note_hash_contexts_
      - _value_, _counter_
@@ -164,18 +164,18 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
    - _public_call_requests_
      - _hash_
 
-2. It checks that the hashes in the _private_call_requests_ align with the values in the _private_call_stack_item_hashes_ in the _private_function_public_inputs_, but in **reverse** order.
+2. Check that the hashes in the _private_call_requests_ align with the values in the _private_call_stack_item_hashes_ in the _private_function_public_inputs_, but in **reverse** order.
 
-   > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order. This becomes particularly crucial when calling a contract deployed earlier within the same transaction.
+   > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order.
 
-3. For both _private_call_requests_ and _public_call_requests_, it checks that for each non-empty call request:
+3. For each non-empty call request in both _private_call_requests_ and _public_call_requests_:
 
    - The _caller_contract_address_ equals the _contract_address_ in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem)_.
    - The _caller_context_ is either empty or aligns with the values in the _call_context_ in the _private_function_public_inputs_.
 
    > The caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ to the public could pose security risks when calling a public function.
 
-4. The _contract_address_ for each non-empty item in the following arrays must equal the _storage_contract_address_ defined in _private_function_public_inputs.call_context_:
+4. For each non-empty item in the following arrays, its _contract_address_ must equal the _storage_contract_address_ defined in _private_function_public_inputs.call_context_:
 
    - _note_hash_contexts_
    - _nullifier_contexts_
@@ -184,13 +184,12 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
 
    > Ensuring the alignment of the contract addresses is crucial, as it is later used to [silo the values](./private-kernel-tail.md#siloing-values) and to establish associations with values within the same contract.
 
-5. The _portal_contract_address_ for each non-empty item in _l2_to_l1_message_contexts_ must equal the _portal_contract_address_ defined in _private_function_public_inputs_.call*context*.
+5. For each non-empty item in _l2_to_l1_message_contexts_, its _portal_contract_address_ must equal the _portal_contract_address_ defined in _private_function_public_inputs.call_context_.
 
-6. For the _note_hash_contexts_, it verifies that each is associated with a _nullifier_counter_. The value of the _nullifier_counter_ can be:
+6. For each _note_hash_ in the _note_hash_contexts_, verify that it is associated with a _nullifier_counter_. The value of the _nullifier_counter_ can be:
 
    - Zero: if the note is not nullified in the same transaction.
-   - Greater than zero: if the note is nullified in the same transaction.
-     - This value must be greater than the counter of the note hash.
+   - Greater than _note_hash.counter_: if the note is nullified in the same transaction.
 
    > Nullifier counters are used in the [reset private kernel circuit](./private-kernel-reset.md#verifying-read-requests) to ensure a read happens **before** a transient note is nullified.
 
@@ -349,15 +348,6 @@ Data that remains the same throughout the entire transaction.
 | _value_                   | _field_        | L2-to-l2 message.                                |
 | _contract_address_        | _AztecAddress_ | Address of the contract the message was created. |
 | _portal_contract_address_ | _AztecAddress_ | Address of the portal contract to the contract.  |
-
-#### _NewContractContext_
-
-| Field              | Type           | Description                                 |
-| ------------------ | -------------- | ------------------------------------------- |
-| _contract_address_ | _AztecAddress_ | Address of the contract.                    |
-| _counter_          | _field_        | Counter at which the contract was deployed. |
-
-// TODO - more fields
 
 #### _ReadRequestContext_
 

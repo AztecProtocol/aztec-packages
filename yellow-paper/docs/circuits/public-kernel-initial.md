@@ -22,11 +22,12 @@ The preceding proof can only be:
 
 #### Recalibrating counters.
 
-While the counters outputted from the tail private kernel circuit preserve the correct ordering of the items, they do not reflect the actual number of side effects each item entails. This circuit allows the recalibration of counters for public call requests, ensuring subsequent public kernels can be executed with the correct counter range.
+While the counters outputted from the tail private kernel circuit preserve the correct ordering of the items, they do not reflect the actual number of side effects each item entails. This circuit allows the recalibration of counters for _public_call_requests_, ensuring subsequent public kernels can be executed with the correct counter range.
 
-This circuit validates that for each item at index _i_ in the public call requests within the public inputs:
+This circuit validates that for each _request_ at index _i_ in the _public_call_requests_ within _[public_inputs](#public-inputs).[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_:
 
-1. Its hash must match the hash of the item at index _i_ in the the public call requests within the previous kernel's public inputs.
+1. Its hash must match the corresponding item in the _public_call_requests_ within the previous kernel's public inputs:
+   - _`request.hash == private_inputs.previous_kernel_public_inputs.public_call_requests[i].hash`_
 2. Its _counter_end_ must be greater than its _counter_start_.
 3. Its _counter_start_ must be greater than the _counter_end_ of the item at index _i + 1_.
 4. If it's the last item, its _counter_start_ must be _1_.
@@ -37,17 +38,17 @@ This circuit validates that for each item at index _i_ in the public call reques
 
 #### Verifying the accumulated data.
 
-It verifies that the accumulated data matches the one in the previous iteration's public inputs.
+It ensures that the _accumulated_data_ in the _[public_inputs](#public-inputs)_ matches the _accumulated_data_ in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./public-kernel-tail.md#public-inputs)_.
 
 #### Verifying the transient accumulated data.
 
-It verifies that the transient accumulated data matches the one in the previous iteration's public inputs, with the exception of the _public_call_requests_.
+It ensures that all data in the _[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_ within _[public_inputs](#public-inputs)_ is empty, with the exception of the _public_call_requests_.
 
-Their values are verified in a [previous step](#recalibrating-counters).
+The values in _public_call_requests_ are verified in a [previous step](#recalibrating-counters).
 
 #### Verifying the constant data.
 
-It verifies that the constant data matches the one in the previous iteration's public inputs.
+This section follows the same [process](./private-kernel-inner.md#verifying-the-constant-data) as outlined in the inner private kernel circuit.
 
 ## Private Inputs
 

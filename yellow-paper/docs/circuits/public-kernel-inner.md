@@ -41,35 +41,24 @@ It verifies the public deployment of the contract instance by conducting a membe
 
 #### Ensuring the current call matches the call request.
 
-The top item in the previous iteration's public call requests must pertain to the current function call.
+The top item in the _public_call_requests_ of the _[previous_kernel](#previouskernel)_ must pertain to the current function call.
 
-This circuit will pop the request from the stack, comparing the hash with that of the current function call.
+This circuit will:
 
-The preimage of the hash is the concatenation of:
+1. Pop the request from the stack:
 
-- Contract address.
-- Function data.
-- Public function circuit's public inputs.
+   - _`call_request = previous_kernel.public_inputs.transient_accumulated_data.public_call_requests.pop()`_
+
+2. Compare the hash with that of the current function call:
+
+   - _`call_request.hash == public_call.call_stack_item.hash()`_
+   - The hash of the _call_stack_item_ is computed as:
+     - _`hash(contract_address, function_data.hash(), public_inputs.hash(), counter_start, counter_end)`_
+     - Where _function_data.hash()_ and _public_inputs.hash()_ are the hashes of the serialized field elements.
 
 #### Ensuring this function is called with the correct context.
 
-1. If it is a standard call:
-
-   - The storage contract address of the current iteration must be the same as its contract address.
-   - The _msg_sender_ of the current iteration must be the same as the caller's contract address.
-
-2. If it is a delegate call:
-
-   - The caller context in the call request must not be empty. Specifically, the following values of the caller should not be zeros:
-     - _msg_sender_.
-     - Storage contract address.
-   - The _msg_sender_ of the current iteration must equal the caller's _msg_sender_.
-   - The storage contract address of the current iteration must equal the caller's storage contract address.
-   - The storage contract address of the current iteration must NOT equal the contract address.
-
-3. If it is an internal call:
-
-   - The _msg_sender_ of the current iteration must equal the storage contract address.
+This section follows the same process as outlined in the [inner private kernel circuit](./private-kernel-inner.md#ensuring-this-function-is-called-with-the-correct-context).
 
 #### Verifying the public function proof.
 
@@ -77,44 +66,24 @@ It verifies that the public function was executed with the provided proof data, 
 
 #### Verifying the public inputs of the public function circuit.
 
-It ensures the function's intention by checking the following:
+It ensures the public function's intention by checking the following in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_:
 
-- The contract address for each non-empty item in the following arrays must equal the storage contract address of the current call:
-  - Note hash contexts.
-  - Nullifier contexts.
-  - L2-to-L1 message contexts.
-  - Read requests.
-  - Update requests.
-- The portal contract address for each non-empty L2-to-L1 message must equal the portal contract address of the current call.
-
-> Ensuring the alignment of the contract addresses is crucial, as it is later used to silo the value and to establish associations with values within the same contract.
-
-If it is a static call, it must ensure that the function does not induce any state changes by verifying that the following arrays are empty:
-
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- Update requests.
-
-#### Verifying the call requests.
-
-For the public call requests initiated in the current function call, it ensures that for each request at index _i_:
-
-- Its hash equals the value at index _i_ within the call request hashes array in public function circuit's public inputs.
-- If the hash is not zero, its caller context must align with the call context of the current function call, including:
-  - _msg_sender_
-  - Storage contract address.
+- The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
+- If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
+  - _note_hashes_
+  - _nullifiers_
+  - _l2_to_l1_messages_
+  - _storage_writes_
 
 #### Verifying the counters.
 
-It verifies that each relevant value is associated with a legitimate counter.
+It verifies that each relevant value listed below is associated with a legitimate counter.
 
-1. For the current call:
+1. For the _[call_stack_item](#privatecallstackitem)_:
 
-   - The _counter_end_ of the current call must be greater than its _counter_start_.
-   - Both counters must match the ones defined in the top item in the previous iteration's public call requests.
+   - The _counter_start_ and _counter_end_ must match those in the _call_request_ [popped] from the _public_call_requests_ (#ensuring-the-current-call-matches-the-call-request) in a previous step.
 
-2. For the public call requests:
+2. For the _public_call_requests_:
 
    - The _counter_end_ of each request must be greater than its _counter_start_.
    - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
@@ -129,57 +98,91 @@ It verifies that each relevant value is associated with a legitimate counter.
 
    The ordered arrays include:
 
-   - Read requests.
-   - Update requests.
+   - _storage_reads_
+   - _storage_writes_
 
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
-1. It ensures that the following values match those in the previous iteration's public inputs:
+1. It verifies that the following in the _[accumulated_data](#accumulateddata)_ align with their corresponding values in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
 
-   - Note hashes.
-   - Nullifiers.
-   - L2-to-L1 messages.
-   - **Encrypted** log hash.
-   - **Encrypted** log length.
-   - Old public data tree snapshot.
-   - New public data tree snapshot.
+   - _note_hashes_
+   - _nullifiers_
+   - _l2_to_l1_messages_
+   - _encrypted_logs_hash_
+   - _encrypted_log_preimages_length_
+   - _old_public_data_tree_snapshot_
+   - _new_public_data_tree_snapshot_
 
 2. It checks that the hash and the length for **unencrypted** logs are accumulated as follows:
 
-   - New log hash = `hash(prev_hash, cur_hash)`
+   - _`unencrypted_logs_hash = hash(prev_hash, cur_hash)`_
      - If either hash is zero, the new hash will be `prev_hash | cur_hash`
-   - New log length = `prev_length + cur_length`
+   - _`unencrypted_log_preimages_length_ = prev*length + cur_length`*
+
+   Where:
+
+   - _prev_hash_ and _prev_length_ are the values in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./public-kernel-tail.md#public-inputs).[accumulated_data](./public-kernel-tail.md#accumulateddata)_.
+   - _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
 
 #### Verifying the transient accumulated data.
 
-1. It verifies that the following values match the result of combining the values in the previous iteration's public inputs with those in the public function circuit's public inputs:
+The _[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_ in this circuit's _[public_inputs](#public-inputs)_ includes values from both the previous iterations and the _[public_call](#publiccalldata)_.
 
-   - Note hash contexts.
-   - Nullifier contexts.
-   - L2-to-L1 message contexts.
-   - Read requests.
-   - Update requests.
+For each array in the _transient_accumulated_data_, this circuit verifies that it is populated with the values from the previous iterations, specifically:
 
-2. For the newly added update requests from public function circuit's public inputs, this circuit also checks that each is associated with an override counter, provided as a hint via the private inputs. This override counter can be:
+- _`public_inputs.transient_accumulated_data.ARRAY[0..N] == private_inputs.previous_kernel.public_inputs.transient_accumulated_data.ARRAY[0..N]`_
 
-   - Zero: if the slot does not change later in the same transaction.
-   - Greater than zero: if the slot is updated later in the same transaction.
-     - It pertains to a subsequent update request altering the same slot. Therefor, the counter value must be greater than the counter of the update request.
+> It's important to note that the top item in the _public_call_requests_ from the _previous_kernel_ won't be included, as it has been removed in a [previous step](#ensuring-the-current-call-matches-the-call-request).
 
-   > Override counters are used in the [tail public kernel circuit](./public-kernel-tail.md) to ensure a read happens **before** the value is changed in a later update.
+For the subsequent items appended after the values from the previous iterations, they constitute the values from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_ (_public_function_public_inputs_), and must undergo the following verifications:
 
-   > Zero serves as an indicator for an unchanged update, as this value can never act as the counter of an update request. It corresponds to the _counter_start_ of the first function call.
+1. Ensure that the specified values in the following arrays match those in the corresponding arrays in the _public_function_public_inputs_:
 
-3. It verifies that the public call requests include:
+   - _note_hash_contexts_
+     - _value_, _counter_
+   - _nullifier_contexts_
+     - _value_, _counter_
+   - _l2_to_l1_message_contexts_
+     - _value_
+   - _storage_reads_
+     - _value_, _counter_
+   - _storage_writes_
+     - _value_, _counter_
 
-   - All requests from the previous iteration's public inputs except for the top one.
-   - All requests present in the public call data, appended to the above in **reverse** order.
+2. For _public_call_requests_:
+
+   - The hashes align with the values in the _public_call_stack_item_hashes_ within _public_function_public_inputs_, but in **reverse** order.
+   - The _caller_contract_address_ equals the _contract_address_ in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem)_.
+   - The _caller_context_ aligns with the values in the _call_context_ within _public_function_public_inputs_.
+
+   > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order.
+
+3. The _contract_address_ for each non-empty item in the following arrays must equal the _storage_contract_address_ defined in _public_function_public_inputs.call_context_:
+
+   - _note_hash_contexts_
+   - _nullifier_contexts_
+   - _l2_to_l1_message_contexts_
+   - _storage_reads_
+   - _storage_writes_
+
+   > Ensuring the alignment of the contract addresses is crucial, as it is later used to [silo the values](./public-kernel-tail.md#siloing-values) and to establish associations with values within the same contract.
+
+4. The _portal_contract_address_ for each non-empty item in _l2_to_l1_message_contexts_ must equal the _portal_contract_address_ defined in _public_function_public_inputs.call_context_.
+
+5. For each _storage_write_ in _storage_writes_, verify that it is associated with an _override_counter_. The value of the _override_counter_ can be:
+
+   - Zero: if the _storage_slot_ does not change later in the same transaction.
+   - Greater than _storage_write.counter_: if the _storage_slot_ is written again later in the same transaction.
+
+   > Override counters are used in the [tail public kernel circuit](./public-kernel-tail.md) to ensure a read happens **before** the value is changed in a subsequent write.
+
+   > Zero serves as an indicator for an unchanged update, as this value can never act as the counter of a write.
 
 #### Verifying the constant data.
 
-It verifies that the constant data matches the one in the previous iteration's public inputs.
+This section follows the same [process](./private-kernel-inner.md#verifying-the-constant-data) as outlined in the inner private kernel circuit.
 
 ## Private Inputs
 
@@ -202,12 +205,6 @@ Data that holds details about the current public function call.
 | _function_leaf_membership_witness_       | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_   | Membership witness for the function being called.                   |
 | _contract_deployment_membership_witness_ | _[MembershipWitness](./private-kernel-inner.md#membershipwitness)_   | Membership witness for the deployment of the contract being called. |
 
-### _Hints_
-
-Data that aids in the verifications carried out in this circuit or later iterations:
-
-- Update requests override counters.
-
 ## Public Inputs
 
 The format aligns with the _[Public Inputs](./public-kernel-tail.md#public-inputs)_ of the tail public kernel circuit.
@@ -216,10 +213,29 @@ The format aligns with the _[Public Inputs](./public-kernel-tail.md#public-input
 
 ### _PublicCallStackItem_
 
-| Field              | Type                            | Description                                               |
-| ------------------ | ------------------------------- | --------------------------------------------------------- |
-| _contract_address_ | _AztecAddress_                  | Address of the contract on which the function is invoked. |
-| _function_data_    | _[FunctionData](#functiondata)_ | Data of the function being called.                        |
-| _public_inputs_    | _PublicFunctionPublicInputs_    | Public inputs of the public vm circuit.                   |
-| _counter_start_    | _field_                         | Counter at which the function call was initiated.         |
-| _counter_end_      | _field_                         | Counter at which the function call ended.                 |
+| Field              | Type                                                        | Description                                               |
+| ------------------ | ----------------------------------------------------------- | --------------------------------------------------------- |
+| _contract_address_ | _AztecAddress_                                              | Address of the contract on which the function is invoked. |
+| _function_data_    | _[FunctionData](#functiondata)_                             | Data of the function being called.                        |
+| _public_inputs_    | _[PublicFunctionPublicInputs](#publicfunctionpublicinputs)_ | Public inputs of the public vm circuit.                   |
+| _counter_start_    | _field_                                                     | Counter at which the function call was initiated.         |
+| _counter_end_      | _field_                                                     | Counter at which the function call ended.                 |
+
+### _PublicFunctionPublicInputs_
+
+| Field                              | Type                                                        | Description                                                            |
+| ---------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| _call_context_                     | _[CallContext](./private-function.md#callcontext)_          | Context of the call corresponding to this function execution.          |
+| _args_hash_                        | _field_                                                     | Hash of the function arguments.                                        |
+| _return_values_                    | [_field_; C]                                                | Return values of this function call.                                   |
+| _note_hashes_                      | [_[NoteHash](./private-function.md#notehash)_; C]           | New note hashes created in this function call.                         |
+| _nullifiers_                       | [_[Nullifier](./private-function.md#nullifier)_; C]         | New nullifiers created in this function call.                          |
+| _l2_to_l1_messages_                | [_field_; C]                                                | New L2 to L1 messages created in this function call.                   |
+| _storage_reads_                    | [_[StorageRead](./public-kernel-tail.md#storageread)_; C]   | Data read from the public data tree.                                   |
+| _storage_writes_                   | [_[StorageWrite](./public-kernel-tail.md#storagewrite)_; C] | Data written to the public data tree.                                  |
+| _unencrypted_logs_hash_            | [_field_; N]                                                | Hash of the unencrypted logs emitted in this function call.            |
+| _unencrypted_log_preimages_length_ | _field_                                                     | Length of the unencrypted log preimages emitted in this function call. |
+| _public_call_stack_item_hashes_    | [_field_; C]                                                | Hashes of the public function calls initiated by this function.        |
+| _block_header_                     | _[BlockHeader](#blockheader)_                               | Information about the trees used for the transaction.                  |
+| _chain_id_                         | _field_                                                     | Chain ID of the transaction.                                           |
+| _version_                          | _field_                                                     | Version of the transaction.                                            |

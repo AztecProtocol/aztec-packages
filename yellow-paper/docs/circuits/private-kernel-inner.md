@@ -100,6 +100,8 @@ It ensures the private function circuit's intention by checking the following in
 
 This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#verifying-the-counters).
 
+Additionally, it verifies that for the _[call_stack_item](#privatecallstackitem)_, the _counter_start_ and _counter_end_ must match those in the _call_request_ [popped] from the _private_call_requests_ (#ensuring-the-current-call-matches-the-call-request) in a previous step.
+
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
@@ -132,7 +134,7 @@ For each array in the _transient_accumulated_data_, this circuit verifies that:
 
 #### Verifying the constant data.
 
-It verifies that the _[constant_data](./private-kernel-initial.md#constantdata)_ in the _[public_inputs](#public-inputs)_ matches the one in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[constant_data](./private-kernel-initial.md#constantdata)_.
+It verifies that the _[constant_data](./private-kernel-initial.md#constantdata)_ in the _[public_inputs](#public-inputs)_ matches the _constant_data_ in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs)_.
 
 ## Private Inputs
 
