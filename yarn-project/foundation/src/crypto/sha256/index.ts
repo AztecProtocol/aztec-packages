@@ -3,23 +3,15 @@ import { default as hash } from 'hash.js';
 import { Fr } from '../../fields/index.js';
 
 export const sha256 = (data: Buffer): Buffer => Buffer.from(hash.sha256().update(data).digest());
-// export const sha256ToField = (data: Buffer): Fr => Fr.fromBufferReduce(sha256(data));  // this would take prime modulus of sha output
-export const sha256ToField = (data: Buffer): Fr => {
-  // Hash the input bytes using SHA-256, then interpret the output as two 128 bit numbers
-  // and
+export const sha256TruncateToField = (data: Buffer): Fr => {
   const hashBuffer = sha256(data);
 
-  let high = 0n;
-  let low = 0n;
-  let v = 1n;
+  const newLength = hashBuffer.length - 1;
 
-  for (let i = 0; i < 16; i++) {
-    high += BigInt(hashBuffer[15 - i]) * v;
-    low += BigInt(hashBuffer[31 - i]) * v;
-    v *= BigInt(256);
-  }
+  const truncatedBuffer = Buffer.alloc(hashBuffer.length - 1);
 
-  const hashInAField = (low + high * v) % Fr.MODULUS;
+  // Copy the data from the original Buffer to the new one, except the last element
+  hashBuffer.copy(truncatedBuffer, 0, 0, newLength);
 
-  return new Fr(hashInAField);
+  return Fr.fromBuffer(truncatedBuffer);
 };

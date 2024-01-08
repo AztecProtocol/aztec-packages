@@ -27,24 +27,34 @@ use crate::constants::{
 
 use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
-pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = sha256(bytes_to_hash);
-
+// Convert a 32 byte array to a field element, dropping smallest byte to ensure size without doing modulus division
+fn truncated_bytes32_to_field(bytes32: [u8; 32]) -> Field {
     // Convert it to a field element
     let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
+    let mut value = 0 as Field;
 
-    for i in 0..16 {
-        high = high + (sha256_hashed[15 - i] as Field) * v;
-        low = low + (sha256_hashed[16 + 15 - i] as Field) * v;
+    // the same as crate:field::bytes32_to_field, but skipping the first byte entirely!
+    for i in 0..31 {
+        value = value + (bytes32[i + 1] as Field) * v;
         v = v * 256;
     }
+    value
+}
 
-    // Abuse that a % p + b % p = (a + b) % p and that low < p
-    let hash_in_a_field = low + high * v;
+pub fn sha256_truncate_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+    // this truncates the right most 4 bytes of the sha256 byte and then interprets the result as a Field.
+    // https://forum.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/14
+    // links to justification - we should still have 126bits of security after doing this (reduced from 128 bits)
+    let sha256_hash_bytes = sha256(bytes_to_hash).as_slice();
 
-    hash_in_a_field
+    truncate_bytes32_to_field(sha256_hash_bytes)
+}
+
+pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+    // this is equivalent to taking the remainder of the sha256 hash, relative to the Fr characteristic prime
+    // this is less prefer
+    let sha256_hashed = sha256(bytes_to_hash);
+    crate::field::bytes32_to_field(sha256_hashed)
 }
 
 pub fn hash_args<N>(args: [Field; N]) -> Field {
@@ -211,7 +221,7 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_truncate_to_field(bytes.storage)
 }
 
 pub fn compute_constructor_hash(
@@ -244,7 +254,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
         }
     }
 
-    sha256_to_field(hash_input_flattened)
+    sha256_truncate_to_field(hash_input_flattened)
 }
 
 pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {

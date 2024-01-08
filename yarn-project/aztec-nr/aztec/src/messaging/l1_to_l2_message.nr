@@ -10,7 +10,7 @@ use dep::protocol_types::{
     },
     hash::{
         pedersen_hash,
-        sha256_to_field,
+        sha256_truncate_to_field,
     },
 };
 
@@ -74,7 +74,7 @@ impl L1ToL2Message {
             hash_bytes[i + 224] = fee_bytes[i];
         }
 
-        let message_hash = sha256_to_field(hash_bytes);
+        let message_hash = sha256_to_truncate_field(hash_bytes);
         message_hash        
     }
 

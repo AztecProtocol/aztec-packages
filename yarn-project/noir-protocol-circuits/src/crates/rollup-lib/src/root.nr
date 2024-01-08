@@ -7,7 +7,7 @@ use dep::types::utils::uint256::U256;
 use dep::types::constants::{NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
 use crate::{components, hash::compute_block_hash_with_globals};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
-use dep::types::hash::sha256_to_field;
+use dep::types::hash::sha256_truncate_to_field;
 
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
@@ -108,7 +108,7 @@ fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -
         }
     }
 
-    sha256_to_field(hash_input_flattened)
+    sha256_truncate_to_field(hash_input_flattened)
 }
 
 #[test]
@@ -131,11 +131,11 @@ mod tests {
         tests::root_rollup_inputs::default_root_rollup_inputs,
     };
     use dep::types::utils::uint256::U256;
-    use dep::types::hash::{accumulate_sha256, sha256_to_field};
+    use dep::types::hash::{accumulate_sha256, sha256_truncate_to_field};
 
     #[test]
     fn check_block_hashes_empty_blocks() {
-        let expected_messages_hash = sha256_to_field([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
+        let expected_messages_hash = sha256_truncate_to_field([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
 
         let expected_calldata_hash = accumulate_sha256(
             [
