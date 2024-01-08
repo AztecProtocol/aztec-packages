@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
+import * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -18,7 +20,7 @@ declare global {
     /**
      * The aztec.js library.
      */
-    AztecJs: typeof AztecJs;
+    AztecJs: typeof AztecJs & typeof AztecAccountsSingleKey & typeof AztecAccountsTesting;
   }
 }
 
@@ -146,7 +148,12 @@ export const browserTestSuite = (
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          const {
+            Contract,
+            AztecAddress,
+            createPXEClient: createPXEClient,
+            getSandboxAccountsWallets,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getInitialAccountsWallets(pxe);
@@ -165,7 +172,12 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const {
+            AztecAddress,
+            Contract,
+            createPXEClient: createPXEClient,
+            getSandboxAccountsWallets,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
@@ -211,7 +223,7 @@ export const browserTestSuite = (
             accounts[0].publicKey,
             pxe,
             TokenContractArtifact,
-            a => Contract.at(a, TokenContractArtifact, owner),
+            (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
             [owner.getCompleteAddress()],
           ).send();
           const { contract: token, txHash } = await tx.wait();

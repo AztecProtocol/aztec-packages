@@ -1,13 +1,5 @@
-import {
-  AccountWallet,
-  AztecAddress,
-  DebugLogger,
-  GrumpkinScalar,
-  PXE,
-  Wallet,
-  generatePublicKey,
-  getSchnorrAccount,
-} from '@aztec/aztec.js';
+import { deployInitialSandboxAccounts, getSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { AccountWallet, AztecAddress, DebugLogger, PXE, Wallet } from '@aztec/aztec.js';
 import { CardGameContract } from '@aztec/noir-contracts/CardGame';
 
 import { INITIAL_ACCOUNT_ENCRYPTION_KEYS, setup } from './fixtures/utils.js';

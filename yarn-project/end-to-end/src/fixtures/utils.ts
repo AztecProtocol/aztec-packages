@@ -1,3 +1,4 @@
+import { createAccounts, getSandboxAccountsWallets } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
@@ -14,7 +15,6 @@ import {
   LogType,
   PXE,
   SentTx,
-  createAccounts,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,

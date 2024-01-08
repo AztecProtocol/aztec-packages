@@ -13,8 +13,12 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
   createDebugLogger,
-  getSandboxAccountsWallets,
+  createPXEClient,
+  waitForSandbox,
 } from '@aztec/aztec.js';
+
+import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
+
 import { afterEach, beforeAll, expect, jest } from '@jest/globals';
 import { setupSandbox } from '../sandbox/index.js';
 
