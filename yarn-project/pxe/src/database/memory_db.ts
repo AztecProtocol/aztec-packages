@@ -17,7 +17,7 @@ import { PxeDatabase } from './pxe_database.js';
  */
 export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
   private notesTable: NoteDao[] = [];
-
+  private deferredNotesTable: DeferredNoteDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private blockNumber: number | undefined;
@@ -56,19 +56,25 @@ export class MemoryDB extends MemoryContractDatabase implements PxeDatabase {
     return Promise.resolve();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public addDeferredNotes(notes: DeferredNoteDao[]): Promise<void> {
-    throw new Error('Method not implemented.');
+    this.deferredNotesTable.push(...notes);
+    return Promise.resolve();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(this.deferredNotesTable.filter(note => note.contractAddress.equals(contractAddress)));
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
-    throw new Error('Method not implemented.');
+    const removed: DeferredNoteDao[] = [];
+    this.deferredNotesTable = this.deferredNotesTable.filter(note => {
+      if (note.contractAddress.equals(contractAddress)) {
+        removed.push(note);
+        return false;
+      }
+      return true;
+    });
+    return Promise.resolve(removed);
   }
 
   public addCapsule(capsule: Fr[]): Promise<void> {

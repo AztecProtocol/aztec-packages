@@ -76,6 +76,7 @@ export interface PxeDatabase extends ContractDatabase {
   /**
    * Remove deferred notes for a given contract address.
    * @param contractAddress - The contract address to remove the deferred notes for.
+   * @returns an array of the removed deferred notes
    */
   removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
 

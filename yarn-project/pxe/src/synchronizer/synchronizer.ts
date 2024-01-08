@@ -106,8 +106,7 @@ export class Synchronizer {
   protected async work(limit = 1): Promise<boolean> {
     const from = this.getSynchedBlockNumber() + 1;
     try {
-      // TODO: is getting logs redundant? see getBlocks within lmdb_archiver_store.ts
-      // It seems that getBlocks already returns the logs.
+      // Possibly improve after https://github.com/AztecProtocol/aztec-packages/issues/3870
       let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         return false;

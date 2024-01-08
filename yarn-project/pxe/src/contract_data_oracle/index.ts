@@ -52,7 +52,7 @@ export class ContractDataOracle {
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
    * @param functionName - The name of the function.
-   * @returns The corresponding function's artifact as an object, or undefined if the function is not found.
+   * @returns The corresponding function's artifact as an object
    */
   public async getFunctionArtifactByName(
     contractAddress: AztecAddress,
@@ -94,6 +94,7 @@ export class ContractDataOracle {
    * @param contractAddress - The contract's address.
    * @param selector - The function selector.
    * @returns A Promise that resolves to a Buffer containing the bytecode of the specified function.
+   * @throws Error if the contract address is unknown or not found.
    */
   public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
