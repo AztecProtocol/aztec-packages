@@ -204,13 +204,7 @@ void populate_variables_and_public_inputs(Builder& builder,
 template <typename Builder>
 Builder create_circuit(const acir_format& constraint_system, size_t size_hint, WitnessVector const& witness)
 {
-    Builder builder(size_hint);
-
-    if (constraint_system.public_inputs.size() > constraint_system.varnum) {
-        info("create_circuit: too many public inputs!");
-    }
-
-    populate_variables_and_public_inputs(builder, constraint_system, witness);
+    Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments);
