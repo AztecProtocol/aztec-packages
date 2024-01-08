@@ -190,12 +190,12 @@ The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previousk
 
 Data that aids in the verifications carried out in this circuit:
 
-| Field                       | Type         | Description                                                                                                                     |
-| --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| _note_hash_indices_         | [_field_, C] | Indices of _note_hashes_ for _note_hash_contexts_. The length C equals the length of _note_hashes_.                             |
-| _note_hash_hints_           | [_field_, C] | Indices of _note_hash_contexts_ for ordered _note_hashes_. The length C equals the length of _note_hash_contexts_.              |
-| _nullifier_hints_           | [_field_, C] | Indices of _nullifier_contexts_ for ordered _nullifiers_. The length C equals the length of _nullifier_contexts_.               |
-| _public_call_request_hints_ | [_field_, C] | Indices of _public_call_requests_ for ordered _public_call_requests_. The length C equals the length of _public_call_requests_. |
+| Field                       | Type           | Description                                                                                                            |
+| --------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| _note_hash_indices_         | [_field_; _C_] | Indices of _note_hashes_ for _note_hash_contexts_. _C_ equals the length of _note_hashes_.                             |
+| _note_hash_hints_           | [_field_; _C_] | Indices of _note_hash_contexts_ for ordered _note_hashes_. _C_ equals the length of _note_hash_contexts_.              |
+| _nullifier_hints_           | [_field_; _C_] | Indices of _nullifier_contexts_ for ordered _nullifiers_. _C_ equals the length of _nullifier_contexts_.               |
+| _public_call_request_hints_ | [_field_; _C_] | Indices of _public_call_requests_ for ordered _public_call_requests_. _C_ equals the length of _public_call_requests_. |
 
 ## Public Inputs
 

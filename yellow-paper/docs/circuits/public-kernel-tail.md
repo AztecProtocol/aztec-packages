@@ -249,25 +249,25 @@ This section follows the same [process](./private-kernel-inner.md#verifying-the-
 
 Data that aids in the verifications carried out in this circuit:
 
-| Field                                | Type                                                                      | Description                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| _note_hash_indices_                  | [_field_, C]                                                              | Indices of _note_hashes_ for _note_hash_contexts_. The length C equals the length of _note_hashes_.                |
-| _note_hash_hints_                    | [_field_, C]                                                              | Indices of _note_hash_contexts_ for ordered _note_hashes_. The length C equals the length of _note_hash_contexts_. |
-| _nullifier_hints_                    | [_field_, C]                                                              | Indices of _nullifier_contexts_ for ordered _nullifiers_. The length C equals the length of _nullifier_contexts_.  |
-| _ordered_storage_reads_              | [_[StorageReadContext](#storagereadcontext)_, C]                          | Ordered _storage_reads_. The length C equals the length of _storage_reads_.                                        |
-| _storage_read_hints_                 | [_field_, C]                                                              | Indices of reads for _ordered_storage_reads_. The length C equals the length of _storage_reads_.                   |
-| _ordered_storage_writes_             | [_[StorageWriteContext](#storagewritecontext)_, C]                        | Ordered _storage_writes_. The length C equals the length of _storage_writes_.                                      |
-| _storage_write_hints_                | [_field_, C]                                                              | Indices of writes for _ordered_storage_writes_. The length C equals the length of _storage_writes_.                |
-| _public_data_snaps_                  | [_[PublicDataSnap](#publicdatasnap)_; C]                                  | Data that aids verification of storage reads and writes.                                                           |
-| _storage_write_indices_              | [_field_; C]                                                              | Indices of _ordered_storage_writes_ for _public_data_snaps_.                                                       |
-| _transient_read_hints_               | [_field_; C]                                                              | Indices of _ordered_storage_writes_ for transient reads.                                                           |
-| _persistent_read_hints_              | [_field_; C]                                                              | Indices of _ordered_storage_writes_ for persistent reads.                                                          |
-| _public_data_snap_indices_           | [_field_; C]                                                              | Indices of _public_data_snaps_ for persistent write.                                                               |
-| _storage_read_low_leaf_preimages_    | [_[PublicDataLeafPreimage](#publicdataleafpreimage)_; C]                  | Preimages for public data leaf.                                                                                    |
-| _storage_read_membership_witnesses_  | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; C] | Membership witnesses for persistent reads.                                                                         |
-| _storage_write_low_leaf_preimages_   | [_[PublicDataLeafPreimage](#publicdataleafpreimage)_; C]                  | Preimages for public data.                                                                                         |
-| _storage_write_membership_witnesses_ | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; C] | Membership witnesses for public data tree.                                                                         |
-| _subtree_membership_witnesses_       | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; C] | Membership witnesses for the public data subtree.                                                                  |
+| Field                                | Type                                                                        | Description                                                                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| _note_hash_indices_                  | [_field_; _C_]                                                              | Indices of _note_hashes_ for _note_hash_contexts_. _C_ equals the length of _note_hashes_.                                            |
+| _note_hash_hints_                    | [_field_; _C_]                                                              | Indices of _note_hash_contexts_ for ordered _note_hashes_. _C_ equals the length of _note_hash_contexts_.                             |
+| _nullifier_hints_                    | [_field_; _C_]                                                              | Indices of _nullifier_contexts_ for ordered _nullifiers_. _C_ equals the length of _nullifier_contexts_.                              |
+| _ordered_storage_reads_              | [_[StorageReadContext](#storagereadcontext)_; _C_]                          | Ordered _storage_reads_. _C_ equals the length of _storage_reads_.                                                                    |
+| _storage_read_hints_                 | [_field_; _C_]                                                              | Indices of reads for _ordered_storage_reads_. _C_ equals the length of _storage_reads_.                                               |
+| _ordered_storage_writes_             | [_[StorageWriteContext](#storagewritecontext)_; _C_]                        | Ordered _storage_writes_. _C_ equals the length of _storage_writes_.                                                                  |
+| _storage_write_hints_                | [_field_; _C_]                                                              | Indices of writes for _ordered_storage_writes_. _C_ equals the length of _storage_writes_.                                            |
+| _public_data_snaps_                  | [_[PublicDataSnap](#publicdatasnap)_; _C_]                                  | Data that aids verification of storage reads and writes. _C_ equals the length of _ordered_storage_writes_ + _ordered_storage_reads_. |
+| _storage_write_indices_              | [_field_; _C_]                                                              | Indices of _ordered_storage_writes_ for _public_data_snaps_. _C_ equals the length of _public_data_snaps_.                            |
+| _transient_read_hints_               | [_field_; _C_]                                                              | Indices of _ordered_storage_writes_ for transient reads. _C_ equals the length of _ordered_storage_reads_.                            |
+| _persistent_read_hints_              | [_field_; _C_]                                                              | Indices of _ordered_storage_writes_ for persistent reads. _C_ equals the length of _ordered_storage_reads_.                           |
+| _public_data_snap_indices_           | [_field_; _C_]                                                              | Indices of _public_data_snaps_ for persistent write. _C_ equals the length of _ordered_storage_writes_.                               |
+| _storage_read_low_leaf_preimages_    | [_[PublicDataLeafPreimage](#publicdataleafpreimage)_; _C_]                  | Preimages for public data leaf. _C_ equals the length of _ordered_storage_writes_.                                                    |
+| _storage_read_membership_witnesses_  | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; _C_] | Membership witnesses for persistent reads. _C_ equals the length of _ordered_storage_writes_.                                         |
+| _storage_write_low_leaf_preimages_   | [_[PublicDataLeafPreimage](#publicdataleafpreimage)_; _C_]                  | Preimages for public data. _C_ equals the length of _ordered_storage_writes_.                                                         |
+| _storage_write_membership_witnesses_ | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; _C_] | Membership witnesses for public data tree. _C_ equals the length of _ordered_storage_writes_.                                         |
+| _subtree_membership_witnesses_       | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; _C_] | Membership witnesses for the public data subtree. _C_ equals the length of _ordered_storage_writes_.                                  |
 
 ## Public Inputs
 
@@ -281,26 +281,28 @@ Data accumulated during the execution of the transaction.
 
 | Field                              | Type                            | Description                                                 |
 | ---------------------------------- | ------------------------------- | ----------------------------------------------------------- |
-| _note_hashes_                      | [_field_; C]                    | Note hashes created in the transaction.                     |
-| _nullifiers_                       | [_field_; C]                    | Nullifiers created in the transaction.                      |
-| _l2_to_l1_messages_                | [_field_; C]                    | L2-to-L1 messages created in the transaction.               |
-| _encrypted_logs_hash_              | [_field_; N]                    | Hash of the accumulated encrypted logs.                     |
-| _unencrypted_logs_hash_            | [_field_; N]                    | Hash of the accumulated unencrypted logs.                   |
+| _note_hashes_                      | [_field_; _C_]                  | Note hashes created in the transaction.                     |
+| _nullifiers_                       | [_field_; _C_]                  | Nullifiers created in the transaction.                      |
+| _l2_to_l1_messages_                | [_field_; _C_]                  | L2-to-L1 messages created in the transaction.               |
+| _encrypted_logs_hash_              | _field_                         | Hash of the accumulated encrypted logs.                     |
+| _unencrypted_logs_hash_            | _field_                         | Hash of the accumulated unencrypted logs.                   |
 | _encrypted_log_preimages_length_   | _field_                         | Length of the accumulated encrypted log preimages.          |
 | _unencrypted_log_preimages_length_ | _field_                         | Length of the accumulated unencrypted log preimages.        |
 | _old_public_data_tree_snapshot_    | _[TreeSnapshot](#treesnapshot)_ | Snapshot of the public data tree prior to this transaction. |
 | _new_public_data_tree_snapshot_    | _[TreeSnapshot](#treesnapshot)_ | Snapshot of the public data tree after this transaction.    |
 
+> The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
+
 ### _TransientAccumulatedData_
 
-| Field                       | Type                                                                            | Description                                            |
-| --------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| _note_hash_contexts_        | [_[NoteHashContext](./private-kernel-initial.md#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
-| _nullifier_contexts_        | [_[NullifierContext](./private-kernel-initial.md#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
-| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](./private-kernel-initial.md#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
-| _storage_reads_             | [_[StorageRead](#storageread)_; C]                                              | Reads of the public data.                              |
-| _storage_writes_            | [_[StorageWrite](#storagewrite)_; C]                                            | Writes of the public data.                             |
-| _public_call_requests_      | [_[CallRequest](./private-kernel-initial.md#callrequest)_; C]                   | Requests to call publics functions.                    |
+| Field                       | Type                                                                              | Description                                            |
+| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| _note_hash_contexts_        | [_[NoteHashContext](./private-kernel-initial.md#notehashcontext)_; _C_]           | Note hashes with extra data aiding verification.       |
+| _nullifier_contexts_        | [_[NullifierContext](./private-kernel-initial.md#nullifiercontext)_; _C_]         | Nullifiers with extra data aiding verification.        |
+| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](./private-kernel-initial.md#l2tol1messagecontext)_; _C_] | L2-to-l1 messages with extra data aiding verification. |
+| _storage_reads_             | [_[StorageRead](#storageread)_; _C_]                                              | Reads of the public data.                              |
+| _storage_writes_            | [_[StorageWrite](#storagewrite)_; _C_]                                            | Writes of the public data.                             |
+| _public_call_requests_      | [_[CallRequest](./private-kernel-initial.md#callrequest)_; _C_]                   | Requests to call publics functions.                    |
 
 > The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
 

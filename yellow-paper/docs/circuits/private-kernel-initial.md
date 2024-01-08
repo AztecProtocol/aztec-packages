@@ -245,25 +245,23 @@ Data that remains the same throughout the entire transaction.
 
 ### _AccumulatedData_
 
-| Field                              | Type         | Description                                          |
-| ---------------------------------- | ------------ | ---------------------------------------------------- |
-| _encrypted_logs_hash_              | [_field_; N] | Hash of the accumulated encrypted logs.              |
-| _unencrypted_logs_hash_            | [_field_; N] | Hash of the accumulated unencrypted logs.            |
-| _encrypted_log_preimages_length_   | _field_      | Length of the accumulated encrypted log preimages.   |
-| _unencrypted_log_preimages_length_ | _field_      | Length of the accumulated unencrypted log preimages. |
-
-> The above **N**s represent the number of _field_ of a hash. Its value depends on the hash function chosen by the protocol.
+| Field                              | Type    | Description                                          |
+| ---------------------------------- | ------- | ---------------------------------------------------- |
+| _encrypted_logs_hash_              | _field_ | Hash of the accumulated encrypted logs.              |
+| _unencrypted_logs_hash_            | _field_ | Hash of the accumulated unencrypted logs.            |
+| _encrypted_log_preimages_length_   | _field_ | Length of the accumulated encrypted log preimages.   |
+| _unencrypted_log_preimages_length_ | _field_ | Length of the accumulated unencrypted log preimages. |
 
 ### _TransientAccumulatedData_
 
-| Field                       | Type                                                 | Description                                            |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| _note_hash_contexts_        | [_[NoteHashContext](#notehashcontext)_; C]           | Note hashes with extra data aiding verification.       |
-| _nullifier_contexts_        | [_[NullifierContext](#nullifiercontext)_; C]         | Nullifiers with extra data aiding verification.        |
-| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](#l2tol1messagecontext)_; C] | L2-to-l1 messages with extra data aiding verification. |
-| _read_request_contexts_     | [_[ReadRequestContext](#readrequestcontext)_; C]     | Requests to read notes in the note hash tree.          |
-| _private_call_requests_     | [_[CallRequest](#callrequest)_; C]                   | Requests to call private functions.                    |
-| _public_call_requests_      | [_[CallRequest](#callrequest)_; C]                   | Requests to call publics functions.                    |
+| Field                       | Type                                                   | Description                                            |
+| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| _note_hash_contexts_        | [_[NoteHashContext](#notehashcontext)_; _C_]           | Note hashes with extra data aiding verification.       |
+| _nullifier_contexts_        | [_[NullifierContext](#nullifiercontext)_; _C_]         | Nullifiers with extra data aiding verification.        |
+| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](#l2tol1messagecontext)_; _C_] | L2-to-l1 messages with extra data aiding verification. |
+| _read_request_contexts_     | [_[ReadRequestContext](#readrequestcontext)_; _C_]     | Requests to read notes in the note hash tree.          |
+| _private_call_requests_     | [_[CallRequest](#callrequest)_; _C_]                   | Requests to call private functions.                    |
+| _public_call_requests_      | [_[CallRequest](#callrequest)_; _C_]                   | Requests to call publics functions.                    |
 
 > The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
 

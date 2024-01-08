@@ -158,13 +158,13 @@ The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previousk
 
 ### _Hints_ for [Read Request Reset Private Kernel Circuit](#read-request-reset-private-kernel-circuit)
 
-| Field                               | Type                                                                      | Description                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| _transient_read_indices_            | [_field_; N]                                                              | Indices of the read requests for transient notes.                                                 |
-| _transient_note_indices_            | [_field_; N]                                                              | Indices of the note hash contexts for transient reads.                                            |
-| _persistent_read_indices_           | [_field_; M]                                                              | Indices of the read requests for persistent notes.                                                |
-| _read_request_membership_witnesses_ | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; M] | Membership witnesses for the persistent reads.                                                    |
-| _read_request_statuses_             | [_[ReadRequestStatus](#readrequeststatus)_; C]                            | Statuses of the read request contexts. The length C equals the length of _read_request_contexts_. |
+| Field                               | Type                                                                        | Description                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| _transient_read_indices_            | [_field_; _N_]                                                              | Indices of the read requests for transient notes.                                        |
+| _transient_note_indices_            | [_field_; _N_]                                                              | Indices of the note hash contexts for transient reads.                                   |
+| _persistent_read_indices_           | [_field_; _M_]                                                              | Indices of the read requests for persistent notes.                                       |
+| _read_request_membership_witnesses_ | [_[MembershipWitness](./private-kernel-initial.md#membershipwitness)_; _M_] | Membership witnesses for the persistent reads.                                           |
+| _read_request_statuses_             | [_[ReadRequestStatus](#readrequeststatus)_; _C_]                            | Statuses of the read request contexts. _C_ equals the length of _read_request_contexts_. |
 
 > There can be multiple versions of the read request reset private kernel circuit, each with a different values of _N_ and _M_.
 
@@ -177,10 +177,10 @@ The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previousk
 
 ### _Hints_ for [Transient Note Reset Private Kernel Circuit](#transient-note-reset-private-kernel-circuit)
 
-| Field                         | Type         | Description                                                                                                                    |
-| ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| _transient_nullifier_indices_ | [_field_; C] | Indices of the nullifiers for transient notes. The length C equals the length of _note_hash_contexts_.                         |
-| _nullifier_index_hints_       | [_field_; C] | Indices of the _transient_nullifier_indices_ for transient nullifiers. The length C equals the length of _nullifier_contexts_. |
+| Field                         | Type           | Description                                                                                                           |
+| ----------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| _transient_nullifier_indices_ | [_field_; _C_] | Indices of the nullifiers for transient notes. _C_ equals the length of _note_hash_contexts_.                         |
+| _nullifier_index_hints_       | [_field_; _C_] | Indices of the _transient_nullifier_indices_ for transient nullifiers. _C_ equals the length of _nullifier_contexts_. |
 
 ## Public Inputs
 
