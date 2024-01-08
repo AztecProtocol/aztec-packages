@@ -39,3 +39,17 @@ Now, just remove the `src` folder, as such:
 ```rust
 easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
 ```
+
+## New `@aztec/accounts` package
+
+When previously you would get the default accounts using the `getAccount` method from the `aztec.js` package:
+
+```js
+import { getSchnorrAccount } from "@aztec/aztec.js"
+```
+
+You should now import them from the new package `@aztec/accounts`
+
+```js
+import { getSchnorrAccount } from "@aztec/accounts"
+```
