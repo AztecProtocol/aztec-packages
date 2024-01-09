@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
+import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
 import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
 import * as AztecAccountsTesting from '@aztec/accounts/testing';
-import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -154,7 +154,12 @@ export const browserTestSuite = (
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const { Contract, AztecAddress, createPXEClient: createPXEClient, getDeployedTestAccountsWallets } = window.AztecJs;
+          const {
+            Contract,
+            AztecAddress,
+            createPXEClient: createPXEClient,
+            getDeployedTestAccountsWallets,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
@@ -173,7 +178,12 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createPXEClient: createPXEClient, getDeployedTestAccountsWallets } = window.AztecJs;
+          const {
+            AztecAddress,
+            Contract,
+            createPXEClient: createPXEClient,
+            getDeployedTestAccountsWallets,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
@@ -213,7 +223,12 @@ export const browserTestSuite = (
           // we need to ensure that a known account is present in order to create a wallet
           const knownAccounts = await getDeployedTestAccountsWallets(pxe);
           if (!knownAccounts.length) {
-            const newAccount = await getSchnorrAccount(pxe, INITIAL_TEST_ENCRYPTION_KEYS[0], INITIAL_TEST_SIGNING_KEYS[0], INITIAL_TEST_ACCOUNT_SALTS[0]).waitDeploy();
+            const newAccount = await getSchnorrAccount(
+              pxe,
+              INITIAL_TEST_ENCRYPTION_KEYS[0],
+              INITIAL_TEST_SIGNING_KEYS[0],
+              INITIAL_TEST_ACCOUNT_SALTS[0],
+            ).waitDeploy();
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];

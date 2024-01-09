@@ -1,7 +1,4 @@
-import {
-  createAccounts,
-  getDeployedTestAccountsWallets,
-} from '@aztec/accounts/testing';
+import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
