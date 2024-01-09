@@ -2,13 +2,13 @@ FROM alpine:3.18 AS builder
 RUN apk update \
     && apk upgrade \
     && apk add --no-cache \
-    build-base \
-    clang16 \
-    cmake \
-    ninja \
-    git \
-    curl \
-    perl
+        build-base \
+        clang16 \
+        cmake \
+        ninja \
+        git \
+        curl \
+        perl
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build bb binary and targets needed for benchmarking. 
@@ -18,9 +18,8 @@ RUN cmake --preset default && cmake --build --preset default --target ultra_plon
 
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
-RUN apk update && apk add curl bash libstdc++
 COPY . .
-
-COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-#COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
-RUN HARDWARE_CONCURRENCY=128 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+# Copy libs for consuming projects.
+COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
+COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a
