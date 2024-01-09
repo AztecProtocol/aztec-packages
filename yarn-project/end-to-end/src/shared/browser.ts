@@ -161,8 +161,8 @@ export const browserTestSuite = (
             getDeployedTestAccountsWallets,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
+          const owner = wallet.getCompleteAddress().address;
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
@@ -183,15 +183,16 @@ export const browserTestSuite = (
             Contract,
             createPXEClient: createPXEClient,
             getDeployedTestAccountsWallets,
+            getUnsafeSchnorrAccount,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const accounts = await pxe.getRegisteredAccounts();
-          const receiver = accounts[1].address;
+          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.GrumpkinScalar.random()).waitDeploy();
+          const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
-          await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
+          await contract.methods.transfer(wallet.getCompleteAddress().address, receiverAddress, transferAmount, 0).send().wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
-          return await contract.methods.balance_of_private(receiver).view({ from: receiver });
+          return await contract.methods.balance_of_private(receiverAddress).view({ from: receiverAddress });
         },
         pxeURL,
         (await getTokenAddress()).toString(),
