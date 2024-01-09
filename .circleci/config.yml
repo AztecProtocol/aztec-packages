@@ -205,7 +205,7 @@ jobs:
       - run:
           name: "Deploy barretenberg docs"
           command: |
-            barretenberg/cpp/scripts/upload_doxygen_to_s3.sh
+            barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
 
   barretenberg-stdlib-tests:
     docker:
