@@ -16,11 +16,12 @@ class AvmMiniArithmeticTests : public ::testing::Test {
     };
 };
 
-class AvmMiniArithmeticNegativeTests : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsFF : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsFF : public AvmMiniArithmeticTests {};
 
 /******************************************************************************
  *
- * POSITIVE TESTS - Finite Field Type
+ * POSITIVE TESTS
  *
  ******************************************************************************
  * The positive tests aim at testing that a genuinely generated execution trace
@@ -43,7 +44,7 @@ class AvmMiniArithmeticNegativeTests : public AvmMiniArithmeticTests {};
  ******************************************************************************/
 
 // Test on basic addition over finite field type.
-TEST_F(AvmMiniArithmeticTests, additionFF)
+TEST_F(AvmMiniArithmeticTestsFF, addition)
 {
     // trace_builder
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
@@ -67,7 +68,7 @@ TEST_F(AvmMiniArithmeticTests, additionFF)
 }
 
 // Test on basic subtraction over finite field type.
-TEST_F(AvmMiniArithmeticTests, subtractionFF)
+TEST_F(AvmMiniArithmeticTestsFF, subtraction)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
 
@@ -90,7 +91,7 @@ TEST_F(AvmMiniArithmeticTests, subtractionFF)
 }
 
 // Test on basic multiplication over finite field type.
-TEST_F(AvmMiniArithmeticTests, multiplicationFF)
+TEST_F(AvmMiniArithmeticTestsFF, multiplication)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
 
@@ -113,7 +114,7 @@ TEST_F(AvmMiniArithmeticTests, multiplicationFF)
 }
 
 // Test on multiplication by zero over finite field type.
-TEST_F(AvmMiniArithmeticTests, multiplicationByZeroFF)
+TEST_F(AvmMiniArithmeticTestsFF, multiplicationByZero)
 {
     trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 127 });
 
@@ -136,7 +137,7 @@ TEST_F(AvmMiniArithmeticTests, multiplicationByZeroFF)
 }
 
 // Test on basic division over finite field type.
-TEST_F(AvmMiniArithmeticTests, divisionFF)
+TEST_F(AvmMiniArithmeticTestsFF, division)
 {
     trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
@@ -159,7 +160,7 @@ TEST_F(AvmMiniArithmeticTests, divisionFF)
 }
 
 // Test on division with zero numerator over finite field type.
-TEST_F(AvmMiniArithmeticTests, divisionNumeratorZeroFF)
+TEST_F(AvmMiniArithmeticTestsFF, divisionNumeratorZero)
 {
     trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
 
@@ -183,7 +184,7 @@ TEST_F(AvmMiniArithmeticTests, divisionNumeratorZeroFF)
 
 // Test on division by zero over finite field type.
 // We check that the operator error flag is raised.
-TEST_F(AvmMiniArithmeticTests, divisionByZeroErrorFF)
+TEST_F(AvmMiniArithmeticTestsFF, divisionByZeroError)
 {
     trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
 
@@ -208,7 +209,7 @@ TEST_F(AvmMiniArithmeticTests, divisionByZeroErrorFF)
 
 // Test on division of zero by zero over finite field type.
 // We check that the operator error flag is raised.
-TEST_F(AvmMiniArithmeticTests, divisionZeroByZeroErrorFF)
+TEST_F(AvmMiniArithmeticTestsFF, divisionZeroByZeroError)
 {
     //                             Memory layout:    [0,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [0,0,0,0,0,0....]
@@ -233,7 +234,7 @@ TEST_F(AvmMiniArithmeticTests, divisionZeroByZeroErrorFF)
 // and finishing with a division by zero. The chosen combination is arbitrary.
 // We only test that the proof can be correctly generated and verified.
 // No check on the evaluation is performed here.
-TEST_F(AvmMiniArithmeticTests, arithmeticFFWithError)
+TEST_F(AvmMiniArithmeticTestsFF, mixedOperationsWithError)
 {
     trace_builder.call_data_copy(0, 3, 2, std::vector<FF>{ 45, 23, 12 });
 
@@ -276,7 +277,7 @@ TEST_F(AvmMiniArithmeticTests, arithmeticFFWithError)
  ******************************************************************************/
 
 // Test on basic incorrect addition over finite field type.
-TEST_F(AvmMiniArithmeticNegativeTests, additionFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, addition)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
@@ -291,7 +292,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, additionFF)
 }
 
 // Test on basic incorrect subtraction over finite field type.
-TEST_F(AvmMiniArithmeticNegativeTests, subtractionFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, subtraction)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
 
@@ -306,7 +307,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, subtractionFF)
 }
 
 // Test on basic incorrect multiplication over finite field type.
-TEST_F(AvmMiniArithmeticNegativeTests, multiplicationFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, multiplication)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
 
@@ -321,7 +322,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, multiplicationFF)
 }
 
 // Test on basic incorrect division over finite field type.
-TEST_F(AvmMiniArithmeticNegativeTests, divisionFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionFF)
 {
     trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
@@ -337,7 +338,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionFF)
 
 // Test where division is not by zero but an operation error is wrongly raised
 // in the trace.
-TEST_F(AvmMiniArithmeticNegativeTests, divisionNoZeroButErrorFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionNoZeroButError)
 {
     trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 15, 315 });
 
@@ -362,7 +363,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionNoZeroButErrorFF)
 }
 
 // Test with division by zero occurs and no error is raised (remove error flag)
-TEST_F(AvmMiniArithmeticNegativeTests, divisionByZeroNoErrorFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionByZeroNoError)
 {
     trace_builder.call_data_copy(0, 1, 0, std::vector<FF>{ 15 });
 
@@ -381,7 +382,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionByZeroNoErrorFF)
 }
 
 // Test with division of zero by zero occurs and no error is raised (remove error flag)
-TEST_F(AvmMiniArithmeticNegativeTests, divisionZeroByZeroNoErrorFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionZeroByZeroNoError)
 {
     //                             Memory layout:    [0,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [0,0,0,0,0,0....]
@@ -398,7 +399,7 @@ TEST_F(AvmMiniArithmeticNegativeTests, divisionZeroByZeroNoErrorFF)
 
 // Test that error flag cannot be raised for a non-relevant operation such as
 // the addition, subtraction, multiplication.
-TEST_F(AvmMiniArithmeticNegativeTests, operationWithErrorFlagFF)
+TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
 {
     trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
 
