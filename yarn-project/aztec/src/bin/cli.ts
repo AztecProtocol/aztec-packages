@@ -4,6 +4,7 @@ import { createAztecNodeClient, fileURLToPath } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
 import { LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { openDb } from '@aztec/kv-store';
+import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 import { createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { Command } from 'commander';
@@ -84,6 +85,7 @@ export function getProgram(userLog: LogFn): Command {
     .option('-p, --pxe [options]', 'Starts Aztec PXE with options (e.g. "option1=value1,option2=value2")')
     .option('-a, --archiver [options]', 'Starts Aztec Archiver attached to node')
     .option('-s, --sequencer [options]', 'Starts Aztec Sequencer attached to node')
+    .option('-p2p, --p2p-bootstrap', 'Starts a P2P bootstrap node')
     .action(async options => {
       // list of 'stop' functions to call when process ends
       const signalHandlers: Array<() => Promise<void>> = [];
@@ -182,6 +184,13 @@ export function getProgram(userLog: LogFn): Command {
 
         const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
         startHttpRpcServer(archiver, createArchiverRpcServer, archiverCliOptions.port || ARCHIVER_PORT);
+      } else if (options.p2pBootstrap) {
+        // Start a P2P bootstrap node.
+        const envVars = getP2PConfigEnvVars();
+        const cliOptions = parseModuleOptions(options.p2pBootstrap);
+        const bootstrapNode = new BootstrapNode(debugLogger);
+        await bootstrapNode.start({ ...envVars, ...cliOptions });
+        signalHandlers.push(bootstrapNode.stop);
       }
       installSignalHandlers(debugLogger, signalHandlers);
     });
