@@ -269,7 +269,7 @@ export async function setup(numberOfAccounts = 1, opts: SetupOptions = {}): Prom
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
   if (PXE_URL) {
-    // we are setting up against a remote envionrment, l1 contracts are assumed to already be deployed
+    // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
   }
 

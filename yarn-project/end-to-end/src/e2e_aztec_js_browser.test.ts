@@ -32,13 +32,12 @@ const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
  */
 
 const setupApp = async () => {
-  const { pxe: pxeService } = await setup(1);
+  const { pxe: pxeService } = await setup(0);
   let pxeURL = PXE_URL;
   let pxeServer = undefined;
   if (!PXE_URL) {
     pxeServer = startPXEHttpServer(pxeService, PXE_PORT);
     pxeURL = `http://localhost:${PXE_PORT}`;
-    await waitForPXE(createPXEClient(pxeURL));
   }
 
   const app = new Koa();
