@@ -1,4 +1,4 @@
-import { createDebugLogger, createPXEClient, fileURLToPath, waitForPXE } from '@aztec/aztec.js';
+import { createDebugLogger, fileURLToPath } from '@aztec/aztec.js';
 import { startPXEHttpServer } from '@aztec/pxe';
 
 import Koa from 'koa';

@@ -1,9 +1,9 @@
+import { generatePublicKey } from '@aztec/aztec.js';
 import { AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { PXE } from '@aztec/types';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
-import { generatePublicKey } from '@aztec/aztec.js';
 
 export const INITIAL_TEST_ENCRYPTION_KEYS = [
   GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
