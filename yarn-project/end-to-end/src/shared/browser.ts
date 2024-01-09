@@ -155,7 +155,6 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
           const { Contract, AztecAddress, createPXEClient: createPXEClient, getDeployedTestAccountsWallets } = window.AztecJs;
-          console.log(`RPC URL ${pxeURL}`);
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
