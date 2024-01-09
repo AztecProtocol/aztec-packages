@@ -56,6 +56,7 @@ void ipa_verify(State& state) noexcept
 {
     for (auto _ : state) {
         state.PauseTiming();
+        // Retrieve proofs
         auto prover_transcript = prover_transcripts[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         auto opening_claim = opening_claims[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         // initialize verifier transcript from proof data
