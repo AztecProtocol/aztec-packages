@@ -254,7 +254,7 @@ contract InclusionProofs {
             block_number,
             context
         );
-         // docs:end:prove_contract_inclusion
+        // docs:end:prove_contract_inclusion
         // Here typically the factory would add the contract address to its internal map of deployed contracts.
     }
 
