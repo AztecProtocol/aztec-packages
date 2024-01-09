@@ -127,11 +127,11 @@ contract Rollup is IRollup {
     }
   }
 
-  function _computePublicInputHash(
-    bytes calldata _header,
-    bytes32 _txsHash,
-    bytes32 _inHash
-  ) internal pure returns (bytes32) {
+  function _computePublicInputHash(bytes calldata _header, bytes32 _txsHash, bytes32 _inHash)
+    internal
+    pure
+    returns (bytes32)
+  {
     return Hash.sha256ToField(bytes.concat(_header, _txsHash, _inHash));
   }
 }
