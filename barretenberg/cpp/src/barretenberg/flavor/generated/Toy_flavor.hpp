@@ -368,10 +368,4 @@ class ToyFlavor {
 };
 
 } // namespace flavor
-
-namespace sumcheck {
-
-DECLARE_SUMCHECK_RELATION_CLASS(two_column_perm, flavor::ToyFlavor);
-
-}
 } // namespace proof_system::honk

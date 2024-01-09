@@ -15,7 +15,7 @@ namespace proof_system::honk::sumcheck {
  *
  * @details To create your own lookup:
  * 1) Create a copy of this class and rename it
- * 2) Update all the values with the ones needed for your permutation
+ * 2) Update all the values with the ones needed for your lookuputation
  * 3) Update "DECLARE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS" and "DEFINE_LOOKUP_IMPLEMENTATIONS_FOR_ALL_SETTINGS" to
  * include the new settings
  * 4) Add the relation with the chosen settings to Relations in the flavor (for example,"`
@@ -146,7 +146,7 @@ class lookup_xor_lookup_settings {
     }
 
     /**
-     * @brief Get all the entities for the lookup when only need to read them
+     * @brief Get all the entities for the lookup when we only need to read them
      * @details Same as in get_const_entities, but nonconst
      *
      * @return All the entities needed for the lookup
