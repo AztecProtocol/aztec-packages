@@ -78,9 +78,9 @@ impl GeneratedAcir {
     /// Returns the current witness index and updates it 
     /// so that we have a fresh witness the next time this method is called
     pub(crate) fn get_current_witness_and_update(&mut self) -> Witness {
-        let next_witness_index = Witness(self.current_witness_index);
+        let current_witness_index = Witness(self.current_witness_index);
         self.current_witness_index += 1;
-        next_witness_index
+        current_witness_index
     }
 
     /// Converts [`Expression`] `expr` into a [`Witness`].
