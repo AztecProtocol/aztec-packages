@@ -688,19 +688,32 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
     return work_element;
 }
 
+/**
+ * @brief Multiply each point by the same exponent
+ *
+ * @details We use the fact that all points are being multiplied by the same exponent to batch the operations (perform
+ * batch affine additions and doublings with batch inversion trick)
+ *
+ * @param points The span of individual points that need to be scaled
+ * @param exponent The scalar we multiply all the points by
+ * @return std::vector<affine_element<Fq, Fr, T>> Vector of new points where each point is exponent⋅points[i]
+ */
 template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
     const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
 {
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
-    const size_t num_cpus = std::min(get_num_cpus(), num_points); // std::min(get_num_cpus(), num_points);
 
-    const size_t chunk_size = (num_points / num_cpus) + (num_points % num_cpus == 0 ? 0 : 1);
+    // Space for temporary values
     std::vector<Fq> scratch_space(num_points);
 
     // we can mutate rhs but NOT lhs!
     // output is stored in rhs
+    /**
+     * @brief Perform point addition rhs[i]=rhs[i]+lhs[i] with batch inversion
+     *
+     */
     const auto batch_affine_add_chunked =
         [](const affine_element* lhs, affine_element* rhs, const size_t point_count, Fq* personal_scratch_space) {
             Fq batch_inversion_accumulator = Fq::one();
@@ -726,27 +739,24 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             }
         };
 
-    const auto batch_affine_add = [num_points, num_cpus, chunk_size, &scratch_space, &batch_affine_add_chunked](
-                                      const affine_element* lhs, affine_element* rhs) {
-        parallel_for(
-            num_cpus,
-            [lhs, &rhs, &scratch_space, num_points, chunk_size, &batch_affine_add_chunked](size_t chunk_index) {
-                if (chunk_size * chunk_index > num_points) {
-                    return;
-                }
-                size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
-
-                if (current_chunk_size == 0) {
-                    return;
-                }
-                batch_affine_add_chunked(lhs + (chunk_index * chunk_size),
-                                         rhs + (chunk_index * chunk_size),
-                                         current_chunk_size,
-                                         &scratch_space[0] + (chunk_index * chunk_size));
-            });
+    /**
+     * @brief Perform batch affine addition in parallel
+     *
+     */
+    const auto batch_affine_add = [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs,
+                                                                                          affine_element* rhs) {
+        run_loop_in_parallel(
+            num_points,
+            [lhs, &rhs, &scratch_space, &batch_affine_add_chunked](size_t start, size_t end) {
+                batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
+            },
+            /*no_multhreading_if_less_or_equal=*/4);
     };
 
-    // double the elements in lhs
+    /**
+     * @brief Perform point doubling lhs[i]=lhs[i]+lhs[i] with batch inversion
+     *
+     */
     const auto batch_affine_double_chunked =
         [](affine_element* lhs, const size_t point_count, Fq* personal_scratch_space) {
             Fq batch_inversion_accumulator = Fq::one();
@@ -774,34 +784,34 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 lhs[i].y = personal_scratch_space[i] * (temp - lhs[i].x) - lhs[i].y;
             }
         };
-    const auto batch_affine_double = [num_points, chunk_size, num_cpus, &scratch_space, &batch_affine_double_chunked](
-                                         affine_element* lhs) {
-        parallel_for(num_cpus,
-                     [&lhs, &scratch_space, num_points, chunk_size, &batch_affine_double_chunked](size_t chunk_index) {
-                         if (chunk_size * chunk_index > num_points) {
-                             return;
-                         }
-                         size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
-                         if (current_chunk_size == 0) {
-                             return;
-                         }
-                         batch_affine_double_chunked(lhs + (chunk_index * chunk_size),
-                                                     current_chunk_size,
-                                                     &scratch_space[0] + (chunk_index * chunk_size));
-                     });
+    /**
+     * @brief Perform point doubling in parallel
+     *
+     */
+    const auto batch_affine_double = [num_points, &scratch_space, &batch_affine_double_chunked](affine_element* lhs) {
+        run_loop_in_parallel(
+            num_points,
+            [&lhs, &scratch_space, &batch_affine_double_chunked](size_t start, size_t end) {
+                batch_affine_double_chunked(lhs + start, end - start, &scratch_space[0] + start);
+            },
+            /*no_multhreading_if_less_or_equal=*/4);
     };
     // Compute wnaf for scalar
     const Fr converted_scalar = exponent.from_montgomery_form();
 
+    // If the scalar is zero, just set results to the point at infinity
     if (converted_scalar.is_zero()) {
         affine_element result{ Fq::zero(), Fq::zero() };
         result.self_set_infinity();
         std::vector<affine_element> results(num_points);
-        run_loop_in_parallel(num_points, [&results, result](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                results[i] = result;
-            }
-        });
+        run_loop_in_parallel(
+            num_points,
+            [&results, result](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    results[i] = result;
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
         return results;
     }
 
@@ -812,31 +822,42 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     for (auto& table : lookup_table) {
         table.resize(num_points);
     }
+    // Initialize first etnries in lookup table
     std::vector<affine_element> temp_point_vector(num_points);
-    run_loop_in_parallel(num_points, [&temp_point_vector, &lookup_table, &points](size_t start, size_t end) {
-        for (size_t i = start; i < end; ++i) {
-            temp_point_vector[i] = points[i];
-            lookup_table[0][i] = points[i];
-        }
-    });
+    run_loop_in_parallel(
+        num_points,
+        [&temp_point_vector, &lookup_table, &points](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
+                temp_point_vector[i] = points[i];
+                lookup_table[0][i] = points[i];
+            }
+        },
+        /*no_multhreading_if_less_or_equal=*/16);
 
+    // Construct lookup table
     batch_affine_double(&temp_point_vector[0]);
     for (size_t j = 1; j < lookup_size; ++j) {
-        run_loop_in_parallel(num_points, [j, &lookup_table](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                lookup_table[j][i] = lookup_table[j - 1][i];
-            }
-        });
+        run_loop_in_parallel(
+            num_points,
+            [j, &lookup_table](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    lookup_table[j][i] = lookup_table[j - 1][i];
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
         batch_affine_add(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
     uint64_t wnaf_table[num_rounds * 2];
     Fr endo_scalar;
+
+    // Split single scalar into 2 scalar in endo form
     Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
 
     bool skew = false;
     bool endo_skew = false;
 
+    // Construct wnaf forms from scalars
     wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
     wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
 
@@ -846,30 +867,35 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     uint64_t wnaf_entry = 0;
     uint64_t index = 0;
     bool sign = 0;
+    // Prepare elements for the first batch addition
     for (size_t j = 0; j < 2; ++j) {
         wnaf_entry = wnaf_table[j];
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
         const bool is_odd = ((j & 1) == 1);
-        run_loop_in_parallel(num_points,
-                             [j, index, is_odd, sign, beta, &lookup_table, &work_elements, &temp_point_vector](
-                                 size_t start, size_t end) {
-                                 for (size_t i = start; i < end; ++i) {
+        run_loop_in_parallel(
+            num_points,
+            [j, index, is_odd, sign, beta, &lookup_table, &work_elements, &temp_point_vector](size_t start,
+                                                                                              size_t end) {
+                for (size_t i = start; i < end; ++i) {
 
-                                     auto to_add = lookup_table[static_cast<size_t>(index)][i];
-                                     to_add.y.self_conditional_negate(sign ^ is_odd);
-                                     if (is_odd) {
-                                         to_add.x *= beta;
-                                     }
-                                     if (j == 0) {
-                                         work_elements[i] = to_add;
-                                     } else {
-                                         temp_point_vector[i] = to_add;
-                                     }
-                                 }
-                             });
+                    auto to_add = lookup_table[static_cast<size_t>(index)][i];
+                    to_add.y.self_conditional_negate(sign ^ is_odd);
+                    if (is_odd) {
+                        to_add.x *= beta;
+                    }
+                    if (j == 0) {
+                        work_elements[i] = to_add;
+                    } else {
+                        temp_point_vector[i] = to_add;
+                    }
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
     }
+    // First cycle of addition
     batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+    // Run through SM logic in wnaf form (excluding the skew)
     for (size_t j = 2; j < num_rounds * 2; ++j) {
         wnaf_entry = wnaf_table[j];
         index = wnaf_entry & 0x0fffffffU;
@@ -880,39 +906,48 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 batch_affine_double(&work_elements[0]);
             }
         }
-        run_loop_in_parallel(num_points,
-                             [index, is_odd, sign, beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
-                                 for (size_t i = start; i < end; ++i) {
+        run_loop_in_parallel(
+            num_points,
+            [index, is_odd, sign, beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
 
-                                     auto to_add = lookup_table[static_cast<size_t>(index)][i];
-                                     to_add.y.self_conditional_negate(sign ^ is_odd);
-                                     if (is_odd) {
-                                         to_add.x *= beta;
-                                     }
-                                     temp_point_vector[i] = to_add;
-                                 }
-                             });
+                    auto to_add = lookup_table[static_cast<size_t>(index)][i];
+                    to_add.y.self_conditional_negate(sign ^ is_odd);
+                    if (is_odd) {
+                        to_add.x *= beta;
+                    }
+                    temp_point_vector[i] = to_add;
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
+    // Apply skew for the first endo scalar
     if (skew) {
-        run_loop_in_parallel(num_points, [&lookup_table, &temp_point_vector](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
+        run_loop_in_parallel(
+            num_points,
+            [&lookup_table, &temp_point_vector](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
 
-                temp_point_vector[i] = -lookup_table[0][i];
-            }
-        });
+                    temp_point_vector[i] = -lookup_table[0][i];
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
-
+    // Apply skew for the second endo scalar
     if (endo_skew) {
-        run_loop_in_parallel(num_points, [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
+        run_loop_in_parallel(
+            num_points,
+            [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
 
-                temp_point_vector[i] = lookup_table[0][i];
-                temp_point_vector[i].x *= beta;
-            }
-        });
+                    temp_point_vector[i] = lookup_table[0][i];
+                    temp_point_vector[i].x *= beta;
+                }
+            },
+            /*no_multhreading_if_less_or_equal=*/16);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 

@@ -95,10 +95,17 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
  * @param num_points Total number of elements
  * @param func A function or lambda expression with a for loop inside, for example:
  * [](size_t start, size_t end){for (size_t i=start; i<end; i++){(void)i;}}
+ * @param no_multhreading_if_less_or_equal If num points is less or equal to this value, run without parallelization
  *
  */
-void run_loop_in_parallel(size_t num_points, const std::function<void(size_t, size_t)>& func)
+void run_loop_in_parallel(size_t num_points,
+                          const std::function<void(size_t, size_t)>& func,
+                          size_t no_multhreading_if_less_or_equal)
 {
+    if (num_points <= no_multhreading_if_less_or_equal) {
+        func(0, num_points);
+        return;
+    }
     // Get number of cpus we can split into
     const size_t num_cpus = get_num_cpus();
 
