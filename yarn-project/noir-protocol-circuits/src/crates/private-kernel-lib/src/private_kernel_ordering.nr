@@ -105,9 +105,6 @@ impl PrivateKernelInputsOrdering {
         // Match nullifiers/nullified_commitments to commitments from the previous call(s)
         let mut new_commitments = public_inputs.end.new_commitments.storage;
         let mut new_nullifiers = public_inputs.end.new_nullifiers.storage;
-        // Order new_commitments and new_nullifiers arrays
-        // new_commitments = new_commitments.sort_via(|a: SideEffect, b: SideEffect| a.counter < b.counter);
-        // new_nullifiers = new_nullifiers.sort_via(|a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.counter < b.counter);
 
         for n_idx in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = new_nullifiers[n_idx];
@@ -203,340 +200,352 @@ impl PrivateKernelInputsOrdering {
     }
 }
 
-// mod tests {
-//     use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
-//     use dep::types::constants::{
-//         MAX_READ_REQUESTS_PER_TX,
-//         MAX_NEW_COMMITMENTS_PER_TX,
-//         MAX_NEW_NULLIFIERS_PER_TX,
-//     };
-//     use dep::types::{
-//         abis::{
-//             kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
-//             side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-//         },
-//         hash::compute_unique_siloed_commitments,
-//         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
-//         utils::{
-//             arrays::{array_eq, struct_array_eq, array_length, struct_array_length, is_empty_array, is_empty_struct_array},
-//             bounded_vec::BoundedVec,
-//         },
-//     };
+mod tests {
+    use dep::std::cmp::Eq;
+    use crate::private_kernel_ordering::PrivateKernelInputsOrdering;
+    use dep::types::constants::{
+        MAX_READ_REQUESTS_PER_TX,
+        MAX_NEW_COMMITMENTS_PER_TX,
+        MAX_NEW_NULLIFIERS_PER_TX,
+    };
+    use dep::types::{
+        abis::{
+            kernel_circuit_public_inputs::KernelCircuitPublicInputsFinal,
+            side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered},
+        },
+        hash::compute_unique_siloed_commitments,
+        tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
+        utils::{
+            arrays::{array_eq, struct_array_eq, array_length, struct_array_length, is_empty_array, is_empty_struct_array},
+            bounded_vec::BoundedVec,
+        },
+        traits::{Empty, is_empty}
+    };
 
-//     struct PrivateKernelOrderingInputsBuilder {
-//         previous_kernel: PreviousKernelDataBuilder,
-//         read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
-//         nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
-//     }
+    struct PrivateKernelOrderingInputsBuilder {
+        previous_kernel: PreviousKernelDataBuilder,
+        read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
+        nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+    }
 
-//     impl PrivateKernelOrderingInputsBuilder {
-//         pub fn new() -> Self {
-//             PrivateKernelOrderingInputsBuilder {
-//                 previous_kernel: PreviousKernelDataBuilder::new(),
-//                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
-//                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
-//             }
-//         }
+    impl PrivateKernelOrderingInputsBuilder {
+        pub fn new() -> Self {
+            PrivateKernelOrderingInputsBuilder {
+                previous_kernel: PreviousKernelDataBuilder::new(),
+                read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
+                nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
+            }
+        }
 
-//         pub fn get_new_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
-//             self.previous_kernel.end.new_commitments.storage
-//         }
+        pub fn get_new_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
+            self.previous_kernel.end.new_commitments.storage
+        }
 
-//         pub fn get_new_nullifiers(self) -> [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX] {
-//             self.previous_kernel.end.new_nullifiers.storage
-//         }
+        pub fn get_new_nullifiers(self) -> [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX] {
+            self.previous_kernel.end.new_nullifiers.storage
+        }
 
-//         pub fn get_unique_siloed_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
-//             self.compute_unique_siloed_commitments(self.previous_kernel.end.new_commitments.storage)
-//         }
+        pub fn get_unique_siloed_commitments(self) -> [SideEffect; MAX_NEW_COMMITMENTS_PER_TX] {
+            self.compute_unique_siloed_commitments(self.previous_kernel.end.new_commitments.storage)
+        }
 
-//         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed 
-//         // commitments for the given commitments.
-//         pub fn compute_unique_siloed_commitments<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
-//             let first_nullifier = self.previous_kernel.end.new_nullifiers.get_unchecked(0);
-//             compute_unique_siloed_commitments(first_nullifier.value, commitments)
-//         }
+        // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed 
+        // commitments for the given commitments.
+        pub fn compute_unique_siloed_commitments<N>(self, commitments: [SideEffect; N]) -> [SideEffect; N] {
+            let first_nullifier = self.previous_kernel.end.new_nullifiers.get_unchecked(0);
+            compute_unique_siloed_commitments(first_nullifier.value, commitments)
+        }
 
-//         pub fn append_transient_commitments(&mut self, num_commitments: Field) {
-//             // All new commitments aggregated in the previous kernel are transient commitments.
-//             self.previous_kernel.append_new_commitments(num_commitments);
-//         }
+        pub fn append_transient_commitments(&mut self, num_commitments: Field) {
+            // All new commitments aggregated in the previous kernel are transient commitments.
+            self.previous_kernel.append_new_commitments(num_commitments);
+        }
 
-//         pub fn add_transient_read(&mut self, commitment_index: Field) {
-//             let read_request_index = self.previous_kernel.add_read_request_for_transient_commitment(commitment_index);
-//             self.read_commitment_hints[read_request_index] = commitment_index;
-//         }
+        pub fn add_transient_read(&mut self, commitment_index: Field) {
+            let read_request_index = self.previous_kernel.add_read_request_for_transient_commitment(commitment_index);
+            self.read_commitment_hints[read_request_index] = commitment_index;
+        }
 
-//         pub fn append_nullifiers(&mut self, num_nullifiers: Field) {
-//             self.previous_kernel.append_new_nullifiers(num_nullifiers);
-//         }
+        pub fn append_nullifiers(&mut self, num_nullifiers: Field) {
+            self.previous_kernel.append_new_nullifiers(num_nullifiers);
+        }
 
-//         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {
-//             self.previous_kernel.end.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.end.new_commitments.get(commitment_index).value;
-//             self.previous_kernel.end.new_nullifiers.storage[nullifier_index].counter = self.previous_kernel.end.new_commitments.get(commitment_index).counter + 1;
-//             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
-//         }
+        pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {
+            self.previous_kernel.end.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.end.new_commitments.get(commitment_index).value;
+            self.nullifier_commitment_hints[nullifier_index] = commitment_index;
+        }
 
-//         pub fn execute(self) -> KernelCircuitPublicInputsFinal {
-//             let kernel = PrivateKernelInputsOrdering {
-//                 previous_kernel: self.previous_kernel.finish(),
-//                 read_commitment_hints: self.read_commitment_hints,
-//                 nullifier_commitment_hints: self.nullifier_commitment_hints,
-//             };
-//             kernel.native_private_kernel_circuit_ordering()
-//         }
+        fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N], [u32; N], [u32; N]) where T: Ordered + Eq + Empty {
+            let mut indexes = [0; N];
+            for i in 0..N {
+                indexes[i] = i as u32;
+            }
+            let sorted_indexes = indexes.sort_via(|a_index: u32, b_index: u32| {
+                let a = original[a_index];
+                let b = original[b_index];
+                if is_empty(b) {
+                    true
+                } else if is_empty(a) {
+                    false
+                } else {
+                    a.counter() < b.counter()
+                }
+            });
+            let sorted_sideffects = sorted_indexes.map(|i: u32| original[i]);
+            let mut reverse_map = [0; N];
+            for i in 0..N {
+                reverse_map[sorted_indexes[i]] = i;
+            }
 
-//         pub fn failed(self) {
-//             let _ = self.execute();
-//         }
-//     }
+            (sorted_sideffects, sorted_indexes, reverse_map)
+        }
 
-//     #[test]
-//     fn native_matching_one_read_request_to_commitment_works() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        pub fn execute(self) -> KernelCircuitPublicInputsFinal {
+            let (sorted_new_commitments, sorted_new_commitments_indexes, commiments_reverse_map) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
+            let mut sorted_read_commitment_hints = [0; MAX_READ_REQUESTS_PER_TX];
+            for i in 0..sorted_read_commitment_hints.len() {
+                sorted_read_commitment_hints[i] = commiments_reverse_map[self.read_commitment_hints[i]] as Field;
+            }
+            let (sorted_new_nullifiers, sorted_new_nullifiers_indexes, nullifiers_reverse_map) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_nullifiers());
+            let mut sorted_nullifier_commitment_hints = [0; MAX_NEW_NULLIFIERS_PER_TX];
+            for i in 0..sorted_nullifier_commitment_hints.len() {
+                sorted_nullifier_commitment_hints[i] = nullifiers_reverse_map[self.nullifier_commitment_hints[i]] as Field;
+            }
+            let kernel = PrivateKernelInputsOrdering {
+                previous_kernel: self.previous_kernel.finish(),
+                sorted_new_commitments,
+                sorted_new_commitments_indexes,
+                read_commitment_hints: sorted_read_commitment_hints,
+                sorted_new_nullifiers,
+                sorted_new_nullifiers_indexes,
+                nullifier_commitment_hints: sorted_nullifier_commitment_hints,
+            };
+            kernel.native_private_kernel_circuit_ordering()
+        }
 
-//         builder.append_transient_commitments(1);
-//         builder.add_transient_read(0);
+        pub fn failed(self) {
+            let _ = self.execute();
+        }
+    }
 
-//         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
+    #[test]
+    unconstrained fn native_matching_one_read_request_to_commitment_works() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-//         let public_inputs = builder.execute();
-//         assert(
-//             struct_array_length(
-//             public_inputs.end.new_commitments,
-//             |r: SideEffect| r.is_empty()
-//         )
-//             == 1
-//         );
-//         assert(public_inputs.end.new_commitments[0].eq(unique_siloed_commitments[0]));
-//     }
+        builder.append_transient_commitments(1);
+        builder.add_transient_read(0);
 
-//     #[test]
-//     fn native_matching_some_read_requests_to_commitments_works() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let unique_siloed_commitments = builder.get_unique_siloed_commitments();
 
-//         builder.append_transient_commitments(MAX_NEW_COMMITMENTS_PER_TX);
-//         // Read the commitment at index 1;
-//         builder.add_transient_read(1);
-//         // Read the commitment at index 3;
-//         builder.add_transient_read(3);
+        let public_inputs = builder.execute();
+        assert(
+            struct_array_length(
+            public_inputs.end.new_commitments,
+            |r: SideEffect| r.is_empty()
+        )
+            == 1
+        );
+        assert(public_inputs.end.new_commitments[0].eq(unique_siloed_commitments[0]));
+    }
 
-//         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
+    #[test]
+    unconstrained fn native_matching_some_read_requests_to_commitments_works() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(MAX_NEW_COMMITMENTS_PER_TX);
+        // Read the commitment at index 1;
+        builder.add_transient_read(1);
+        // Read the commitment at index 3;
+        builder.add_transient_read(3);
+        let unique_siloed_commitments = builder.get_unique_siloed_commitments();
+        let public_inputs = builder.execute();
+        assert_eq(
+            struct_array_length(
+                public_inputs.end.new_commitments,
+                |r: SideEffect| r.is_empty()
+            ), MAX_NEW_COMMITMENTS_PER_TX
+        );
+        for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
+            assert(public_inputs.end.new_commitments[i].eq(unique_siloed_commitments[i]));
+        }
+    }
 
-//         let public_inputs = builder.execute();
-//         assert_eq(
-//             struct_array_length(
-//                 public_inputs.end.new_commitments,
-//                 |r: SideEffect| r.is_empty()
-//             ), MAX_NEW_COMMITMENTS_PER_TX
-//         );
-//         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
-//             assert(public_inputs.end.new_commitments[i].eq(unique_siloed_commitments[i]));
-//         }
-//     }
+    #[test(should_fail_with="Hinted commitment does not match read request")]
+    unconstrained fn native_read_request_unknown_fails() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(1);
+        builder.add_transient_read(0);
+        // Tweak the read request so that it does not match the commitment at index 0;
+        let read_request = builder.previous_kernel.end.read_requests.pop();
+        builder.previous_kernel.end.read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
+        builder.failed();
+    }
 
-//     #[test(should_fail_with="Hinted commitment does not match read request")]
-//     fn native_read_request_unknown_fails() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
+    #[test]
+    unconstrained fn native_squash_one_of_one_transient_matches_works() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(1);
+        builder.append_nullifiers(2);
+        // The nullifier at index 1 is nullifying the commitment at index 0;
+        builder.nullify_transient_commitment(1, 0);
+        let new_nullifiers = builder.get_new_nullifiers();
+        let public_inputs = builder.execute();
+        assert(
+            is_empty_struct_array(
+                public_inputs.end.new_commitments,
+                |c: SideEffect| c.is_empty()
+            )
+        );
+        // The nullifier at index 1 is chopped.
+        let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
+        assert(
+            struct_array_eq(
+                public_inputs.end.new_nullifiers,
+                expected_new_nullifiers,
+                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
+                |a: SideEffectLinkedToNoteHash| a.is_empty()
+            )
+        );
+    }
 
-//         builder.append_transient_commitments(1);
-//         builder.add_transient_read(0);
-//         // Tweak the read request so that it does not match the commitment at index 0;
-//         let read_request = builder.previous_kernel.end.read_requests.pop();
-//         builder.previous_kernel.end.read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
+    #[test]
+    unconstrained fn native_squash_one_of_two_transient_matches_works() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(2);
+        builder.append_nullifiers(2);
+        // The nullifier at index 1 is nullifying the commitment at index 0;
+        builder.nullify_transient_commitment(1, 0);
+        let new_commitments = builder.get_new_commitments();
+        // The 0th commitment will be chopped.
+        let unique_siloed_commitments = builder.compute_unique_siloed_commitments([new_commitments[1]]);
+        let new_nullifiers = builder.get_new_nullifiers();
+        let public_inputs = builder.execute();
+        assert(
+            struct_array_eq(
+                public_inputs.end.new_commitments,
+                [unique_siloed_commitments[0]],
+                |a: SideEffect, b: SideEffect| a.eq(b),
+                |a: SideEffect| a.is_empty()
+            )
+        );
+        // The nullifier at index 1 is chopped.
+        let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
+        assert(
+            struct_array_eq(
+                public_inputs.end.new_nullifiers,
+                expected_new_nullifiers,
+                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
+                |a: SideEffectLinkedToNoteHash| a.is_empty()
+            )
+        );
+    }
 
-//         builder.failed();
-//     }
+    #[test]
+    unconstrained fn native_squash_two_of_two_transient_matches_works() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(2);
+        builder.append_nullifiers(2);
+        // The nullifier at index 1 is nullifying the commitment at index 1;
+        builder.nullify_transient_commitment(1, 1);
+        // The nullifier at index 2 is nullifying the commitment at index 0;
+        builder.nullify_transient_commitment(2, 0);
+        let new_nullifiers = builder.get_new_nullifiers();
+        let public_inputs = builder.execute();
+        assert(
+            is_empty_struct_array(
+                public_inputs.end.new_commitments,
+                |c: SideEffect| c.is_empty()
+            )
+        );
+        assert(
+            struct_array_eq(
+                public_inputs.end.new_nullifiers,
+                [new_nullifiers[0]],
+                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
+                |a: SideEffectLinkedToNoteHash| a.is_empty()
+            )
+        );
+    }
 
-//     #[test]
-//     fn native_squash_one_of_one_transient_matches_works() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
+    #[test]
+    unconstrained fn native_empty_nullified_commitment_means_persistent_nullifier_0() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(2);
+        builder.append_nullifiers(2);
+        let public_inputs = builder.execute();
+        assert_eq(
+            struct_array_length(
+                public_inputs.end.new_commitments,
+                |r: SideEffect| r.is_empty()
+            ), 2
+        );
+        assert_eq(
+            struct_array_length(
+                public_inputs.end.new_nullifiers,
+                |r: SideEffectLinkedToNoteHash| r.is_empty()
+            ), 3
+        );
+    }
+    // same as previous test, but this time there are 0 commitments!
+    // (Do we really need this test?)
 
-//         builder.append_transient_commitments(1);
-//         builder.append_nullifiers(2);
-//         // The nullifier at index 1 is nullifying the commitment at index 0;
-//         builder.nullify_transient_commitment(1, 0);
-//         let new_nullifiers = builder.get_new_nullifiers();
+    #[test]
+    unconstrained fn native_empty_nullified_commitment_means_persistent_nullifier_1() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_nullifiers(2);
+        let public_inputs = builder.execute();
+        assert(
+            struct_array_length(
+            public_inputs.end.new_commitments,
+            |r: SideEffect| r.is_empty()
+        )
+            == 0
+        );
+        assert(
+            struct_array_length(
+            public_inputs.end.new_nullifiers,
+            |r: SideEffectLinkedToNoteHash| r.is_empty()
+        )
+            == 3
+        );
+    }
 
-//         let public_inputs = builder.execute();
-//         assert(
-//             is_empty_struct_array(
-//                 public_inputs.end.new_commitments,
-//                 |c: SideEffect| c.is_empty()
-//             )
-//         );
+    #[test(should_fail_with="New nullifier is transient but hint is invalid")]
+    unconstrained fn invalid_nullifier_commitment_hint_fails() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(1);
+        builder.append_nullifiers(1);
+        // The nullifier at index 1 is nullifying the commitment at index 0;
+        builder.nullify_transient_commitment(1, 0);
+        // Change the hint to be out of bounds.
+        builder.nullifier_commitment_hints[1] = MAX_NEW_COMMITMENTS_PER_TX;
+        builder.failed();
+    }
 
-//         // The nullifier at index 1 is chopped.
-//         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-//         assert(
-//             struct_array_eq(
-//                 public_inputs.end.new_nullifiers,
-//                 expected_new_nullifiers,
-//                 |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-//                 |a: SideEffectLinkedToNoteHash| a.is_empty()
-//             )
-//         );
-//     }
+    #[test(should_fail_with="Hinted commitment does not match")]
+    unconstrained fn wrong_nullifier_commitment_hint_fails() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.append_transient_commitments(2);
+        builder.append_nullifiers(2);
+        // The nullifier at index 1 is nullifying the commitment at index 1;
+        builder.nullify_transient_commitment(1, 1);
+        // The nullifier at index 2 is nullifying the commitment at index 0;
+        builder.nullify_transient_commitment(2, 0);
+        // Tweak the hint to be for the commitment at index 1.
+        builder.nullifier_commitment_hints[2] = 1;
+        builder.failed();
+    }
 
-//     #[test]
-//     fn native_squash_one_of_two_transient_matches_works() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
+    #[test(should_fail_with="Private call stack must be empty when executing the ordering circuit")]
+    unconstrained fn non_empty_private_call_stack_should_fail() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.previous_kernel.push_private_call_request(1, false);
+        builder.failed();
+    }
 
-//         builder.append_transient_commitments(2);
-//         builder.append_nullifiers(2);
-//         // The nullifier at index 1 is nullifying the commitment at index 0;
-//         builder.nullify_transient_commitment(1, 0);
-
-//         let new_commitments = builder.get_new_commitments();
-//         // The 0th commitment will be chopped.
-//         let unique_siloed_commitments = builder.compute_unique_siloed_commitments([new_commitments[1]]);
-//         let new_nullifiers = builder.get_new_nullifiers();
-
-//         let public_inputs = builder.execute();
-
-//         assert(
-//             struct_array_eq(
-//                 public_inputs.end.new_commitments,
-//                 [unique_siloed_commitments[0]],
-//                 |a: SideEffect, b: SideEffect| a.eq(b),
-//                 |a: SideEffect| a.is_empty()
-//             )
-//         );
-
-//         // The nullifier at index 1 is chopped.
-//         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-//         assert(
-//             struct_array_eq(
-//                 public_inputs.end.new_nullifiers,
-//                 expected_new_nullifiers,
-//                 |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-//                 |a: SideEffectLinkedToNoteHash| a.is_empty()
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn native_squash_two_of_two_transient_matches_works() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.append_transient_commitments(2);
-//         builder.append_nullifiers(2);
-//         // The nullifier at index 1 is nullifying the commitment at index 1;
-//         builder.nullify_transient_commitment(1, 1);
-//         // The nullifier at index 2 is nullifying the commitment at index 0;
-//         builder.nullify_transient_commitment(2, 0);
-
-//         let new_nullifiers = builder.get_new_nullifiers();
-
-//         let public_inputs = builder.execute();
-//         assert(
-//             is_empty_struct_array(
-//                 public_inputs.end.new_commitments,
-//                 |c: SideEffect| c.is_empty()
-//             )
-//         );
-//         assert(
-//             struct_array_eq(
-//                 public_inputs.end.new_nullifiers,
-//                 [new_nullifiers[0]],
-//                 |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-//                 |a: SideEffectLinkedToNoteHash| a.is_empty()
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn native_empty_nullified_commitment_means_persistent_nullifier_0() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.append_transient_commitments(2);
-//         builder.append_nullifiers(2);
-
-//         let public_inputs = builder.execute();
-//         assert_eq(
-//             struct_array_length(
-//                 public_inputs.end.new_commitments,
-//                 |r: SideEffect| r.is_empty()
-//             ), 2
-//         );
-//         assert_eq(
-//             struct_array_length(
-//                 public_inputs.end.new_nullifiers,
-//                 |r: SideEffectLinkedToNoteHash| r.is_empty()
-//             ), 3
-//         );
-//     }
-
-//     // same as previous test, but this time there are 0 commitments!
-//     // (Do we really need this test?)
-//     #[test]
-//     fn native_empty_nullified_commitment_means_persistent_nullifier_1() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.append_nullifiers(2);
-
-//         let public_inputs = builder.execute();
-//         assert(
-//             struct_array_length(
-//             public_inputs.end.new_commitments,
-//             |r: SideEffect| r.is_empty()
-//         )
-//             == 0
-//         );
-//         assert(
-//             struct_array_length(
-//             public_inputs.end.new_nullifiers,
-//             |r: SideEffectLinkedToNoteHash| r.is_empty()
-//         )
-//             == 3
-//         );
-//     }
-
-//     #[test(should_fail_with="New nullifier is transient but hint is invalid")]
-//     fn invalid_nullifier_commitment_hint_fails() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.append_transient_commitments(1);
-//         builder.append_nullifiers(1);
-//         // The nullifier at index 1 is nullifying the commitment at index 0;
-//         builder.nullify_transient_commitment(1, 0);
-//         // Change the hint to be out of bounds.
-//         builder.nullifier_commitment_hints[1] = MAX_NEW_COMMITMENTS_PER_TX;
-
-//         builder.failed();
-//     }
-
-//     #[test(should_fail_with="Hinted commitment does not match")]
-//     fn wrong_nullifier_commitment_hint_fails() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.append_transient_commitments(2);
-//         builder.append_nullifiers(2);
-//         // The nullifier at index 1 is nullifying the commitment at index 1;
-//         builder.nullify_transient_commitment(1, 1);
-//         // The nullifier at index 2 is nullifying the commitment at index 0;
-//         builder.nullify_transient_commitment(2, 0);
-//         // Tweak the hint to be for the commitment at index 1.
-//         builder.nullifier_commitment_hints[2] = 1;
-
-//         builder.failed();
-//     }
-
-//     #[test(should_fail_with="Private call stack must be empty when executing the ordering circuit")]
-//     fn non_empty_private_call_stack_should_fail() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.previous_kernel.push_private_call_request(1, false);
-
-//         builder.failed();
-//     }
-
-//     #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
-//     fn zero_0th_nullifier_fails() {
-//         let mut builder = PrivateKernelOrderingInputsBuilder::new();
-
-//         builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
-
-//         builder.failed();
-//     }
-// }
+    #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
+    unconstrained fn zero_0th_nullifier_fails() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
+        builder.failed();
+    }
+}
