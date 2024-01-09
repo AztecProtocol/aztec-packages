@@ -17,6 +17,7 @@ COPY . .
 RUN cmake --preset default && cmake --build --preset default --target ultra_plonk_rounds_bench --target ultra_honk_rounds_bench --target bb --target ultra_honk_bench --target ultra_plonk_bench --target grumpkin_srs_gen --target widget_bench --target relations_bench
 
 FROM alpine:3.18
+RUN apk update && apk add curl libstdc++
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
