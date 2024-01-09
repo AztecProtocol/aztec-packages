@@ -169,14 +169,14 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
-        BlackBoxFunc::EcAdd => {
+        BlackBoxFunc::EmbeddedCurveAdd => {
             if let (
                 [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y),
                 BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
-                brillig_context.black_box_op_instruction(BlackBoxOp::EcAdd {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EmbeddedCurveAdd {
                     input1_x: *input1_x,
                     input1_y: *input1_y,
                     input2_x: *input2_x,
@@ -185,24 +185,24 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EcAdd expects four register arguments and one array result"
+                    "ICE: EmbeddedCurveAdd expects four register arguments and one array result"
                 )
             }
         }       
-        BlackBoxFunc::EcDouble => {
+        BlackBoxFunc::EmbeddedCurveDouble => {
             if let (
                 [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
-                brillig_context.black_box_op_instruction(BlackBoxOp::EcDouble {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EmbeddedCurveDouble {
                     input1_x: *input1_x,
                     input1_y: *input1_y,
                     result: result_array.to_heap_array(),
                 });
             } else {
                 unreachable!(
-                    "ICE: EcAdd expects two register arguments and one array result"
+                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
                 )
             }
         }

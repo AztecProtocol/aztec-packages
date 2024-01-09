@@ -140,7 +140,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(registers.get(result.pointer).to_usize(), &[x.into(), y.into()]);
             Ok(())
         }
-        BlackBoxOp::EcAdd { input1_x, input1_y, input2_x, input2_y, result } => {
+        BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
             let input1_x = registers.get(*input1_x).to_field();
             let input1_y = registers.get(*input1_y).to_field();
             let input2_x = registers.get(*input2_x).to_field();
@@ -149,7 +149,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(registers.get(result.pointer).to_usize(), &[x.into(), y.into()]);
             Ok(())
         }
-        BlackBoxOp::EcDouble { input1_x, input1_y, result } => {
+        BlackBoxOp::EmbeddedCurveDouble { input1_x, input1_y, result } => {
             let input1_x = registers.get(*input1_x).to_field();
             let input1_y = registers.get(*input1_y).to_field();
             let (x, y) = solver.ec_double(&input1_x, &input1_y)?;

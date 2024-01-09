@@ -1757,7 +1757,7 @@ fn execute_brillig(
             _input2_y: &FieldElement,
         ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
             Err(BlackBoxResolutionError::Failed(
-                BlackBoxFunc::EcAdd,
+                BlackBoxFunc::EmbeddedCurveAdd,
                 "EcAdd is not supported".to_string(),
             ))
         }
@@ -1767,7 +1767,7 @@ fn execute_brillig(
             _input_y: &FieldElement,
         ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
             Err(BlackBoxResolutionError::Failed(
-                BlackBoxFunc::EcDouble,
+                BlackBoxFunc::EmbeddedCurveDouble,
                 "EcDouble is not supported".to_string(),
             ))
         }

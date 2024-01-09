@@ -205,14 +205,14 @@ impl GeneratedAcir {
                 high: inputs[1][0],
                 outputs: (outputs[0], outputs[1]),
             },
-            BlackBoxFunc::EcAdd => BlackBoxFuncCall::EcAdd {
+            BlackBoxFunc::EmbeddedCurveAdd => BlackBoxFuncCall::EmbeddedCurveAdd {
                 input1_x: inputs[0][0],
                 input1_y: inputs[1][0],
                 input2_x: inputs[2][0],
                 input2_y: inputs[3][0],
                 outputs: (outputs[0], outputs[1]),
             },
-            BlackBoxFunc::EcDouble => BlackBoxFuncCall::EcDouble {
+            BlackBoxFunc::EmbeddedCurveDouble => BlackBoxFuncCall::EmbeddedCurveDouble {
                 input_x: inputs[0][0],
                 input_y: inputs[1][0],
                 outputs: (outputs[0], outputs[1]),
@@ -594,9 +594,9 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // Recursive aggregation has a variable number of inputs
         BlackBoxFunc::RecursiveAggregation => None,
         // Addition over the embedded curve: input are coordinates (x1,y1) and (x2,y2) of the Grumpkin points 
-        BlackBoxFunc::EcAdd => Some(4),
+        BlackBoxFunc::EmbeddedCurveAdd => Some(4),
         // Doubling over the embedded curve: input is (x,y) coordinate of the point.
-        BlackBoxFunc::EcDouble => Some(2),
+        BlackBoxFunc::EmbeddedCurveDouble => Some(2),
     }
 }
 
@@ -627,8 +627,8 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.
         BlackBoxFunc::FixedBaseScalarMul 
-        | BlackBoxFunc::EcAdd
-        | BlackBoxFunc::EcDouble => Some(2),
+        | BlackBoxFunc::EmbeddedCurveAdd
+        | BlackBoxFunc::EmbeddedCurveDouble => Some(2),
         // Recursive aggregation has a variable number of outputs
         BlackBoxFunc::RecursiveAggregation => None,
     }

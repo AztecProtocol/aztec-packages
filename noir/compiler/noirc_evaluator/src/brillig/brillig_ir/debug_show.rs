@@ -396,10 +396,10 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::EcAdd { input1_x, input1_y, input2_x, input2_y, result } => {
+            BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
                 debug_println!(
                     self.enable_debug_trace,
-                    "  EC_ADD ({} {}) ({} {}) -> {}",
+                    "  EMBEDDED_CURVE_ADD ({} {}) ({} {}) -> {}",
                     input1_x,
                     input1_y,
                     input2_x,
@@ -407,10 +407,10 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::EcDouble { input1_x, input1_y, result } => {
+            BlackBoxOp::EmbeddedCurveDouble { input1_x, input1_y, result } => {
                 debug_println!(
                     self.enable_debug_trace,
-                    "  EC_DOUBLE ({} {}) -> {}",
+                    "  EMBEDDED_CURVE_DOUBLE ({} {}) -> {}",
                     input1_x,
                     input1_y,
                     result
