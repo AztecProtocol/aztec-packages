@@ -32,13 +32,12 @@ void ipa_open(State& state) noexcept
     numeric::random::Engine& engine = numeric::random::get_debug_engine();
     for (auto _ : state) {
         state.PauseTiming();
-        // Construct the polynomial
         size_t n = 1 << static_cast<size_t>(state.range(0));
+        // Construct the polynomial
         Polynomial poly(n);
         for (size_t i = 0; i < n; ++i) {
             poly[i] = Fr::random_element(&engine);
         }
-        // auto commitment = ck->commit(poly);
         auto x = Fr::random_element(&engine);
         auto eval = poly.evaluate(x);
         const OpeningPair opening_pair = { x, eval };
@@ -46,7 +45,9 @@ void ipa_open(State& state) noexcept
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<honk::BaseTranscript>();
         state.ResumeTiming();
+        // Compute proof
         IPA::compute_opening_proof(ck, opening_pair, poly, prover_transcript);
+        // Store info for verifier
         prover_transcripts[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2] = prover_transcript;
         opening_claims[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2] = opening_claim;
     }
