@@ -43,6 +43,11 @@ const sidebars = {
         "transactions/validity",
       ],
       Bytecode: ["bytecode/index"],
+      "Contract Deployment": [
+        "contract-deployment/index",
+        "contract-deployment/classes",
+        "contract-deployment/instances",
+      ],
       Calls: [
         "calls/index",
         "calls/sync-calls",
