@@ -4,12 +4,12 @@ use dep::std;
 
 // A Fixedsize Compressed String.
 // Essentially a special version of Compressed String for practical use.
-struct FixedsizeCompressedString{
+struct FieldCompressedString{
   value: Field
 }
 
-impl FixedsizeCompressedString{
-  pub fn is_eq(self, other: FixedsizeCompressedString) -> bool {
+impl FieldCompressedString{
+  pub fn is_eq(self, other: FieldCompressedString) -> bool {
     self.value == other.value
   }
 
@@ -39,19 +39,22 @@ impl FixedsizeCompressedString{
   }
 }
 
-fn deserialize(fields: [Field; 1]) -> FixedsizeCompressedString {
-    FixedsizeCompressedString { value: fields[0] }
+fn deserialize(fields: [Field; 1]) -> FieldCompressedString {
+    FieldCompressedString { value: fields[0] }
 }
 
-fn serialize(value: FixedsizeCompressedString) -> [Field; 1] {
+fn serialize(value: FieldCompressedString) -> [Field; 1] {
     value.serialize()
 }
-// Need to figure this out afterwards.
-global FixedsizeCompressedStringSerializationMethods = TypeSerializationInterface {
+global FieldCompressedStringSerializationMethods = TypeSerializationInterface {
   deserialize,
   serialize,
 };
 
+// The general Compressed String.
+// Compresses M bytes into N fields.
+// Can be used for longer strings that don't fit in a single field.
+// Each field can store 31 characters, so N should be M/31 rounded up.
 struct CompressedString<N, M> {
   value: [Field; N]
 }
