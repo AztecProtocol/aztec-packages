@@ -20,7 +20,7 @@ Any smart contract that works with storage must include a [`compute_note_hash_an
 
 This is an example of this function in the token contract:
 
-#include_code compute_note_hash_and_nullifier yarn-project/noir-contracts/src/contracts/token_contract/src/main.nr rust
+#include_code compute_note_hash_and_nullifier yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
 
 This error may also show if the `compute_note_hash_and_nullifier` function is not correct or sits outside of the contract.
 
@@ -76,3 +76,9 @@ This error occurs when your contract is trying to get a secret via the `get_secr
 
 This error might occur when you register an account only as a recipient and not as an account.
 To address the error, register the account by calling `server.registerAccount(...)`.
+
+#### `Failed to solve brillig function, reason: explicit trap hit in brillig 'self._is_some`
+
+You may encounter this error when trying to send a transaction that is using an invalid contract. The contract may compile without errors and you only encounter this when sending the transaction.
+
+This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double check your contract implementation, but also consider [opening an issue](https://github.com/AztecProtocol/aztec-packages/issues/new).

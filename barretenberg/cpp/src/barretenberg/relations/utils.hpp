@@ -16,6 +16,7 @@ template <typename Flavor> class RelationUtils {
     using AlphaType = typename Flavor::AlphaType;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -74,9 +75,10 @@ template <typename Flavor> class RelationUtils {
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
+        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
         auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
-            element *= current_scalar;
-            current_scalar = challenges[idx];
+            element *= tmp[idx];
             idx++;
         };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
@@ -191,10 +193,11 @@ template <typename Flavor> class RelationUtils {
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
+        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-                result += entry * current_scalar;
-                current_scalar = challenges[idx];
+                result += entry * tmp[idx];
                 idx++;
             }
         };

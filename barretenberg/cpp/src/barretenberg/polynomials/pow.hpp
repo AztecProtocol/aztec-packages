@@ -76,9 +76,7 @@ template <typename FF> struct PowPolynomial {
 
     explicit PowPolynomial(const std::vector<FF>& betas)
         : betas(betas)
-    {
-        compute_pow_polynomial_at_values();
-    }
+    {}
 
     FF const& operator[](size_t idx) const { return pow_betas[idx]; }
 
@@ -103,13 +101,13 @@ template <typename FF> struct PowPolynomial {
     }
 
     /**
-     * @brief Given {β_0,...,β_{d-1}} compute pow(β) of size 2^d
+     * @brief Given \vec{β} = {β_0,...,β_{d-1}} compute pow_i(\vec{β}) for i=0,...,2^d
      *
      */
     void compute_pow_polynomial_at_values()
     {
         size_t pow_size = 1 << betas.size();
-        pow_betas = std::vector<FF>(1 << betas.size(), 0);
+        pow_betas = std::vector<FF>(pow_size, 0);
         for (size_t i = 0; i < pow_size; i++) {
             auto res = FF(1);
             for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {

@@ -53,8 +53,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
             ProverInstances instances{ instance_data };
             instances.alphas.fill(Univariate<FF, 13>(FF(0))); // focus on the arithmetic relation only
-
-            auto result = prover.compute_combiner(instances, PowPolynomial(std::vector<FF>{ 2 }));
+            auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+            auto result = prover.compute_combiner(instances, pow_polynomial);
             auto expected_result =
                 barretenberg::Univariate<FF, 13>(std::array<FF, 13>{ 87706,
                                                                      13644570,
@@ -131,7 +131,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
             relation value:
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
-            auto result = prover.compute_combiner(instances, PowPolynomial(std::vector<FF>{ 2 }));
+            auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+            auto result = prover.compute_combiner(instances, pow_polynomial);
             auto expected_result = barretenberg::Univariate<FF, 13>(
                 std::array<FF, 13>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660, 792 });
 
@@ -181,7 +182,8 @@ TEST(Protogalaxy, CombinerOn4Instances)
         zero_all_selectors(instances[2]->prover_polynomials);
         zero_all_selectors(instances[3]->prover_polynomials);
 
-        auto result = prover.compute_combiner(instances, PowPolynomial(std::vector<FF>{ 2 }));
+        auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
+        auto result = prover.compute_combiner(instances, pow_polynomial);
         std::array<FF, 43> zeroes;
         std::fill(zeroes.begin(), zeroes.end(), 0);
         auto expected_result = barretenberg::Univariate<FF, 43>(zeroes);
