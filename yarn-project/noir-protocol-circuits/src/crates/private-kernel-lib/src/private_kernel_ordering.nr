@@ -467,6 +467,37 @@ mod tests {
     }
 
     #[test]
+    unconstrained fn ordering_of_commitments_and_nullifiers() {
+        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+
+        let mut sorted_new_commitments = [SideEffect::empty(); 10];
+        let mut sorted_new_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
+
+        for i in 0..10 {
+            sorted_new_commitments[i] = SideEffect { value: (i + 1) as Field, counter: i + 1 };
+            sorted_new_nullifiers[i] = SideEffectLinkedToNoteHash { value: (i + 11) as Field, counter: i + 11, note_hash: 0 };
+        }
+
+        for i in 0..10 {
+            builder.previous_kernel.end.new_commitments.push(sorted_new_commitments[9 - i]);
+            builder.previous_kernel.end.new_nullifiers.push(sorted_new_nullifiers[9 - i]);
+        }
+
+        let public_inputs = builder.execute();
+
+        let sorted_unique_commitments = compute_unique_siloed_commitments(
+            public_inputs.end.new_nullifiers[0].value,
+            sorted_new_commitments
+        );
+
+        for i in 0..10 {
+            assert(public_inputs.end.new_commitments[i].eq(sorted_unique_commitments[i]));
+            // +1 due to the 0th nullifier being the tx hash
+            assert(public_inputs.end.new_nullifiers[i + 1].eq(sorted_new_nullifiers[i]));
+        }
+    }
+
+    #[test]
     unconstrained fn native_empty_nullified_commitment_means_persistent_nullifier_0() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(2);
