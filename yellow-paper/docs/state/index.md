@@ -52,7 +52,7 @@ Below is a short description of the state catagories (trees) and why they have t
 - **L1 to L2 Messages**: The set of messages sent from L1 to L2. The set itself only needs to support efficient membership proofs, so we can ensure that the message was correctly sent from L1. However, it utilizes the Nullifier tree from above to ensure that the message cannot be processed twice. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
 - [**Archive**](./archive.md): The set of block headers that have been processed. We need to support efficient membership proofs as this is used in private execution to get the roots of the other trees. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
 
-To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note-hash-tree.md), [Nullifier tree](./nullifier-tree.md), and [Public Data tree](./public-data-tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../contracts/#l2-outbox) and the [Archive](./archive.md) allows for historical state access.
+To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note-hash-tree.md), [Nullifier tree](./nullifier-tree.md), and [Public Data tree](./public-data-tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../cross-chain-communication/#l2-outbox) and the [Archive](./archive.md) allows for historical state access.
 
 ```mermaid
 classDiagram
