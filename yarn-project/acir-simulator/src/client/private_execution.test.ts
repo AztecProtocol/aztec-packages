@@ -581,7 +581,7 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 1,
+          startSideEffectCounter: 2,
         }),
       });
 

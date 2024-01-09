@@ -88,6 +88,7 @@ export class AcirSimulator {
       false,
       false,
       request.functionData.isConstructor,
+      // TODO: when contract deployment is done in-app, we should only reserve one counter for the tx hash
       2, // 2 counters are reserved for tx hash and contract deployment nullifier
     );
     const context = new ClientExecutionContext(
