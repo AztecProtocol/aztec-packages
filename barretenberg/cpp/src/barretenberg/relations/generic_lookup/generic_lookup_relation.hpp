@@ -53,7 +53,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute the maximum degree of read terms
      *
-     *@details We need this to evaluate the length of the subrelations correctly
+     * @details We need this to evaluate the length of the subrelations correctly
      * @return constexpr size_t
      */
     static constexpr size_t compute_maximum_read_term_degree()
@@ -76,7 +76,7 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute the maximum degree of write terms
      *
-     *@details We need this to evaluate the length of the subrelations correctly
+     * @details We need this to evaluate the length of the subrelations correctly
      * @return constexpr size_t
      */
     static constexpr size_t compute_maximum_write_term_degree()
@@ -302,9 +302,9 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute where the polynomials defining a particular read term are located
      *
-     *@details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
-     *depending on the type of read term different number of polynomials can be used to compute it. So we need to
-     *compute the offset in the tuple iteratively
+     * @details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
+     * depending on the type of read term different number of polynomials can be used to compute it. So we need to
+     * compute the offset in the tuple iteratively
      *
      * @param read_index Index of the read term
      * @return constexpr size_t
@@ -338,9 +338,9 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
     /**
      * @brief Compute where the polynomials defining a particular write term are located
      *
-     *@details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
-     *depending on the type of term different number of polynomials can be used to compute it. So we need to
-     *compute the offset in the tuple iteratively
+     * @details We pass polynomials involved in read an write terms from settings as a tuple of references. However,
+     * depending on the type of term different number of polynomials can be used to compute it. So we need to
+     * compute the offset in the tuple iteratively
      *
      * @param write_index Index of the write term
      * @return constexpr size_t
