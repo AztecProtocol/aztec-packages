@@ -254,7 +254,7 @@ jobs:
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/upload_benchmarks_to_s3.sh
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
 
   barretenberg-honk-tests:
     docker:
