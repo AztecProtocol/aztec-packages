@@ -13,7 +13,6 @@ import {
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   PrivateCircuitPublicInputs,
   PublicCircuitPublicInputs,
   RETURN_VALUES_LENGTH,
@@ -185,8 +184,8 @@ export function extractPrivateCircuitPublicInputs(
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
   const endSideEffectCounter = witnessReader.readField();
 
-  const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
+  const encryptedLogsHash = witnessReader.readField();
+  const unencryptedLogsHash = witnessReader.readField();
   const encryptedLogPreimagesLength = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
@@ -279,7 +278,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   const newNullifiers = witnessReader.readSideEffectLinkedToNoteHashArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
 
-  const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
+  const unencryptedLogsHash = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
   const blockHeader = new BlockHeader(

@@ -27,24 +27,34 @@ use crate::constants::{
 
 use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
-pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = sha256(bytes_to_hash);
-
+// Convert a 32 byte array to a field element, dropping smallest byte to ensure size without doing modulus division
+fn truncate_bytes32_to_field(bytes32: [u8; 32]) -> Field {
     // Convert it to a field element
     let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
+    let mut value = 0 as Field;
 
-    for i in 0..16 {
-        high = high + (sha256_hashed[15 - i] as Field) * v;
-        low = low + (sha256_hashed[16 + 15 - i] as Field) * v;
+    // the same as crate:field::bytes32_to_field, but skipping the last byte entirely!
+    for i in 0..31 {
+        value = value + (bytes32[i] as Field) * v;
         v = v * 256;
     }
+    value
+}
 
-    // Abuse that a % p + b % p = (a + b) % p and that low < p
-    let hash_in_a_field = low + high * v;
+pub fn sha256_truncate_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+    // this truncates the right most 4 bytes of the sha256 byte and then interprets the result as a Field.
+    // https://forum.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426/14
+    // links to justification - we should still have 126bits of security after doing this (reduced from 128 bits)
+    let sha256_hash_bytes = sha256(bytes_to_hash);
 
-    hash_in_a_field
+    truncate_bytes32_to_field(sha256_hash_bytes)
+}
+
+pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+    // this is equivalent to taking the remainder of the sha256 hash, relative to the Fr characteristic prime
+    // this is less prefer
+    let sha256_hashed = sha256(bytes_to_hash);
+    dep::std::field::bytes32_to_field(sha256_hashed)
 }
 
 pub fn hash_args<N>(args: [Field; N]) -> Field {
@@ -211,7 +221,7 @@ pub fn compute_l2_to_l1_hash(
         }
     }
 
-    sha256_to_field(bytes.storage)
+    sha256_truncate_to_field(bytes.storage)
 }
 
 pub fn compute_constructor_hash(
@@ -231,54 +241,27 @@ pub fn compute_constructor_hash(
     )
 }
 
-// sha256 hash is stored in two fields to accommodate all 256-bits of the hash
-global NUM_FIELDS_PER_SHA256 : Field = 2;
-
-// Computes sha256 hash of 2 input hashes stored in 4 fields.
-// 
-// This method is bn254 specific. Two fields is needed in order to 
-// encode the sha256 output. It can be abstracted away with any 4-2 hash function.
-//
-// TODO(Jan and David): This is used for the encrypted_log hashes.
-// Can we check to see if we can just use hash_to_field or pedersen_compress here?
-//
-// Returning a Field would be desirable because then this can be replaced with 
-// poseidon without changing the rest of the code
-//
-pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
-    // This is a note about the cpp code, since it takes an array of Fields
-    // instead of a U128.
-    // 4 Field elements when converted to bytes will usually 
-    // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field 
-    // only occupies 128 bits.
-    //
-    // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-    //
-    // Concatenate 4 u128 bit integers into a byte array.
+pub fn accumulate_sha256(input: [Field; 2]) -> Field {
+    // for accumulator hashes, the sha256 hash of two inputs is stored in single Field to despite 
+    // being three bits too small to accommodate all 256-bits of the hash.
+    // Returning a single Field is desirable because then this can be replaced with 
+    // poseidon without changing the rest of the code
     let mut hash_input_flattened = [0; 64];
-    for offset in 0..4 {
-        let input_as_bytes = input[offset].to_be_bytes();
-        for byte_index in 0..16 {
-            hash_input_flattened[offset * 16 + byte_index] = input_as_bytes[byte_index];
+    for offset in 0..2 {
+        let input_as_bytes = input[offset].to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
     }
 
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    sha256_truncate_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(
-    previous_log_hash: [Field; 2],
-    current_log_hash: [Field; 2]
-) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
     accumulate_sha256(
         [
-        U128::from_field(previous_log_hash[0]),
-        U128::from_field(previous_log_hash[1]),
-        U128::from_field(current_log_hash[0]),
-        U128::from_field(current_log_hash[1])
+        previous_log_hash,
+        current_log_hash
     ]
     )
 }

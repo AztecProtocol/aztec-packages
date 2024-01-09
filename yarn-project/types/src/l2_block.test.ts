@@ -27,7 +27,7 @@ describe('L2Block', () => {
     // The following 2 values are copied from `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
     const encodedLogs = Buffer.from('0000000400000000', 'hex');
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('1c9ecec90e28d2461650418635878a5c91e49f47586ecf75f2b0cbb94e897112', 'hex');
+    const referenceLogsHash = Buffer.from('00dae73c4ea565ca24f345f35ec8892fb315a405f12d90b7e50c2aaa0a65a8cf', 'hex');
 
     const logsHash = L2Block.computeKernelLogsHash(logs);
     expect(logsHash).toEqual(referenceLogsHash);
@@ -38,7 +38,7 @@ describe('L2Block', () => {
     // The following 2 values are copied from `testComputeKernelLogs1Iteration` in `Decoder.t.sol`
     const encodedLogs = Buffer.from('0000000c000000080000000493e78a70', 'hex');
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('1aa06a32df232f0d94b4735cffd46671c29dd1d4aec7cd562f856e643b4df833', 'hex');
+    const referenceLogsHash = Buffer.from('0040eee38970b8757f08391ed6efdc615de7bebbe1cf5ce0b4dcd9db63a401f2', 'hex');
 
     const logsHash = L2Block.computeKernelLogsHash(logs);
     expect(logsHash).toEqual(referenceLogsHash);
@@ -52,7 +52,7 @@ describe('L2Block', () => {
       'hex',
     );
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('6030bd40b448d1075bfaaebf0a0c70407598df13d04c44e95454aab642fadcb2', 'hex');
+    const referenceLogsHash = Buffer.from('00a730555c05b04cb15c753f6a4c31c4728b6bea00bfd6ce7af83434e7ad1247', 'hex');
 
     const logsHash = L2Block.computeKernelLogsHash(logs);
     expect(logsHash).toEqual(referenceLogsHash);
@@ -66,7 +66,7 @@ describe('L2Block', () => {
       'hex',
     );
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('5e7f868e0f851f68a2c6f0b091512f99424fcedaabe02d4b087c0066112d72e8', 'hex');
+    const referenceLogsHash = Buffer.from('009d71ab2985e52a0f30520f37303c8f3233279b917511941844571556a07c85', 'hex');
 
     const logsHash = L2Block.computeKernelLogsHash(logs);
     expect(logsHash).toEqual(referenceLogsHash);

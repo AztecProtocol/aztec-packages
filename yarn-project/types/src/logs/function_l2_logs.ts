@@ -1,4 +1,4 @@
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256Truncate, sha256TruncateToField } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
@@ -41,12 +41,12 @@ export class FunctionL2Logs {
 
   /**
    * Calculates hash of serialized logs.
-   * @returns 2 fields containing all 256 bits of information of sha256 hash.
+   * @returns single buffer of the field element resulting from the sha256 hash modulo Fr characteristic.
    */
   public hash(): Buffer {
     // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
     const preimage = this.toBuffer().subarray(4);
-    return sha256(preimage);
+    return sha256Truncate(preimage);
   }
 
   /**

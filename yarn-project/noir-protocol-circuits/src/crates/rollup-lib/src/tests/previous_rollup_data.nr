@@ -79,8 +79,8 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_subtree_height = 1;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_subtree_height = 1;
 
-    previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash = [0, 1];
-    previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash = [2, 3];
+    previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash = 0;
+    previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash = 1;
 
     previous_rollup_data
 }

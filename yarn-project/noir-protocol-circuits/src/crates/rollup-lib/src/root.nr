@@ -4,9 +4,10 @@ mod root_rollup_public_inputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 use crate::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::utils::uint256::U256;
-use dep::types::constants::{NUM_FIELDS_PER_SHA256,NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
+use dep::types::constants::{NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,L1_TO_L2_MSG_SUBTREE_HEIGHT};
 use crate::{components, hash::compute_block_hash_with_globals};
 use crate::merkle_tree::{calculate_subtree, calculate_empty_tree_root};
+use dep::types::hash::sha256_truncate_to_field;
 
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
@@ -86,8 +87,8 @@ global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES = 512;
 
 // Computes the messages hash from the leaves array
 //
-// Returns the hash split into two field elements
-fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> [Field; NUM_FIELDS_PER_SHA256] {
+// Returns the hash as a Field, after dropping the rightmost byte
+fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> Field {
     // Slice variation
     // let mut hash_input_flattened = [];
     // for leaf in leaves {
@@ -107,12 +108,7 @@ fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -
         }
     }
 
-    // Hash bytes and convert to 2 128 bit limbs
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-    // TODO(Kev): The CPP implementation is returning [high, low]
-    // and so is `to_u128_limbs`, so this matches.
-    // We should say why we are doing this vs [low, high]
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    sha256_truncate_to_field(hash_input_flattened)
 }
 
 #[test]
@@ -134,20 +130,17 @@ mod tests {
         },
         tests::root_rollup_inputs::default_root_rollup_inputs,
     };
-    use dep::types::utils::uint128::U128;
     use dep::types::utils::uint256::U256;
-    use dep::types::hash::accumulate_sha256;
+    use dep::types::hash::{accumulate_sha256, sha256_truncate_to_field};
 
     #[test]
     fn check_block_hashes_empty_blocks() {
-        let expected_messages_hash = U256::from_bytes32(dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES])).to_u128_limbs();
+        let expected_messages_hash = sha256_truncate_to_field([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
 
         let expected_calldata_hash = accumulate_sha256(
             [
-            U128::from_field(0),
-            U128::from_field(1),
-            U128::from_field(2),
-            U128::from_field(3)
+            0,
+            1
         ]
         );
 
