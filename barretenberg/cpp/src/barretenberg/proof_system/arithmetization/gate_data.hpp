@@ -133,6 +133,11 @@ template <typename FF> struct ecc_dbl_gate_ {
     uint32_t y3;
 };
 
+template <typename FF> struct databus_lookup_gate_ {
+    uint32_t index;
+    uint32_t value;
+};
+
 /* External gate data for poseidon2 external round*/
 template <typename FF> struct poseidon2_external_gate_ {
     uint32_t a;
