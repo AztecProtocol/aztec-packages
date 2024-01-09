@@ -26,6 +26,7 @@ export function generateCode(outputPath: string, fileOrDirPath: string, includeD
  *
  */
 function generateFromNoirAbi(outputPath: string, noirAbiPath: string, includeDebug: boolean, ts: boolean, nr: boolean) {
+  console.log(`READING noir abi path`, noirAbiPath, noirDebugPath);
   const contract = JSON.parse(readFileSync(noirAbiPath, 'utf8'));
   const noirDebugPath = includeDebug ? getDebugFilePath(noirAbiPath) : undefined;
   const debug = noirDebugPath ? JSON.parse(readFileSync(noirDebugPath, 'utf8')) : undefined;
