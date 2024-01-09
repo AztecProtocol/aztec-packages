@@ -24,7 +24,6 @@ import {
   toACVMContractDeploymentData,
   toACVMWitness,
 } from '../acvm/index.js';
-import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -71,7 +70,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
     private readonly noteCache: ExecutionNoteCache,
-    private readonly sideEffectCounter: SideEffectCounter,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
@@ -343,7 +341,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.authWitnesses,
       this.packedArgsCache,
       this.noteCache,
-      this.sideEffectCounter,
       this.db,
       this.curve,
     );
