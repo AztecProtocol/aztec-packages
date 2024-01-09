@@ -7,7 +7,7 @@ import { init } from '@aztec/foundation/crypto';
 import { createStatusRouter, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NoirCommit } from '@aztec/noir-compiler/versions';
+import { NoirCommit, NoirTag } from '@aztec/noir-compiler/versions';
 import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 import { GrumpkinScalar, PXEService, createPXERpcServer } from '@aztec/pxe';
 
@@ -121,7 +121,7 @@ async function main() {
 
   // Code path for starting Sandbox
   if (mode === SandboxMode.Sandbox) {
-    logger.info(`Setting up Aztec Sandbox v${version} (noir ${NoirCommit}), please stand by...`);
+    logger.info(`Setting up Aztec Sandbox v${version} (noir ${NoirCommit} ${NoirTag}), please stand by...`);
 
     const { pxe, node, stop, accounts } = await createAndInitialiseSandbox(deployTestAccounts);
 

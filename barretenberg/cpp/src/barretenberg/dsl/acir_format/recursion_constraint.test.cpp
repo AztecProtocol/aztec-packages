@@ -90,8 +90,10 @@ Builder create_inner_circuit()
                                    .ecdsa_k1_constraints = {},
                                    .ecdsa_r1_constraints = {},
                                    .blake2s_constraints = {},
+                                   .blake3_constraints = {},
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
+                                   .keccak_permutations = {},
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
@@ -205,9 +207,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .input_aggregation_object = input_aggregation_object,
-            .output_aggregation_object = output_aggregation_object,
-            .nested_aggregation_object = nested_aggregation_object,
         };
         recursion_constraints.push_back(recursion_constraint);
 
@@ -247,8 +246,10 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .ecdsa_k1_constraints = {},
                                    .ecdsa_r1_constraints = {},
                                    .blake2s_constraints = {},
+                                   .blake3_constraints = {},
                                    .keccak_constraints = {},
                                    .keccak_var_constraints = {},
+                                   .keccak_permutations = {},
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
