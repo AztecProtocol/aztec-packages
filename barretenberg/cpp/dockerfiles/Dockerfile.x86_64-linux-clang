@@ -19,6 +19,7 @@ RUN cmake --preset default && cmake --build --preset default --target ultra_plon
 FROM alpine:3.18
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
+COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a

@@ -250,7 +250,7 @@ jobs:
       - run:
           name: "Benchmark"
           command: |
-            cond_spot_run_container barretenberg-x86_64-linux-clang 32 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh
+            cond_spot_run_container barretenberg-x86_64-linux-clang 32 ./scripts/ci/ultra_honk_bench.sh
       - run:
           name: "Upload"
           command: |
