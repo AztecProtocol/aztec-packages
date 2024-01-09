@@ -190,7 +190,10 @@ export const browserTestSuite = (
           const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
-          await contract.methods.transfer(wallet.getCompleteAddress().address, receiverAddress, transferAmount, 0).send().wait();
+          await contract.methods
+            .transfer(wallet.getCompleteAddress().address, receiverAddress, transferAmount, 0)
+            .send()
+            .wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
           return await contract.methods.balance_of_private(receiverAddress).view({ from: receiverAddress });
         },
