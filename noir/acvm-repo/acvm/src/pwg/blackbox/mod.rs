@@ -183,13 +183,7 @@ pub(crate) fn solve(
         BlackBoxFuncCall::EcDouble { outputs, input_x, input_y } => {
             todo!();
         }
-        BlackBoxFuncCall::RecursiveAggregation { output_aggregation_object, .. } => {
-            // Solve the output of the recursive aggregation to zero to prevent missing assignment errors
-            // The correct value will be computed by the backend
-            for witness in output_aggregation_object {
-                insert_value(witness, FieldElement::zero(), initial_witness)?;
-            }
-            Ok(())
-        }
+        // Recursive aggregation will be entirely handled by the backend and is not solved by the ACVM
+        BlackBoxFuncCall::RecursiveAggregation { .. } => Ok(()),
     }
 }
