@@ -1,4 +1,4 @@
-use dep::std::ops::Eq;
+use dep::std::cmp::Eq;
 
 // Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
 trait Empty {

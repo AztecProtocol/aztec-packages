@@ -1,7 +1,7 @@
 use crate::common;
 use dep::std::unsafe;
 use dep::std::option::Option;
-use dep::std::ops::Eq;
+use dep::std::cmp::Eq;
 use dep::types::{
     abis::{
         call_request::CallRequest,
