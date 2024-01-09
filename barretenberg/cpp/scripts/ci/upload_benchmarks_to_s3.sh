@@ -16,4 +16,4 @@ else
   echo Skipping upload since no target folder was defined
 
 echo "Uploading to s3://$BUCKET_NAME/$TARGET_FOLDER"
-aws s3 cp extracted-repo/src/barretenberg/cpp/docs/build "s3://$BUCKET_NAME/$TARGET_FOLDER" --recursive
+aws s3 cp extracted-repo/src/barretenberg/cpp/build/ultra_honk_rounds_bench.json "s3://$BUCKET_NAME/$TARGET_FOLDER/ultra_honk_rounds_bench.json"
