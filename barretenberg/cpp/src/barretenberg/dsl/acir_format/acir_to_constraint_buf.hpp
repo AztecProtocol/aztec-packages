@@ -3,6 +3,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
+#include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
 #include "barretenberg/dsl/acir_format/block_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
 #include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
@@ -113,6 +114,17 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Blake3>) {
+                af.blake3_constraints.push_back(Blake3Constraint{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return Blake3Input{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::SchnorrVerify>) {
                 af.schnorr_constraints.push_back(SchnorrConstraint{
                     .message = map(arg.message, [](auto& e) { return e.witness.value; }),
@@ -180,24 +192,18 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .var_message_size = arg.var_message_size.witness.value,
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Keccakf1600>) {
+                af.keccak_permutations.push_back(Keccakf1600{
+                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::RecursiveAggregation>) {
                 auto c = RecursionConstraint{
                     .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
                     .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
                     .key_hash = arg.key_hash.witness.value,
-                    .input_aggregation_object = {},
-                    .output_aggregation_object = {},
-                    .nested_aggregation_object = {},
                 };
-                if (arg.input_aggregation_object.has_value()) {
-                    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                        c.input_aggregation_object[i] = (*arg.input_aggregation_object)[i].witness.value;
-                    }
-                }
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    c.output_aggregation_object[i] = arg.output_aggregation_object[i].value;
-                }
                 af.recursion_constraints.push_back(c);
             }
         },
