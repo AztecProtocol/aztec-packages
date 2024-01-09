@@ -75,11 +75,12 @@ impl GeneratedAcir {
         std::mem::take(&mut self.opcodes)
     }
 
-    /// Updates the witness index counter and returns
-    /// the next witness index.
-    pub(crate) fn next_witness_index(&mut self) -> Witness {
+    /// Returns the current witness index and updates it 
+    /// so that we have a fresh witness the next time this method is called
+    pub(crate) fn get_current_witness_and_update(&mut self) -> Witness {
+        let next_witness_index = Witness(self.current_witness_index);
         self.current_witness_index += 1;
-        Witness(self.current_witness_index)
+        next_witness_index
     }
 
     /// Converts [`Expression`] `expr` into a [`Witness`].
@@ -100,7 +101,7 @@ impl GeneratedAcir {
     /// Once the `Expression` goes over degree-2, then it needs to be reduced to a `Witness`
     /// which has degree-1 in order to be able to continue the multiplication chain.
     pub(crate) fn create_witness_for_expression(&mut self, expression: &Expression) -> Witness {
-        let fresh_witness = self.next_witness_index();
+        let fresh_witness = self.get_current_witness_and_update();
 
         // Create a constraint that sets them to be equal to each other
         // Then return the witness as this can now be used in places
@@ -138,7 +139,7 @@ impl GeneratedAcir {
         intrinsics_check_inputs(func_name, input_count);
         intrinsics_check_outputs(func_name, output_count);
 
-        let outputs = vecmap(0..output_count, |_| self.next_witness_index());
+        let outputs = vecmap(0..output_count, |_| self.get_current_witness_and_update());
 
         // clone is needed since outputs is moved when used in blackbox function.
         let outputs_clone = outputs.clone();
@@ -259,7 +260,7 @@ impl GeneratedAcir {
             "ICE: Radix must be a power of 2"
         );
 
-        let limb_witnesses = vecmap(0..limb_count, |_| self.next_witness_index());
+        let limb_witnesses = vecmap(0..limb_count, |_| self.get_current_witness_and_update());
         self.push_opcode(AcirOpcode::Directive(Directive::ToLeRadix {
             a: input_expr.clone(),
             b: limb_witnesses.clone(),
@@ -344,7 +345,7 @@ impl GeneratedAcir {
     /// resulting `Witness` is constrained to be the inverse.
     pub(crate) fn brillig_inverse(&mut self, expr: Expression) -> Witness {
         // Create the witness for the result
-        let inverted_witness = self.next_witness_index();
+        let inverted_witness = self.get_current_witness_and_update();
 
         // Compute the inverse with brillig code
         let inverse_code = brillig_directive::directive_invert();
@@ -438,7 +439,7 @@ impl GeneratedAcir {
         // the prover can choose anything here.
         let z = self.brillig_inverse(t_witness.into());
 
-        let y = self.next_witness_index();
+        let y = self.get_current_witness_and_update();
 
         // Add constraint y == 1 - tz => y + tz - 1 == 0
         let y_is_boolean_constraint = Expression {
@@ -528,7 +529,7 @@ impl GeneratedAcir {
             bits_len += ((i + 1) as f32).log2().ceil() as u32;
         }
 
-        let bits = vecmap(0..bits_len, |_| self.next_witness_index());
+        let bits = vecmap(0..bits_len, |_| self.get_current_witness_and_update());
         let inputs = in_expr.iter().map(|a| vec![a.clone()]).collect();
         self.push_opcode(AcirOpcode::Directive(Directive::PermutationSort {
             inputs,

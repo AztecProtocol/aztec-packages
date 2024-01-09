@@ -25,7 +25,7 @@ impl GeneratedAcir {
         // witness for the input switches
         let mut conf = iter_extended::vecmap(0..n1, |i| {
             if generate_witness {
-                self.next_witness_index()
+                self.get_current_witness_and_update()
             } else {
                 bits[i]
             }
@@ -63,7 +63,7 @@ impl GeneratedAcir {
         let (w2, b2) = self.permutation_layer(&in_sub2, bits2, generate_witness)?;
         // apply the output switches
         for i in 0..(n - 1) / 2 {
-            let c = if generate_witness { self.next_witness_index() } else { bits[n1 + i] };
+            let c = if generate_witness { self.get_current_witness_and_update() } else { bits[n1 + i] };
             conf.push(c);
             let intermediate = self.mul_with_witness(&Expression::from(c), &(&b2[i] - &b1[i]));
             out_expr.push(&intermediate + &b1[i]);

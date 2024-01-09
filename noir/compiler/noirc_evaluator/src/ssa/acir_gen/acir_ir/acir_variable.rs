@@ -138,7 +138,7 @@ impl AcirContext {
     /// Adds a Variable to the context, whose exact value is resolved at
     /// runtime.
     pub(crate) fn add_variable(&mut self) -> AcirVar {
-        let var_index = self.acir_ir.next_witness_index();
+        let var_index = self.acir_ir.get_current_witness_and_update();
 
         let var_data = AcirVarData::Witness(var_index);
 
@@ -1347,7 +1347,7 @@ impl AcirContext {
         let mut b_outputs = Vec::new();
         let outputs_var = vecmap(outputs, |output| match output {
             AcirType::NumericType(_) => {
-                let witness_index = self.acir_ir.next_witness_index();
+                let witness_index = self.acir_ir.get_current_witness_and_update();
                 b_outputs.push(BrilligOutputs::Simple(witness_index));
                 let var = self.add_data(AcirVarData::Witness(witness_index));
                 AcirValue::Var(var, output.clone())
@@ -1412,7 +1412,7 @@ impl AcirContext {
                         array_values.push_back(nested_acir_value);
                     }
                     AcirType::NumericType(_) => {
-                        let witness_index = self.acir_ir.next_witness_index();
+                        let witness_index = self.acir_ir.get_current_witness_and_update();
                         witnesses.push(witness_index);
                         let var = self.add_data(AcirVarData::Witness(witness_index));
                         array_values.push_back(AcirValue::Var(var, element_type.clone()));
@@ -1497,7 +1497,7 @@ impl AcirContext {
         // Convert the inputs into expressions
         let inputs_expr = try_vecmap(inputs, |input| self.var_to_expression(input))?;
         // Generate output witnesses
-        let outputs_witness = vecmap(0..len, |_| self.acir_ir.next_witness_index());
+        let outputs_witness = vecmap(0..len, |_| self.acir_ir.get_current_witness_and_update());
         let output_expr =
             vecmap(&outputs_witness, |witness_index| Expression::from(*witness_index));
         let outputs_var = vecmap(&outputs_witness, |witness_index| {
