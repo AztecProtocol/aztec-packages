@@ -205,7 +205,7 @@ jobs:
       - run:
           name: "Deploy barretenberg docs"
           command: |
-            barretenberg/cpp/docs/deploy_doxygen.sh
+            barretenberg/cpp/scripts/upload_doxygen_to_s3.sh
 
   barretenberg-stdlib-tests:
     docker:
@@ -248,9 +248,13 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
+          name: "Benchmark"
           command: |
             cond_spot_run_container barretenberg-x86_64-linux-clang 32 /usr/src/barretenberg/cpp/scripts/ci/ultra_honk_bench.sh
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/upload_benchmarks_to_s3.sh
 
   barretenberg-honk-tests:
     docker:
@@ -1274,6 +1278,7 @@ workflows:
       - bench-process-history: *e2e_test
       - bench-summary:
           requires:
+            - barretenberg-ultra-honk-bench
             - bench-publish-rollup
             - bench-process-history
           <<: *defaults
