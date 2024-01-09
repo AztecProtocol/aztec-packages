@@ -98,27 +98,12 @@ library MessagesDecoder {
   }
 
   /**
-   * @notice Wrapper around the slicing to avoid some stack too deep
-   * @param _data - The data to slice
-   * @param _start - The start of the slice
-   * @param _length - The length of the slice
-   * @return The slice
-   */
-  function slice(bytes calldata _data, uint256 _start, uint256 _length)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    return _data[_start:_start + _length];
-  }
-
-  /**
    * @notice Reads 4 bytes from the data
    * @param _data - The data to read from
    * @param _offset - The offset to read from
    * @return The 4 bytes read as a uint256
    */
   function read4(bytes calldata _data, uint256 _offset) internal pure returns (uint256) {
-    return uint256(uint32(bytes4(slice(_data, _offset, 4))));
+    return uint256(uint32(bytes4(_data[_offset:_offset + 4])));
   }
 }
