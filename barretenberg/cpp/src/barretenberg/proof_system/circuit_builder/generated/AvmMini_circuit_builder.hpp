@@ -41,6 +41,7 @@ template <typename FF> struct AvmMiniFullRow {
     FF aluChip_alu_op_sub{};
     FF aluChip_alu_op_mul{};
     FF aluChip_alu_op_div{};
+    FF aluChip_alu_ff_tag{};
     FF aluChip_alu_u8_tag{};
     FF aluChip_alu_u16_tag{};
     FF aluChip_alu_u32_tag{};
@@ -85,20 +86,20 @@ template <typename FF> struct AvmMiniFullRow {
     FF avmMini_mem_idx_b{};
     FF avmMini_mem_idx_c{};
     FF avmMini_last{};
-    FF memTrace_m_tag_shift{};
+    FF avmMini_internal_return_ptr_shift{};
+    FF avmMini_pc_shift{};
+    FF aluChip_alu_u16_r0_shift{};
+    FF aluChip_alu_u16_r4_shift{};
+    FF aluChip_alu_u16_r3_shift{};
+    FF aluChip_alu_u16_r6_shift{};
+    FF aluChip_alu_u16_r7_shift{};
+    FF aluChip_alu_u16_r5_shift{};
+    FF aluChip_alu_u16_r2_shift{};
+    FF aluChip_alu_u16_r1_shift{};
     FF memTrace_m_rw_shift{};
     FF memTrace_m_addr_shift{};
     FF memTrace_m_val_shift{};
-    FF avmMini_pc_shift{};
-    FF avmMini_internal_return_ptr_shift{};
-    FF aluChip_alu_u16_r2_shift{};
-    FF aluChip_alu_u16_r0_shift{};
-    FF aluChip_alu_u16_r5_shift{};
-    FF aluChip_alu_u16_r6_shift{};
-    FF aluChip_alu_u16_r1_shift{};
-    FF aluChip_alu_u16_r7_shift{};
-    FF aluChip_alu_u16_r4_shift{};
-    FF aluChip_alu_u16_r3_shift{};
+    FF memTrace_m_tag_shift{};
 };
 
 class AvmMiniCircuitBuilder {
@@ -111,8 +112,8 @@ class AvmMiniCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 79;
-    static constexpr size_t num_polys = 65;
+    static constexpr size_t num_fixed_columns = 80;
+    static constexpr size_t num_polys = 66;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -149,6 +150,7 @@ class AvmMiniCircuitBuilder {
             polys.aluChip_alu_op_sub[i] = rows[i].aluChip_alu_op_sub;
             polys.aluChip_alu_op_mul[i] = rows[i].aluChip_alu_op_mul;
             polys.aluChip_alu_op_div[i] = rows[i].aluChip_alu_op_div;
+            polys.aluChip_alu_ff_tag[i] = rows[i].aluChip_alu_ff_tag;
             polys.aluChip_alu_u8_tag[i] = rows[i].aluChip_alu_u8_tag;
             polys.aluChip_alu_u16_tag[i] = rows[i].aluChip_alu_u16_tag;
             polys.aluChip_alu_u32_tag[i] = rows[i].aluChip_alu_u32_tag;
@@ -195,20 +197,20 @@ class AvmMiniCircuitBuilder {
             polys.avmMini_last[i] = rows[i].avmMini_last;
         }
 
-        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
+        polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
+        polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
+        polys.aluChip_alu_u16_r0_shift = Polynomial(polys.aluChip_alu_u16_r0.shifted());
+        polys.aluChip_alu_u16_r4_shift = Polynomial(polys.aluChip_alu_u16_r4.shifted());
+        polys.aluChip_alu_u16_r3_shift = Polynomial(polys.aluChip_alu_u16_r3.shifted());
+        polys.aluChip_alu_u16_r6_shift = Polynomial(polys.aluChip_alu_u16_r6.shifted());
+        polys.aluChip_alu_u16_r7_shift = Polynomial(polys.aluChip_alu_u16_r7.shifted());
+        polys.aluChip_alu_u16_r5_shift = Polynomial(polys.aluChip_alu_u16_r5.shifted());
+        polys.aluChip_alu_u16_r2_shift = Polynomial(polys.aluChip_alu_u16_r2.shifted());
+        polys.aluChip_alu_u16_r1_shift = Polynomial(polys.aluChip_alu_u16_r1.shifted());
         polys.memTrace_m_rw_shift = Polynomial(polys.memTrace_m_rw.shifted());
         polys.memTrace_m_addr_shift = Polynomial(polys.memTrace_m_addr.shifted());
         polys.memTrace_m_val_shift = Polynomial(polys.memTrace_m_val.shifted());
-        polys.avmMini_pc_shift = Polynomial(polys.avmMini_pc.shifted());
-        polys.avmMini_internal_return_ptr_shift = Polynomial(polys.avmMini_internal_return_ptr.shifted());
-        polys.aluChip_alu_u16_r2_shift = Polynomial(polys.aluChip_alu_u16_r2.shifted());
-        polys.aluChip_alu_u16_r0_shift = Polynomial(polys.aluChip_alu_u16_r0.shifted());
-        polys.aluChip_alu_u16_r5_shift = Polynomial(polys.aluChip_alu_u16_r5.shifted());
-        polys.aluChip_alu_u16_r6_shift = Polynomial(polys.aluChip_alu_u16_r6.shifted());
-        polys.aluChip_alu_u16_r1_shift = Polynomial(polys.aluChip_alu_u16_r1.shifted());
-        polys.aluChip_alu_u16_r7_shift = Polynomial(polys.aluChip_alu_u16_r7.shifted());
-        polys.aluChip_alu_u16_r4_shift = Polynomial(polys.aluChip_alu_u16_r4.shifted());
-        polys.aluChip_alu_u16_r3_shift = Polynomial(polys.aluChip_alu_u16_r3.shifted());
+        polys.memTrace_m_tag_shift = Polynomial(polys.memTrace_m_tag.shifted());
 
         return polys;
     }
@@ -246,16 +248,16 @@ class AvmMiniCircuitBuilder {
             return true;
         };
 
-        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
-                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
-            return false;
-        }
         if (!evaluate_relation.template operator()<AvmMini_vm::avm_mini<FF>>("avm_mini",
                                                                              AvmMini_vm::get_relation_label_avm_mini)) {
             return false;
         }
         if (!evaluate_relation.template operator()<AvmMini_vm::alu_chip<FF>>("alu_chip",
                                                                              AvmMini_vm::get_relation_label_alu_chip)) {
+            return false;
+        }
+        if (!evaluate_relation.template operator()<AvmMini_vm::mem_trace<FF>>(
+                "mem_trace", AvmMini_vm::get_relation_label_mem_trace)) {
             return false;
         }
 

@@ -17,6 +17,7 @@ namespace aluChip(256);
     pol commit alu_op_div;
 
     // Flattened boolean instruction tags
+    pol commit alu_ff_tag;
     pol commit alu_u8_tag;
     pol commit alu_u16_tag;
     pol commit alu_u32_tag;
@@ -50,6 +51,7 @@ namespace aluChip(256);
     //                   arithmetic expressions are not overflowing finite field size
 
     // Boolean flattened instructions tags
+    alu_ff_tag * (1 - alu_ff_tag) = 0;
     alu_u8_tag * (1 - alu_u8_tag) = 0;
     alu_u16_tag * (1 - alu_u16_tag) = 0;
     alu_u32_tag * (1 - alu_u32_tag) = 0;
@@ -97,6 +99,10 @@ namespace aluChip(256);
     pol sum_128 = sum_96     + alu_u16_r6 * 2**96 + alu_u16_r7 * 2**112;
 
     // ========= ADDITION Operation Constraints ===============================
+
+    // ff addition
+    #[SUBOP_ADDITION_FF]
+    alu_ff_tag * alu_op_add * (alu_ia + alu_ib - alu_ic) = 0;
 
     // u8 addition
     alu_u8_tag * alu_op_add * (alu_u8_r0 + alu_cf * 2**8 - alu_ia - alu_ib) = 0;

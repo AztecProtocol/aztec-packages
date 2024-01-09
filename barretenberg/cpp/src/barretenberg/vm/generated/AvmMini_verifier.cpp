@@ -86,6 +86,8 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_mul);
     commitments.aluChip_alu_op_div =
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_op_div);
+    commitments.aluChip_alu_ff_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_ff_tag);
     commitments.aluChip_alu_u8_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.aluChip_alu_u8_tag);
     commitments.aluChip_alu_u16_tag =

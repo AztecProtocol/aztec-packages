@@ -32,7 +32,7 @@ void AvmMiniTraceBuilder::reset()
     alu_trace_builder.reset();
 }
 
-/** TODO: Implement for non finite field types
+/**
  * @brief Addition with direct memory access.
  *
  * @param a_offset An index in memory pointing to the first operand of the addition.
@@ -50,9 +50,9 @@ void AvmMiniTraceBuilder::add(uint32_t a_offset, uint32_t b_offset, uint32_t dst
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // a + b = c
-    FF a = read_a.val;
-    FF b = read_b.val;
-    FF c = a + b;
+    FF a = tag_match ? read_a.val : FF(0);
+    FF b = tag_match ? read_b.val : FF(0);
+    FF c = alu_trace_builder.add(a, b, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::ic, dst_offset, c, in_tag);
@@ -64,9 +64,9 @@ void AvmMiniTraceBuilder::add(uint32_t a_offset, uint32_t b_offset, uint32_t dst
         .avmMini_sel_op_add = FF(1),
         .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_ia = tag_match ? a : FF(0),
-        .avmMini_ib = tag_match ? b : FF(0),
-        .avmMini_ic = tag_match ? c : FF(0),
+        .avmMini_ia = a,
+        .avmMini_ib = b,
+        .avmMini_ic = c,
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -418,7 +418,7 @@ std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret
  * @brief HALT opcode
  *        This opcode effectively stops program execution, and is used in the relation that
  *        ensures the program counter increments on each opcode.
- *        i.e.ythe program counter should freeze and the halt flag is set to 1.
+ *        i.e. the program counter should freeze and the halt flag is set to 1.
  */
 void AvmMiniTraceBuilder::halt()
 {
@@ -594,8 +594,11 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         auto const& src = alu_trace.at(i);
         auto& dest = main_trace.at(i);
 
+        dest.aluChip_alu_clk = FF(static_cast<uint32_t>(src.alu_clk));
+
         dest.aluChip_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
 
+        dest.aluChip_alu_ff_tag = FF(static_cast<uint32_t>(src.alu_ff_tag));
         dest.aluChip_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
         dest.aluChip_alu_u16_tag = FF(static_cast<uint32_t>(src.alu_u16_tag));
         dest.aluChip_alu_u32_tag = FF(static_cast<uint32_t>(src.alu_u32_tag));

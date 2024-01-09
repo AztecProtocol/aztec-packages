@@ -37,10 +37,11 @@ std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::final
  * @param b Right operand of the addition
  * @param in_tag Instruction tag defining the number of bits on which the addition applies.
  *               It is assumed that the caller never uses the type u0.
+ * @param clk Clock referring to the operation in the main trace.
  *
  * @return FF The result of the addition casted in a finite field element
  */
-FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag)
+FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
 {
     FF c{};
     bool carry = false;
@@ -49,7 +50,7 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag)
 
     switch (in_tag) {
     case AvmMemoryTag::ff:
-        return a + b;
+        c = a + b;
     case AvmMemoryTag::u8: {
         uint8_t a_u8 = static_cast<uint8_t>(uint256_t(a).data[0]);
         uint8_t b_u8 = static_cast<uint8_t>(uint256_t(b).data[0]);
@@ -134,7 +135,9 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag)
     }
 
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+        .alu_clk = clk,
         .alu_op_add = true,
+        .alu_ff_tag = in_tag == AvmMemoryTag::ff,
         .alu_u8_tag = in_tag == AvmMemoryTag::u8,
         .alu_u16_tag = in_tag == AvmMemoryTag::u16,
         .alu_u32_tag = in_tag == AvmMemoryTag::u32,

@@ -17,6 +17,7 @@ class AvmMiniArithmeticTests : public ::testing::Test {
 };
 
 class AvmMiniArithmeticTestsFF : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsU8 : public AvmMiniArithmeticTests {};
 class AvmMiniArithmeticNegativeTestsFF : public AvmMiniArithmeticTests {};
 
 /******************************************************************************
@@ -41,6 +42,10 @@ class AvmMiniArithmeticNegativeTestsFF : public AvmMiniArithmeticTests {};
  * a scan of all rows and stopping at the first one with the corresponding
  * operator selector. This mechanism is used with the hope that these unit tests
  * will still correctly work along the development of the AVM.
+ ******************************************************************************/
+
+/******************************************************************************
+ * Positive Tests - FF
  ******************************************************************************/
 
 // Test on basic addition over finite field type.
@@ -256,6 +261,32 @@ TEST_F(AvmMiniArithmeticTestsFF, mixedOperationsWithError)
 }
 
 /******************************************************************************
+ * Positive Tests - U8
+ ******************************************************************************/
+
+// Test on basic addition over u8 type.
+TEST_F(AvmMiniArithmeticTestsU8, addition)
+{
+    // trace_builder
+    trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 62, 29 });
+
+    //                             Memory layout:    [62,29,0,0,0,....]
+    trace_builder.add(0, 1, 2, AvmMemoryTag::u8); // [62,29,91,0,0,....]
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the addition selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
+
+    // Check that the correct result is computed.
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_EQ(row->avmMini_ic, FF(91));
+    // EXPECT_EQ(row->aluChip_alu_u8_tag, FF(1));
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
  *
  * NEGATIVE TESTS - Finite Field Type
  *
@@ -283,11 +314,11 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, addition)
 
     //                             Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4, AvmMemoryTag::ff); // [37,4,11,0,41,0,....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_add == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(40));
-
+    mutate_ic_in_trace(trace, std::move(select_row), FF(40), true);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_ADDITION_FF");
 }
 
