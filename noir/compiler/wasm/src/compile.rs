@@ -3,7 +3,6 @@ use gloo_utils::format::JsValueSerdeExt;
 use js_sys::{JsString, Object};
 use nargo::artifacts::{
     contract::{ContractArtifact, ContractFunctionArtifact},
-    debug::DebugArtifact,
     program::ProgramArtifact,
 };
 use noirc_driver::{
@@ -33,28 +32,25 @@ export type CompiledContract = {
     name: string;
     functions: Array<any>;
     events: Array<any>;
+    file_map: Record<number, any>;
+    warnings: Array<any>;
 };
 
 export type CompiledProgram = {
     noir_version: string;
     abi: any;
     bytecode: string;
-}
-
-export type DebugArtifact = {
-    debug_symbols: Array<any>;
+    debug_symbols: any;
     file_map: Record<number, any>;
     warnings: Array<any>;
-};
+}
 
 export type CompileResult = (
     | {
         contract: CompiledContract;
-        debug: DebugArtifact;
     }
     | {
         program: CompiledProgram;
-        debug: DebugArtifact;
     }
 );
 "#;
@@ -76,38 +72,23 @@ extern "C" {
 impl JsCompileResult {
     const CONTRACT_PROP: &'static str = "contract";
     const PROGRAM_PROP: &'static str = "program";
-    const DEBUG_PROP: &'static str = "debug";
 
     pub fn new(resp: CompileResult) -> JsCompileResult {
         let obj = JsCompileResult::constructor();
         match resp {
-            CompileResult::Contract { contract, debug } => {
+            CompileResult::Contract { contract } => {
                 js_sys::Reflect::set(
                     &obj,
                     &JsString::from(JsCompileResult::CONTRACT_PROP),
                     &<JsValue as JsValueSerdeExt>::from_serde(&contract).unwrap(),
                 )
                 .unwrap();
-
-                js_sys::Reflect::set(
-                    &obj,
-                    &JsString::from(JsCompileResult::DEBUG_PROP),
-                    &<JsValue as JsValueSerdeExt>::from_serde(&debug).unwrap(),
-                )
-                .unwrap();
             }
-            CompileResult::Program { program, debug } => {
+            CompileResult::Program { program } => {
                 js_sys::Reflect::set(
                     &obj,
                     &JsString::from(JsCompileResult::PROGRAM_PROP),
                     &<JsValue as JsValueSerdeExt>::from_serde(&program).unwrap(),
-                )
-                .unwrap();
-
-                js_sys::Reflect::set(
-                    &obj,
-                    &JsString::from(JsCompileResult::DEBUG_PROP),
-                    &<JsValue as JsValueSerdeExt>::from_serde(&debug).unwrap(),
                 )
                 .unwrap();
             }
@@ -148,8 +129,8 @@ impl PathToFileSourceMap {
 }
 
 pub enum CompileResult {
-    Contract { contract: ContractArtifact, debug: DebugArtifact },
-    Program { program: ProgramArtifact, debug: DebugArtifact },
+    Contract { contract: ContractArtifact },
+    Program { program: ProgramArtifact },
 }
 
 #[wasm_bindgen]
@@ -273,21 +254,10 @@ fn add_noir_lib(context: &mut Context, library_name: &CrateName) -> CrateId {
 }
 
 pub(crate) fn generate_program_artifact(program: CompiledProgram) -> CompileResult {
-    let debug_artifact = DebugArtifact {
-        debug_symbols: vec![program.debug.clone()],
-        file_map: program.file_map.clone(),
-        warnings: program.warnings.clone(),
-    };
-
-    CompileResult::Program { program: program.into(), debug: debug_artifact }
+    CompileResult::Program { program: program.into() }
 }
 
 pub(crate) fn generate_contract_artifact(contract: CompiledContract) -> CompileResult {
-    let debug_artifact = DebugArtifact {
-        debug_symbols: contract.functions.iter().map(|function| function.debug.clone()).collect(),
-        file_map: contract.file_map,
-        warnings: contract.warnings,
-    };
     let functions = contract.functions.into_iter().map(ContractFunctionArtifact::from).collect();
 
     let contract_artifact = ContractArtifact {
@@ -295,9 +265,11 @@ pub(crate) fn generate_contract_artifact(contract: CompiledContract) -> CompileR
         name: contract.name,
         functions,
         events: contract.events,
+        file_map: contract.file_map,
+        warnings: contract.warnings,
     };
 
-    CompileResult::Contract { contract: contract_artifact, debug: debug_artifact }
+    CompileResult::Contract { contract: contract_artifact }
 }
 
 #[cfg(test)]
