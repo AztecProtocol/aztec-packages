@@ -112,11 +112,18 @@ export class PXEService implements PXE {
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
+    let count = 0;
     for (const address of registeredAddresses) {
       if (!publicKeysSet.has(address.publicKey.toString())) {
         continue;
       }
+
+      count++;
       this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
+
+    if (count > 0) {
+      this.log(`Restored ${count} accounts`);
     }
   }
 
