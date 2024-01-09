@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
@@ -10,4 +10,4 @@ cd ../../srs_db
 cd ../build
 time ./bin/ultra_honk_rounds_bench --benchmark_format=json > ultra_honk_rounds_bench.json
 echo "Testing if we have created valid JSON:"
-cat ultra_honk_rounds_bench.json | jq empty
+cat ultra_honk_rounds_bench.json | tee /dev/tty | jq empty
