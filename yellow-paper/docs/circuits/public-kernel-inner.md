@@ -12,7 +12,7 @@ In the public kernel iteration, the process involves taking a previous iteration
 
 #### Verifying the previous kernel proof.
 
-It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs.
+It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs, sourced from _[private_inputs](#private-inputs).[previous_kernel](#previouskernel)_.
 
 The preceding proof can be:
 
@@ -23,21 +23,24 @@ The preceding proof can be:
 
 #### Ensuring the function being called exists in the contract.
 
-This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract).
+This section follows the same [process](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract) as outlined in the initial private kernel circuit.
 
 #### Ensuring the contract instance being called is deployed.
 
 It verifies the public deployment of the contract instance by conducting a membership proof, where:
 
 - The leaf is a nullifier emitting from the deployer contract, computed as _`hash(deployer_address, contract_address)`_, where:
-  - _deployer_address_ is from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[contract_data](../contract-deployment/instances.md#structure)_.
-  - _contract_data_ is from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem)_.
-- The index and sibling path are provided in _contract_deployment_membership_witness_ through _[private_inputs](#private-inputs).[public_call](#publiccalldata)_.
+  - _deployer_address_ is defined in _[private_inputs](#private-inputs).[public_call](#publiccall).[contract_data](../contract-deployment/instances.md#structure)_.
+  - _contract_data_ is defined in _[private_inputs](#private-inputs).[public_call](#publiccall).[call_stack_item](#publiccallstackitem)_.
+- The index and sibling path are provided in _contract_deployment_membership_witness_ through _[private_inputs](#private-inputs).[public_call](#publiccall)_.
 - The root is the _nullifier_tree_root_ in the _[block_header](./private-function.md#blockheader)_ within _[public_inputs](#public-inputs).[constant_data](./private-kernel-initial.md#constantdata)_.
 
 #### Ensuring the function is legitimate:
 
-- It must be a public function.
+For the _[function_data](./private-kernel-initial.md#functiondata)_ in _[public_call](#publiccall).[call_stack_item](#publiccallstackitem)_, this circuit verifies that:
+
+- It must be a public function:
+  - _`function_data.function_type == public`_
 
 #### Ensuring the current call matches the call request.
 
@@ -58,7 +61,7 @@ This circuit will:
 
 #### Ensuring this function is called with the correct context.
 
-This section follows the same process as outlined in the [inner private kernel circuit](./private-kernel-inner.md#ensuring-this-function-is-called-with-the-correct-context).
+This section follows the same [process](./private-kernel-inner.md#ensuring-this-function-is-called-with-the-correct-context) as outlined in the inner private kernel circuit.
 
 #### Verifying the public function proof.
 
@@ -66,7 +69,7 @@ It verifies that the public function was executed with the provided proof data, 
 
 #### Verifying the public inputs of the public function circuit.
 
-It ensures the public function's intention by checking the following in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_:
+It ensures the public function's intention by checking the following in _[public_call](#publiccall).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_:
 
 - The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
 - If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
@@ -77,35 +80,37 @@ It ensures the public function's intention by checking the following in _[public
 
 #### Verifying the counters.
 
-It verifies that each relevant value listed below is associated with a legitimate counter.
+It verifies that each value listed below is associated with a legitimate counter.
 
 1. For the _[call_stack_item](#privatecallstackitem)_:
 
-   - The _counter_start_ and _counter_end_ must match those in the _call_request_ [popped] from the _public_call_requests_ (#ensuring-the-current-call-matches-the-call-request) in a previous step.
+   - The _counter_start_ and _counter_end_ must match those in the _call_request_ [popped](#ensuring-the-current-call-matches-the-call-request) from the _public_call_requests_ in a previous step.
 
-2. For the _public_call_requests_:
+2. For items in each ordered array in _[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_:
 
-   - The _counter_end_ of each request must be greater than its _counter_start_.
-   - The _counter_start_ of the first request must be greater than the _counter_start_ of the current call.
-   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
-   - The _counter_end_ of the last request must be less than the _counter_end_ of the current call.
-
-3. For items in each ordered array created in the current call:
-
-   - The counter of the first item much be greater than the _counter_start_ of the current call.
-   - The counter of each subsequent item much be greater than the counter of the previous item.
-   - The counter of the last item much be less than the _counter_end_ of the current call.
+   - The counter of the first item must be greater than the _counter_start_ of the current call.
+   - The counter of each subsequent item must be greater than the counter of the previous item.
+   - The counter of the last item must be less than the _counter_end_ of the current call.
 
    The ordered arrays include:
 
    - _storage_reads_
    - _storage_writes_
 
+3. For the last _N_ non-empty requests in _public_call_requests_ within _[public_inputs](#public-inputs).[transient_accumulated_data](#transientaccumulateddata)_:
+
+   - The _counter_end_ of each request must be greater than its _counter_start_.
+   - The _counter_start_ of the first request must be greater than the _counter_start_ of the _call_stack_item_.
+   - The _counter_start_ of the second and subsequent requests must be greater than the _counter_end_ of the previous request.
+   - The _counter_end_ of the last request must be less than the _counter_end_ of the _call_stack_item_.
+
+   > _N_ is the number of non-zero hashes in the _public_call_stack_item_hashes_ in _[private_inputs](#private-inputs).[public_call](#publiccall).[public_inputs](#publicfunctionpublicinputs)_.
+
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
-1. It verifies that the following in the _[accumulated_data](#accumulateddata)_ align with their corresponding values in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
+1. It verifies that the following in the _[accumulated_data](#accumulateddata)_ align with their corresponding values in _[public_call](#publiccall).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
 
    - _note_hashes_
    - _nullifiers_
@@ -119,16 +124,16 @@ It verifies that each relevant value listed below is associated with a legitimat
 
    - _`unencrypted_logs_hash = hash(prev_hash, cur_hash)`_
      - If either hash is zero, the new hash will be `prev_hash | cur_hash`
-   - _`unencrypted_log_preimages_length_ = prev*length + cur_length`*
+   - _`unencrypted_log_preimages_length = prev_length + cur_length`_
 
    Where:
 
    - _prev_hash_ and _prev_length_ are the values in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./public-kernel-tail.md#public-inputs).[accumulated_data](./public-kernel-tail.md#accumulateddata)_.
-   - _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
+   - _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[public_call](#publiccall).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_.
 
 #### Verifying the transient accumulated data.
 
-The _[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_ in this circuit's _[public_inputs](#public-inputs)_ includes values from both the previous iterations and the _[public_call](#publiccalldata)_.
+The _[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_ in this circuit's _[public_inputs](#public-inputs)_ includes values from both the previous iterations and the _[public_call](#publiccall)_.
 
 For each array in the _transient_accumulated_data_, this circuit verifies that it is populated with the values from the previous iterations, specifically:
 
@@ -136,7 +141,7 @@ For each array in the _transient_accumulated_data_, this circuit verifies that i
 
 > It's important to note that the top item in the _public_call_requests_ from the _previous_kernel_ won't be included, as it has been removed in a [previous step](#ensuring-the-current-call-matches-the-call-request).
 
-For the subsequent items appended after the values from the previous iterations, they constitute the values from _[private_inputs](#private-inputs).[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_ (_public_function_public_inputs_), and must undergo the following verifications:
+For the subsequent items appended after the values from the previous iterations, they constitute the values from _[private_inputs](#private-inputs).[public_call](#publiccall).[call_stack_item](#publiccallstackitem).[public_inputs](#publicfunctionpublicinputs)_ (_public_function_public_inputs_), and must undergo the following verifications:
 
 1. Ensure that the specified values in the following arrays match those in the corresponding arrays in the _public_function_public_inputs_:
 
@@ -154,7 +159,7 @@ For the subsequent items appended after the values from the previous iterations,
 2. For _public_call_requests_:
 
    - The hashes align with the values in the _public_call_stack_item_hashes_ within _public_function_public_inputs_, but in **reverse** order.
-   - The _caller_contract_address_ equals the _contract_address_ in _[public_call](#publiccalldata).[call_stack_item](#publiccallstackitem)_.
+   - The _caller_contract_address_ equals the _contract_address_ in _[public_call](#publiccall).[call_stack_item](#publiccallstackitem)_.
    - The _caller_context_ aligns with the values in the _call_context_ within _public_function_public_inputs_.
 
    > It's important that the call requests are arranged in reverse order to ensure they are executed in chronological order.
@@ -190,7 +195,7 @@ This section follows the same [process](./private-kernel-inner.md#verifying-the-
 
 The format aligns with the _[PreviousKernel](./private-kernel-tail.md#previouskernel)_ of the tail public kernel circuit.
 
-### _PublicCallData_
+### _PublicCall_
 
 Data that holds details about the current public function call.
 

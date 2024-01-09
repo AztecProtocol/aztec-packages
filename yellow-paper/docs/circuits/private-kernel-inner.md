@@ -12,7 +12,7 @@ Each **inner** kernel iteration processes a private function call and the result
 
 #### Verifying the previous kernel proof.
 
-It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs.
+It verifies that the previous iteration was executed successfully with the provided proof data, verification key, and public inputs, sourced from _[private_inputs](#private-inputs).[previous_kernel](#previouskernel)_.
 
 The preceding proof can be:
 
@@ -26,11 +26,11 @@ The previous proof and the proof for the current function call are verified usin
 
 #### Ensuring the function being called exists in the contract.
 
-This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract).
+This section follows the same [process](./private-kernel-initial.md#ensuring-the-function-being-called-exists-in-the-contract) as outlined in the initial private kernel circuit.
 
 #### Ensuring the function is legitimate:
 
-For the _[function_data](./private-kernel-initial.md#functiondata)_ in _[private_call](#privatecalldata).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_, the circuit verifies that:
+For the _[function_data](./private-kernel-initial.md#functiondata)_ in _[private_call](#privatecall).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_, this circuit verifies that:
 
 - It must be a private function:
   - _`function_data.function_type == private`_
@@ -54,7 +54,7 @@ This circuit will:
 
 #### Ensuring this function is called with the correct context.
 
-For the _call_context_ in the [public_inputs](./private-function.md#public-inputs) of the _[private_call](#privatecalldata).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_ and the _call_request_ popped in the [previous step](#ensuring-the-current-call-matches-the-call-request), the circuit checks that:
+For the _call_context_ in the [public_inputs](./private-function.md#public-inputs) of the _[private_call](#privatecall).[call_stack_item](./private-kernel-initial.md#privatecallstackitem)_ and the _call_request_ popped in the [previous step](#ensuring-the-current-call-matches-the-call-request), this circuit checks that:
 
 1. If it is a standard call (`call_context.is_delegate_call == false`):
 
@@ -82,13 +82,13 @@ For the _call_context_ in the [public_inputs](./private-function.md#public-input
 
 #### Verifying the private function proof.
 
-It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs of the private function circuit.
+It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs, sourced from _[private_inputs](#private-inputs).[private_call](#privatecall)_.
 
-This circuit verifies this proof and [the proof for the previous function call](#verifying-the-previous-kernel-proof) using recursion, and generates a single proof. This consolidation of multiple proofs into one is what allows the private kernel circuits to gradually merge private function proofs into a single proof of execution that represents the entire private section of a transaction.
+This circuit verifies this proof and [the proof of the previous kernel iteration](#verifying-the-previous-kernel-proof) using recursion, and generates a single proof. This consolidation of multiple proofs into one is what allows the private kernel circuits to gradually merge private function proofs into a single proof of execution that represents the entire private section of a transaction.
 
 #### Verifying the public inputs of the private function circuit.
 
-It ensures the private function circuit's intention by checking the following in _[private_call](#privatecalldata).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
+It ensures the private function circuit's intention by checking the following in _[private_call](#privatecall).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
 - The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
 - If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
@@ -98,9 +98,9 @@ It ensures the private function circuit's intention by checking the following in
 
 #### Verifying the counters.
 
-This section follows the same process as outlined in the [initial private kernel circuit](./private-kernel-initial.md#verifying-the-counters).
+This section follows the same [process](./private-kernel-initial.md#verifying-the-counters) as outlined in the initial private kernel circuit.
 
-Additionally, it verifies that for the _[call_stack_item](#privatecallstackitem)_, the _counter_start_ and _counter_end_ must match those in the _call_request_ [popped] from the _private_call_requests_ (#ensuring-the-current-call-matches-the-call-request) in a previous step.
+Additionally, it verifies that for the _[call_stack_item](#privatecallstackitem)_, the _counter_start_ and _counter_end_ must match those in the _call_request_ [popped](#ensuring-the-current-call-matches-the-call-request) from the _private_call_requests_ in a previous step.
 
 ### Validating Public Inputs
 
@@ -116,11 +116,11 @@ Where:
 
 - _new_hash_ and _new_length_ are the values in _[public_inputs](#public-inputs).[accumulated_data](./private-kernel-initial.md#accumulateddata)_.
 - _prev_hash_ and _prev_length_ are the values in _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[accumulated_data](./private-kernel-initial.md#accumulateddata)_.
-- _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[private_call](#privatecalldata).[call_stack_item](./private-kernel-initial.md#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_.
+- _cur_hash_ and _cur_length_ are the values in _[private_inputs](#private-inputs).[private_call](#privatecall).[call_stack_item](./private-kernel-initial.md#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_.
 
 #### Verifying the transient accumulated data.
 
-The _[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_ in this circuit's _[public_inputs](#public-inputs)_ includes values from both the previous iterations and the _[private_call](#privatecalldata)_.
+The _[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_ in this circuit's _[public_inputs](#public-inputs)_ includes values from both the previous iterations and the _[private_call](#privatecall)_.
 
 For each array in the _transient_accumulated_data_, this circuit verifies that:
 
@@ -149,9 +149,9 @@ Data of the previous kernel iteration.
 | _vk_                 | _VerificationKey_                                                               | Verification key of the kernel circuit.      |
 | _membership_witness_ | _[MembershipWitness](./private-kernel-initial.md#membershipwitness)_            | Membership witness for the verification key. |
 
-### _PrivateCallData_
+### _PrivateCall_
 
-The format aligns with the _[PrivateCallData](./private-kernel-initial.md#privatecalldata)_ of the initial private kernel circuit.
+The format aligns with the _[PrivateCall](./private-kernel-initial.md#privatecall)_ of the initial private kernel circuit.
 
 ## Public Inputs
 

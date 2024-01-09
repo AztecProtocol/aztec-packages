@@ -12,7 +12,7 @@ The **tail** circuit refrains from processing individual public function calls. 
 
 #### Verifying the previous kernel proof.
 
-It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs.
+It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs, sourced from _[private_inputs](#private-inputs).[previous_kernel](#previouskernel)_.
 
 The preceding proof can only be:
 
@@ -22,15 +22,15 @@ The preceding proof can only be:
 
 The following must be empty to ensure all the public function calls are processed:
 
-- _public_call_requests_ within _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./public-kernel-tail.md#public-inputs).[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_
+- _public_call_requests_ within _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./public-kernel-tail.md#public-inputs).[transient_accumulated_data](./public-kernel-tail.md#transientaccumulateddata)_.
 
 ### Processing Final Outputs
 
 #### Siloing values.
 
-This section follows the same process as outlined in the [tail private kernel circuit](./private-kernel-tail.md#siloing-values).
+This section follows the same [process](./private-kernel-tail.md#siloing-values) as outlined in the tail private kernel circuit.
 
-Additionally, it silos the _storage_slot_ of each item in the following:
+Additionally, it silos the _storage_slot_ of each non-empty item in the following arrays:
 
 - _storage_reads_
 - _storage_writes_
@@ -52,10 +52,10 @@ This circuit ensures the correct ordering of the following:
 
 2. For _storage_reads_, an _ordered_storage_reads_ and _storage_read_hints_ are provided as [hints](#hints) through _private_inputs_. This circuit checks that:
 
-   For each _read_ at index _i_ in _ordered_storage_reads_, the associated _unordered_read_ is at _`storage_reads[storage_read_hints[i]]`_.
+   For each _read_ at index _i_ in _ordered_storage_reads_, the associated _mapped_read_ is at _`storage_reads[storage_read_hints[i]]`_.
 
    - If _`read.is_empty() == false`_, verify that:
-     - All values in _unordered_read_ align with those in _read_.
+     - All values in _mapped_read_ align with those in _read_.
      - If _i > 0_, verify that:
        - _`read.counter > read[storage_read_hints[i - 1]].counter`_
    - Else:
@@ -67,10 +67,10 @@ This circuit ensures the correct ordering of the following:
 
 The _public_data_snaps_ is provided through _private_inputs_, serving as hints for _storage_reads_ to prove that the value in the tree aligns with the read operation. For _storage_writes_, it substantiates the presence or absence of the storage slot in the public data tree.
 
-A _public_data_snap_ contains:
+A _[public_data_snap](#publicdatasnap)_ contains:
 
-- A leaf in the public data tree, containing the _storage_slot_ and its _value_.
-- An _override_counter_, indicating the counter of the first _storage_write_ that writes a value to the storage slot. Zero if the storage slot is not written in this transaction.
+- A _storage_slot_ and its _value_.
+- An _override_counter_, indicating the counter of the first _storage_write_ that writes to the storage slot. Zero if the storage slot is not written in this transaction.
 - A flag _exists_ indicating its presence or absence in the public data tree.
 
 This circuit ensures the uniqueness of each snap in _public_data_snaps_. It verifies that:
@@ -90,7 +90,7 @@ A new field, _prev_counter_, is incorporated to the _ordered_storage_writes_ to 
 
 1. For each _snap_ at index _i_ in _public_data_snaps_:
 
-   - Skip the remaining steps if it is empty or its _override_counter_ is _0_.
+   - Skip the remaining steps if it is empty or if its _override_counter_ is _0_.
    - Locate the _write_ at _`ordered_storage_writes[storage_write_indices[i]]`_.
    - Verify the following:
      - _`write.storage_slot == snap.storage_slot`_
@@ -100,7 +100,7 @@ A new field, _prev_counter_, is incorporated to the _ordered_storage_writes_ to 
      - _`write.prev_counter = 1`_
      - _`write.exists = snap.exists`_
 
-   > The value _1_ can be utilized to signify a preceding snap, as this value can never serve as the counter of a _storage_write_. The _counter_start_ for the first public function call must be greater than or equal to 1. Subsequently, the counters for all subsequent function calls and requests should exceed this initial value.
+   > The value _1_ can be utilized to signify a preceding _snap_, as this value can never serve as the counter of a _storage_write_. Because the _counter_start_ for the first public function call must be 1, the counters for all subsequent side effects should exceed this initial value.
 
 2. For each _write_ at index _i_ in _ordered_storage_writes_:
 
@@ -120,31 +120,32 @@ A new field, _prev_counter_, is incorporated to the _ordered_storage_writes_ to 
 
 A storage read can be reading:
 
-- An uninitialized value: not initialized yet. The read request is reading the value zero. There isn't a leaf in the public data tree representing its storage slot, nor in the _storage_writes_.
-- An existing value: initialized or updated in a prior successful transaction. The value being read is the value in the public data tree.
-- An updated value: initialized or updated in the current transaction. The value being read is in a _storage_write_.
+- An uninitialized storage slot: the value is zero. There isn't a leaf in the public data tree representing its storage slot, nor in the _storage_writes_.
+- An existing storage slot: written in a prior successful transaction. The value being read is the value in the public data tree.
+- An updated storage slot: initialized or updated in the current transaction. The value being read is in a _storage_write_.
 
 For each non-empty _read_ at index _i_ in _ordered_storage_reads_, it must satisfy one of the following conditions:
 
-1. If reading an uninitialized or an existing value, the value is in a _snap_:
+1. If reading an uninitialized or an existing storage slot, the value is in a _snap_:
 
    - Locate the _snap_ at _`public_data_snaps[persistent_read_hints[i]]`_.
    - Verify the following:
      - _`read.storage_slot == snap.storage_slot`_
      - _`read.value == snap.value`_
      - _`(read.counter < snap.override_counter) | (snap.override_counter == 0)`_
+   - If _`snap.exists == false`_:
+     - _`read.value == 0`_
 
    Depending on the value of the _exists_ flag in the snap, verify its presence or absence in the public data tree:
 
    - If _exists_ is true:
      - It must pass a membership check on the leaf.
    - If _exists_ is false:
-     - The value must be zero.
      - It must pass a non-membership check on the low leaf. The preimage of the low leaf is at _`storage_read_low_leaf_preimages[i]`_.
 
-   > The (non)-membership checks are executed against the root in _old_public_data_tree_snapshot_. The membership witnesses for the leaves are in _storage_read_membership_witnesses_, provided as [hints](#hints) through _private_inputs_.
+   > The (non-)membership checks are executed against the root in _old_public_data_tree_snapshot_. The membership witnesses for the leaves are in _storage_read_membership_witnesses_, provided as [hints](#hints) through _private_inputs_.
 
-2. If reading an updated value, the value is in a _storage_write_:
+2. If reading an updated storage slot, the value is in a _storage_write_:
 
    - Locates the _storage_write_ at _`ordered_storage_writes[transient_read_hints[i]]`_.
    - Verify the following:
@@ -157,7 +158,9 @@ For each non-empty _read_ at index _i_ in _ordered_storage_reads_, it must satis
 
 #### Updating the public data tree.
 
-It updates the current public data tree with the values in _storage_writes_. For each non-empty _write_ at index _i_ in _ordered_storage_writes_, the circuit processes it base on its type:
+It updates the public data tree with the values in _storage_writes_. The _latest_root_ of the tree is _old_public_data_tree_snapshot.root_.
+
+For each non-empty _write_ at index _i_ in _ordered_storage_writes_, the circuit processes it base on its type:
 
 1. Transient write.
 
@@ -168,10 +171,12 @@ It updates the current public data tree with the values in _storage_writes_. For
    For a non-transient _write_ (_write.next_counter == 0_), if _`write.exists == true`_, it is updating an existing storage slot. The circuit does the following for such a write:
 
    - Performs a membership check, where:
-     - The leaf contains the existing storage slot.
-     - The leaf's old value is the value of the snap: _`leaf.value = public_data_snaps[public_data_snap_indices[i]].value`_
+     - The leaf if for the existing storage slot.
+       - _`leaf.storage_slot = write.storage_slot`_
+     - The old value is the value in a _snap_:
+       - _`leaf.value = public_data_snaps[public_data_snap_indices[i]].value`_
      - The index and the sibling path are in _storage_write_membership_witnesses_, provided as [hints](#hints) through _private_inputs_.
-     - The root is the _latest_root_ after processing the previous write. Or the _old_public_data_tree_snapshot.root_ for the first write.
+     - The root is the _latest_root_ after processing the previous write.
    - Derives the _latest_root_ for the _latest_public_data_tree_ with the updated leaf, where _`leaf.value = write.value`_.
 
 3. Creating a new storage slot.
@@ -191,7 +196,7 @@ It updates the current public data tree with the values in _storage_writes_. For
    - Append the new leaf to the subtree. Derive the _subtree_root_.
    - Increment _number_of_new_leaves_ by 1.
 
-   > The subtree and _number_of_new_leaves_ are initialized to empty and 0 at the beginning of the process.
+> The subtree and _number_of_new_leaves_ are initialized to empty and 0 at the beginning of the process.
 
 After all the storage writes are processed:
 
@@ -199,7 +204,7 @@ After all the storage writes are processed:
   - The insertion index is _`old_public_data_tree_snapshot.next_available_leaf_index`_.
 - Verify the following:
   - _`latest_root == new_public_data_tree_snapshot.root`_
-  - _`new_public_data_tree_snapshot.next_available_leaf_index == new_public_data_tree_snapshot.next_available_leaf_index + number_of_new_leaves`_
+  - _`new_public_data_tree_snapshot.next_available_leaf_index == old_public_data_tree_snapshot.next_available_leaf_index + number_of_new_leaves`_
 
 ### Validating Public Inputs
 
@@ -356,13 +361,12 @@ Data accumulated during the execution of the transaction.
 
 ### _PublicDataSnap_
 
-| Field              | Type           | Description                                                              |
-| ------------------ | -------------- | ------------------------------------------------------------------------ |
-| _contract_address_ | _AztecAddress_ | Address of the contract.                                                 |
-| _storage_slot_     | field          | Storage slot.                                                            |
-| _value_            | field          | Value of the storage slot.                                               |
-| _override_counter_ | _field_        | Counter at which the _storage_slot_ is first written in the transaction. |
-| _exists_           | _bool_         | A flag indicating whether the storage slot is in the public data tree.   |
+| Field              | Type    | Description                                                              |
+| ------------------ | ------- | ------------------------------------------------------------------------ |
+| _storage_slot_     | field   | Storage slot.                                                            |
+| _value_            | field   | Value of the storage slot.                                               |
+| _override_counter_ | _field_ | Counter at which the _storage_slot_ is first written in the transaction. |
+| _exists_           | _bool_  | A flag indicating whether the storage slot is in the public data tree.   |
 
 ### _PublicDataLeafPreimage_
 
