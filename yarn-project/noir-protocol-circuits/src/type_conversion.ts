@@ -23,6 +23,7 @@ import {
   FunctionData,
   FunctionSelector,
   GlobalVariables,
+  Header,
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -72,7 +73,6 @@ import {
 } from '@aztec/circuits.js';
 import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 
-import { Header } from '../../circuits.js/src/structs/header.js';
 import {
   BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
