@@ -103,7 +103,7 @@ plonk::proof& AvmMiniProver::export_proof()
 
 plonk::proof& AvmMiniProver::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
+    // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
     // Compute wire commitments

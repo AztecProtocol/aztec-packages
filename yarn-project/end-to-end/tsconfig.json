@@ -7,13 +7,13 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../archiver"
     },
     {
       "path": "../aztec-node"
-    },
-    {
-      "path": "../aztec-sandbox"
     },
     {
       "path": "../aztec.js"

@@ -149,6 +149,23 @@ const config = {
         disableSources: true,
       },
     ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "apis/accounts",
+        entryPoints: [
+          "../yarn-project/accounts/src/defaults/index.ts",
+          "../yarn-project/accounts/src/ecdsa/index.ts",
+          "../yarn-project/accounts/src/schnorr/index.ts",
+          "../yarn-project/accounts/src/single_key/index.ts",
+          "../yarn-project/accounts/src/testing/index.ts",
+        ],
+        tsconfig: "../yarn-project/accounts/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "apis/accounts",
+        disableSources: true,
+      },
+    ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
   themeConfig:
@@ -206,6 +223,10 @@ const config = {
                 label: "Developer Quickstart",
                 to: "/dev_docs/getting_started/quickstart",
               },
+              {
+                label: "Aztec.nr",
+                to: "https://github.com/AztecProtocol/aztec-nr",
+              },
             ],
           },
           {
@@ -235,6 +256,10 @@ const config = {
               {
                 label: "GitHub",
                 href: "https://github.com/AztecProtocol",
+              },
+              {
+                label: "Awesome Aztec",
+                to: "https://github.com/AztecProtocol/awesome-aztec",
               },
               {
                 label: "Grants",
