@@ -25,26 +25,38 @@ contract InclusionProofs {
         },
         
         history::{
+            // docs:start:import_contract_inclusion
             contract_inclusion::{
                 prove_contract_inclusion,
             },
+            // docs:end:import_contract_inclusion
+            // docs:start:import_note_inclusion    
             note_inclusion::{
                 prove_note_commitment_inclusion,
                 prove_note_inclusion,
             },
+            // docs:end:import_note_inclusion
+            // docs:start:import_note_validity
             note_validity::{
                 prove_note_validity,
             },
+            // docs:end:import_note_validity
+            // docs:start:import_nullifier_inclusion
             nullifier_inclusion::{
                 prove_nullifier_inclusion,
             },
+            // docs:end:import_nullifier_inclusion
+            // docs:start:import_nullifier_non_inclusion
             nullifier_non_inclusion::{
                 prove_nullifier_non_inclusion,
                 prove_note_not_nullified,
             },
+            // docs:end:import_nullifier_non_inclusion
+            // docs:start:import_public_value_inclusion
             public_value_inclusion::{
                 prove_public_value_inclusion,
             },
+            // docs:end:import_public_value_inclusion
         },
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
@@ -110,15 +122,19 @@ contract InclusionProofs {
 
         // 2) Prove the note inclusion
         if maybe_note.is_some() {
+            // docs:start:prove_note_inclusion
             prove_note_inclusion(
                 ValueNoteMethods,
                 maybe_note.unwrap_unchecked(),
                 block_number,
                 context
             );
+            // docs:end:prove_note_inclusion
         } else {
             // Note was not found so we will prove inclusion of the spare commitment
+            // docs:start:prove_note_commitment_inclusion
             prove_note_commitment_inclusion(spare_commitment, block_number, context);
+            // docs:end:prove_note_commitment_inclusion
         };
     }
 
@@ -140,15 +156,19 @@ contract InclusionProofs {
 
         // 3) Compute the nullifier from the note
         if maybe_note.is_some() {
+            // docs:start:prove_note_not_nullified
             prove_note_not_nullified(
                 ValueNoteMethods,
                 maybe_note.unwrap_unchecked(),
                 block_number,
                 context
             );
+            // docs:end:prove_note_not_nullified
         } else {
             // Note was not found so we will use the spare nullifier
+            // docs:start:prove_nullifier_non_inclusion
             prove_nullifier_non_inclusion(spare_nullifier, block_number, context);
+            // docs:end:prove_nullifier_non_inclusion
         };
     }
 
@@ -164,7 +184,9 @@ contract InclusionProofs {
         let note = notes[0].unwrap();
 
         // 2) Prove the note validity
+        // docs:start:prove_note_validity
         prove_note_validity(ValueNoteMethods, note, block_number, context);
+        // docs:end:prove_note_validity
     }
 
     #[aztec(private)]
@@ -185,7 +207,9 @@ contract InclusionProofs {
         nullifier: Field,
         block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
     ) {
+        // docs:start:prove_nullifier_inclusion
         prove_nullifier_inclusion(nullifier, block_number, context);
+        // docs:end:prove_nullifier_inclusion
     }
 
     #[aztec(private)]
@@ -193,12 +217,14 @@ contract InclusionProofs {
         public_value: Field,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
+        // docs:start:prove_public_value_inclusion
         prove_public_value_inclusion(
             public_value,
             storage.public_value.storage_slot,
             block_number,
             context
         );
+        // docs:end:prove_public_value_inclusion
     }
 
     // Proves that a contract exists at block `block_number`.
@@ -218,6 +244,7 @@ contract InclusionProofs {
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
+        // docs:start:prove_contract_inclusion
         let proven_contract_address = prove_contract_inclusion(
             deployer_public_key,
             contract_address_salt,
@@ -227,6 +254,7 @@ contract InclusionProofs {
             block_number,
             context
         );
+         // docs:end:prove_contract_inclusion
         // Here typically the factory would add the contract address to its internal map of deployed contracts.
     }
 
