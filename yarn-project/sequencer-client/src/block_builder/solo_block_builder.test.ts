@@ -180,14 +180,14 @@ describe('sequencer/solo_block_builder', () => {
       await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
     );
-  }
+  };
 
   const getStateReference = async () => {
     return new StateReference(
       await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
       await getPartialStateReference(),
     );
-  }
+  };
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makePrivateKernelPublicInputsFinal();

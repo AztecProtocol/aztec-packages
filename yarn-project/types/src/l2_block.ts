@@ -194,7 +194,7 @@ export class L2Block {
   static fromFields(
     fields: {
       /** Snapshot of archive tree after the block is applied. */
-      archive: AppendOnlyTreeSnapshot,
+      archive: AppendOnlyTreeSnapshot;
       /** L2 block header. */
       header: Header;
       /**
@@ -325,11 +325,12 @@ export class L2Block {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const globalVariables = reader.readObject(GlobalVariables);
-    const startNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const startNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const startContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const startPublicDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const startL1ToL2MessageTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    // TODO(benesjan): update the encoding here
+    reader.readObject(AppendOnlyTreeSnapshot); // startNoteHashTreeSnapshot
+    reader.readObject(AppendOnlyTreeSnapshot); // startNullifierTreeSnapshot
+    reader.readObject(AppendOnlyTreeSnapshot); // startContractTreeSnapshot
+    reader.readObject(AppendOnlyTreeSnapshot); // startPublicDataTreeSnapshot
+    reader.readObject(AppendOnlyTreeSnapshot); // startL1ToL2MessageTreeSnapshot
     const startArchiveSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
@@ -346,10 +347,15 @@ export class L2Block {
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    const partial = new PartialStateReference(endNoteHashTreeSnapshot, endNullifierTreeSnapshot, endContractTreeSnapshot, endPublicDataTreeSnapshot);
+    const partial = new PartialStateReference(
+      endNoteHashTreeSnapshot,
+      endNullifierTreeSnapshot,
+      endContractTreeSnapshot,
+      endPublicDataTreeSnapshot,
+    );
     const state = new StateReference(endL1ToL2MessageTreeSnapshot, partial);
     // TODO(benesjan): populate bodyHash
-    const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables); 
+    const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables);
 
     return L2Block.fromFields({
       archive: endArchiveSnapshot,
@@ -404,10 +410,14 @@ export class L2Block {
         L2Block.logger(`${logFieldName} logs already attached`);
         return;
       }
-      throw new Error(`Trying to attach different ${logFieldName} logs to block ${this.header.globalVariables.blockNumber}.`);
+      throw new Error(
+        `Trying to attach different ${logFieldName} logs to block ${this.header.globalVariables.blockNumber}.`,
+      );
     }
 
-    L2Block.logger(`Attaching ${logFieldName} ${logs.getTotalLogCount()} logs to block ${this.header.globalVariables.blockNumber}`);
+    L2Block.logger(
+      `Attaching ${logFieldName} ${logs.getTotalLogCount()} logs to block ${this.header.globalVariables.blockNumber}`,
+    );
 
     const numTxs = this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX;
 
@@ -612,7 +622,9 @@ export class L2Block {
   getTx(txIndex: number) {
     if (txIndex >= this.numberOfTxs) {
       throw new Error(
-        `Failed to get tx ${txIndex}. Block ${this.header.globalVariables.blockNumber.toBigInt()} only has ${this.numberOfTxs} txs.`,
+        `Failed to get tx ${txIndex}. Block ${this.header.globalVariables.blockNumber.toBigInt()} only has ${
+          this.numberOfTxs
+        } txs.`,
       );
     }
 

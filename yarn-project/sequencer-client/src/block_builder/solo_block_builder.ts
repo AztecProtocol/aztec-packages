@@ -100,24 +100,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
-    const [
-      startNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot,
-    ] = await Promise.all(
-      [
-        MerkleTreeId.NOTE_HASH_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-        MerkleTreeId.ARCHIVE,
-      ].map(tree => this.getTreeSnapshot(tree)),
-    );
-
     // Check txs are good for processing
     this.validateTxs(txs);
 

@@ -1,4 +1,3 @@
-
 /**
  * Type representing the names of the trees for the base rollup.
  */
