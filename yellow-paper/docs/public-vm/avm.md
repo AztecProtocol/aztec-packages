@@ -44,7 +44,7 @@ Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](ht
 
 An **execution context** includes the information necessary to initiate AVM execution along with the state maintained by the AVM throughout execution:
 ```
-AVMContext {
+AvmContext {
     environment: ExecutionEnvironment,
     machineState: MachineState,
     worldState: WorldState,
@@ -122,7 +122,7 @@ MessageCallResults {
 This section outlines AVM context initialization specifically for a **public execution request's initial message call** (_i.e._ not a nested message call). Context initialization for nested message calls will be explained [in a later section](#context-initialization-for-a-nested-call).
 When AVM execution is initiated for a public execution request, the AVM context is initialized as follows:
 ```
-context = AVMContext {
+context = AvmContext {
     environment: INITIAL_EXECUTION_ENVIRONMENT,
     machineState: INITIAL_MACHINE_STATE,
     accruedSubstate: empty,
@@ -266,7 +266,7 @@ During a message call's execution, an instruction may be encountered that trigge
 ### Context initialization for a nested call
 Initiation of a nested call requires the creation of a new context (or **sub-context**).
 ```
-subContext = AVMContext {
+subContext = AvmContext {
     environment: nestedExecutionEnvironment, // defined below
     machineState: nestedMachineState,        // defined below
     worldState: callingContext.worldState,

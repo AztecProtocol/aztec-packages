@@ -12,7 +12,7 @@ Call pointers are assigned based on execution order. A request's initial message
 ### "Input" and "output" call pointers
 It is important to note that the initial call's pointer is `1`, not `0`. The zero call pointer is a special case known as the "input" call pointer.
 
-As expanded on later, the VM circuit memory table has a separate section for each call pointer. The memory table section for the **input call pointer** is reserved for the initial call's `ExecutionEnvironment` and initial `MachineState` as they appear in the circuit's inputs. This will be expanded on later.
+As expanded on later, the VM circuit memory table has a separate section for each call pointer. The memory table section for the **input call pointer** is reserved for the initial call's `AvmContext.ExecutionEnvironment` and initial `AvmContext.MachineState` as they appear in the circuit's inputs. This will be expanded on later.
 
 ## Bytecode
 The VM circuit's primary purpose is to prove execution of the correct sequence of instructions given a message call's bytecode and inputs. The circuit will prove correct execution of any nested message calls as well. Each nested call will have its own bytecode and inputs, but will be processed within the same circuit.
@@ -26,13 +26,13 @@ Each row in the execution trace will also contain a call pointer and program cou
 Each contract's public bytecode is committed to during contract deployment. As part of the AVM circuit verification algorithm, the bytecode column (as a concatenation of all relevant contract bytecodes) is verified against the corresponding bytecode commitments. This is expanded on in ["Bytecode Validation Circuit"](./bytecode-validation-circuit.md).
 
 ## Memory
-To process a public execution request, the AVM executes the request's initial message call along with any nested calls it encounters. Execution of a message call requires some context including an `ExecutionEnvironment` and `MachineState`. Separate instances of these constructs must exist for each message call.
+To process a public execution request, the AVM executes the request's initial message call along with any nested calls it encounters. Execution of a message call requires some context including an `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`. Separate instances of these constructs must exist for each message call.
 
 AVM instructions may read from or write to these constructs (explicitly or indirectly), and therefore it is natural to represent them in the AVM circuit via a memory table. Since each call must have its own `ExecutionEnvironment` and `MachineState`, each entry in the memory table must specify which call it corresponds to. This is accomplished via a `callPointer` column. The memory table is sorted first by `callPointer` and thus all memory accesses for a given message call are grouped.
 
-User code has explicit access to a construct known as **user memory**, also known as `MachineState.memory`. When an AVM instruction performs an access like `M[offset]`, it is accessing user memory.
+User code has explicit access to a construct known as **user memory** (`AvmContext.memory` in the high-level specification). When an AVM instruction performs an access like `M[offset]`, it is accessing user memory.
 
-The remainder of a call's `ExecutionEnvironment` and `MachineState` is not explicitly addressable by user code. This remaining context lives in a construct known as **protected memory** and is accessible only via dedicated instructions (like `ADDRESS`, `JUMP`, `CALL`, etc...).
+A call's `ExecutionEnvironment` and `MachineState` is not explicitly addressable by user code. This context lives in a construct known as **protected memory** and is accessible only via dedicated instructions (like `ADDRESS`, `JUMP`, `CALL`, etc...).
 
 > Note: the fact that this context is implemented as protected circuit memory is not relevant to user code or even to the high-level AVM specification.
 
@@ -52,15 +52,14 @@ The VM circuit's memory is sorted first by `callPointer` and next by the `userMe
         - user memory
 
 ### Protected memory offsets
-As mentioned above, a call's `ExecutionEnvironment` and `MachineState` (except for `MachineState.memory`) reside in protected memory, and so each of their members has a dedicated offset. These offsets are referred to according to the following pattern:
+As mentioned above, a call's `ExecutionEnvironment` and `MachineState` reside in protected memory, and so each of their members has a dedicated offset. These offsets are referred to according to the following pattern:
 - `ENVIRONMENT_ADDRESS_OFFSET`: offset to `ExecutionEnvironment.address` within a call's protected memory subregion
 - `ENVIRONMENT_L1GASPRICE`: offset to `ExecutionEnvironment.l1GasPrice` within a call's protected memory subregion
 - `MACHINESTATE_L1GASLEFT`: offset to `MachineState.l1GasLeft` within a call's protected memory subregion
 - `MACHINESTATE_PC`: offset to `MachineState.pc` within a call's protected memory subregion
 - `MACHINESTATE_INTERNALCALLSTACK`: offset to `MachineState.internalCallStack` within a call's protected memory subregion
 
-> Note: A call's `ExecutionEnvironment.bytecode` and `ExecutionEnvironment.calldata` are not included in the protected memory region because they are handled in a special manner. This will be expanded on in a later section.
-> For complete definitions of `ExecutionEnvironment` and `MachineState` see the [AVM's high level specification](./avm.md).
+> For complete definitions of `ExecutionEnvironment`, `MachineState`, and `AvmContext` see the [AVM's high level specification](./avm.md).
 
 ### Protected memory and user memory examples
 An instruction like `ADDRESS` serves as great example because it performs a read from protected memory and a write to user memory: `M[dstOffset] = ExecutionEnvironment.address` (see [Instruction Set](./InstructionSet) for more details). Below, this operation is deconstructed into its two memory accesses:
@@ -74,7 +73,6 @@ An instruction like `ADDRESS` serves as great example because it performs a read
     - offset: `dstOffset`
 
 ## Circuit I/O
-
 ### How do "Public Inputs" work in the AVM circuit?
 ZK circuit proof systems generally define some mechanism for "public inputs" for which witness values must be communicated in full to a verifier. The AVM proof system defines its own mechanism for public inputs in which it flags certain trace columns as "public input columns". Any public input columns must be communicated in full to a verifier.
 
@@ -103,7 +101,7 @@ AvmPublicInputs {
 
 ### AVM public input columns
 The `AvmPublicInputs` structure is represented in the VM trace via the following public input columns:
-1. `initialEnvironment` has a dedicated column and is used to initialize the initial call's `ExecutionEnvironment` and `MachineState`
+1. `initialEnvironment` has a dedicated column and is used to initialize the initial call's `AvmContext.ExecutionEnvironment` and `AvmContext.MachineState`
 1. `calldata` has its own dedicated public input column
 1. `sideEffects: AvmSideEffects`
     - This represents the final `AccruedSubstate` of the initial message call
@@ -120,7 +118,7 @@ The `AvmPublicInputs` structure is represented in the VM trace via the following
     - Each row in the `storageAccesses` sub-table contains `{contractAddress, slot, value}`
     - Storage accesses are present in the trace in execution-order
 1. `gasResults: AvmGasResults`
-    - This is derived from the _final_ `MachineState` of the initial message call
+    - This is derived from the _final_ `AvmContext.MachineState` of the initial message call
 
 ### Initial call's protected memory
 Any lookup into protected memory from a request's initial message call must retrieve a value matching the `initialEnvironment` public inputs column\*. To enforce this, an equivalence check is applied between the `initialEnvironment` column and the memory trace for protected memory accesses that use call pointer `1`.
