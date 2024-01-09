@@ -33,9 +33,9 @@ fn truncate_bytes32_to_field(bytes32: [u8; 32]) -> Field {
     let mut v = 1;
     let mut value = 0 as Field;
 
-    // the same as crate:field::bytes32_to_field, but skipping the first byte entirely!
+    // the same as crate:field::bytes32_to_field, but skipping the last byte entirely!
     for i in 0..31 {
-        value = value + (bytes32[i + 1] as Field) * v;
+        value = value + (bytes32[i] as Field) * v;
         v = v * 256;
     }
     value
@@ -243,7 +243,7 @@ pub fn compute_constructor_hash(
 
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // for accumulator hashes, the sha256 hash of two inputs is stored in single Field to despite 
-    // being two bits too small to accommodate all 256-bits of the hash.
+    // being three bits too small to accommodate all 256-bits of the hash.
     // Returning a single Field is desirable because then this can be replaced with 
     // poseidon without changing the rest of the code
     let mut hash_input_flattened = [0; 64];

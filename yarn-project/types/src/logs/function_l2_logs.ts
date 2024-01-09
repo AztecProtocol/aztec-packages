@@ -1,4 +1,4 @@
-import { sha256TruncateToField } from '@aztec/foundation/crypto';
+import { sha256Truncate, sha256TruncateToField } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
@@ -46,7 +46,7 @@ export class FunctionL2Logs {
   public hash(): Buffer {
     // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
     const preimage = this.toBuffer().subarray(4);
-    return sha256TruncateToField(preimage).toBuffer();
+    return sha256Truncate(preimage);
   }
 
   /**

@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { keccak, sha256, sha256TruncateToField } from '@aztec/foundation/crypto';
+import { keccak, sha256, sha256Truncate, sha256TruncateToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -641,7 +641,7 @@ export class L2Block {
    * Computes the calldata hash for the L2 block
    * This calldata hash is also computed by the rollup contract when the block is submitted,
    * and inside the circuit, it is part of the public inputs.
-   * @returns The calldata hash, but already truncated to 254 bits.
+   * @returns The calldata hash, but already truncated to fit in 254 bits.
    */
   getCalldataHash() {
     if (this.newEncryptedLogs === undefined) {
@@ -664,7 +664,7 @@ export class L2Block {
           const left = layers[activeLayer][i];
           const right = layers[activeLayer][i + 1];
 
-          layer.push(sha256(Buffer.concat([left, right])));
+          layer.push(sha256Truncate(Buffer.concat([left, right])));
         }
 
         layers.push(layer);
@@ -711,11 +711,10 @@ export class L2Block {
         encryptedLogsHashKernel0,
         unencryptedLogsHashKernel0,
       ]);
-      leafs.push(sha256(inputValue));
+      leafs.push(sha256Truncate(inputValue));
     }
 
-    // is it OK to reduce here?? so we never work with the full hash output
-    return Fr.fromBufferReduce(computeRoot(leafs)).toBuffer();
+    return computeRoot(leafs);
   }
 
   /**
@@ -727,8 +726,7 @@ export class L2Block {
     // Create a long buffer of all of the l1 to l2 messages
     const l1ToL2Messages = Buffer.concat(this.newL1ToL2Messages.map(message => message.toBuffer()));
 
-    // same question -  is it OK to reduce here?? so we never work with the full hash output
-    return Fr.fromBufferReduce(sha256(l1ToL2Messages)).toBuffer();
+    return sha256Truncate(l1ToL2Messages);
   }
 
   /**
