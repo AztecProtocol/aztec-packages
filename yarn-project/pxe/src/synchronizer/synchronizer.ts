@@ -339,7 +339,11 @@ export class Synchronizer {
    * Retry decoding any deferred notes for the specified contract address.
    * @param contractAddress - the contract address that has just been added
    */
-  public async reprocessDeferredNotesForContract(contractAddress: AztecAddress) {
+  public reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {
+    return this.jobQueue.put(() => this.#reprocessDeferredNotesForContract(contractAddress));
+  }
+
+  async #reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {
     const deferredNotes = await this.db.getDeferredNotesByContract(contractAddress);
 
     // group deferred notes by txHash to properly deal with possible duplicates
