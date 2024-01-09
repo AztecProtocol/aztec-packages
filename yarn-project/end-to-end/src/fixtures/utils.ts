@@ -1,9 +1,6 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  INITIAL_TEST_ACCOUNT_SALTS,
-  INITIAL_TEST_ENCRYPTION_KEYS,
-  INITIAL_TEST_SIGNING_KEYS,
   createAccounts,
+  getDeployedTestAccountsWallets,
 } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
@@ -23,7 +20,6 @@ import {
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
-  generatePublicKey,
   waitForPXE,
 } from '@aztec/aztec.js';
 import {
@@ -62,23 +58,6 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
-
-/**
- * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the initial test accounts.
- * @param pxe - PXE instance.
- * @returns A set of AccountWallet implementations for each of the initial accounts.
- */
-export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
-  const registeredAccounts = await pxe.getRegisteredAccounts();
-  return Promise.all(
-    INITIAL_TEST_ENCRYPTION_KEYS.filter(initialKey => {
-      const publicKey = generatePublicKey(initialKey);
-      return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
-    }).map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
-    ),
-  );
-}
 
 const getAztecNodeUrl = () => {
   if (AZTEC_NODE_URL) {

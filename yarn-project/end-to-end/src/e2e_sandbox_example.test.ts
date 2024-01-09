@@ -1,5 +1,6 @@
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   ExtendedNote,
   Fr,
@@ -14,7 +15,6 @@ import {
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { format } from 'util';
-import { getDeployedTestAccountsWallets } from './fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 // docs:end:imports

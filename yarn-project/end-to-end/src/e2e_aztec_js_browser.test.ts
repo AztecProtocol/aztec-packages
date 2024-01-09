@@ -47,7 +47,7 @@ const setupApp = async () => {
     logger(`Web Server started at http://localhost:${PORT}`);
   });
 
-  return { server, webServerURL: `http://localhost:${PORT}`, pxeURL, pxeServer };
+  return { server, webServerURL: `http://localhost:${PORT}`, pxeServer, pxeURL };
 };
 
 browserTestSuite(setupApp, pageLogger);

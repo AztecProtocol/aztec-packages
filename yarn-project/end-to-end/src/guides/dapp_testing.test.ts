@@ -1,4 +1,4 @@
-import { createAccount } from '@aztec/accounts/testing';
+import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AccountWallet,
   CheatCodes,
@@ -12,8 +12,6 @@ import {
 } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts/Test';
 import { TokenContract } from '@aztec/noir-contracts/Token';
-
-import { getDeployedTestAccountsWallets } from '../fixtures/utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 

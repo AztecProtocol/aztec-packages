@@ -10,8 +10,6 @@ import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
 
-import { getDeployedTestAccountsWallets } from '../fixtures/utils.js';
-
 declare global {
   /**
    * Helper interface to declare aztec.js within browser context.
@@ -40,13 +38,13 @@ export const browserTestSuite = (
      */
     webServerURL: string;
     /**
-     * The url of the PXE
-     */
-    pxeURL: string;
-    /**
      *  The PXE webserver instance.
      */
     pxeServer: Server | undefined;
+    /**
+     * The url of the PXE
+     */
+    pxeURL: string;
   }>,
   pageLogger: AztecJs.DebugLogger,
 ) =>
@@ -58,20 +56,16 @@ export const browserTestSuite = (
 
     let app: Koa;
     let testClient: AztecJs.PXE;
-    let webServer: Server;
-    let serverURL: string;
-    let pxeWebServer: Server | undefined;
-    let rpcURL: string;
+    let server: Server;
+    let webServerURL: string;
+    let pxeServer: Server | undefined;
+    let pxeURL: string;
 
     let browser: Browser;
     let page: Page;
 
     beforeAll(async () => {
-      const { server, pxeURL, pxeServer, webServerURL } = await setup();
-      rpcURL = pxeURL;
-      webServer = server;
-      pxeWebServer = pxeServer;
-      serverURL = webServerURL;
+      ({ server, pxeURL, pxeServer, webServerURL } = await setup());
       testClient = AztecJs.createPXEClient(pxeURL);
       await AztecJs.waitForPXE(testClient);
 
@@ -97,7 +91,7 @@ export const browserTestSuite = (
       page.on('pageerror', err => {
         pageLogger.error(err.toString());
       });
-      await page.goto(`${serverURL}/index.html`);
+      await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
@@ -106,8 +100,8 @@ export const browserTestSuite = (
 
     afterAll(async () => {
       await browser.close();
-      webServer.close();
-      pxeWebServer?.close();
+      server.close();
+      pxeServer?.close();
     });
 
     it('Loads Aztec.js in the browser', async () => {
@@ -131,7 +125,7 @@ export const browserTestSuite = (
           console.log(`Created Account: ${addressString}`);
           return addressString;
         },
-        rpcURL,
+        pxeURL,
         privKey.toString(),
       );
       const accounts = await testClient.getRegisteredAccounts();
@@ -159,8 +153,8 @@ export const browserTestSuite = (
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
-          console.log(`RPC URL ${rpcURL}`);
+          const { Contract, AztecAddress, createPXEClient: createPXEClient, getDeployedTestAccountsWallets } = window.AztecJs;
+          console.log(`RPC URL ${pxeURL}`);
           const pxe = createPXEClient(rpcUrl!);
           const owner = (await pxe.getRegisteredAccounts())[0].address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
@@ -168,7 +162,7 @@ export const browserTestSuite = (
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
         },
-        rpcURL,
+        pxeURL,
         (await getTokenAddress()).toString(),
         TokenContractArtifact,
       );
@@ -179,7 +173,7 @@ export const browserTestSuite = (
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const { AztecAddress, Contract, createPXEClient: createPXEClient, getDeployedTestAccountsWallets } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const accounts = await pxe.getRegisteredAccounts();
           const receiver = accounts[1].address;
@@ -189,7 +183,7 @@ export const browserTestSuite = (
           console.log(`Transferred ${transferAmount} tokens to new Account`);
           return await contract.methods.balance_of_private(receiver).view({ from: receiver });
         },
-        rpcURL,
+        pxeURL,
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractArtifact,
@@ -210,6 +204,7 @@ export const browserTestSuite = (
             ExtendedNote,
             Note,
             computeMessageSecretHash,
+            getDeployedTestAccountsWallets,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           let accounts = await pxe.getRegisteredAccounts();
@@ -250,7 +245,7 @@ export const browserTestSuite = (
 
           return txHash.toString();
         },
-        rpcURL,
+        pxeURL,
         privKey.toString(),
         initialBalance,
         TokenContractArtifact,

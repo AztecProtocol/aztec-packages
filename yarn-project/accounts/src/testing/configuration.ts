@@ -3,6 +3,7 @@ import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { PXE } from '@aztec/types';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
+import { generatePublicKey } from '@aztec/aztec.js';
 
 export const INITIAL_TEST_ENCRYPTION_KEYS = [
   GrumpkinScalar.fromString('2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281'),
@@ -22,6 +23,23 @@ export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
   return Promise.all(
     INITIAL_TEST_ENCRYPTION_KEYS.map((encryptionKey, i) =>
+      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
+    ),
+  );
+}
+
+/**
+ * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the initial test accounts.
+ * @param pxe - PXE instance.
+ * @returns A set of AccountWallet implementations for each of the initial accounts.
+ */
+export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+  const registeredAccounts = await pxe.getRegisteredAccounts();
+  return Promise.all(
+    INITIAL_TEST_ENCRYPTION_KEYS.filter(initialKey => {
+      const publicKey = generatePublicKey(initialKey);
+      return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
+    }).map((encryptionKey, i) =>
       getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
     ),
   );

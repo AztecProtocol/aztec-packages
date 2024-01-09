@@ -33,9 +33,7 @@ export const cliTestSuite = (
     const logs: string[] = [];
 
     beforeAll(async () => {
-      const { pxe: pxeService, rpcURL: pxeURL } = await setup();
-      pxe = pxeService;
-      rpcURL = pxeURL;
+      ({ pxe, rpcURL } = await setup());
       log = (msg: string) => {
         logs.push(msg);
         debug(msg);
