@@ -227,6 +227,37 @@ void AvmMiniTraceBuilder::div(uint32_t a_offset, uint32_t b_offset, uint32_t dst
     });
 }
 
+// TODO: Finish SET opcode implementation. This is a partial implementation
+// facilitating testing of arithmetic operations over non finite field types.
+// We add an entry in the memory trace and a simplified one in the main trace
+// without operation selector.
+// No check is performed that val pertains to type defined by in_tag.
+/**
+ * @brief Set a constant from bytecode with direct memory access.
+ *
+ * @param val The constant to be written upcasted to u128
+ * @param dst_offset Memory destination offset where val is written to
+ * @param in_tag The instruction memory tag
+ */
+void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size());
+    auto val_ff = FF{ uint256_t::from_uint128(val) };
+
+    mem_trace_builder.write_into_memory(clk, IntermRegister::ic, dst_offset, val_ff, in_tag);
+
+    main_trace.push_back(Row{
+        .avmMini_clk = clk,
+        .avmMini_pc = FF(pc++),
+        .avmMini_internal_return_ptr = FF(internal_return_ptr),
+        .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
+        .avmMini_ic = val_ff,
+        .avmMini_mem_op_c = FF(1),
+        .avmMini_rwc = FF(1),
+        .avmMini_mem_idx_c = FF(dst_offset),
+    });
+}
+
 /**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
  *        M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]

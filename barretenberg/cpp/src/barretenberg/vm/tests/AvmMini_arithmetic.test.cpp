@@ -1,5 +1,55 @@
 #include "AvmMini_common.test.hpp"
 
+namespace {
+
+Row common_validate_add(std::vector<Row> const& trace,
+                        FF const& a,
+                        FF const& b,
+                        FF const& c,
+                        FF const& addr_a,
+                        FF const& addr_b,
+                        FF const& addr_c,
+                        avm_trace::AvmMemoryTag const tag)
+{
+    // Find the first row enabling the addition selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
+
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_EQ(row->avmMini_ic, c);
+    EXPECT_EQ(row->avmMini_mem_idx_c, addr_c);
+    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
+    EXPECT_EQ(row->avmMini_rwc, FF(1));
+
+    // Check that ia and ib registers are correctly set with memory load operations.
+    EXPECT_EQ(row->avmMini_ia, a);
+    EXPECT_EQ(row->avmMini_mem_idx_a, addr_a);
+    EXPECT_EQ(row->avmMini_mem_op_a, FF(1));
+    EXPECT_EQ(row->avmMini_rwa, FF(0));
+    EXPECT_EQ(row->avmMini_ib, b);
+    EXPECT_EQ(row->avmMini_mem_idx_b, addr_b);
+    EXPECT_EQ(row->avmMini_mem_op_b, FF(1));
+    EXPECT_EQ(row->avmMini_rwb, FF(0));
+
+    // Check instruction tag and add selector are set.
+    EXPECT_EQ(row->avmMini_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->avmMini_sel_op_add, FF(1));
+
+    // Check that Alu trace is as expected.
+    auto clk = row->avmMini_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.aluChip_alu_clk == clk; });
+
+    EXPECT_TRUE(alu_row != trace.end());
+    EXPECT_EQ(alu_row->aluChip_alu_op_add, FF(1));
+    EXPECT_EQ(alu_row->aluChip_alu_ia, a);
+    EXPECT_EQ(alu_row->aluChip_alu_ib, b);
+    EXPECT_EQ(alu_row->aluChip_alu_ic, c);
+
+    return *alu_row;
+}
+
+} // anonymous namespace
+
 namespace tests_avm {
 using namespace avm_trace;
 
@@ -59,15 +109,9 @@ TEST_F(AvmMiniArithmeticTestsFF, addition)
     trace_builder.return_op(0, 5);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the addition selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
+    auto alu_row = common_validate_add(trace, FF(37), FF(4), FF(41), FF(0), FF(1), FF(4), AvmMemoryTag::ff);
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, FF(41));
-    EXPECT_EQ(row->avmMini_mem_idx_c, FF(4));
-    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
-    EXPECT_EQ(row->avmMini_rwc, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
 
     validate_trace_proof(std::move(trace));
 }
@@ -268,20 +312,40 @@ TEST_F(AvmMiniArithmeticTestsFF, mixedOperationsWithError)
 TEST_F(AvmMiniArithmeticTestsU8, addition)
 {
     // trace_builder
-    trace_builder.call_data_copy(0, 2, 0, std::vector<FF>{ 62, 29 });
+    trace_builder.set(62, 0, AvmMemoryTag::u8);
+    trace_builder.set(29, 1, AvmMemoryTag::u8);
 
     //                             Memory layout:    [62,29,0,0,0,....]
     trace_builder.add(0, 1, 2, AvmMemoryTag::u8); // [62,29,91,0,0,....]
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the addition selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
+    auto alu_row = common_validate_add(trace, FF(62), FF(29), FF(91), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
 
-    // Check that the correct result is computed.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, FF(91));
-    // EXPECT_EQ(row->aluChip_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(91));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u8 type with carry.
+TEST_F(AvmMiniArithmeticTestsU8, additionCarry)
+{
+    // trace_builder
+    trace_builder.set(159, 0, AvmMemoryTag::u8);
+    trace_builder.set(100, 1, AvmMemoryTag::u8);
+
+    //                             Memory layout:    [159,100,0,0,0,....]
+    trace_builder.add(0, 1, 2, AvmMemoryTag::u8); // [159,100,3,0,0,....]
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace, FF(159), FF(100), FF(3), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(3));
 
     validate_trace_proof(std::move(trace));
 }
