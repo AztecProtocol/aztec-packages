@@ -22,6 +22,7 @@ WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a
