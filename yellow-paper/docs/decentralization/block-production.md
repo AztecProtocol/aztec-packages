@@ -27,7 +27,7 @@ We should probably introduce the PXE somewhere
 
 - **CPU**: Help
 - **Network**: 40KB for a transaction with proof (see [P2P network](./p2p-network.md#network-bandwidth)). Assuming gossiping grows the data upload/download 10x, ~400KB per tx. With 10 tx/s that's 4MB/s or 32mb/s.
-- **Storage**: [~1548 bytes per transaction](./../contracts/da.md#aztec-specific-data) + tree overhead, ~ 0.4 TB per year.
+- **Storage**: [~1548 bytes per transaction](../cross-chain-communication/da.md#aztec-specific-data) + tree overhead, ~ 0.4 TB per year.
 - **RAM**: Help
   :::
 
@@ -67,7 +67,7 @@ Mostly as full nodes. The compute and memory requirements might be larger since 
 
 ### Other types of network nodes
 
-- [Validating Light nodes](./../contracts/index.md)
+- [Validating Light nodes](../cross-chain-communication/index.md)
   - Maintain a state root and process block headers (validate proofs), but do not store the full state.
   - The L1 bridge is a validating light node.
   - Can be used to validate correctness of information received from a data provider.

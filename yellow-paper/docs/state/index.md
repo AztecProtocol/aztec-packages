@@ -16,8 +16,8 @@ When dealing with private data, only the hash of the data is stored in the leaf 
 
 Convincing someone that a piece of data is active can then be done by proving its membership in the data tree, and that it is not deleted by proving its non-membership in the nullifier tree. This ability to efficiently prove non-membership is one of the extra requirements we have for some parts of our state. To support the requirements most efficiently, we use two families of Merkle trees:
 
-- The [Append-only Merkle tree](./tree_impls.md#append-only-merkle-trees), which supports efficient membership proofs,
-- The [Indexed Merkle tree](./tree_impls.md#indexed-merkle-trees), which supports efficient membership and non-membership proofs but increases the cost of adding leafs.
+- The [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees), which supports efficient membership proofs,
+- The [Indexed Merkle tree](./tree-implementations.md#indexed-merkle-trees), which supports efficient membership and non-membership proofs but increases the cost of adding leafs.
 
 ### Private State Access
 
@@ -45,14 +45,14 @@ A side-effect of this also means that if multiple users are "sharing" their note
 
 Below is a short description of the state catagories (trees) and why they have the type they have.
 
-- [**Note Hashes**](./note_hash_tree.md): A set of hashes (commitments) of the individual blobs of contract data (we call these blobs of data notes). New notes can be created and their hashes inserted through contract execution. We need to support efficient membership proofs as any read will require one to prove validity. The set is represented as an [Append-only Merkle tree](./tree_impls.md#append-only-merkle-trees), storing the note hashes as leafs.
-- [**Nullifiers**](./nullifier_tree.md): A set of nullifiers for notes that have been spent. We need to support efficient non-membership proofs since we need to check that a note has not been spent before it can be used. The set is represented as an [Indexed Merkle tree](./tree_impls.md#indexed-merkle-trees).
-- [**Public Data**](./public_data_tree.md): The key-value store for public contract state. We need to support both efficient membership and non-membership proofs! We require both, since the tree is "empty" from the start. Meaning that if the key is not already stored (non-membership), we need to insert it, and if it is already stored (membership) we need to just update the value.
-- **Contracts**: The set of deployed contracts. We need to support efficient membership proofs as we need to check that a contract is deployed before we can interact with it. The set is represented as an [Append-only Merkle tree](./tree_impls.md#append-only-merkle-trees).
-- **L1 to L2 Messages**: The set of messages sent from L1 to L2. The set itself only needs to support efficient membership proofs, so we can ensure that the message was correctly sent from L1. However, it utilizes the Nullifier tree from above to ensure that the message cannot be processed twice. The set is represented as an [Append-only Merkle tree](./tree_impls.md#append-only-merkle-trees).
-- [**Archive**](./archive.md): The set of block headers that have been processed. We need to support efficient membership proofs as this is used in private execution to get the roots of the other trees. The set is represented as an [Append-only Merkle tree](./tree_impls.md#append-only-merkle-trees).
+- [**Note Hashes**](./note-hash-tree.md): A set of hashes (commitments) of the individual blobs of contract data (we call these blobs of data notes). New notes can be created and their hashes inserted through contract execution. We need to support efficient membership proofs as any read will require one to prove validity. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees), storing the note hashes as leafs.
+- [**Nullifiers**](./nullifier-tree.md): A set of nullifiers for notes that have been spent. We need to support efficient non-membership proofs since we need to check that a note has not been spent before it can be used. The set is represented as an [Indexed Merkle tree](./tree-implementations.md#indexed-merkle-trees).
+- [**Public Data**](./public-data-tree.md): The key-value store for public contract state. We need to support both efficient membership and non-membership proofs! We require both, since the tree is "empty" from the start. Meaning that if the key is not already stored (non-membership), we need to insert it, and if it is already stored (membership) we need to just update the value.
+- **Contracts**: The set of deployed contracts. We need to support efficient membership proofs as we need to check that a contract is deployed before we can interact with it. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
+- **L1 to L2 Messages**: The set of messages sent from L1 to L2. The set itself only needs to support efficient membership proofs, so we can ensure that the message was correctly sent from L1. However, it utilizes the Nullifier tree from above to ensure that the message cannot be processed twice. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
+- [**Archive**](./archive.md): The set of block headers that have been processed. We need to support efficient membership proofs as this is used in private execution to get the roots of the other trees. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
 
-To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note_hash_tree.md), [Nullifier tree](./nullifier_tree.md), and [Public Data tree](./public_data_tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../contracts/#l2-outbox) and the [Archive](./archive.md) allows for historical state access.
+To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note-hash-tree.md), [Nullifier tree](./nullifier-tree.md), and [Public Data tree](./public-data-tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../contracts/#l2-outbox) and the [Archive](./archive.md) allows for historical state access.
 
 ```mermaid
 classDiagram

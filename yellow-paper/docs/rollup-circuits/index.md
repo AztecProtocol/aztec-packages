@@ -4,7 +4,7 @@ title: Rollup Circuits
 
 ## Overview
 
-Together with the [validating light node](./../contracts/index.md) the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
+Together with the [validating light node](../cross-chain-communication/index.md) the rollup circuits must ensure that incoming blocks are valid, that state is progressed correctly and that anyone can rebuild the state.
 
 To support this, we construct a single proof for the entire block, which is then verified by the validating light node. This single proof is constructed by recursively merging proofs together in a binary tree structure. This structure allows us to keep the workload of each individual proof small, while making it very parallelizable. This works very well for the case where we want many actors to be able to participate in the proof generation.
 
@@ -379,7 +379,7 @@ graph LR
 
 To ensure that state is made available, we could broadcast all of a block's input data as public inputs of the final root rollup proof, but a proof with so many public inputs would be very expensive to verify onchain. Instead we reduce the proof's public inputs by committing to the block's body by iteratively computing a `TxsHash` and `OutHash` at each rollup circuit iteration. AT the final iteration a `body_hash` is computed committing to the complete body.
 
-To check that this body is published an Aztec node can reconstruct the `body_hash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](./../contracts/index.md), we can define a block as being "available" if the validating light node can reconstruct the commitment `body_hash`.
+To check that this body is published an Aztec node can reconstruct the `body_hash` from available data. Since we define finality as the point where the block is validated and included in the state of the [validating light node](../cross-chain-communication/index.md), we can define a block as being "available" if the validating light node can reconstruct the commitment `body_hash`.
 
 Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full tree. We can do so by building merkle trees of partial "commitments", whose roots are ultimately computed in the final root rollup circuit. The `body_hash` is then computed from the roots of these trees, together with incoming messages.
 Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction. While the `TxsHash` implicitly includes the `l2_to_l1_msgs` we construct it separately since the `l2_to_l1_msgs` must be available to the L1 contract directly and not just proven available. This is not a concern when using L1 calldata as the data layer, but is a concern when using alternative data layers such as [Celestia](https://celestia.org/) or [Blobs](https://eips.ethereum.org/EIPS/eip-4844).

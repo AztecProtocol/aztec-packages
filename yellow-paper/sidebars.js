@@ -77,13 +77,15 @@ const sidebars = {
         "cryptography/protocol-overview",
       ],
       // Protocol Statements?
-      "Kernel Circuits": [
+      Circuits: [
+        "circuits/high-level-topology",
         "circuits/private-function",
         "circuits/private-kernel-initial",
         "circuits/private-kernel-inner",
         "circuits/private-kernel-reset",
         "circuits/private-kernel-tail",
-        "circuits/public-kernel-iterative",
+        "circuits/public-kernel-initial",
+        "circuits/public-kernel-inner",
         "circuits/public-kernel-tail",
       ],
       "Rollup Circuits": [
