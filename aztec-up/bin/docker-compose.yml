@@ -17,7 +17,7 @@ services:
       ANVIL_PORT: ${ANVIL_PORT:-8545}
 
   aztec:
-    image: "aztecprotocol/aztec-sandbox"
+    image: "aztecprotocol/aztec"
     ports:
       - "${AZTEC_NODE_PORT:-8079}:${AZTEC_NODE_PORT:-8079}"
       - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
@@ -35,4 +35,4 @@ services:
       AZTEC_NODE_PORT: ${AZTEC_NODE_PORT:-8079}
       PXE_PORT: ${PXE_PORT:-8080}
     volumes:
-      - ./log:/usr/src/yarn-project/aztec-sandbox/log:rw
+      - ./log:/usr/src/yarn-project/aztec/log:rw

@@ -24,7 +24,7 @@ import {
 import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { AztecNode } from '@aztec/types';
 
-import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { HDAccount, PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -72,7 +72,7 @@ async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Pro
  * @param aztecNodeConfig - The Aztec Node Config
  * @param hdAccount - Account for publishing L1 contracts
  */
-export async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAccount: HDAccount) {
+export async function deployContractsToL1(aztecNodeConfig: AztecNodeConfig, hdAccount: HDAccount | PrivateKeyAccount) {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractDeploymentEmitter: {
       contractAbi: ContractDeploymentEmitterAbi,

@@ -10,10 +10,10 @@
       "path": "../archiver"
     },
     {
-      "path": "../aztec-node"
+      "path": "../aztec"
     },
     {
-      "path": "../aztec"
+      "path": "../aztec-node"
     },
     {
       "path": "../aztec.js"

@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { LogFn } from '@aztec/foundation/log';
 
 import { LevelDown, default as leveldown } from 'leveldown';
@@ -6,8 +7,6 @@ import { RootDatabase, open } from 'lmdb';
 import { MemDown, default as memdown } from 'memdown';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-
-import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 export const createLevelDown = (path: string) => (leveldown as any)(path) as LevelDown;
@@ -33,7 +32,15 @@ type NodeMetadata = {
  * @returns The database for the aztec node.
  */
 export async function openDb(
-  config: AztecNodeConfig,
+  config: {
+    /** The directory to store the database in. If not specified, a temporary database is used. */
+    dataDirectory?: string;
+    /** The addresses of the Aztec contracts on L1. */
+    l1Contracts: {
+      /** The address of the Aztec rollup contract on L1. */
+      rollupAddress: EthAddress;
+    };
+  },
   log: LogFn,
 ): Promise<[nodeDb: RootDatabase, worldStateDb: LevelUp]> {
   const nodeMetadata: NodeMetadata = {

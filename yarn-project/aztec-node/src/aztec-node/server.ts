@@ -17,7 +17,7 @@ import { computeGlobalsHash, computePublicDataTreeLeafSlot } from '@aztec/circui
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecLmdbStore } from '@aztec/kv-store';
+import { AztecLmdbStore, openDb } from '@aztec/kv-store';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import {
   GlobalVariableBuilder,
@@ -61,7 +61,6 @@ import {
 import { LevelUp } from 'levelup';
 
 import { AztecNodeConfig } from './config.js';
-import { openDb } from './db.js';
 
 /**
  * The aztec node.

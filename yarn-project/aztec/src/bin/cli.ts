@@ -1,17 +1,21 @@
-import { createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { fileURLToPath } from '@aztec/aztec.js';
-import { DebugLogger, LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
-import { createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import { Archiver, LMDBArchiverStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
+import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
+import { createAztecNodeClient, fileURLToPath } from '@aztec/aztec.js';
+import { NULL_KEY } from '@aztec/ethereum';
+import { LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { openDb } from '@aztec/kv-store';
+import { createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import pick from 'lodash.pick';
 import { dirname, resolve } from 'path';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox } from '../sandbox.js';
+import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
 import { startHttpRpcServer } from '../server.js';
 
-const { AZTEC_NODE_PORT = '80', PXE_PORT = '79' } = process.env;
+const { AZTEC_NODE_PORT = '80', PXE_PORT = '79', ARCHIVER_PORT = '80' } = process.env;
 
 const debugLogger = createDebugLogger('aztec:cli');
 
@@ -47,7 +51,7 @@ const parseModuleOptions = (options: string): Record<string, string> => {
  * @param userLog - log function for logging user output.
  * @param debugLogger - logger for logging debug messages.
  */
-export function getProgram(userLog: LogFn /*debugLogger: DebugLogger*/): Command {
+export function getProgram(userLog: LogFn): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
@@ -91,47 +95,95 @@ export function getProgram(userLog: LogFn /*debugLogger: DebugLogger*/): Command
         // get config from options
         const nodeCliOptions = parseModuleOptions(options.node);
         // merge env vars and cli options
-        const nodeConfig = pick({ ...aztecNodeConfigEnvVars, ...nodeCliOptions });
+        const nodeConfig = pick({ ...aztecNodeConfigEnvVars, ...nodeCliOptions }) as AztecNodeConfig;
 
         // if no publisher private key, then use MNEMONIC
-        if (nodeConfig.publisherPrivateKey === undefined) {
-          if (!options.archiver) {
-            // expect archiver url in node config
-            const archiverUrl = nodeCliOptions.archiverUrl;
-            if (!archiverUrl) {
-              throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
-            }
-            nodeConfig.archiverUrl = archiverUrl;
+        if (!options.archiver) {
+          // expect archiver url in node config
+          const archiverUrl = nodeCliOptions.archiverUrl;
+          if (!archiverUrl) {
+            throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
           }
-
-          const node = await createAztecNode(nodeConfig);
-          userLog(`Aztec Node JSON-RPC Server listening on port ${nodeCliOptions.port}`);
-
-          // Create a PXE client that connects to the node
-          if (options.pxe) {
-            const pxe = await createAztecPXE(node);
-            signalHandlers.push(pxe.stop);
-
-            // Start PXE JSON-RPC server
-            startHttpRpcServer(pxe, createPXERpcServer, options.PXE_PORT);
-          }
-
-          signalHandlers.push(node.stop);
+          nodeConfig.archiverUrl = archiverUrl;
         }
 
+        // Deploy contracts if needed
+        if (nodeCliOptions.deployContracts) {
+          let account;
+          if (nodeConfig.publisherPrivateKey === NULL_KEY) {
+            account = mnemonicToAccount(MNEMONIC);
+          } else {
+            account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
+          }
+          await deployContractsToL1(nodeConfig, account);
+        }
+
+        if (!options.sequencer) {
+          nodeConfig.disableSequencer = true;
+        } else if (nodeConfig.publisherPrivateKey === NULL_KEY) {
+          // If we have a sequencer, ensure there's a publisher private key set.
+          const hdAccount = mnemonicToAccount(MNEMONIC);
+          const privKey = hdAccount.getHdKey().privateKey;
+          nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        }
+
+        // P2P enabled by default
+        nodeConfig.p2pEnabled = nodeCliOptions.p2pDisabled !== 'true';
+
+        // Create and start Aztec Node.
+        const node = await createAztecNode(nodeConfig);
+        startHttpRpcServer(node, createAztecNodeRpcServer, nodeCliOptions.port || AZTEC_NODE_PORT);
+        userLog(`Aztec Node JSON-RPC Server listening on port ${nodeCliOptions.port || AZTEC_NODE_PORT}`);
+
+        // Create a PXE client that connects to the node.
         if (options.pxe) {
-          // get env vars first
-          const pxeConfigEnvVars = getPXEServiceConfig();
-          // get config from options
           const pxeCliOptions = parseModuleOptions(options.pxe);
-          // merge env vars and cli options
-          const pxeConfig = pick({ ...pxeConfigEnvVars, ...pxeCliOptions });
+          const pxe = await createAztecPXE(node);
+          signalHandlers.push(pxe.stop);
 
-          const pxe = createPXERpcServer(pxeConfig);
-          // userLog(`PXE JSON-RPC Server listening on port ${pxeOptions.port}`);
+          // Start PXE JSON-RPC server.
+          startHttpRpcServer(pxe, createPXERpcServer, pxeCliOptions.port || PXE_PORT);
         }
-        installSignalHandlers(signalHandlers);
+
+        signalHandlers.push(node.stop);
+      } else if (options.pxe) {
+        // Starting a PXE with a remote node.
+        // get env vars first
+        const pxeConfigEnvVars = getPXEServiceConfig();
+        // get config from options
+        const pxeCliOptions = parseModuleOptions(options.pxe);
+
+        // throw if no Aztec Node URL is provided
+        if (!pxeCliOptions.nodeUrl) {
+          throw new Error('Aztec Node URL (nodeUrl) option is required to start PXE without --node option');
+        }
+
+        // merge env vars and cli options
+        const pxeConfig = pick({ ...pxeConfigEnvVars, ...pxeCliOptions });
+
+        const node = createAztecNodeClient(pxeCliOptions.nodeUrl);
+
+        const pxe = await createPXEService(node, pxeConfig);
+        signalHandlers.push(pxe.stop);
+        // Start PXE JSON-RPC server
+        startHttpRpcServer(pxe, createPXERpcServer, pxeCliOptions.port || PXE_PORT);
+        userLog(`PXE JSON-RPC Server listening on port ${pxeCliOptions.port || PXE_PORT}`);
+      } else if (options.archiver) {
+        // Start a standalone archiver.
+        // get env vars first
+        const archiverConfigEnvVars = getConfigEnvVars();
+        // get config from options
+        const archiverCliOptions = parseModuleOptions(options.pxe);
+        // merge env vars and cli options
+        const archiverConfig = pick({ ...archiverConfigEnvVars, ...archiverCliOptions });
+
+        const [nodeDb] = await openDb(archiverConfig, debugLogger);
+        const archiverStore = new LMDBArchiverStore(nodeDb, archiverConfig.maxLogs);
+
+        const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
+        startHttpRpcServer(archiver, createArchiverRpcServer, archiverCliOptions.port || ARCHIVER_PORT);
       }
+      installSignalHandlers(debugLogger, signalHandlers);
     });
   return program;
 }
