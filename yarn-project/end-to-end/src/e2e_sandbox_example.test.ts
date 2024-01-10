@@ -1,4 +1,6 @@
 // docs:start:imports
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   ExtendedNote,
   Fr,
@@ -8,9 +10,7 @@ import {
   computeMessageSecretHash,
   createDebugLogger,
   createPXEClient,
-  getSandboxAccountsWallets,
-  getSchnorrAccount,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
@@ -28,7 +28,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     const nodeInfo = await pxe.getNodeInfo();
 
@@ -45,7 +45,7 @@ describe('e2e_sandbox_example', () => {
     // docs:start:load_accounts
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
-    const accounts = await getSandboxAccountsWallets(pxe);
+    const accounts = await getDeployedTestAccountsWallets(pxe);
     const aliceWallet = accounts[0];
     const bobWallet = accounts[1];
     const alice = aliceWallet.getAddress();
@@ -61,7 +61,7 @@ describe('e2e_sandbox_example', () => {
     logger(`Deploying token contract...`);
 
     // Deploy the contract and set Alice as the admin while doing so
-    const contract = await TokenContract.deploy(aliceWallet, alice).send().deployed();
+    const contract = await TokenContract.deploy(aliceWallet, alice, 'TokenName', 'TokenSymbol', 18).send().deployed();
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
 
     // Create the contract abstraction and link it to Alice's wallet for future signing
@@ -167,7 +167,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     // docs:start:create_accounts
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////

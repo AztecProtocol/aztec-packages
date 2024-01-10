@@ -49,6 +49,8 @@ This command does a few things to manage updates:
 - It looks for `Nargo.toml` at the `--contract` paths specified and updates all `aztec.nr` dependencies to the versions the sandbox expects.
 - It outputs the changes.
 
+You can specify a version to update to with the `--aztec-version` flag, but it defaults to `latest` so this is typically not necessary.
+
 :::info
 
 The update command won't update the CLI itself. To update these follow the [updating instructions which point to our curl command](./sandbox-reference.md#with-docker).
