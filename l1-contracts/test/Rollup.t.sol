@@ -55,7 +55,6 @@ contract RollupTest is DecoderBase {
   function testConsecutiveEmptyBlocks() public {
     _testBlock("empty_block_0");
     _testBlock("empty_block_1");
-
   }
 
   function testRevertInvalidChainId() public {
