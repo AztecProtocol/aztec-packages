@@ -1,8 +1,15 @@
 import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
-import { AccountWallet, waitForAccountSynch } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  ExtendedNote,
+  Note,
+  TxHash,
+  computeMessageSecretHash,
+  waitForAccountSynch,
+} from '@aztec/aztec.js';
 import { CompleteAddress, EthAddress, Fq, Fr } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts/EasyPrivateToken';
+import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -48,11 +55,29 @@ describe('Aztec persistence', () => {
     const ownerWallet = await getUnsafeSchnorrAccount(initialContext.pxe, ownerPrivateKey, Fr.ZERO).waitDeploy();
     ownerAddress = ownerWallet.getCompleteAddress();
 
-    const deployer = EasyPrivateTokenContract.deploy(ownerWallet, 1000n, ownerWallet.getAddress());
+    const deployer = TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), 'Test token', 'TEST', 2);
     await deployer.simulate({});
 
     const contract = await deployer.send().deployed();
     contractAddress = contract.completeAddress;
+
+    const secret = Fr.random();
+
+    const mintTx = contract.methods.mint_private(1000n, computeMessageSecretHash(secret));
+    await mintTx.simulate();
+    const mintTxReceipt = await mintTx.send().wait();
+
+    await addPendingShieldNoteToPXE(
+      ownerWallet,
+      contractAddress,
+      1000n,
+      computeMessageSecretHash(secret),
+      mintTxReceipt.txHash,
+    );
+
+    const redeemTx = contract.methods.redeem_shield(ownerAddress.address, 1000n, secret);
+    await redeemTx.simulate();
+    await redeemTx.send().wait();
 
     await initialContext.teardown();
   }, 100_000);
@@ -72,37 +97,57 @@ describe('Aztec persistence', () => {
     ],
   ])('%s', (_, contextSetup, timeout) => {
     let ownerWallet: AccountWallet;
-    let contract: EasyPrivateTokenContract;
+    let contract: TokenContract;
 
     beforeEach(async () => {
       context = await contextSetup();
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, ownerPrivateKey);
-      contract = await EasyPrivateTokenContract.at(contractAddress.address, ownerWallet);
+      contract = await TokenContract.at(contractAddress.address, ownerWallet);
     }, timeout);
 
     afterEach(async () => {
       await context.teardown();
     });
 
-    it('correctly restores balances', async () => {
+    it('correctly restores private notes', async () => {
       // test for >0 instead of exact value so test isn't dependent on run order
-      await expect(contract.methods.getBalance(ownerWallet.getAddress()).view()).resolves.toBeGreaterThan(0n);
+      await expect(contract.methods.balance_of_private(ownerWallet.getAddress()).view()).resolves.toBeGreaterThan(0n);
+    });
+
+    it('correctly restores public storage', async () => {
+      await expect(contract.methods.total_supply().view()).resolves.toBeGreaterThan(0n);
     });
 
     it('tracks new notes for the owner', async () => {
-      const balance = await contract.methods.getBalance(ownerWallet.getAddress()).view();
-      await contract.methods.mint(1000n, ownerWallet.getAddress()).send().wait();
-      await expect(contract.methods.getBalance(ownerWallet.getAddress()).view()).resolves.toEqual(balance + 1000n);
+      const balance = await contract.methods.balance_of_private(ownerWallet.getAddress()).view();
+
+      const secret = Fr.random();
+      const mintTxReceipt = await contract.methods.mint_private(1000n, computeMessageSecretHash(secret)).send().wait();
+      await addPendingShieldNoteToPXE(
+        ownerWallet,
+        contractAddress,
+        1000n,
+        computeMessageSecretHash(secret),
+        mintTxReceipt.txHash,
+      );
+
+      await contract.methods.redeem_shield(ownerWallet.getAddress(), 1000n, secret).send().wait();
+
+      await expect(contract.methods.balance_of_private(ownerWallet.getAddress()).view()).resolves.toEqual(
+        balance + 1000n,
+      );
     });
 
-    it('allows transfers of tokens from owner', async () => {
+    it('allows spending of private notes', async () => {
       const otherWallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
 
-      const initialOwnerBalance = await contract.methods.getBalance(ownerWallet.getAddress()).view();
-      await contract.methods.transfer(500n, ownerWallet.getAddress(), otherWallet.getAddress()).send().wait();
+      const initialOwnerBalance = await contract.methods.balance_of_private(ownerWallet.getAddress()).view();
+
+      await contract.methods.transfer(ownerWallet.getAddress(), otherWallet.getAddress(), 500n, Fr.ZERO).send().wait();
+
       const [ownerBalance, targetBalance] = await Promise.all([
-        contract.methods.getBalance(ownerWallet.getAddress()).view(),
-        contract.methods.getBalance(otherWallet.getAddress()).view(),
+        contract.methods.balance_of_private(ownerWallet.getAddress()).view(),
+        contract.methods.balance_of_private(otherWallet.getAddress()).view(),
       ]);
 
       expect(ownerBalance).toEqual(initialOwnerBalance - 500n);
@@ -143,14 +188,16 @@ describe('Aztec persistence', () => {
       await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
-      const contract = await EasyPrivateTokenContract.at(contractAddress.address, wallet);
-      await expect(contract.methods.getBalance(ownerAddress.address).view()).rejects.toThrowError(/Unknown contract/);
+      const contract = await TokenContract.at(contractAddress.address, wallet);
+      await expect(contract.methods.balance_of_private(ownerAddress.address).view()).rejects.toThrowError(
+        /Unknown contract/,
+      );
     });
 
-    it("pxe does not have owner's notes", async () => {
+    it("pxe does not have owner's private notes", async () => {
       await context.pxe.addContracts([
         {
-          artifact: EasyPrivateTokenContract.artifact,
+          artifact: TokenContract.artifact,
           completeAddress: contractAddress,
           portalContract: EthAddress.ZERO,
         },
@@ -158,14 +205,29 @@ describe('Aztec persistence', () => {
       await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
-      const contract = await EasyPrivateTokenContract.at(contractAddress.address, wallet);
-      await expect(contract.methods.getBalance(ownerAddress.address).view()).resolves.toEqual(0n);
+      const contract = await TokenContract.at(contractAddress.address, wallet);
+      await expect(contract.methods.balance_of_private(ownerAddress.address).view()).resolves.toEqual(0n);
+    });
+
+    it('has access to public storage', async () => {
+      await context.pxe.addContracts([
+        {
+          artifact: TokenContract.artifact,
+          completeAddress: contractAddress,
+          portalContract: EthAddress.ZERO,
+        },
+      ]);
+
+      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
+      const contract = await TokenContract.at(contractAddress.address, wallet);
+
+      await expect(contract.methods.total_supply().view()).resolves.toBeGreaterThan(0n);
     });
 
     it('pxe restores notes after registering the owner', async () => {
       await context.pxe.addContracts([
         {
-          artifact: EasyPrivateTokenContract.artifact,
+          artifact: TokenContract.artifact,
           completeAddress: contractAddress,
           portalContract: EthAddress.ZERO,
         },
@@ -173,12 +235,27 @@ describe('Aztec persistence', () => {
 
       await context.pxe.registerAccount(ownerPrivateKey, ownerAddress.partialAddress);
       const ownerWallet = await getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerAddress).getWallet();
-      const contract = await EasyPrivateTokenContract.at(contractAddress.address, ownerWallet);
+      const contract = await TokenContract.at(contractAddress.address, ownerWallet);
 
       await waitForAccountSynch(context.pxe, ownerAddress, { interval: 1, timeout: 10 });
 
       // check that notes total more than 0 so that this test isn't dependent on run order
-      await expect(contract.methods.getBalance(ownerAddress.address).view()).resolves.toBeGreaterThan(0n);
+      await expect(contract.methods.balance_of_private(ownerAddress.address).view()).resolves.toBeGreaterThan(0n);
     });
   });
 });
+
+async function addPendingShieldNoteToPXE(
+  wallet: AccountWallet,
+  asset: CompleteAddress,
+  amount: bigint,
+  secretHash: Fr,
+  txHash: TxHash,
+) {
+  // The storage slot of `pending_shields` is 5.
+  // TODO AlexG, this feels brittle
+  const storageSlot = new Fr(5);
+  const note = new Note([new Fr(amount), secretHash]);
+  const extendedNote = new ExtendedNote(note, wallet.getAddress(), asset.address, storageSlot, txHash);
+  await wallet.addNote(extendedNote);
+}
