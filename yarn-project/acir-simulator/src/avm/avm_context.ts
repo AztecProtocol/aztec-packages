@@ -1,18 +1,16 @@
-import { Fr } from "@aztec/foundation/fields";
-
+import { Fr } from '@aztec/foundation/fields';
 
 export class AvmContext {
-
   public readonly calldata: Fr[];
-  private returnData: Fr[]; 
-  
+  private returnData: Fr[];
+
   // TODO: implement tagged memory
   public memory: Fr[];
 
   public pc: number;
   public callStack: number[];
 
-  constructor( calldata: Fr[]) {
+  constructor(calldata: Fr[]) {
     this.calldata = calldata;
     this.returnData = [];
     this.memory = [];

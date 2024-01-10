@@ -1,4 +1,3 @@
-
 /**
  * All avm opcodes
  */
@@ -23,7 +22,7 @@ export enum Opcodes {
   MOV,
   CMOV,
   CALLDATACOPY,
-  
+
   // Logs
   EMITNOTEHASH,
   EMITNULLIFIER,
@@ -58,7 +57,7 @@ export enum Opcodes {
   PUBLICDATAROOT,
   GLOBALSHASH,
   BLOCKSROOT, // TODO: are these the same
-  GRANDROOT, 
+  GRANDROOT,
 
   // Call context
   ORIGIN,
@@ -74,5 +73,5 @@ export enum Opcodes {
 
   // Black box
   KECCAK,
-  POSEIDON
+  POSEIDON,
 }

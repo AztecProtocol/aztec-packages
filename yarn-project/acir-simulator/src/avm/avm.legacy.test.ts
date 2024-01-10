@@ -25,7 +25,6 @@
 //   nestedCallBytecode,
 // } from './fixtures/avm_examples.js';
 
-
 // describe('ACIR public execution simulator', () => {
 //   const log = createDebugLogger('aztec:acir-simulator:vm.test.ts');
 //   let publicState: MockProxy<PublicStateDB>;

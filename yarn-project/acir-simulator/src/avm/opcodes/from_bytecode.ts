@@ -1,17 +1,16 @@
-import { Opcode } from "./opcode.js";
-import { Add, Sub, Mul } from "./arithmetic.js";
+import { Add, Mul, Sub } from './arithmetic.js';
+import { Opcode } from './opcode.js';
 
 export const OPERAND_BIT_LENGTH = 32;
 export const OPERAND_BTYE_LENGTH = 4;
 export const OPCODE_BIT_LENGTH = 8;
 export const OPCODE_BYTE_LENGTH = 1;
 
-
 const OPERANDS_LOOKUP: { [key: number]: number } = {
   0x1: Add.numberOfOperands,
   0x2: Sub.numberOfOperands,
   0x3: Mul.numberOfOperands,
-}
+};
 
 function opcodeLookup(opcode: number, operands: number[]): Opcode {
   switch (opcode) {
@@ -28,10 +27,10 @@ function opcodeLookup(opcode: number, operands: number[]): Opcode {
 
 /**
  * Convert a buffer of bytecode into an array of opcodes
- * @param bytecode - Buffer of bytecode 
+ * @param bytecode - Buffer of bytecode
  * @returns Bytecode interpreted into an ordered array of Opcodes
  */
-export function interpretBytecode(bytecode: Buffer) : Opcode[] {
+export function interpretBytecode(bytecode: Buffer): Opcode[] {
   let readPtr = 0;
   const bytecodeLength = bytecode.length;
 
