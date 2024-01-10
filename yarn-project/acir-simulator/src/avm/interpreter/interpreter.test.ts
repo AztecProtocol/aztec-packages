@@ -5,11 +5,14 @@ import { Opcode } from "../opcodes/opcode.js";
 import { AvmInterpreter } from "./interpreter.js";
 import { AvmContext } from "../avm_context.js";
 import { Return } from "../opcodes/control_flow.js";
+import { AvmStateManager } from "../avm_state_manager.js";
+import { mock } from "jest-mock-extended";
 
 describe("interpreter", () => {
 
     it("Should execute a series of opcodes", () => {
         const calldata: Fr[] = [new Fr(1), new Fr(2)]
+        const stateManager = mock<AvmStateManager>();
 
         const opcodes: Opcode[] = [
             // Copy the first two elements of the calldata to memory regions 0 and 1
@@ -21,7 +24,7 @@ describe("interpreter", () => {
         ]
 
         const context = new AvmContext(calldata);
-        const interpreter = new AvmInterpreter(context, opcodes);
+        const interpreter = new AvmInterpreter(context, stateManager, opcodes);
         const success = interpreter.run();
 
         expect(success).toBe(true);

@@ -2,6 +2,7 @@
 import { Fr } from "@aztec/foundation/fields";
 import { AvmContext } from "../avm_context.js";
 import { Opcode } from "./opcode.js";
+import { AvmStateManager } from "../avm_state_manager.js";
 
 export class Set implements Opcode {
     static type: string = "SET";
@@ -9,7 +10,7 @@ export class Set implements Opcode {
     
     constructor(private constt: bigint, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const dest = new Fr(this.constt);
         context.writeMemory(this.destOffset, dest);
     }
@@ -22,7 +23,7 @@ export class Cast implements Opcode {
     
     constructor(private aOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a = context.readMemory(this.aOffset);
         
         context.writeMemory(this.destOffset, a);
@@ -35,7 +36,7 @@ export class Mov implements Opcode {
     
     constructor(private aOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a = context.readMemory(this.aOffset);
         
         context.writeMemory(this.destOffset, a);
@@ -48,7 +49,7 @@ export class CallDataCopy implements Opcode {
     
     constructor(private cdOffset: number, private copySize: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const calldata = context.calldata.slice(this.cdOffset, this.cdOffset + this.copySize);
         context.writeMemoryChunk(this.destOffset, calldata);
     }

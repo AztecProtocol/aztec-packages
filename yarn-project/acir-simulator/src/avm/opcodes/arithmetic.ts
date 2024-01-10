@@ -1,6 +1,7 @@
 import { Fr } from "@aztec/foundation/fields";
 import { AvmContext } from "../avm_context.js";
 import { Opcode } from "./opcode.js";
+import { AvmStateManager } from "../avm_state_manager.js";
 
 export class Add implements Opcode {
     static type: string = "ADD";
@@ -8,7 +9,7 @@ export class Add implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a = context.readMemory(this.aOffset);
         const b = context.readMemory(this.bOffset);
         
@@ -23,7 +24,7 @@ export class Sub implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a = context.readMemory(this.aOffset);
         const b = context.readMemory(this.bOffset);
         
@@ -38,7 +39,7 @@ export class Mul implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -53,7 +54,7 @@ export class Div implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -68,7 +69,7 @@ export class Eq implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -83,7 +84,7 @@ export class Lt implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -99,7 +100,7 @@ export class Lte implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -115,7 +116,7 @@ export class Shl implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
     
@@ -131,7 +132,7 @@ export class Shr implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
     

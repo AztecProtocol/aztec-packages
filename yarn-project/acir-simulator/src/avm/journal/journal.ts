@@ -11,7 +11,8 @@ export type JournalData = {
 // This persists for an entire block
 // Each transaction should have its own journal that gets appended to this one upon success
 export class AvmJournal {
-    private hostStorage: HostStorage;
+    // TODO: should we make private?
+    public readonly hostStorage: HostStorage;
 
     // We need to keep track of the following 
     // - State reads 

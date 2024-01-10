@@ -1,4 +1,5 @@
 import { AvmContext } from "../avm_context.js";
+import { AvmStateManager } from "../avm_state_manager.js";
 import { Opcode } from "./opcode.js";
 
 export class Return implements Opcode {
@@ -7,7 +8,7 @@ export class Return implements Opcode {
     
     constructor(private returnOffset: number, private copySize: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const returnData = context.readMemoryChunk(this.returnOffset, this.returnOffset + this.copySize);
         context.setReturnData(returnData);
     }

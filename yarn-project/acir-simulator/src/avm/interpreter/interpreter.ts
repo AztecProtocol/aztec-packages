@@ -2,30 +2,23 @@
 import { Fr } from "@aztec/foundation/fields";
 import { AvmContext } from "../avm_context.js";
 import { Opcode } from "../opcodes/index.js";
+import { AvmStateManager } from "../avm_state_manager.js";
 
 // Function that will take in the opcode the interpreter state and the world state - then execute it 
 
+
+
+// TO DEFINE DOES THIS ONLY Interpret a SINGLE CALL FRAME OF THE AVM
 export class AvmInterpreter {
   
   private opcodes: Opcode[] = [];
   private context: AvmContext;
-  // private journal: ContractStorageActionsCollector;
+  private stateManager: AvmStateManager;
 
-  constructor(context: AvmContext, bytecode: Opcode[]) {
+  constructor(context: AvmContext, stateManager: AvmStateManager, bytecode: Opcode[]) {
     this.context = context;
+    this.stateManager = stateManager;
     this.opcodes = bytecode;
-  }
-
-  public static new(context: AvmContext, bytecode: Opcode[]) {
-    return new AvmInterpreter(context, bytecode);
-  }
-
-  public static fromOpcodes(opcodes: Opcode[]) {
-    // No calldata here -> decide which order around this should go
-    const context = new AvmContext([]);
-    const interpreter = new AvmInterpreter(context, opcodes);
-    interpreter.opcodes = opcodes;
-    return interpreter;
   }
 
   /**
@@ -37,7 +30,7 @@ export class AvmInterpreter {
   run(): boolean {
     try {
       for (const opcode of this.opcodes) {
-       opcode.execute(this.context);
+       opcode.execute(this.context, this.stateManager);
       }
       
       return true;

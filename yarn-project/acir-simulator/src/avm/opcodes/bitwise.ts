@@ -1,6 +1,7 @@
 import { Fr } from "@aztec/foundation/fields";
 import { AvmContext } from "../avm_context.js";
 import { Opcode } from "./opcode.js";
+import { AvmStateManager } from "../avm_state_manager.js";
 
 export class And implements Opcode {
     static type: string = "AND";
@@ -8,7 +9,7 @@ export class And implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -24,7 +25,7 @@ export class Or implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -40,7 +41,7 @@ export class Xor implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         const b: Fr = context.readMemory(this.bOffset);
         
@@ -56,7 +57,7 @@ export class Not implements Opcode {
     
     constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-    execute(context: AvmContext): void {
+    execute(context: AvmContext, _stateManager: AvmStateManager): void {
         const a: Fr = context.readMemory(this.aOffset);
         
         // TODO: floor div? - this will not perform field division
