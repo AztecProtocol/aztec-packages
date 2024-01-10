@@ -47,9 +47,23 @@ impl From<CompiledProgram> for ProgramArtifact {
             abi: program.abi,
             noir_version: program.noir_version,
             bytecode: program.circuit,
-            debug_symbols: program.debug_info,
+            debug_symbols: program.debug,
             file_map: program.file_map,
             warnings: program.warnings,
+        }
+    }
+}
+
+impl Into<CompiledProgram> for ProgramArtifact {
+    fn into(self) -> CompiledProgram {
+        CompiledProgram {
+            hash: self.hash,
+            abi: self.abi,
+            noir_version: self.noir_version,
+            circuit: self.bytecode,
+            debug: self.debug_symbols,
+            file_map: self.file_map,
+            warnings: self.warnings,
         }
     }
 }

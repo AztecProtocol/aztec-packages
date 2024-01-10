@@ -5,8 +5,6 @@ use std::path::Path;
 use acvm::ExpressionWidth;
 
 use fm::FileManager;
-use iter_extended::vecmap;
-use nargo::artifacts::contract::{ContractArtifact, ContractFunctionArtifact};
 use nargo::artifacts::program::ProgramArtifact;
 use nargo::errors::CompileError;
 use nargo::insert_all_files_for_workspace_into_file_manager;
@@ -175,19 +173,7 @@ fn compile_program(
     let (mut context, crate_id) = prepare_package(file_manager, package);
 
     let program_artifact_path = workspace.package_build_path(package);
-    let cached_program = if let Ok(program_artifact) = read_program_from_file(program_artifact_path) {
-        Some(CompiledProgram {
-            hash: program_artifact.hash,
-            circuit: program_artifact.bytecode,
-            abi: program_artifact.abi,
-            noir_version: program_artifact.noir_version,
-            debug: program_artifact.debug_symbols,
-            file_map: program_artifact.file_map,
-            warnings: program_artifact.warnings,
-        })
-    } else {
-        None
-    };
+    let cached_program: Option<CompiledProgram> = read_program_from_file(program_artifact_path).map(|p| p.into()).ok();
 
     let force_recompile =
         cached_program.as_ref().map_or(false, |p| p.noir_version != NOIR_ARTIFACT_VERSION_STRING);
@@ -247,31 +233,10 @@ pub(super) fn save_program(
 }
 
 fn save_contract(contract: CompiledContract, package: &Package, circuit_dir: &Path) {
-    // TODO(#1389): I wonder if it is incorrect for nargo-core to know anything about contracts.
-    // As can be seen here, It seems like a leaky abstraction where ContractFunctions (essentially CompiledPrograms)
-    // are compiled via nargo-core and then the ContractArtifact is constructed here.
-    // This is due to EACH function needing it's own CRS, PKey, and VKey from the backend.
-    let functions = vecmap(contract.functions, |func| ContractFunctionArtifact {
-        name: func.name,
-        function_type: func.function_type,
-        is_internal: func.is_internal,
-        abi: func.abi,
-        bytecode: func.bytecode,
-        debug_symbols: func.debug,
-    });
-
-    let contract_artifact = ContractArtifact {
-        noir_version: contract.noir_version,
-        name: contract.name,
-        functions,
-        events: contract.events,
-        file_map: contract.file_map,
-        warnings: contract.warnings,
-    };
-
+    let contract_name = contract.name.clone();
     save_contract_to_file(
-        &contract_artifact,
-        &format!("{}-{}", package.name, contract_artifact.name),
+        &contract.into(),
+        &format!("{}-{}", package.name, contract_name),
         circuit_dir,
     );
 }

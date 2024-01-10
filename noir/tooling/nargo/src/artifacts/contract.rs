@@ -1,6 +1,6 @@
 use acvm::acir::circuit::Circuit;
 use noirc_abi::{Abi, ContractEvent};
-use noirc_driver::{ContractFunction, ContractFunctionType};
+use noirc_driver::{ContractFunction, ContractFunctionType, CompiledContract};
 use serde::{Deserialize, Serialize};
 use noirc_evaluator::errors::SsaReport;
 
@@ -26,6 +26,20 @@ pub struct ContractArtifact {
     /// Compilation warnings.
     pub warnings: Vec<SsaReport>,
 }
+
+impl From<CompiledContract> for ContractArtifact {
+    fn from(contract: CompiledContract) -> Self {
+        ContractArtifact {
+            noir_version: contract.noir_version,
+            name: contract.name,
+            functions: contract.functions.into_iter().map(ContractFunctionArtifact::from).collect(),
+            events: contract.events,
+            file_map: contract.file_map,
+            warnings: contract.warnings,
+        }
+    }
+}
+
 
 /// Each function in the contract will be compiled as a separate noir program.
 ///
@@ -62,7 +76,7 @@ impl From<ContractFunction> for ContractFunctionArtifact {
             is_internal: func.is_internal,
             abi: func.abi,
             bytecode: func.bytecode,
-            debug_symbols: func.debug_symbols,
+            debug_symbols: func.debug,
         }
     }
 }
