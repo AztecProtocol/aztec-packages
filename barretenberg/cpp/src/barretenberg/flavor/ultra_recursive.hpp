@@ -235,6 +235,17 @@ template <typename BuilderType> class UltraRecursive_ {
 
             };
         };
+        RefVector<DataType> get_precomputed()
+        {
+            return { q_m,          q_c,   q_l,      q_r,     q_o,     q_4,     q_arith, q_sort,
+                     q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
+                     id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
+                     lagrange_last
+
+            };
+        }
+
+        RefVector<DataType> get_witness() { return { w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
         RefVector<DataType> get_to_be_shifted()
         {
             return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
@@ -257,6 +268,12 @@ template <typename BuilderType> class UltraRecursive_ {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+        {
+            this->circuit_size = circuit_size;
+            this->log_circuit_size = numeric::get_msb(circuit_size);
+            this->num_public_inputs = num_public_inputs;
+        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -264,8 +281,10 @@ template <typename BuilderType> class UltraRecursive_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment>>(native_key->circuit_size, native_key->num_public_inputs)
         {
+            this->circuit_size = native_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = native_key->num_public_inputs;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -397,8 +416,6 @@ template <typename BuilderType> class UltraRecursive_ {
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
             this->q_lookup = verification_key->q_lookup;
-            this->q_poseidon2_external = verification_key->q_poseidon2_external;
-            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;
             this->sigma_2 = verification_key->sigma_2;
             this->sigma_3 = verification_key->sigma_3;

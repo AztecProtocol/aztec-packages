@@ -25,8 +25,6 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     using Curve = typename Flavor::Curve;
     using ZeroMorph = ::proof_system::honk::pcs::zeromorph::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationParams = ::proof_system::RelationParameters<FF>;
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ::proof_system::honk::VerifierInstance_<Flavor>;
 
@@ -34,9 +32,11 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     transcript = std::make_shared<Transcript>(builder, proof.proof_data);
     auto inst = std::make_unique<Instance>();
 
-    inst->instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
+    auto instance_size = transcript->template receive_from_prover<uint32_t>("instance_size");
+    auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
+    inst->instance_size = static_cast<size_t>(instance_size.get_value());
+    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
     inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
@@ -97,7 +97,5 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
 template class DeciderRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
-
+template class DeciderRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 } // namespace proof_system::plonk::stdlib::recursion::honk

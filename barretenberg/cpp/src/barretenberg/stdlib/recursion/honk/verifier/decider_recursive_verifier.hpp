@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/goblin_ultra_recursive.hpp"
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -33,7 +32,5 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
 
 extern template class DeciderRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
 extern template class DeciderRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-extern template class DeciderRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
-extern template class DeciderRecursiveVerifier_<
-    proof_system::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+extern template class DeciderRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 } // namespace proof_system::plonk::stdlib::recursion::honk

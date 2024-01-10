@@ -454,7 +454,7 @@ class GoblinUltra {
         }
 
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
-                             const WitnessCommitments& witness_commitments)
+                             const WitnessEntities<Commitment>& witness_commitments)
         {
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
