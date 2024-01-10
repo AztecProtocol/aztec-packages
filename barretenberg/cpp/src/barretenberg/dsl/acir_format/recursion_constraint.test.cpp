@@ -97,6 +97,8 @@ Builder create_inner_circuit()
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = { expr_a, expr_b, expr_c, expr_d },
                                    .block_constraints = {} };
@@ -207,9 +209,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .input_aggregation_object = input_aggregation_object,
-            .output_aggregation_object = output_aggregation_object,
-            .nested_aggregation_object = nested_aggregation_object,
         };
         recursion_constraints.push_back(recursion_constraint);
 
@@ -256,6 +255,8 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = recursion_constraints,
                                    .constraints = {},
                                    .block_constraints = {} };
