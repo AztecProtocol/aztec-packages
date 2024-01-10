@@ -238,7 +238,7 @@ export class L1Publisher implements L2BlockReceiver {
 
   /**
    * Verifies that the given value of start state hash equals that on the rollup contract
-   * @param startStateHash The start state hash of the block we wish to publish.
+   * @param startStateHash - The start state hash of the block we wish to publish.
    * @returns Boolean indicating if the hashes are equal.
    */
   private async checkStartStateHash(startStateHash: Buffer): Promise<boolean> {
