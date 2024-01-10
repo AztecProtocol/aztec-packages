@@ -101,7 +101,7 @@ export class NoteProcessor {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const blockContext = l2BlockContexts[blockIndex];
       const block = blockContext.block;
-      const dataStartIndexForBlock = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
+      const dataEndIndexForBlock = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
@@ -111,7 +111,7 @@ export class NoteProcessor {
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
-        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
+        const dataStartIndexForTx = dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
         const newCommitments = block.newCommitments.slice(
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
           (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
