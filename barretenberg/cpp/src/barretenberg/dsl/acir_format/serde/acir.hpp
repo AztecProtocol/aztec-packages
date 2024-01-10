@@ -218,6 +218,9 @@ struct BlockId {
 };
 
 struct Expression {
+    // WORKTODO: should be this:
+    // std::tuple<std::string, Circuit::Witness, Circuit::Witness> mul_term;
+    // WORKTODO: also, why is this string instead of uint256 or field or something
     std::vector<std::tuple<std::string, Circuit::Witness, Circuit::Witness>> mul_terms;
     std::vector<std::tuple<std::string, Circuit::Witness>> linear_combinations;
     std::string q_c;

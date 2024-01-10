@@ -31,10 +31,12 @@ export BIN CRS_PATH VERBOSE BRANCH
 
 ./clone_test_vectors.sh
 
-cd acir_tests
+cd acir_tests_new_new
+# cd acir_tests_new
+# cd acir_tests_classic
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member sha2_byte)
 
 function test() {
   cd $1

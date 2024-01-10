@@ -21,6 +21,11 @@ namespace acir_format {
 
 poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
 {
+    // WORKTODO: Deal with this now?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The zeros for a,b,c are making an implicit
+    // assumption that the 0th variable will be FF(0). Once this is not the case, this might break. Instead it should be
+    // something like zero_idx - but thats a builder member that's not known at this time. Could we do something like
+    // define a pointer to a uint32_t that will eventually hold the right zero_idx and set it later?
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -31,32 +36,75 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
         .q_o = 0,
         .q_c = 0,
     };
-    // Think this never longer than 1?
-    for (const auto& e : arg.mul_terms) {
-        uint256_t qm(std::get<0>(e));
-        uint32_t a = std::get<1>(e).value;
-        uint32_t b = std::get<2>(e).value;
-        pt.q_m = qm;
-        pt.a = a;
-        pt.b = b;
-    }
-    for (const auto& e : arg.linear_combinations) {
-        barretenberg::fr x(uint256_t(std::get<0>(e)));
-        uint32_t witness = std::get<1>(e).value;
 
-        if (pt.a == 0 || pt.a == witness) {
-            pt.a = witness;
-            pt.q_l = x;
-        } else if (pt.b == 0 || pt.b == witness) {
-            pt.b = witness;
-            pt.q_r = x;
-        } else if (pt.c == 0 || pt.c == witness) {
-            pt.c = witness;
-            pt.q_o = x;
+    bool a_set = false;
+    bool b_set = false;
+    bool c_set = false;
+
+    // Handle quadratic term if it exists
+    // info();
+    if (!arg.mul_terms.empty()) {
+        const auto& mul_term = arg.mul_terms[0];
+        pt.q_m = uint256_t(std::get<0>(mul_term));
+        pt.a = std::get<1>(mul_term).value;
+        pt.b = std::get<2>(mul_term).value;
+        a_set = true;
+        b_set = true;
+        // info("MUL!");
+    }
+
+    // WORKTODO: Look at simple_radix. Nearly everything looks correct
+    // except for the w_3 witness index in the poly gates. Its 5 in classic and stays 5 in new.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx check
+    // since we initialize with 0 but 0 is now also a valid witness index.
+    for (const auto& linear_term : arg.linear_combinations) {
+        barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+
+        // info("witness_idx = ", witness_idx);
+
+        if (!a_set || pt.a == witness_idx) {
+            pt.a = witness_idx;
+            pt.q_l = selector_value;
+            a_set = true;
+            // info("IF 0");
+        } else if (!b_set || pt.b == witness_idx) {
+            pt.b = witness_idx;
+            pt.q_r = selector_value;
+            b_set = true;
+            // info("IF 1");
+        } else if (!c_set || pt.c == witness_idx) {
+            pt.c = witness_idx;
+            pt.q_o = selector_value;
+            c_set = true;
+            // info("IF 2");
         } else {
-            throw_or_abort("Cannot assign linear term to a constrain of width 3");
+            throw_or_abort("Cannot assign linear term to a constraint of width 3");
         }
     }
+
+    // for (const auto& linear_term : arg.linear_combinations) {
+    //     barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
+    //     uint32_t witness_idx = std::get<1>(linear_term).value;
+
+    //     // WORKTODO: this is where the problem is
+    //     if (pt.a == 0 || pt.a == witness_idx) {
+    //         pt.a = witness_idx;
+    //         pt.q_l = selector_value;
+    //         info("IF 0");
+    //     } else if (pt.b == 0 || pt.b == witness_idx) {
+    //         pt.b = witness_idx;
+    //         pt.q_r = selector_value;
+    //         info("IF 1");
+    //     } else if (pt.c == 0 || pt.c == witness_idx) {
+    //         pt.c = witness_idx;
+    //         pt.q_o = selector_value;
+    //         info("IF 2");
+    //     } else {
+    //         throw_or_abort("Cannot assign linear term to a constrain of width 3");
+    //     }
+    // }
+
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
@@ -272,7 +320,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     acir_format af;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): this +1 seems to be accounting for the const 0 at
     // the first index in variables
-    af.varnum = circuit.current_witness_index + 1;
+    af.varnum = circuit.current_witness_index;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;
@@ -310,10 +358,17 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     auto w = WitnessMap::WitnessMap::bincodeDeserialize(buf);
     WitnessVector wv;
-    size_t index = 1;
+    size_t index = 1; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Does this need to become 0 once
+                      // we get rid of the +1 offeet in noir?
     for (auto& e : w.value) {
+        // info("MAIN!");
         while (index < e.first.value) {
+            // WORKTODO: this actually appears to be unrelated to the const 0 issue. See 2_div for an example of when
+            // this gets used. It only triggers once (for the last witness) and e.first.value is equal to 16. Ask Kev?
+            // Seems like a mechanism for adding 0s intermittently between known witness values.
             wv.push_back(barretenberg::fr(0)); // TODO(https://github.com/AztecProtocol/barretenberg/issues/816)?
+            // info("IN HERE!");
+            // info("e.first.value = ", e.first.value);
             index++;
         }
         wv.push_back(barretenberg::fr(uint256_t(e.second)));

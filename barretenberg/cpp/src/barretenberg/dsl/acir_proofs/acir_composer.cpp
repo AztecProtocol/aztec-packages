@@ -52,6 +52,38 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
     vinfo("building circuit with witness...");
     builder_ = acir_format::create_circuit(constraint_system, size_hint_, witness);
 
+    // info("\nVARIABLES:");
+    // for (auto& var : builder_.variables) {
+    //     info("variable = ", var);
+    // }
+
+    auto num_gates = builder_.num_gates;
+    info("num_gates = ", num_gates);
+    info("witness.size() = ", witness.size());
+
+    // info("\nPUBLIC INPUT:");
+    // for (uint32_t public_input : builder_.public_inputs) {
+    //     info("PI = ", builder_.get_variable(public_input));
+    // }
+
+    // info("\nWIRES:");
+    // for (size_t i = 0; i < num_gates; ++i) {
+    //     info("w_1 = ", builder_.get_variable(builder_.w_l()[i]));
+    //     info("w_2 = ", builder_.get_variable(builder_.w_r()[i]));
+    //     info("w_3 = ", builder_.get_variable(builder_.w_o()[i]));
+    //     info("w_4 = ", builder_.get_variable(builder_.w_4()[i]));
+    // }
+    // info("\nSELECTORS:");
+    // for (size_t i = 0; i < num_gates; ++i) {
+    //     info("q_1 = ", builder_.q_1()[i]);
+    //     info("q_2 = ", builder_.q_2()[i]);
+    //     info("q_3 = ", builder_.q_3()[i]);
+    //     info("q_4 = ", builder_.q_4()[i]);
+    //     info("q_c = ", builder_.q_c()[i]);
+    //     info("q_m = ", builder_.q_m()[i]);
+    //     info("q_arith = ", builder_.q_arith()[i]);
+    // }
+
     vinfo("gates: ", builder_.get_total_circuit_size());
 
     auto composer = [&]() {
