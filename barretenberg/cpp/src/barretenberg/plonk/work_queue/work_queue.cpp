@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-// #define DEBUG_TIMING
+
 namespace proof_system::plonk {
 
 using namespace barretenberg;
@@ -201,11 +201,6 @@ void work_queue::add_to_queue(const work_item& item)
 
 void work_queue::process_queue()
 {
-#ifdef DEBUG_TIMING
-    info("work queue time: ");
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-#endif
-
     for (const auto& item : work_item_queue) {
         switch (item.work_type) {
         // most expensive op
@@ -284,12 +279,6 @@ void work_queue::process_queue()
         }
         }
     }
-#ifdef DEBUG_TIMING
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cerr << "                 " << diff.count() << "ms" << std::endl;
-#endif
-
     work_item_queue = std::vector<work_item>();
 }
 
