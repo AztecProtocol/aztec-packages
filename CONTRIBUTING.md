@@ -23,6 +23,7 @@ When opening the pull request you will be presented with a template and a series
 If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue)!
 
 ## Pull request checklist:
+- I've provided a paragraph or two giving a summary of the change in the description, including relevant motivation and context.
 - I've enabled auto-merge if the PR is ready to merge.
 - I have updated the yellow paper when making changes to associated functionality (e.g. outward-facing spec changes).
 - I have reviewed my diff in github, line by line and removed unexpected formatting changes, testing logs, or commented-out code.
