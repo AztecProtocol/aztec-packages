@@ -115,7 +115,8 @@ export class NoteProcessor {
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
-        const dataStartIndexForTx = dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
+        const dataStartIndexForTx =
+          dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
         const newCommitments = block.newCommitments.slice(
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
           (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
