@@ -957,11 +957,11 @@ struct PublicInputs {
 
 struct Circuit {
     uint32_t current_witness_index;
-    std::vector<Circuit::Opcode> opcodes;
-    std::vector<Circuit::Witness> private_parameters;
-    Circuit::PublicInputs public_parameters;
-    Circuit::PublicInputs return_values;
-    std::vector<std::tuple<Circuit::OpcodeLocation, std::string>> assert_messages;
+    std::vector<Opcode> opcodes;
+    std::vector<Witness> private_parameters;
+    PublicInputs public_parameters;
+    PublicInputs return_values;
+    std::vector<std::tuple<OpcodeLocation, std::string>> assert_messages;
 
     friend bool operator==(const Circuit&, const Circuit&);
     std::vector<uint8_t> bincodeSerialize() const;
