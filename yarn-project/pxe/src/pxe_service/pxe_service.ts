@@ -383,10 +383,6 @@ export class PXEService implements PXE {
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    if (!this.running) {
-      throw new Error('PXE Service is not running');
-    }
-
     const txHash = await tx.getTxHash();
     if (await this.node.getTx(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
