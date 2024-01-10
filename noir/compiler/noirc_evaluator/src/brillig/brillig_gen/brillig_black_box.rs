@@ -58,6 +58,20 @@ pub(crate) fn convert_black_box_call(
                 unreachable!("ICE: Keccak256 expects message, message size and result array")
             }
         }
+        BlackBoxFunc::Keccakf1600 => {
+            if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
+                (function_arguments, function_results)
+            {
+                let state_vector = convert_array_or_vector(brillig_context, message, bb_func);
+
+                brillig_context.black_box_op_instruction(BlackBoxOp::Keccakf1600 {
+                    message: state_vector.to_heap_vector(),
+                    output: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!("ICE: Keccakf1600 expects one array argument and one array result")
+            }
+        }
         BlackBoxFunc::EcdsaSecp256k1 => {
             if let (
                 [BrilligVariable::BrilligArray(public_key_x), BrilligVariable::BrilligArray(public_key_y), BrilligVariable::BrilligArray(signature), message],
@@ -171,8 +185,7 @@ pub(crate) fn convert_black_box_call(
         }
         BlackBoxFunc::EmbeddedCurveAdd => {
             if let (
-                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y),
-                BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y), BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
@@ -188,7 +201,7 @@ pub(crate) fn convert_black_box_call(
                     "ICE: EmbeddedCurveAdd expects four register arguments and one array result"
                 )
             }
-        }       
+        }
         BlackBoxFunc::EmbeddedCurveDouble => {
             if let (
                 [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
@@ -220,9 +233,6 @@ pub(crate) fn convert_black_box_call(
         ),
         BlackBoxFunc::Blake3 => {
             unimplemented!("ICE: `BlackBoxFunc::Blake3` is not implemented by the Brillig VM")
-        }
-        BlackBoxFunc::Keccakf1600 => {
-            unimplemented!("ICE: `BlackBoxFunc::Keccakf1600` is not implemented by the Brillig VM")
         }
     }
 }
