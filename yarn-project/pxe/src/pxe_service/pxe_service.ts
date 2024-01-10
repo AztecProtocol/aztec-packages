@@ -76,6 +76,7 @@ export class PXEService implements PXE {
   // serialize synchronizer and calls to simulateTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
+  private running = false;
 
   constructor(
     private keyStore: KeyStore,
@@ -88,8 +89,9 @@ export class PXEService implements PXE {
     this.synchronizer = new Synchronizer(node, db, this.jobQueue, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db, node);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
-
     this.nodeVersion = getPackageInfo().version;
+
+    this.jobQueue.start();
   }
 
   /**
@@ -99,14 +101,11 @@ export class PXEService implements PXE {
    */
   public async start() {
     const { l2BlockPollingIntervalMS } = this.config;
-    this.synchronizer.start(1, l2BlockPollingIntervalMS);
-    this.jobQueue.start();
-    this.log.info('Started Job Queue');
-    await this.jobQueue.syncPoint();
-    this.log.info('Synced Job Queue');
+    await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
+    this.running = true;
   }
 
   private async restoreNoteProcessors() {
@@ -115,11 +114,18 @@ export class PXEService implements PXE {
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
+    let count = 0;
     for (const address of registeredAddresses) {
       if (!publicKeysSet.has(address.publicKey.toString())) {
         continue;
       }
+
+      count++;
       this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
+
+    if (count > 0) {
+      this.log(`Restored ${count} accounts`);
     }
   }
 
@@ -207,9 +213,11 @@ export class PXEService implements PXE {
     const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
+      const contractAztecAddress = contract.completeAddress.address;
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
+      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
+      await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
     }
   }
 
@@ -347,6 +355,9 @@ export class PXEService implements PXE {
     if (txRequest.functionData.isInternal === undefined) {
       throw new Error(`Unspecified internal are not allowed`);
     }
+    if (!this.running) {
+      throw new Error('PXE Service is not running');
+    }
 
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
@@ -387,6 +398,10 @@ export class PXEService implements PXE {
     to: AztecAddress,
     _from?: AztecAddress,
   ): Promise<DecodedReturn> {
+    if (!this.running) {
+      throw new Error('PXE Service is not running');
+    }
+
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.

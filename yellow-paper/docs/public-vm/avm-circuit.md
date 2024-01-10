@@ -7,7 +7,7 @@ sidebar_position: 1
 ## Call pointer
 Each message call processed within a single VM circuit execution is assigned a unique **call pointer**. There is certain information that must be tracked by the VM circuit on a per-call basis. For example, each call will correspond to the execution of a different contract's bytecode, and each call will access call-specific memory. As a per-call unique identifier, call pointer enables bytecode and memory lookups, among other things, on a per-call basis.
 
-Call pointers are assigned based on execution order. A request's initial message call is assigned call pointer of `1`. The first nested message call encountered during execution is assigned call pointer of `1`. The VM circuit tracks the highest call pointer assigned thus far, and whenever a nested call instruction is encountered, it increments that value and assigns the result to that call.
+Call pointers are assigned based on execution order. A request's initial message call is assigned call pointer of `1`. The first nested message call encountered during execution is assigned call pointer of `2`. The VM circuit tracks the highest call pointer assigned thus far, and whenever a nested call instruction is encountered, it increments that value and assigns the result to that call.
 
 ### "Input" and "output" call pointers
 It is important to note that the initial call's pointer is `1`, not `0`. The zero call pointer is a special case known as the "input" call pointer.
@@ -84,11 +84,6 @@ AvmSideEffects {
     newNullifiers,
     newL2ToL1Messages,
     unencryptedLogs,
-}
-AvmGasResults {
-    l1GasLeft,
-    l2GasLeft,
-    daGasLeft,
 }
 AvmPublicInputs {
     initialEnvironment: ExecutionEnvironment & {l1GasLeft, l2GasLeft, daGasLeft},
