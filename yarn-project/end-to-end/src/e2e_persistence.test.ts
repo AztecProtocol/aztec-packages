@@ -1,4 +1,8 @@
-import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
+import {
+  SingleKeyAccountContractArtifact,
+  getUnsafeSchnorrAccount,
+  getUnsafeSchnorrWallet,
+} from '@aztec/accounts/single_key';
 import {
   AccountWallet,
   ExtendedNote,
@@ -21,13 +25,14 @@ describe('Aztec persistence', () => {
   /**
    * These tests check that the Aztec Node and PXE can be shutdown and restarted without losing data.
    *
-   * There are four scenarios to check:
+   * There are five scenarios to check:
    * 1. Node and PXE are started with an existing databases
    * 2. PXE is started with an existing database and connects to a Node with an empty database
    * 3. PXE is started with an empty database and connects to a Node with an existing database
    * 4. PXE is started with an empty database and connects to a Node with an empty database
+   * 5. Node and PXE are started with existing databases, but the chain has advanced since they were shutdown
    *
-   * All four scenarios use the same L1 state, which is deployed in the `beforeAll` hook.
+   * All five scenarios use the same L1 state, which is deployed in the `beforeAll` hook.
    */
 
   // the test contract and account deploying it
@@ -241,6 +246,95 @@ describe('Aztec persistence', () => {
 
       // check that notes total more than 0 so that this test isn't dependent on run order
       await expect(contract.methods.balance_of_private(ownerAddress.address).view()).resolves.toBeGreaterThan(0n);
+    });
+  });
+
+  describe('when starting Node and PXE with existing databases, but chain has advanced since they were shutdown', () => {
+    let secret: Fr;
+    let mintTxHash: TxHash;
+    let mintAmount: bigint;
+    let revealedAmount: bigint;
+
+    // The test system is shutdown. Its state is saved to disk
+    // Start a temporary node and PXE, synch it and add the contract and account to it.
+    // Perform some actions with these temporary components to advance the chain
+    // Then shutdown the temporary components and restart the original components
+    // They should sync up from where they left off and be able to see the actions performed by the temporary node & PXE.
+    beforeAll(async () => {
+      const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
+
+      await temporaryContext.pxe.addContracts([
+        {
+          artifact: TokenContract.artifact,
+          completeAddress: contractAddress,
+          portalContract: EthAddress.ZERO,
+        },
+        // manually add owner contract to PXE so that it might be called into
+        {
+          artifact: SingleKeyAccountContractArtifact,
+          completeAddress: ownerAddress,
+          portalContract: EthAddress.ZERO,
+        },
+      ]);
+
+      const ownerAccount = getUnsafeSchnorrAccount(temporaryContext.pxe, ownerPrivateKey, ownerAddress);
+      await ownerAccount.register();
+      const ownerWallet = await ownerAccount.getWallet();
+
+      const contract = await TokenContract.at(contractAddress.address, ownerWallet);
+
+      // mint some tokens with a secret we know and redeem later on a separate PXE
+      secret = Fr.random();
+      mintAmount = 1000n;
+      const mintTxReceipt = await contract.methods
+        .mint_private(mintAmount, computeMessageSecretHash(secret))
+        .send()
+        .wait();
+      mintTxHash = mintTxReceipt.txHash;
+
+      // publicly reveal that I have 1000 tokens
+      revealedAmount = 1000n;
+      await contract.methods.unshield(ownerAddress, ownerAddress, revealedAmount, 0).send().wait();
+
+      // shut everything down
+      await temporaryContext.teardown();
+    }, 100_000);
+
+    let ownerWallet: AccountWallet;
+    let contract: TokenContract;
+
+    beforeEach(async () => {
+      context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
+      ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, ownerPrivateKey);
+      contract = await TokenContract.at(contractAddress.address, ownerWallet);
+
+      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 0.1, timeout: 5 });
+    }, 5000);
+
+    afterEach(async () => {
+      await context.teardown();
+    });
+
+    it("restores owner's public balance", async () => {
+      await expect(contract.methods.balance_of_public(ownerAddress.address).view()).resolves.toEqual(revealedAmount);
+    });
+
+    it('allows consuming transparent note created on another PXE', async () => {
+      // this was created in the temporary PXE in `beforeAll`
+      await addPendingShieldNoteToPXE(
+        ownerWallet,
+        contractAddress,
+        mintAmount,
+        computeMessageSecretHash(secret),
+        mintTxHash,
+      );
+
+      const balanceBeforeRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).view();
+
+      await contract.methods.redeem_shield(ownerWallet.getAddress(), mintAmount, secret).send().wait();
+      const balanceAfterRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).view();
+
+      expect(balanceAfterRedeem).toEqual(balanceBeforeRedeem + mintAmount);
     });
   });
 });
