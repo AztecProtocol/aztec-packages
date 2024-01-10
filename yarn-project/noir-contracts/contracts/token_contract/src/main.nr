@@ -69,14 +69,10 @@ contract Token {
         // docs:start:storage_pending_shields
         pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
         // docs:end:storage_pending_shields
-<<<<<<< HEAD
         public_balances: Map<AztecAddress, PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
-=======
-        public_balances: Map<PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
         symbol: PublicState<FieldCompressedString, 1>,
         name: PublicState<FieldCompressedString, 1>,
         decimals: PublicState<u8, U8_SERIALIZED_LEN>,
->>>>>>> 1fd135cb61a0b0419a339743c2a4fa9890d62720
     }
     // docs:end:storage_struct
 
