@@ -6,7 +6,7 @@ import {
   Note,
   computeMessageSecretHash,
   createPXEClient,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -17,11 +17,13 @@ describe('token', () => {
   let owner, recipient, token;
   beforeAll(async () => {
     const pxe = createPXEClient(PXE_URL);
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe);
     owner = await createAccount(pxe);
     recipient = await createAccount(pxe);
 
-    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress()]).send().deployed();
+    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress(), 'TokenName', 'TKN', 18])
+      .send()
+      .deployed();
 
     const initialBalance = 20n;
     const secret = Fr.random();
