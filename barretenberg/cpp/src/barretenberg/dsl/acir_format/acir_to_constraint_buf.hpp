@@ -24,8 +24,8 @@ namespace acir_format {
  *
  * @param arg acir representation of an 3-wire arithmetic operation
  * @return poly_triple
- * @note In principle Circuit::Expression can accomodate arbitrarily many quadratic and linear terms but in practice the
- * ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
+ * @note In principle Circuit::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
+ * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
  */
 poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
 {
@@ -52,7 +52,7 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     bool c_set = false;
 
     // If necessary, set values for quadratic term (q_m * w_l * w_r)
-    ASSERT(arg.mul_terms.size() <= 1); // We can only accomodate 1 quadratic term
+    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
@@ -64,7 +64,7 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     }
 
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    ASSERT(arg.linear_combinations.size() <= 3); // We can only accomodate 3 linear terms
+    ASSERT(arg.linear_combinations.size() <= 3); // We can only accommodate 3 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
         barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
