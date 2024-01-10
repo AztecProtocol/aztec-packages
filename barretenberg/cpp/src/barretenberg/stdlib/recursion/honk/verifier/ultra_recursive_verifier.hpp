@@ -29,7 +29,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     // TODO(luke): Eventually this will return something like aggregation_state but I'm simplifying for now until we
     // determine the exact interface. Simply returns the two pairing points.
-    PairingPoints verify_proof(const proof_system::honk::proof<NativeFF>& proof);
+    PairingPoints verify_proof(const proof_system::honk::proof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

@@ -16,9 +16,9 @@ MergeVerifier_<Flavor>::MergeVerifier_()
  * queue has been constructed correctly via a simple Schwartz-Zippel check. Evaluations are checked via batched KZG.
  *
  * @tparam Flavor
- * @return honk::proof<FF>&
+ * @return honk::proof&
  */
-template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const honk::proof<FF>& proof)
+template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const honk::proof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
 

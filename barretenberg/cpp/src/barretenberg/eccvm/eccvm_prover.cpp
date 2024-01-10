@@ -274,13 +274,13 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_cons
     translation_batching_challenge_v = transcript->get_challenge("Translation:batching_challenge");
 }
 
-template <ECCVMFlavor Flavor> honk::proof<typename Flavor::FF>& ECCVMProver_<Flavor>::export_proof()
+template <ECCVMFlavor Flavor> honk::proof& ECCVMProver_<Flavor>::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-template <ECCVMFlavor Flavor> honk::proof<typename Flavor::FF>& ECCVMProver_<Flavor>::construct_proof()
+template <ECCVMFlavor Flavor> honk::proof& ECCVMProver_<Flavor>::construct_proof()
 {
     execute_preamble_round();
 

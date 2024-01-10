@@ -35,8 +35,8 @@ class GoblinTranslatorProver {
     BBERG_PROFILE void execute_grand_product_computation_round();
     BBERG_PROFILE void execute_relation_check_rounds();
     BBERG_PROFILE void execute_zeromorph_rounds();
-    honk::proof<FF>& export_proof();
-    honk::proof<FF>& construct_proof();
+    honk::proof& export_proof();
+    honk::proof& construct_proof();
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -54,7 +54,7 @@ class GoblinTranslatorProver {
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
 
   private:
-    honk::proof<FF> proof;
+    honk::proof proof;
 };
 
 } // namespace proof_system::honk

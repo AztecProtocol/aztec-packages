@@ -22,7 +22,7 @@ class AvmMiniVerifier {
     AvmMiniVerifier& operator=(const AvmMiniVerifier& other) = delete;
     AvmMiniVerifier& operator=(AvmMiniVerifier&& other) noexcept;
 
-    bool verify_proof(const honk::proof<FF>& proof);
+    bool verify_proof(const honk::proof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

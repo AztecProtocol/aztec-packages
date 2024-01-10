@@ -1,8 +1,9 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <vector>
 
 namespace proof_system::honk {
 
-template <typename FF> using proof = std::vector<FF>;
+using proof = std::vector<barretenberg::fr>;
 
 } // namespace proof_system::honk

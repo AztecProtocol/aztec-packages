@@ -614,7 +614,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
 
         Transcript() = default;
 
-        Transcript(const honk::proof<FF>& proof)
+        Transcript(const honk::proof& proof)
             : BaseTranscript(proof)
         {}
 

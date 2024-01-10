@@ -19,7 +19,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
  */
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const proof_system::honk::proof<NativeFF>& proof)
+    const proof_system::honk::proof& proof)
 {
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;

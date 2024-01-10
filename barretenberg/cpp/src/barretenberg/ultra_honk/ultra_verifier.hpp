@@ -24,7 +24,7 @@ template <typename Flavor> class UltraVerifier_ {
     UltraVerifier_& operator=(const UltraVerifier_& other) = delete;
     UltraVerifier_& operator=(UltraVerifier_&& other);
 
-    bool verify_proof(const honk::proof<FF>& proof);
+    bool verify_proof(const honk::proof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

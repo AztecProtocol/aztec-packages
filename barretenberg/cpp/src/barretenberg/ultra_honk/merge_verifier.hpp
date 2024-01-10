@@ -33,7 +33,7 @@ template <typename Flavor> class MergeVerifier_ {
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
     explicit MergeVerifier_();
-    bool verify_proof(const honk::proof<FF>& proof);
+    bool verify_proof(const honk::proof& proof);
 };
 
 extern template class MergeVerifier_<honk::flavor::Ultra>;

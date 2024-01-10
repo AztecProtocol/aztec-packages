@@ -24,7 +24,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 
-    PairingPoints verify_proof(const proof_system::honk::proof<NativeFF>& proof);
+    PairingPoints verify_proof(const proof_system::honk::proof& proof);
 };
 
 extern template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;

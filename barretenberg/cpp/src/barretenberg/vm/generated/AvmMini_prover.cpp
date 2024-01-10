@@ -98,13 +98,13 @@ void AvmMiniProver::execute_zeromorph_rounds()
                      transcript);
 }
 
-honk::proof<FF>& AvmMiniProver::export_proof()
+honk::proof& AvmMiniProver::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-proof_system::honk::proof<FF>& AvmMiniProver::construct_proof()
+proof_system::honk::proof& AvmMiniProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

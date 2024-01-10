@@ -538,7 +538,7 @@ class GoblinUltra {
 
         Transcript_() = default;
 
-        Transcript_(const honk::proof<FF>& proof)
+        Transcript_(const honk::proof& proof)
             : BaseTranscript(proof)
         {}
 

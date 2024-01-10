@@ -27,9 +27,9 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<CommitmentKey>& commitm
  * for details (https://github.com/AztecProtocol/barretenberg/issues/746).
  *
  * @tparam Flavor
- * @return honk::proof<FF>&
+ * @return honk::proof&
  */
-template <typename Flavor> honk::proof<typename Flavor::FF>& MergeProver_<Flavor>::construct_proof()
+template <typename Flavor> honk::proof& MergeProver_<Flavor>::construct_proof()
 {
     size_t N = op_queue->get_current_size();
 

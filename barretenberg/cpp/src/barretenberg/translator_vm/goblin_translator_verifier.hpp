@@ -35,7 +35,7 @@ class GoblinTranslatorVerifier {
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
-    bool verify_proof(const honk::proof<FF>& proof);
+    bool verify_proof(const honk::proof& proof);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
 } // namespace proof_system::honk

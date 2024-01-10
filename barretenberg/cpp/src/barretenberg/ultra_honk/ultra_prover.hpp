@@ -35,8 +35,8 @@ template <UltraFlavor Flavor> class UltraProver_ {
     BBERG_PROFILE void execute_relation_check_rounds();
     BBERG_PROFILE void execute_zeromorph_rounds();
 
-    honk::proof<FF>& export_proof();
-    honk::proof<FF>& construct_proof();
+    honk::proof& export_proof();
+    honk::proof& construct_proof();
 
     std::shared_ptr<Instance> instance;
 
@@ -55,7 +55,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
 
   private:
-    honk::proof<FF> proof;
+    honk::proof proof;
 };
 
 extern template class UltraProver_<honk::flavor::Ultra>;

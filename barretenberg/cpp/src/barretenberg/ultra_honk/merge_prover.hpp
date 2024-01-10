@@ -33,10 +33,10 @@ template <typename Flavor> class MergeProver_ {
     explicit MergeProver_(const std::shared_ptr<CommitmentKey>&,
                           const std::shared_ptr<ECCOpQueue>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    BBERG_PROFILE honk::proof<FF>& construct_proof();
+    BBERG_PROFILE honk::proof& construct_proof();
 
   private:
-    honk::proof<FF> proof;
+    honk::proof proof;
 };
 
 extern template class MergeProver_<honk::flavor::Ultra>;
