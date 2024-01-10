@@ -163,7 +163,7 @@ export class Synchronizer {
    * e.g. because we just added a new account.
    *
    * @param limit - the maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
-   * @returns true if there could be more work, false if we're caught up or there was an error.
+   * @returns true if there could be more work, false if there was an error which allows a retry with delay.
    */
   protected async workNoteProcessorCatchUp(limit = 1): Promise<boolean> {
     const toBlockNumber = this.getSynchedBlockNumber();
@@ -197,6 +197,7 @@ export class Synchronizer {
     const from = catchUpGroup[0].status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
     limit = Math.min(limit, toBlockNumber - from + 1);
+    // this.log(`Catching up ${catchUpGroup.length} note processors by up to ${limit} blocks starting at block ${from}`);
 
     if (limit < 1) {
       throw new Error(`Unexpected limit ${limit} for note processor catch up`);
@@ -232,8 +233,17 @@ export class Synchronizer {
         // find the index of the first block that the note processor is not yet synced to
         const index = blockContexts.findIndex(block => block.block.number > noteProcessor.status.syncedToBlock);
         if (index === -1) {
-          throw new Error('No blocks are newer for in processor catch up group');
+          // Due to the limit, we might not have fetched a new enough block for the note processor.
+          // And since the group is sorted, we break as soon as we find a note processor
+          // that needs blocks newer than the newest block we fetched.
+          break;
         }
+
+        this.log.debug(
+          `Catching up note processor ${noteProcessor.publicKey.toString()} by processing ${
+            blockContexts.length - index
+          } blocks`,
+        );
         await noteProcessor.process(blockContexts.slice(index), encryptedLogs.slice(index));
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
@@ -252,7 +262,8 @@ export class Synchronizer {
           this.noteProcessors.push(noteProcessor);
         }
       }
-      return true;
+
+      return true; // could be more work, immediately continue syncing
     } catch (err) {
       this.log.error(`Error in synchronizer workNoteProcessorCatchUp`, err);
       return false;
