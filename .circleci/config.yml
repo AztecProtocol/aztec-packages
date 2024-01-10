@@ -245,7 +245,7 @@ jobs:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
       image: ubuntu-2204:2023.07.2
-    resource_class: small
+    resource_class: medium 
     steps:
       - *checkout
       - *setup_env
