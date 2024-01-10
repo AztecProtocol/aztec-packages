@@ -96,8 +96,8 @@ template <typename Widget> void accumulate_contribution(::benchmark::State& stat
 {
     BasicPlonkKeyAndTranscript data = get_plonk_key_and_transcript();
 
-    using FFTGetter = Widget::FFTGetter;
-    using FFTKernel = Widget::FFTKernel;
+    using FFTGetter = typename Widget::FFTGetter;
+    using FFTKernel = typename Widget::FFTKernel;
 
     auto polynomials = FFTGetter::get_polynomials(data.key.get(), FFTKernel::get_required_polynomial_ids());
     auto challenges = FFTGetter::get_challenges(
