@@ -3,7 +3,6 @@
 // original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage
 #pragma once
 
-#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace crypto {

@@ -12,9 +12,6 @@
 namespace barretenberg {
 
 class Goblin {
-    using Fr = barretenberg::fr;
-    using Fq = barretenberg::fq;
-    using HonkProof = proof_system::honk::proof<Fr>;
 
     using GUHFlavor = proof_system::honk::flavor::GoblinUltra;
     using GoblinUltraCircuitBuilder = proof_system::GoblinUltraCircuitBuilder;
@@ -24,6 +21,23 @@ class Goblin {
     using FF = GUHFlavor::FF;
 
   public:
+    using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
+    using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
+    using Builder = GoblinUltraCircuitBuilder;
+    using Fr = barretenberg::fr;
+    using HonkProof = proof_system::honk::proof;
+    using Transcript = proof_system::honk::BaseTranscript;
+    using OpQueue = proof_system::ECCOpQueue;
+    using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
+    using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
+    using ECCVMComposer = proof_system::honk::ECCVMComposer;
+    using ECCVMProver = proof_system::honk::ECCVMProver_<ECCVMFlavor>;
+    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
+    using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
+    using RecursiveMergeVerifier =
+        proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+    using MergeVerifier = proof_system::honk::MergeVerifier_<GUHFlavor>;
+
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
@@ -56,21 +70,6 @@ class Goblin {
             return result;
         }
     };
-
-    using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
-    using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
-    using Builder = GoblinUltraCircuitBuilder;
-    using Transcript = proof_system::honk::BaseTranscript;
-    using OpQueue = proof_system::ECCOpQueue;
-    using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
-    using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;
-    using ECCVMComposer = proof_system::honk::ECCVMComposer;
-    using ECCVMProver = proof_system::honk::ECCVMProver_<ECCVMFlavor>;
-    using TranslatorBuilder = proof_system::GoblinTranslatorCircuitBuilder;
-    using TranslatorComposer = proof_system::honk::GoblinTranslatorComposer;
-    using RecursiveMergeVerifier =
-        proof_system::plonk::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeVerifier = proof_system::honk::MergeVerifier_<GUHFlavor>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 

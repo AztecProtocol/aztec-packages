@@ -64,10 +64,8 @@ class TranscriptManifest {
 class BaseTranscript {
   public:
     using FF = barretenberg::fr;
-    using Poseidon2Params = std::conditional_t<std::same_as<FF, barretenberg::fr>,
-                                               crypto::Poseidon2Bn254ScalarFieldParams,
-                                               crypto::Poseidon2GrumpkinScalarFieldParams>;
-    using Proof = honk::proof<FF>;
+    using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
+    using Proof = honk::proof;
 
     BaseTranscript() = default;
 
@@ -225,7 +223,7 @@ class BaseTranscript {
      * @param labels human-readable names for the challenges for the manifest
      * @return std::array<FF, num_challenges> challenges for this round.
      */
-    template <typename... Strings> std::array<FF, sizeof...(Strings)> get_challenges(const Strings&... labels)
+    template <typename... Strings> std::array<uint256_t, sizeof...(Strings)> get_challenges(const Strings&... labels)
     {
         constexpr size_t num_challenges = sizeof...(Strings);
 
@@ -235,7 +233,7 @@ class BaseTranscript {
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from bytes.
-        std::array<FF, num_challenges> challenges{};
+        std::array<uint256_t, num_challenges> challenges{};
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
@@ -247,7 +245,7 @@ class BaseTranscript {
             // std::copy_n(next_challenge_buffer.begin(),
             //             HASH_OUTPUT_SIZE / 2,
             //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            challenges[i] = field_element_buffer;
+            challenges[i] = uint256_t(field_element_buffer);
         }
 
         // Prepare for next round.
@@ -342,9 +340,9 @@ class BaseTranscript {
         return verifier_transcript;
     };
 
-    FF get_challenge(const std::string& label)
+    uint256_t get_challenge(const std::string& label)
     {
-        FF result = get_challenges(label)[0];
+        uint256_t result = get_challenges(label)[0];
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
 #endif

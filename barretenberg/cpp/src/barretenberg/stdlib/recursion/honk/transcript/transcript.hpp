@@ -29,7 +29,7 @@ template <typename Builder> class Transcript {
 
     Transcript() = default;
 
-    Transcript(Builder* builder, const proof_system::honk::proof<FF>& proof_data)
+    Transcript(Builder* builder, const proof_system::honk::proof& proof_data)
         : native_transcript(proof_data)
         , builder(builder){};
 
@@ -50,7 +50,7 @@ template <typename Builder> class Transcript {
     {
         // Compute the indicated challenges from the native transcript
         constexpr size_t num_challenges = sizeof...(Strings);
-        std::array<FF, num_challenges> native_challenges{};
+        std::array<uint256_t, num_challenges> native_challenges{};
         native_challenges = native_transcript.get_challenges(labels...);
 
         /*
