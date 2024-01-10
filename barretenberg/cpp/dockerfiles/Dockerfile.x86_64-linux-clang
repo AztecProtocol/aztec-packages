@@ -18,7 +18,6 @@ RUN cmake --preset default
 RUN cmake --build --preset default --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
 
 FROM alpine:3.18
-RUN apk update && apk add curl libstdc++ jq
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci

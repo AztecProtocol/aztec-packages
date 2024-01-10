@@ -240,7 +240,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
 
-  barretenberg-ultra-honk-bench:
+  barretenberg-bench:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -249,8 +249,8 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: |
-            cond_spot_run_container barretenberg-x86_64-linux-clang 32 ./scripts/ci/ultra_honk_bench.sh
+          command: cond_spot_run_build barretenberg-bench 32
+            # cond_spot_run_container barretenberg-x86_64-linux-clang 32 ./scripts/ci/ultra_honk_bench.sh
       - run:
           name: "Upload"
           command: |
@@ -1113,7 +1113,7 @@ workflows:
       - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-sol: *defaults
-      - barretenberg-ultra-honk-bench:
+      - barretenberg-bench:
           requires:
             - barretenberg-x86_64-linux-clang
           <<: *defaults
@@ -1278,7 +1278,7 @@ workflows:
       - bench-process-history: *e2e_test
       - bench-summary:
           requires:
-            - barretenberg-ultra-honk-bench
+            - barretenberg-bench
             - bench-publish-rollup
             - bench-process-history
           <<: *defaults
