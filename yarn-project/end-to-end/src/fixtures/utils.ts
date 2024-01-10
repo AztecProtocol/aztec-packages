@@ -284,7 +284,8 @@ export async function setup(
     return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
   }
 
-  const deployL1ContractsValues = opts.deployL1ContractsValues ?? await setupL1Contracts(config.rpcUrl, hdAccount, logger);
+  const deployL1ContractsValues =
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts.rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
