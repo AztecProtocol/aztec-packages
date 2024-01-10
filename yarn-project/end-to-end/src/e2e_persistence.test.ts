@@ -1,8 +1,4 @@
-import {
-  SingleKeyAccountContractArtifact,
-  getUnsafeSchnorrAccount,
-  getUnsafeSchnorrWallet,
-} from '@aztec/accounts/single_key';
+import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
 import {
   AccountWallet,
   ExtendedNote,
@@ -238,8 +234,9 @@ describe('Aztec persistence', () => {
         },
       ]);
 
-      await context.pxe.registerAccount(ownerPrivateKey, ownerAddress.partialAddress);
-      const ownerWallet = await getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerAddress).getWallet();
+      const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerAddress);
+      await ownerAccount.register();
+      const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenContract.at(contractAddress.address, ownerWallet);
 
       await waitForAccountSynch(context.pxe, ownerAddress, { interval: 1, timeout: 10 });
@@ -267,12 +264,6 @@ describe('Aztec persistence', () => {
         {
           artifact: TokenContract.artifact,
           completeAddress: contractAddress,
-          portalContract: EthAddress.ZERO,
-        },
-        // manually add owner contract to PXE so that it might be called into
-        {
-          artifact: SingleKeyAccountContractArtifact,
-          completeAddress: ownerAddress,
           portalContract: EthAddress.ZERO,
         },
       ]);
