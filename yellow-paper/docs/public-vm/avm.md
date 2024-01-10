@@ -46,18 +46,21 @@ An **execution context** includes the information necessary to initiate AVM exec
 ```
 AvmContext {
     environment: ExecutionEnvironment,
+    calldata: [],
+    bytecode: [],
     machineState: MachineState,
+    memory: [],
     worldState: WorldState,
     accruedSubstate: AccruedSubstate,
     results: MessageCallResults,
 }
 ```
 
-The first two entries, **execution environment** and **machine state**, share the same lifecycle. They contain information pertaining to a single message call and are initialized prior to the start of a call's execution.
+The **execution environment**, **calldata**, **machine state**, and **memory** share the same lifecycle. They contain information pertaining to a single message call and are initialized prior to the start of a call's execution.
 
-> When a nested message call is made, a new environment and machine state are initialized by the caller. In other words, a nested message call has its own environment and machine state which are _partially_ derived from the caller's context.
+> When a nested message call is made, a new environment and machine state are initialized by the caller. In other words, a nested message call has its own environment and machine state which are derived from the caller's context.
 
-The **execution environment** is fully specified by a message call's execution agent and remains constant throughout a call's execution.
+The **execution environment** is fully specified by a message call's execution agent and remains constant throughout a call's execution. The `calldata` and `bytecode` are conceptually part of the execution environment, but are kept separate from the `ExecutionEnvironment` structure as it simplifies the VM's circuit specification and implementation.
 ```
 ExecutionEnvironment {
     address,
@@ -65,48 +68,51 @@ ExecutionEnvironment {
     origin,
     l1GasPrice,
     l2GasPrice,
-    calldata: [],
+    daGasPrice,
     sender,
     portal,
-    bytecode: [],
     blockHeader: BlockHeader,
     globalVariables: PublicGlobalVariables,
     messageCallDepth,
     isStaticCall,
     isDelegateCall,
 }
+calldata: []
+bytecode: [],
 ```
 
-**Machine state** is partially specified by the execution agent, and otherwise begins as empty or uninitialized for each message call. This state is transformed on an instruction-per-instruction basis.
+**Machine state** is partially specified by the execution agent, and otherwise begins as empty or uninitialized for each message call. This state is transformed on an instruction-per-instruction basis. A call's `memory` is conceptually part of the machine state, but is kept separate from the `MachineState` structure as it simplifies the VM's circuit specification and implementation.
+
 ```
 MachineState {
     l1GasLeft,
     l2GasLeft,
+    daGasLeft,
     pc,
-    memory: offset => value,  // uninitialized at start
+    internalCallStack,
 }
+memory: offset => value // all entries are zero at start
 ```
 
 **World state** contains persistable VM state. If a message call succeeds, its world state updates are applied to the calling context (whether that be a parent call's context or the transaction context). If a message call fails, its world state updates are rejected by its caller. When a _transaction_ succeeds, its world state updates persist into future transactions.
 ```
 WorldState {
-    publicStorage: (address, slot) => value,           // read/write
-    noteHashes: (address, index) => noteHash,          // read & append only
-    nullifiers: (address, index) => nullifier,         // read & append only
-    l1l2messageHashes: (address, key) => messageHash,  // read only
-    contracts: (address) => {bytecode, portalAddress}, // read only
+    publicStorage: (address, slot) => value,            // read/write
+    contracts: (address) => {bytecode, portalAddress},  // read only
+    newNoteHashes: [],
+    newNullifiers: [],
 }
 ```
 
 > Note: the notation `key => value` describes a mapping from `key` to `value`.
 
-> Note: each member of the world state is implemented as an independent merkle tree with different properties.
+> Note: `contracts` is read-only because contract deployments are not handled by the AVM
 
 The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls or transactions. Similar to world state, if a message call succeeds, its substate is appended to its calling context, but if it fails its substate is dropped by its caller.
 ```
 AccruedSubstate {
-    logs: [],           // append-only
-    l2toL1Messages: [], // append-only
+    unencryptedLogs: [],
+    l2ToL1Messages: [],
 }
 ```
 
@@ -124,7 +130,10 @@ When AVM execution is initiated for a public execution request, the AVM context 
 ```
 context = AvmContext {
     environment: INITIAL_EXECUTION_ENVIRONMENT,
+    calldata: PublicCallRequest.args,
+    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
     machineState: INITIAL_MACHINE_STATE,
+    memory: empty,
     accruedSubstate: empty,
     worldState: <latest world state>,
     results: INITIAL_MESSAGE_CALL_RESULTS,
@@ -140,10 +149,9 @@ INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
     origin: TxRequest.origin,
     l1GasPrice: TxRequest.l1GasPrice,
     l2GasPrice: TxRequest.l2GasPrice,
-    calldata: PublicCallRequest.args,
+    daGasPrice: TxRequest.daGasPrice,
     sender: PublicCallRequest.CallContext.msgSender,
     portal: PublicCallRequest.CallContext.portalContractAddress,
-    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
     blockHeader: <latest block header>,
     globalVariables: <latest global variable values>
     messageCallDepth: 0,
@@ -154,8 +162,8 @@ INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
 INITIAL_MACHINE_STATE = MachineState {
     l1GasLeft: TxRequest.l1GasLimit,
     l2GasLeft: TxRequest.l2GasLimit,
+    daGasLeft: TxRequest.daGasLimit,
     pc: 0,
-    memory: uninitialized,
     internalCallStack: empty,
 }
 
@@ -165,13 +173,11 @@ INITIAL_MESSAGE_CALL_RESULTS = MessageCallResults {
 }
 ```
 
-> Note: unlike memory in the Ethereum Virtual Machine, uninitialized memory in the AVM is not readable! A memory cell must be written (and therefore [type-tagged](./state-model#types-and-tagged-memory)) before it can be read.
-
 ## Execution
 With an initialized context (and therefore an initial program counter of 0), the AVM can execute a message call starting with the very first instruction in its bytecode.
 
 ### Program Counter and Control Flow
-The program counter (machine state's `pc`) determines which instruction to execute (`instr = environment.bytecode[pc]`). Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
+The program counter (machine state's `pc`) determines which instruction to execute (`instr = bytecode[pc]`). Each instruction's state transition function updates the program counter in some way, which allows the VM to progress to the next instruction at each step.
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./InstructionSet#isa-section-jump), [`JUMPI`](./InstructionSet#isa-section-jumpi), `INTERNALCALL`) modify the program counter based on inputs.
 
@@ -180,10 +186,13 @@ The `INTERNALCALL` instruction jumps to the destination specified by its input (
 > Jump destinations can only be constants from the contract bytecode, or destinations popped from `machineState.internalCallStack`. A jump destination will never originate from main memory.
 
 ### Gas limits and tracking
-Each instruction has an associated `l1GasCost` and `l2GasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
+> Note: see ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
+
+Each instruction has an associated `l1GasCost`, `l2GasCost`, and `daGasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
 ```
 assert machineState.l1GasLeft - instr.l1GasCost > 0
 assert machineState.l2GasLeft - instr.l2GasCost > 0
+assert machineState.daGasLeft - instr.daGasCost > 0
 ```
 > Note: many instructions (like arithmetic operations) have 0 `l1GasCost`. Instructions only incur an L1 cost if they modify world state or accrued substate.
 
@@ -191,20 +200,22 @@ If these assertions pass, the machine state's gas left is decreased prior to the
 ```
 machineState.l1GasLeft -= instr.l1GasCost
 machineState.l2GasLeft -= instr.l2GasCost
+machineState.daGasLeft -= instr.daGasCost
 ```
 
 If either of these assertions _fail_ for an instruction, this triggers an exceptional halt. The gas left is set to 0 and execution reverts.
 ```
 machineState.l1GasLeft = 0
 machineState.l2GasLeft = 0
+machineState.daGasLeft = 0
 ```
 > Reverting and exceptional halts will be covered in more detail [in a later section](#halting).
 
 ### Gas cost notes and examples
 A instruction's gas cost is loosely derived from its complexity. Execution complexity of some instructions changes based on inputs. Here are some examples and important notes:
-- [`JUMP`](./InstructionSet/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost` and `l2GasCost`.
+- [`JUMP`](./InstructionSet/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost`, `l2GasCost`, and `daGasCost`.
 - The [`SET`](./InstructionSet/#isa-section-set) instruction operates on a different sized constant (based on its `dst-type`). Therefore, this instruction's gas cost increases with the size of its input.
-- Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./InstructionSet/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to memory.
+- Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./InstructionSet/#isa-section-calldatacopy) argument which copies `copySize` words from `calldata` to `memory`.
 - The [`CALL`](./InstructionSet/#isa-section-call)/[`STATICCALL`](./InstructionSet/#isa-section-call)/`DELEGATECALL` instruction's gas cost is determined by its `l*Gas` arguments, but any gas unused by the triggered message call is refunded after its completion ([more on this later](#updating-the-calling-context-after-nested-call-halts)).
 - An instruction with "offset" arguments (like [`ADD`](./InstructionSet/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
 
@@ -220,8 +231,9 @@ A normal halt occurs when the VM encounters an explicit halting instruction ([`R
 ```
 machineState.l1GasLeft -= instr.l1GasCost
 machineState.l2GasLeft -= instr.l2GasCost
+machineState.daGasLeft -= instr.daGasCost
 // results.reverted remains false
-results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
+results.output = memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
 ```
 > Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./InstructionSet/#isa-section-return) and [`REVERT`](./InstructionSet/#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
 
@@ -233,21 +245,22 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     ```
     assert machineState.l1GasLeft - instr.l1GasCost > 0
     assert machineState.l2GasLeft - instr.l2GasCost > 0
+    assert machineState.daGasLeft - instr.l2GasCost > 0
     ```
 1. **Invalid instruction encountered**
     ```
-    assert environment.bytecode[machineState.pc].opcode <= MAX_AVM_OPCODE
+    assert bytecode[machineState.pc].opcode <= MAX_AVM_OPCODE
     ```
 1. **Failed memory tag check**
     - Defined per-instruction in the [Instruction Set](./InstructionSet)
 1. **Jump destination past end of bytecode**
     ```
-    assert machineState.pc >= environment.bytecode.length
+    assert machineState.pc >= bytecode.length
     ```
 1. **World state modification attempt during a static call**
     ```
     assert !environment.isStaticCall
-        OR environment.bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
+        OR bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 
@@ -255,6 +268,7 @@ When an exceptional halt occurs, the context is flagged as consuming all off its
 ```
 machineState.l1GasLeft = 0
 machineState.l2GasLeft = 0
+machineState.daGasLeft = 0
 results.reverted = true
 // results.output remains undefined
 ```
@@ -266,9 +280,12 @@ During a message call's execution, an instruction may be encountered that trigge
 ### Context initialization for a nested call
 Initiation of a nested call requires the creation of a new context (or **sub-context**).
 ```
-subContext = AvmContext {
+subContext = AVMContext {
     environment: nestedExecutionEnvironment, // defined below
+    calldata: callingContext.memory[calldataStart:calldataEnd],
+    bytecode: contract.bytecode,
     machineState: nestedMachineState,        // defined below
+    memory: empty,
     worldState: callingContext.worldState,
     accruedSubstate: empty,
     results: INITIAL_MESSAGE_CALL_RESULTS,
@@ -291,10 +308,9 @@ nestedExecutionEnvironment = ExecutionEnvironment {
     origin: callingContext.origin,
     l1GasPrice: callingContext.l1GasPrice,
     l2GasPrice: callingContext.l2GasPrice,
-    calldata: instr.args.calldata,
+    daGasPrice: callingContext.daGasPrice,
     sender: callingContext.address,
     portal: contract.portal,
-    bytecode: contract.bytecode,
     blockHeader: callingContext.blockHeader,
     globalVariables: callingContext.globalVariables,
     messageCallDepth: callingContext.messageCallDepth + 1,
@@ -303,14 +319,14 @@ nestedExecutionEnvironment = ExecutionEnvironment {
 }
 
 nestedMachineState = MachineState {
-    l1GasLeft: callingContext.machineState.memory[instr.args.gasOffset],
-    l2GasLeft: callingContext.machineState.memory[instr.args.gasOffset+1],
+    l1GasLeft: callingContext.memory[instr.args.gasOffset],
+    l2GasLeft: callingContext.memory[instr.args.gasOffset+1],
+    daGasLeft: callingContext.memory[instr.args.gasOffset+2],
     pc: 0,
-    memory: uninitialized,
     internalCallStack: empty,
 }
 ```
-> Note: the sub-context machine state's `l*GasLeft` is initialized based on the call instruction's `gasOffset` argument. The caller allocates some amount of L1 and L2 gas to the nested call. It does so using the instruction's `gasOffset` argument. In particular, prior to the message call instruction, the caller populates `M[gasOffset]` with the sub-context's initial `l1GasLeft`. Likewise it populates `M[gasOffset+1]` with `l2GasLeft`.
+> Note: the sub-context machine state's `l*GasLeft` is initialized based on the call instruction's `gasOffset` argument. The caller allocates some amount of L1, L2, and DA gas to the nested call. It does so using the instruction's `gasOffset` argument. In particular, prior to the message call instruction, the caller populates `M[gasOffset]` with the sub-context's initial `l1GasLeft`. Likewise it populates `M[gasOffset+1]` with `l2GasLeft` and `M[gasOffset+2]` with `daGasLeft`.
 
 > Note: recall that `INITIAL_MESSAGE_CALL_RESULTS` is the same initial value used during [context initialization for a public execution request's initial message call](#context-initialization-for-initial-call).
 > `STATICCALL_OP` and `DELEGATECALL_OP` refer to the 8-bit opcode values for the `STATICCALL` and `DELEGATECALL` instructions respectively.
@@ -320,17 +336,18 @@ When a message call's execution encounters an instruction that itself triggers a
 
 The success or failure of the nested call is captured into memory at the offset specified by the call instruction's `successOffset` input:
 ```
-context.machineState.memory[instr.args.successOffset] = !subContext.results.reverted
+context.memory[instr.args.successOffset] = !subContext.results.reverted
 ```
 
-Recall that a nested call is allocated some gas. In particular, the call instruction's `gasOffset` input points to an L1 and L2 gas allocation for the nested call. As shown in the [section above](#context-initialization-for-a-nested-call), a nested call's `subContext.machineState.l1GasLeft` is initialized to `context.machineState.memory[instr.args.gasOffset]`. Likewise, `l2GasLeft` is initialized from `gasOfffset+1`.
+Recall that a nested call is allocated some gas. In particular, the call instruction's `gasOffset` input points to an L1, L2, and DA gas allocation for the nested call. As shown in the [section above](#context-initialization-for-a-nested-call), a nested call's `subContext.machineState.l1GasLeft` is initialized to `context.memory[instr.args.gasOffset]`. Likewise, `l2GasLeft` is initialized from `gasOffset+1` and `daGasLeft` from `gasOffset+2`.
 
-As detailed in [the gas section above](#gas-cost-notes-and-examples), every instruction has an associated `instr.l1GasCost` and `instr.l2GasCost`. A nested call instruction's cost is the same as its initial `l*GasLeft` and `l2GasLeft`. Prior to the nested call's execution, this cost is subtracted from the calling context's remaining gas.
+As detailed in [the gas section above](#gas-cost-notes-and-examples), every instruction has an associated `instr.l1GasCost`, `instr.l2GasCost`, and `instr.daGasCost`. A nested call instruction's cost is the same as its initial `*GasLeft`. Prior to the nested call's execution, this cost is subtracted from the calling context's remaining gas.
 
 When a nested call completes, any of its allocated gas that remains unused is refunded to the caller.
 ```
 context.l1GasLeft += subContext.machineState.l1GasLeft
 context.l2GasLeft += subContext.machineState.l2GasLeft
+context.daGasLeft += subContext.machineState.daGasLeft
 ```
 
 If a nested call halts normally with a [`RETURN`](./InstructionSet/#isa-section-return) or [`REVERT`](./InstructionSet/#isa-section-revert), it may have some output data (`subContext.results.output`). The caller's `retOffset` and `retSize` arguments to the nested call instruction specify a region in memory to place output data when the nested call returns.
