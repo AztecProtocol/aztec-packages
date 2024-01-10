@@ -79,6 +79,28 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
+        BlackBoxFunc::EcdsaSecp256r1 => {
+            if let (
+                [BrilligVariable::BrilligArray(public_key_x), BrilligVariable::BrilligArray(public_key_y), BrilligVariable::BrilligArray(signature), message],
+                [BrilligVariable::Simple(result_register)],
+            ) = (function_arguments, function_results)
+            {
+                let message_hash_vector =
+                    convert_array_or_vector(brillig_context, message, bb_func);
+                brillig_context.black_box_op_instruction(BlackBoxOp::EcdsaSecp256r1 {
+                    hashed_msg: message_hash_vector.to_heap_vector(),
+                    public_key_x: public_key_x.to_heap_array(),
+                    public_key_y: public_key_y.to_heap_array(),
+                    signature: signature.to_heap_array(),
+                    result: *result_register,
+                });
+            } else {
+                unreachable!(
+                    "ICE: EcdsaSecp256r1 expects four array arguments and one register result"
+                )
+            }
+        }
+
         BlackBoxFunc::PedersenCommitment => {
             if let (
                 [message, BrilligVariable::Simple(domain_separator)],
@@ -147,7 +169,61 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
-        _ => unimplemented!("ICE: Black box function {:?} is not implemented", bb_func),
+        BlackBoxFunc::EmbeddedCurveAdd => {
+            if let (
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y),
+                BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EmbeddedCurveAdd {
+                    input1_x: *input1_x,
+                    input1_y: *input1_y,
+                    input2_x: *input2_x,
+                    input2_y: *input2_y,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: EmbeddedCurveAdd expects four register arguments and one array result"
+                )
+            }
+        }       
+        BlackBoxFunc::EmbeddedCurveDouble => {
+            if let (
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::EmbeddedCurveDouble {
+                    input1_x: *input1_x,
+                    input1_y: *input1_y,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                )
+            }
+        }
+        BlackBoxFunc::AND => {
+            unreachable!("ICE: `BlackBoxFunc::AND` calls should be transformed into a `BinaryOp`")
+        }
+        BlackBoxFunc::XOR => {
+            unreachable!("ICE: `BlackBoxFunc::XOR` calls should be transformed into a `BinaryOp`")
+        }
+        BlackBoxFunc::RANGE => unreachable!(
+            "ICE: `BlackBoxFunc::RANGE` calls should be transformed into a `Instruction::Cast`"
+        ),
+        BlackBoxFunc::RecursiveAggregation => unimplemented!(
+            "ICE: `BlackBoxFunc::RecursiveAggregation` is not implemented by the Brillig VM"
+        ),
+        BlackBoxFunc::Blake3 => {
+            unimplemented!("ICE: `BlackBoxFunc::Blake3` is not implemented by the Brillig VM")
+        }
+        BlackBoxFunc::Keccakf1600 => {
+            unimplemented!("ICE: `BlackBoxFunc::Keccakf1600` is not implemented by the Brillig VM")
+        }
     }
 }
 

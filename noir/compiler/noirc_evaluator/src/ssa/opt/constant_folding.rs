@@ -40,6 +40,7 @@ impl Ssa {
     /// Performs constant folding on each instruction.
     ///
     /// See [`constant_folding`][self] module for more information.
+    #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn fold_constants(mut self) -> Ssa {
         for function in self.functions.values_mut() {
             constant_fold(function);
@@ -186,7 +187,7 @@ mod test {
             instruction::{BinaryOp, Instruction, TerminatorInstruction},
             map::Id,
             types::Type,
-            value::{Value, ValueId},
+            value::Value,
         },
     };
 
@@ -279,11 +280,11 @@ mod test {
 
         let return_value_id = match entry_block.unwrap_terminator() {
             TerminatorInstruction::Return { return_values, .. } => return_values[0],
-            _ => unreachable!(),
+            _ => unreachable!("Should have terminator instruction"),
         };
         let return_element = match &main.dfg[return_value_id] {
             Value::Array { array, .. } => array[0],
-            _ => unreachable!(),
+            _ => unreachable!("Return type should be array"),
         };
         // The return element is expected to refer to the new add instruction result.
         assert_eq!(main.dfg.resolve(new_add_instr_result), main.dfg.resolve(return_element));
@@ -292,7 +293,7 @@ mod test {
     #[test]
     fn instruction_deduplication() {
         // fn main f0 {
-        //   b0(v0: Field):
+        //   b0(v0: u16):
         //     v1 = cast v0 as u32
         //     v2 = cast v0 as u32
         //     constrain v1 v2
@@ -307,7 +308,7 @@ mod test {
 
         // Compiling main
         let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
-        let v0 = builder.add_parameter(Type::field());
+        let v0 = builder.add_parameter(Type::unsigned(16));
 
         let v1 = builder.insert_cast(v0, Type::unsigned(32));
         let v2 = builder.insert_cast(v0, Type::unsigned(32));
@@ -321,7 +322,7 @@ mod test {
         // Expected output:
         //
         // fn main f0 {
-        //   b0(v0: Field):
+        //   b0(v0: u16):
         //     v1 = cast v0 as u32
         // }
         let ssa = ssa.fold_constants();
@@ -331,6 +332,6 @@ mod test {
         assert_eq!(instructions.len(), 1);
         let instruction = &main.dfg[instructions[0]];
 
-        assert_eq!(instruction, &Instruction::Cast(ValueId::test_new(0), Type::unsigned(32)));
+        assert_eq!(instruction, &Instruction::Cast(v0, Type::unsigned(32)));
     }
 }

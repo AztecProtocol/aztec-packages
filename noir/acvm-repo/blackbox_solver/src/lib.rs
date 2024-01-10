@@ -47,6 +47,18 @@ pub trait BlackBoxFunctionSolver {
         low: &FieldElement,
         high: &FieldElement,
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+    fn ec_add(
+        &self,
+        input1_x: &FieldElement,
+        input1_y: &FieldElement,
+        input2_x: &FieldElement,
+        input2_y: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+    fn ec_double(
+        &self,
+        input_x: &FieldElement,
+        input_x: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
 }
 
 pub fn sha256(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
@@ -57,6 +69,10 @@ pub fn sha256(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
 pub fn blake2s(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
     generic_hash_256::<Blake2s256>(inputs)
         .map_err(|err| BlackBoxResolutionError::Failed(BlackBoxFunc::Blake2s, err))
+}
+
+pub fn blake3(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
+    Ok(blake3::hash(inputs).into())
 }
 
 pub fn keccak256(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
