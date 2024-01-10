@@ -1,1 +1,1 @@
-Please read [CONTRIBUTING.md](https://github.com/AztecProtocol/aztec-packages/blob/master/CONTRIBUTING.md) for guidelines. Provide a paragraph or two giving a summary of the change, including relevant motivation and context.
+Please read [CONTRIBUTING.md](https://github.com/AztecProtocol/aztec-packages/blob/master/CONTRIBUTING.md) for guidelines and remove this line.
