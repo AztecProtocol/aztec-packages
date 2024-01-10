@@ -2,9 +2,9 @@ use acvm::acir::circuit::OpcodeLocation;
 use acvm::compiler::AcirTransformationMap;
 
 use base64::Engine;
-use flate2::Compression;
 use flate2::read::DeflateDecoder;
 use flate2::write::DeflateEncoder;
+use flate2::Compression;
 use serde::Deserializer;
 use serde::Serializer;
 use serde_with::serde_as;
@@ -16,7 +16,9 @@ use std::io::Write;
 use std::mem;
 
 use crate::Location;
-use serde::{de::Error as DeserializationError, ser::Error as SerializationError, Deserialize, Serialize};
+use serde::{
+    de::Error as DeserializationError, ser::Error as SerializationError, Deserialize, Serialize,
+};
 
 #[serde_as]
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
@@ -95,7 +97,10 @@ impl DebugInfo {
         counted_opcodes
     }
 
-    pub fn serialize_compressed_base64_json<S>(debug_info: &DebugInfo, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize_compressed_base64_json<S>(
+        debug_info: &DebugInfo,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -109,19 +114,21 @@ impl DebugInfo {
         s.serialize_str(&encoded_b64)
     }
 
-    pub fn deserialize_compressed_base64_json<'de, D>(deserializer: D) -> Result<DebugInfo, D::Error>
+    pub fn deserialize_compressed_base64_json<'de, D>(
+        deserializer: D,
+    ) -> Result<DebugInfo, D::Error>
     where
         D: Deserializer<'de>,
     {
         let encoded_b64: String = Deserialize::deserialize(deserializer)?;
 
-        let compressed_data = base64::prelude::BASE64_STANDARD.decode(&encoded_b64)
-            .map_err(D::Error::custom)?;
-    
+        let compressed_data =
+            base64::prelude::BASE64_STANDARD.decode(&encoded_b64).map_err(D::Error::custom)?;
+
         let mut decoder = DeflateDecoder::new(&compressed_data[..]);
         let mut decompressed_data = Vec::new();
         decoder.read_to_end(&mut decompressed_data).map_err(D::Error::custom)?;
-    
+
         let json_str = String::from_utf8(decompressed_data).map_err(D::Error::custom)?;
         serde_json::from_str(&json_str).map_err(D::Error::custom)
     }

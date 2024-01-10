@@ -1,15 +1,14 @@
 use acvm::acir::circuit::Circuit;
 use noirc_abi::{Abi, ContractEvent};
-use noirc_driver::{ContractFunction, ContractFunctionType, CompiledContract};
-use serde::{Deserialize, Serialize};
+use noirc_driver::{CompiledContract, ContractFunction, ContractFunctionType};
 use noirc_evaluator::errors::SsaReport;
+use serde::{Deserialize, Serialize};
 
 use noirc_driver::DebugFile;
 use noirc_errors::debug_info::DebugInfo;
 use std::collections::BTreeMap;
 
 use fm::FileId;
-
 
 #[derive(Serialize, Deserialize)]
 pub struct ContractArtifact {
@@ -39,7 +38,6 @@ impl From<CompiledContract> for ContractArtifact {
         }
     }
 }
-
 
 /// Each function in the contract will be compiled as a separate noir program.
 ///

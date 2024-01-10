@@ -1,5 +1,3 @@
-
-
 use std::path::Path;
 
 use acvm::ExpressionWidth;
@@ -18,18 +16,13 @@ use noirc_driver::{CompilationResult, CompileOptions, CompiledContract, Compiled
 
 use noirc_frontend::graph::CrateName;
 
-
-
 use clap::Args;
 
 use crate::backends::Backend;
 use crate::errors::CliError;
 
 use super::fs::program::only_acir;
-use super::fs::program::{
-    read_program_from_file, save_contract_to_file,
-    save_program_to_file,
-};
+use super::fs::program::{read_program_from_file, save_contract_to_file, save_program_to_file};
 use super::NargoConfig;
 use rayon::prelude::*;
 
@@ -173,7 +166,8 @@ fn compile_program(
     let (mut context, crate_id) = prepare_package(file_manager, package);
 
     let program_artifact_path = workspace.package_build_path(package);
-    let cached_program: Option<CompiledProgram> = read_program_from_file(program_artifact_path).map(|p| p.into()).ok();
+    let cached_program: Option<CompiledProgram> =
+        read_program_from_file(program_artifact_path).map(|p| p.into()).ok();
 
     let force_recompile =
         cached_program.as_ref().map_or(false, |p| p.noir_version != NOIR_ARTIFACT_VERSION_STRING);
