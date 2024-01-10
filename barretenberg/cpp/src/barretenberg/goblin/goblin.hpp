@@ -60,7 +60,7 @@ class Goblin {
     using GoblinUltraComposer = proof_system::honk::UltraComposer_<GUHFlavor>;
     using GoblinUltraVerifier = proof_system::honk::UltraVerifier_<GUHFlavor>;
     using Builder = GoblinUltraCircuitBuilder;
-    using Transcript = proof_system::honk::BaseTranscript<Fr>;
+    using Transcript = proof_system::honk::BaseTranscript;
     using OpQueue = proof_system::ECCOpQueue;
     using ECCVMFlavor = proof_system::honk::flavor::ECCVM;
     using ECCVMBuilder = proof_system::ECCVMCircuitBuilder<ECCVMFlavor>;

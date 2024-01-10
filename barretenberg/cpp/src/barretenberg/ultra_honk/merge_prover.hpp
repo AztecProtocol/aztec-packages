@@ -23,7 +23,7 @@ template <typename Flavor> class MergeProver_ {
     using Curve = typename Flavor::Curve;
     using OpeningClaim = typename pcs::ProverOpeningClaim<Curve>;
     using OpeningPair = typename pcs::OpeningPair<Curve>;
-    using Transcript = BaseTranscript<FF>;
+    using Transcript = BaseTranscript;
 
   public:
     std::shared_ptr<Transcript> transcript;

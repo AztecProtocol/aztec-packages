@@ -510,7 +510,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    template <typename Commitment> class Transcript_ : public BaseTranscript<FF> {
+    template <typename Commitment> class Transcript_ : public BaseTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -539,7 +539,7 @@ class GoblinUltra {
         Transcript_() = default;
 
         Transcript_(const honk::proof<FF>& proof)
-            : BaseTranscript<FF>(proof)
+            : BaseTranscript(proof)
         {}
 
         void deserialize_full_transcript()

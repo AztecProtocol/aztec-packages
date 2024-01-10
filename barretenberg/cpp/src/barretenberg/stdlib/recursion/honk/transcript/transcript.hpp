@@ -19,7 +19,7 @@ template <typename Builder> class Transcript {
   public:
     using field_ct = field_t<Builder>;
     using FF = barretenberg::fr;
-    using NativeTranscript = proof_system::honk::BaseTranscript<FF>;
+    using NativeTranscript = proof_system::honk::BaseTranscript;
     using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = NativeTranscript::HASH_OUTPUT_SIZE;

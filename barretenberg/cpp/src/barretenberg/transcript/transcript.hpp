@@ -61,8 +61,9 @@ class TranscriptManifest {
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename FF> class BaseTranscript {
+class BaseTranscript {
   public:
+    using FF = barretenberg::fr;
     using Poseidon2Params = std::conditional_t<std::same_as<FF, barretenberg::fr>,
                                                crypto::Poseidon2Bn254ScalarFieldParams,
                                                crypto::Poseidon2GrumpkinScalarFieldParams>;
