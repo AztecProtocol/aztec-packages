@@ -31,10 +31,8 @@ export { NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTre
  */
 export class ConstantRollupData {
   constructor(
-    /**
-     * Snapshot of the blocks tree at the start of the rollup.
-     */
-    public archiveSnapshot: AppendOnlyTreeSnapshot,
+    /** Archive tree snapshot at the very beginning of the entire rollup. */
+    public lastArchive: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -76,7 +74,7 @@ export class ConstantRollupData {
 
   static getFields(fields: FieldsOf<ConstantRollupData>) {
     return [
-      fields.archiveSnapshot,
+      fields.lastArchive,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,

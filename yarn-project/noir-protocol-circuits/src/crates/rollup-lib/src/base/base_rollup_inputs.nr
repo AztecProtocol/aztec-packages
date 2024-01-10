@@ -344,7 +344,7 @@ impl BaseRollupInputs {
     fn perform_archive_membership_checks(self) {
         // For each of the block header (their block hashes), we need to do an inclusion proof
         // against the blocks tree root from the beginning of a rollup provided in the rollup constants
-        let archive_root = self.constants.archive_snapshot.root;
+        let archive_root = self.constants.last_archive.root;
 
         // Rebuild the block hash
         let block_header = self.kernel_data.public_inputs.constants.block_header;
@@ -857,12 +857,12 @@ mod tests {
             };
 
             let start_archive = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; ARCHIVE_HEIGHT], [0; ARCHIVE_HEIGHT - 1], [0; 1]);
-            let archive_snapshot = AppendOnlyTreeSnapshot {
+            let last_archive = AppendOnlyTreeSnapshot {
                 root: start_archive.get_root(),
                 next_available_leaf_index: start_archive.get_next_available_index() as u32,
             };
 
-            self.constants.archive_snapshot = archive_snapshot;
+            self.constants.last_archive = last_archive;
 
             let (
                 low_nullifier_leaf_preimages, 
@@ -901,7 +901,7 @@ mod tests {
                 kernel_data: kernel_data,
                 start,
 
-                archive: archive_snapshot,
+                archive: last_archive,
 
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,

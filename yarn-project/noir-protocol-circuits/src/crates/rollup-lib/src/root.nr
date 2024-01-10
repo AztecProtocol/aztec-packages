@@ -71,7 +71,7 @@ impl RootRollupInputs {
         };
 
         let header = Header {
-            last_archive: left.constants.archive_snapshot,
+            last_archive: left.constants.last_archive,
             body_hash: components::compute_calldata_hash(self.previous_rollup_data),
             state,
             global_variables : left.constants.global_variables
