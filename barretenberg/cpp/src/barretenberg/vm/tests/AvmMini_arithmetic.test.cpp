@@ -637,7 +637,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, subtraction)
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(-9));
+    mutate_ic_in_trace(trace, std::move(select_row), FF(-9), true);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_SUBTRACTION_FF");
 }

@@ -103,10 +103,6 @@ namespace avmMini(256);
     tag_err * ib = 0;
     tag_err * ic = 0;
 
-    // Relation for subtraction over the finite field
-    #[SUBOP_SUBTRACTION_FF]
-    sel_op_sub * (ia - ib - ic) = 0;
-
     // Relation for multiplication over the finite field
     #[SUBOP_MULTIPLICATION_FF]
     sel_op_mul * (ia * ib - ic) = 0;

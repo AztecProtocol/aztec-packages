@@ -49,6 +49,8 @@ namespace aluChip(256);
     //       intermediate registers ia and ib (inputs) depending on flag
     //       Carry flag: We will have to constraint to ensure that the 
     //                   arithmetic expressions are not overflowing finite field size
+    // Remark: Operation selectors are constrained in the main trace.
+    //         TODO: Enforce the equivalence check for the selectors between both tables.
 
     // Boolean flattened instructions tags
     alu_ff_tag * (1 - alu_ff_tag) = 0;
@@ -128,6 +130,10 @@ namespace aluChip(256);
 
     // a - b = c <==> c + b = a (mod 2^k)
     // Same constraints as for addition but we swap alu_ia with alu_ic
+
+    // ff subtraction
+    #[SUBOP_SUBTRACTION_FF]
+    alu_ff_tag * alu_op_sub * (alu_ia - alu_ib - alu_ic) = 0;
 
     // u8 subtraction
     alu_u8_tag * alu_op_sub * (alu_u8_r0 + alu_cf * 2**8 - alu_ic - alu_ib) = 0;
