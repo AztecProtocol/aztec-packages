@@ -1290,6 +1290,7 @@ impl AcirContext {
         inputs: Vec<Witness>,
         warnings: Vec<SsaReport>,
     ) -> GeneratedAcir {
+        self.acir_ir.current_witness_index -= 1;
         self.acir_ir.input_witnesses = inputs;
         self.acir_ir.warnings = warnings;
         self.acir_ir
