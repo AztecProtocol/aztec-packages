@@ -1,5 +1,8 @@
 #include "AvmMini_common.test.hpp"
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
+
+using namespace numeric;
 namespace {
 
 Row common_validate_add(std::vector<Row> const& trace,
@@ -68,6 +71,11 @@ class AvmMiniArithmeticTests : public ::testing::Test {
 
 class AvmMiniArithmeticTestsFF : public AvmMiniArithmeticTests {};
 class AvmMiniArithmeticTestsU8 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsU16 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsU32 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsU64 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticTestsU128 : public AvmMiniArithmeticTests {};
+
 class AvmMiniArithmeticNegativeTestsFF : public AvmMiniArithmeticTests {};
 
 /******************************************************************************
@@ -346,6 +354,239 @@ TEST_F(AvmMiniArithmeticTestsU8, additionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(3));
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
+ * Positive Tests - U16
+ ******************************************************************************/
+
+// Test on basic addition over u16 type.
+TEST_F(AvmMiniArithmeticTestsU16, addition)
+{
+    // trace_builder
+    trace_builder.set(1775, 119, AvmMemoryTag::u16);
+    trace_builder.set(33005, 546, AvmMemoryTag::u16);
+
+    trace_builder.add(546, 119, 5, AvmMemoryTag::u16);
+    trace_builder.return_op(5, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_add(trace, FF(33005), FF(1775), FF(34780), FF(546), FF(119), FF(5), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(34780));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u16 type with carry.
+TEST_F(AvmMiniArithmeticTestsU16, additionCarry)
+{
+    // trace_builder
+    trace_builder.set(UINT16_MAX - 982, 0, AvmMemoryTag::u16);
+    trace_builder.set(1000, 1, AvmMemoryTag::u16);
+
+    trace_builder.add(1, 0, 0, AvmMemoryTag::u16);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_add(trace, FF(1000), FF(UINT16_MAX - 982), FF(17), FF(1), FF(0), FF(0), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(17));
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
+ * Positive Tests - U32
+ ******************************************************************************/
+
+// Test on basic addition over u32 type.
+TEST_F(AvmMiniArithmeticTestsU32, addition)
+{
+    // trace_builder
+    trace_builder.set(1000000000, 8, AvmMemoryTag::u32);
+    trace_builder.set(1234567891, 9, AvmMemoryTag::u32);
+
+    trace_builder.add(8, 9, 0, AvmMemoryTag::u32);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(
+        trace, FF(1000000000), FF(1234567891), FF(2234567891LLU), FF(8), FF(9), FF(0), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(2234567891LLU & UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(2234567891LLU >> 16));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u32 type with carry.
+TEST_F(AvmMiniArithmeticTestsU32, additionCarry)
+{
+    // trace_builder
+    trace_builder.set(UINT32_MAX - 1293, 8, AvmMemoryTag::u32);
+    trace_builder.set(2293, 9, AvmMemoryTag::u32);
+
+    trace_builder.add(8, 9, 0, AvmMemoryTag::u32);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_add(trace, FF(UINT32_MAX - 1293), FF(2293), FF(999), FF(8), FF(9), FF(0), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(999));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
+ * Positive Tests - U64
+ ******************************************************************************/
+
+// Test on basic addition over u64 type.
+TEST_F(AvmMiniArithmeticTestsU64, addition)
+{
+    uint64_t const a = 7813981340746672LLU;
+    uint64_t const b = 2379061066771309LLU;
+    uint64_t const c = 10193042407517981LLU;
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u64);
+    trace_builder.set(b, 9, AvmMemoryTag::u64);
+
+    trace_builder.add(8, 9, 9, AvmMemoryTag::u64);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace, FF(a), FF(b), FF(c), FF(8), FF(9), FF(9), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(28445));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(40929));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(13956));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(36));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u64 type with carry.
+TEST_F(AvmMiniArithmeticTestsU64, additionCarry)
+{
+    uint64_t const a = UINT64_MAX - 77LLU;
+    uint64_t const b = UINT64_MAX - 123LLU;
+    uint64_t const c = UINT64_MAX - 201LLU;
+
+    // trace_builder
+    trace_builder.set(a, 0, AvmMemoryTag::u64);
+    trace_builder.set(b, 1, AvmMemoryTag::u64);
+
+    trace_builder.add(0, 1, 0, AvmMemoryTag::u64);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace, FF(a), FF(b), FF(c), FF(0), FF(1), FF(0), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(UINT16_MAX - 201));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(UINT16_MAX));
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
+ * Positive Tests - U128
+ ******************************************************************************/
+
+// Test on basic addition over u128 type.
+TEST_F(AvmMiniArithmeticTestsU128, addition)
+{
+    uint128_t const a = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(72948899);
+    uint128_t const b = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177344);
+    uint128_t const c =
+        (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177345) - uint128_t(72948899);
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u128);
+    trace_builder.set(b, 9, AvmMemoryTag::u128);
+
+    trace_builder.add(8, 9, 9, AvmMemoryTag::u128);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace,
+                                       FF(uint256_t::from_uint128(a)),
+                                       FF(uint256_t::from_uint128(b)),
+                                       FF(uint256_t::from_uint128(c)),
+                                       FF(8),
+                                       FF(9),
+                                       FF(9),
+                                       AvmMemoryTag::u128);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xDD9B));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xF97E));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0xFFFF));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u128 type with carry.
+TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
+{
+    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
+    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
+    uint128_t const c = (uint128_t(0x8888444466665555LLU) << 64) + uint128_t(0xDDDDAAAAFFFFEEEELLU);
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u128);
+    trace_builder.set(b, 9, AvmMemoryTag::u128);
+
+    trace_builder.add(8, 9, 9, AvmMemoryTag::u128);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace,
+                                       FF(uint256_t::from_uint128(a)),
+                                       FF(uint256_t::from_uint128(b)),
+                                       FF(uint256_t::from_uint128(c)),
+                                       FF(8),
+                                       FF(9),
+                                       FF(9),
+                                       AvmMemoryTag::u128);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xEEEE));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0xAAAA));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0xDDDD));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0x5555));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0x6666));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0x4444));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0x8888));
 
     validate_trace_proof(std::move(trace));
 }
