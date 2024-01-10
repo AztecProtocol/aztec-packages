@@ -10,7 +10,7 @@ A little bit of time here can save a lot down the road.
 
 # Aztec Overview
 
-<Image img={require('/img/aztec_high_level_network_architecture.png')} />
+<img src="/img/aztec_high_level_network_architecture.svg" alt="network architecture" />
 
 To sum this up:
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs) or Aztec CLI
