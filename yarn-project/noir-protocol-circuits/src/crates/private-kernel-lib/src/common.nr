@@ -38,7 +38,6 @@ use dep::types::{
             array_length,
             array_to_bounded_vec,
             validate_array,
-            validate_array,
         },
         bounded_vec::BoundedVec,
     },
