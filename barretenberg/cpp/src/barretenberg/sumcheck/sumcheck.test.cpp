@@ -17,7 +17,7 @@ using namespace proof_system::honk::sumcheck;
 using Flavor = proof_system::honk::flavor::Ultra;
 using FF = typename Flavor::FF;
 using ProverPolynomials = typename Flavor::ProverPolynomials;
-using AlphaType = Flavor::AlphaType;
+using RelationSeparator = Flavor::RelationSeparator;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace test_sumcheck_round {
@@ -67,7 +67,7 @@ TEST_F(SumcheckTests, PolynomialNormalization)
     auto transcript = Flavor::Transcript::prover_init_empty();
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
-    AlphaType alpha;
+    RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
         alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
@@ -139,7 +139,7 @@ TEST_F(SumcheckTests, Prover)
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-    AlphaType alpha;
+    RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
         alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
@@ -222,7 +222,7 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        AlphaType prover_alpha;
+        RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
             prover_alpha[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
         }
@@ -236,7 +236,7 @@ TEST_F(SumcheckTests, ProverAndVerifierSimple)
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_d, verifier_transcript);
-        AlphaType verifier_alpha;
+        RelationSeparator verifier_alpha;
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
         }

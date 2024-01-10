@@ -9,7 +9,7 @@ template <class Flavor> class VerifierInstance_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     std::shared_ptr<VerificationKey> verification_key;
     std::vector<FF> public_inputs;
@@ -18,7 +18,7 @@ template <class Flavor> class VerifierInstance_ {
     size_t instance_size;
     size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
-    AlphaType alphas;
+    RelationSeparator alphas;
     bool is_accumulator = false;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).

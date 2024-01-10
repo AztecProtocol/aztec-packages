@@ -6,7 +6,7 @@ namespace proof_system::honk {
 /**
  * Create DeciderProver_ from an accumulator.
  *
- * @param accumulator Relaxed instance (ϕ, ω' \vec{β*}, e*) whose proof we want to generate, produced by Protogalaxy
+ * @param accumulator Relaxed instance (ϕ, ω, \vec{β}, e) whose proof we want to generate, produced by Protogalaxy
  * folding prover
  *
  * @tparam a type of UltraFlavor
@@ -21,7 +21,8 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 {}
 
 /**
- * @brief Add  ϕ, \vec{β*}, e* to the transcript.
+ * @brief Add  ϕ, \vec{β}, e to the transcript. These are produced in the last round of folding that was carried out
+ * before deciding.
  */
 template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_round()
 {

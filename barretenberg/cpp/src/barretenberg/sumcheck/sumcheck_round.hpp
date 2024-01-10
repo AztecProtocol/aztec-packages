@@ -55,7 +55,7 @@ template <typename Flavor> class SumcheckProverRound {
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     using FF = typename Flavor::FF;
@@ -105,10 +105,11 @@ template <typename Flavor> class SumcheckProverRound {
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const proof_system::RelationParameters<FF>& relation_parameters,
         const barretenberg::PowPolynomial<FF>& pow_polynomial,
-        const AlphaType alpha)
+        const RelationSeparator alpha)
     {
-        // Compute the constant contribution of pow polynomials for each edge as the product of c_l and the elements of
-        // pow(\vec{β}) not containing β_0,..., β_l
+        // Compute the constant contribution of pow polynomials for each edge. This is  the product of the partial
+        // evaluation result c_l (i.e. pow(u_0,...,u_{l-1})) where u_0,...,u_{l-1} are the verifier challenges from
+        // previous rounds) and the elements of pow(\vec{β}) not containing β_0,..., β_l.
         std::vector<FF> pow_challenges(round_size >> 1);
         pow_challenges[0] = pow_polynomial.partial_evaluation_result;
         for (size_t i = 1; i < (round_size >> 1); ++i) {
@@ -167,7 +168,7 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
-                                                   const AlphaType& challenge,
+                                                   const RelationSeparator& challenge,
                                                    const barretenberg::PowPolynomial<FF>& pow_polynomial)
     {
         auto running_challenge = FF(1);
@@ -255,7 +256,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     using FF = typename Flavor::FF;
@@ -325,7 +326,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
                                                   const proof_system::RelationParameters<FF>& relation_parameters,
                                                   const barretenberg::PowPolynomial<FF>& pow_polynomial,
-                                                  const AlphaType alpha)
+                                                  const RelationSeparator alpha)
     {
         Utils::template accumulate_relation_evaluations<>(
             purported_evaluations, relation_evaluations, relation_parameters, pow_polynomial.partial_evaluation_result);

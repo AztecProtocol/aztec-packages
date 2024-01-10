@@ -217,10 +217,8 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         el_idx++;
     }
 
-    AlphaType expected_alphas;
-    size_t alpha_idx = 0;
-    for (auto& alpha : expected_alphas) {
-        alpha = FF(0);
+    for (size_t alpha_idx = 0; alpha_idx < NUM_SUBRELATIONS - 1; alpha_idx++) {
+        FF alpha(0);
         size_t instance_idx = 0;
         for (auto& instance : instances) {
             alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
@@ -228,7 +226,6 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(std::vector<u
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
         verified = verified & (alpha == next_alpha);
-        alpha_idx++;
     }
     auto expected_parameters = proof_system::RelationParameters<FF>{};
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {

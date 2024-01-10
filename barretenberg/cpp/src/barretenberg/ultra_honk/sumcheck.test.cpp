@@ -36,7 +36,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = flavor::Ultra;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = proof_system::UltraCircuitBuilder();
@@ -165,7 +165,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto circuit_size = instance->proving_key->circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
-    AlphaType prover_alphas;
+    RelationSeparator prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
         prover_alphas[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
@@ -183,7 +183,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
-    AlphaType verifier_alphas;
+    RelationSeparator verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }

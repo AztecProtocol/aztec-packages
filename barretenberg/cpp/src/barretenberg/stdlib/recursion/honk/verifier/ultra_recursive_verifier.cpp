@@ -104,7 +104,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     // multivariate evaluations at u
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
-    AlphaType alpha;
+    RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
         alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
     }
