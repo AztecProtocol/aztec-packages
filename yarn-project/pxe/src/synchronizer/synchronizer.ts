@@ -159,25 +159,42 @@ export class Synchronizer {
   }
 
   /**
-   * Catch up a note processor that is lagging behind the main sync,
+   * Catch up note processors that are lagging behind the main sync.
    * e.g. because we just added a new account.
    *
    * @param limit - the maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
    * @returns true if there could be more work, false if we're caught up or there was an error.
    */
   protected async workNoteProcessorCatchUp(limit = 1): Promise<boolean> {
-    const noteProcessor = this.noteProcessorsToCatchUp[0];
     const toBlockNumber = this.getSynchedBlockNumber();
 
-    if (noteProcessor.status.syncedToBlock >= toBlockNumber) {
-      // Note processor already synched, nothing to do
-      this.noteProcessorsToCatchUp.shift();
-      this.noteProcessors.push(noteProcessor);
-      // could be more work if there are more note processors to catch up
+    // filter out note processors that are already caught up
+    // and sort them by the block number they are lagging behind in ascending order
+    this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(noteProcessor => {
+      if (noteProcessor.status.syncedToBlock >= toBlockNumber) {
+        // Note processor is ahead of main sync, nothing to do
+        this.noteProcessors.push(noteProcessor);
+        return false;
+      }
+      return true;
+    });
+
+    if (!this.noteProcessorsToCatchUp.length) {
+      // No note processors to catch up, nothing to do here,
+      // but we return true to continue with the normal flow.
       return true;
     }
 
-    const from = noteProcessor.status.syncedToBlock + 1;
+    // create a copy so that:
+    // 1. we can modify the original array while iterating over it
+    // 2. we don't need to serialize insertions into the array
+    const catchUpGroup = this.noteProcessorsToCatchUp
+      .slice()
+      // sort by the block number they are lagging behind
+      .sort((a, b) => a.status.syncedToBlock - b.status.syncedToBlock);
+
+    // grab the note processor that is lagging behind the most
+    const from = catchUpGroup[0].status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
     limit = Math.min(limit, toBlockNumber - from + 1);
 
@@ -209,20 +226,31 @@ export class Synchronizer {
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
-      this.log(`Forwarding ${logCount} encrypted logs and blocks to note processor in catch up mode`);
-      await noteProcessor.process(blockContexts, encryptedLogs);
+      this.log(`Forwarding ${logCount} encrypted logs and blocks to note processors in catch up mode`);
 
-      if (noteProcessor.status.syncedToBlock === toBlockNumber) {
-        // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-        this.log(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
-          eventName: 'note-processor-caught-up',
-          publicKey: noteProcessor.publicKey.toString(),
-          duration: noteProcessor.timer.ms(),
-          dbSize: this.db.estimateSize(),
-          ...noteProcessor.stats,
-        } satisfies NoteProcessorCaughtUpStats);
-        this.noteProcessorsToCatchUp.shift();
-        this.noteProcessors.push(noteProcessor);
+      for (const noteProcessor of catchUpGroup) {
+        // find the index of the first block that the note processor is not yet synced to
+        const index = blockContexts.findIndex(block => block.block.number > noteProcessor.status.syncedToBlock);
+        if (index === -1) {
+          throw new Error('No blocks are newer for in processor catch up group');
+        }
+        await noteProcessor.process(blockContexts.slice(index), encryptedLogs.slice(index));
+
+        if (noteProcessor.status.syncedToBlock === toBlockNumber) {
+          // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
+          this.log(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
+            eventName: 'note-processor-caught-up',
+            publicKey: noteProcessor.publicKey.toString(),
+            duration: noteProcessor.timer.ms(),
+            dbSize: this.db.estimateSize(),
+            ...noteProcessor.stats,
+          } satisfies NoteProcessorCaughtUpStats);
+
+          this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(
+            np => !np.publicKey.equals(noteProcessor.publicKey),
+          );
+          this.noteProcessors.push(noteProcessor);
+        }
       }
       return true;
     } catch (err) {

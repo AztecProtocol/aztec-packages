@@ -103,22 +103,28 @@ describe('Synchronizer', () => {
     // Sync the synchronizer so that note processor has something to catch up to
     await synchronizer.work();
 
-    // Used in synchronizer.isAccountStateSynchronized
-    aztecNode.getBlockNumber.mockResolvedValueOnce(1);
-
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
     const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.create(EthAddress.random()));
-    const privateKey = GrumpkinScalar.random();
-    await keyStore.addAccount(privateKey);
-    const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
-    await database.addCompleteAddress(completeAddress);
+    const addAddress = async () => {
+      const privateKey = GrumpkinScalar.random();
+      await keyStore.addAccount(privateKey);
+      const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
+      await database.addCompleteAddress(completeAddress);
+      synchronizer.addAccount(completeAddress.publicKey, keyStore, INITIAL_L2_BLOCK_NUM);
+      return completeAddress;
+    };
 
-    // Add the account which will add the note processor to the synchronizer
-    synchronizer.addAccount(completeAddress.publicKey, keyStore, INITIAL_L2_BLOCK_NUM);
+    const [completeAddressA, completeAddressB] = await Promise.all([addAddress(), addAddress()]);
 
     await synchronizer.workNoteProcessorCatchUp();
 
-    expect(await synchronizer.isAccountStateSynchronized(completeAddress.address)).toBe(true);
+    // Used in synchronizer.isAccountStateSynchronized
+    aztecNode.getBlockNumber
+      .mockResolvedValueOnce(1) // for the first account
+      .mockResolvedValueOnce(1); // for the second account
+
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressA.address)).toBe(true);
+    expect(await synchronizer.isAccountStateSynchronized(completeAddressB.address)).toBe(true);
   });
 });
 
