@@ -331,18 +331,24 @@ $\Ovpkm$ | $\ovskm \cdot G$ | outgoing viewing public key | | Only included so t
 
 An address is computed as the hash of the following fields:
 
+<!-- [Mike review, for @spalladino][cspell:disable-line]
+We should specify exactly how this hash is computed. Pasting some boilerplate review commentary from the classes.md doc:
+- Details of the hash to use, and a domain separator for the hash. We might not know the final hash that we'll use, but we should propose one, and we should probably also give each hash a name.
+    - E.g. `contract_address = contract_address_hash("contract_address".to_field(), version.to_field(), registerer_address.to_field(), etc...)` where `contract_address_hash = pedersen_hash` (for now).
+-->
+
 <!-- prettier-ignore -->
 | Field | Type | Description |
 |----------|----------|----------|
-| version | u8 | Version identifier. Initially one, bumped for any changes to the contract instance struct. |
-| deployer_address | AztecAddress | Address of the deployer for this instance. |
-| salt | Field | User-generated pseudorandom value for uniqueness. |
-| contract_class_id | Field | Identifier of the contract class for this instance. |
-| contract_args_hash | Field | Hash of the arguments to the constructor. |
-| portal_contract_address | EthereumAddress | Optional address of the L1 portal contract. |
-| public_keys | PublicKeys | Optional struct of public keys used for encryption and nullifying by this contract. |
+| `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract instance struct. |
+| `deployer_address` | `AztecAddress` | Address of the deployer for this instance. |
+| `salt` | `Field` | User-generated pseudorandom value for uniqueness. |
+| `contract_class_id` | `Field` | Identifier of the contract class for this instance. |
+| `contract_args_hash` | `Field` | Hash of the arguments to the constructor. |
+| `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
+| `public_keys` | `Field[]` | Optional flat array of public keys used for encryption and nullifying by this contract. |
 
-The `PublicKeys` struct can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$.
+The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined above: $\Npkm$, $\Tpkm$, $\Ivpkm$, $\Ovpkm$.
 
 ## Derive siloed keys
 
