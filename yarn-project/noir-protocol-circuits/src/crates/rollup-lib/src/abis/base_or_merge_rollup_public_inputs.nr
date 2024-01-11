@@ -30,8 +30,8 @@ struct BaseOrMergeRollupPublicInputs {
     end_public_data_tree_snapshot : AppendOnlyTreeSnapshot,
     
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
-    // So we want to constrain it when casting these fields to U128
+    // AztecU128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
+    // So we want to constrain it when casting these fields to AztecU128
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     calldata_hash : [Field; 2],
