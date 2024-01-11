@@ -371,8 +371,52 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u128: {
-        break;
-        // TODO
+        auto a_u256 = uint256_t(a);
+        auto b_u256 = uint256_t(b);
+        uint256_t c_u256 = a_u256 * b_u256; // Multiplication over the integers (not mod. 2^128)
+
+        auto a_u128 = static_cast<uint128_t>(a_u256);
+        auto b_u128 = static_cast<uint128_t>(b_u256);
+
+        uint128_t c_u128 = a_u128 * b_u128;
+
+        // Decompose a_u128 and b_u128 over 8 16-bit registers.
+        std::array<uint16_t, 8> alu_u16_reg_a{};
+        std::array<uint16_t, 8> alu_u16_reg_b{};
+        uint128_t a_trunc_128 = a_u128;
+        uint128_t b_trunc_128 = b_u128;
+
+        for (size_t i = 0; i < 8; i++) {
+            alu_u16_reg_a.at(i) = static_cast<uint16_t>(a_trunc_128);
+            alu_u16_reg_b.at(i) = static_cast<uint16_t>(b_trunc_128);
+            a_trunc_128 >>= 16;
+            b_trunc_128 >>= 16;
+        }
+
+        uint256_t c_high = ((a_u256 >> 64) * (b_u256 >> 64)) << 128;
+
+        carry = ((c_u256 - c_high) >> 193) > 0;
+        uint64_t alu_u64_r0 = static_cast<uint64_t>(((c_u256 - c_high) >> 128) & uint256_t(UINT64_MAX));
+
+        c = FF{ uint256_t::from_uint128(c_u128) };
+
+        alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+            .alu_clk = clk,
+            .alu_op_mul = true,
+            .alu_u128_tag = in_tag == AvmMemoryTag::u128,
+            .alu_ia = a,
+            .alu_ib = b,
+            .alu_ic = c,
+            .alu_cf = carry,
+            .alu_u16_reg = alu_u16_reg_a,
+            .alu_u64_r0 = alu_u64_r0,
+        });
+
+        alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+            .alu_u16_reg = alu_u16_reg_b,
+        });
+
+        return c;
     }
     case AvmMemoryTag::u0: // Unsupported as instruction tag
         return FF{ 0 };

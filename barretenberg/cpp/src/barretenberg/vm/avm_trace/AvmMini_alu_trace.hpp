@@ -31,6 +31,8 @@ class AvmMiniAluTraceBuilder {
         uint8_t alu_u8_r1{};
 
         std::array<uint16_t, 8> alu_u16_reg{};
+
+        uint64_t alu_u64_r0{};
     };
 
     AvmMiniAluTraceBuilder();

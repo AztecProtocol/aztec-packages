@@ -655,6 +655,8 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         dest.aluChip_alu_u16_r5 = FF(src.alu_u16_reg.at(5));
         dest.aluChip_alu_u16_r6 = FF(src.alu_u16_reg.at(6));
         dest.aluChip_alu_u16_r7 = FF(src.alu_u16_reg.at(7));
+
+        dest.aluChip_alu_u64_r0 = FF(src.alu_u64_r0);
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.
