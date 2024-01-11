@@ -32,19 +32,17 @@ bool verbose = false;
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();
 
-void init_reference_strings()
+void init_bn254_crs(size_t dyadic_circuit_size)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size. Currently set to
-    // max circuit size present in acir tests suite.
-    size_t hardcoded_subgroup_size_hack = 262144;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
-    // Must +1!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
+    // Must +1 for Plonk only!
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
-    // Must +1!
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
+}
+void init_grumpkin_crs(size_t dyadic_circuit_size)
+{
+    // WORKTODO: For ECCVM only
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, dyadic_circuit_size);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
@@ -91,6 +89,8 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
 
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+
     Timer proof_timer;
     auto proof = acir_composer.create_proof(recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
@@ -125,10 +125,13 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    init_reference_strings();
-
     acir_proofs::AcirComposer acir_composer;
     acir_composer.create_goblin_circuit(constraint_system, witness);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
+    // to max circuit size present in acir tests suite.
+    size_t hardcoded_dyadic_size_hack = 262144;
+    init_bn254_crs(hardcoded_dyadic_size_hack);
 
     auto proof = acir_composer.create_goblin_proof();
 
@@ -159,6 +162,7 @@ void prove(const std::string& bytecodePath,
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     auto proof = acir_composer.create_proof(recursive);
 
     if (outputPath == "-") {
@@ -231,6 +235,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
     auto constraint_system = get_constraint_system(bytecodePath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system);
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
@@ -248,6 +253,7 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
     auto constraint_system = get_constraint_system(bytecodePath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system);
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
     auto serialized_pk = to_buffer(*pk);
 

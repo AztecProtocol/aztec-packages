@@ -32,9 +32,8 @@ class AcirComposer {
     bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
 
     std::string get_solidity_verifier();
-    size_t get_exact_circuit_size() { return exact_circuit_size_; };
-    size_t get_total_circuit_size() { return total_circuit_size_; };
-    size_t get_circuit_subgroup_size() { return circuit_subgroup_size_; };
+    size_t get_total_circuit_size() { return builder_.get_total_circuit_size(); };
+    size_t get_dyadic_circuit_size() { return builder_.get_circuit_subgroup_size(builder_.get_total_circuit_size()); };
 
     std::vector<barretenberg::fr> serialize_proof_into_fields(std::vector<uint8_t> const& proof,
                                                               size_t num_inner_public_inputs);
@@ -51,9 +50,6 @@ class AcirComposer {
     acir_format::GoblinBuilder goblin_builder_;
     Goblin goblin;
     size_t size_hint_;
-    size_t exact_circuit_size_;
-    size_t total_circuit_size_;
-    size_t circuit_subgroup_size_;
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
     std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
     bool verbose_ = true;

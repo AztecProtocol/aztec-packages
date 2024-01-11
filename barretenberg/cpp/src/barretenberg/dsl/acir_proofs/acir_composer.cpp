@@ -1,5 +1,4 @@
 #include "acir_composer.hpp"
-#include "barretenberg/bb/get_bn254_crs.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -14,14 +13,6 @@
 #include "contract.hpp"
 
 namespace acir_proofs {
-
-std::string getHomeDir()
-{
-    char* home = std::getenv("HOME");
-    return home != nullptr ? std::string(home) : "./";
-}
-
-std::string CRS_PATH = getHomeDir() + "/.bb-crs";
 
 AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     : size_hint_(size_hint)
@@ -41,12 +32,6 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, W
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
-
-    auto dyadic_circuit_size = builder_.get_circuit_subgroup_size(builder_.get_total_circuit_size());
-
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
-    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 
     circuit_created = true;
 }

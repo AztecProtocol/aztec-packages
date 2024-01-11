@@ -15,10 +15,10 @@
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto composer = acir_format::create_circuit(constraint_system, 1 << 19);
-    *exact = htonl((uint32_t)composer.get_num_gates());
-    *total = htonl((uint32_t)composer.get_total_circuit_size());
-    *subgroup = htonl((uint32_t)composer.get_circuit_subgroup_size(composer.get_total_circuit_size()));
+    auto builder = acir_format::create_circuit(constraint_system, 1 << 19);
+    *exact = htonl((uint32_t)builder.get_num_gates());
+    *total = htonl((uint32_t)builder.get_total_circuit_size());
+    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
