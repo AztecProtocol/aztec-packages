@@ -573,6 +573,26 @@ template <class T> field<T> field<T>::random_element(numeric::random::Engine* en
     return field(reduced.lo);
 }
 
+template <class T> field<T> field<T>::optimized_random_element(numeric::random::Engine* engine) noexcept
+{
+    if (engine == nullptr) {
+        engine = &numeric::random::get_engine();
+    }
+    constexpr field shift_256 = field(uint256_t(1) << 128) * field(uint256_t(1) << 128);
+
+    uint512_t source = engine->get_random_uint512();
+    field lower(source.lo.data[0], source.lo.data[1], source.lo.data[2], source.lo.data[3]);
+    lower.self_reduce_once();
+    lower.self_reduce_once();
+    lower.self_reduce_once();
+    field higher(source.hi.data[0], source.hi.data[1], source.hi.data[2], source.hi.data[3]);
+    higher.self_reduce_once();
+    higher.self_reduce_once();
+    higher.self_reduce_once();
+
+    return lower + (higher * shift_256);
+}
+
 template <class T> constexpr size_t field<T>::primitive_root_log_size() noexcept
 {
     uint256_t target = modulus - 1;
