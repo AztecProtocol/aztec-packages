@@ -18,6 +18,7 @@ services:
 
   aztec:
     image: "aztecprotocol/aztec"
+    command: sandbox
     ports:
       - "${AZTEC_NODE_PORT:-8079}:${AZTEC_NODE_PORT:-8079}"
       - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
