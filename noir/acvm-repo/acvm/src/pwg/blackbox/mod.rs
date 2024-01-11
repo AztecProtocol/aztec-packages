@@ -3,9 +3,9 @@ use acir::{
     native_types::{Witness, WitnessMap},
     FieldElement,
 };
-use acvm_blackbox_solver::{blake2s, blake3, keccak256, sha256};
+use acvm_blackbox_solver::{blake2s, blake3, keccak256, keccakf1600, sha256};
 
-use self::{hash::keccakf1600, pedersen::pedersen_hash};
+use self::pedersen::pedersen_hash;
 
 use super::{insert_value, OpcodeNotSolvable, OpcodeResolutionError};
 use crate::{pwg::witness_to_value, BlackBoxFunctionSolver};
@@ -119,7 +119,7 @@ pub(crate) fn solve(
                 let lane = witness_assignment.try_to_u64();
                 state[i] = lane.unwrap();
             }
-            keccakf1600(&mut state);
+            let state = keccakf1600(state)?;
             for (output_witness, value) in outputs.iter().zip(state.into_iter()) {
                 insert_value(output_witness, FieldElement::from(value as u128), initial_witness)?;
             }
@@ -177,10 +177,10 @@ pub(crate) fn solve(
         BlackBoxFuncCall::FixedBaseScalarMul { low, high, outputs } => {
             fixed_base_scalar_mul(backend, initial_witness, *low, *high, *outputs)
         }
-        BlackBoxFuncCall::EmbeddedCurveAdd { outputs, input1_x, input1_y, input2_x, input2_y } => {
+        BlackBoxFuncCall::EmbeddedCurveAdd { .. } => {
             todo!();
         }
-        BlackBoxFuncCall::EmbeddedCurveDouble { outputs, input_x, input_y } => {
+        BlackBoxFuncCall::EmbeddedCurveDouble { .. } => {
             todo!();
         }
         // Recursive aggregation will be entirely handled by the backend and is not solved by the ACVM

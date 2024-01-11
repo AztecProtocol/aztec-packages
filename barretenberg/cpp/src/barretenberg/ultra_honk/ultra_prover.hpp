@@ -20,6 +20,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit UltraProver_(const std::shared_ptr<Instance>&,
