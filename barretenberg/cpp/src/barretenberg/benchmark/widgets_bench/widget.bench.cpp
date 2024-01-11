@@ -39,7 +39,7 @@ BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
     barretenberg::srs::init_crs_factory("../srs_db/ignition");
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
-    bench_utils::generate_basic_arithmetic_circuit(builder, 80);
+    bench_utils::generate_basic_arithmetic_circuit(builder, 16);
     UltraProver inner_prover = inner_composer.create_prover(builder);
 #ifdef GET_PER_ROW_TIME
     if (!(inner_prover.key->circuit_size == WIDGET_BENCH_TEST_CIRCUIT_SIZE)) {
@@ -104,8 +104,6 @@ template <typename Widget> void accumulate_contribution(::benchmark::State& stat
         data.transcript, barretenberg::fr::random_element(), FFTKernel::quotient_required_challenges);
 
     for (auto _ : state) {
-        // NOTE: this simply calls the following 3 functions it does NOT try to replicate ProverPlookupAuxiliaryWidget
-        // logic exactly
         barretenberg::fr result{ 0 };
         FFTKernel::accumulate_contribution(polynomials, challenges, result, 0);
     }
