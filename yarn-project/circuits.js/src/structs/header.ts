@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+import { NUM_FIELDS_PER_SHA256 } from '../constants.gen.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
@@ -27,7 +28,7 @@ export class Header {
     const reader = BufferReader.asReader(buffer);
     return new Header(
       reader.readObject(AppendOnlyTreeSnapshot),
-      [reader.readObject(Fr), reader.readObject(Fr)],
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
       reader.readObject(StateReference),
       reader.readObject(GlobalVariables),
     );
