@@ -51,10 +51,8 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, W
     circuit_created = true;
 }
 
-std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
-    acir_format::acir_format& constraint_system)
+std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key()
 {
-    create_circuit(constraint_system);
     acir_format::Composer composer;
     vinfo("computing proving key...");
     proving_key_ = composer.compute_proving_key(builder_);
@@ -217,5 +215,8 @@ std::vector<barretenberg::fr> AcirComposer::serialize_verification_key_into_fiel
 {
     return acir_format::export_key_in_recursion_format(verification_key_);
 }
+
+template void AcirComposer::create_circuit<UltraCircuitBuilder>(acir_format::acir_format& constraint_system,
+                                                                WitnessVector const& witness);
 
 } // namespace acir_proofs

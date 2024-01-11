@@ -35,8 +35,9 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    acir_composer->create_circuit(constraint_system);
 
-    acir_composer->init_proving_key(constraint_system);
+    acir_composer->init_proving_key();
 }
 
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
@@ -94,7 +95,8 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto pk = acir_composer->init_proving_key(constraint_system);
+    acir_composer->create_circuit(constraint_system);
+    auto pk = acir_composer->init_proving_key();
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
     *out = to_heap_buffer(to_buffer(*pk));
 }

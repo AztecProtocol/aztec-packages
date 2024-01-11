@@ -230,7 +230,8 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
-    acir_composer.init_proving_key(constraint_system);
+    acir_composer.create_circuit(constraint_system);
+    acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
@@ -246,7 +247,8 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
-    auto pk = acir_composer.init_proving_key(constraint_system);
+    acir_composer.create_circuit(constraint_system);
+    auto pk = acir_composer.init_proving_key();
     auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {

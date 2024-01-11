@@ -21,7 +21,7 @@ class AcirComposer {
     template <typename Builder = UltraCircuitBuilder>
     void create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness = {});
 
-    std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
+    std::shared_ptr<proof_system::plonk::proving_key> init_proving_key();
 
     std::vector<uint8_t> create_proof(bool is_recursive);
 
