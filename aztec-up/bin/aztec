@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-$(dirname $0)/.aztec-run aztecprotocol/aztec $@
+# Call cli image if used with `aztec cli ...args`
+if [ "$1" == "cli" ]; then
+  shift
+  $(dirname $0)/.aztec-run aztecprotocol/cli $@
+else
+  $(dirname $0)/.aztec-run aztecprotocol/aztec $@
+fi
