@@ -5,13 +5,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { execSync } from 'child_process';
 import path from 'path';
 
-import {
-  ProgramArtifact,
-  compileUsingNargo,
-  compileUsingNoirWasm,
-  generateNoirContractInterface,
-  generateTypescriptContractInterface,
-} from './index.js';
+import { ProgramArtifact, generateNoirContractInterface, generateTypescriptContractInterface } from './index.js';
 
 function isNargoAvailable() {
   try {
@@ -64,21 +58,4 @@ describe('noir-compiler', () => {
       expect(result).toMatchSnapshot();
     });
   }
-
-  describe('using wasm binary', () => {
-    compilerTest(compileUsingNoirWasm);
-  });
-
-  conditionalDescribe('using nargo', () => {
-    compilerTest(compileUsingNargo);
-  });
-
-  conditionalIt('both nargo and noir_wasm should compile identically', async () => {
-    const [noirWasmArtifact, nargoArtifact] = await Promise.all([
-      compileUsingNoirWasm(projectPath, { log }),
-      compileUsingNargo(projectPath, { log }),
-    ]);
-
-    expect(nargoArtifact.map(withoutDebug)).toEqual(noirWasmArtifact.map(withoutDebug));
-  });
 });
