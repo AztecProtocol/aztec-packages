@@ -30,7 +30,7 @@ pub(crate) struct GeneratedAcir {
     /// The next witness index that may be declared.
     ///
     /// Equivalent to acvm::acir::circuit::Circuit's field of the same name.
-    pub(crate) current_witness_index: u32,
+    current_witness_index: u32,
 
     /// The opcodes of which the compiled ACIR will comprise.
     opcodes: Vec<AcirOpcode>,
@@ -81,6 +81,10 @@ impl GeneratedAcir {
         let current_witness_index = Witness(self.current_witness_index);
         self.current_witness_index += 1;
         current_witness_index
+    }
+
+    pub(crate) fn decrement_witness_index(&mut self) {
+        self.current_witness_index -= 1;
     }
 
     /// Converts [`Expression`] `expr` into a [`Witness`].
