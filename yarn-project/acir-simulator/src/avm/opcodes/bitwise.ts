@@ -4,6 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Opcode } from './opcode.js';
 
+/** - */
 export class And implements Opcode {
   static type: string = 'AND';
   static numberOfOperands = 3;
@@ -20,6 +21,7 @@ export class And implements Opcode {
   }
 }
 
+/** - */
 export class Or implements Opcode {
   static type: string = 'OR';
   static numberOfOperands = 3;
@@ -36,6 +38,7 @@ export class Or implements Opcode {
   }
 }
 
+/** - */
 export class Xor implements Opcode {
   static type: string = 'XOR';
   static numberOfOperands = 3;
@@ -52,6 +55,7 @@ export class Xor implements Opcode {
   }
 }
 
+/** - */
 export class Not implements Opcode {
   static type: string = 'NOT';
   static numberOfOperands = 2;

@@ -4,6 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Opcode } from './opcode.js';
 
+/** - */
 export class Set implements Opcode {
   static type: string = 'SET';
   static numberOfOperands = 2;
@@ -17,6 +18,7 @@ export class Set implements Opcode {
 }
 
 // TODO: tags are not implemented yet - this will behave as a mov
+/** - */
 export class Cast implements Opcode {
   static type: string = 'CAST';
   static numberOfOperands = 2;
@@ -30,6 +32,7 @@ export class Cast implements Opcode {
   }
 }
 
+/** - */
 export class Mov implements Opcode {
   static type: string = 'MOV';
   static numberOfOperands = 2;
@@ -43,6 +46,7 @@ export class Mov implements Opcode {
   }
 }
 
+/** - */
 export class CallDataCopy implements Opcode {
   static type: string = 'CALLDATACOPY';
   static numberOfOperands = 3;

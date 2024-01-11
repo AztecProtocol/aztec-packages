@@ -4,6 +4,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Opcode } from './opcode.js';
 
+/** -*/
 export class Add implements Opcode {
   static type: string = 'ADD';
   static numberOfOperands = 3;
@@ -19,6 +20,7 @@ export class Add implements Opcode {
   }
 }
 
+/** -*/
 export class Sub implements Opcode {
   static type: string = 'SUB';
   static numberOfOperands = 3;
@@ -34,6 +36,7 @@ export class Sub implements Opcode {
   }
 }
 
+/** -*/
 export class Mul implements Opcode {
   static type: string = 'MUL';
   static numberOfOperands = 3;
@@ -49,6 +52,7 @@ export class Mul implements Opcode {
   }
 }
 
+/** -*/
 export class Div implements Opcode {
   static type: string = 'DIV';
   static numberOfOperands = 3;
@@ -64,6 +68,8 @@ export class Div implements Opcode {
     context.writeMemory(this.destOffset, dest);
   }
 }
+
+/** -*/
 export class Eq implements Opcode {
   static type: string = 'EQ';
   static numberOfOperands = 3;
@@ -79,6 +85,7 @@ export class Eq implements Opcode {
     context.writeMemory(this.destOffset, dest);
   }
 }
+/** -*/
 export class Lt implements Opcode {
   static type: string = 'Lt';
   static numberOfOperands = 3;
@@ -95,6 +102,7 @@ export class Lt implements Opcode {
   }
 }
 
+/** -*/
 export class Lte implements Opcode {
   static type: string = 'LTE';
   static numberOfOperands = 3;
@@ -111,6 +119,7 @@ export class Lte implements Opcode {
   }
 }
 
+/** -*/
 export class Shl implements Opcode {
   static type: string = 'SHL';
   static numberOfOperands = 3;
@@ -127,6 +136,7 @@ export class Shl implements Opcode {
   }
 }
 
+/** -*/
 export class Shr implements Opcode {
   static type: string = 'SHR';
   static numberOfOperands = 3;

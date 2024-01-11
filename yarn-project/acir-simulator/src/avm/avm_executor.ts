@@ -1,8 +1,3 @@
-// Decisions:
-// 1. At this current time the avm should not handle getting state itself or anything like that
-//    - it will purely run as an interpreter and the code / starting state will be given to it on init
-// 2. Anything that is a constant
-//    - e.g. will go in its own relevant file -> there is no need to have it in the interpreter file
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from './avm_context.js';
@@ -11,6 +6,11 @@ import { AvmInterpreter } from './interpreter/index.js';
 import { interpretBytecode } from './opcodes/from_bytecode.js';
 import { Opcode } from './opcodes/opcode.js';
 
+/**
+ * Avm Executor manages the execution of the AVM
+ *
+ * It stores a state manager
+ */
 export class AvmExecutor {
   private stateManager: AvmStateManager;
 
@@ -18,6 +18,16 @@ export class AvmExecutor {
     this.stateManager = stateManager;
   }
 
+  /**
+   * Call a contract with the given calldata
+   *
+   * - We get the contract from storage
+   * - We interpret the bytecode
+   * - We run the interpreter
+   *
+   * @param contractAddress -
+   * @param calldata -
+   */
   public call(contractAddress: Fr, calldata: Fr[]): Fr[] {
     // NOTE: the following is mocked as getPublicBytecode does not exist yet
     // const bytecode = stateManager.journal.hostStorage.contractsDb.getBytecode(contractAddress);

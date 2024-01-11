@@ -5,9 +5,11 @@ import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Opcode } from '../opcodes/index.js';
 
-// Function that will take in the opcode the interpreter state and the world state - then execute it
-
-// TO DEFINE DOES THIS ONLY Interpret a SINGLE CALL FRAME OF THE AVM
+/**
+ * Avm Interpreter
+ *
+ * Executes an Avm context
+ */
 export class AvmInterpreter {
   private opcodes: Opcode[] = [];
   private context: AvmContext;

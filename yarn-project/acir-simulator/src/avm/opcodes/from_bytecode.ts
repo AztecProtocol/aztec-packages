@@ -12,6 +12,13 @@ const OPERANDS_LOOKUP: { [key: number]: number } = {
   0x3: Mul.numberOfOperands,
 };
 
+/**
+ * Given the opcode and operands that have been parsed by the interpreter
+ * We return a construction of the opcode
+ *
+ * @param opcode - Opcode value
+ * @param operands - Array of operands
+ */
 function opcodeLookup(opcode: number, operands: number[]): Opcode {
   switch (opcode) {
     case 0x1:
