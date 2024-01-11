@@ -326,7 +326,7 @@ impl DebugShow {
     }
 
     /// Debug function for cast_instruction
-    pub(crate) fn cast_instruction(
+    pub(crate) fn truncate_instruction(
         &self,
         destination: RegisterIndex,
         source: RegisterIndex,
@@ -334,7 +334,7 @@ impl DebugShow {
     ) {
         debug_println!(
             self.enable_debug_trace,
-            "  CAST {} FROM {} TO {} BITS",
+            "  TRUNCATE {} FROM {} TO {} BITS",
             destination,
             source,
             target_bit_size
@@ -352,6 +352,9 @@ impl DebugShow {
             }
             BlackBoxOp::Blake2s { message, output } => {
                 debug_println!(self.enable_debug_trace, "  BLAKE2S {} -> {}", message, output);
+            }
+            BlackBoxOp::Blake3 { message, output } => {
+                debug_println!(self.enable_debug_trace, "  BLAKE3 {} -> {}", message, output);
             }
             BlackBoxOp::EcdsaSecp256k1 {
                 hashed_msg,
