@@ -46,6 +46,7 @@ type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockContext = {
   block?: Uint8Array;
+  blockHash?: Uint8Array;
   l1BlockNumber?: Uint8Array;
   encryptedLogs?: Uint8Array;
   unencryptedLogs?: Uint8Array;
@@ -125,6 +126,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
         const blockCtx = this.#tables.blocks.get(block.number) ?? {};
         blockCtx.block = block.toBuffer();
         blockCtx.l1BlockNumber = toBufferBE(block.getL1BlockNumber(), 32);
+        blockCtx.blockHash = block.getBlockHash();
 
         // no need to await, all writes are enqueued in the transaction
         // awaiting would interrupt the execution flow of this callback and "leak" the transaction to some other part
@@ -163,15 +165,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
         .getRange(this.#computeBlockRange(start, limit))
         .filter(({ value }) => value.block)
         .map(({ value }) => {
-          const block = L2Block.fromBuffer(asBuffer(value.block!));
-          if (value.encryptedLogs) {
-            block.attachLogs(L2BlockL2Logs.fromBuffer(asBuffer(value.encryptedLogs)), LogType.ENCRYPTED);
-          }
-
-          if (value.unencryptedLogs) {
-            block.attachLogs(L2BlockL2Logs.fromBuffer(asBuffer(value.unencryptedLogs)), LogType.UNENCRYPTED);
-          }
-
+          const block = L2Block.fromBuffer(
+            asBuffer(value.block!),
+            value.blockHash ? asBuffer(value.blockHash) : undefined,
+          );
           return block;
         }).asArray;
 
@@ -193,7 +190,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return Promise.resolve(undefined);
     }
 
-    const block = this.#getBlock(blockNumber, true);
+    const block = this.#getBlock(blockNumber);
     return Promise.resolve(block?.getTx(txIndex));
   }
 
@@ -632,7 +629,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return undefined;
     }
 
-    const block = L2Block.fromBuffer(asBuffer(blockCtx.block));
+    const block = L2Block.fromBuffer(
+      asBuffer(blockCtx.block),
+      blockCtx.blockHash ? asBuffer(blockCtx.blockHash) : undefined,
+    );
 
     if (withLogs) {
       if (blockCtx.encryptedLogs) {
