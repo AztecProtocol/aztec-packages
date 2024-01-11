@@ -28,9 +28,12 @@ use num_bigint::BigUint;
 /// The output of the Acir-gen pass
 pub(crate) struct GeneratedAcir {
     /// The next witness index that may be declared.
-    ///
+    /// If witness index is `None` then we have not yet created a witness
+    /// and thus next witness index that be declared is zero.
+    /// This field is private should only ever be accessed through its getter and setter.
+    /// 
     /// Equivalent to acvm::acir::circuit::Circuit's field of the same name.
-    current_witness_index: u32,
+    current_witness_index: Option<u32>,
 
     /// The opcodes of which the compiled ACIR will comprise.
     opcodes: Vec<AcirOpcode>,
@@ -60,7 +63,7 @@ pub(crate) struct GeneratedAcir {
 impl GeneratedAcir {
     /// Returns the current witness index.
     pub(crate) fn current_witness_index(&self) -> Witness {
-        Witness(self.current_witness_index)
+        Witness(self.current_witness_index.unwrap_or(0))
     }
 
     /// Adds a new opcode into ACIR.
@@ -75,16 +78,15 @@ impl GeneratedAcir {
         std::mem::take(&mut self.opcodes)
     }
 
-    /// Returns the current witness index and updates it 
-    /// so that we have a fresh witness the next time this method is called
-    pub(crate) fn get_current_witness_and_update(&mut self) -> Witness {
-        let current_witness_index = Witness(self.current_witness_index);
-        self.current_witness_index += 1;
-        current_witness_index
-    }
-
-    pub(crate) fn decrement_witness_index(&mut self) {
-        self.current_witness_index -= 1;
+    /// Updates the witness index counter and returns
+    /// the next witness index.
+    pub(crate) fn next_witness_index(&mut self) -> Witness {
+        if let Some(current_index) = self.current_witness_index {
+            self.current_witness_index.replace(current_index + 1);
+        } else {
+            self.current_witness_index = Some(0);
+        }
+        Witness(self.current_witness_index.expect("ICE: current_witness_index should exist"))
     }
 
     /// Converts [`Expression`] `expr` into a [`Witness`].
@@ -105,7 +107,7 @@ impl GeneratedAcir {
     /// Once the `Expression` goes over degree-2, then it needs to be reduced to a `Witness`
     /// which has degree-1 in order to be able to continue the multiplication chain.
     pub(crate) fn create_witness_for_expression(&mut self, expression: &Expression) -> Witness {
-        let fresh_witness = self.get_current_witness_and_update();
+        let fresh_witness = self.next_witness_index();
 
         // Create a constraint that sets them to be equal to each other
         // Then return the witness as this can now be used in places
@@ -143,7 +145,7 @@ impl GeneratedAcir {
         intrinsics_check_inputs(func_name, input_count);
         intrinsics_check_outputs(func_name, output_count);
 
-        let outputs = vecmap(0..output_count, |_| self.get_current_witness_and_update());
+        let outputs = vecmap(0..output_count, |_| self.next_witness_index());
 
         // clone is needed since outputs is moved when used in blackbox function.
         let outputs_clone = outputs.clone();
@@ -274,7 +276,7 @@ impl GeneratedAcir {
             "ICE: Radix must be a power of 2"
         );
 
-        let limb_witnesses = vecmap(0..limb_count, |_| self.get_current_witness_and_update());
+        let limb_witnesses = vecmap(0..limb_count, |_| self.next_witness_index());
         self.push_opcode(AcirOpcode::Directive(Directive::ToLeRadix {
             a: input_expr.clone(),
             b: limb_witnesses.clone(),
@@ -359,7 +361,7 @@ impl GeneratedAcir {
     /// resulting `Witness` is constrained to be the inverse.
     pub(crate) fn brillig_inverse(&mut self, expr: Expression) -> Witness {
         // Create the witness for the result
-        let inverted_witness = self.get_current_witness_and_update();
+        let inverted_witness = self.next_witness_index();
 
         // Compute the inverse with brillig code
         let inverse_code = brillig_directive::directive_invert();
@@ -453,7 +455,7 @@ impl GeneratedAcir {
         // the prover can choose anything here.
         let z = self.brillig_inverse(t_witness.into());
 
-        let y = self.get_current_witness_and_update();
+        let y = self.next_witness_index();
 
         // Add constraint y == 1 - tz => y + tz - 1 == 0
         let y_is_boolean_constraint = Expression {
@@ -543,7 +545,7 @@ impl GeneratedAcir {
             bits_len += ((i + 1) as f32).log2().ceil() as u32;
         }
 
-        let bits = vecmap(0..bits_len, |_| self.get_current_witness_and_update());
+        let bits = vecmap(0..bits_len, |_| self.next_witness_index());
         let inputs = in_expr.iter().map(|a| vec![a.clone()]).collect();
         self.push_opcode(AcirOpcode::Directive(Directive::PermutationSort {
             inputs,
