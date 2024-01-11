@@ -30,7 +30,7 @@ pub(crate) struct GeneratedAcir {
     /// The next witness index that may be declared.
     ///
     /// Equivalent to acvm::acir::circuit::Circuit's field of the same name.
-    pub(crate) current_witness_index: Option<u32>,
+    pub(crate) current_witness_index: u32,
 
     /// The opcodes of which the compiled ACIR will comprise.
     opcodes: Vec<AcirOpcode>,
