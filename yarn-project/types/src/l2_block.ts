@@ -662,10 +662,7 @@ export class L2Block {
   getTxHash(txIndex: number): TxHash {
     this.assertIndexInRange(txIndex);
 
-    const firstNullifier = this.newNullifiers.slice(
-      txIndex * MAX_NEW_NULLIFIERS_PER_TX,
-      (txIndex + 1) * MAX_NEW_NULLIFIERS_PER_TX,
-    )[0];
+    const firstNullifier = this.newNullifiers[txIndex * MAX_NEW_NULLIFIERS_PER_TX];
 
     return new TxHash(firstNullifier.toBuffer());
   }
@@ -702,7 +699,7 @@ export class L2Block {
   }
 
   assertIndexInRange(txIndex: number) {
-    if (txIndex >= this.numberOfTxs) {
+    if (txIndex < 0 || txIndex >= this.numberOfTxs) {
       throw new IndexOutOfRangeError({
         txIndex,
         numberOfTxs: this.numberOfTxs,
@@ -809,6 +806,6 @@ export class IndexOutOfRangeError extends Error {
      */
     blockNumber: number;
   }) {
-    super(`IndexOutOfRangeError: Failed to get tx ${txIndex}. Block ${blockNumber} only has ${numberOfTxs} txs.`);
+    super(`IndexOutOfRangeError: Failed to get tx at index ${txIndex}. Block ${blockNumber} has ${numberOfTxs} txs.`);
   }
 }
