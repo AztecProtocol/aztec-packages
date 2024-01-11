@@ -340,9 +340,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     auto w = WitnessMap::WitnessMap::bincodeDeserialize(buf);
     WitnessVector wv;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Does "index" need to be initialized to 0 once we
-    // get rid of the +1 offset in noir?
-    size_t index = 1;
+    size_t index = 0;
     for (auto& e : w.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
