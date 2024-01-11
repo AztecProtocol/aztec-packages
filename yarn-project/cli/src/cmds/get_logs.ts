@@ -1,8 +1,9 @@
-import { AztecAddress, FunctionSelector, LogFilter, LogId, TxHash } from '@aztec/aztec.js';
+import { AztecAddress, LogFilter, LogId, TxHash } from '@aztec/aztec.js';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { createCompatibleClient } from '../client.js';
+import { EventSelector } from '@aztec/foundation/abi';
 
 /**
  *
@@ -13,7 +14,7 @@ export async function getLogs(
   toBlock: number,
   afterLog: LogId,
   contractAddress: AztecAddress,
-  selector: FunctionSelector,
+  selector: EventSelector,
   rpcUrl: string,
   follow: boolean,
   debugLogger: DebugLogger,
