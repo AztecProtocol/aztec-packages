@@ -682,10 +682,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         w_o().reserve(size_hint);
         w_4().reserve(size_hint);
 
-        // // WORKTODO
-        // this->zero_idx = put_constant_variable(FF::zero());
-        // this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
             // be "set" later on via the assert_equal mechanism.
@@ -696,13 +692,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         // Add the public_inputs from acir
         this->public_inputs = public_inputs;
 
-        // WORKTODO
+        // Add the const zero variable after the acir witness has been
+        // incorporated into variables.
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-
-        // info("varnum = ", varnum);
-        // info("witness_values.size() = ", witness_values.size());
-        // info("ZERO IDX = ", this->zero_idx);
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)

@@ -32,12 +32,9 @@ export BIN CRS_PATH VERBOSE BRANCH
 ./clone_test_vectors.sh
 
 cd acir_tests
-# cd acir_tests_new_new
-# cd acir_tests_new
-# cd acir_tests_classic
 
 # Convert them to array
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member sha2_byte)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 function test() {
   cd $1
@@ -55,7 +52,7 @@ function test() {
   else
     echo -e "\033[31mFAILED\033[0m"
     touch "$error_file"
-    # exit 1
+    exit 1
   fi
 
   cd ..

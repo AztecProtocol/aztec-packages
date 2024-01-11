@@ -384,16 +384,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    // info("\nCreating poly gate:");
-    // info("w_1 = ", in.a);
-    // info("w_2 = ", in.b);
-    // info("w_3 = ", in.c);
-    // info("q_l = ", in.q_l);
-    // info("q_r = ", in.q_r);
-    // info("q_o = ", in.q_o);
-    // info("q_c = ", in.q_c);
-    // info("q_m = ", in.q_m);
-
     w_l().emplace_back(in.a);
     w_r().emplace_back(in.b);
     w_o().emplace_back(in.c);
