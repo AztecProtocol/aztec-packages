@@ -226,7 +226,6 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                                    const std::vector<std::string>& equal_at_the_same_time = {},
                                                    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
-extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
     CircuitSchema& circuit_info,
     Solver* s,
     const std::vector<std::string>& equal = {},
@@ -234,7 +233,6 @@ extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(
     const std::vector<std::string>& equal_at_the_same_time = {},
     const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
-extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
     CircuitSchema& circuit_info,
     Solver* s,
     const std::vector<std::string>& equal = {},
@@ -242,4 +240,4 @@ extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
     const std::vector<std::string>& equal_at_the_same_time = {},
     const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
-}; // namespace smt_circuit
+    }; // namespace smt_circuit

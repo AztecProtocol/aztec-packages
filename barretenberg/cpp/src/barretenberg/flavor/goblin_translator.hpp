@@ -1142,13 +1142,6 @@ class GoblinTranslator {
 
 namespace proof_system {
 
-extern template class GoblinTranslatorPermutationRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorGenPermSortRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorOpcodeConstraintRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorAccumulatorTransferRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorDecompositionRelationImpl<barretenberg::fr>;
-extern template class GoblinTranslatorNonNativeFieldRelationImpl<barretenberg::fr>;
-
 DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorPermutationRelationImpl, honk::flavor::GoblinTranslator);
 DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorGenPermSortRelationImpl, honk::flavor::GoblinTranslator);
 DECLARE_SUMCHECK_RELATION_CLASS(GoblinTranslatorOpcodeConstraintRelationImpl, honk::flavor::GoblinTranslator);

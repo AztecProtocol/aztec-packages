@@ -932,13 +932,6 @@ class ECCVM : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA<
 } // namespace flavor
 namespace sumcheck {
 
-extern template class ECCVMTranscriptRelationImpl<grumpkin::fr>;
-extern template class ECCVMWnafRelationImpl<grumpkin::fr>;
-extern template class ECCVMPointTableRelationImpl<grumpkin::fr>;
-extern template class ECCVMMSMRelationImpl<grumpkin::fr>;
-extern template class ECCVMSetRelationImpl<grumpkin::fr>;
-extern template class ECCVMLookupRelationImpl<grumpkin::fr>;
-
 DECLARE_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, flavor::ECCVM);
 DECLARE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationImpl, flavor::ECCVM);
 DECLARE_SUMCHECK_RELATION_CLASS(ECCVMPointTableRelationImpl, flavor::ECCVM);
