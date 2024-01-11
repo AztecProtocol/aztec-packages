@@ -24,22 +24,21 @@
 
 ## Functions
 
-### publicInputsToWitnessMap()
+### flattenPublicInputs()
 
 ```ts
-publicInputsToWitnessMap(publicInputs, abi): WitnessMap
+flattenPublicInputs(publicInputs): string[]
 ```
 
 #### Parameters
 
 | Parameter | Type |
 | :------ | :------ |
-| `publicInputs` | `string`[] |
-| `abi` | `Abi` |
+| `publicInputs` | `WitnessMap` |
 
 #### Returns
 
-`WitnessMap`
+`string`[]
 
 ***
 
