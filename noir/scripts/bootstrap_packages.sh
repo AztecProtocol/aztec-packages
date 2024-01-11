@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+
 cd $(dirname "$0")/..
 
 ./scripts/install_wasm-bindgen.sh
