@@ -5,6 +5,41 @@
 using namespace numeric;
 namespace {
 
+void common_validate_arithmetic_op(Row const& main_row,
+                                   Row const& alu_row,
+                                   FF const& a,
+                                   FF const& b,
+                                   FF const& c,
+                                   FF const& addr_a,
+                                   FF const& addr_b,
+                                   FF const& addr_c,
+                                   avm_trace::AvmMemoryTag const tag)
+{
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_EQ(main_row.avmMini_ic, c);
+    EXPECT_EQ(main_row.avmMini_mem_idx_c, addr_c);
+    EXPECT_EQ(main_row.avmMini_mem_op_c, FF(1));
+    EXPECT_EQ(main_row.avmMini_rwc, FF(1));
+
+    // Check that ia and ib registers are correctly set with memory load operations.
+    EXPECT_EQ(main_row.avmMini_ia, a);
+    EXPECT_EQ(main_row.avmMini_mem_idx_a, addr_a);
+    EXPECT_EQ(main_row.avmMini_mem_op_a, FF(1));
+    EXPECT_EQ(main_row.avmMini_rwa, FF(0));
+    EXPECT_EQ(main_row.avmMini_ib, b);
+    EXPECT_EQ(main_row.avmMini_mem_idx_b, addr_b);
+    EXPECT_EQ(main_row.avmMini_mem_op_b, FF(1));
+    EXPECT_EQ(main_row.avmMini_rwb, FF(0));
+
+    // Check the instruction tag
+    EXPECT_EQ(main_row.avmMini_in_tag, FF(static_cast<uint32_t>(tag)));
+
+    // Check that intermediate rgiesters are correctly copied in Alu trace
+    EXPECT_EQ(alu_row.aluChip_alu_ia, a);
+    EXPECT_EQ(alu_row.aluChip_alu_ib, b);
+    EXPECT_EQ(alu_row.aluChip_alu_ic, c);
+}
+
 Row common_validate_add(std::vector<Row> const& trace,
                         FF const& a,
                         FF const& b,
@@ -17,36 +52,48 @@ Row common_validate_add(std::vector<Row> const& trace,
     // Find the first row enabling the addition selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_add == FF(1); });
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, c);
-    EXPECT_EQ(row->avmMini_mem_idx_c, addr_c);
-    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
-    EXPECT_EQ(row->avmMini_rwc, FF(1));
-
-    // Check that ia and ib registers are correctly set with memory load operations.
-    EXPECT_EQ(row->avmMini_ia, a);
-    EXPECT_EQ(row->avmMini_mem_idx_a, addr_a);
-    EXPECT_EQ(row->avmMini_mem_op_a, FF(1));
-    EXPECT_EQ(row->avmMini_rwa, FF(0));
-    EXPECT_EQ(row->avmMini_ib, b);
-    EXPECT_EQ(row->avmMini_mem_idx_b, addr_b);
-    EXPECT_EQ(row->avmMini_mem_op_b, FF(1));
-    EXPECT_EQ(row->avmMini_rwb, FF(0));
-
-    // Check instruction tag and add selector are set.
-    EXPECT_EQ(row->avmMini_in_tag, FF(static_cast<uint32_t>(tag)));
-    EXPECT_EQ(row->avmMini_sel_op_add, FF(1));
-
-    // Check that Alu trace is as expected.
+    // Find the corresponding Alu trace row
     auto clk = row->avmMini_clk;
     auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.aluChip_alu_clk == clk; });
 
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
     EXPECT_TRUE(alu_row != trace.end());
+
+    common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+
+    // Check that addition selector is set.
+    EXPECT_EQ(row->avmMini_sel_op_add, FF(1));
     EXPECT_EQ(alu_row->aluChip_alu_op_add, FF(1));
-    EXPECT_EQ(alu_row->aluChip_alu_ia, a);
-    EXPECT_EQ(alu_row->aluChip_alu_ib, b);
-    EXPECT_EQ(alu_row->aluChip_alu_ic, c);
+
+    return *alu_row;
+}
+
+Row common_validate_sub(std::vector<Row> const& trace,
+                        FF const& a,
+                        FF const& b,
+                        FF const& c,
+                        FF const& addr_a,
+                        FF const& addr_b,
+                        FF const& addr_c,
+                        avm_trace::AvmMemoryTag const tag)
+{
+    // Find the first row enabling the subtraction selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == FF(1); });
+
+    // Find the corresponding Alu trace row
+    auto clk = row->avmMini_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.aluChip_alu_clk == clk; });
+
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_TRUE(alu_row != trace.end());
+
+    common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+
+    // Check that addition selector is set.
+    EXPECT_EQ(row->avmMini_sel_op_sub, FF(1));
+    EXPECT_EQ(alu_row->aluChip_alu_op_sub, FF(1));
 
     return *alu_row;
 }
@@ -120,6 +167,8 @@ TEST_F(AvmMiniArithmeticTestsFF, addition)
     auto alu_row = common_validate_add(trace, FF(37), FF(4), FF(41), FF(0), FF(1), FF(4), AvmMemoryTag::ff);
 
     EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(41));
 
     validate_trace_proof(std::move(trace));
 }
@@ -134,15 +183,11 @@ TEST_F(AvmMiniArithmeticTestsFF, subtraction)
     trace_builder.return_op(0, 3);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the subtraction selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_sub == FF(1); });
+    auto alu_row = common_validate_sub(trace, FF(17), FF(8), FF(9), FF(2), FF(0), FF(1), AvmMemoryTag::ff);
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, FF(9));
-    EXPECT_EQ(row->avmMini_mem_idx_c, FF(1));
-    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
-    EXPECT_EQ(row->avmMini_rwc, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(17));
 
     validate_trace_proof(std::move(trace));
 }
@@ -358,6 +403,49 @@ TEST_F(AvmMiniArithmeticTestsU8, additionCarry)
     validate_trace_proof(std::move(trace));
 }
 
+// Test on basic subtraction over u8 type.
+TEST_F(AvmMiniArithmeticTestsU8, subtraction)
+{
+    // trace_builder
+    trace_builder.set(162, 0, AvmMemoryTag::u8);
+    trace_builder.set(29, 1, AvmMemoryTag::u8);
+
+    //                             Memory layout:    [162,29,0,0,0,....]
+    trace_builder.sub(0, 1, 2, AvmMemoryTag::u8); // [162,29,133,0,0,....]
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(trace, FF(162), FF(29), FF(133), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(162)); // First operand (a) for subtraction
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on subtraction over u8 type with carry.
+// For a subtraction a - b = c, there is a carry flag iff a < b (equivalent to a < c)
+TEST_F(AvmMiniArithmeticTestsU8, subtractionCarry)
+{
+    // trace_builder
+    trace_builder.set(5, 0, AvmMemoryTag::u8);
+    trace_builder.set(29, 1, AvmMemoryTag::u8);
+
+    //                             Memory layout:    [5,29,0,0,0,....]
+    trace_builder.sub(0, 1, 2, AvmMemoryTag::u8); // [5,29,232,0,0,....]
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(trace, FF(5), FF(29), FF(232), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(5)); // First operand (a) for subtraction
+
+    validate_trace_proof(std::move(trace));
+}
+
 /******************************************************************************
  * Positive Tests - U16
  ******************************************************************************/
@@ -400,6 +488,49 @@ TEST_F(AvmMiniArithmeticTestsU16, additionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(17));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u16 type.
+TEST_F(AvmMiniArithmeticTestsU16, subtraction)
+{
+    // trace_builder
+    trace_builder.set(1775, 119, AvmMemoryTag::u16);
+    trace_builder.set(33005, 546, AvmMemoryTag::u16);
+
+    trace_builder.sub(546, 119, 5, AvmMemoryTag::u16);
+    trace_builder.return_op(5, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_sub(trace, FF(33005), FF(1775), FF(31230), FF(546), FF(119), FF(5), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(33005)); // First operand (a) for subtraction
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u16 type with carry.
+// For a subtraction a - b = c, there is a carry flag iff a < b (equivalent to a < c)
+TEST_F(AvmMiniArithmeticTestsU16, subtractionCarry)
+{
+    // trace_builder
+    trace_builder.set(UINT16_MAX - 982, 0, AvmMemoryTag::u16);
+    trace_builder.set(1000, 1, AvmMemoryTag::u16);
+
+    trace_builder.sub(1, 0, 0, AvmMemoryTag::u16);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_sub(trace, FF(1000), FF(UINT16_MAX - 982), FF(1983), FF(1), FF(0), FF(0), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(1000)); // First operand (a) for subtraction
 
     validate_trace_proof(std::move(trace));
 }
@@ -448,6 +579,55 @@ TEST_F(AvmMiniArithmeticTestsU32, additionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(999));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u32 type.
+TEST_F(AvmMiniArithmeticTestsU32, subtraction)
+{
+    // trace_builder
+    trace_builder.set(1345678991, 8, AvmMemoryTag::u32);
+    trace_builder.set(1234567891, 9, AvmMemoryTag::u32);
+
+    trace_builder.sub(8, 9, 0, AvmMemoryTag::u32);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(
+        trace, FF(1345678991), FF(1234567891), FF(111111100), FF(8), FF(9), FF(0), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+
+    // First operand (a) for subtraction decomposed in u16 registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(1345678991 & UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(1345678991 >> 16));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u32 type with carry.
+// For a subtraction a - b = c, there is a carry flag iff a < b (equivalent to a < c)
+TEST_F(AvmMiniArithmeticTestsU32, subtractionCarry)
+{
+    // trace_builder
+    trace_builder.set(UINT32_MAX - 99, 8, AvmMemoryTag::u32);
+    trace_builder.set(3210987654, 9, AvmMemoryTag::u32);
+
+    trace_builder.sub(9, 8, 0, AvmMemoryTag::u32);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(
+        trace, FF(3210987654LLU), FF(UINT32_MAX - 99), FF(3210987754LLU), FF(9), FF(8), FF(0), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+
+    // First operand (a) for subtraction decomposed in u16 registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(3210987654LLU & UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(3210987654LLU >> 16));
 
     validate_trace_proof(std::move(trace));
 }
@@ -510,12 +690,109 @@ TEST_F(AvmMiniArithmeticTestsU64, additionCarry)
     validate_trace_proof(std::move(trace));
 }
 
+// Test on basic subtraction over u64 type.
+TEST_F(AvmMiniArithmeticTestsU64, subtraction)
+{
+    uint64_t const a = 9876543210123456789LLU; // HEX: 891087B8B0347115
+    uint64_t const b = 9866543210123456789LLU;
+    uint64_t const c = 10000000000000000LLU;
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u64);
+    trace_builder.set(b, 9, AvmMemoryTag::u64);
+
+    trace_builder.sub(8, 9, 9, AvmMemoryTag::u64);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(trace, FF(a), FF(b), FF(c), FF(8), FF(9), FF(9), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+
+    // First operand (891087B8B0347115) for subtraction decomposed in u16 registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0X7115));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0XB034));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0X87B8));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0X8910));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u64 type with carry.
+// For a subtraction a - b = c, there is a carry flag iff a < b (equivalent to a < c)
+TEST_F(AvmMiniArithmeticTestsU64, subtractionCarry)
+{
+    uint64_t const a = UINT64_MAX - 77LLU;
+    uint64_t const b = UINT64_MAX - 2LLU;
+    uint64_t const c = UINT64_MAX - 74;
+
+    // trace_builder
+    trace_builder.set(a, 0, AvmMemoryTag::u64);
+    trace_builder.set(b, 1, AvmMemoryTag::u64);
+
+    trace_builder.sub(0, 1, 0, AvmMemoryTag::u64);
+    trace_builder.return_op(0, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(trace, FF(a), FF(b), FF(c), FF(0), FF(1), FF(0), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
+
+    // First operand (a) for subtraction decomposed in u16 registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(UINT16_MAX - 77));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(UINT16_MAX));
+
+    validate_trace_proof(std::move(trace));
+}
+
 /******************************************************************************
  * Positive Tests - U128
  ******************************************************************************/
 
 // Test on basic addition over u128 type.
 TEST_F(AvmMiniArithmeticTestsU128, addition)
+{
+    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
+    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
+    uint128_t const c = (uint128_t(0x8888444466665555LLU) << 64) + uint128_t(0xDDDDAAAAFFFFEEEELLU);
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u128);
+    trace_builder.set(b, 9, AvmMemoryTag::u128);
+
+    trace_builder.add(8, 9, 9, AvmMemoryTag::u128);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_add(trace,
+                                       FF(uint256_t::from_uint128(a)),
+                                       FF(uint256_t::from_uint128(b)),
+                                       FF(uint256_t::from_uint128(c)),
+                                       FF(8),
+                                       FF(9),
+                                       FF(9),
+                                       AvmMemoryTag::u128);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xEEEE));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0xAAAA));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0xDDDD));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0x5555));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0x6666));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0x4444));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0x8888));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic addition over u128 type with carry.
+TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
 {
     uint128_t const a = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(72948899);
     uint128_t const b = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177344);
@@ -553,22 +830,22 @@ TEST_F(AvmMiniArithmeticTestsU128, addition)
     validate_trace_proof(std::move(trace));
 }
 
-// Test on basic addition over u128 type with carry.
-TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
+// Test on basic subtraction over u128 type.
+TEST_F(AvmMiniArithmeticTestsU128, subtraction)
 {
-    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
-    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
-    uint128_t const c = (uint128_t(0x8888444466665555LLU) << 64) + uint128_t(0xDDDDAAAAFFFFEEEELLU);
+    uint128_t const a = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177344);
+    uint128_t const b = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(72948899);
+    uint128_t const c = 36771555; // 72948899 - 36177344
 
     // trace_builder
     trace_builder.set(a, 8, AvmMemoryTag::u128);
     trace_builder.set(b, 9, AvmMemoryTag::u128);
 
-    trace_builder.add(8, 9, 9, AvmMemoryTag::u128);
+    trace_builder.sub(8, 9, 9, AvmMemoryTag::u128);
     trace_builder.return_op(9, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_add(trace,
+    auto alu_row = common_validate_sub(trace,
                                        FF(uint256_t::from_uint128(a)),
                                        FF(uint256_t::from_uint128(b)),
                                        FF(uint256_t::from_uint128(c)),
@@ -579,14 +856,57 @@ TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
 
     EXPECT_EQ(alu_row.aluChip_alu_u128_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xEEEE));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xFFFF));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0xAAAA));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0xDDDD));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0x5555));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0x6666));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0x4444));
-    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0x8888));
+
+    // First operand (a) for subtraction decomposed in u16 registers
+    // 2^32 - 1 - 36177344 = 4258789951 == 0xFDD7FA3F
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xFA3F));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xFDD7));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0xFFFF));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0xFFFF));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic subtraction over u128 type with carry.
+TEST_F(AvmMiniArithmeticTestsU128, subtractionCarry)
+{
+    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
+    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
+    uint128_t const c = (uint128_t(0x2222000000003333LLU) << 64) + uint128_t(0x3333888855558888LLU);
+
+    // trace_builder
+    trace_builder.set(a, 8, AvmMemoryTag::u128);
+    trace_builder.set(b, 9, AvmMemoryTag::u128);
+
+    trace_builder.sub(8, 9, 9, AvmMemoryTag::u128);
+    trace_builder.return_op(9, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_sub(trace,
+                                       FF(uint256_t::from_uint128(a)),
+                                       FF(uint256_t::from_uint128(b)),
+                                       FF(uint256_t::from_uint128(c)),
+                                       FF(8),
+                                       FF(9),
+                                       FF(9),
+                                       AvmMemoryTag::u128);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u128_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+
+    // First operand (a) for subtraction decomposed in u16 registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0xBBBB));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0xAAAA));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0x9999));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0x8888));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(0x4444));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0x3333));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0x2222));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0x5555));
 
     validate_trace_proof(std::move(trace));
 }

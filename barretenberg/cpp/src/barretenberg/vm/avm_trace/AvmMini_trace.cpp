@@ -77,7 +77,7 @@ void AvmMiniTraceBuilder::add(uint32_t a_offset, uint32_t b_offset, uint32_t dst
     });
 };
 
-/** TODO: Implement for non finite field types
+/**
  * @brief Subtraction with direct memory access.
  *
  * @param a_offset An index in memory pointing to the first operand of the subtraction.
