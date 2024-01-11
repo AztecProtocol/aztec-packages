@@ -101,12 +101,12 @@ const sidebars = {
       ],
       "Public VM": [
         "public-vm/avm",
+        "public-vm/state-model",
+        "public-vm/instruction-set",
+        "public-vm/avm-circuit",
+        "public-vm/control-flow",
         "public-vm/alu",
         "public-vm/bytecode-validation-circuit",
-        "public-vm/control-flow",
-        "public-vm/InstructionSet", // TODO: change name's case
-        "public-vm/security",
-        "public-vm/state-model",
       ],
     },
   ],
