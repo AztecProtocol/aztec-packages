@@ -1,13 +1,20 @@
-add_executable(plonk_bench plonk.bench.cpp)
+# Each source represents a separate benchmark suite 
+set(BENCHMARK_SOURCES
+  plonk.bench.cpp
+  standard_plonk.bench.cpp
+)
 
-target_link_libraries(
-  plonk_bench
+# Required libraries for benchmark suites
+set(LINKED_LIBRARIES
+  plonk
   stdlib_primitives
   benchmark::benchmark
 )
 
-add_custom_target(
-    run_plonk_bench
-    COMMAND plonk_bench
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-)
+# Add executable and custom target for each suite, e.g. ultra_honk_bench
+foreach(BENCHMARK_SOURCE ${BENCHMARK_SOURCES})
+  get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension
+  add_executable(${BENCHMARK_NAME}_bench main.bench.cpp ${BENCHMARK_SOURCE})
+  target_link_libraries(${BENCHMARK_NAME}_bench ${LINKED_LIBRARIES})
+  add_custom_target(run_${BENCHMARK_NAME} COMMAND ${BENCHMARK_NAME} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+endforeach()

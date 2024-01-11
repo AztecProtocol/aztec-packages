@@ -98,7 +98,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
         , op_queue(op_queue_in)
     {
-        // Add the witness variables known directly from acir
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): NOTE: This still works even though the
+        // witness indices in the explicit acir gates are +1 offset because we're still adding the const 0 before
+        // anything else via the UCB constructor. Once we remove the +1 from Noir, we'll need to update the UCB by
+        // moving that const 0 to get these tests to pass again. Add the witness variables known directly from acir
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
             // be "set" later on via the assert_equal mechanism.
@@ -155,22 +158,21 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 
     /**
-     * Make a witness variable a member of the public calldata.
+     * @brief Add a witness variable to the public calldata.
      *
-     * @param witness_index The index of the witness.
+     * @param in Value to be added to calldata.
      * */
-    void set_public_calldata(const uint32_t witness_index)
+    uint32_t add_public_calldata(const FF& in)
     {
-        for (const uint32_t calldata : public_calldata) {
-            if (calldata == witness_index) {
-                if (!this->failed()) {
-                    this->failure("Attempted to redundantly set a public calldata!");
-                }
-                return;
-            }
-        }
-        public_calldata.emplace_back(witness_index);
+        const uint32_t index = this->add_variable(in);
+        public_calldata.emplace_back(index);
+        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
+        calldata_read_counts.resize(public_calldata.size());
+        return index;
     }
+
+    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
