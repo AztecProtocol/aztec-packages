@@ -3,7 +3,7 @@ sidebar_position: 1
 ---
 
 # AVM Circuit
-The AVM circuit's purpose is to prove execution of the correct sequence of instructions for a public execution request. Regardless of whether execution succeeds or reverts, the circuit always generates a valid proof of execution.
+The AVM circuit's purpose is to prove execution of a sequence of instructions for a public execution request. Regardless of whether execution succeeds or reverts, the circuit always generates a valid proof of execution.
 
 ## Circuit Architecture
 The circuit is comprised of the following components:
@@ -19,7 +19,7 @@ The circuit is comprised of the following components:
 - **Circuit I/O**: data structures used to ingest circuit inputs and emit outputs.
 
 ## Bytecode Table
-To review, the VM circuit's primary purpose is to prove execution of the correct sequence of instructions given a message call's bytecode and inputs. The circuit will prove correct execution of any nested message calls as well. Each nested call will have its own bytecode and inputs, but will be processed within the same circuit.
+To review, the AVM circuit's primary purpose is to prove execution of the proper sequence of instructions given a message call's bytecode and inputs. The circuit will prove correct execution of any nested message calls as well. Each nested call will have its own bytecode and inputs, but will be processed within the same circuit.
 
 Prior to the VM circuit's execution, a vector is assembled to contain the bytecode for all of a request's message calls (initial and nested). If a request's execution contains message calls to contracts A, B, C, and D (in that order), the VM circuit's bytecode vector will contain A's bytecode, followed by B's, C's, and finally D's. Each one will be zero-padded to some constant length `CONTRACT_BYTECODE_MAX_LENGTH`.
 
@@ -109,7 +109,7 @@ As expanded on later, the VM circuit memory table has a separate section for eac
 The VM circuit's **Memory Controller** processes loads and stores between intermediate registers and memory.
 
 ### Memory Sub-operations
-When decoded, instructions that operate on memory map to some Memory Controller sub-operations. A memory read maps to a `LOAD` sub-operation which loads a word from memory into an internal register. The memory offset for this sub-operation is generally specified by an instruction argument. Similarly, a memory write maps to a `STORE` sub-operation which stores a word from an internal register to memory.
+When decoded, instructions that operate on memory map to some Memory Controller sub-operations. A memory read maps to a `LOAD` sub-operation which loads a word from memory into an intermediate register. The memory offset for this sub-operation is generally specified by an instruction argument. Similarly, a memory write maps to a `STORE` sub-operation which stores a word from an intermediate register to memory.
 
 ### User Memory
 **TODO**
