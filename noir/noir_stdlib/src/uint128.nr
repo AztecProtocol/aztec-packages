@@ -42,6 +42,17 @@ impl U128 {
         }
     }
 
+    pub fn to_be_bytes(self: Self) -> [u8; 16] {
+        let lo = self.lo.to_be_bytes(8);
+        let hi = self.hi.to_be_bytes(8);
+        let mut bytes = [0;16];
+        for i in 0..8 {
+            bytes[i] = hi[i];
+            bytes[i+8] = lo[i];
+        }
+        bytes
+    }
+
     pub fn to_le_bytes(self: Self) -> [u8; 16] {
         let lo = self.lo.to_le_bytes(8);
         let hi = self.hi.to_le_bytes(8);
@@ -115,6 +126,9 @@ impl U128 {
     }
 
     pub fn from_integer<T>(i: T) -> U128 {
+        // TODO(Kev): Apply 128 bit range constraint and fail if this is not the case.
+        // We can expose a `apply_range_constraint` method from Noir which can take a field 
+        // and return a Field.
         let f = crate::as_field(i);
         let lo = f as u64 as Field;
         let hi = (f-lo) / pow64;
