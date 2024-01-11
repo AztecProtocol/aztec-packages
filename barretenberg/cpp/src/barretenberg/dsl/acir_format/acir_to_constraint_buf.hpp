@@ -331,7 +331,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 /**
  * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
  *
- * @param buf Serialized  of a witness
+ * @param buf Serialized representation of a `WitnessMap`.
  * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
  * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
  *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
