@@ -382,19 +382,21 @@ mod tests {
         assert(array_length(public_inputs.end.new_nullifiers) == 3);
     }
 
-    #[test(should_fail_with="New nullifier is transient but hint is invalid")]
-    fn invalid_nullifier_commitment_hint_fails() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+    // Failure is caught at compile time so doesn't reach test runner to fail in the correct way
+    //
+    // #[test(should_fail_with="New nullifier is transient but hint is invalid")]
+    // fn invalid_nullifier_commitment_hint_fails() {
+    //     let mut builder = PrivateKernelOrderingInputsBuilder::new();
 
-        builder.append_transient_commitments(1);
-        builder.append_nullifiers(1);
-        // The nullifier at index 1 is nullifying the commitment at index 0;
-        builder.nullify_transient_commitment(1, 0);
-        // Change the hint to be out of bounds.
-        builder.nullifier_commitment_hints[1] = MAX_NEW_COMMITMENTS_PER_TX;
+    //     builder.append_transient_commitments(1);
+    //     builder.append_nullifiers(1);
+    //     // The nullifier at index 1 is nullifying the commitment at index 0;
+    //     builder.nullify_transient_commitment(1, 0);
+    //     // Change the hint to be out of bounds.
+    //     builder.nullifier_commitment_hints[1] = MAX_NEW_COMMITMENTS_PER_TX;
 
-        builder.failed();
-    }
+    //     builder.failed();
+    // }
 
     #[test(should_fail_with="Hinted commitment does not match")]
     fn wrong_nullifier_commitment_hint_fails() {
