@@ -257,17 +257,6 @@ jobs:
           command: |
             barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
 
-  barretenberg-honk-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests
-
   barretenberg-proof-system-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -998,6 +987,11 @@ jobs:
             deploy_dockerhub aztec-faucet
             deploy_dockerhub mainnet-fork
       - run:
+          name: "Release canary to NPM: bb.js"
+          command: |
+            should_release || exit 0
+            deploy_npm bb.js canary
+      - run:
           name: "Release canary to NPM: yarn-project"
           command: |
             should_release || exit 0
@@ -1130,7 +1124,6 @@ workflows:
             - barretenberg-x86_64-linux-clang
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
-      - barretenberg-honk-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
       - barretenberg-tests: *bb_test
       - barretenberg-stdlib-tests: *bb_test
