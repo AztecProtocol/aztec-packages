@@ -12,6 +12,7 @@ class AvmMiniAluTraceBuilder {
 
         bool alu_op_add = false;
         bool alu_op_sub = false;
+        bool alu_op_mul = false;
 
         bool alu_ff_tag = false;
         bool alu_u8_tag = false;
@@ -27,6 +28,7 @@ class AvmMiniAluTraceBuilder {
         bool alu_cf = false;
 
         uint8_t alu_u8_r0{};
+        uint8_t alu_u8_r1{};
 
         std::array<uint16_t, 8> alu_u16_reg{};
     };
@@ -37,6 +39,7 @@ class AvmMiniAluTraceBuilder {
 
     FF add(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
     FF sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
 
   private:
     std::vector<AluTraceEntry> alu_trace;

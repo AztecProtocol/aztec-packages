@@ -168,7 +168,7 @@ TEST_F(AvmMiniArithmeticTestsFF, addition)
 
     EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(41));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -187,7 +187,7 @@ TEST_F(AvmMiniArithmeticTestsFF, subtraction)
 
     EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
-    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(17));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -954,6 +954,8 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, subtraction)
 
     //                             Memory layout:    [8,4,17,0,0,0,....]
     trace_builder.sub(2, 0, 1, AvmMemoryTag::ff); // [8,9,17,0,0,0....]
+    trace_builder.halt();
+
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
@@ -969,10 +971,11 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, multiplication)
 
     //                             Memory layout:    [5,0,20,0,0,0,....]
     trace_builder.mul(2, 0, 1, AvmMemoryTag::ff); // [5,100,20,0,0,0....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_mul == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(1000));
+    mutate_ic_in_trace(trace, std::move(select_row), FF(1000), true);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_MULTIPLICATION_FF");
 }
@@ -984,6 +987,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionFF)
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::ff); // [15,315,21,0,0,0....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     auto select_row = [](Row r) { return r.avmMini_sel_op_div == FF(1); };
@@ -1000,6 +1004,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionNoZeroButError)
 
     //                             Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.div(1, 0, 2, AvmMemoryTag::ff); // [15,315,21,0,0,0....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the division selector
@@ -1042,6 +1047,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, divisionZeroByZeroNoError)
 {
     //                             Memory layout:    [0,0,0,0,0,0,....]
     trace_builder.div(0, 1, 2, AvmMemoryTag::ff); // [0,0,0,0,0,0....]
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the division selector
@@ -1062,6 +1068,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
     //                             Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.add(0, 1, 4, AvmMemoryTag::ff); // [37,4,11,0,41,0,....]
     trace_builder.return_op(0, 5);
+    trace_builder.halt();
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector

@@ -157,6 +157,10 @@ namespace aluChip(256);
 
     // ========= MULTIPLICATION Operation Constraints ===============================
 
+    // ff multiplication
+    #[SUBOP_MULTIPLICATION_FF]
+    alu_ff_tag * alu_op_mul * (alu_ia * alu_ib - alu_ic) = 0;
+
     // We need 2k bits to express the product (a*b) over the integer, i.e., for type uk
     // we express the product as sum_k (u8 is an exception as we need 8-bit registers)
 

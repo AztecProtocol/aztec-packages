@@ -122,7 +122,7 @@ void AvmMiniTraceBuilder::sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst
     });
 };
 
-/** TODO: Implement for non finite field types
+/**
  * @brief Multiplication with direct memory access.
  *
  * @param a_offset An index in memory pointing to the first operand of the multiplication.
@@ -140,9 +140,9 @@ void AvmMiniTraceBuilder::mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // a * b = c
-    FF a = read_a.val;
-    FF b = read_b.val;
-    FF c = a * b;
+    FF a = tag_match ? read_a.val : FF(0);
+    FF b = tag_match ? read_b.val : FF(0);
+    FF c = alu_trace_builder.mul(a, b, in_tag, clk);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::ic, dst_offset, c, in_tag);
@@ -154,9 +154,9 @@ void AvmMiniTraceBuilder::mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst
         .avmMini_sel_op_mul = FF(1),
         .avmMini_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avmMini_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-        .avmMini_ia = tag_match ? a : FF(0),
-        .avmMini_ib = tag_match ? b : FF(0),
-        .avmMini_ic = tag_match ? c : FF(0),
+        .avmMini_ia = a,
+        .avmMini_ib = b,
+        .avmMini_ic = c,
         .avmMini_mem_op_a = FF(1),
         .avmMini_mem_op_b = FF(1),
         .avmMini_mem_op_c = FF(1),
@@ -629,6 +629,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
 
         dest.aluChip_alu_op_add = FF(static_cast<uint32_t>(src.alu_op_add));
         dest.aluChip_alu_op_sub = FF(static_cast<uint32_t>(src.alu_op_sub));
+        dest.aluChip_alu_op_mul = FF(static_cast<uint32_t>(src.alu_op_mul));
 
         dest.aluChip_alu_ff_tag = FF(static_cast<uint32_t>(src.alu_ff_tag));
         dest.aluChip_alu_u8_tag = FF(static_cast<uint32_t>(src.alu_u8_tag));
@@ -644,6 +645,7 @@ std::vector<Row> AvmMiniTraceBuilder::finalize()
         dest.aluChip_alu_cf = FF(static_cast<uint32_t>(src.alu_cf));
 
         dest.aluChip_alu_u8_r0 = FF(src.alu_u8_r0);
+        dest.aluChip_alu_u8_r1 = FF(src.alu_u8_r1);
 
         dest.aluChip_alu_u16_r0 = FF(src.alu_u16_reg.at(0));
         dest.aluChip_alu_u16_r1 = FF(src.alu_u16_reg.at(1));

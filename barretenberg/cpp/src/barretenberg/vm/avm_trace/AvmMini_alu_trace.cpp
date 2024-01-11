@@ -33,7 +33,7 @@ std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::final
 /**
  * @brief Build Alu trace and compute the result of an addition of type defined by in_tag.
  *
- * @param a Left operand of the additon
+ * @param a Left operand of the addition
  * @param b Right operand of the addition
  * @param in_tag Instruction tag defining the number of bits on which the addition applies.
  *               It is assumed that the caller never uses the type u0.
@@ -51,6 +51,7 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     switch (in_tag) {
     case AvmMemoryTag::ff:
         c = a + b;
+        break;
     case AvmMemoryTag::u8: {
         uint8_t a_u8 = static_cast<uint8_t>(uint256_t(a).data[0]);
         uint8_t b_u8 = static_cast<uint8_t>(uint256_t(b).data[0]);
@@ -175,6 +176,7 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     switch (in_tag) {
     case AvmMemoryTag::ff:
         c = a - b;
+        break;
     case AvmMemoryTag::u8: {
         uint8_t a_u8 = static_cast<uint8_t>(uint256_t(a).data[0]);
         uint8_t b_u8 = static_cast<uint8_t>(uint256_t(b).data[0]);
@@ -282,6 +284,115 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         .alu_ic = c,
         .alu_cf = carry,
         .alu_u8_r0 = alu_u8_r0,
+        .alu_u16_reg = alu_u16_reg,
+    });
+
+    return c;
+}
+
+/**
+ * @brief Build Alu trace and compute the result of an multiplication of type defined by in_tag.
+ *
+ * @param a Left operand of the multiplication
+ * @param b Right operand of the multiplication
+ * @param in_tag Instruction tag defining the number of bits on which the multiplication applies.
+ *               It is assumed that the caller never uses the type u0.
+ * @param clk Clock referring to the operation in the main trace.
+ *
+ * @return FF The result of the multiplication casted in a finite field element
+ */
+FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+{
+    FF c{};
+    bool carry = false;
+    uint8_t alu_u8_r0{};
+    uint8_t alu_u8_r1{};
+
+    std::array<uint16_t, 8> alu_u16_reg{};
+
+    switch (in_tag) {
+    case AvmMemoryTag::ff:
+        c = a * b;
+        break;
+    case AvmMemoryTag::u8: {
+        uint16_t a_u16 = static_cast<uint16_t>(uint256_t(a).data[0]);
+        uint16_t b_u16 = static_cast<uint16_t>(uint256_t(b).data[0]);
+        uint16_t c_u16 = a_u16 * b_u16; // Multiplication over the integers (not mod. 2^8)
+
+        // Decompose c_u16 = r0 + 2^8 * r1 with r0, r1 8-bit registers
+        alu_u8_r0 = static_cast<uint8_t>(c_u16);
+        alu_u8_r1 = static_cast<uint8_t>(c_u16 >> 8);
+
+        c = FF{ uint256_t{ alu_u8_r0 } };
+        break;
+    }
+    case AvmMemoryTag::u16: {
+        uint32_t a_u32 = static_cast<uint32_t>(uint256_t(a).data[0]);
+        uint32_t b_u32 = static_cast<uint32_t>(uint256_t(b).data[0]);
+        uint32_t c_u32 = a_u32 * b_u32; // Multiplication over the integers (not mod. 2^16)
+
+        // Decompose c_u32 = r0 + 2^16 * r1 with r0, r1 16-bit registers
+        alu_u16_reg.at(0) = static_cast<uint16_t>(c_u32);
+        alu_u16_reg.at(1) = static_cast<uint16_t>(c_u32 >> 16);
+
+        c = FF{ uint256_t{ alu_u16_reg.at(0) } };
+        break;
+    }
+    case AvmMemoryTag::u32: {
+        uint64_t a_u64 = static_cast<uint64_t>(uint256_t(a).data[0]);
+        uint64_t b_u64 = static_cast<uint64_t>(uint256_t(b).data[0]);
+        uint64_t c_u64 = a_u64 * b_u64; // Multiplication over the integers (not mod. 2^32)
+
+        // Decompose c_u64 = r0 + 2^16 * r1 + 2^32 * r2 + 2^48 * r3 with r0, r1, r2, r3 16-bit registers
+        uint64_t c_trunc_64 = c_u64;
+        for (size_t i = 0; i < 4; i++) {
+            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_64);
+            c_trunc_64 >>= 16;
+        }
+
+        c = FF{ uint256_t{ static_cast<uint32_t>(c_u64) } };
+
+        break;
+    }
+    case AvmMemoryTag::u64: {
+        uint128_t a_u128 = static_cast<uint128_t>(uint256_t(a).data[0]);
+        uint128_t b_u128 = static_cast<uint128_t>(uint256_t(b).data[0]);
+        uint128_t c_u128 = a_u128 * b_u128; // Multiplication over the integers (not mod. 2^64)
+
+        // Decompose c_u128 = r0 + 2^16 * r1 + .. + 2^112 r7 with r0, r1 ... r7 16-bit registers
+        uint128_t c_trunc_128 = c_u128;
+        for (size_t i = 0; i < 8; i++) {
+            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_128);
+            c_trunc_128 >>= 16;
+        }
+
+        c = FF{ uint256_t{ static_cast<uint64_t>(c_u128) } };
+
+        break;
+    }
+    case AvmMemoryTag::u128: {
+        break;
+        // TODO
+    }
+    case AvmMemoryTag::u0: // Unsupported as instruction tag
+        return FF{ 0 };
+    }
+
+    alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
+        .alu_clk = clk,
+        .alu_op_mul = true,
+        .alu_ff_tag = in_tag == AvmMemoryTag::ff,
+        .alu_u8_tag = in_tag == AvmMemoryTag::u8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::u16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::u32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::u64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::u128,
+        .alu_ia = a,
+        .alu_ib = b,
+        .alu_ic = c,
+        .alu_cf = carry,
+        .alu_u8_r0 = alu_u8_r0,
+        .alu_u8_r1 = alu_u8_r1,
         .alu_u16_reg = alu_u16_reg,
     });
 

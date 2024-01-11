@@ -7,63 +7,60 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Avm_miniRow {
-    FF avmMini_internal_return_ptr{};
-    FF avmMini_sel_internal_return{};
-    FF avmMini_internal_return_ptr_shift{};
-    FF avmMini_mem_op_a{};
-    FF avmMini_rwb{};
-    FF avmMini_sel_op_sub{};
-    FF avmMini_mem_op_b{};
-    FF avmMini_rwc{};
-    FF avmMini_mem_idx_b{};
-    FF avmMini_sel_internal_call{};
-    FF avmMini_ic{};
+    FF avmMini_mem_idx_a{};
     FF avmMini_tag_err{};
-    FF avmMini_mem_op_c{};
-    FF avmMini_inv{};
-    FF avmMini_sel_op_add{};
-    FF avmMini_pc_shift{};
-    FF avmMini_sel_jump{};
-    FF avmMini_sel_halt{};
-    FF avmMini_rwa{};
-    FF avmMini_ia{};
+    FF avmMini_sel_op_sub{};
+    FF avmMini_rwc{};
+    FF avmMini_internal_return_ptr{};
     FF avmMini_first{};
+    FF avmMini_ib{};
+    FF avmMini_mem_op_c{};
+    FF avmMini_mem_op_a{};
+    FF avmMini_sel_internal_return{};
+    FF avmMini_sel_halt{};
+    FF avmMini_mem_idx_b{};
+    FF avmMini_pc{};
     FF avmMini_sel_op_div{};
     FF avmMini_sel_op_mul{};
+    FF avmMini_sel_op_add{};
+    FF avmMini_rwa{};
+    FF avmMini_ia{};
+    FF avmMini_sel_internal_call{};
+    FF avmMini_mem_op_b{};
+    FF avmMini_sel_jump{};
     FF avmMini_op_err{};
-    FF avmMini_pc{};
-    FF avmMini_ib{};
-    FF avmMini_mem_idx_a{};
+    FF avmMini_ic{};
+    FF avmMini_rwb{};
+    FF avmMini_inv{};
+    FF avmMini_pc_shift{};
+    FF avmMini_internal_return_ptr_shift{};
 };
 
 inline std::string get_relation_label_avm_mini(int index)
 {
     switch (index) {
-    case 21:
-        return "SUBOP_DIVISION_ZERO_ERR1";
-
-    case 20:
-        return "SUBOP_DIVISION_FF";
-
-    case 19:
-        return "SUBOP_MULTIPLICATION_FF";
-
-    case 36:
-        return "PC_INCREMENT";
-
-    case 37:
-        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
-
-    case 25:
+    case 24:
         return "RETURN_POINTER_INCREMENT";
 
-    case 31:
+    case 30:
         return "RETURN_POINTER_DECREMENT";
 
-    case 23:
-        return "SUBOP_ERROR_RELEVANT_OP";
+    case 35:
+        return "PC_INCREMENT";
+
+    case 19:
+        return "SUBOP_DIVISION_FF";
+
+    case 20:
+        return "SUBOP_DIVISION_ZERO_ERR1";
 
     case 22:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 36:
+        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
+
+    case 21:
         return "SUBOP_DIVISION_ZERO_ERR2";
     }
     return std::to_string(index);
@@ -73,9 +70,8 @@ template <typename FF_> class avm_miniImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 38> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        4, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+    static constexpr std::array<size_t, 37> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -241,7 +237,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(19);
 
-            auto tmp = (avmMini_sel_op_mul * ((avmMini_ia * avmMini_ib) - avmMini_ic));
+            auto tmp = ((avmMini_sel_op_div * (-avmMini_op_err + FF(1))) * ((avmMini_ic * avmMini_ib) - avmMini_ia));
             tmp *= scaling_factor;
             std::get<19>(evals) += tmp;
         }
@@ -249,7 +245,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(20);
 
-            auto tmp = ((avmMini_sel_op_div * (-avmMini_op_err + FF(1))) * ((avmMini_ic * avmMini_ib) - avmMini_ia));
+            auto tmp = (avmMini_sel_op_div * (((avmMini_ib * avmMini_inv) - FF(1)) + avmMini_op_err));
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
@@ -257,7 +253,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(21);
 
-            auto tmp = (avmMini_sel_op_div * (((avmMini_ib * avmMini_inv) - FF(1)) + avmMini_op_err));
+            auto tmp = ((avmMini_sel_op_div * avmMini_op_err) * (-avmMini_inv + FF(1)));
             tmp *= scaling_factor;
             std::get<21>(evals) += tmp;
         }
@@ -265,7 +261,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(22);
 
-            auto tmp = ((avmMini_sel_op_div * avmMini_op_err) * (-avmMini_inv + FF(1)));
+            auto tmp = (avmMini_op_err * (avmMini_sel_op_div - FF(1)));
             tmp *= scaling_factor;
             std::get<22>(evals) += tmp;
         }
@@ -273,7 +269,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(23);
 
-            auto tmp = (avmMini_op_err * (avmMini_sel_op_div - FF(1)));
+            auto tmp = (avmMini_sel_jump * (avmMini_pc_shift - avmMini_ia));
             tmp *= scaling_factor;
             std::get<23>(evals) += tmp;
         }
@@ -281,7 +277,8 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(24);
 
-            auto tmp = (avmMini_sel_jump * (avmMini_pc_shift - avmMini_ia));
+            auto tmp = (avmMini_sel_internal_call *
+                        (avmMini_internal_return_ptr_shift - (avmMini_internal_return_ptr + FF(1))));
             tmp *= scaling_factor;
             std::get<24>(evals) += tmp;
         }
@@ -289,8 +286,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(25);
 
-            auto tmp = (avmMini_sel_internal_call *
-                        (avmMini_internal_return_ptr_shift - (avmMini_internal_return_ptr + FF(1))));
+            auto tmp = (avmMini_sel_internal_call * (avmMini_internal_return_ptr - avmMini_mem_idx_b));
             tmp *= scaling_factor;
             std::get<25>(evals) += tmp;
         }
@@ -298,7 +294,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(26);
 
-            auto tmp = (avmMini_sel_internal_call * (avmMini_internal_return_ptr - avmMini_mem_idx_b));
+            auto tmp = (avmMini_sel_internal_call * (avmMini_pc_shift - avmMini_ia));
             tmp *= scaling_factor;
             std::get<26>(evals) += tmp;
         }
@@ -306,7 +302,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(27);
 
-            auto tmp = (avmMini_sel_internal_call * (avmMini_pc_shift - avmMini_ia));
+            auto tmp = (avmMini_sel_internal_call * ((avmMini_pc + FF(1)) - avmMini_ib));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -314,7 +310,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(28);
 
-            auto tmp = (avmMini_sel_internal_call * ((avmMini_pc + FF(1)) - avmMini_ib));
+            auto tmp = (avmMini_sel_internal_call * (avmMini_rwb - FF(1)));
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
@@ -322,7 +318,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(29);
 
-            auto tmp = (avmMini_sel_internal_call * (avmMini_rwb - FF(1)));
+            auto tmp = (avmMini_sel_internal_call * (avmMini_mem_op_b - FF(1)));
             tmp *= scaling_factor;
             std::get<29>(evals) += tmp;
         }
@@ -330,7 +326,8 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(30);
 
-            auto tmp = (avmMini_sel_internal_call * (avmMini_mem_op_b - FF(1)));
+            auto tmp = (avmMini_sel_internal_return *
+                        (avmMini_internal_return_ptr_shift - (avmMini_internal_return_ptr - FF(1))));
             tmp *= scaling_factor;
             std::get<30>(evals) += tmp;
         }
@@ -338,8 +335,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(31);
 
-            auto tmp = (avmMini_sel_internal_return *
-                        (avmMini_internal_return_ptr_shift - (avmMini_internal_return_ptr - FF(1))));
+            auto tmp = (avmMini_sel_internal_return * ((avmMini_internal_return_ptr - FF(1)) - avmMini_mem_idx_a));
             tmp *= scaling_factor;
             std::get<31>(evals) += tmp;
         }
@@ -347,7 +343,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(32);
 
-            auto tmp = (avmMini_sel_internal_return * ((avmMini_internal_return_ptr - FF(1)) - avmMini_mem_idx_a));
+            auto tmp = (avmMini_sel_internal_return * (avmMini_pc_shift - avmMini_ia));
             tmp *= scaling_factor;
             std::get<32>(evals) += tmp;
         }
@@ -355,7 +351,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(33);
 
-            auto tmp = (avmMini_sel_internal_return * (avmMini_pc_shift - avmMini_ia));
+            auto tmp = (avmMini_sel_internal_return * avmMini_rwa);
             tmp *= scaling_factor;
             std::get<33>(evals) += tmp;
         }
@@ -363,7 +359,7 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(34);
 
-            auto tmp = (avmMini_sel_internal_return * avmMini_rwa);
+            auto tmp = (avmMini_sel_internal_return * (avmMini_mem_op_a - FF(1)));
             tmp *= scaling_factor;
             std::get<34>(evals) += tmp;
         }
@@ -371,7 +367,9 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(35);
 
-            auto tmp = (avmMini_sel_internal_return * (avmMini_mem_op_a - FF(1)));
+            auto tmp = ((((-avmMini_first + FF(1)) * (-avmMini_sel_halt + FF(1))) *
+                         (((avmMini_sel_op_add + avmMini_sel_op_sub) + avmMini_sel_op_div) + avmMini_sel_op_mul)) *
+                        (avmMini_pc_shift - (avmMini_pc + FF(1))));
             tmp *= scaling_factor;
             std::get<35>(evals) += tmp;
         }
@@ -379,22 +377,12 @@ template <typename FF_> class avm_miniImpl {
         {
             AvmMini_DECLARE_VIEWS(36);
 
-            auto tmp = ((((-avmMini_first + FF(1)) * (-avmMini_sel_halt + FF(1))) *
-                         (((avmMini_sel_op_add + avmMini_sel_op_sub) + avmMini_sel_op_div) + avmMini_sel_op_mul)) *
-                        (avmMini_pc_shift - (avmMini_pc + FF(1))));
-            tmp *= scaling_factor;
-            std::get<36>(evals) += tmp;
-        }
-        // Contribution 37
-        {
-            AvmMini_DECLARE_VIEWS(37);
-
             auto tmp =
                 ((-(((avmMini_first + avmMini_sel_internal_call) + avmMini_sel_internal_return) + avmMini_sel_halt) +
                   FF(1)) *
                  (avmMini_internal_return_ptr_shift - avmMini_internal_return_ptr));
             tmp *= scaling_factor;
-            std::get<37>(evals) += tmp;
+            std::get<36>(evals) += tmp;
         }
     }
 };
