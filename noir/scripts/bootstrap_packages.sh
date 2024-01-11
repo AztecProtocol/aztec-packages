@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eu
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
+# Enter above script folder.
 cd $(dirname "$0")/..
 
 ./scripts/install_wasm-bindgen.sh
