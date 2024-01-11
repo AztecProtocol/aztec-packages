@@ -1,59 +1,45 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { loadContractArtifact } from '@aztec/types/abi';
+
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { generateContractArtifact } from '../contract-interface-gen/abi.js';
-import { generateTypescriptContractInterface } from '../contract-interface-gen/contractTypescript.js';
 import { generateNoirContractInterface } from '../contract-interface-gen/noir.js';
+import { generateTypescriptContractInterface } from '../contract-interface-gen/typescript.js';
 
-/**
- *
- */
-export function generateCode(outputPath: string, fileOrDirPath: string, includeDebug = false, ts = false, nr = false) {
+/** Options for code generation */
+type GenerateCodeOpts = { /** Typescript */ ts: boolean; /** Noir */ nr: boolean };
+
+/** Generate noir or typescript interface for a given contract. */
+export function generateCode(outputPath: string, fileOrDirPath: string, opts: GenerateCodeOpts) {
   const stats = statSync(fileOrDirPath);
 
   if (stats.isDirectory()) {
     const files = readdirSync(fileOrDirPath).filter(file => file.endsWith('.json') && !file.startsWith('debug_'));
     for (const file of files) {
       const fullPath = path.join(fileOrDirPath, file);
-      generateFromNoirAbi(outputPath, fullPath, includeDebug, ts, nr);
+      generateFromNoirArtifact(outputPath, fullPath, opts);
     }
   } else if (stats.isFile()) {
-    generateFromNoirAbi(outputPath, fileOrDirPath, includeDebug, ts, nr);
+    generateFromNoirArtifact(outputPath, fileOrDirPath, opts);
   }
 }
 
-/**
- *
- */
-function generateFromNoirAbi(outputPath: string, noirAbiPath: string, includeDebug: boolean, ts: boolean, nr: boolean) {
-  console.log(`READING noir abi path`, noirAbiPath, noirDebugPath);
-  const contract = JSON.parse(readFileSync(noirAbiPath, 'utf8'));
-  const noirDebugPath = includeDebug ? getDebugFilePath(noirAbiPath) : undefined;
-  const debug = noirDebugPath ? JSON.parse(readFileSync(noirDebugPath, 'utf8')) : undefined;
-  const aztecAbi = generateContractArtifact({ contract, debug });
+/** Writes noir or typescript interfaces from a given noir artifact */
+function generateFromNoirArtifact(outputPath: string, noirArtifactPath: string, opts: GenerateCodeOpts) {
+  const { nr, ts } = opts;
+  const noirArtifact = JSON.parse(readFileSync(noirArtifactPath, 'utf8'));
+  const aztecArtifact = loadContractArtifact(noirArtifact);
 
   mkdirSync(outputPath, { recursive: true });
 
   if (nr) {
-    const noirContract = generateNoirContractInterface(aztecAbi);
-    writeFileSync(`${outputPath}/${aztecAbi.name}.nr`, noirContract);
+    const noirContract = generateNoirContractInterface(aztecArtifact);
+    writeFileSync(`${outputPath}/${aztecArtifact.name}.nr`, noirContract);
     return;
   }
 
-  writeFileSync(`${outputPath}/${aztecAbi.name}.json`, JSON.stringify(aztecAbi, undefined, 2));
-
   if (ts) {
-    const tsWrapper = generateTypescriptContractInterface(aztecAbi, `./${aztecAbi.name}.json`);
-    writeFileSync(`${outputPath}/${aztecAbi.name}.ts`, tsWrapper);
+    const tsWrapper = generateTypescriptContractInterface(aztecArtifact, `./${aztecArtifact.name}.json`);
+    writeFileSync(`${outputPath}/${aztecArtifact.name}.ts`, tsWrapper);
   }
-}
-
-/**
- *
- */
-function getDebugFilePath(filePath: string) {
-  const dirname = path.dirname(filePath);
-  const basename = path.basename(filePath);
-  const result = path.join(dirname, 'debug_' + basename);
-  return existsSync(result) ? result : undefined;
 }

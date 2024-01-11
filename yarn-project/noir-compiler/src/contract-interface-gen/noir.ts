@@ -18,7 +18,7 @@ import times from 'lodash.times';
  * @returns Whether this function type corresponds to a private call.
  */
 function isPrivateCall(functionType: FunctionType) {
-  return functionType === FunctionType.SECRET;
+  return functionType === 'secret';
 }
 
 /**
@@ -281,7 +281,7 @@ ${contractImpl}
 export function generateNoirContractInterface(artifact: ContractArtifact) {
   // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
   const methods = artifact.functions.filter(
-    f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
+    f => f.name !== 'constructor' && !f.isInternal && f.functionType !== 'unconstrained',
   );
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const privateContractStruct = generateContractStruct(artifact.name, 'private', methods);
