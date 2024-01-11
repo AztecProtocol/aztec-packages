@@ -5,6 +5,7 @@
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
+#include "ec_operations.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
 #include "fixed_base_scalar_mul.hpp"
@@ -38,6 +39,8 @@ struct acir_format {
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
+    std::vector<EcAdd> ec_add_constraints;
+    std::vector<EcDouble> ec_double_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -74,19 +77,8 @@ struct acir_format {
 
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
-template <typename Builder> void read_witness(Builder& builder, std::vector<barretenberg::fr> const& witness);
-
-template <typename Builder> void create_circuit(Builder& builder, const acir_format& constraint_system);
-
 template <typename Builder = UltraCircuitBuilder>
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0);
-
-Builder create_circuit_with_witness(const acir_format& constraint_system,
-                                    WitnessVector const& witness,
-                                    size_t size_hint = 0);
-
-template <typename Builder>
-void create_circuit_with_witness(Builder& builder, const acir_format& constraint_system, WitnessVector const& witness);
+Builder create_circuit(const acir_format& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
 
 template <typename Builder>
 void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments);
