@@ -218,7 +218,7 @@ describe('Private kernel', () => {
     sortedNewNullifiers[2] = newNullifiers[1];
 
     const sortedNewNullifiersIndexes = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
-      newNullifiers.indexOf(sortedNewNullifiers[i]),
+      sortedNewNullifiers.indexOf(newNullifiers[i]),
     );
 
     const combinedAccumulatedData = new CombinedAccumulatedData(
