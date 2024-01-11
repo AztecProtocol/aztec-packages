@@ -89,9 +89,10 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    acir_composer.create_circuit(constraint_system, witness);
 
     Timer proof_timer;
-    auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
+    auto proof = acir_composer.create_proof(recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
     Timer vk_timer;
@@ -157,7 +158,8 @@ void prove(const std::string& bytecodePath,
     auto witness = get_witness(witnessPath);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
-    auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
+    acir_composer.create_circuit(constraint_system, witness);
+    auto proof = acir_composer.create_proof(recursive);
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);

@@ -61,12 +61,9 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
     return proving_key_;
 }
 
-std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constraint_system,
-                                                acir_format::WitnessVector& witness,
-                                                bool is_recursive)
+std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 {
     vinfo("building circuit with witness...");
-    create_circuit(constraint_system, witness);
 
     vinfo("gates: ", builder_.get_total_circuit_size());
 

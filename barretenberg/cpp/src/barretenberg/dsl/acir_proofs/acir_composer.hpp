@@ -23,9 +23,7 @@ class AcirComposer {
 
     std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
 
-    std::vector<uint8_t> create_proof(acir_format::acir_format& constraint_system,
-                                      acir_format::WitnessVector& witness,
-                                      bool is_recursive);
+    std::vector<uint8_t> create_proof(bool is_recursive);
 
     void load_verification_key(proof_system::plonk::verification_key_data&& data);
 
