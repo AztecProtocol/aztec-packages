@@ -345,7 +345,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     size_t index = 1;
     for (auto& e : w.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indicies in the `WitnessVector`, we fill any indices
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
             wv.push_back(barretenberg::fr(0));
