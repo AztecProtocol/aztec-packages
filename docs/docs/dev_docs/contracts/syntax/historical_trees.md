@@ -1,27 +1,22 @@
 ---
-title: Historical Trees
+title: Historical Access Tree
 ---
 
-When something happens on the Aztec Protocol, it is added to a historical tree. Aztec.nr allows developers to generate inclusion and non-inclusion proofs against the historical tree, allowing them to check whether or not something was included in a certain block.
+The Aztec Protocol uses an append-only Merkle tree to store the headers of all previous blocks in the chain as its leaves. You can learn more about how it works in the [concepts section](../../../concepts/advanced/data_structures/trees.md#historical-access-tree).
 
-On this page you will learn:
+On this page you will learn how you can integrate inclusion and non-inclusion proofs into your own smart contract.
 
-1. What are historical trees and inclusion proofs?
-2. How you can integrate inclusion and non-inclusion proofs into your own smart contract
+# Historical tree library
 
-# Historical trees on Aztec
+The historical tree library allows you to access:
 
-Historical trees are data structures for storing data in both public and private state. The Aztec protocol uses different trees for different types of data. You can learn more about trees in Aztec [here](../../../concepts/advanced/data_structures/trees.md). 
+* [Private notes](#note-inclusion)
+* [Notes that have been nullified](#nullifier-inclusion)
+* [Notes that have not been nullified](#note-validity)
+* [Public values](#public-value-inclusion)
+* [Contracts](#contract-inclusion)
 
-The historical trees library allows you to access:
-
-* Private notes 
-* Notes that have been nullified
-* Notes that have not been nullified
-* Public values
-* Contracts
-
-Using historical trees, you can check that specific notes or nullifiers happened at specific blocks. This can be useful for things such as:
+Using the historical access tree, you can check that specific notes or nullifiers happened at specific blocks. This can be useful for things such as:
 
 * Verifying a timestamp that was created in a private context
 * Checking eligibility based on historical events (eg for an airdrop) 
