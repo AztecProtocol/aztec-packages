@@ -6,10 +6,12 @@ template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
                                                                            const std::string& domain_separator)
 {
-    inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size =
+    const auto instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
+    const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
+    inst->instance_size = static_cast<size_t>(instance_size.get_value());
+    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
@@ -57,10 +59,12 @@ template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
     const std::shared_ptr<Instance>& inst, const std::string& domain_separator)
 {
-    inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size =
+    const auto instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
+    const auto public_input_size =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
+    inst->instance_size = static_cast<size_t>(instance_size.get_value());
+    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    inst->public_input_size = static_cast<size_t>(public_input_size.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
         auto public_input_i =
@@ -68,8 +72,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         inst->public_inputs.emplace_back(public_input_i);
     }
 
-    inst->pub_inputs_offset =
+    const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
+
+    inst->pub_inputs_offset = static_cast<size_t>(pub_inputs_offset.get_value());
 
     auto labels = inst->commitment_labels;
     auto& witness_commitments = inst->witness_commitments;
@@ -88,9 +94,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     witness_commitments.z_lookup =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
+    const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
         inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
+    const FF lookup_grand_product_delta =
+        proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
@@ -108,14 +115,13 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
 // between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
-template <class VerifierInstances>
-void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<uint8_t>& fold_data)
+template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding()
 {
-    transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    inst->is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
+    const auto is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
+    inst->is_accumulator = static_cast<bool>(is_accumulator.get_value());
     if (inst->is_accumulator) {
         receive_accumulator(inst, domain_separator);
     } else {
@@ -142,9 +148,14 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding(const
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> fold_data)
+bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(const plonk::proof& proof)
 {
-    prepare_for_folding(fold_data);
+    using Transcript = typename Flavor::Transcript;
+    using ElementNative = typename Flavor::Curve::ElementNative;
+    using AffineElementNative = typename Flavor::Curve::AffineElementNative;
+
+    transcript = std::make_shared<Transcript>(builder, proof.proof_data);
+    prepare_for_folding();
 
     auto delta = transcript->get_challenge("delta");
     auto accumulator = get_accumulator();
@@ -155,9 +166,7 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    if (perturbator_coeffs[0] != accumulator->target_sum) {
-        return false;
-    }
+    perturbator_coeffs[0].assert_equal(accumulator->target_sum);
 
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
@@ -171,7 +180,7 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge").get_value();
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
@@ -181,26 +190,30 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     auto expected_next_target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
-    bool verified = (expected_next_target_sum == next_target_sum);
+    expected_next_target_sum.assert_equal(next_target_sum);
+
     auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
-        verified = verified & (expected_betas_star[idx] == beta_star);
+        verified = verified & (expected_betas_star[idx] == beta_star.get_value());
     }
 
     // Compute ϕ and verify against the data received from the prover
     WitnessCommitments acc_witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
     size_t comm_idx = 0;
+    auto random_generator = AffineElementNative(ElementNative::random_element());
+    auto sth = Commitment::from_witness(builder, random_generator);
     for (auto& expected_comm : acc_witness_commitments.get_all()) {
-        expected_comm = Commitment::infinity();
+        expected_comm = sth;
         size_t inst = 0;
         for (auto& instance : instances) {
             expected_comm = expected_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
             inst++;
         }
+        expected_comm -= sth;
         auto comm = transcript->template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
-        verified = verified & (comm == expected_comm);
+        verified = verified & (comm.get_value() == expected_comm);
         comm_idx++;
     }
 
@@ -213,23 +226,21 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             inst++;
         }
         auto el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
-        verified = verified & (el == expected_el);
+        verified = verified & (el.get_value() == expected_el);
         el_idx++;
     }
 
-    AlphaType expected_alphas;
-    size_t alpha_idx = 0;
-    for (auto& alpha : expected_alphas) {
-        alpha = FF(0);
+    for (size_t alpha_idx = 0; alpha_idx < NUM_SUBRELATIONS - 1; alpha_idx++) {
+        FF alpha(0);
         size_t instance_idx = 0;
         for (auto& instance : instances) {
             alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
             instance_idx++;
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
-        verified = verified & (alpha == next_alpha);
-        alpha_idx++;
+        verified = verified & (alpha == next_alpha.get_value());
     }
+
     auto expected_parameters = proof_system::RelationParameters<FF>{};
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
@@ -243,20 +254,21 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
     }
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
-    verified = verified & (next_eta == expected_parameters.eta);
+    verified = verified & (next_eta.get_value() == expected_parameters.eta);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
-    verified = verified & (next_beta == expected_parameters.beta);
+    verified = verified & (next_beta.get_value() == expected_parameters.beta);
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
-    verified = verified & (next_gamma == expected_parameters.gamma);
+    verified = verified & (next_gamma.get_value() == expected_parameters.gamma);
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
-    verified = verified & (next_public_input_delta == expected_parameters.public_input_delta);
+    verified = verified & (next_public_input_delta.get_value() == expected_parameters.public_input_delta);
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
+    verified =
+        verified & (next_lookup_grand_product_delta.get_value() == expected_parameters.lookup_grand_product_delta);
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
@@ -269,7 +281,7 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
             inst++;
         }
         auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        verified = verified & (vk == expected_vk);
+        verified = verified & (vk.get_value() == expected_vk);
         vk_idx++;
     }
 
@@ -277,8 +289,9 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
 }
 
 template class ProtoGalaxyRecursiveVerifier_<
-    VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 2>>;
+    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 2>>;
 template class ProtoGalaxyRecursiveVerifier_<
-    VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive, 2>;
+    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 2>>;
+template class ProtoGalaxyRecursiveVerifier_<
+    proof_system::honk::VerifierInstances_<proof_system::honk::flavor::GoblinUltraRecursive, 2>>;
 } // namespace proof_system::plonk::stdlib::recursion::honk

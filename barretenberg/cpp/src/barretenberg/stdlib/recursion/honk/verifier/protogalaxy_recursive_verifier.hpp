@@ -1,17 +1,16 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/goblin_ultra_recursive.hpp"
+#include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
-    using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
@@ -20,16 +19,17 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Builder = typename Flavor::CircuitBuilder;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     VerifierInstances instances;
 
-    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-
     CommitmentLabels commitment_labels;
+
+    Builder* builder;
+    std::shared_ptr<Transcript<Builder>> transcript;
 
     ProtoGalaxyRecursiveVerifier_(VerifierInstances insts)
         : instances(insts){};
@@ -68,7 +68,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding(const std::vector<uint8_t>&);
+    void prepare_for_folding();
 
     /**
      * @brief Instantiatied the accumulator (i.e. the relaxed instance) from the transcript.
