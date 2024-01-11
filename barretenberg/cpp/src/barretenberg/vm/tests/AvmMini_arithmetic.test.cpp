@@ -91,9 +91,38 @@ Row common_validate_sub(std::vector<Row> const& trace,
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
 
-    // Check that addition selector is set.
+    // Check that subtraction selector is set.
     EXPECT_EQ(row->avmMini_sel_op_sub, FF(1));
     EXPECT_EQ(alu_row->aluChip_alu_op_sub, FF(1));
+
+    return *alu_row;
+}
+
+Row common_validate_mul(std::vector<Row> const& trace,
+                        FF const& a,
+                        FF const& b,
+                        FF const& c,
+                        FF const& addr_a,
+                        FF const& addr_b,
+                        FF const& addr_c,
+                        avm_trace::AvmMemoryTag const tag)
+{
+    // Find the first row enabling the multiplication selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == FF(1); });
+
+    // Find the corresponding Alu trace row
+    auto clk = row->avmMini_clk;
+    auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.aluChip_alu_clk == clk; });
+
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_TRUE(alu_row != trace.end());
+
+    common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+
+    // Check that multiplication selector is set.
+    EXPECT_EQ(row->avmMini_sel_op_mul, FF(1));
+    EXPECT_EQ(alu_row->aluChip_alu_op_mul, FF(1));
 
     return *alu_row;
 }
@@ -202,15 +231,11 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplication)
     trace_builder.return_op(0, 3);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the multiplication selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == FF(1); });
+    auto alu_row = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::ff);
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, FF(100));
-    EXPECT_EQ(row->avmMini_mem_idx_c, FF(1));
-    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
-    EXPECT_EQ(row->avmMini_rwc, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -225,15 +250,11 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplicationByZero)
     trace_builder.return_op(0, 3);
     auto trace = trace_builder.finalize();
 
-    // Find the first row enabling the multiplication selector
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == FF(1); });
+    auto alu_row = common_validate_mul(trace, FF(127), FF(0), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::ff);
 
-    // Check that the correct result is stored at the expected memory location.
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_EQ(row->avmMini_ic, FF(0));
-    EXPECT_EQ(row->avmMini_mem_idx_c, FF(2));
-    EXPECT_EQ(row->avmMini_mem_op_c, FF(1));
-    EXPECT_EQ(row->avmMini_rwc, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(0));
 
     validate_trace_proof(std::move(trace));
 }
@@ -446,6 +467,51 @@ TEST_F(AvmMiniArithmeticTestsU8, subtractionCarry)
     validate_trace_proof(std::move(trace));
 }
 
+// Test on basic multiplication over u8 type.
+TEST_F(AvmMiniArithmeticTestsU8, multiplication)
+{
+    // trace_builder
+    trace_builder.set(13, 0, AvmMemoryTag::u8);
+    trace_builder.set(15, 1, AvmMemoryTag::u8);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u8);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(trace, FF(13), FF(15), FF(195), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+
+    // Decomposition of integer multiplication in 8-bit registers
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(195));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(0));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on multiplication over u8 type with overflow.
+TEST_F(AvmMiniArithmeticTestsU8, multiplicationOverflow)
+{
+    // trace_builder
+    trace_builder.set(200, 0, AvmMemoryTag::u8);
+    trace_builder.set(170, 1, AvmMemoryTag::u8);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u8);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(trace, FF(200), FF(170), FF(208), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
+
+    // Decomposition of integer multiplication in 8-bit registers
+    // 34'000 = 208 + 132 * 256
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r0, FF(208));
+    EXPECT_EQ(alu_row.aluChip_alu_u8_r1, FF(132));
+
+    validate_trace_proof(std::move(trace));
+}
+
 /******************************************************************************
  * Positive Tests - U16
  ******************************************************************************/
@@ -531,6 +597,51 @@ TEST_F(AvmMiniArithmeticTestsU16, subtractionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(1000)); // First operand (a) for subtraction
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic multiplication over u16 type.
+TEST_F(AvmMiniArithmeticTestsU16, multiplication)
+{
+    // trace_builder
+    trace_builder.set(200, 0, AvmMemoryTag::u16);
+    trace_builder.set(245, 1, AvmMemoryTag::u16);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u16);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(trace, FF(200), FF(245), FF(49000), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(49000));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on multiplication over u16 type with overflow.
+TEST_F(AvmMiniArithmeticTestsU16, multiplicationOverflow)
+{
+    // trace_builder
+    trace_builder.set(512, 0, AvmMemoryTag::u16);
+    trace_builder.set(1024, 1, AvmMemoryTag::u16);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u16);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(trace, FF(512), FF(1024), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    // 512 * 1024 = 0 + 8 * 2^16
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(8));
 
     validate_trace_proof(std::move(trace));
 }
@@ -628,6 +739,58 @@ TEST_F(AvmMiniArithmeticTestsU32, subtractionCarry)
     // First operand (a) for subtraction decomposed in u16 registers
     EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(3210987654LLU & UINT16_MAX));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(3210987654LLU >> 16));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic multiplication over u32 type.
+TEST_F(AvmMiniArithmeticTestsU32, multiplication)
+{
+    // trace_builder
+    trace_builder.set(11111, 0, AvmMemoryTag::u32);
+    trace_builder.set(11111, 1, AvmMemoryTag::u32);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u32);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_mul(trace, FF(11111), FF(11111), FF(123454321), FF(0), FF(1), FF(2), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    // 123454321 = 50033 + 1883 * 2^16
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(50033));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(1883));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on multiplication over u32 type with overflow.
+TEST_F(AvmMiniArithmeticTestsU32, multiplicationOverflow)
+{
+    // trace_builder
+    trace_builder.set(11 << 25, 0, AvmMemoryTag::u32);
+    trace_builder.set(13 << 22, 1, AvmMemoryTag::u32);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u32);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row =
+        common_validate_mul(trace, FF(11 << 25), FF(13 << 22), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::u32);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    // 143 * 2^47 = 0 + 0 * 2^16 + 2^15 * 2^32 + 71 * 2^48
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(32768)); // 2^15
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(71));
 
     validate_trace_proof(std::move(trace));
 }
@@ -745,6 +908,65 @@ TEST_F(AvmMiniArithmeticTestsU64, subtractionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(UINT16_MAX));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(UINT16_MAX));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(UINT16_MAX));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic multiplication over u64 type.
+TEST_F(AvmMiniArithmeticTestsU64, multiplication)
+{
+    // trace_builder
+    trace_builder.set(999888777, 0, AvmMemoryTag::u64);
+    trace_builder.set(555444333, 1, AvmMemoryTag::u64);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u64);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(
+        trace, FF(999888777), FF(555444333), FF(555382554814950741LLU), FF(0), FF(1), FF(2), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    // 555,382,554,814,950,741 = 44,373 + 46,641 * 2^16 + 7,549 * 2^32 + 1,973 * 2^48
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(44373));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(46641));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(7549));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(1973));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on multiplication over u64 type with overflow.
+TEST_F(AvmMiniArithmeticTestsU64, multiplicationOverflow)
+{
+    uint64_t const a = UINT64_MAX;
+    uint64_t const b = UINT64_MAX;
+    // (2^64 - 1)^2 = 2^128 - 2^65 + 1 (mod. 2^64) = 1
+
+    // trace_builder
+    trace_builder.set(a, 0, AvmMemoryTag::u64);
+    trace_builder.set(b, 1, AvmMemoryTag::u64);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u64);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row = common_validate_mul(trace, FF(a), FF(b), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::u64);
+
+    EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
+
+    // Decomposition of integer multiplication in 16-bit registers
+    // 2^128 - 2^65 + 1
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r0, FF(1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r1, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r2, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r3, FF(0));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r4, FF(UINT16_MAX - 1));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(UINT16_MAX));
 
     validate_trace_proof(std::move(trace));
 }
