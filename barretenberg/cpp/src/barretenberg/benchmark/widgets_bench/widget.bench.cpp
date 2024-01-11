@@ -15,7 +15,7 @@
 // per-row exeuction cost that is suitable for comparing against the cost of executing the Honk relations. For
 // validation, we also directly benchmark the available `accumulate_contribution` functions.
 //
-// NOTE: this code is to be run singly threaded via taskset.
+// NOTE: this code is to be run singly threaded via taskset, e.g. taskset -c 0
 // #define GET_PER_ROW_TIME
 
 namespace {
