@@ -197,7 +197,7 @@ export class PrivateKernelInputsOrdering {
      */
     public sortedNewCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
-     * The sorted new commitments indexes.
+     * The sorted new commitments indexes. Maps original to sorted.
      */
     public sortedNewCommitmentsIndexes: Tuple<number, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
@@ -205,7 +205,7 @@ export class PrivateKernelInputsOrdering {
      */
     public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
-     * The sorted new nullifiers.
+     * The sorted new nullifiers. Maps original to sorted.
      */
     public sortedNewNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**

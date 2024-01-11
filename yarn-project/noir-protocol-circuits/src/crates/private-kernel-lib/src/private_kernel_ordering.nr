@@ -65,31 +65,24 @@ impl PrivateKernelInputsOrdering {
     }
 
     fn assert_sorted_counters<T, N>(original: [T; N], sorted: [T; N], indexes: [u32; N]) where T: Eq + Ordered + Empty {
-        let mut seen = [false; N];
-        let mut prev_counter = Option::none();
         let mut prev_was_empty = false;
 
         for i in 0..N {
-            let item = sorted[i];
-
-            let index = indexes[i];
-            assert(index < N, "Index out of bounds");
-            assert(!seen[index], "Duplicate index");
-            seen[index] = true;
-
-            assert(item.eq(original[index]), "Not equal");
-
-            let counter = item.counter();
+            let item = if prev_was_empty {
+                sorted[i]
+            } else {
+                sorted[indexes[i]]
+            };
+            assert(item.eq(original[i]), "Sorted item is not equal");
             let is_empty = is_empty(item);
 
             if prev_was_empty {
                 assert(is_empty, "Empty items must be at the end");
-            } else if !is_empty & prev_counter.is_some() {
-                assert(counter > prev_counter.unwrap(), "Not sorted");
+            } else if (i != 0) & !is_empty {
+                assert(sorted[i].counter() > sorted[i - 1].counter(), "Not sorted");
             }
 
             prev_was_empty = is_empty;
-            prev_counter = Option::some(counter);
         }
     }
 
@@ -275,7 +268,7 @@ mod tests {
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
         }
 
-        fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N], [u32; N], [u32; N]) where T: Ordered + Eq + Empty {
+        fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N],[u32; N]) where T: Ordered + Eq + Empty {
             let mut indexes = [0; N];
             for i in 0..N {
                 indexes[i] = i as u32;
@@ -297,19 +290,19 @@ mod tests {
                 reverse_map[sorted_indexes[i]] = i;
             }
 
-            (sorted_sideffects, sorted_indexes, reverse_map)
+            (sorted_sideffects, reverse_map)
         }
 
         pub fn execute(self) -> KernelCircuitPublicInputsFinal {
-            let (sorted_new_commitments, sorted_new_commitments_indexes, commiments_reverse_map) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
+            let (sorted_new_commitments, sorted_new_commitments_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
             let mut sorted_read_commitment_hints = [0; MAX_READ_REQUESTS_PER_TX];
             for i in 0..sorted_read_commitment_hints.len() {
-                sorted_read_commitment_hints[i] = commiments_reverse_map[self.read_commitment_hints[i]] as Field;
+                sorted_read_commitment_hints[i] = sorted_new_commitments_indexes[self.read_commitment_hints[i]] as Field;
             }
-            let (sorted_new_nullifiers, sorted_new_nullifiers_indexes, nullifiers_reverse_map) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_nullifiers());
+            let (sorted_new_nullifiers, sorted_new_nullifiers_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_nullifiers());
             let mut sorted_nullifier_commitment_hints = [0; MAX_NEW_NULLIFIERS_PER_TX];
             for i in 0..sorted_nullifier_commitment_hints.len() {
-                sorted_nullifier_commitment_hints[i] = nullifiers_reverse_map[self.nullifier_commitment_hints[i]] as Field;
+                sorted_nullifier_commitment_hints[i] = sorted_new_nullifiers_indexes[self.nullifier_commitment_hints[i]] as Field;
             }
             let kernel = PrivateKernelInputsOrdering {
                 previous_kernel: self.previous_kernel.finish(),

@@ -216,10 +216,12 @@ export class KernelProver {
         return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
       });
 
-    return [
-      sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>,
-      sorted.map(({ index }) => index) as Tuple<number, K>,
-    ];
+    const originalToSorted = sorted.map(() => 0);
+    sorted.forEach(({ index }, i) => {
+      originalToSorted[index] = i;
+    });
+
+    return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
   }
 
   private async createPrivateCallData(
