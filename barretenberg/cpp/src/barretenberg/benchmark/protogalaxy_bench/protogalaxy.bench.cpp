@@ -47,5 +47,5 @@ void fold_one(State& state) noexcept
     }
 }
 
-BENCHMARK(fold_one)->/* vary the circuit size */ DenseRange(13, 18)->Unit(kMillisecond);
+BENCHMARK(fold_one)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 } // namespace proof_system::honk
