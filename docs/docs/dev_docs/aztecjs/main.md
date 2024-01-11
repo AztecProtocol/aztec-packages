@@ -13,12 +13,11 @@ Aztec.js is a library that provides APIs for managing accounts and interacting w
 ### Create a new account
 
 ```typescript
-import { getSchnorrAccount } from "@aztec/aztec.js";
-import { GrumpkinPrivateKey } from "@aztec/types";
+import { getSchnorrAccount, Fq } from "@aztec/aztec.js";
 
-const encryptionPrivateKey = GrumpkinPrivateKey.random();
-const signingPrivateKey = GrumpkinPrivateKey.random();
-const wallet = getSchnorrAccount(
+const encryptionPrivateKey = Fq.random();
+const signingPrivateKey = Fq.random();
+const wallet = await getSchnorrAccount(
   pxe,
   encryptionPrivateKey,
   signingPrivateKey
