@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
 
-# Wrapper script around @aztec/cli using Docker. This is intended to be used by devs that don't have
-# a NodeJS environment setup locally. The script starts a Docker container passing any commands and
+# Wrapper script around @aztec/cli using Docker. The script starts a Docker container passing any commands and
 # arguments to the CLI running inside the container.
-# If this wrapper script detects a global install of @aztec/cli it falls back on that instead of Docker.
+# If this wrapper script detects a global install of @aztec/cli it throws an error asking user to uninstall it
 
 set -euo pipefail
 
-# use node.js aztec-cli if available
+DEPRECATED_STRING="We have deprecated the aztec-cli npm package. Please uninstall it. aztec-cli now comes packaged into the sandbox docker container."
+
+# If node.js aztec-cli is available, ask user to uninstall it
 # check local node_modules (e.g. @aztec/cli is a dependency in current package.json)
 # this doesn't check node_modules hierarchy
 if [[ -f "$PWD/node_modules/.bin/aztec-cli" ]]; then
-  "$PWD/node_modules/.bin/aztec-cli" $@
-  exit 0
+  echo $DEPRECATED_STRING
+  echo "Run npm uninstall @aztec/cli or yarn remove @aztec/cli"
+  exit 1
 elif command -v npm &> /dev/null; then
   # next look for a global install
   # e.g. if user has run `npm install -g @aztec/cli` after playing with the cli in dockerized form
   GLOBAL_NPM_BIN_DIR=$(npm --global prefix)/bin
   if [[ -f "$GLOBAL_NPM_BIN_DIR/aztec-cli" ]]; then
-    "$GLOBAL_NPM_BIN_DIR/aztec-cli" $@
-    exit 0
+    echo $DEPRECATED_STRING
+    echo "Run npm -g uninstall @aztec/cli"
+    exit 1
   fi
 elif command -v yarn &> /dev/null; then
   YARN_VER=$(yarn --version)
   if [[ "$YARN_VER" =~ ^1\..* ]]; then
     GLOBAL_YARN_BIN_DIR=$(yarn --global bin)
     if [[ -f "$GLOBAL_YARN_BIN_DIR/aztec-cli" ]]; then
-      "$GLOBAL_YARN_BIN_DIR/aztec-cli" $@
-      exit 0
+      echo $DEPRECATED_STRING
+      echo "Run yarn global remove @aztec/cli"
+      exit 1
     fi
   fi
 fi
