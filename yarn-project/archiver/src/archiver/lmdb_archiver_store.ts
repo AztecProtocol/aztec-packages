@@ -412,18 +412,18 @@ export class LMDBArchiverStore implements ArchiverDataStore {
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     try {
       if (filter.afterLog) {
-        return Promise.resolve(this.#filterLogsBetweenBlocks(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsBetweenBlocks(filter));
       } else if (filter.txHash) {
-        return Promise.resolve(this.#filterLogsOfTx(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsOfTx(filter));
       } else {
-        return Promise.resolve(this.#filterLogsBetweenBlocks(filter));
+        return Promise.resolve(this.#filterUnencryptedLogsBetweenBlocks(filter));
       }
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
-  #filterLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterUnencryptedLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
@@ -433,19 +433,16 @@ export class LMDBArchiverStore implements ArchiverDataStore {
       return { logs: [], maxLogsHit: false };
     }
 
-    const block = this.#getBlock(blockNumber, true);
-    if (!block || !block.newUnencryptedLogs) {
-      return { logs: [], maxLogsHit: false };
-    }
+    const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
+    const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
 
-    const txLogs = block.newUnencryptedLogs.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
     const logs: ExtendedUnencryptedL2Log[] = [];
     const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
 
     return { logs, maxLogsHit };
   }
 
-  #filterLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterUnencryptedLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;
@@ -463,12 +460,7 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     let maxLogsHit = false;
 
     loopOverBlocks: for (const blockNumber of blockNumbers) {
-      const block = this.#getBlock(blockNumber, true);
-      if (!block || !block.newUnencryptedLogs) {
-        continue;
-      }
-
-      const unencryptedLogsInBlock = block.newUnencryptedLogs;
+      const unencryptedLogsInBlock = this.#getBlockLogs(blockNumber, LogType.UNENCRYPTED);
       for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < unencryptedLogsInBlock.txLogs.length; txIndex++) {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
@@ -645,6 +637,17 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     }
 
     return block;
+  }
+
+  #getBlockLogs(blockNumber: number, logType: LogType): L2BlockL2Logs {
+    const blockCtx = this.#tables.blocks.get(blockNumber);
+    const logs = blockCtx?.[logType === LogType.ENCRYPTED ? 'encryptedLogs' : 'unencryptedLogs'];
+
+    if (!logs) {
+      return new L2BlockL2Logs([]);
+    }
+
+    return L2BlockL2Logs.fromBuffer(asBuffer(logs));
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<RangeOptions, 'start' | 'end'>> {
