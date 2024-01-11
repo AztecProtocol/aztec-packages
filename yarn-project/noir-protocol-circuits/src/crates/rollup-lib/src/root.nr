@@ -81,7 +81,7 @@ impl RootRollupInputs {
             aggregation_object,
             archive,
             header,
-            // TODO(benesjan): Nuke this once body hash/calldata hash is updated
+            // TODO(#3938): Nuke this once body hash/calldata hash is updated
             l1_to_l2_messages_hash : compute_messages_hash(self.new_l1_to_l2_messages),
         }
     }

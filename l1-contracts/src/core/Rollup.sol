@@ -76,7 +76,7 @@ contract Rollup is IRollup {
       _computePublicInputHash(_l2Block[:HeaderDecoder.BLOCK_HEADER_SIZE], txsHash, inHash);
 
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    // TODO(benesjan): Temporarily disabling this because L2Block encoding has not yet been updated.
+    // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
     // if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
     //   revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
     // }

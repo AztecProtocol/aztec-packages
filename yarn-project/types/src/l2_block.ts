@@ -325,7 +325,7 @@ export class L2Block {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
     const globalVariables = reader.readObject(GlobalVariables);
-    // TODO(benesjan): update the encoding here
+    // TODO(#3938): update the encoding here
     reader.readObject(AppendOnlyTreeSnapshot); // startNoteHashTreeSnapshot
     reader.readObject(AppendOnlyTreeSnapshot); // startNullifierTreeSnapshot
     reader.readObject(AppendOnlyTreeSnapshot); // startContractTreeSnapshot
@@ -354,7 +354,7 @@ export class L2Block {
       endPublicDataTreeSnapshot,
     );
     const state = new StateReference(endL1ToL2MessageTreeSnapshot, partial);
-    // TODO(benesjan): populate bodyHash
+    // TODO(#3938): populate bodyHash
     const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables);
 
     return L2Block.fromFields({

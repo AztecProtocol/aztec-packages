@@ -561,7 +561,7 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  // TODO(benesjan): Nuke this
+  // TODO(#3937): Nuke this
   public async getBlockHeader(): Promise<BlockHeader> {
     const committedDb = await this.#getWorldState('latest');
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
