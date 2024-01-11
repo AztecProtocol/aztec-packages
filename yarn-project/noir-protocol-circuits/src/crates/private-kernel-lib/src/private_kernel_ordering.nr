@@ -22,7 +22,7 @@ use dep::types::{
         compute_unique_siloed_commitment,
     },
     utils::{
-        arrays::{array_length, struct_array_length, struct_array_eq, is_empty_struct_array},
+        arrays::{array_length, array_eq},
         bounded_vec::BoundedVec,
     },
     traits::{Empty, is_empty}
@@ -40,7 +40,7 @@ struct PrivateKernelInputsOrdering {
 
 impl PrivateKernelInputsOrdering {
     fn validate_inputs(self) {
-        assert_eq(struct_array_length(self.previous_kernel.public_inputs.end.private_call_stack, |c: CallRequest| c.is_empty()), 0, 
+        assert_eq(array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, 
             "Private call stack must be empty when executing the ordering circuit");
     }
 
@@ -216,10 +216,10 @@ mod tests {
         hash::compute_unique_siloed_commitments,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         utils::{
-            arrays::{array_eq, struct_array_eq, array_length, struct_array_length, is_empty_array, is_empty_struct_array},
+            arrays::{array_eq, array_length},
             bounded_vec::BoundedVec,
         },
-        traits::{Empty, is_empty}
+        traits::{Empty, is_empty, is_empty_array}
     };
 
     struct PrivateKernelOrderingInputsBuilder {
@@ -338,13 +338,7 @@ mod tests {
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
 
         let public_inputs = builder.execute();
-        assert(
-            struct_array_length(
-            public_inputs.end.new_commitments,
-            |r: SideEffect| r.is_empty()
-        )
-            == 1
-        );
+        assert(array_length(public_inputs.end.new_commitments) == 1);
         assert(public_inputs.end.new_commitments[0].eq(unique_siloed_commitments[0]));
     }
 
@@ -358,12 +352,7 @@ mod tests {
         builder.add_transient_read(3);
         let unique_siloed_commitments = builder.get_unique_siloed_commitments();
         let public_inputs = builder.execute();
-        assert_eq(
-            struct_array_length(
-                public_inputs.end.new_commitments,
-                |r: SideEffect| r.is_empty()
-            ), MAX_NEW_COMMITMENTS_PER_TX
-        );
+        assert_eq(array_length(public_inputs.end.new_commitments), MAX_NEW_COMMITMENTS_PER_TX);
         for i in 0..MAX_NEW_COMMITMENTS_PER_TX {
             assert(public_inputs.end.new_commitments[i].eq(unique_siloed_commitments[i]));
         }
@@ -389,22 +378,11 @@ mod tests {
         builder.nullify_transient_commitment(1, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(
-            is_empty_struct_array(
-                public_inputs.end.new_commitments,
-                |c: SideEffect| c.is_empty()
-            )
-        );
+        assert(is_empty_array(public_inputs.end.new_commitments));
+
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(
-            struct_array_eq(
-                public_inputs.end.new_nullifiers,
-                expected_new_nullifiers,
-                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-                |a: SideEffectLinkedToNoteHash| a.is_empty()
-            )
-        );
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -420,23 +398,14 @@ mod tests {
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
         assert(
-            struct_array_eq(
+            array_eq(
                 public_inputs.end.new_commitments,
-                [unique_siloed_commitments[0]],
-                |a: SideEffect, b: SideEffect| a.eq(b),
-                |a: SideEffect| a.is_empty()
+                [unique_siloed_commitments[0]]
             )
         );
         // The nullifier at index 1 is chopped.
         let expected_new_nullifiers = [new_nullifiers[0], new_nullifiers[2]];
-        assert(
-            struct_array_eq(
-                public_inputs.end.new_nullifiers,
-                expected_new_nullifiers,
-                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-                |a: SideEffectLinkedToNoteHash| a.is_empty()
-            )
-        );
+        assert(array_eq(public_inputs.end.new_nullifiers, expected_new_nullifiers));
     }
 
     #[test]
@@ -450,20 +419,8 @@ mod tests {
         builder.nullify_transient_commitment(2, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(
-            is_empty_struct_array(
-                public_inputs.end.new_commitments,
-                |c: SideEffect| c.is_empty()
-            )
-        );
-        assert(
-            struct_array_eq(
-                public_inputs.end.new_nullifiers,
-                [new_nullifiers[0]],
-                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.eq(b),
-                |a: SideEffectLinkedToNoteHash| a.is_empty()
-            )
-        );
+        assert(is_empty_array(public_inputs.end.new_commitments));
+        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 
     #[test]
@@ -503,18 +460,8 @@ mod tests {
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
-        assert_eq(
-            struct_array_length(
-                public_inputs.end.new_commitments,
-                |r: SideEffect| r.is_empty()
-            ), 2
-        );
-        assert_eq(
-            struct_array_length(
-                public_inputs.end.new_nullifiers,
-                |r: SideEffectLinkedToNoteHash| r.is_empty()
-            ), 3
-        );
+        assert_eq(array_length(public_inputs.end.new_commitments), 2);
+        assert_eq(array_length(public_inputs.end.new_nullifiers), 3);
     }
     // same as previous test, but this time there are 0 commitments!
     // (Do we really need this test?)
@@ -524,20 +471,8 @@ mod tests {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
-        assert(
-            struct_array_length(
-            public_inputs.end.new_commitments,
-            |r: SideEffect| r.is_empty()
-        )
-            == 0
-        );
-        assert(
-            struct_array_length(
-            public_inputs.end.new_nullifiers,
-            |r: SideEffectLinkedToNoteHash| r.is_empty()
-        )
-            == 3
-        );
+        assert(array_length(public_inputs.end.new_commitments) == 0);
+        assert(array_length(public_inputs.end.new_nullifiers) == 3);
     }
 
     #[test(should_fail_with="New nullifier is transient but hint is invalid")]
