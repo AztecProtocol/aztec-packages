@@ -42,7 +42,7 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     bool c_set = false;
 
     // Handle quadratic term if it exists
-    // info();
+    // info("!arg.mul_terms.empty() = ", !arg.mul_terms.empty());
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
         pt.q_m = uint256_t(std::get<0>(mul_term));
@@ -86,7 +86,6 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     // for (const auto& linear_term : arg.linear_combinations) {
     //     barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
     //     uint32_t witness_idx = std::get<1>(linear_term).value;
-
     //     // WORKTODO: this is where the problem is
     //     if (pt.a == 0 || pt.a == witness_idx) {
     //         pt.a = witness_idx;
@@ -320,7 +319,8 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     acir_format af;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): this +1 seems to be accounting for the const 0 at
     // the first index in variables
-    af.varnum = circuit.current_witness_index;
+    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
+    af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;
@@ -358,7 +358,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     auto w = WitnessMap::WitnessMap::bincodeDeserialize(buf);
     WitnessVector wv;
-    size_t index = 1; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Does this need to become 0 once
+    size_t index = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Does this need to become 0 once
                       // we get rid of the +1 offeet in noir?
     for (auto& e : w.value) {
         // info("MAIN!");
