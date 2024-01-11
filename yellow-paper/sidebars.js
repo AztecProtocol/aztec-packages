@@ -60,14 +60,10 @@ const sidebars = {
       items: [],
     },
     {
-      label: "Cross-chain communication",
+      label: "Contract Deployment",
       type: "category",
-      link: { type: "doc", id: "cross-chain-communication/index" },
-      items: [
-        "contract-deployment/index",
-        "contract-deployment/classes",
-        "contract-deployment/instances",
-      ],
+      link: { type: "doc", id: "contract-deployment/index" },
+      items: ["contract-deployment/classes", "contract-deployment/instances"],
     },
     {
       label: "Calls",
