@@ -32,7 +32,7 @@ export class FunctionData {
     return new FunctionData(
       FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       abi.isInternal,
-      abi.functionType === FunctionType.SECRET,
+      abi.functionType === 'secret',
       abi.name === 'constructor',
     );
   }

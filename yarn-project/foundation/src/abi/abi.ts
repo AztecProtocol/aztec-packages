@@ -1,194 +1,116 @@
 import { inflate } from 'pako';
 
 
-/**
- * A named type.
- */
+
+import { type FunctionSelector } from './function_selector.js';
+
+
+/** A named type. */
 export interface ABIVariable {
-  /**
-   * The name of the variable.
-   */
+  /** The name of the variable. */
   name: string;
-  /**
-   * The type of the variable.
-   */
+  /** The type of the variable. */
   type: ABIType;
 }
 
-/**
- * Indicates whether a parameter is public or secret/private.
- */
+/** Indicates whether a parameter is public or secret/private. */
 export type ABIParameterVisibility = 'public' | 'private';
-  
-/**
- * A function parameter.
- */
+
+/** A function parameter. */
 export interface ABIParameter extends ABIVariable {
-  /**
-   * Indicates whether a parameter is public or secret/private.
-   */
+  /** Indicates whether a parameter is public or secret/private. */
   visibility: ABIParameterVisibility;
 }
 
-/**
- * A basic type.
- */
+/** A basic type. */
 export interface BasicType<T extends string> {
-  /**
-   * The kind of the type.
-   */
+  /** The kind of the type. */
   kind: T;
 }
 
-/**
- * A variable type.
- */
+/** A variable type. */
 export type ABIType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
-/**
- * An integer type.
- */
+/** An integer type. */
 export interface IntegerType extends BasicType<'integer'> {
-  /**
-   * The sign of the integer.
-   */
+  /** The sign of the integer. */
   sign: string;
-  /**
-   * The width of the integer in bits.
-   */
+  /** The width of the integer in bits. */
   width: number;
 }
 
-/**
- * An array type.
- */
+/** An array type. */
 export interface ArrayType extends BasicType<'array'> {
-  /**
-   * The length of the array.
-   */
+  /** The length of the array. */
   length: number;
-  /**
-   * The type of the array elements.
-   */
+  /** The type of the array elements. */
   type: ABIType;
 }
 
-/**
- * A string type.
- */
+/** A string type. */
 export interface StringType extends BasicType<'string'> {
-  /**
-   * The length of the string.
-   */
+  /** The length of the string. */
   length: number;
 }
 
-/**
- * A struct type.
- */
+/** A struct type. */
 export interface StructType extends BasicType<'struct'> {
-  /**
-   * The fields of the struct.
-   */
+  /** The fields of the struct. */
   fields: ABIVariable[];
-  /**
-   * Fully qualified name of the struct.
-   */
+  /** Fully qualified name of the struct. */
   path: string;
 }
 
-/**
- * A contract event.
- */
+/** A contract event. */
 export interface EventAbi {
-  /**
-   * The event name.
-   */
+  /** The event name. */
   name: string;
-  /**
-   * Fully qualified name of the event.
-   */
+  /** Fully qualified name of the event. */
   path: string;
-  /**
-   * The fields of the event.
-   */
+  /** The fields of the event. */
   fields: ABIVariable[];
 }
 
-/**
- * Aztec.nr function types.
- */
-export enum FunctionType {
-  SECRET = 'secret',
-  OPEN = 'open',
-  UNCONSTRAINED = 'unconstrained',
-}
+/** Aztec.nr function types. */
+export type FunctionType = 'secret' | 'open' | 'unconstrained';
 
-/**
- * The abi entry of a function.
- */
+/** The abi entry of a function. */
 export interface FunctionAbi {
-  /**
-   * The name of the function.
-   */
+  /** The name of the function. */
   name: string;
-  /**
-   * Whether the function is secret.
-   */
+  /** Whether the function is secret. */
   functionType: FunctionType;
-  /**
-   * Whether the function is internal.
-   */
+  /** Whether the function is internal. */
   isInternal: boolean;
-  /**
-   * Function parameters.
-   */
+  /** Function parameters. */
   parameters: ABIParameter[];
-  /**
-   * The types of the return values.
-   */
+  /** The types of the return values. */
   returnTypes: ABIType[];
 }
 
-/**
- * The artifact entry of a function.
- */
+/** The artifact entry of a function. */
 export interface FunctionArtifact extends FunctionAbi {
-  /**
-   * The ACIR bytecode of the function.
-   */
+  /** The ACIR bytecode of the function. */
   bytecode: string;
-  /**
-   * The verification key of the function.
-   */
+  /** The verification key of the function. */
   verificationKey?: string;
+  /** Debug symbols for the function, deflated as JSON, compressed using gzip and serialized with base64. */
+  debugSymbols?: string;
 }
 
-/**
- * A file ID. It's assigned during compilation.
- */
+/** A file ID. It's assigned during compilation. */
 export type FileId = number;
 
-/**
- * A pointer to a specific section of the source code.
- */
+/** A pointer to a specific section of the source code. */
 export interface SourceCodeLocation {
-  /**
-   * The section of the source code.
-   */
+  /** The section of the source code. */
   span: {
-    /**
-     * The byte where the section starts.
-     */
+    /** The byte where the section starts. */
     start: number;
-    /**
-     * The byte where the section ends.
-     */
+    /** The byte where the section ends. */
     end: number;
   };
-  /**
-   * The source code file pointed to.
-   */
+  /** The source code file pointed to. */
   file: FileId;
 }
 
@@ -198,89 +120,94 @@ export interface SourceCodeLocation {
  */
 export type OpcodeLocation = string;
 
-/**
- * The debug information for a given function.
- */
+/** The debug information for a given function. */
 export interface DebugInfo {
-  /**
-   * A map of the opcode location to the source code location.
-   */
+  /** A map of the opcode location to the source code location. */
   locations: Record<OpcodeLocation, SourceCodeLocation[]>;
 }
 
-/**
- * Maps a file ID to its metadata for debugging purposes.
- */
+/** Maps a file ID to its metadata for debugging purposes. */
 export type DebugFileMap = Record<
   FileId,
   {
-    /**
-     * The source code of the file.
-     */
+    /** The source code of the file. */
     source: string;
-    /**
-     * The path of the file.
-     */
+    /** The path of the file. */
     path: string;
   }
 >;
 
-/**
- * The debug metadata of an ABI.
- */
+/** The debug metadata of an ABI. */
 export interface DebugMetadata {
-  /**
-   * The DebugInfo object, deflated as JSON, compressed using gzip and serialized with base64.
-   */
+  /** The DebugInfo object, deflated as JSON, compressed using gzip and serialized with base64. */
   debugSymbols: string[];
-  /**
-   * The map of file ID to the source code and path of the file.
-   */
+  /** The map of file ID to the source code and path of the file. */
   fileMap: DebugFileMap;
 }
 
-/**
- * Defines artifact of a contract.
- */
+/** Defines artifact of a contract. */
 export interface ContractArtifact {
-  /**
-   * The name of the contract.
-   */
+  /** The name of the contract. */
   name: string;
 
-  /**
-   * The version of compiler used to create this artifact
-   */
+  /** The version of compiler used to create this artifact */
   aztecNrVersion?: string;
 
-  /**
-   * The functions of the contract.
-   */
+  /** The functions of the contract. */
   functions: FunctionArtifact[];
-  /**
-   * The events of the contract.
-   */
+
+  /** The events of the contract. */
   events: EventAbi[];
 
   /**
-   * The debug metadata of the contract.
-   * It's used to include the relevant source code section when a constraint is not met during simulation.
+   * The map of file ID to the source code and path of the file.
+   * Used to include the relevant source code section when a constraint is not met during simulation.
    */
-  debug?: DebugMetadata;
+  fileMap?: DebugFileMap;
+}
+
+/** Debug metadata for a function. */
+export interface FunctionDebugMetadata {
+  /** Maps opcodes to source code pointers */
+  debugSymbols: DebugInfo;
+  /** Maps the file IDs to the file contents to resolve pointers */
+  files: DebugFileMap;
+}
+
+/** A function artifact with optional debug metadata */
+export interface FunctionArtifactWithDebugMetadata extends FunctionArtifact {
+  /** Debug metadata for the function. */
+  debug?: FunctionDebugMetadata;
 }
 
 /**
- * Debug metadata for a function.
+ * Gets a function artifact given its name or selector.
  */
-export interface FunctionDebugMetadata {
-  /**
-   * Maps opcodes to source code pointers
-   */
-  debugSymbols: DebugInfo;
-  /**
-   * Maps the file IDs to the file contents to resolve pointers
-   */
-  files: DebugFileMap;
+export function getFunctionArtifact(
+  artifact: ContractArtifact,
+  functionNameOrSelector: string | FunctionSelector,
+): FunctionArtifact {
+  const functionArtifact = artifact.functions.find(f =>
+    typeof functionNameOrSelector === 'string'
+      ? f.name === functionNameOrSelector
+      : functionNameOrSelector.equals(f.name, f.parameters),
+  );
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionNameOrSelector}`);
+  }
+  return functionArtifact;
+}
+
+/**
+ * Gets a function artifact including debug metadata given its name or selector.
+ */
+export function getFunctionArtifactWithDebugMetadata(
+  artifact: ContractArtifact,
+  functionNameOrSelector: string | FunctionSelector,
+): FunctionArtifactWithDebugMetadata {
+  const functionArtifact = getFunctionArtifact(artifact, functionNameOrSelector);
+  const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+  return { ...functionArtifact, debug: debugMetadata };
 }
 
 /**
@@ -290,19 +217,12 @@ export interface FunctionDebugMetadata {
  * @returns The debug metadata of the function
  */
 export function getFunctionDebugMetadata(
-  artifact: ContractArtifact,
-  functionName: string,
+  contractArtifact: ContractArtifact,
+  functionArtifact: FunctionArtifact,
 ): FunctionDebugMetadata | undefined {
-  const functionIndex = artifact.functions.findIndex(f => f.name === functionName);
-  if (artifact.debug && functionIndex !== -1) {
-    const debugSymbols = JSON.parse(
-      inflate(Buffer.from(artifact.debug.debugSymbols[functionIndex], 'base64'), { to: 'string' }),
-    );
-    const files = artifact.debug.fileMap;
-    return {
-      debugSymbols,
-      files,
-    };
+  if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
+    const debugSymbols = JSON.parse(inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string' }));
+    return { debugSymbols, files: contractArtifact.fileMap };
   }
   return undefined;
 }

@@ -1,11 +1,12 @@
 import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
+
 export const mockContractArtifact: ContractArtifact = {
   name: 'MockContract',
   functions: [
     {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -13,7 +14,7 @@ export const mockContractArtifact: ContractArtifact = {
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
       ],
       returnTypes: [],
@@ -21,28 +22,28 @@ export const mockContractArtifact: ContractArtifact = {
     },
     {
       name: 'mockFunction',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
           name: 'fieldParam',
           type: { kind: 'field' },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
         {
           name: 'boolParam',
           type: { kind: 'boolean' },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
         {
           name: 'integerParam',
           type: { kind: 'integer', sign: 'signed', width: 32 },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
         {
           name: 'arrayParam',
           type: { kind: 'array', length: 3, type: { kind: 'field' } },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
         {
           name: 'structParam',
@@ -54,7 +55,7 @@ export const mockContractArtifact: ContractArtifact = {
               { name: 'subField2', type: { kind: 'boolean' } },
             ],
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'secret',
         },
       ],
       returnTypes: [{ kind: 'boolean' }],

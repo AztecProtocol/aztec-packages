@@ -1,13 +1,12 @@
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
-import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { ExtendedContractData, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
-
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
   let resolvedExtendedContractData: ExtendedContractData;
@@ -40,7 +39,7 @@ describe('Contract Class', () => {
     functions: [
       {
         name: 'bar',
-        functionType: FunctionType.SECRET,
+        functionType: 'secret',
         isInternal: false,
         parameters: [
           {
@@ -48,14 +47,14 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
           {
             name: 'value',
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.SECRET,
+            visibility: 'private',
           },
         ],
         returnTypes: [],
@@ -63,7 +62,7 @@ describe('Contract Class', () => {
       },
       {
         name: 'baz',
-        functionType: FunctionType.OPEN,
+        functionType: 'open',
         isInternal: false,
         parameters: [],
         returnTypes: [],
@@ -71,7 +70,7 @@ describe('Contract Class', () => {
       },
       {
         name: 'qux',
-        functionType: FunctionType.UNCONSTRAINED,
+        functionType: 'unconstrained',
         isInternal: false,
         parameters: [
           {
@@ -79,7 +78,7 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
         ],
         returnTypes: [

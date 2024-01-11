@@ -3,6 +3,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { z } from 'zod';
 
+
 const noirBasicAbiTypeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('boolean') }),
   z.object({ kind: z.literal('field') }),
@@ -48,6 +49,7 @@ const noirContractCompilationArtifactSchema = z.object({
       name: z.string(),
       function_type: noirFunctionVisibilitySchema,
       is_internal: z.boolean(),
+      debug_symbols: z.string().optional(),
       abi: z.object({
         parameters: z.array(
           z.object({
@@ -84,6 +86,8 @@ const noirContractCompilationArtifactSchema = z.object({
       fields: z.array(noirAbiVariableSchema),
     }),
   ),
+  warnings: z.array(z.any()).optional(),
+  file_map: z.record(z.number(), z.object({ source: z.string(), path: z.string() })).optional()
 });
 
 /** Contract compilation artifact as outputted by Nargo */

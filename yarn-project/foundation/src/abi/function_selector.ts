@@ -1,6 +1,8 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+
+
 import { keccak } from '../crypto/keccak/index.js';
 import { Fr } from '../fields/index.js';
 import { ABIParameter } from './abi.js';
@@ -48,10 +50,23 @@ export class FunctionSelector {
 
   /**
    * Checks if this function selector is equal to another.
+   * @returns True if the function selectors are equal.
+   */
+  equals(otherName: string, otherParams: ABIParameter[]): boolean;
+  equals(other: FunctionSelector): boolean;
+  equals(other: FunctionSelector | string, otherParams?: ABIParameter[]): boolean {
+    if (typeof other === 'string') {
+      return this.equals(FunctionSelector.fromNameAndParameters(other, otherParams!));
+    }
+    return this.value === other.value;
+  }
+
+  /**
+   * Checks if this function selector is equal to another.
    * @param other - The other function selector.
    * @returns True if the function selectors are equal.
    */
-  equals(other: FunctionSelector): boolean {
+  equalsNameAndParams(other: FunctionSelector): boolean {
     return this.value === other.value;
   }
 

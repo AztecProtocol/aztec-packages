@@ -1,9 +1,12 @@
 import { ContractNotFoundError } from '@aztec/acir-simulator';
 import { AztecAddress, ContractFunctionDao, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
-import { FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { ContractDatabase, StateInfoProvider } from '@aztec/types';
 
+
+
 import { ContractTree } from '../contract_tree/index.js';
+
 
 /**
  * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.
@@ -78,12 +81,7 @@ export class ContractDataOracle {
   ): Promise<FunctionDebugMetadata | undefined> {
     const tree = await this.getTree(contractAddress);
     const functionArtifact = tree.contract.getFunctionArtifact(selector);
-
-    if (!functionArtifact) {
-      return undefined;
-    }
-
-    return tree.contract.getFunctionDebugMetadataByName(functionArtifact.name);
+    return functionArtifact && getFunctionDebugMetadata(tree.contract, functionArtifact);
   }
 
   /**

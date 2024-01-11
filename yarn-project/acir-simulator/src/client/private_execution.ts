@@ -1,17 +1,19 @@
 import { FunctionData, PrivateCallStackItem } from '@aztec/circuits.js';
-import { decodeReturnValues } from '@aztec/foundation/abi';
+import { FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 
+
+
 import { extractPrivateCircuitPublicInputs } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
-import { ClientExecutionContext } from './client_execution_context.js';
-import { FunctionArtifactWithDebugMetadata } from './db_oracle.js';
+import { type ClientExecutionContext } from './client_execution_context.js';
 import { ExecutionResult } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
+
 
 /**
  * Execute a private function and return the execution result.

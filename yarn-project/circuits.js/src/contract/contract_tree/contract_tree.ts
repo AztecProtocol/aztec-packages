@@ -2,6 +2,7 @@ import { ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@az
 import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 
+
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
  * The input 'vk' should be a hexadecimal string, and the resulting hash is computed using 'hashVK' function.
@@ -51,7 +52,7 @@ export function isConstrained({
    */
   functionType: FunctionType;
 }) {
-  return functionType !== FunctionType.UNCONSTRAINED && !isConstructor({ name });
+  return functionType !== 'unconstrained' && !isConstructor({ name });
 }
 
 /**
@@ -69,7 +70,7 @@ export function generateFunctionLeaves(functions: ContractFunctionDao[]) {
     const f = targetFunctions[i];
     const selector = FunctionSelector.fromNameAndParameters(f.name, f.parameters);
     const isInternal = f.isInternal;
-    const isPrivate = f.functionType === FunctionType.SECRET;
+    const isPrivate = f.functionType === 'secret';
     // All non-unconstrained functions have vks
     // TODO we'd need to have a defined length of the VK for this to be computed in noir
     // const vkHash = hashVKStr(f.verificationKey!, wasm);

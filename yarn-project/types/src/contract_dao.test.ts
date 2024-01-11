@@ -1,8 +1,9 @@
 import { CompleteAddress, EthAddress } from '@aztec/circuits.js';
-import { ABIParameterVisibility, ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 
 import { ContractDao } from './contract_dao.js';
 import { randomContractArtifact } from './mocks.js';
+
 
 describe('ContractDao', () => {
   it('serializes / deserializes correctly', () => {
@@ -18,7 +19,7 @@ describe('ContractDao', () => {
       functions: [
         {
           name: 'bar',
-          functionType: FunctionType.SECRET,
+          functionType: 'secret',
           isInternal: false,
           parameters: [
             {
@@ -26,14 +27,14 @@ describe('ContractDao', () => {
               type: {
                 kind: 'field',
               },
-              visibility: ABIParameterVisibility.PUBLIC,
+              visibility: 'public',
             },
             {
               name: 'value',
               type: {
                 kind: 'field',
               },
-              visibility: ABIParameterVisibility.SECRET,
+              visibility: 'private',
             },
           ],
           returnTypes: [],

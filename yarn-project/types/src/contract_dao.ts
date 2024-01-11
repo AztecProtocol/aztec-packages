@@ -1,17 +1,12 @@
 import { CompleteAddress, ContractFunctionDao } from '@aztec/circuits.js';
-import {
-  ContractArtifact,
-  DebugMetadata,
-  EventAbi,
-  FunctionDebugMetadata,
-  FunctionSelector,
-  FunctionType,
-  getFunctionDebugMetadata,
-} from '@aztec/foundation/abi';
+import { ContractArtifact, EventAbi, FunctionSelector } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { prefixBufferWithLength } from '@aztec/foundation/serialize';
 
+
+
 import { BufferReader, EncodedContractFunction } from './contract_data.js';
+
 
 /**
  * A contract Data Access Object (DAO).
@@ -46,20 +41,12 @@ export class ContractDao implements ContractArtifact {
     return this.contractArtifact.events;
   }
 
-  get debug(): DebugMetadata | undefined {
-    return this.contractArtifact.debug;
-  }
-
   getFunctionArtifact(selector: FunctionSelector): ContractFunctionDao | undefined {
     return this.functions.find(f => f.selector.equals(selector));
   }
 
   getFunctionArtifactByName(functionName: string): ContractFunctionDao | undefined {
     return this.functions.find(f => f.name === functionName);
-  }
-
-  getFunctionDebugMetadataByName(functionName: string): FunctionDebugMetadata | undefined {
-    return getFunctionDebugMetadata(this, functionName);
   }
 
   toBuffer(): Buffer {
@@ -91,7 +78,7 @@ export class ContractDao implements ContractArtifact {
  */
 export function getNewContractPublicFunctions(newContract: ContractDao) {
   return newContract.functions
-    .filter(c => c.functionType === FunctionType.OPEN)
+    .filter(c => c.functionType === 'open')
     .map(
       fn =>
         new EncodedContractFunction(

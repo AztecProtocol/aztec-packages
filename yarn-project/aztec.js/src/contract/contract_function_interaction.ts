@@ -41,7 +41,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns A Promise that resolves to a transaction instance.
    */
   public async create(): Promise<TxExecutionRequest> {
-    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
+    if (this.functionDao.functionType === 'unconstrained') {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
@@ -70,7 +70,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns The result of the view transaction as returned by the contract function.
    */
   public view(options: ViewMethodOptions = {}) {
-    if (this.functionDao.functionType !== FunctionType.UNCONSTRAINED) {
+    if (this.functionDao.functionType !== 'unconstrained') {
       throw new Error('Can only call `view` on an unconstrained function.');
     }
 

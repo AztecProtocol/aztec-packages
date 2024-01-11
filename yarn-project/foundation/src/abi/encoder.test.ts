@@ -1,13 +1,14 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
-import { ABIParameterVisibility, FunctionAbi, FunctionType } from './abi.js';
+import { FunctionAbi } from './abi.js';
 import { encodeArguments } from './encoder.js';
+
 
 describe('abi/encoder', () => {
   it('serializes fields as fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -15,7 +16,7 @@ describe('abi/encoder', () => {
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -28,7 +29,7 @@ describe('abi/encoder', () => {
   it('serializes arrays of fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -38,7 +39,7 @@ describe('abi/encoder', () => {
             length: 2,
             type: { kind: 'field' },
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -51,7 +52,7 @@ describe('abi/encoder', () => {
   it('serializes string', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -60,7 +61,7 @@ describe('abi/encoder', () => {
             kind: 'string',
             length: 4,
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -75,7 +76,7 @@ describe('abi/encoder', () => {
   it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -90,7 +91,7 @@ describe('abi/encoder', () => {
               },
             ],
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -106,7 +107,7 @@ describe('abi/encoder', () => {
   it('throws when passing string argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -114,7 +115,7 @@ describe('abi/encoder', () => {
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -127,7 +128,7 @@ describe('abi/encoder', () => {
   it('throws when passing string argument as integer', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -137,7 +138,7 @@ describe('abi/encoder', () => {
             width: 5,
             kind: 'integer',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -151,7 +152,7 @@ describe('abi/encoder', () => {
   it('throws when passing object argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: 'secret',
       isInternal: false,
       parameters: [
         {
@@ -159,7 +160,7 @@ describe('abi/encoder', () => {
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],

@@ -2,9 +2,14 @@ import { EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/types';
 
+
+
 import { MockProxy, mock } from 'jest-mock-extended';
 
+
+
 import { ContractDeployer } from './contract_deployer.js';
+
 
 describe.skip('Contract Deployer', () => {
   let pxe: MockProxy<PXE>;
@@ -14,7 +19,7 @@ describe.skip('Contract Deployer', () => {
     functions: [
       {
         name: 'constructor',
-        functionType: FunctionType.SECRET,
+        functionType: 'secret',
         isInternal: false,
         parameters: [],
         returnTypes: [],
