@@ -4,19 +4,12 @@ title: Deploy & Call Contracts with Typescript
 
 In this step we will write a Typescript test to interact with the sandbox and call our contracts!
 
-Go to the `src/test` directory in your `packages` dir and create a new file called `cross_chain_messaging.test.ts`:
-
-```bash
-cd src/test
-touch cross_chain_messaging.test.ts
-```
-
 ## Test imports and setup
 
 We need some helper files that can keep our code clean. Inside your `src/test` directory:
 
 ```bash
-mkdir fixtures && cd fixtures
+cd fixtures
 touch utils.ts
 cd .. && mkdir shared && cd shared
 touch cross_chain_test_harness.ts
