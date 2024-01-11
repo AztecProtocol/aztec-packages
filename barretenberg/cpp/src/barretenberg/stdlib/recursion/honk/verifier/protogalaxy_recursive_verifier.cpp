@@ -166,7 +166,7 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
 
-    perturbator_coeffs[0].assert_equal(accumulator->target_sum);
+    perturbator_coeffs[0].assert_equal(accumulator->target_sum, "F(0) != e");
 
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
@@ -190,12 +190,12 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
     auto expected_next_target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
-    expected_next_target_sum.assert_equal(next_target_sum);
+    expected_next_target_sum.assert_equal(next_target_sum, "next_target_sum mismatch");
 
     auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
     for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
         auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
-        verified = verified & (expected_betas_star[idx] == beta_star.get_value());
+        expected_betas_star[idx].assert_equal(beta_star, "beta mismatch at: " + std::to_string(idx));
     }
 
     // Compute ϕ and verify against the data received from the prover
@@ -213,7 +213,8 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
         }
         expected_comm -= sth;
         auto comm = transcript->template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
-        verified = verified & (comm.get_value() == expected_comm);
+        comm.x.assert_equal(expected_comm.x);
+        comm.y.assert_equal(expected_comm.y);
         comm_idx++;
     }
 
@@ -225,8 +226,8 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
             expected_el += instance->public_inputs[el_idx] * lagranges[inst];
             inst++;
         }
-        auto el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
-        verified = verified & (el.get_value() == expected_el);
+        auto next_el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
+        next_el.assert_equal(expected_el);
         el_idx++;
     }
 
@@ -238,7 +239,7 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
             instance_idx++;
         }
         auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
-        verified = verified & (alpha == next_alpha.get_value());
+        next_alpha.assert_equal(alpha);
     }
 
     auto expected_parameters = proof_system::RelationParameters<FF>{};
@@ -254,38 +255,39 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
     }
 
     auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
-    verified = verified & (next_eta.get_value() == expected_parameters.eta);
+    next_eta.assert_equal(expected_parameters.eta);
 
     auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
-    verified = verified & (next_beta.get_value() == expected_parameters.beta);
+    next_beta.assert_equal(expected_parameters.beta);
 
     auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
-    verified = verified & (next_gamma.get_value() == expected_parameters.gamma);
+    next_gamma.assert_equal(expected_parameters.gamma);
 
     auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
-    verified = verified & (next_public_input_delta.get_value() == expected_parameters.public_input_delta);
+    next_public_input_delta.assert_equal(expected_parameters.public_input_delta);
 
     auto next_lookup_grand_product_delta =
         transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    verified =
-        verified & (next_lookup_grand_product_delta.get_value() == expected_parameters.lookup_grand_product_delta);
+    next_lookup_grand_product_delta.assert_equal(expected_parameters.lookup_grand_product_delta);
 
     auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
     auto vk_labels = commitment_labels.get_precomputed();
     size_t vk_idx = 0;
     for (auto& expected_vk : acc_vk->get_all()) {
         size_t inst = 0;
-        expected_vk = Commitment::infinity();
+        expected_vk = sth;
         for (auto& instance : instances) {
             expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
             inst++;
         }
         auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        verified = verified & (vk.get_value() == expected_vk);
+        expected_vk -= sth;
+        vk.x.assert_equal(expected_vk.x);
+        vk.y.assert_equal(expected_vk.y);
         vk_idx++;
     }
 
-    return verified;
+    return true;
 }
 
 template class ProtoGalaxyRecursiveVerifier_<
