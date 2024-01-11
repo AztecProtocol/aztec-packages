@@ -60,6 +60,16 @@ const sidebars = {
       items: [],
     },
     {
+      label: "Cross-chain communication",
+      type: "category",
+      link: { type: "doc", id: "cross-chain-communication/index" },
+      items: [
+        "contract-deployment/index",
+        "contract-deployment/classes",
+        "contract-deployment/instances",
+      ],
+    },
+    {
       label: "Calls",
       type: "category",
       link: { type: "doc", id: "calls/index" },
@@ -72,12 +82,6 @@ const sidebars = {
         "calls/unconstrained-calls",
         "calls/public-private-messaging",
       ],
-    },
-    {
-      label: "Cross-chain communication",
-      type: "category",
-      link: { type: "doc", id: "cross-chain-communication/index" },
-      items: ["cross-chain-communication/da"],
     },
     {
       label: "Cross-chain communication",
