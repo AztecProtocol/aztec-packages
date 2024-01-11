@@ -643,7 +643,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
       await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
     );
-    const startArchiveSnapshot = await this.getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
@@ -708,7 +707,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     return BaseRollupInputs.from({
       constants,
       start,
-      archive: startArchiveSnapshot,
       sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
       sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
       lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,

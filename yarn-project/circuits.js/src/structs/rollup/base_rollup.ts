@@ -102,10 +102,6 @@ export class BaseRollupInputs {
      */
     public start: PartialStateReference,
     /**
-     * Snapshot of the archive at the start of the base rollup circuit.
-     */
-    public archive: AppendOnlyTreeSnapshot,
-    /**
      * The nullifiers to be inserted in the tree, sorted high to low.
      */
     public sortedNewNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
@@ -201,7 +197,6 @@ export class BaseRollupInputs {
     return [
       fields.kernelData,
       fields.start,
-      fields.archive,
       fields.sortedNewNullifiers,
       fields.sortedNewNullifiersIndexes,
       fields.lowNullifierLeafPreimages,

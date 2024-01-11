@@ -1459,7 +1459,6 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
   return {
     kernel_data: mapPreviousKernelDataToNoir(inputs.kernelData),
     start: mapPartialStateReferenceToNoir(inputs.start),
-    archive: mapAppendOnlyTreeSnapshotToNoir(inputs.archive),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapFieldToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, (index: number) =>
       mapNumberToNoir(index),

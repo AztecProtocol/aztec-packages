@@ -949,7 +949,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const kernelData = makePreviousKernelData(seed);
 
   const start = makePartialStateReference(seed + 0x100);
-  const archiveSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x500);
 
   const lowNullifierLeafPreimages = makeTuple(
     MAX_NEW_NULLIFIERS_PER_TX,
@@ -1012,7 +1011,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     kernelData,
     lowNullifierMembershipWitness,
     start,
-    archive: archiveSnapshot,
     sortedNewNullifiers,
     sortedNewNullifiersIndexes,
     lowNullifierLeafPreimages,

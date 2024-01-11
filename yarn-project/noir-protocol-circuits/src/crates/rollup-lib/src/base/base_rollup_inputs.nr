@@ -39,7 +39,6 @@ use dep::types::partial_state_reference::PartialStateReference;
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
     start: PartialStateReference,
-    archive: AppendOnlyTreeSnapshot,
 
     sorted_new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
@@ -857,12 +856,10 @@ mod tests {
             };
 
             let start_archive = NonEmptyMerkleTree::new(self.pre_existing_blocks, [0; ARCHIVE_HEIGHT], [0; ARCHIVE_HEIGHT - 1], [0; 1]);
-            let last_archive = AppendOnlyTreeSnapshot {
+            self.constants.last_archive = AppendOnlyTreeSnapshot {
                 root: start_archive.get_root(),
                 next_available_leaf_index: start_archive.get_next_available_index() as u32,
             };
-
-            self.constants.last_archive = last_archive;
 
             let (
                 low_nullifier_leaf_preimages, 
@@ -900,8 +897,6 @@ mod tests {
             BaseRollupInputs {
                 kernel_data: kernel_data,
                 start,
-
-                archive: last_archive,
 
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,
