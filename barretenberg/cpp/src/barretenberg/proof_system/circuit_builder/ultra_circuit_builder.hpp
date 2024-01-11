@@ -700,9 +700,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
 
-        info("varnum = ", varnum);
-        info("witness_values.size() = ", witness_values.size());
-        info("ZERO IDX = ", this->zero_idx);
+        // info("varnum = ", varnum);
+        // info("witness_values.size() = ", witness_values.size());
+        // info("ZERO IDX = ", this->zero_idx);
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)

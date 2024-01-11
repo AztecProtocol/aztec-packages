@@ -19,13 +19,22 @@
 
 namespace acir_format {
 
+/**
+ * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
+ *
+ * @param arg acir representation of an 3-wire arithmetic operation
+ * @return poly_triple
+ * @note In principle Circuit::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
+ * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
+ */
 poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
 {
-    // WORKTODO: Deal with this now?
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The zeros for a,b,c are making an implicit
-    // assumption that the 0th variable will be FF(0). Once this is not the case, this might break. Instead it should be
-    // something like zero_idx - but thats a builder member that's not known at this time. Could we do something like
-    // define a pointer to a uint32_t that will eventually hold the right zero_idx and set it later?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Instead of zeros for a,b,c, what we really want
+    // is something like the bberg zero_idx. Hardcoding these to 0 has the same effect only if zero_idx == 0, as has
+    // historically been the case. If that changes, this might break since now "0" points to some non-zero witness in
+    // variables. (From some testing, it seems like it may not break but only because the selectors multiplying the
+    // erroneously non-zero value are zero. Still, it seems like a bad idea to have erroneous wire values even if they
+    // dont break the relation. They'll still add cost in commitments, for example).
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -37,12 +46,14 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
         .q_c = 0,
     };
 
+    // Flags indicating whether each witness index for the present poly_tuple has been set
     bool a_set = false;
     bool b_set = false;
     bool c_set = false;
 
-    // Handle quadratic term if it exists
-    // info("!arg.mul_terms.empty() = ", !arg.mul_terms.empty());
+    // If necessary, set values for quadratic term (q_m * w_l * w_r)
+    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
+    // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
         pt.q_m = uint256_t(std::get<0>(mul_term));
@@ -50,65 +61,42 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
         pt.b = std::get<2>(mul_term).value;
         a_set = true;
         b_set = true;
-        // info("MUL!");
     }
 
-    // WORKTODO: Look at simple_radix. Nearly everything looks correct
-    // except for the w_3 witness index in the poly gates. Its 5 in classic and stays 5 in new.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx check
-    // since we initialize with 0 but 0 is now also a valid witness index.
+    // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
+    ASSERT(arg.linear_combinations.size() <= 3); // We can only accommodate 3 linear terms
     for (const auto& linear_term : arg.linear_combinations) {
         barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
 
-        // info("witness_idx = ", witness_idx);
-
-        if (!a_set || pt.a == witness_idx) {
+        // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
+        // index and the corresponding selector value.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
+        // check (and the others like it) since we initialize a,b,c with 0 but 0 becomes a valid witness index if the +1
+        // offset is removed from noir.
+        if (!a_set || pt.a == witness_idx) { // q_l * w_l
             pt.a = witness_idx;
             pt.q_l = selector_value;
             a_set = true;
-            // info("IF 0");
-        } else if (!b_set || pt.b == witness_idx) {
+        } else if (!b_set || pt.b == witness_idx) { // q_r * w_r
             pt.b = witness_idx;
             pt.q_r = selector_value;
             b_set = true;
-            // info("IF 1");
-        } else if (!c_set || pt.c == witness_idx) {
+        } else if (!c_set || pt.c == witness_idx) { // q_o * w_o
             pt.c = witness_idx;
             pt.q_o = selector_value;
             c_set = true;
-            // info("IF 2");
         } else {
             throw_or_abort("Cannot assign linear term to a constraint of width 3");
         }
     }
 
-    // for (const auto& linear_term : arg.linear_combinations) {
-    //     barretenberg::fr selector_value(uint256_t(std::get<0>(linear_term)));
-    //     uint32_t witness_idx = std::get<1>(linear_term).value;
-    //     // WORKTODO: this is where the problem is
-    //     if (pt.a == 0 || pt.a == witness_idx) {
-    //         pt.a = witness_idx;
-    //         pt.q_l = selector_value;
-    //         info("IF 0");
-    //     } else if (pt.b == 0 || pt.b == witness_idx) {
-    //         pt.b = witness_idx;
-    //         pt.q_r = selector_value;
-    //         info("IF 1");
-    //     } else if (pt.c == 0 || pt.c == witness_idx) {
-    //         pt.c = witness_idx;
-    //         pt.q_o = selector_value;
-    //         info("IF 2");
-    //     } else {
-    //         throw_or_abort("Cannot assign linear term to a constrain of width 3");
-    //     }
-    // }
-
+    // Set constant value q_c
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
 
-void handle_arithmetic(Circuit::Opcode::Arithmetic const& arg, acir_format& af)
+void handle_arithmetic(Circuit::Opcode::AssertZero const& arg, acir_format& af)
 {
     af.constraints.push_back(serialize_arithmetic_gate(arg.value));
 }
@@ -250,18 +238,7 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
                     .key_hash = arg.key_hash.witness.value,
-                    .input_aggregation_object = {},
-                    .output_aggregation_object = {},
-                    .nested_aggregation_object = {},
                 };
-                if (arg.input_aggregation_object.has_value()) {
-                    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                        c.input_aggregation_object[i] = (*arg.input_aggregation_object)[i].witness.value;
-                    }
-                }
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    c.output_aggregation_object[i] = arg.output_aggregation_object[i].value;
-                }
                 af.recursion_constraints.push_back(c);
             }
         },
@@ -317,8 +294,6 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
     acir_format af;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): this +1 seems to be accounting for the const 0 at
-    // the first index in variables
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
@@ -328,7 +303,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Circuit::Opcode::Arithmetic>) {
+                if constexpr (std::is_same_v<T, Circuit::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {
                     handle_blackbox_func_call(arg, af);
@@ -354,21 +329,25 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     return af;
 }
 
+/**
+ * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ *
+ * @param buf Serialized representation of a `WitnessMap`.
+ * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
+ * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
+ *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
+ */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     auto w = WitnessMap::WitnessMap::bincodeDeserialize(buf);
     WitnessVector wv;
-    size_t index = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): Does this need to become 0 once
-                      // we get rid of the +1 offeet in noir?
+    size_t index = 0;
     for (auto& e : w.value) {
-        // info("MAIN!");
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            // WORKTODO: this actually appears to be unrelated to the const 0 issue. See 2_div for an example of when
-            // this gets used. It only triggers once (for the last witness) and e.first.value is equal to 16. Ask Kev?
-            // Seems like a mechanism for adding 0s intermittently between known witness values.
-            wv.push_back(barretenberg::fr(0)); // TODO(https://github.com/AztecProtocol/barretenberg/issues/816)?
-            // info("IN HERE!");
-            // info("e.first.value = ", e.first.value);
+            wv.push_back(barretenberg::fr(0));
             index++;
         }
         wv.push_back(barretenberg::fr(uint256_t(e.second)));

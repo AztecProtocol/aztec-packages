@@ -37,14 +37,11 @@ use dep::types::{
         arrays::{
             array_length,
             array_to_bounded_vec,
-            is_empty_array,
-            is_empty_struct_array,
-            struct_array_to_bounded_vec,
             validate_array,
-            validate_struct_array,
         },
         bounded_vec::BoundedVec,
     },
+    traits::is_empty_array,
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -53,22 +50,16 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // to push_array_to_array() routines which rely on the passed arrays to be well-formed.
 
     validate_array(app_public_inputs.return_values);
-    validate_struct_array(app_public_inputs.read_requests, |r: SideEffect| r.is_empty());
-    validate_struct_array(
-        app_public_inputs.new_commitments,
-        |c: SideEffect| c.is_empty()
-    );
-    validate_struct_array(
-        app_public_inputs.new_nullifiers,
-        |n: SideEffectLinkedToNoteHash| n.is_empty()
-    );
+    validate_array(app_public_inputs.read_requests);
+    validate_array(app_public_inputs.new_commitments);
+    validate_array(app_public_inputs.new_nullifiers);
     validate_array(app_public_inputs.private_call_stack_hashes);
     validate_array(app_public_inputs.public_call_stack_hashes);
     validate_array(app_public_inputs.new_l2_to_l1_msgs);
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
-// Validate all read requests against the historical private data root.
+// Validate all read requests against the historical note hash tree root.
 // Use their membership witnesses to do so. If the historical root is not yet
 // initialized, initialize it using the first read request here (if present).
 //
@@ -80,7 +71,7 @@ pub fn validate_read_requests(
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL]
 ) {
-    // membership witnesses must resolve to the same private data root
+    // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[rr_idx].value;
@@ -114,13 +105,13 @@ pub fn initialize_end_values(
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = struct_array_to_bounded_vec(start.read_requests, |c: SideEffect| c.is_empty(), SideEffect::empty());
+    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
 
-    public_inputs.end.new_commitments = struct_array_to_bounded_vec(start.new_commitments, |c: SideEffect| c.is_empty(), SideEffect::empty());
-    public_inputs.end.new_nullifiers = struct_array_to_bounded_vec(start.new_nullifiers, |c: SideEffectLinkedToNoteHash| c.is_empty(), SideEffectLinkedToNoteHash::empty());
+    public_inputs.end.new_commitments = array_to_bounded_vec(start.new_commitments);
+    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
 
-    public_inputs.end.private_call_stack = struct_array_to_bounded_vec(start.private_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
-    public_inputs.end.public_call_stack = struct_array_to_bounded_vec(start.public_call_stack, |c: CallRequest| c.is_empty(), CallRequest::empty());
+    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
     public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
 
     public_inputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
@@ -130,7 +121,7 @@ pub fn initialize_end_values(
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     public_inputs.end.optionally_revealed_data = start.optionally_revealed_data;
-    public_inputs.end.new_contracts = struct_array_to_bounded_vec(start.new_contracts, |ncd: NewContractData| ncd.is_empty(), NewContractData::empty());
+    public_inputs.end.new_contracts = array_to_bounded_vec(start.new_contracts);
 }
 
 fn perform_static_call_checks(private_call: PrivateCallData) {
@@ -139,13 +130,10 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(
-            is_empty_struct_array(public_inputs.new_commitments, |c: SideEffect| c.is_empty()), "new_commitments must be empty for static calls"
+            is_empty_array(public_inputs.new_commitments), "new_commitments must be empty for static calls"
         );
         assert(
-            is_empty_struct_array(
-                public_inputs.new_nullifiers,
-                |n: SideEffectLinkedToNoteHash| n.is_empty()
-            ), "new_nullifiers must be empty for static calls"
+            is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
         );
     }
 }
@@ -241,11 +229,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
 
     // Call stacks
     // Private call stack.
-    let private_call_stack = struct_array_to_bounded_vec(
-        private_call.private_call_stack,
-        |c: CallRequest| c.is_empty(),
-        CallRequest::empty()
-    );
+    let private_call_stack = array_to_bounded_vec(private_call.private_call_stack);
     validate_call_requests(
         private_call_stack,
         private_call_public_inputs.private_call_stack_hashes,
@@ -253,11 +237,7 @@ pub fn update_end_values(private_call: PrivateCallData, public_inputs: &mut Kern
     );
     public_inputs.end.private_call_stack.push_vec(private_call_stack);
     // Public call stack.
-    let public_call_stack = struct_array_to_bounded_vec(
-        private_call.public_call_stack,
-        |c: CallRequest| c.is_empty(),
-        CallRequest::empty()
-    );
+    let public_call_stack = array_to_bounded_vec(private_call.public_call_stack);
     validate_call_requests(
         public_call_stack,
         private_call_public_inputs.public_call_stack_hashes,
@@ -347,7 +327,7 @@ pub fn contract_logic(
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
         public_inputs.end.new_nullifiers.push(
-            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 0 }
+            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 1 }
         );
     } else {
         // non-contract deployments must specify contract address being interacted with
