@@ -1,6 +1,6 @@
 [package]
-name = "test_lib"
-type = "lib"
+name = "u128"
+type = "bin"
 authors = [""]
 
 [dependencies]
