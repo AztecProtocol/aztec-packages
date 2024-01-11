@@ -12,10 +12,14 @@ namespace acir_proofs {
  * structure of the newer code since there's much more of that code now?
  */
 class AcirComposer {
+
+    using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
+
   public:
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
-    template <typename Builder = UltraCircuitBuilder> void create_circuit(acir_format::acir_format& constraint_system);
+    template <typename Builder = UltraCircuitBuilder>
+    void create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness = {});
 
     std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(acir_format::acir_format& constraint_system);
 
@@ -55,6 +59,7 @@ class AcirComposer {
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
     std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
     bool verbose_ = true;
+    bool circuit_created = false;
 
     template <typename... Args> inline void vinfo(Args... args)
     {

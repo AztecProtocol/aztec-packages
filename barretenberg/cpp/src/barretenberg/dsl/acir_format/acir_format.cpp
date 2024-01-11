@@ -192,6 +192,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 template <typename Builder>
 Builder create_circuit(const acir_format& constraint_system, size_t size_hint, WitnessVector const& witness)
 {
+    info("acir_formet::CREATE CIRCUIT");
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     bool has_valid_witness_assignments = !witness.empty();

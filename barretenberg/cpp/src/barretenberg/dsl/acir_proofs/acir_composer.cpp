@@ -1,4 +1,5 @@
 #include "acir_composer.hpp"
+#include "barretenberg/bb/get_bn254_crs.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -14,25 +15,40 @@
 
 namespace acir_proofs {
 
+std::string getHomeDir()
+{
+    char* home = std::getenv("HOME");
+    return home != nullptr ? std::string(home) : "./";
+}
+
+std::string CRS_PATH = getHomeDir() + "/.bb-crs";
+
 AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     : size_hint_(size_hint)
     , verbose_(verbose)
 {}
 
-template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
+template <typename Builder>
+void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness)
 {
+    // info("CREATE CIRCUIT");
     // this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
     // sizes below never get set and that eventually causes too few srs points to be extracted
-    if (builder_.get_num_gates() > 1) {
+    if (circuit_created) {
+        info("Trying to create circuit but it already exists!");
         return;
     }
     vinfo("building circuit...");
-    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_);
-    exact_circuit_size_ = builder_.get_num_gates();
-    total_circuit_size_ = builder_.get_total_circuit_size();
-    circuit_subgroup_size_ = builder_.get_circuit_subgroup_size(total_circuit_size_);
-    size_hint_ = circuit_subgroup_size_;
+    builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
+
+    auto dyadic_circuit_size = builder_.get_circuit_subgroup_size(builder_.get_total_circuit_size());
+
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
+    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
+    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
+
+    circuit_created = true;
 }
 
 std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
@@ -50,7 +66,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
                                                 bool is_recursive)
 {
     vinfo("building circuit with witness...");
-    builder_ = acir_format::create_circuit(constraint_system, size_hint_, witness);
+    create_circuit(constraint_system, witness);
 
     vinfo("gates: ", builder_.get_total_circuit_size());
 
@@ -61,6 +77,7 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 
         acir_format::Composer composer;
         vinfo("computing proving key...");
+        info("CREATE_PROVING_KEY");
         proving_key_ = composer.compute_proving_key(builder_);
         vinfo("done.");
         return composer;

@@ -32,20 +32,6 @@ bool verbose = false;
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();
 
-acir_proofs::AcirComposer init(acir_format::acir_format& constraint_system)
-{
-    acir_proofs::AcirComposer acir_composer(0, verbose);
-    acir_composer.create_circuit(constraint_system);
-    auto subgroup_size = acir_composer.get_circuit_subgroup_size();
-
-    // Must +1!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, subgroup_size + 1);
-    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
-
-    return acir_composer;
-}
-
 void init_reference_strings()
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode subgroup size. Currently set to
@@ -54,10 +40,9 @@ void init_reference_strings()
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) reduce duplication with above
     // Must +1!
-    auto g1_data = get_bn254_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
-    auto g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory(g1_data, g2_data);
-
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
+    auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
+    srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
     // Must +1!
     auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, hardcoded_subgroup_size_hack + 1);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
@@ -103,13 +88,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    auto acir_composer = init(constraint_system);
-
-    Timer pk_timer;
-    acir_composer.init_proving_key(constraint_system);
-    write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
-    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
-    write_benchmark("subgroup_size", acir_composer.get_circuit_subgroup_size(), "acir_test", current_dir);
+    acir_proofs::AcirComposer acir_composer{ 0, verbose };
 
     Timer proof_timer;
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
@@ -176,7 +155,8 @@ void prove(const std::string& bytecodePath,
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
-    auto acir_composer = init(constraint_system);
+
+    acir_proofs::AcirComposer acir_composer{ 0, verbose };
     auto proof = acir_composer.create_proof(constraint_system, witness, recursive);
 
     if (outputPath == "-") {
@@ -247,7 +227,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
 void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
-    auto acir_composer = init(constraint_system);
+    acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.init_proving_key(constraint_system);
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
@@ -263,7 +243,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
 void write_pk(const std::string& bytecodePath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
-    auto acir_composer = init(constraint_system);
+    acir_proofs::AcirComposer acir_composer{ 0, verbose };
     auto pk = acir_composer.init_proving_key(constraint_system);
     auto serialized_pk = to_buffer(*pk);
 
@@ -459,19 +439,23 @@ int main(int argc, char* argv[])
             return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
         }
         if (command == "prove") {
+            info("PROVE");
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, recursive, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
+            info("VERIFY");
             return verify(proof_path, recursive, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
         } else if (command == "write_vk") {
+            info("WRITE VK");
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk(bytecode_path, output_path);
         } else if (command == "write_pk") {
+            info("WRITE PK");
             std::string output_path = get_option(args, "-o", "./target/pk");
             write_pk(bytecode_path, output_path);
         } else if (command == "proof_as_fields") {
