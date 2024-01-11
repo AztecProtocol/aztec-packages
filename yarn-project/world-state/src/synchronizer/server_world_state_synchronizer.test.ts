@@ -1,31 +1,12 @@
-import {
-  AppendOnlyTreeSnapshot,
-  Fr,
-  MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
-import { makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
+import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
-import {
-  ContractData,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockSource,
-  MerkleTreeId,
-  PublicDataWrite,
-  SiblingPath,
-} from '@aztec/types';
+import { L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import levelup from 'levelup';
-import times from 'lodash.times';
 import { default as memdown } from 'memdown';
 
 import { MerkleTreeDb, MerkleTrees, WorldStateConfig } from '../index.js';
@@ -41,37 +22,13 @@ const consumeNextBlocks = () => {
   return Promise.resolve(blocks);
 };
 
-// TODO: redundant to makeAppendOnlyTreeSnapshot
-const getMockTreeSnapshot = () => {
-  return new AppendOnlyTreeSnapshot(Fr.random(), 16);
-};
-
-const getMockContractData = () => {
-  return ContractData.random();
-};
-
-const getMockL1ToL2MessagesData = () => {
-  return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
-};
-
-// TODO: this is very similar to L2Block.random, move the functions to a shared place
 const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
-  const randomSeed = Math.floor(Math.random() * 1000);
-  const globalVariables = makeGlobalVariables(randomSeed, blockNumber);
+  const block = L2Block.random(blockNumber);
 
-  const newEncryptedLogs = L2BlockL2Logs.random(1, 2, 3);
-  const block = L2Block.fromFields({
-    archive: getMockTreeSnapshot(),
-    header: makeHeader(0, globalVariables),
-    newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-    newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-    newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
-    newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
-    newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-    newL1ToL2Messages: getMockL1ToL2MessagesData(),
-    newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
-    newEncryptedLogs,
-  });
+  if (newContractsCommitments) {
+    block.newContracts = newContractsCommitments.map(x => Fr.fromBuffer(x));
+  }
+
   return block;
 };
 
