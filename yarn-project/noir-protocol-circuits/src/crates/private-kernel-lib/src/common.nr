@@ -59,7 +59,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
-// Validate all read requests against the historical private data root.
+// Validate all read requests against the historical note hash tree root.
 // Use their membership witnesses to do so. If the historical root is not yet
 // initialized, initialize it using the first read request here (if present).
 //
@@ -71,7 +71,7 @@ pub fn validate_read_requests(
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
     read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL]
 ) {
-    // membership witnesses must resolve to the same private data root
+    // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations
     for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[rr_idx].value;
@@ -327,7 +327,7 @@ pub fn contract_logic(
         let new_contract_address_nullifier = compute_new_contract_address_hash(new_contract_address);
 
         public_inputs.end.new_nullifiers.push(
-            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 0 }
+            SideEffectLinkedToNoteHash { value: new_contract_address_nullifier, note_hash: 0, counter: 1 }
         );
     } else {
         // non-contract deployments must specify contract address being interacted with
