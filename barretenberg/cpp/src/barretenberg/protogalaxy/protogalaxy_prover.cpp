@@ -179,7 +179,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     for (auto& polynomial : acc_prover_polynomials.get_all()) {
         polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
     }
-    // WORKTODO return storage
 
     // Fold the prover polynomials
     auto acc_poly_views = acc_prover_polynomials.get_all();

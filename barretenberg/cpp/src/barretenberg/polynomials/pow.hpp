@@ -1,23 +1,28 @@
 #pragma once
-
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/thread_utils.hpp"
 #include <cstddef>
 #include <vector>
 namespace barretenberg {
 
 /**
  * @brief Succinct representation of the `pow` polynomial that can be partially evaluated variable-by-variable.
- * pow(X_0,X_1,..,X_d) = \prod_{0≤l<d} ((1−X_l) + X_l⋅β_l) for a vector {β_0,...,β_{d-1}}
+ * pow_{\vec{β}}(X_0,X_1,..,X_{d-1}) = \prod_{0≤l<d} ((1−X_l) + X_l⋅β_l) for a vector {β_0,...,β_{d-1}} used in
+sumcheck.
  *
  * @details Let
  * - d be the number of variables
  * - l be the current Sumcheck round ( l ∈ {0, …, d-1} )
- * - u_0, ..., u_l-1 the challenges sent by the verifier in rounds 0 to l-1.
+ * - u_0, ..., u_{l-1} the challenges sent by the verifier in rounds 0 to l-1.
  *
- * - pow(X) = ∏_{0≤l<d} ((1−X_l) + X_l⋅β_l) is the multilinear polynomial whose evaluation at the i-th index
- *   of the full hypercube, equals ∏ β_j where j are the bits set to 1 in the binary representation of i
- *   We can also see it as the multi-linear extension of the vector \vec{β}.
+ * - pow_\vec{β}(X) = ∏_{0≤l<d} ((1−X_l) + X_l⋅β_l) is the multilinear polynomial whose evaluation at the i-th index
+ *   of the full hypercube equals pow_\vec{β}(i) = ∏_{j ∈ bin(i), j = 1} β_j. More explicitly, the product contains the
+elements of \vec{β} whose
+ *  indexes j represent bits set to 1 in the binary representation of i.
  *
- * - At round l, we iterate over all remaining vertices (i_{l+1}, ..., i_{d-1}) ∈ {0,1}^{d-l-1}.
+ *  We can also see it as the multi-linear extension of the vector \vec{β}.
+ *
+ * - At round l, we iterate over a boolean hypercube of dimension (d-l).
  *   Let i = ∑_{l<k<d} i_k ⋅ 2^{k-(l+1)} be the index of the current edge over which we are evaluating the relation.
  *   We define the edge univariate for the pow polynomial as powˡᵢ( X_l ) and it can be represented as:
  *
@@ -28,12 +33,15 @@ namespace barretenberg {
  *                             ⋅( (1−X_l) + X_l⋅β_l )
  *                    ∏_{l<k<d} ( (1-i_k) + i_k⋅β_k )
  *
- *  Note that as we iterate over the remaining vertices(i_{l+1}, ..., i_{d-1}) ∈ {0,1}^{d-l-1}, the subproducts
- * ∏_{l<k<d} ( (1-i_k) + i_k⋅β_k ) represents the terms of pow(\vec{β}) that do not contain β_0,...,β_l. These are
- * periodic in pow(\vec{β}), their periodicity being 2*(l+1).
+ * Product ∏_{0≤k<l} ( (1-u_k) + u_k⋅β_k ) gets updated at each round of sumcheck and represents the
+ * partial_evaluation_result in the implementation. This is the pow polynomial, partially evaluated in the first l-1
+ * variables as (X_{0}, ..., X_{l-1}) = (u_{0}, ...,u_{l-1}).
  *
- * This is the pow polynomial,partially evaluated in the first l-1 variables as (X_{0}, ..., X_{l-1}) = (u_{0}, ...,
- * u_{l-1}).
+ * As we iterate over the other points in the boolean hypercube (i_{l+1}, ..., i_{d-1}) ∈ {0,1}^{d-l-1},
+ * the subproducts
+ * ∏_{l<k<d} ( (1-i_k) + i_k⋅β_k ) represent the terms of pow(\vec{β}) that do not contain β_0,...,β_l. These appear in
+ * the set {pow_\vec{β}(i)| i =0,..,2^{d}-1} at indices 2^{l+1} * p where p ≥ 1 and 2^{l+1} * p < 2^d
+ *
  *
  * - Sˡᵢ( X_l ) is the univariate of the full relation at edge pair i
  * i.e. it is the alpha-linear-combination of the relations evaluated in the edge at index i.
@@ -64,14 +72,23 @@ namespace barretenberg {
  */
 
 template <typename FF> struct PowPolynomial {
+
+    // \vec{β} = {β_0, β_1,.., β_{d-1}}
     std::vector<FF> betas;
+
+    // The values of pow_\vec{β}(i) for i=0,..,2^d - 1 for the given \vec{β}
     std::vector<FF> pow_betas;
+
+    // At round l of sumcheck this will point to the l-th element in \vec{β}
     size_t current_element_idx = 0;
+
+    // At round l of sumcheck, the periodicity represents the fixed interval at which elements not containing either of
+    // β_0,..,β_l appear in pow_betas
     size_t periodicity = 2;
 
-    // The constant c_l obtained by partially evaluating one variable in the power polynomial at each round. At the
+    // The value c_l obtained by partially evaluating one variable in the power polynomial at each round. At the
     // end of round l in the sumcheck protocol, variable X_l is replaced by a verifier challenge u_l. The partial
-    // evaluation constant is updated to represent pow(u_0,.., u_l) = \prod_{0 ≤ k < l} ( (1-u_k) + u_k⋅β_k).
+    // evaluation result is updated to represent pow(u_0,.., u_{l-1}) = \prod_{0 ≤ k < l} ( (1-u_k) + u_k⋅β_k).
     FF partial_evaluation_result = FF(1);
 
     explicit PowPolynomial(const std::vector<FF>& betas)
@@ -88,7 +105,7 @@ template <typename FF> struct PowPolynomial {
     FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
     /**
-     * @brief Parially evaluate the pow polynomial in X_l and updating the constant c_l -> c_{l+1}.
+     * @brief Parially evaluate the pow polynomial in X_l and updating the value c_l -> c_{l+1}.
      *
      * @param challenge l-th verifier challenge u_l
      */
@@ -101,22 +118,37 @@ template <typename FF> struct PowPolynomial {
     }
 
     /**
-     * @brief Given \vec{β} = {β_0,...,β_{d-1}} compute pow_i(\vec{β}) for i=0,...,2^d
+     * @brief Given \vec{β} = {β_0,...,β_{d-1}} compute pow_\vec{β}(i) for i=0,...,2^{d}-1
      *
      */
-    void compute_pow_polynomial_at_values()
+    void compute_values()
     {
         size_t pow_size = 1 << betas.size();
-        pow_betas = std::vector<FF>(pow_size, 0);
-        for (size_t i = 0; i < pow_size; i++) {
-            auto res = FF(1);
-            for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-                if ((j & 1) == 1) {
-                    res *= betas[beta_idx];
+        pow_betas = std::vector<FF>(pow_size);
+
+        // Determine number of threads for multithreading.
+        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
+        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
+        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
+        size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t desired_num_threads = pow_size / min_iterations_per_thread;
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
+        size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            size_t start = thread_idx * iterations_per_thread;
+            size_t end = (thread_idx + 1) * iterations_per_thread;
+            for (size_t i = start; i < end; i++) {
+                auto res = FF(1);
+                for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
+                    if ((j & 1) == 1) {
+                        res *= betas[beta_idx];
+                    }
                 }
+                pow_betas[i] = res;
             }
-            pow_betas[i] = res;
-        }
+        });
     }
 };
 } // namespace barretenberg

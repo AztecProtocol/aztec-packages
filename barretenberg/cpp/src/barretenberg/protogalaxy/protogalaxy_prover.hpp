@@ -23,8 +23,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
-    using AlphaType = typename Flavor::AlphaType;
-    using CombinedAlphaType = typename ProverInstances::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
+    using CombinedRelationSeparator = typename ProverInstances::RelationSeparator;
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -132,7 +132,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
      */
     static std::vector<FF> compute_full_honk_evaluations(const ProverPolynomials& instance_polynomials,
-                                                         const AlphaType& alpha,
+                                                         const RelationSeparator& alpha,
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
@@ -273,7 +273,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         size_t common_instance_size = instances[0]->instance_size;
-        pow_betas.compute_pow_polynomial_at_values();
+        pow_betas.compute_values();
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
@@ -311,7 +311,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
-                    instances.relation_parameters, // these para meters have already been folded
+                    instances.relation_parameters, // these parameters have already been folded
                     pow_challenge);
             }
         });
@@ -324,7 +324,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         return batch_over_relations(univariate_accumulators, instances.alphas);
     }
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
-                                                                    const CombinedAlphaType& alpha)
+                                                                    const CombinedRelationSeparator& alpha)
     {
 
         // First relation does not get multiplied by a batching challenge

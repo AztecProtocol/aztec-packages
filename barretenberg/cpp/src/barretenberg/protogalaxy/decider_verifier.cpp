@@ -90,7 +90,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const plo
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("at sumcheck");
         return false;
     }
 

@@ -61,7 +61,7 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
     return pt;
 }
 
-void handle_arithmetic(Circuit::Opcode::Arithmetic const& arg, acir_format& af)
+void handle_arithmetic(Circuit::Opcode::AssertZero const& arg, acir_format& af)
 {
     af.constraints.push_back(serialize_arithmetic_gate(arg.value));
 }
@@ -203,18 +203,7 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
                     .key_hash = arg.key_hash.witness.value,
-                    .input_aggregation_object = {},
-                    .output_aggregation_object = {},
-                    .nested_aggregation_object = {},
                 };
-                if (arg.input_aggregation_object.has_value()) {
-                    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                        c.input_aggregation_object[i] = (*arg.input_aggregation_object)[i].witness.value;
-                    }
-                }
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    c.output_aggregation_object[i] = arg.output_aggregation_object[i].value;
-                }
                 af.recursion_constraints.push_back(c);
             }
         },
@@ -280,7 +269,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Circuit::Opcode::Arithmetic>) {
+                if constexpr (std::is_same_v<T, Circuit::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {
                     handle_blackbox_func_call(arg, af);

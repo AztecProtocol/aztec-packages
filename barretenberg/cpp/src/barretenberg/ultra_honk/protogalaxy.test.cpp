@@ -68,7 +68,7 @@ void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator,
         accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
     // Construct pow(\vec{betas*}) as in the paper
     auto expected_pows = PowPolynomial(accumulator->gate_challenges);
-    expected_pows.compute_pow_polynomial_at_values();
+    expected_pows.compute_values();
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto expected_target_sum = FF(0);
@@ -140,7 +140,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorCoefficients)
 
 TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 {
-    using AlphaType = Flavor::AlphaType;
+    using RelationSeparator = Flavor::RelationSeparator;
     const size_t log_instance_size(3);
     const size_t instance_size(1 << log_instance_size);
 
@@ -150,7 +150,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
     }
     auto full_polynomials = construct_ultra_full_polynomials(random_polynomials);
     auto relation_parameters = proof_system::RelationParameters<FF>::get_random();
-    AlphaType alphas;
+    RelationSeparator alphas;
     for (auto& alpha : alphas) {
         alpha = FF::random_element();
     }
@@ -164,7 +164,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
 
     // Construct pow(\vec{betas}) as in the paper
     auto pow_beta = PowPolynomial(betas);
-    pow_beta.compute_pow_polynomial_at_values();
+    pow_beta.compute_values();
 
     // Compute the corresponding target sum and create a dummy accumulator
     auto target_sum = FF(0);

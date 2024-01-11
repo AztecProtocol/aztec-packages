@@ -21,7 +21,7 @@ template <UltraFlavor Flavor> class DeciderProver_ {
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit DeciderProver_(const std::shared_ptr<Instance>&,

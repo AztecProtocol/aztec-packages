@@ -24,7 +24,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
     using Flavor = proof_system::honk::flavor::Ultra;
     using FF = typename Flavor::FF;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Define three linear univariates of different sizes
     Univariate<FF, 3> univariate_1({ 1, 2, 3 });
@@ -36,7 +36,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
-    AlphaType challenge = {};
+    RelationSeparator challenge = {};
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
     FF running_challenge = 1;
@@ -76,7 +76,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     using Flavor = proof_system::honk::flavor::Ultra;
     using Utils = barretenberg::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Define two arrays of arbitrary elements
     std::array<FF, 1> evaluations_1 = { 4 };
@@ -87,7 +87,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
 
     // Use scale_and_batch_elements to scale by challenge powers
     FF running_challenge = 1;
-    AlphaType challenge = {};
+    RelationSeparator challenge = {};
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
     FF result = 0;

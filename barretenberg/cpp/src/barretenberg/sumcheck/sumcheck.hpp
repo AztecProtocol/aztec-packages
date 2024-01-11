@@ -16,7 +16,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     const size_t multivariate_n;
     const size_t multivariate_d;
@@ -84,12 +84,12 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
                                  const proof_system::RelationParameters<FF>& relation_parameters,
-                                 const AlphaType alpha,
+                                 const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges)
     {
 
         barretenberg::PowPolynomial<FF> pow_univariate(gate_challenges);
-        pow_univariate.compute_pow_polynomial_at_values();
+        pow_univariate.compute_values();
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -178,13 +178,12 @@ template <typename Flavor> class SumcheckVerifier {
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     const size_t multivariate_d;
-    FF targegt_sum = 0;
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
 
@@ -204,7 +203,7 @@ template <typename Flavor> class SumcheckVerifier {
      * @param transcript
      */
     SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
-                                  AlphaType alpha,
+                                  RelationSeparator alpha,
                                   const std::vector<FF>& gate_challenges)
     {
         bool verified(true);

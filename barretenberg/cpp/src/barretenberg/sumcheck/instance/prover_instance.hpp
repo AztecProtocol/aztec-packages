@@ -26,7 +26,7 @@ template <class Flavor> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
@@ -36,7 +36,6 @@ template <class Flavor> class ProverInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    // This is meh here
     std::array<Polynomial, 4> sorted_polynomials;
 
     // The number of public inputs has to be the same for all instances because they are
@@ -46,7 +45,7 @@ template <class Flavor> class ProverInstance_ {
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
     // instances
     size_t pub_inputs_offset = 0;
-    AlphaType alphas;
+    RelationSeparator alphas;
     proof_system::RelationParameters<FF> relation_parameters;
     std::vector<uint32_t> recursive_proof_public_input_indices;
 

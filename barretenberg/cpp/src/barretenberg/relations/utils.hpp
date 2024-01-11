@@ -13,7 +13,7 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
-    using AlphaType = typename Flavor::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -71,7 +71,7 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const AlphaType& challenges, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
@@ -91,7 +91,7 @@ template <typename Flavor> class RelationUtils {
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const AlphaType& challenge, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenge, FF& current_scalar)
         requires(!proof_system::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
@@ -189,7 +189,10 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenges, FF current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple,
+                                         const RelationSeparator& challenges,
+                                         FF current_scalar,
+                                         FF& result)
         requires proof_system::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
@@ -208,7 +211,7 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale elements by consecutive powers of the challenge then sum
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const AlphaType& challenge, FF current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
         requires(!proof_system::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
