@@ -40,8 +40,8 @@ Open `cross_chain_messaging.test.ts` and paste the initial description of the te
 
 ```typescript
 import { expect, jest} from '@jest/globals'
-import { AccountWallet, AztecAddress, DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { AccountWallet, AztecAddress, DebugLogger, EthAddress, Fr, computeAuthWitMessageHash, createDebugLogger, createPXEClient, waitForSandbox } from '@aztec/aztec.js';
+import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts/TokenBridge';
 
@@ -73,8 +73,8 @@ describe('e2e_cross_chain_messaging', () => {
   beforeEach(async () => {
     logger = createDebugLogger('aztec:e2e_uniswap');
     const pxe = createPXEClient(PXE_URL);
-    await waitForPXE(pxe);
-    const wallets = await getInitialTestAccountsWallets(pxe);
+    await waitForSandbox(pxe);
+    const wallets = await getSandboxAccountsWallets(pxe);
 
     const walletClient = createWalletClient({
       account: hdAccount,
