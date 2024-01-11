@@ -23,9 +23,6 @@ import {
 } from '@aztec/types';
 
 import http from 'http';
-import { foundry } from 'viem/chains';
-
-export const localAnvil = foundry;
 
 /**
  * Wraps an instance of Private eXecution Environment (PXE) implementation to a JSON RPC HTTP interface.

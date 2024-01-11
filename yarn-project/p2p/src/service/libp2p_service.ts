@@ -130,7 +130,7 @@ export class LibP2PService implements P2PService {
    */
   public async stop() {
     if (this.timeout) {
-      clearTimeout(this.timeout);
+      clearTimeout(this.timeout as NodeJS.Timeout);
     }
     await this.jobQueue.end();
     await this.node.stop();

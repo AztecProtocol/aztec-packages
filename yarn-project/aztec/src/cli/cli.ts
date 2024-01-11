@@ -1,13 +1,9 @@
+import { deployInitialTestAccounts } from '@aztec/accounts/testing';
 import { Archiver, LMDBArchiverStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
 import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AccountManager,
-  GrumpkinScalar,
-  createAztecNodeClient,
-  deployInitialSandboxAccounts,
-  fileURLToPath,
-} from '@aztec/aztec.js';
+import { AccountManager, GrumpkinScalar, createAztecNodeClient, fileURLToPath } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
+import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { openDb } from '@aztec/kv-store';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
@@ -20,7 +16,6 @@ import { dirname, resolve } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
-import { startHttpRpcServer } from '../server.js';
 import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
 
@@ -114,7 +109,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
           userLog(`Not setting up test accounts as we are connecting to a network`);
         } else {
           userLog('Setting up test accounts...');
-          const accounts = await deployInitialSandboxAccounts(pxe);
+          const accounts = await deployInitialTestAccounts(pxe);
           const accLogs = await createAccountLogs(accounts, pxe);
           userLog(accLogs.join(''));
         }

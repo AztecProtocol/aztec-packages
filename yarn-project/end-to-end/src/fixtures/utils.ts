@@ -48,8 +48,9 @@ import {
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
-import { MNEMONIC, localAnvil } from './fixtures.js';
+import { MNEMONIC } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
@@ -101,7 +102,7 @@ export const setupL1Contracts = async (
       contractBytecode: DecoderHelperBytecode,
     };
   }
-  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
+  return await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
 };
 
 /**
@@ -187,11 +188,11 @@ async function setupWithRemoteEnvironment(
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
-    chain: localAnvil,
+    chain: foundry,
     transport: http(config.rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: localAnvil,
+    chain: foundry,
     transport: http(config.rpcUrl),
   });
   const deployL1ContractsValues: DeployL1Contracts = {
