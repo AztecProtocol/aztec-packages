@@ -79,7 +79,7 @@ async function findNoteIndexAndNullifier(
   let siloedNoteHash: Fr | undefined;
   let uniqueSiloedNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
-  const txNullifier = Fr.fromBuffer(txHash.toBuffer());
+  const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
   for (; commitmentIndex < commitments.length; ++commitmentIndex) {
     if (excludedIndices.has(commitmentIndex)) {
@@ -91,7 +91,7 @@ async function findNoteIndexAndNullifier(
       break;
     }
 
-    const expectedNonce = computeCommitmentNonce(txNullifier, commitmentIndex);
+    const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
     ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
       await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, note));
     if (commitment.equals(uniqueSiloedNoteHash)) {
