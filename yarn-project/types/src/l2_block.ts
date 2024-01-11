@@ -40,23 +40,7 @@ export class L2Block {
    */
   public numberOfTxs: number;
 
-  /**
-   * Encrypted logs emitted by txs in this block.
-   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
-   *          (e.g. logs from the first tx on the first place...).
-   * @remarks Only private function can emit encrypted logs and for this reason length of
-   *          `newEncryptedLogs.txLogs.functionLogs` is equal to the number of private function invocations in the tx.
-   */
-  public newEncryptedLogs?: L2BlockL2Logs;
 
-  /**
-   * Unencrypted logs emitted by txs in this block.
-   * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
-   *          (e.g. logs from the first tx on the first place...).
-   * @remarks Both private and public functions can emit unencrypted logs and for this reason length of
-   *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
-   */
-  public newUnencryptedLogs?: L2BlockL2Logs;
 
   #l1BlockNumber?: bigint;
 
@@ -66,29 +50,9 @@ export class L2Block {
     /** L2 block header. */
     public header: Header,
     /**
-     * The commitments to be inserted into the note hash tree.
-     */
-    public newCommitments: Fr[],
-    /**
-     * The nullifiers to be inserted into the nullifier tree.
-     */
-    public newNullifiers: Fr[],
-    /**
-     * The public data writes to be inserted into the public data tree.
-     */
-    public newPublicDataWrites: PublicDataWrite[],
-    /**
-     * The L2 to L1 messages to be inserted into the messagebox on L1.
-     */
-    public newL2ToL1Msgs: Fr[],
-    /**
      * The contracts leafs to be inserted into the contract tree.
      */
     public newContracts: Fr[],
-    /**
-     * The aztec address and ethereum address for the deployed contract and its portal contract.
-     */
-    public newContractData: ContractData[],
     /**
      * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
      */
