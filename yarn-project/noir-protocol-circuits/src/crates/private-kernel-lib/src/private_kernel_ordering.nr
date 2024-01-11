@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[test(should_fail)]
-    fn invalid_nullifier_commitment_hint_fails() {
+    unconstrained fn invalid_nullifier_commitment_hint_fails() {
         let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.append_nullifiers(1);
