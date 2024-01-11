@@ -129,9 +129,9 @@ export class NoteProcessor {
           for (const logs of functionLogs.logs) {
             this.stats.seen++;
             const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
-            const txHash = blockContext.getTxHash(indexOfTxInABlock);
             if (payload) {
               // We have successfully decrypted the data.
+              const txHash = blockContext.getTxHash(indexOfTxInABlock);
               try {
                 const noteDao = await produceNoteDao(
                   this.simulator,
