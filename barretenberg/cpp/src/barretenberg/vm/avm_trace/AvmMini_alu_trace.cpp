@@ -53,8 +53,8 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         c = a + b;
         break;
     case AvmMemoryTag::u8: {
-        uint8_t a_u8 = static_cast<uint8_t>(uint256_t(a).data[0]);
-        uint8_t b_u8 = static_cast<uint8_t>(uint256_t(b).data[0]);
+        auto a_u8 = static_cast<uint8_t>(uint32_t{ a });
+        auto b_u8 = static_cast<uint8_t>(uint32_t{ b });
         uint8_t c_u8 = a_u8 + b_u8;
         c = FF{ uint256_t{ c_u8 } };
 
@@ -67,8 +67,8 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u16: {
-        uint16_t a_u16 = static_cast<uint16_t>(uint256_t(a).data[0]);
-        uint16_t b_u16 = static_cast<uint16_t>(uint256_t(b).data[0]);
+        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
+        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
         uint16_t c_u16 = a_u16 + b_u16;
         c = FF{ uint256_t{ c_u16 } };
 
@@ -81,8 +81,8 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u32: {
-        uint32_t a_u32 = static_cast<uint32_t>(uint256_t(a).data[0]);
-        uint32_t b_u32 = static_cast<uint32_t>(uint256_t(b).data[0]);
+        uint32_t a_u32{ a };
+        uint32_t b_u32{ b };
         uint32_t c_u32 = a_u32 + b_u32;
         c = FF{ uint256_t{ c_u32 } };
 
@@ -96,8 +96,8 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u64: {
-        uint64_t a_u64 = static_cast<uint64_t>(uint256_t(a).data[0]);
-        uint64_t b_u64 = static_cast<uint64_t>(uint256_t(b).data[0]);
+        uint64_t a_u64{ a };
+        uint64_t b_u64{ b };
         uint64_t c_u64 = a_u64 + b_u64;
         c = FF{ uint256_t{ c_u64 } };
 
@@ -114,8 +114,8 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u128: {
-        auto a_u128 = uint128_t(a);
-        auto b_u128 = uint128_t(b);
+        uint128_t a_u128{ a };
+        uint128_t b_u128{ b };
         uint128_t c_u128 = a_u128 + b_u128;
         c = FF{ uint256_t::from_uint128(c_u128) };
 
@@ -178,8 +178,8 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         c = a - b;
         break;
     case AvmMemoryTag::u8: {
-        uint8_t a_u8 = static_cast<uint8_t>(uint256_t(a).data[0]);
-        uint8_t b_u8 = static_cast<uint8_t>(uint256_t(b).data[0]);
+        auto a_u8 = static_cast<uint8_t>(uint32_t{ a });
+        auto b_u8 = static_cast<uint8_t>(uint32_t{ b });
         uint8_t c_u8 = a_u8 - b_u8;
         c = FF{ uint256_t{ c_u8 } };
 
@@ -194,8 +194,8 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u16: {
-        uint16_t a_u16 = static_cast<uint16_t>(uint256_t(a).data[0]);
-        uint16_t b_u16 = static_cast<uint16_t>(uint256_t(b).data[0]);
+        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
+        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
         uint16_t c_u16 = a_u16 - b_u16;
         c = FF{ uint256_t{ c_u16 } };
 
@@ -210,8 +210,8 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u32: {
-        uint32_t a_u32 = static_cast<uint32_t>(uint256_t(a).data[0]);
-        uint32_t b_u32 = static_cast<uint32_t>(uint256_t(b).data[0]);
+        uint32_t a_u32{ a };
+        uint32_t b_u32{ b };
         uint32_t c_u32 = a_u32 - b_u32;
         c = FF{ uint256_t{ c_u32 } };
 
@@ -227,8 +227,8 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u64: {
-        uint64_t a_u64 = static_cast<uint64_t>(uint256_t(a).data[0]);
-        uint64_t b_u64 = static_cast<uint64_t>(uint256_t(b).data[0]);
+        uint64_t a_u64{ a };
+        uint64_t b_u64{ b };
         uint64_t c_u64 = a_u64 - b_u64;
         c = FF{ uint256_t{ c_u64 } };
 
@@ -247,8 +247,8 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u128: {
-        auto a_u128 = uint128_t(a);
-        auto b_u128 = uint128_t(b);
+        uint128_t a_u128{ a };
+        uint128_t b_u128{ b };
         uint128_t c_u128 = a_u128 - b_u128;
         c = FF{ uint256_t::from_uint128(c_u128) };
 
@@ -315,8 +315,8 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         c = a * b;
         break;
     case AvmMemoryTag::u8: {
-        uint16_t a_u16 = static_cast<uint16_t>(uint256_t(a).data[0]);
-        uint16_t b_u16 = static_cast<uint16_t>(uint256_t(b).data[0]);
+        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
+        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
         uint16_t c_u16 = a_u16 * b_u16; // Multiplication over the integers (not mod. 2^8)
 
         // Decompose c_u16 = r0 + 2^8 * r1 with r0, r1 8-bit registers
@@ -327,8 +327,8 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u16: {
-        uint32_t a_u32 = static_cast<uint32_t>(uint256_t(a).data[0]);
-        uint32_t b_u32 = static_cast<uint32_t>(uint256_t(b).data[0]);
+        uint32_t a_u32{ a };
+        uint32_t b_u32{ b };
         uint32_t c_u32 = a_u32 * b_u32; // Multiplication over the integers (not mod. 2^16)
 
         // Decompose c_u32 = r0 + 2^16 * r1 with r0, r1 16-bit registers
@@ -339,8 +339,8 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u32: {
-        uint64_t a_u64 = static_cast<uint64_t>(uint256_t(a).data[0]);
-        uint64_t b_u64 = static_cast<uint64_t>(uint256_t(b).data[0]);
+        uint64_t a_u64{ a };
+        uint64_t b_u64{ b };
         uint64_t c_u64 = a_u64 * b_u64; // Multiplication over the integers (not mod. 2^32)
 
         // Decompose c_u64 = r0 + 2^16 * r1 + 2^32 * r2 + 2^48 * r3 with r0, r1, r2, r3 16-bit registers
@@ -355,8 +355,8 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u64: {
-        uint128_t a_u128 = static_cast<uint128_t>(uint256_t(a).data[0]);
-        uint128_t b_u128 = static_cast<uint128_t>(uint256_t(b).data[0]);
+        uint128_t a_u128{ a };
+        uint128_t b_u128{ b };
         uint128_t c_u128 = a_u128 * b_u128; // Multiplication over the integers (not mod. 2^64)
 
         // Decompose c_u128 = r0 + 2^16 * r1 + .. + 2^112 r7 with r0, r1 ... r7 16-bit registers
@@ -371,12 +371,12 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         break;
     }
     case AvmMemoryTag::u128: {
-        auto a_u256 = uint256_t(a);
-        auto b_u256 = uint256_t(b);
+        uint256_t a_u256{ a };
+        uint256_t b_u256{ b };
         uint256_t c_u256 = a_u256 * b_u256; // Multiplication over the integers (not mod. 2^128)
 
-        auto a_u128 = static_cast<uint128_t>(a_u256);
-        auto b_u128 = static_cast<uint128_t>(b_u256);
+        uint128_t a_u128{ a_u256 };
+        uint128_t b_u128{ b_u256 };
 
         uint128_t c_u128 = a_u128 * b_u128;
 
@@ -393,9 +393,17 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
             b_trunc_128 >>= 16;
         }
 
+        // Represent a, b with 64-bit limbs: a = a_l + 2^64 * a_h, b = b_l + 2^64 * b_h,
+        // c_high := 2^128 * a_h * b_h
         uint256_t c_high = ((a_u256 >> 64) * (b_u256 >> 64)) << 128;
 
+        // From PIL relation in alu_chip.pil, we need to determine the bit CF and 64-bit value R' in
+        // a * b_l + a_l * b_h * 2^64 = (CF * 2^65 + R') * 2^128 + c
+        // LHS is c_u256 - c_high
+
+        // CF bit
         carry = ((c_u256 - c_high) >> 193) > 0;
+        // R' value
         uint64_t alu_u64_r0 = static_cast<uint64_t>(((c_u256 - c_high) >> 128) & uint256_t(UINT64_MAX));
 
         c = FF{ uint256_t::from_uint128(c_u128) };
@@ -422,6 +430,7 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         return FF{ 0 };
     }
 
+    // Following code executed for: ff, u8, u16, u32, u64 (u128 returned handled specifically)
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
         .alu_op_mul = true,
@@ -430,7 +439,6 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         .alu_u16_tag = in_tag == AvmMemoryTag::u16,
         .alu_u32_tag = in_tag == AvmMemoryTag::u32,
         .alu_u64_tag = in_tag == AvmMemoryTag::u64,
-        .alu_u128_tag = in_tag == AvmMemoryTag::u128,
         .alu_ia = a,
         .alu_ib = b,
         .alu_ic = c,
