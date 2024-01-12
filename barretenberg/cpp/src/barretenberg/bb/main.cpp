@@ -98,6 +98,9 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     acir_composer.init_proving_key();
     write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
 
+    write_benchmark("gate_count", acir_composer.get_total_circuit_size(), "acir_test", current_dir);
+    write_benchmark("subgroup_size", acir_composer.get_dyadic_circuit_size(), "acir_test", current_dir);
+
     Timer proof_timer;
     auto proof = acir_composer.create_proof(recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
