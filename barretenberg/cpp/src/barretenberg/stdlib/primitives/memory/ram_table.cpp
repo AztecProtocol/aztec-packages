@@ -252,7 +252,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     }
 }
 
-template class ram_table<proof_system ::UltraCircuitBuilder>;
-template class ram_table<proof_system ::GoblinUltraCircuitBuilder>;
+template class ram_table<proof_system::UltraCircuitBuilder>;
+template class ram_table<proof_system::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
 } // namespace proof_system::plonk

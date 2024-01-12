@@ -240,14 +240,14 @@ bool_t<Builder> uint_plookup<Builder, Native>::at(const size_t bit_index) const
     return result;
 }
 
-template class uint_plookup<proof_system ::UltraCircuitBuilder, uint8_t>;
-template class uint_plookup<proof_system ::GoblinUltraCircuitBuilder, uint8_t>;
-template class uint_plookup<proof_system ::UltraCircuitBuilder, uint16_t>;
-template class uint_plookup<proof_system ::GoblinUltraCircuitBuilder, uint16_t>;
-template class uint_plookup<proof_system ::UltraCircuitBuilder, uint32_t>;
-template class uint_plookup<proof_system ::GoblinUltraCircuitBuilder, uint32_t>;
-template class uint_plookup<proof_system ::UltraCircuitBuilder, uint64_t>;
-template class uint_plookup<proof_system ::GoblinUltraCircuitBuilder, uint64_t>;
+template class uint_plookup<proof_system::UltraCircuitBuilder, uint8_t>;
+template class uint_plookup<proof_system::GoblinUltraCircuitBuilder, uint8_t>;
+template class uint_plookup<proof_system::UltraCircuitBuilder, uint16_t>;
+template class uint_plookup<proof_system::GoblinUltraCircuitBuilder, uint16_t>;
+template class uint_plookup<proof_system::UltraCircuitBuilder, uint32_t>;
+template class uint_plookup<proof_system::GoblinUltraCircuitBuilder, uint32_t>;
+template class uint_plookup<proof_system::UltraCircuitBuilder, uint64_t>;
+template class uint_plookup<proof_system::GoblinUltraCircuitBuilder, uint64_t>;
 
 } // namespace stdlib
 } // namespace proof_system::plonk

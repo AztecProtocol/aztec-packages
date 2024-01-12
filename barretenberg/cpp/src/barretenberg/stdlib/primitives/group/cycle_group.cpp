@@ -1358,8 +1358,8 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     throw_or_abort("Implementation under construction...");
 }
 
-template class cycle_group<proof_system ::StandardCircuitBuilder>;
-template class cycle_group<proof_system ::UltraCircuitBuilder>;
-template class cycle_group<proof_system ::GoblinUltraCircuitBuilder>;
+template class cycle_group<proof_system::StandardCircuitBuilder>;
+template class cycle_group<proof_system::UltraCircuitBuilder>;
+template class cycle_group<proof_system::GoblinUltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib

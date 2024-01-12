@@ -139,7 +139,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
     };
 }
 
-template class twin_rom_table<proof_system ::UltraCircuitBuilder>;
-template class twin_rom_table<proof_system ::GoblinUltraCircuitBuilder>;
+template class twin_rom_table<proof_system::UltraCircuitBuilder>;
+template class twin_rom_table<proof_system::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
 } // namespace proof_system::plonk

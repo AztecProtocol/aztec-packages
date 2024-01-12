@@ -91,7 +91,7 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
     return lookup[ColumnIdx::C2][0];
 }
 
-template class plookup_read<proof_system ::UltraCircuitBuilder>;
-template class plookup_read<proof_system ::GoblinUltraCircuitBuilder>;
+template class plookup_read<proof_system::UltraCircuitBuilder>;
+template class plookup_read<proof_system::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
 } // namespace proof_system::plonk

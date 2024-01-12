@@ -89,8 +89,8 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
     }
     return hashed;
 }
-template class pedersen_hash<proof_system ::StandardCircuitBuilder>;
-template class pedersen_hash<proof_system ::UltraCircuitBuilder>;
-template class pedersen_hash<proof_system ::GoblinUltraCircuitBuilder>;
+template class pedersen_hash<proof_system::StandardCircuitBuilder>;
+template class pedersen_hash<proof_system::UltraCircuitBuilder>;
+template class pedersen_hash<proof_system::GoblinUltraCircuitBuilder>;
 
 } // namespace proof_system::plonk::stdlib

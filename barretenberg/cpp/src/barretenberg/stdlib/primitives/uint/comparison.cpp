@@ -97,9 +97,9 @@ template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Nativ
     return (field_t<Builder>(*this).is_zero()).normalize();
 }
 
-template class uint<proof_system ::StandardCircuitBuilder, uint8_t>;
-template class uint<proof_system ::StandardCircuitBuilder, uint16_t>;
-template class uint<proof_system ::StandardCircuitBuilder, uint32_t>;
-template class uint<proof_system ::StandardCircuitBuilder, uint64_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint8_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint16_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint32_t>;
+template class uint<proof_system::StandardCircuitBuilder, uint64_t>;
 } // namespace stdlib
 } // namespace proof_system::plonk

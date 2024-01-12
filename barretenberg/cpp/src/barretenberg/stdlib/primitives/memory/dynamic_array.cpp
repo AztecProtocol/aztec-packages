@@ -273,7 +273,7 @@ template <typename Builder> void DynamicArray<Builder>::conditional_pop(const bo
     _length -= predicate;
 }
 
-template class DynamicArray<proof_system ::UltraCircuitBuilder>;
-template class DynamicArray<proof_system ::GoblinUltraCircuitBuilder>;
+template class DynamicArray<proof_system::UltraCircuitBuilder>;
+template class DynamicArray<proof_system::GoblinUltraCircuitBuilder>;
 } // namespace stdlib
 } // namespace proof_system::plonk

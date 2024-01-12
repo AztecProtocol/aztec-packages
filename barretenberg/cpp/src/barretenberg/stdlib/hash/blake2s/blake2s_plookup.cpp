@@ -166,10 +166,10 @@ template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder
     return result;
 }
 
-template byte_array<proof_system ::UltraCircuitBuilder> blake2s(
-    const byte_array<proof_system ::UltraCircuitBuilder>& input);
-template byte_array<proof_system ::GoblinUltraCircuitBuilder> blake2s(
-    const byte_array<proof_system ::GoblinUltraCircuitBuilder>& input);
+template byte_array<proof_system::UltraCircuitBuilder> blake2s(
+    const byte_array<proof_system::UltraCircuitBuilder>& input);
+template byte_array<proof_system::GoblinUltraCircuitBuilder> blake2s(
+    const byte_array<proof_system::GoblinUltraCircuitBuilder>& input);
 
 } // namespace blake2s_plookup
 
