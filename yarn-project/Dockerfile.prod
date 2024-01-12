@@ -11,7 +11,7 @@ ARG COMMIT_TAG=""
 # TODO: Use release-please to update package.json directly, and remove this!
 RUN ./scripts/version_packages.sh
 # Productionify. See comment in yarn-project-base/Dockerfile.
-RUN yarn workspaces focus @aztec/aztec-faucet @aztec/aztec.js --production && \
+RUN yarn workspaces focus @aztec/cli @aztec/aztec-sandbox @aztec/aztec-faucet @aztec/aztec.js --production && \
     yarn cache clean && \
     rm -rf /usr/src/barretenberg/ts/src && \
     # TODO: Fix by extracting noir code out of yarn-project.
