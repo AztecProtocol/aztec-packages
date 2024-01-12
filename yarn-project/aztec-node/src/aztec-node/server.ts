@@ -651,7 +651,7 @@ export class AztecNodeService implements AztecNode {
     return this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
   }
 
-  async restoreState() {
-    
+  public async restoreSnapshot() {
+    this.worldStateSynchronizer.restoreSnapshot();
   }
 }

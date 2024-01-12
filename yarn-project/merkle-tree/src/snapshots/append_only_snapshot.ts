@@ -102,6 +102,81 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
     return new AppendOnlySnapshot(this.db, block, numLeaves, root, this.tree, this.hasher);
   }
 
+
+  async restore(blockToRestore: number) {
+    const snapshotMetadata = await this.#getSnapshotMeta(blockToRestore);
+
+    if (snapshotMetadata === undefined) {
+      throw new Error('fucked')
+    }
+
+    const treeName = this.tree.getName();
+    const batch = this.db.batch();
+    const { numLeaves, root: newRoot } = snapshotMetadata;
+    const depth = this.tree.getDepth();
+    const queue: [number, bigint][] = [[0, 0n]];
+
+    while (queue.length > 0) {
+      const [level, index] = queue.shift()!;
+
+      const modifiedAtBlock: number = Number(await this.db.get(nodeModifiedAtBlockKey(treeName, level, index)));
+
+      if (modifiedAtBlock <= blockToRestore) {
+        continue;
+      }
+
+      if (modifiedAtBlock > blockToRestore) {
+        batch.del(`${treeName}:${level}:${index}`);
+        batch.del(historicalNodeKey(treeName, level, index))
+        // this gets repeated for each item in the same block.
+        batch.del(nodeModifiedAtBlockKey(treeName, level, index));
+        batch.del(snapshotRootKey(treeName, modifiedAtBlock));
+        batch.del(snapshotNumLeavesKey(treeName, modifiedAtBlock));
+      }
+
+      if (level + 1 > depth) {
+        continue;
+      }
+
+      const [lhs, rhs] = await Promise.all([
+        this.tree.getNode(level + 1, 2n * index),
+        this.tree.getNode(level + 1, 2n * index + 1n),
+      ]);
+
+      if (lhs) {
+        queue.push([level + 1, 2n * index]);
+      }
+
+      if (rhs) {
+        queue.push([level + 1, 2n * index + 1n]);
+      }
+    }
+
+    await batch.write();
+
+    let index = numLeaves - 1n;
+    let level = depth;
+    let current: Buffer = await this.tree.getNode(level, index) as Buffer;
+
+    while (level > 0) {
+      const isRight = index & 0x01n;
+      const sibling = (await this.tree.getNode(level, isRight ? index - 1n : index + 1n)) ?? this.tree.getZeroHash(level - 1);
+      const lhs = isRight ? sibling : current;
+      const rhs = isRight ? current : sibling;
+      current = this.hasher.hash(lhs, rhs);
+      level -= 1;
+      index >>= 1n;
+      batch.put(`${treeName}:${level}:${index}`, current);
+      batch.put(historicalNodeKey(treeName, level, index), current)
+      batch.put(nodeModifiedAtBlockKey(treeName, level, index), blockToRestore);
+    }
+
+    await this.tree.snapshotRestoreUtil(numLeaves, newRoot);
+    await batch.write();
+
+    return;
+  }
+
   async #getSnapshotMeta(block: number): Promise<
     | {
         /** The root of the tree snapshot */

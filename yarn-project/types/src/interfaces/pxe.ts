@@ -12,6 +12,7 @@ import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
+import { AztecNode } from './aztec-node.js';
 
 // docs:start:pxe-interface
 /**
@@ -227,6 +228,13 @@ export interface PXE {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Returns the Aztec Node itself. This is used for snapshotting functionality
+   * @param block - the block you want to restore to
+   * @returns Returns the Aztec Node itself
+   */
+  restoreSnapshot(block: number): Promise<boolean>;
 
   /**
    * Returns the information about the server's node. Includes current Sandbox version, compatible Noir version,

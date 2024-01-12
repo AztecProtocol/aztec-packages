@@ -90,6 +90,10 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.db, this, this.leafPreimageFactory);
   protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
 
+  public restore() {
+    this.#snapshotBuilder.snapshot
+  }
+
   public constructor(
     db: LevelUp,
     hasher: Hasher,

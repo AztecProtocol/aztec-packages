@@ -143,4 +143,10 @@ export interface AztecNode extends StateInfoProvider {
    * @param config - Updated configuration to be merged with the current one.
    */
   setConfig(config: Partial<SequencerConfig>): Promise<void>;
+
+  /**
+   * Updates the configuration of this node.
+   * @param block - Updated configuration to be merged with the current one.
+   */
+  restoreSnapshot(block: number): Promise<boolean>;
 }

@@ -79,7 +79,7 @@ class PublicDataTree extends StandardIndexedTree {
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
-  private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
+  private trees: (AppendOnlyTree | UpdateOnlyTree | StandardIndexedTree)[] = [];
   private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 
@@ -629,4 +629,42 @@ export class MerkleTrees implements MerkleTreeDb {
 
     return { isBlockOurs: ourBlock };
   }
+
+  public async restoreSnapshot(block: number) {
+    await this.synchronize(this.restoreContractTree.bind(this, block));
+    await this.synchronize(this.restoreNoteHashTree.bind(this, block));
+    await this.synchronize(this.restoreL1ToL2MessageTree.bind(this, block));
+    await this.synchronize(this.restoreArchive.bind(this, block));
+  }
+
+  //append only: contractTree: StandardTree
+  //indexed: nullifierTree: NullifierTree,
+  //append only: noteHashTree: AppendOnlyTree
+  //indexed: publicDataTree = Indexed
+  //append only: l1Tol2MessageTreeStandardTree,
+  //append only: archive: AppendOnlyTree = StandardTree,
+
+  private async restoreContractTree (block: number) {
+    const contractTree = this.trees[MerkleTreeId.CONTRACT_TREE];
+    await contractTree.restore(block);
+  }
+
+  private async restoreNoteHashTree (block: number) {
+    const noteHashTree = this.trees[MerkleTreeId.NOTE_HASH_TREE];
+    await noteHashTree.restore(block);
+  }
+
+  private async restoreL1ToL2MessageTree (block: number) {
+    const l1Tol2MessageTree = this.trees[MerkleTreeId.L1_TO_L2_MESSAGE_TREE];
+    await l1Tol2MessageTree.restore(block);
+  }
+
+  private async restoreArchive (block: number) {
+    const archiveTree = this.trees[MerkleTreeId.ARCHIVE];
+    await archiveTree.restore(block);
+  }
+
+  // private async restoreNullifierTree (block: number) {
+  //   const nullifierTree = this.trees[MerkleTreeId.NULLIFIER_TREE];
+  // }
 }

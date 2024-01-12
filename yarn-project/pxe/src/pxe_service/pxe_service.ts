@@ -711,4 +711,9 @@ export class PXEService implements PXE {
   public getKeyStore() {
     return this.keyStore;
   }
+
+  public restoreSnapshot(block: number) {
+    this.node.restoreSnapshot(block);
+    return Promise.resolve(true);
+  }
 }

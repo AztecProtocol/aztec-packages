@@ -105,6 +105,8 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     }
 
     const batch = this.db.batch();
+    const treeName = this.tree.getName();
+
     const { root: snapshotRoot, numLeaves } = snapshotMetadata;
     const depth = this.tree.getDepth();
     const queue: [Buffer, number, bigint][] = [[snapshotRoot, 0, 0n]];
@@ -118,10 +120,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
         continue;
       }
 
-      batch.put(`${this.tree.getName()}:${level}:${i}`, snapshotNode);
+      batch.put(`${treeName}:${level}:${i}`, snapshotNode);
 
       if (level + 1 > depth) {
-        await this.handleLeafRestore(i, node, this.db);
+        await this.handleLeafRestore(i, node, batch);
         continue;
       }
 
@@ -130,8 +132,8 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
         this.db.get(snapshotChildKey(snapshotNode!, 1)),
       ]);
 
-        queue.push([lhs, level + 1, 2n * i]);
-        queue.push([rhs, level + 1, 2n * i + 1n]);
+      queue.push([lhs, level + 1, 2n * i]);
+      queue.push([rhs, level + 1, 2n * i + 1n]);
     }
 
     await this.tree.snapshotRestoreUtil(numLeaves, snapshotRoot);

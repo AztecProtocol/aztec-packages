@@ -216,11 +216,6 @@ export class EthCheatCodes {
     const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
     return res.result;
   }
-
-  public async snapShot(): Promise<`0x${string}`[]> {
-    const res = await this.rpcCall('evm_snapshot', []);
-    return res.result;
-  }
 }
 
 /**
@@ -298,5 +293,31 @@ export class AztecCheatCodes {
   public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
     const extendedNotes = await this.pxe.getNotes({ owner, contractAddress: contract, storageSlot: new Fr(slot) });
     return extendedNotes.map(extendedNote => extendedNote.note);
+  }
+
+  /**
+  * Takes a snap shot in the underlying Anvil instance using Ganache supplied snap shot function
+  * @returns The ID of the snapshot
+  */
+  public async snapShot(): Promise<`0x${string}`> {
+    const rpcResult = await this.eth.rpcCall('evm_snapshot', []);
+    return rpcResult.result;
+  }
+
+  /**
+  * Takes a snap shot in the underlying Anvil instance using Ganache supplied snap shot function
+  * @param snapshotID - The snapshot ID that will be restored
+  * @returns The ID of the snapshot
+  */
+  public async restore(snapshotID: `0x${string}`): Promise<boolean> {
+    const rpcResult = await this.eth.rpcCall('evm_revert', [snapshotID]);
+
+    if (rpcResult.result !== true) {
+      throw new Error('Failed')
+    }
+    
+    const node = await this.pxe.();
+    const merkleTreeD
+    return true;
   }
 }

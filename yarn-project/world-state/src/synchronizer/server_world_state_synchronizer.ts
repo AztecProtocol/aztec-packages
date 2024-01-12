@@ -245,4 +245,8 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       this.currentL2BlockNum = 0;
     }
   }
+
+  public restoreSnapshot() {
+    this.merkleTreeDb.restoreSnapshot();
+  }
 }
