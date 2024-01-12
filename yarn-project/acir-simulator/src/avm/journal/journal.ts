@@ -29,13 +29,23 @@ export class AvmJournal {
   /** Reference to node storage */
   public readonly hostStorage: HostStorage;
 
+  // Reading state - must be tracked for vm execution
+  // contract address -> key -> value
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3999)
+  private storageReads: Map<Fr, Map<Fr, Fr>> = new Map();
+
+  // New written state
   private newCommitments: Fr[] = [];
   private newNullifiers: Fr[] = [];
   private newL1Message: Fr[] = [];
-  private parentJournal: AvmJournal | undefined;
+
+  // New Substrate
+  private newLogs: Fr[][] = [];
 
   // contract address -> key -> value
   private storageWrites: Map<Fr, Map<Fr, Fr>> = new Map();
+
+  private parentJournal: AvmJournal | undefined;
 
   constructor(hostStorage: HostStorage, parentJournal?: AvmJournal) {
     this.hostStorage = hostStorage;
