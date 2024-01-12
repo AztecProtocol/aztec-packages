@@ -351,7 +351,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Messages, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.publishL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -427,7 +427,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, l1ToL2Messages, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.publishL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,

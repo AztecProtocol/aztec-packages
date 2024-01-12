@@ -20,34 +20,31 @@ import {Hash} from "../Hash.sol";
  *
  *  | byte start                                                                       | num bytes    | name
  *  | ---                                                                              | ---          | ---
- *  | 0x0000                                                                           | 0x20         | chain-id
- *  | 0x0020                                                                           | 0x20         | version
- *  | 0x0040                                                                           | 0x20         | L2 block number
- *  | 0x0060                                                                           | 0x20         | L2 timestamp
- *  | 0x0080                                                                           | 0x20         | startNoteHashTreeSnapshot.root
- *  | 0x00a0                                                                           | 0x04         | startNoteHashTreeSnapshot.nextAvailableLeafIndex
- *  | 0x00a4                                                                           | 0x20         | startNullifierTreeSnapshot.root
- *  | 0x00c4                                                                           | 0x04         | startNullifierTreeSnapshot.nextAvailableLeafIndex
- *  | 0x00c8                                                                           | 0x20         | startContractTreeSnapshot.root
- *  | 0x00e8                                                                           | 0x04         | startContractTreeSnapshot.nextAvailableLeafIndex
- *  | 0x00ec                                                                           | 0x20         | startPublicDataTreeSnapshot.root
- *  | 0x010c                                                                           | 0x04         | startPublicDataTreeSnapshot.nextAvailableLeafIndex
- *  | 0x0110                                                                           | 0x20         | startL1ToL2MessageTreeSnapshot.root
- *  | 0x0130                                                                           | 0x04         | startL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
- *  | 0x0134                                                                           | 0x20         | startArchiveSnapshot.root
- *  | 0x0154                                                                           | 0x04         | startArchiveSnapshot.nextAvailableLeafIndex
- *  | 0x0158                                                                           | 0x20         | endNoteHashTreeSnapshot.root
- *  | 0x0178                                                                           | 0x04         | endNoteHashTreeSnapshot.nextAvailableLeafIndex
- *  | 0x017c                                                                           | 0x20         | endNullifierTreeSnapshot.root
- *  | 0x019c                                                                           | 0x04         | endNullifierTreeSnapshot.nextAvailableLeafIndex
- *  | 0x01a0                                                                           | 0x20         | endContractTreeSnapshot.root
- *  | 0x01c0                                                                           | 0x04         | endContractTreeSnapshot.nextAvailableLeafIndex
- *  | 0x01c4                                                                           | 0x20         | endPublicDataTreeSnapshot.root
- *  | 0x01e4                                                                           | 0x04         | endPublicDataTreeSnapshot.nextAvailableLeafIndex
- *  | 0x01e8                                                                           | 0x20         | endL1ToL2MessageTreeSnapshot.root
- *  | 0x0208                                                                           | 0x04         | endL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
- *  | 0x020c                                                                           | 0x20         | endArchiveSnapshot.root
- *  | 0x022c                                                                           | 0x04         | endArchiveSnapshot.nextAvailableLeafIndex
+ *  |                                                                                  |              | Header {
+ *  |                                                                                  |              |   GlobalVariables {
+ *  | 0x0000                                                                           | 0x20         |     chainId
+ *  | 0x0020                                                                           | 0x20         |     version
+ *  | 0x0040                                                                           | 0x20         |     blockNumber
+ *  | 0x0060                                                                           | 0x20         |     timestamp
+ *  |                                                                                  |              |   }
+ *  |                                                                                  |              |   StateReference {
+ *  | 0x0080                                                                           | 0x20         |     l1ToL2MessageTree.root
+ *  | 0x00a0                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
+ *  |                                                                                  |              |     PartialStateReference {
+ *  | 0x00a4                                                                           | 0x20         |       noteHashTree.root
+ *  | 0x00c4                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
+ *  | 0x00c8                                                                           | 0x20         |       nullifierTree.root
+ *  | 0x00e8                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
+ *  | 0x00ec                                                                           | 0x20         |       contractTree.root
+ *  | 0x010c                                                                           | 0x04         |       contractTree.nextAvailableLeafIndex
+ *  | 0x0110                                                                           | 0x20         |       publicDataTree.root
+ *  | 0x0130                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
+ *  |                                                                                  |              |     }
+ *  |                                                                                  |              |   }
+ *  | 0x0134                                                                           | 0x20         |   lastArchive.root
+ *  | 0x0154                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
+ *  | 0x0158                                                                           | 0x20         |   bodyHash
+ *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
  */
 library HeaderDecoder {

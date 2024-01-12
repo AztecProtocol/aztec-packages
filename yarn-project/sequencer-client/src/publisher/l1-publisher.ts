@@ -124,14 +124,15 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Processes incoming L2 block data by publishing it to the L1 rollup contract.
-   * @param l2BlockData - L2 block data to publish.
+   * Publishes L2 block on L1.
+   * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
+  public async publishL2Block(block: L2Block): Promise<boolean> {
     const proof = Buffer.alloc(0);
-    const txData = { proof, inputs: l2BlockData.toBufferWithLogs() };
-    const startStateHash = l2BlockData.getStartStateHash();
+
+    const txData = { proof, inputs: block.toBufferWithLogs() };
+    const startStateHash = block.getStartStateHash();
 
     while (!this.interrupted) {
       // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
@@ -157,7 +158,7 @@ export class L1Publisher implements L2BlockReceiver {
         const stats: L1PublishStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...l2BlockData.getStats(),
+          ...block.getStats(),
           eventName: 'rollup-published-to-l1',
         };
         this.log.info(`Published L2 block to L1 rollup contract`, stats);

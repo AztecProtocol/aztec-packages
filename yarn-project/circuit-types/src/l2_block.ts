@@ -223,7 +223,7 @@ export class L2Block {
        */
       newContractData: ContractData[];
       /**
-       * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
+       * The L1 to L2 messages to be inserted into the L1 to L2 message tree.
        */
       newL1ToL2Messages: Fr[];
       /**
@@ -306,6 +306,37 @@ export class L2Block {
     }
 
     return serializeToBuffer(this.toBuffer(), this.newEncryptedLogs, this.newUnencryptedLogs);
+  }
+
+  headerAndArchiveToBuffer() {
+    return serializeToBuffer(
+      this.header,
+      this.archive,
+    );
+  }
+
+  bodyToBuffer(): Buffer {
+    if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
+      throw new Error(
+        `newEncryptedLogs and newUnencryptedLogs must be defined when encoding L2BlockData (block ${this.header.globalVariables.blockNumber})`,
+      );
+    }
+
+    return serializeToBuffer(
+      this.newCommitments.length,
+      this.newCommitments,
+      this.newNullifiers.length,
+      this.newNullifiers,
+      this.newPublicDataWrites.length,
+      this.newPublicDataWrites,
+      this.newL2ToL1Msgs.length,
+      this.newL2ToL1Msgs,
+      this.newContracts.length,
+      this.newContracts,
+      this.newContractData,
+      this.newL1ToL2Messages.length,
+      this.newL1ToL2Messages,
+    );
   }
 
   /**

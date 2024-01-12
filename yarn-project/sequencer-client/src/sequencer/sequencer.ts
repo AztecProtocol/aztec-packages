@@ -260,7 +260,7 @@ export class Sequencer {
   protected async publishL2Block(block: L2Block) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
-    const publishedL2Block = await this.publisher.processL2Block(block);
+    const publishedL2Block = await this.publisher.publishL2Block(block);
     if (publishedL2Block) {
       this.log(`Successfully published block ${block.number}`);
       this.lastPublishedBlock = block.number;

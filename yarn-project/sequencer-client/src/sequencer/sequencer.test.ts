@@ -93,7 +93,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.publishL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
     );
@@ -108,7 +108,7 @@ describe('sequencer', () => {
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.publishL2Block).toHaveBeenCalledWith(block);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -122,7 +122,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.publishL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
     );
@@ -145,7 +145,7 @@ describe('sequencer', () => {
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.publishL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
   });
 
@@ -160,7 +160,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.publishL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
     );
@@ -178,7 +178,7 @@ describe('sequencer', () => {
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.publishL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([await invalidChainTx.getTxHash()]);
   });
 
@@ -190,7 +190,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.publishL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
     );
@@ -207,7 +207,7 @@ describe('sequencer', () => {
 
     await sequencer.work();
 
-    expect(publisher.processL2Block).not.toHaveBeenCalled();
+    expect(publisher.publishL2Block).not.toHaveBeenCalled();
   });
 });
 

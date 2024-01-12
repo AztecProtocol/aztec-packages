@@ -20,7 +20,8 @@ export class Header {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.lastArchive, this.bodyHash, this.state, this.globalVariables);
+    // Note: The order here must match the order in the HeaderDecoder solidity library.
+    return serializeToBuffer(this.globalVariables, this.state, this.lastArchive, this.bodyHash);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): Header {

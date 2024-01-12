@@ -44,12 +44,21 @@ contract Rollup is IRollup {
   }
 
   /**
-   * @notice Process an incoming L2Block and progress the state
-   * @param _proof - The proof of correct execution
-   * @param _l2Block - The L2Block data, formatted as outlined in `Decoder.sol`
+   * @notice Process an incoming L2 block and progress the state
+   * @param _header - The L2 block header.
+   * @param _archive - A snapshot (root and next available leaf index) of the archive tree after the L2 block is applied
+   * @param _l1_to_l2_msgs - The L1 to L2 messages processed in this block
+   * @param _l2_to_l1_msgs - The L2 to L1 messages processed in this block
+   * @param _proof - The proof of correct execution.
    */
-  function process(bytes memory _proof, bytes calldata _l2Block) external override(IRollup) {
-    _constrainGlobals(_l2Block);
+  function process(
+    bytes calldata _header,
+    bytes calldata _archive,
+    bytes calldata _l1_to_l2_msgs,
+    bytes calldata _l2_to_l1_msgs,
+    bytes memory _proof
+  ) external override(IRollup) {
+    _validateHeader(_header);
 
     // Decode the header
     (uint256 l2BlockNumber, bytes32 oldStateHash, bytes32 newStateHash) =
@@ -101,7 +110,7 @@ contract Rollup is IRollup {
     emit L2BlockProcessed(l2BlockNumber);
   }
 
-  function _constrainGlobals(bytes calldata _header) internal view {
+  function _validateHeader(bytes calldata _header) internal view {
     uint256 chainId = uint256(bytes32(_header[:0x20]));
     uint256 version = uint256(bytes32(_header[0x20:0x40]));
     uint256 ts = uint256(bytes32(_header[0x60:0x80]));
