@@ -1,7 +1,9 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -14,8 +16,6 @@ import {
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { BlockHeader, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
-import { FieldsOf } from '@aztec/foundation/types';
-import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * Contract storage read operation on a specific contract.

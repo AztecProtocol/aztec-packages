@@ -1,4 +1,4 @@
-import { BufferReader , serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { TxContext } from '../tx_context.js';
 import { BlockHeader } from './block_header.js';

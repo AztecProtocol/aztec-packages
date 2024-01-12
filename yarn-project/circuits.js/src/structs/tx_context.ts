@@ -1,8 +1,8 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicKey } from '../index.js';
 import { AztecAddress, EthAddress, Fr, Point } from './index.js';
-import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Contract deployment data in a TxContext

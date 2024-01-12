@@ -1,5 +1,5 @@
 import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { BufferReader , serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ContractFunctionDao } from '../index.js';
 

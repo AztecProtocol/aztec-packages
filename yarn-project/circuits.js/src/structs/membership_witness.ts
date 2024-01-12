@@ -1,8 +1,7 @@
+import { assertMemberLength } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { assertMemberLength } from '@aztec/foundation/array';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
@@ -28,8 +27,6 @@ export class MembershipWitness<N extends number> {
   toBuffer() {
     return serializeToBuffer(toBufferBE(this.leafIndex, 32), ...this.siblingPath);
   }
-
-
 
   /**
    * Creates a random membership witness. Used for testing purposes.

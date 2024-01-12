@@ -1,3 +1,4 @@
+import { assertMemberLength } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -12,7 +13,6 @@ import { PublicCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
-import { assertMemberLength } from '@aztec/foundation/array';
 
 /**
  * Inputs to the public kernel circuit.

@@ -1,9 +1,9 @@
+import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_COMMITMENTS_PER_CALL, NOTE_HASH_TREE_HEIGHT } from '../constants.gen.js';
-import { makeTuple, range } from '@aztec/foundation/array';
 import { MembershipWitness } from './membership_witness.js';
 
 /**

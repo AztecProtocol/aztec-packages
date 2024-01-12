@@ -1,3 +1,4 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
@@ -24,7 +25,6 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '../index.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.

@@ -1,7 +1,6 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader , serializeToBuffer } from '@aztec/foundation/serialize';
-
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * A class representing the "preimage" of a function tree leaf.

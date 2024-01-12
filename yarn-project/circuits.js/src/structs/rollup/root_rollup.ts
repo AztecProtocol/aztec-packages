@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
@@ -11,7 +12,6 @@ import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
-import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Represents inputs of the root rollup circuit.

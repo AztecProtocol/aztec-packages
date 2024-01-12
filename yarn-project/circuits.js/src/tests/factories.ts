@@ -1,3 +1,4 @@
+import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -101,7 +102,6 @@ import {
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
