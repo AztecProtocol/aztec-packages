@@ -10,7 +10,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Remove `protocol_types` from Nargo.toml
 
-The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`
+The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
