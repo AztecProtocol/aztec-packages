@@ -745,12 +745,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
      */
     const auto batch_affine_add = [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs,
                                                                                           affine_element* rhs) {
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [lhs, &rhs, &scratch_space, &batch_affine_add_chunked](size_t start, size_t end) {
                 batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
             },
-            /*no_multhreading_if_less_or_equal=*/4);
+            /*finite_field_additions_per_iteration=*/6,
+            /*finite_field_multiplications_per_iteration=*/6);
     };
 
     /**
@@ -789,12 +790,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
      *
      */
     const auto batch_affine_double = [num_points, &scratch_space, &batch_affine_double_chunked](affine_element* lhs) {
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [&lhs, &scratch_space, &batch_affine_double_chunked](size_t start, size_t end) {
                 batch_affine_double_chunked(lhs + start, end - start, &scratch_space[0] + start);
             },
-            /*no_multhreading_if_less_or_equal=*/4);
+            /*finite_field_additions_per_iteration=*/7,
+            /*finite_field_multiplications_per_iteration=*/6);
     };
     // Compute wnaf for scalar
     const Fr converted_scalar = exponent.from_montgomery_form();
@@ -804,14 +806,20 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         affine_element result{ Fq::zero(), Fq::zero() };
         result.self_set_infinity();
         std::vector<affine_element> results(num_points);
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [&results, result](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
                     results[i] = result;
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/0,
+            /*finite_field_multiplications_per_iteration=*/0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
         return results;
     }
 
@@ -824,7 +832,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     }
     // Initialize first etnries in lookup table
     std::vector<affine_element> temp_point_vector(num_points);
-    run_loop_in_parallel(
+    run_loop_in_parallel_if_effective(
         num_points,
         [&temp_point_vector, &lookup_table, &points](size_t start, size_t end) {
             for (size_t i = start; i < end; ++i) {
@@ -832,19 +840,31 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 lookup_table[0][i] = points[i];
             }
         },
-        /*no_multhreading_if_less_or_equal=*/16);
+        /*finite_field_additions_per_iteration=*/0,
+        /*finite_field_multiplications_per_iteration=*/0,
+        /*finite_field_inversions_per_iteration=*/0,
+        /*group_element_additions_per_iteration=*/0,
+        /*group_element_doublings_per_iteration=*/0,
+        /*scalar_multiplications_per_iteration=*/0,
+        /*sequential_copy_ops_per_iteration=*/2);
 
     // Construct lookup table
     batch_affine_double(&temp_point_vector[0]);
     for (size_t j = 1; j < lookup_size; ++j) {
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [j, &lookup_table](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
                     lookup_table[j][i] = lookup_table[j - 1][i];
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/0,
+            /*finite_field_multiplications_per_iteration=*/0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
         batch_affine_add(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
@@ -873,7 +893,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         index = wnaf_entry & 0x0fffffffU;
         sign = static_cast<bool>((wnaf_entry >> 31) & 1);
         const bool is_odd = ((j & 1) == 1);
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [j, index, is_odd, sign, beta, &lookup_table, &work_elements, &temp_point_vector](size_t start,
                                                                                               size_t end) {
@@ -891,7 +911,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                     }
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/1,
+            /*finite_field_multiplications_per_iteration=*/is_odd ? 1 : 0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
     }
     // First cycle of addition
     batch_affine_add(&temp_point_vector[0], &work_elements[0]);
@@ -906,7 +932,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 batch_affine_double(&work_elements[0]);
             }
         }
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [index, is_odd, sign, beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
@@ -919,13 +945,19 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                     temp_point_vector[i] = to_add;
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/1,
+            /*finite_field_multiplications_per_iteration=*/is_odd ? 1 : 0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
     // Apply skew for the first endo scalar
     if (skew) {
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [&lookup_table, &temp_point_vector](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
@@ -933,12 +965,18 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                     temp_point_vector[i] = -lookup_table[0][i];
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/0,
+            /*finite_field_multiplications_per_iteration=*/0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
     // Apply skew for the second endo scalar
     if (endo_skew) {
-        run_loop_in_parallel(
+        run_loop_in_parallel_if_effective(
             num_points,
             [beta, &lookup_table, &temp_point_vector](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
@@ -947,7 +985,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                     temp_point_vector[i].x *= beta;
                 }
             },
-            /*no_multhreading_if_less_or_equal=*/16);
+            /*finite_field_additions_per_iteration=*/0,
+            /*finite_field_multiplications_per_iteration=*/1,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
         batch_affine_add(&temp_point_vector[0], &work_elements[0]);
     }
 
