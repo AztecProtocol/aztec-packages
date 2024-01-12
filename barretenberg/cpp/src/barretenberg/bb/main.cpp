@@ -5,7 +5,6 @@
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
 #include "get_grumpkin_crs.hpp"
-#include "get_witness.hpp"
 #include "log.hpp"
 #include <barretenberg/common/benchmark.hpp>
 #include <barretenberg/common/container.hpp>
@@ -32,6 +31,11 @@ bool verbose = false;
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();
 
+/**
+ * @brief Initialize the global crs_factory for bn254 based on a known dyadic circuit size
+ *
+ * @param dyadic_circuit_size power-of-2 circuit size
+ */
 void init_bn254_crs(size_t dyadic_circuit_size)
 {
     // Must +1 for Plonk only!
@@ -39,10 +43,10 @@ void init_bn254_crs(size_t dyadic_circuit_size)
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
-void init_grumpkin_crs(size_t dyadic_circuit_size)
+
+void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
-    // WORKTODO: For ECCVM only
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, dyadic_circuit_size);
+    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
@@ -58,7 +62,7 @@ acir_proofs::AcirComposer verifier_init()
 
 acir_format::WitnessVector get_witness(std::string const& witness_path)
 {
-    auto witness_data = get_witness_data(witness_path);
+    auto witness_data = get_bytecode(witness_path);
     return acir_format::witness_buf_to_witness_data(witness_data);
 }
 
@@ -130,8 +134,10 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
-    size_t hardcoded_dyadic_size_hack = 262144;
-    init_bn254_crs(hardcoded_dyadic_size_hack);
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
+    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
+    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     auto proof = acir_composer.create_goblin_proof();
 
@@ -449,23 +455,19 @@ int main(int argc, char* argv[])
             return proveAndVerifyGoblin(bytecode_path, witness_path, recursive) ? 0 : 1;
         }
         if (command == "prove") {
-            info("PROVE");
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove(bytecode_path, witness_path, recursive, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
-            info("VERIFY");
             return verify(proof_path, recursive, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
         } else if (command == "write_vk") {
-            info("WRITE VK");
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk(bytecode_path, output_path);
         } else if (command == "write_pk") {
-            info("WRITE PK");
             std::string output_path = get_option(args, "-o", "./target/pk");
             write_pk(bytecode_path, output_path);
         } else if (command == "proof_as_fields") {

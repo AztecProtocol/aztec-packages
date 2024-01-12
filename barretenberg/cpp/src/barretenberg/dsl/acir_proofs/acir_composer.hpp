@@ -53,7 +53,6 @@ class AcirComposer {
     std::shared_ptr<proof_system::plonk::proving_key> proving_key_;
     std::shared_ptr<proof_system::plonk::verification_key> verification_key_;
     bool verbose_ = true;
-    bool circuit_created = false;
 
     template <typename... Args> inline void vinfo(Args... args)
     {

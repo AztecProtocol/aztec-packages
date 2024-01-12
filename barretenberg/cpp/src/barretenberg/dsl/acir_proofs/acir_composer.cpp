@@ -22,18 +22,9 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
 template <typename Builder>
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness)
 {
-    // info("CREATE CIRCUIT");
-    // this seems to have made sense for plonk but no longer makes sense for Honk? if we return early then the
-    // sizes below never get set and that eventually causes too few srs points to be extracted
-    if (circuit_created) {
-        info("Trying to create circuit but it already exists!");
-        return;
-    }
     vinfo("building circuit...");
     builder_ = acir_format::create_circuit<Builder>(constraint_system, size_hint_, witness);
     vinfo("gates: ", builder_.get_total_circuit_size());
-
-    circuit_created = true;
 }
 
 std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key()
@@ -57,7 +48,6 @@ std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 
         acir_format::Composer composer;
         vinfo("computing proving key...");
-        info("CREATE_PROVING_KEY");
         proving_key_ = composer.compute_proving_key(builder_);
         vinfo("done.");
         return composer;
