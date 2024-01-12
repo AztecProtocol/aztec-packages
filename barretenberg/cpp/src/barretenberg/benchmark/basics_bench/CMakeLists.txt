@@ -1,6 +1,6 @@
 # Each source represents a separate benchmark suite 
 set(BENCHMARK_SOURCES
- parallel.bench.cpp
+ basics.bench.cpp
 )
 
 # Required libraries for benchmark suites
