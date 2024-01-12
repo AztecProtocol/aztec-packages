@@ -70,7 +70,7 @@ const INSTRUCTION_SET_RAW = [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = M[aOffset] * M[bOffset] mod 2^k`",
-        "Summary": "Subtraction (a - b)",
+        "Summary": "Multiplication (a * b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
         "Tag updates": "`T[dstOffset] = in-tag`",
