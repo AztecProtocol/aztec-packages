@@ -11,10 +11,10 @@ import {
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { NoirCompiledCircuit } from '@aztec/noir-compiler';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
 import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { CompiledCircuit } from '@noir-lang/types';
 
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
@@ -75,15 +75,15 @@ export type DecodedInputs = {
   return_value: any;
 };
 
-export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCircuit;
+export const PrivateKernelInitArtifact = PrivateKernelInitJson as CompiledCircuit;
 
-export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
+export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as CompiledCircuit;
 
-export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson as NoirCompiledCircuit;
+export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson as CompiledCircuit;
 
-export const PublicKernelPrivatePreviousArtifact = PublicKernelPrivatePreviousJson as NoirCompiledCircuit;
+export const PublicKernelPrivatePreviousArtifact = PublicKernelPrivatePreviousJson as CompiledCircuit;
 
-export const PublicKernelPublicPreviousArtifact = PublicKernelPublicPreviousJson as NoirCompiledCircuit;
+export const PublicKernelPublicPreviousArtifact = PublicKernelPublicPreviousJson as CompiledCircuit;
 
 /**
  * Executes the init private kernel.
