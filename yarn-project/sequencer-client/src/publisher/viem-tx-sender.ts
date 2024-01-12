@@ -1,7 +1,7 @@
+import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -73,6 +73,11 @@ export class ViemTxSender implements L1PublisherTxSender {
       publicClient: this.publicClient,
       walletClient,
     });
+  }
+
+  async getCurrentStateHash(): Promise<Buffer> {
+    const stateHash = await this.rollupContract.read.rollupStateHash();
+    return Buffer.from(stateHash.replace('0x', ''), 'hex');
   }
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {

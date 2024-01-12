@@ -239,6 +239,8 @@ struct BlockId {
     static BlockId bincodeDeserialize(std::vector<uint8_t>);
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/825): This struct is more general than it needs / should be
+// allowed to be. We can only accommodate 1 quadratic term and 3 linear terms.
 struct Expression {
     std::vector<std::tuple<std::string, Circuit::Witness, Circuit::Witness>> mul_terms;
     std::vector<std::tuple<std::string, Circuit::Witness>> linear_combinations;
@@ -446,6 +448,15 @@ struct BlackBoxOp {
         static Blake2s bincodeDeserialize(std::vector<uint8_t>);
     };
 
+    struct Blake3 {
+        Circuit::HeapVector message;
+        Circuit::HeapArray output;
+
+        friend bool operator==(const Blake3&, const Blake3&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Blake3 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
     struct Keccak256 {
         Circuit::HeapVector message;
         Circuit::HeapArray output;
@@ -453,6 +464,15 @@ struct BlackBoxOp {
         friend bool operator==(const Keccak256&, const Keccak256&);
         std::vector<uint8_t> bincodeSerialize() const;
         static Keccak256 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct Keccakf1600 {
+        Circuit::HeapVector message;
+        Circuit::HeapArray output;
+
+        friend bool operator==(const Keccakf1600&, const Keccakf1600&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Keccakf1600 bincodeDeserialize(std::vector<uint8_t>);
     };
 
     struct EcdsaSecp256k1 {
@@ -545,7 +565,9 @@ struct BlackBoxOp {
 
     std::variant<Sha256,
                  Blake2s,
+                 Blake3,
                  Keccak256,
+                 Keccakf1600,
                  EcdsaSecp256k1,
                  EcdsaSecp256r1,
                  SchnorrVerify,
@@ -3033,6 +3055,57 @@ Circuit::BlackBoxOp::Blake2s serde::Deserializable<Circuit::BlackBoxOp::Blake2s>
 
 namespace Circuit {
 
+inline bool operator==(const BlackBoxOp::Blake3& lhs, const BlackBoxOp::Blake3& rhs)
+{
+    if (!(lhs.message == rhs.message)) {
+        return false;
+    }
+    if (!(lhs.output == rhs.output)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> BlackBoxOp::Blake3::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BlackBoxOp::Blake3>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BlackBoxOp::Blake3 BlackBoxOp::Blake3::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BlackBoxOp::Blake3>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BlackBoxOp::Blake3>::serialize(const Circuit::BlackBoxOp::Blake3& obj,
+                                                                 Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
+    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Circuit::BlackBoxOp::Blake3 serde::Deserializable<Circuit::BlackBoxOp::Blake3>::deserialize(Deserializer& deserializer)
+{
+    Circuit::BlackBoxOp::Blake3 obj;
+    obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
+    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Circuit {
+
 inline bool operator==(const BlackBoxOp::Keccak256& lhs, const BlackBoxOp::Keccak256& rhs)
 {
     if (!(lhs.message == rhs.message)) {
@@ -3078,6 +3151,58 @@ Circuit::BlackBoxOp::Keccak256 serde::Deserializable<Circuit::BlackBoxOp::Keccak
     Deserializer& deserializer)
 {
     Circuit::BlackBoxOp::Keccak256 obj;
+    obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
+    obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Circuit {
+
+inline bool operator==(const BlackBoxOp::Keccakf1600& lhs, const BlackBoxOp::Keccakf1600& rhs)
+{
+    if (!(lhs.message == rhs.message)) {
+        return false;
+    }
+    if (!(lhs.output == rhs.output)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> BlackBoxOp::Keccakf1600::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BlackBoxOp::Keccakf1600>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BlackBoxOp::Keccakf1600 BlackBoxOp::Keccakf1600::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BlackBoxOp::Keccakf1600>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BlackBoxOp::Keccakf1600>::serialize(const Circuit::BlackBoxOp::Keccakf1600& obj,
+                                                                      Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
+    serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Circuit::BlackBoxOp::Keccakf1600 serde::Deserializable<Circuit::BlackBoxOp::Keccakf1600>::deserialize(
+    Deserializer& deserializer)
+{
+    Circuit::BlackBoxOp::Keccakf1600 obj;
     obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
     return obj;

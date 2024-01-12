@@ -1,4 +1,5 @@
 import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
+import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
@@ -15,13 +16,12 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  makeTuple,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
-import { FunctionL2Logs, Note } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 

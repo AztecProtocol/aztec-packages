@@ -69,16 +69,17 @@ contract Rollup is IRollup {
     }
 
     // Decode the cross-chain messages
-    (bytes32 inHash,, bytes32[] memory l2ToL1Msgs, bytes32[] memory l1ToL2Msgs) =
+    (bytes32 inHash,, bytes32[] memory l1ToL2Msgs, bytes32[] memory l2ToL1Msgs) =
       MessagesDecoder.decode(_l2Block[HeaderDecoder.BLOCK_HEADER_SIZE:]);
 
     bytes32 publicInputHash =
       _computePublicInputHash(_l2Block[:HeaderDecoder.BLOCK_HEADER_SIZE], txsHash, inHash);
 
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
-      revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
-    }
+    // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
+    // if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
+    //   revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
+    // }
 
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = publicInputHash;
