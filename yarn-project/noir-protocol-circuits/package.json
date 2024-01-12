@@ -40,6 +40,7 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@jest/globals": "^29.5.0",
+    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",

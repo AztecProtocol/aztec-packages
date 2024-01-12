@@ -16,19 +16,6 @@ import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBla
 import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 import { CompiledCircuit } from '@noir-lang/types';
 
-import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
-import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
-import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
-import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
-import PrivateKernelOrderingJson from './target/private_kernel_ordering.json' assert { type: 'json' };
-import PrivateKernelOrderingSimulatedJson from './target/private_kernel_ordering_simulated.json' assert { type: 'json' };
-import PublicKernelPrivatePreviousJson from './target/public_kernel_private_previous.json' assert { type: 'json' };
-import PublicKernelPrivatePreviousSimulatedJson from './target/public_kernel_private_previous_simulated.json' assert { type: 'json' };
-import PublicKernelPublicPreviousJson from './target/public_kernel_public_previous.json' assert { type: 'json' };
-import PublicKernelPublicPreviousSimulatedJson from './target/public_kernel_public_previous_simulated.json' assert { type: 'json' };
-import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
-import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
-import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
   mapBaseRollupInputsToNoir,
@@ -42,23 +29,36 @@ import {
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
-import { InputType as InitInputType, ReturnType } from './types/private_kernel_init_types.js';
-import { InputType as InnerInputType } from './types/private_kernel_inner_types.js';
 import {
-  ReturnType as FinalReturnType,
-  InputType as OrderingInputType,
-} from './types/private_kernel_ordering_types.js';
-import {
-  InputType as PublicPrivatePreviousInputType,
-  ReturnType as PublicPrivatePreviousReturnType,
-} from './types/public_kernel_private_previous_types.js';
-import {
-  InputType as PublicPublicPreviousInputType,
-  ReturnType as PublicPublicPreviousReturnType,
-} from './types/public_kernel_public_previous_types.js';
-import { InputType as BaseRollupInputType, ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
-import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
-import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
+  BaseRollupInputs as BaseRollupInputType,
+  BaseOrMergeRollupPublicInputs as BaseRollupReturnType,
+  rollup_base_simulated_circuit as BaseRollupSimulatedJson,
+  KernelCircuitPublicInputsFinal as FinalReturnType,
+  PrivateKernelInputsInit as InitInputType,
+  PrivateKernelInputsInner as InnerInputType,
+  MergeRollupInputs as MergeRollupInputType,
+  rollup_merge_circuit as MergeRollupJson,
+  BaseOrMergeRollupPublicInputs as MergeRollupReturnType,
+  PrivateKernelInputsOrdering as OrderingInputType,
+  private_kernel_init_circuit as PrivateKernelInitJson,
+  private_kernel_init_simulated_circuit as PrivateKernelInitSimulatedJson,
+  private_kernel_inner_circuit as PrivateKernelInnerJson,
+  private_kernel_inner_simulated_circuit as PrivateKernelInnerSimulatedJson,
+  private_kernel_ordering_circuit as PrivateKernelOrderingJson,
+  private_kernel_ordering_simulated_circuit as PrivateKernelOrderingSimulatedJson,
+  public_kernel_private_previous_circuit as PublicKernelPrivatePreviousJson,
+  public_kernel_private_previous_simulated_circuit as PublicKernelPrivatePreviousSimulatedJson,
+  public_kernel_public_previous_circuit as PublicKernelPublicPreviousJson,
+  public_kernel_public_previous_simulated_circuit as PublicKernelPublicPreviousSimulatedJson,
+  PublicKernelPrivatePreviousInputs as PublicPrivatePreviousInputType,
+  KernelCircuitPublicInputs as PublicPrivatePreviousReturnType,
+  PublicKernelPublicPreviousInputs as PublicPublicPreviousInputType,
+  KernelCircuitPublicInputs as PublicPublicPreviousReturnType,
+  KernelCircuitPublicInputs as ReturnType,
+  RootRollupInputs as RootRollupInputType,
+  rollup_root_circuit as RootRollupJson,
+  RootRollupPublicInputs as RootRollupReturnType,
+} from './types/index.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -93,9 +93,7 @@ export const PublicKernelPublicPreviousArtifact = PublicKernelPublicPreviousJson
 export async function executeInit(
   privateKernelInputsInit: PrivateKernelInputsInit,
 ): Promise<KernelCircuitPublicInputs> {
-  const params: InitInputType = {
-    input: mapPrivateKernelInputsInitToNoir(privateKernelInputsInit),
-  };
+  const params = mapPrivateKernelInputsInitToNoir(privateKernelInputsInit);
 
   const returnType = await executePrivateKernelInitWithACVM(params);
 
@@ -119,9 +117,7 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
 export async function executeInner(
   privateKernelInputsInner: PrivateKernelInputsInner,
 ): Promise<KernelCircuitPublicInputs> {
-  const params: InnerInputType = {
-    input: mapPrivateKernelInputsInnerToNoir(privateKernelInputsInner),
-  };
+  const params = mapPrivateKernelInputsInnerToNoir(privateKernelInputsInner);
 
   const returnType = await executePrivateKernelInnerWithACVM(params);
 
@@ -136,9 +132,7 @@ export async function executeInner(
 export async function executeOrdering(
   privateKernelInputsOrdering: PrivateKernelInputsOrdering,
 ): Promise<KernelCircuitPublicInputsFinal> {
-  const params: OrderingInputType = {
-    input: mapPrivateKernelInputsOrderingToNoir(privateKernelInputsOrdering),
-  };
+  const params = mapPrivateKernelInputsOrderingToNoir(privateKernelInputsOrdering);
 
   const returnType = await executePrivateKernelOrderingWithACVM(params);
 
@@ -153,9 +147,7 @@ export async function executeOrdering(
 export async function executePublicKernelPrivatePrevious(
   publicKernelPrivateInputs: PublicKernelInputs,
 ): Promise<KernelCircuitPublicInputs> {
-  const params: PublicPrivatePreviousInputType = {
-    input: mapPublicKernelInputs(publicKernelPrivateInputs),
-  };
+  const params = mapPublicKernelInputs(publicKernelPrivateInputs);
 
   const returnType = await executePublicKernelPrivatePreviousWithACVM(params);
 
@@ -170,9 +162,7 @@ export async function executePublicKernelPrivatePrevious(
 export async function executePublicKernelPublicPrevious(
   publicKernelPrivateInputs: PublicKernelInputs,
 ): Promise<KernelCircuitPublicInputs> {
-  const params: PublicPrivatePreviousInputType = {
-    input: mapPublicKernelInputs(publicKernelPrivateInputs),
-  };
+  const params = mapPublicKernelInputs(publicKernelPrivateInputs);
 
   const returnType = await executePublicKernelPublicPreviousWithACVM(params);
 
@@ -185,9 +175,7 @@ export async function executePublicKernelPublicPrevious(
  * @returns The public inputs.
  */
 export async function executeRootRollup(rootRollupInputs: RootRollupInputs): Promise<RootRollupPublicInputs> {
-  const params: RootRollupInputType = {
-    inputs: mapRootRollupInputsToNoir(rootRollupInputs),
-  };
+  const params = mapRootRollupInputsToNoir(rootRollupInputs);
 
   const returnType = await executeRootRollupWithACVM(params);
 
@@ -200,9 +188,7 @@ export async function executeRootRollup(rootRollupInputs: RootRollupInputs): Pro
  * @returns The public inputs.
  */
 export async function executeMergeRollup(mergeRollupInputs: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-  const params: MergeRollupInputType = {
-    inputs: mapMergeRollupInputsToNoir(mergeRollupInputs),
-  };
+  const params = mapMergeRollupInputsToNoir(mergeRollupInputs);
 
   const returnType = await executeMergeRollupWithACVM(params);
 
@@ -215,9 +201,7 @@ export async function executeMergeRollup(mergeRollupInputs: MergeRollupInputs): 
  * @returns The public inputs.
  */
 export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-  const params: BaseRollupInputType = {
-    inputs: mapBaseRollupInputsToNoir(baseRollupInputs),
-  };
+  const params = mapBaseRollupInputsToNoir(baseRollupInputs);
 
   const returnType = await executeBaseRollupWithACVM(params);
 
@@ -229,7 +213,7 @@ export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Pro
  *
  */
 async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
@@ -257,7 +241,7 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<R
  * Executes the inner private kernel with the given inputs using the acvm.
  */
 async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelInnerSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PrivateKernelInnerSimulatedJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
@@ -285,7 +269,7 @@ async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
 async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): Promise<FinalReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelOrderingSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PrivateKernelOrderingSimulatedJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
@@ -315,7 +299,7 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
 async function executePublicKernelPrivatePreviousWithACVM(
   input: PublicPrivatePreviousInputType,
 ): Promise<PublicPrivatePreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, { inputs: input });
   const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -339,7 +323,7 @@ async function executePublicKernelPrivatePreviousWithACVM(
 async function executePublicKernelPublicPreviousWithACVM(
   input: PublicPublicPreviousInputType,
 ): Promise<PublicPublicPreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi as Abi, { inputs: input });
   const decodedBytecode = Buffer.from(PublicKernelPublicPreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -362,7 +346,7 @@ async function executePublicKernelPublicPreviousWithACVM(
  * Executes the root rollup with the given inputs using the acvm.
  */
 async function executeRootRollupWithACVM(input: RootRollupInputType): Promise<RootRollupReturnType> {
-  const initialWitnessMap = abiEncode(RootRollupJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(RootRollupJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
@@ -389,7 +373,7 @@ async function executeRootRollupWithACVM(input: RootRollupInputType): Promise<Ro
  * Executes the merge rollup with the given inputs using the acvm.
  */
 async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<MergeRollupReturnType> {
-  const initialWitnessMap = abiEncode(MergeRollupJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(MergeRollupJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
@@ -416,7 +400,7 @@ async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<
  * Executes the base rollup with the given inputs using the acvm.
  */
 async function executeBaseRollupWithACVM(input: BaseRollupInputType): Promise<BaseRollupReturnType> {
-  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, { inputs: input });
 
   // Execute the circuit on those initial witness values
   //
