@@ -147,20 +147,18 @@ template <typename Curve> class IPA {
             // G_vec_next = G_vec_lo * round_challenge_inv + G_vec_hi * round_challenge
             run_loop_in_parallel_if_effective(
                 round_size,
-                [&a_vec, &b_vec, &G_vec_local, &G_lo, &G_hi, round_challenge, round_challenge_inv, round_size](
-                    size_t start, size_t end) {
+                [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
                     for (size_t j = start; j < end; j++) {
                         a_vec[j] *= round_challenge;
                         a_vec[j] += round_challenge_inv * a_vec[round_size + j];
                         b_vec[j] *= round_challenge_inv;
                         b_vec[j] += round_challenge * b_vec[round_size + j];
-                        // TODO(kesha): This is affine and horrible, need to fix
-                        G_vec_local[j] = G_lo[j] + G_hi[j];
                     }
                 },
                 /*finite_field_additions_per_iteration=*/4,
                 /*finite_field_multiplications_per_iteration=*/8,
                 /*finite_field_inversions_per_iteration=*/1);
+            GroupElement::batch_affine_add(G_lo, G_hi, G_vec_local);
         }
 
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);

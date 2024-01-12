@@ -139,10 +139,10 @@ void run_loop_in_parallel(size_t num_points,
  * @param finite_field_additions_per_iteration
  * @param finite_field_multiplications_per_iteration
  * @param finite_field_inversions_per_iteration
- * @param group_element_additions_per_iteration
- * @param group_element_doublings_per_iteration
+ * @param group_element_additions_per_iteration Projective addition number
+ * @param group_element_doublings_per_iteration Projective doubling number
  * @param scalar_multiplications_per_iteration
- * @param sequential_copy_ops_per_iteration
+ * @param sequential_copy_ops_per_iteration Field element (16 byte) sequential copy number
  */
 void run_loop_in_parallel_if_effective(size_t num_points,
                                        const std::function<void(size_t, size_t)>& func,

@@ -689,27 +689,42 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
 }
 
 /**
- * @brief Multiply each point by the same exponent
+ * @brief Pairwise affine add points in first and second group
  *
- * @details We use the fact that all points are being multiplied by the same exponent to batch the operations (perform
- * batch affine additions and doublings with batch inversion trick)
- *
- * @param points The span of individual points that need to be scaled
- * @param exponent The scalar we multiply all the points by
- * @return std::vector<affine_element<Fq, Fr, T>> Vector of new points where each point is exponent⋅points[i]
+ * @param first_group
+ * @param second_group
+ * @param results
  */
 template <class Fq, class Fr, class T>
-std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
-    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
+void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr, T>>& first_group,
+                                          const std::span<affine_element<Fq, Fr, T>>& second_group,
+                                          const std::span<affine_element<Fq, Fr, T>>& results) noexcept
 {
     typedef affine_element<Fq, Fr, T> affine_element;
-    const size_t num_points = points.size();
+    const size_t num_points = first_group.size();
+    ASSERT(second_group.size() == first_group.size());
 
     // Space for temporary values
     std::vector<Fq> scratch_space(num_points);
 
-    // we can mutate rhs but NOT lhs!
-    // output is stored in rhs
+    run_loop_in_parallel_if_effective(
+        num_points,
+        [&results, &first_group](size_t start, size_t end) {
+            for (size_t i = start; i < end; i++) {
+                results[i] = first_group[i];
+            }
+        },
+        /*finite_field_additions_per_iteration=*/0,
+        /*finite_field_multiplications_per_iteration=*/0,
+        /*finite_field_inversions_per_iteration=*/0,
+        /*group_element_additions_per_iteration=*/0,
+        /*group_element_doublings_per_iteration=*/0,
+        /*scalar_multiplications_per_iteration=*/0,
+        /*sequential_copy_ops_per_iteration=*/2);
+
+    // TODO(#826): Same code as in batch mul
+    //  we can mutate rhs but NOT lhs!
+    //  output is stored in rhs
     /**
      * @brief Perform point addition rhs[i]=rhs[i]+lhs[i] with batch inversion
      *
@@ -743,16 +758,85 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
      * @brief Perform batch affine addition in parallel
      *
      */
-    const auto batch_affine_add = [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs,
-                                                                                          affine_element* rhs) {
-        run_loop_in_parallel_if_effective(
-            num_points,
-            [lhs, &rhs, &scratch_space, &batch_affine_add_chunked](size_t start, size_t end) {
-                batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
-            },
-            /*finite_field_additions_per_iteration=*/6,
-            /*finite_field_multiplications_per_iteration=*/6);
-    };
+    const auto batch_affine_add_internal =
+        [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs, affine_element* rhs) {
+            run_loop_in_parallel_if_effective(
+                num_points,
+                [lhs, &rhs, &scratch_space, &batch_affine_add_chunked](size_t start, size_t end) {
+                    batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
+                },
+                /*finite_field_additions_per_iteration=*/6,
+                /*finite_field_multiplications_per_iteration=*/6);
+        };
+    batch_affine_add_internal(&second_group[0], &results[0]);
+}
+
+/**
+ * @brief Multiply each point by the same exponent
+ *
+ * @details We use the fact that all points are being multiplied by the same exponent to batch the operations (perform
+ * batch affine additions and doublings with batch inversion trick)
+ *
+ * @param points The span of individual points that need to be scaled
+ * @param exponent The scalar we multiply all the points by
+ * @return std::vector<affine_element<Fq, Fr, T>> Vector of new points where each point is exponent⋅points[i]
+ */
+template <class Fq, class Fr, class T>
+std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
+    const std::span<affine_element<Fq, Fr, T>>& points, const Fr& exponent) noexcept
+{
+    typedef affine_element<Fq, Fr, T> affine_element;
+    const size_t num_points = points.size();
+
+    // Space for temporary values
+    std::vector<Fq> scratch_space(num_points);
+
+    // TODO(#826): Same code as in batch add
+    //  we can mutate rhs but NOT lhs!
+    //  output is stored in rhs
+    /**
+     * @brief Perform point addition rhs[i]=rhs[i]+lhs[i] with batch inversion
+     *
+     */
+    const auto batch_affine_add_chunked =
+        [](const affine_element* lhs, affine_element* rhs, const size_t point_count, Fq* personal_scratch_space) {
+            Fq batch_inversion_accumulator = Fq::one();
+
+            for (size_t i = 0; i < point_count; i += 1) {
+                personal_scratch_space[i] = lhs[i].x + rhs[i].x; // x2 + x1
+                rhs[i].x -= lhs[i].x;                            // x2 - x1
+                rhs[i].y -= lhs[i].y;                            // y2 - y1
+                rhs[i].y *= batch_inversion_accumulator;         // (y2 - y1)*accumulator_old
+                batch_inversion_accumulator *= (rhs[i].x);
+            }
+            batch_inversion_accumulator = batch_inversion_accumulator.invert();
+
+            for (size_t i = (point_count)-1; i < point_count; i -= 1) {
+                rhs[i].y *= batch_inversion_accumulator; // update accumulator
+                batch_inversion_accumulator *= rhs[i].x;
+                rhs[i].x = rhs[i].y.sqr();
+                rhs[i].x = rhs[i].x - (personal_scratch_space[i]); // x3 = lambda_squared - x2
+                                                                   // - x1
+                personal_scratch_space[i] = lhs[i].x - rhs[i].x;
+                personal_scratch_space[i] *= rhs[i].y;
+                rhs[i].y = personal_scratch_space[i] - lhs[i].y;
+            }
+        };
+
+    /**
+     * @brief Perform batch affine addition in parallel
+     *
+     */
+    const auto batch_affine_add_internal =
+        [num_points, &scratch_space, &batch_affine_add_chunked](const affine_element* lhs, affine_element* rhs) {
+            run_loop_in_parallel_if_effective(
+                num_points,
+                [lhs, &rhs, &scratch_space, &batch_affine_add_chunked](size_t start, size_t end) {
+                    batch_affine_add_chunked(lhs + start, rhs + start, end - start, &scratch_space[0] + start);
+                },
+                /*finite_field_additions_per_iteration=*/6,
+                /*finite_field_multiplications_per_iteration=*/6);
+        };
 
     /**
      * @brief Perform point doubling lhs[i]=lhs[i]+lhs[i] with batch inversion
@@ -865,7 +949,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*group_element_doublings_per_iteration=*/0,
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
-        batch_affine_add(&temp_point_vector[0], &lookup_table[j][0]);
+        batch_affine_add_internal(&temp_point_vector[0], &lookup_table[j][0]);
     }
 
     uint64_t wnaf_table[num_rounds * 2];
@@ -920,7 +1004,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*sequential_copy_ops_per_iteration=*/1);
     }
     // First cycle of addition
-    batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+    batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     // Run through SM logic in wnaf form (excluding the skew)
     for (size_t j = 2; j < num_rounds * 2; ++j) {
         wnaf_entry = wnaf_table[j];
@@ -952,7 +1036,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*group_element_doublings_per_iteration=*/0,
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
-        batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     }
 
     // Apply skew for the first endo scalar
@@ -972,7 +1056,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*group_element_doublings_per_iteration=*/0,
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
-        batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     }
     // Apply skew for the second endo scalar
     if (endo_skew) {
@@ -992,7 +1076,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*group_element_doublings_per_iteration=*/0,
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
-        batch_affine_add(&temp_point_vector[0], &work_elements[0]);
+        batch_affine_add_internal(&temp_point_vector[0], &work_elements[0]);
     }
 
     return work_elements;
