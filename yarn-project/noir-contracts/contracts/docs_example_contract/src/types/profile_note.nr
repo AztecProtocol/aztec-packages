@@ -1,6 +1,6 @@
 use dep::std::option::Option;
 use dep::aztec::{
-    protocol_types::address::AztecAddress;
+    protocol_types::address::AztecAddress,
     note::{
         note_header::NoteHeader,
         note_interface::NoteInterface,
