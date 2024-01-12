@@ -34,17 +34,3 @@ using UltraCircuitBuilder =
 template <class FF> class GoblinUltraCircuitBuilder_;
 using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::field<barretenberg::Bn254FrParams>>;
 } // namespace proof_system
-
-#define EXTERN_STDLIB_TYPE(stdlib_type)
-
-#define EXTERN_STDLIB_METHOD(stdlib_method)
-
-#define EXTERN_STDLIB_TYPE_VA(stdlib_type, ...)
-
-#define EXTERN_STDLIB_BASIC_TYPE_VA(stdlib_type, ...)
-
-#define EXTERN_STDLIB_ULTRA_TYPE(stdlib_type)
-
-#define EXTERN_STDLIB_ULTRA_TYPE_VA(stdlib_type, ...)
-
-#define EXTERN_STDLIB_ULTRA_METHOD(stdlib_method)\
