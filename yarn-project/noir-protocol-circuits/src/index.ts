@@ -210,7 +210,7 @@ export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Pro
  *
  */
 async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, { inputs: input });
+  const initialWitnessMap = abiEncode(PrivateKernelInitSimulatedJson.abi as Abi, { input });
 
   // Execute the circuit on those initial witness values
   //
@@ -238,7 +238,7 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<R
  * Executes the inner private kernel with the given inputs using the acvm.
  */
 async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise<ReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelInnerSimulatedJson.abi as Abi, { inputs: input });
+  const initialWitnessMap = abiEncode(PrivateKernelInnerSimulatedJson.abi as Abi, { input });
 
   // Execute the circuit on those initial witness values
   //
@@ -266,7 +266,7 @@ async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise
  * Executes the ordering private kernel with the given inputs using the acvm.
  */
 async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): Promise<FinalReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelOrderingSimulatedJson.abi as Abi, { inputs: input });
+  const initialWitnessMap = abiEncode(PrivateKernelOrderingSimulatedJson.abi as Abi, { input });
 
   // Execute the circuit on those initial witness values
   //
@@ -296,7 +296,7 @@ async function executePrivateKernelOrderingWithACVM(input: OrderingInputType): P
 async function executePublicKernelPrivatePreviousWithACVM(
   input: PublicPrivatePreviousInputType,
 ): Promise<PublicPrivatePreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, { inputs: input });
+  const initialWitnessMap = abiEncode(PublicKernelPrivatePreviousSimulatedJson.abi as Abi, { input });
   const decodedBytecode = Buffer.from(PublicKernelPrivatePreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -320,7 +320,7 @@ async function executePublicKernelPrivatePreviousWithACVM(
 async function executePublicKernelPublicPreviousWithACVM(
   input: PublicPublicPreviousInputType,
 ): Promise<PublicPublicPreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi as Abi, { inputs: input });
+  const initialWitnessMap = abiEncode(PublicKernelPublicPreviousSimulatedJson.abi as Abi, { input });
   const decodedBytecode = Buffer.from(PublicKernelPublicPreviousSimulatedJson.bytecode, 'base64');
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
