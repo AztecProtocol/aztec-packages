@@ -4,7 +4,7 @@ mod options;
 mod types;
 
 contract DocsExample {
-    use dep::protocol_types::{
+    use dep::aztec::protocol_types::{
         address::AztecAddress,
         abis::function_selector::FunctionSelector,
     };
@@ -41,7 +41,7 @@ contract DocsExample {
         // docs:end:storage-singleton-declaration
         cards: Set<CardNote, CARD_NOTE_LEN>,
         // docs:start:storage-map-singleton-declaration
-        profiles: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
+        profiles: Map<AztecAddress, Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
         // docs:end:storage-map-singleton-declaration
     }
     // docs:end:storage-struct-declaration

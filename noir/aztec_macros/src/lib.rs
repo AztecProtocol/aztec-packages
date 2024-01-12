@@ -483,12 +483,11 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 
 /// Generates the impl for an event selector
 ///
-/// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
 /// Inserts the following code:
 /// ```noir
 /// impl SomeStruct {
 ///    fn selector() -> FunctionSelector {
-///       protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
+///       aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
 ///    }
 /// }
 /// ```
@@ -499,9 +498,8 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     let struct_type = make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![]));
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
     let selector_path =
-        chained_path!("protocol_types", "abis", "function_selector", "FunctionSelector");
+        chained_path!("aztec", "protocol_types", "abis", "function_selector", "FunctionSelector");
     let mut from_signature_path = selector_path.clone();
     from_signature_path.segments.push(ident("from_signature"));
 
@@ -981,7 +979,7 @@ fn add_array_to_hasher(identifier: &Ident, arr_type: &UnresolvedType) -> Stateme
         UnresolvedTypeData::Named(..) => {
             let hasher_method_name = "add_multiple".to_owned();
             let call = method_call(
-                // All serialise on each element
+                // All serialize on each element
                 arr_index,   // variable
                 "serialize", // method name
                 vec![],      // args
