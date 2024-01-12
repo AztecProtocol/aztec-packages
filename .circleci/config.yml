@@ -1118,7 +1118,10 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
-      - noir-clippy: *defaults
+      - noir-clippy: 
+          requires:
+            - noir-x86_64
+          <<: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
