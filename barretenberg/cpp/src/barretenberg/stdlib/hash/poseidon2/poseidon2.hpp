@@ -26,7 +26,7 @@ template <typename Builder> class poseidon2 {
     using Sponge = FieldSponge<Params::t - 1, 1, Params::t, Permutation, Builder>;
 
   public:
-    static field_ct hash(Builder& builder, const std::span<field_ct>& in);
+    static field_ct hash(Builder& builder, const std::vector<field_ct>& in);
     static field_ct hash_buffer(Builder& builder, const stdlib::byte_array<Builder>& input);
 };
 

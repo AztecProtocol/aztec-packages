@@ -5,7 +5,7 @@ namespace crypto {
  * @brief Hashes a vector of field elements
  */
 template <typename Params>
-typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::span<typename Poseidon2<Params>::FF>& input)
+typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<typename Poseidon2<Params>::FF>& input)
 {
     return Sponge::hash_fixed_length(input);
 }

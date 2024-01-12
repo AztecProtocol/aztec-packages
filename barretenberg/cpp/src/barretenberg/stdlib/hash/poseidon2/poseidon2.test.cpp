@@ -68,8 +68,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         // num_inputs - 1 iterations since the first hash hashes two elements
         for (size_t i = 0; i < num_inputs - 1; ++i) {
-            std::vector<fr_ct> inputs = { left, right };
-            left = poseidon2::hash(builder, inputs);
+            left = poseidon2::hash(builder, { left, right });
         }
 
         builder.set_public_input(left.witness_index);

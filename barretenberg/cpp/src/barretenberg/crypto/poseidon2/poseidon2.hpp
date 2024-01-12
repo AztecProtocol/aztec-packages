@@ -16,7 +16,7 @@ template <typename Params> class Poseidon2 {
     /**
      * @brief Hashes a vector of field elements
      */
-    static FF hash(const std::span<FF>& input);
+    static FF hash(const std::vector<FF>& input);
     /**
      * @brief Hashes vector of bytes by chunking it into 31 byte field elements and calling hash()
      * @details Slice function cuts out the required number of bytes from the byte vector
