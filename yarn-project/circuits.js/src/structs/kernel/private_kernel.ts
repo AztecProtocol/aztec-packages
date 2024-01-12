@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   CONTRACT_TREE_HEIGHT,
@@ -11,8 +11,6 @@ import {
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { CallRequest } from '../call_request.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -22,6 +20,7 @@ import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Private call data.

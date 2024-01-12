@@ -1,10 +1,11 @@
-import { Hasher, SiblingPath } from '@aztec/circuit-types';
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { LevelUp, LevelUpChain } from 'levelup';
 
 import { MerkleTree } from './interfaces/merkle_tree.js';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 const MAX_DEPTH = 254;
 

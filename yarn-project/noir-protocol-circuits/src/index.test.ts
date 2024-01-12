@@ -52,7 +52,6 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  makeTuple,
 } from '@aztec/circuits.js';
 import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
@@ -63,6 +62,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { executeInit, executeInner, executeOrdering } from './index.js';
+import { makeTuple } from '@aztec/foundation/array';
 
 function _makeEmptyReadRequest() {
   return makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty());

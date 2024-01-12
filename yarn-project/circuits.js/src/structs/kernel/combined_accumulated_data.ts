@@ -1,4 +1,4 @@
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -14,8 +14,6 @@ import {
   MAX_READ_REQUESTS_PER_TX,
   NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
-import { makeTuple } from '../../index.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { CallRequest } from '../call_request.js';
 import {
   AggregationObject,
@@ -26,6 +24,7 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '../index.js';
+import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.

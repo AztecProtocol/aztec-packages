@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   ARCHIVE_HEIGHT,
@@ -7,8 +7,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { GlobalVariables } from '../global_variables.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -18,6 +16,7 @@ import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { NullifierLeaf, NullifierLeafPreimage } from './nullifier_leaf/index.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from './public_data_leaf/index.js';
 import { StateDiffHints } from './state_diff_hints.js';
+import { FieldsOf } from '@aztec/foundation/types';
 
 export { NullifierLeaf, NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage };
 

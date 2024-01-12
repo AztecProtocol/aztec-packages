@@ -41,7 +41,6 @@ import {
   StateReference,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeTuple,
 } from '@aztec/circuits.js';
 import {
   computeBlockHash,
@@ -65,6 +64,7 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
+import { makeTuple } from '@aztec/foundation/array';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 

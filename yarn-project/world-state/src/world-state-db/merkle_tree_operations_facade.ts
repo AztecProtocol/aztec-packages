@@ -1,4 +1,4 @@
-import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { NullifierLeafPreimage } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -6,6 +6,7 @@ import { BatchInsertionResult } from '@aztec/merkle-tree';
 
 import { MerkleTreeDb } from './merkle_tree_db.js';
 import { CurrentTreeRoots, HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.

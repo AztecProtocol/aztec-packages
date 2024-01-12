@@ -1,11 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FunctionData } from './function_data.js';
 import { TxContext } from './tx_context.js';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Transaction request.

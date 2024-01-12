@@ -1,4 +1,3 @@
-import { Hasher, SiblingPath } from '@aztec/circuit-types';
 import { TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -15,6 +14,8 @@ import {
   LowLeafWitnessData,
 } from '../index.js';
 import { TreeBase } from '../tree_base.js';
+import { SiblingPath } from '@aztec/types/sibling-path';
+import { Hasher } from '@aztec/types/interfaces';
 
 const log = createDebugLogger('aztec:standard-indexed-tree');
 

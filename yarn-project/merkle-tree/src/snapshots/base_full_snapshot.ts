@@ -1,4 +1,4 @@
-import { SiblingPath } from '@aztec/circuit-types';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 import { LevelUp, LevelUpChain } from 'levelup';
 

@@ -1,5 +1,3 @@
-import { Hasher, SiblingPath } from '@aztec/circuit-types';
-
 import { default as levelup } from 'levelup';
 
 import { Pedersen } from '../index.js';
@@ -7,6 +5,8 @@ import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 const expectSameTrees = async (
   tree1: AppendOnlyTree | UpdateOnlyTree,

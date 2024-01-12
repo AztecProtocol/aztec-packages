@@ -1,4 +1,4 @@
-import { Hasher, L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   CONTRACT_TREE_HEIGHT,
@@ -44,6 +44,8 @@ import {
   TreeInfo,
 } from './merkle_tree_operations.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 /**
  * Data necessary to reinitialize the merkle trees from Db.

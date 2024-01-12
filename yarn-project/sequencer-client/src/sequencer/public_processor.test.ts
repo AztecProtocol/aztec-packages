@@ -3,7 +3,6 @@ import {
   ExtendedContractData,
   FunctionCall,
   FunctionL2Logs,
-  SiblingPath,
   SimulationError,
   Tx,
   TxL2Logs,
@@ -27,7 +26,6 @@ import {
   PublicCallRequest,
   PublicKernelPublicInputs,
   makeEmptyProof,
-  makeTuple,
 } from '@aztec/circuits.js';
 import {
   makeAztecAddress,
@@ -46,6 +44,8 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
+import { makeTuple } from '@aztec/foundation/array';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;

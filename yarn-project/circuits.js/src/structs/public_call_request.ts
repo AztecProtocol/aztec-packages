@@ -1,8 +1,6 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeVarArgsHash } from '../abis/abis.js';
-import { FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallerContext } from './call_request.js';
 import {
   AztecAddress,
@@ -14,6 +12,7 @@ import {
   PublicCircuitPublicInputs,
   Vector,
 } from './index.js';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Represents a request to call a public function from a private function. Serialization is

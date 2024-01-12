@@ -1,8 +1,8 @@
-import { Hasher } from '@aztec/circuit-types';
 
 import { LevelUp } from 'levelup';
 
 import { TreeBase } from './tree_base.js';
+import { Hasher } from '@aztec/types/interfaces';
 
 /**
  * Creates a new tree.

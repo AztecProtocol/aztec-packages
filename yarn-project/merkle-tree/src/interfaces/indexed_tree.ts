@@ -1,4 +1,4 @@
-import { SiblingPath } from '@aztec/circuit-types';
+import { SiblingPath } from '@aztec/types/sibling-path';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { AppendOnlyTree } from './append_only_tree.js';

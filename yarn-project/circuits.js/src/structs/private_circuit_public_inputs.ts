@@ -1,6 +1,6 @@
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -12,11 +12,11 @@ import {
   NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
-import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import { BlockHeader, SideEffect, SideEffectLinkedToNoteHash } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
+import { FieldsOf } from '@aztec/foundation/types';
+import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * Public inputs to a private circuit.

@@ -18,8 +18,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
   SideEffectLinkedToNoteHash,
-  makeTuple,
-  range,
 } from '@aztec/circuits.js';
 import {
   fr,
@@ -62,6 +60,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
+import { makeTuple, range } from '@aztec/foundation/array';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';

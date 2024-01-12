@@ -1,4 +1,3 @@
-import { Hasher, SiblingPath } from '@aztec/circuit-types';
 import {
   Fr,
   NullifierLeaf,
@@ -14,6 +13,8 @@ import { INITIAL_LEAF, MerkleTree, Pedersen, loadTree, newTree } from '../../ind
 import { treeTestSuite } from '../../test/test_suite.js';
 import { createMemDown } from '../../test/utils/create_mem_down.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 class NullifierTree extends StandardIndexedTreeWithAppend {
   constructor(db: levelup.LevelUp, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {

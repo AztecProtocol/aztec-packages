@@ -98,12 +98,10 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   WitnessedPublicCallData,
-  makeHalfFullTuple,
-  makeTuple,
-  range,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
+import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 
 /**
  * Creates an arbitrary side effect object with the given seed.

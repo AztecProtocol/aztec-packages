@@ -32,8 +32,6 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
   StateReference,
-  makeTuple,
-  range,
 } from '@aztec/circuits.js';
 import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -68,6 +66,7 @@ import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
+import { makeTuple, range } from '@aztec/foundation/array';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

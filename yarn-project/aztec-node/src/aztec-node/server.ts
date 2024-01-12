@@ -19,7 +19,6 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   SequencerConfig,
-  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
@@ -60,6 +59,7 @@ import { LevelUp } from 'levelup';
 
 import { AztecNodeConfig } from './config.js';
 import { openDb } from './db.js';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 /**
  * The aztec node.

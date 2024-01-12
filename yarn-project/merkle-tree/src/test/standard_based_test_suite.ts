@@ -1,5 +1,3 @@
-import { Hasher, SiblingPath } from '@aztec/circuit-types';
-
 import { randomBytes } from 'crypto';
 import { default as levelup } from 'levelup';
 
@@ -8,6 +6,8 @@ import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
 import { createMemDown } from './utils/create_mem_down.js';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/sibling-path';
 
 const TEST_TREE_DEPTH = 2;
 
