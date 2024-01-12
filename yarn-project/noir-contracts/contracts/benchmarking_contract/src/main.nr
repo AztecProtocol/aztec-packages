@@ -14,7 +14,7 @@ contract Benchmarking {
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
-        }
+        },
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         log::emit_unencrypted_log,
