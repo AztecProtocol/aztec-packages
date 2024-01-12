@@ -101,7 +101,7 @@ jobs:
       - *setup_env
       - run:
           name: "clippy"
-          command: cond_spot_run_test noir 32 ./scripts/clippy.sh
+          command: cond_spot_run_container noir 32 ./scripts/clippy.sh
 
   noir-ecr-manifest:
     machine:
