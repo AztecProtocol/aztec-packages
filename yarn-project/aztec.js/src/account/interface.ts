@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
 import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
 
 // docs:start:account-interface
 /** Creates authorization witnesses. */

@@ -1,5 +1,5 @@
-import { PrivateCallStackItem } from '@aztec/circuits.js';
 import { FunctionL2Logs } from '@aztec/circuit-types';
+import { PrivateCallStackItem } from '@aztec/circuits.js';
 
 import { ExecutionResult, collectEncryptedLogs, collectUnencryptedLogs } from './execution_result.js';
 

@@ -1,7 +1,7 @@
-import { createDebugLogger } from '@aztec/foundation/log';
-import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
 import { L1PublishStats } from '@aztec/circuit-types/stats';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import pick from 'lodash.pick';
 

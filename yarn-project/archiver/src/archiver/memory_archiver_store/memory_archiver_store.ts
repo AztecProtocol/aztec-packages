@@ -1,5 +1,3 @@
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   CancelledL1ToL2Message,
   ContractData,
@@ -19,6 +17,8 @@ import {
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';

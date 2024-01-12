@@ -1,5 +1,5 @@
-import { GrumpkinPrivateKey } from '@aztec/circuits.js';
 import { PXE } from '@aztec/circuit-types';
+import { GrumpkinPrivateKey } from '@aztec/circuits.js';
 
 import { AccountInterface } from '../account/interface.js';
 import { AccountWallet } from './account_wallet.js';

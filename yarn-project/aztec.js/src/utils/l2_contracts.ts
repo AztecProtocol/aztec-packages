@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PXE } from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
  * Checks whether a give contract is deployed on the network.

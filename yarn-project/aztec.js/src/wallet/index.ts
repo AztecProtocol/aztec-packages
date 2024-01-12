@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PXE } from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { AccountContract } from '../account/contract.js';
 import { AccountWallet } from './account_wallet.js';

@@ -1,5 +1,5 @@
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { SiblingPath } from '@aztec/circuit-types';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { AppendOnlyTree } from './append_only_tree.js';
 

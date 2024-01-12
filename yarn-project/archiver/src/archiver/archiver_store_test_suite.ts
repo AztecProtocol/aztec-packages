@@ -1,5 +1,3 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { randomBytes } from '@aztec/foundation/crypto';
 import {
   CancelledL1ToL2Message,
   ExtendedContractData,
@@ -14,6 +12,8 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 import { ArchiverDataStore } from './archiver_store.js';
 

@@ -1,8 +1,3 @@
-import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   AztecNode,
   ContractData,
@@ -17,6 +12,11 @@ import {
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
+import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.

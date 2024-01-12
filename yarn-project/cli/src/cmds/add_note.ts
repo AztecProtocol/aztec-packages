@@ -1,6 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
 import { ExtendedNote, Note, TxHash } from '@aztec/circuit-types';
+import { DebugLogger } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { parseFields } from '../parse_args.js';
