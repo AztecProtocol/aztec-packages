@@ -13,7 +13,7 @@ import {
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import '@aztec/types/jest';
+import '@aztec/circuit-types/jest';
 
 import { ArchiverDataStore } from './archiver_store.js';
 

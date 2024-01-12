@@ -2,7 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js';
 import { BenchmarkingContract } from '@aztec/noir-contracts/Benchmarking';
 import { SequencerClient } from '@aztec/sequencer-client';
-import { BENCHMARK_BLOCK_SIZES } from '@aztec/types/stats';
+import { BENCHMARK_BLOCK_SIZES } from '@aztec/circuit-types/stats';
 
 import { EndToEndContext } from '../fixtures/utils.js';
 import { benchmarkSetup, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';

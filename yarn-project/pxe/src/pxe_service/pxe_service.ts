@@ -53,7 +53,7 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
-import { TxPXEProcessingStats } from '@aztec/types/stats';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

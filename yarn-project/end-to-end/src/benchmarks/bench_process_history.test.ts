@@ -6,7 +6,7 @@ import {
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
   NodeSyncedChainHistoryStats,
-} from '@aztec/types/stats';
+} from '@aztec/circuit-types/stats';
 
 import { EndToEndContext } from '../fixtures/utils.js';
 import {

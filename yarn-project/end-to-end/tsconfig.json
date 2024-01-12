@@ -49,7 +49,7 @@
       "path": "../sequencer-client"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     },
     {
       "path": "../world-state"

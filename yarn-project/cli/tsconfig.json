@@ -28,7 +28,7 @@
       "path": "../noir-contracts"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     }
   ],
   "include": ["src"],

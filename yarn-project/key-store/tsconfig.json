@@ -16,7 +16,7 @@
       "path": "../kv-store"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     }
   ],
   "include": ["src"]

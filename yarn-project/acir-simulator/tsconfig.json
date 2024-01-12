@@ -13,7 +13,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     },
     {
       "path": "../merkle-tree"

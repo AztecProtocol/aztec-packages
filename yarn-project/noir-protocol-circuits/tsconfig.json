@@ -19,7 +19,7 @@
       "path": "../merkle-tree"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     }
   ],
   "include": ["src", "src/**/*.json"],

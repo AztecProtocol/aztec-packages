@@ -13,7 +13,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executeInit, executeInner, executeOrdering } from '@aztec/noir-protocol-circuits';
-import { CircuitSimulationStats } from '@aztec/types/stats';
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.

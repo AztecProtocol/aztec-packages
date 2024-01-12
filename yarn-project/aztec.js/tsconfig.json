@@ -16,7 +16,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     }
   ],
   "include": ["src", "src/**/*.json"]

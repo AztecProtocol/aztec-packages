@@ -28,7 +28,7 @@ import {
   TxAddedToPoolStats,
   TxPXEProcessingStats,
   TxSequencerProcessingStats,
-} from '@aztec/types/stats';
+} from '@aztec/circuit-types/stats';
 
 import * as fs from 'fs';
 import { mkdirpSync } from 'fs-extra';

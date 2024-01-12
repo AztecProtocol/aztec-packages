@@ -13,7 +13,7 @@ import {
   MerkleTreeId,
   TxHash,
 } from '@aztec/circuit-types';
-import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
+import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';

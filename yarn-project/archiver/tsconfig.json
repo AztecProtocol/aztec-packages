@@ -19,7 +19,7 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../types"
+      "path": "../circuit-types"
     }
   ],
   "include": ["src"]
