@@ -26,11 +26,11 @@ describe('interpreter', () => {
 
     const context = new AvmMachineState(calldata);
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
-    const success = interpreter.run();
+    const avmReturnData = interpreter.run();
 
-    expect(success).toBe(true);
+    expect(avmReturnData.reverted).toBe(false);
 
-    const returnData = interpreter.returnData();
+    const returnData = avmReturnData.output;
     expect(returnData.length).toBe(1);
     expect(returnData).toEqual([new Fr(3)]);
   });
