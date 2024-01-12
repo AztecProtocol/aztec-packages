@@ -1,5 +1,3 @@
-import { EthAddress, Fr } from '@aztec/circuits.js';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   ContractData,
   EncodedContractFunction,
@@ -8,7 +6,9 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { EthAddress, Fr } from '@aztec/circuits.js';
+import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import { Archiver } from './archiver.js';
 

@@ -1,8 +1,3 @@
-import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 import {
   AztecNode,
   ContractData,
@@ -16,7 +11,12 @@ import {
   SiblingPath,
   Tx,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.

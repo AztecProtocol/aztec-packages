@@ -1,3 +1,4 @@
+import { Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -38,7 +39,6 @@ import {
   TestContractArtifact,
   TokenContractArtifact,
 } from '@aztec/noir-contracts';
-import { Note, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -581,9 +581,8 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: Fr.ZERO,
+          startSideEffectCounter: 2,
         }),
-        sideEffectCounter: 0,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();

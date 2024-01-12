@@ -1,6 +1,6 @@
-import { PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
+import { EthAddress, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
 
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';
@@ -92,6 +92,15 @@ export class AccountManager {
    */
   public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
     const address = await this.#register();
+
+    await this.pxe.addContracts([
+      {
+        artifact: this.accountContract.getContractArtifact(),
+        completeAddress: address,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+
     await waitForAccountSynch(this.pxe, address, opts);
     return this.getWallet();
   }

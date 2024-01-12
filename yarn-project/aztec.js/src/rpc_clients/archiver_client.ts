@@ -1,5 +1,3 @@
-import { EthAddress, Fr } from '@aztec/circuits.js';
-import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   ContractData,
   ContractDataSource,
@@ -12,7 +10,9 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { EthAddress, Fr } from '@aztec/circuits.js';
+import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 export const createArchiverClient = (
   url: string,

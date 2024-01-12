@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/circuit-types';
 import { init } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
