@@ -125,6 +125,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-compile-acir-tests 32
 
+  noir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "test"
+          command: cond_spot_run_build noir-tests 32
+
   # Barretenberg
   barretenberg-wasm-linux-clang:
     docker:
@@ -1107,6 +1118,7 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
+      - noir-tests: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest

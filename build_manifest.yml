@@ -37,6 +37,12 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
+noir-tests:
+  buildDir: noir
+  dockerfile: Dockerfile.ci
+  dependencies:
+    - noir
+
 noir-compile-acir-tests:
   buildDir: noir/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
