@@ -14,7 +14,6 @@ import {
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
 import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
-import { CompiledCircuit } from '@noir-lang/types';
 
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
