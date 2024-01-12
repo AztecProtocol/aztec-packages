@@ -48,6 +48,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",

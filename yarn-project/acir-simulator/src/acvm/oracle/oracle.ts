@@ -1,10 +1,10 @@
+import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { RETURN_VALUES_LENGTH } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/types';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToNumber, fromACVMField } from '../deserialize.js';
@@ -269,7 +269,7 @@ export class Oracle {
     const logPayload = Buffer.concat(message.map(charBuffer => Fr.fromString(charBuffer).toBuffer().subarray(-1)));
     const log = new UnencryptedL2Log(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(fromACVMField(eventSelector)), // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632
+      EventSelector.fromField(fromACVMField(eventSelector)),
       logPayload,
     );
 

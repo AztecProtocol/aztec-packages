@@ -1,3 +1,4 @@
+import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -40,7 +41,6 @@ import {
   StateReference,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeTuple,
 } from '@aztec/circuits.js';
 import {
   computeBlockHash,
@@ -48,13 +48,12 @@ import {
   computeContractLeaf,
   computeGlobalsHash,
 } from '@aztec/circuits.js/abis';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength } from '@aztec/foundation/serialize';
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/types';
+import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';

@@ -161,6 +161,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in);
 
     FF compute_poseidon2_external_identity(FF q_poseidon2_external_value,
                                            FF q_1_value,
@@ -193,6 +194,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     bool check_circuit();
 };
-extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
 using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
 } // namespace proof_system
