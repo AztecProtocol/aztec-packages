@@ -1,9 +1,9 @@
 import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { Opcode } from './opcode.js';
+import { Instruction } from './instruction.js';
 
 /** - */
-export class Return implements Opcode {
+export class Return implements Instruction {
   static type: string = 'RETURN';
   static numberOfOperands = 2;
 

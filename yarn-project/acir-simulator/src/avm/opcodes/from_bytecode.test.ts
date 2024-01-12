@@ -1,6 +1,6 @@
 import { Add, Sub } from './arithmetic.js';
 import { OPCODE_BYTE_LENGTH, OPERAND_BTYE_LENGTH, interpretBytecode } from './from_bytecode.js';
-import { Opcode } from './opcode.js';
+import { Instruction } from './instruction.js';
 
 describe('Avm Interpreter', () => {
   const toByte = (num: number): Buffer => {
@@ -28,9 +28,9 @@ describe('Avm Interpreter', () => {
     const cs = to4Byte(c);
     const bytecode = Buffer.concat([ops, as, bs, cs, ops2, as, bs, cs]);
 
-    const expectedOpcodes: Opcode[] = [new Add(a, b, c), new Sub(a, b, c)];
+    const expectedInstructions: Instruction[] = [new Add(a, b, c), new Sub(a, b, c)];
 
-    const opcodes = interpretBytecode(bytecode);
-    expect(opcodes).toEqual(expectedOpcodes);
+    const instructions = interpretBytecode(bytecode);
+    expect(instructions).toEqual(expectedInstructions);
   });
 });

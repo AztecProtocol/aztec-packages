@@ -1,12 +1,10 @@
 import { Add, Mul, Sub } from './arithmetic.js';
-import { Opcode } from './opcode.js';
+import { Instruction } from './instruction.js';
 
 export const OPERAND_BIT_LENGTH = 32;
 export const OPERAND_BTYE_LENGTH = 4;
 export const OPCODE_BIT_LENGTH = 8;
 export const OPCODE_BYTE_LENGTH = 1;
-
-
 
 const OPERANDS_LOOKUP: { [key: number]: number } = {
   0x1: Add.numberOfOperands,
@@ -21,7 +19,7 @@ const OPERANDS_LOOKUP: { [key: number]: number } = {
  * @param opcode - Opcode value
  * @param operands - Array of operands
  */
-function opcodeLookup(opcode: number, operands: number[]): Opcode {
+function instructionLookup(opcode: number, operands: number[]): Instruction {
   switch (opcode) {
     case 0x1:
       return new Add(operands[0], operands[1], operands[2]);
@@ -35,15 +33,15 @@ function opcodeLookup(opcode: number, operands: number[]): Opcode {
 }
 
 /**
- * Convert a buffer of bytecode into an array of opcodes
+ * Convert a buffer of bytecode into an array of instructions
  * @param bytecode - Buffer of bytecode
- * @returns Bytecode interpreted into an ordered array of Opcodes
+ * @returns Bytecode interpreted into an ordered array of Instructions
  */
-export function interpretBytecode(bytecode: Buffer): Opcode[] {
+export function interpretBytecode(bytecode: Buffer): Instruction[] {
   let readPtr = 0;
   const bytecodeLength = bytecode.length;
 
-  const opcodes: Opcode[] = [];
+  const instructions: Instruction[] = [];
 
   while (readPtr < bytecodeLength) {
     const opcode = bytecode[readPtr];
@@ -57,8 +55,8 @@ export function interpretBytecode(bytecode: Buffer): Opcode[] {
       operands.push(operand);
     }
 
-    opcodes.push(opcodeLookup(opcode, operands));
+    instructions.push(instructionLookup(opcode, operands));
   }
 
-  return opcodes;
+  return instructions;
 }

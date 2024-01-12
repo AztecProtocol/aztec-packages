@@ -1,10 +1,10 @@
 import { Fr } from "@aztec/foundation/fields";
 import { AvmContext } from "../avm_context.js";
 import { AvmStateManager } from "../avm_state_manager.js";
-import { Opcode } from "./opcode.js";
+import { Instruction } from "./instruction.js";
 
 /** -*/
-export class Eq implements Opcode {
+export class Eq implements Instruction {
   static type: string = 'EQ';
   static numberOfOperands = 3;
 
@@ -19,7 +19,7 @@ export class Eq implements Opcode {
   }
 }
 /** -*/
-export class Lt implements Opcode {
+export class Lt implements Instruction {
   static type: string = 'Lt';
   static numberOfOperands = 3;
 
@@ -35,7 +35,7 @@ export class Lt implements Opcode {
 }
 
 /** -*/
-export class Lte implements Opcode {
+export class Lte implements Instruction {
   static type: string = 'LTE';
   static numberOfOperands = 3;
 

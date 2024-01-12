@@ -7,15 +7,15 @@ import { AvmStateManager } from '../avm_state_manager.js';
 import { Add } from '../opcodes/arithmetic.js';
 import { Return } from '../opcodes/control_flow.js';
 import { CallDataCopy } from '../opcodes/memory.js';
-import { Opcode } from '../opcodes/opcode.js';
+import { Instruction } from '../opcodes/instruction.js';
 import { AvmInterpreter } from './interpreter.js';
 
 describe('interpreter', () => {
-  it('Should execute a series of opcodes', () => {
+  it('Should execute a series of instructions', () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const stateManager = mock<AvmStateManager>();
 
-    const opcodes: Opcode[] = [
+    const instructions: Instruction[] = [
       // Copy the first two elements of the calldata to memory regions 0 and 1
       new CallDataCopy(0, 2, 0),
       // Add the two together and store the result in memory region 2
@@ -25,7 +25,7 @@ describe('interpreter', () => {
     ];
 
     const context = new AvmContext(calldata);
-    const interpreter = new AvmInterpreter(context, stateManager, opcodes);
+    const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const success = interpreter.run();
 
     expect(success).toBe(true);

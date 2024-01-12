@@ -2,11 +2,11 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { Opcode } from './opcode.js';
+import { Instruction } from './instruction.js';
 
 
 /** - */
-export class And implements Opcode {
+export class And implements Instruction {
   static type: string = 'AND';
   static numberOfOperands = 3;
 
@@ -22,7 +22,7 @@ export class And implements Opcode {
 }
 
 /** - */
-export class Or implements Opcode {
+export class Or implements Instruction {
   static type: string = 'OR';
   static numberOfOperands = 3;
 
@@ -38,7 +38,7 @@ export class Or implements Opcode {
 }
 
 /** - */
-export class Xor implements Opcode {
+export class Xor implements Instruction {
   static type: string = 'XOR';
   static numberOfOperands = 3;
 
@@ -54,7 +54,7 @@ export class Xor implements Opcode {
 }
 
 /** - */
-export class Not implements Opcode {
+export class Not implements Instruction {
   static type: string = 'NOT';
   static numberOfOperands = 2;
 
@@ -70,7 +70,7 @@ export class Not implements Opcode {
 
 
 /** -*/
-export class Shl implements Opcode {
+export class Shl implements Instruction {
   static type: string = 'SHL';
   static numberOfOperands = 3;
 
@@ -86,7 +86,7 @@ export class Shl implements Opcode {
 }
 
 /** -*/
-export class Shr implements Opcode {
+export class Shr implements Instruction {
   static type: string = 'SHR';
   static numberOfOperands = 3;
 

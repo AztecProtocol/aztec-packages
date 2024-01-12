@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { AvmContext } from '../avm_context.js';
 import { AvmStateManager } from '../avm_state_manager.js';
-import { Opcode } from '../opcodes/index.js';
+import { Instruction } from '../opcodes/index.js';
 
 /**
  * Avm Interpreter
@@ -11,14 +11,14 @@ import { Opcode } from '../opcodes/index.js';
  * Executes an Avm context
  */
 export class AvmInterpreter {
-  private opcodes: Opcode[] = [];
+  private instructions: Instruction[] = [];
   private context: AvmContext;
   private stateManager: AvmStateManager;
 
-  constructor(context: AvmContext, stateManager: AvmStateManager, bytecode: Opcode[]) {
+  constructor(context: AvmContext, stateManager: AvmStateManager, bytecode: Instruction[]) {
     this.context = context;
     this.stateManager = stateManager;
-    this.opcodes = bytecode;
+    this.instructions = bytecode;
   }
 
   /**
@@ -29,8 +29,8 @@ export class AvmInterpreter {
    */
   run(): boolean {
     try {
-      for (const opcode of this.opcodes) {
-        opcode.execute(this.context, this.stateManager);
+      for (const instruction of this.instructions) {
+        instruction.execute(this.context, this.stateManager);
       }
 
       return true;

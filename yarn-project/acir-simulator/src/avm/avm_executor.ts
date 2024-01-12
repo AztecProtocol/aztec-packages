@@ -4,7 +4,7 @@ import { AvmContext } from './avm_context.js';
 import { AvmStateManager } from './avm_state_manager.js';
 import { AvmInterpreter } from './interpreter/index.js';
 import { interpretBytecode } from './opcodes/from_bytecode.js';
-import { Opcode } from './opcodes/opcode.js';
+import { Instruction } from './opcodes/index.js';
 
 /**
  * Avm Executor manages the execution of the AVM
@@ -33,10 +33,10 @@ export class AvmExecutor {
     // const bytecode = stateManager.journal.hostStorage.contractsDb.getBytecode(contractAddress);
     const bytecode = Buffer.from('0x01000100020003');
 
-    const opcodes: Opcode[] = interpretBytecode(bytecode);
+    const instructions: Instruction[] = interpretBytecode(bytecode);
 
     const context = new AvmContext(calldata);
-    const interpreter = new AvmInterpreter(context, this.stateManager, opcodes);
+    const interpreter = new AvmInterpreter(context, this.stateManager, instructions);
 
     // TODO: combine the two?
     interpreter.run();
