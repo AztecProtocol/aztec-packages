@@ -12,7 +12,7 @@ import {
   LogType,
   MerkleTreeId,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';

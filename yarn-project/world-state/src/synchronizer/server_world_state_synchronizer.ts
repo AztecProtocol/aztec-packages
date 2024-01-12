@@ -1,7 +1,7 @@
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
+import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/circuit-types';
 import { L2BlockHandledStats } from '@aztec/types/stats';
 
 import { LevelUp } from 'levelup';

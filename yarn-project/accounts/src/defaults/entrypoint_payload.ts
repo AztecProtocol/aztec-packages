@@ -1,7 +1,7 @@
 import { Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/types';
+import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
 
 // These must match the values defined in yarn-project/aztec-nr/aztec/src/entrypoint.nr
 const ACCOUNT_MAX_CALLS = 4;

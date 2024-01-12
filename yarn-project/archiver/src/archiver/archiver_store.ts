@@ -13,7 +13,7 @@ import {
   LogType,
   PendingL1ToL2Message,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data

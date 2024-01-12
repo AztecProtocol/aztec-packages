@@ -1,5 +1,5 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Hasher } from '@aztec/types';
+import { Hasher } from '@aztec/circuit-types';
 
 /**
  * A helper class encapsulating Pedersen hash functionality.

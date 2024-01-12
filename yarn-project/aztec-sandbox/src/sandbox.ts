@@ -22,7 +22,7 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecNode } from '@aztec/types';
+import { AztecNode } from '@aztec/circuit-types';
 
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';

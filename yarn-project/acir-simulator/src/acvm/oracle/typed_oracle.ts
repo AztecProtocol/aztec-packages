@@ -11,7 +11,7 @@ import {
   PublicDataWitness,
   PublicKey,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 /**
  * Information about a note needed during execution.

@@ -1,6 +1,6 @@
 import { EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/types';
+import { PXE, PublicKey, Tx, TxHash, TxReceipt } from '@aztec/circuit-types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 

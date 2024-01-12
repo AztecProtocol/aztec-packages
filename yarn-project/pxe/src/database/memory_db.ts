@@ -2,7 +2,7 @@ import { BlockHeader, CompleteAddress, PublicKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, NoteFilter } from '@aztec/types';
+import { MerkleTreeId, NoteFilter } from '@aztec/circuit-types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { DeferredNoteDao } from './deferred_note_dao.js';

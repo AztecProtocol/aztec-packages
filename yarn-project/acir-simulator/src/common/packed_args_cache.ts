@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
-import { PackedArguments } from '@aztec/types';
+import { PackedArguments } from '@aztec/circuit-types';
 
 /**
  * A cache for packed arguments during transaction execution.

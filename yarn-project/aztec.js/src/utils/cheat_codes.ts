@@ -2,7 +2,7 @@ import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Note, PXE } from '@aztec/types';
+import { Note, PXE } from '@aztec/circuit-types';
 
 import fs from 'fs';
 

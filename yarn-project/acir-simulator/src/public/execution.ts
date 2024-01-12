@@ -11,7 +11,7 @@ import {
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
-import { FunctionL2Logs } from '@aztec/types';
+import { FunctionL2Logs } from '@aztec/circuit-types';
 
 /**
  * The public function execution result.

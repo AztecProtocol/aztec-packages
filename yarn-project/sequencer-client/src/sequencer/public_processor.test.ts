@@ -35,7 +35,7 @@ import {
   Tx,
   TxL2Logs,
   mockTx,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';

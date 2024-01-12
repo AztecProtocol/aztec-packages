@@ -52,7 +52,7 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/types/stats';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';

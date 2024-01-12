@@ -20,7 +20,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import http from 'http';
 import { foundry } from 'viem/chains';

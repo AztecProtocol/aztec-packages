@@ -23,7 +23,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { AztecNode, ContractDao, MerkleTreeId, PublicKey, StateInfoProvider } from '@aztec/types';
+import { AztecNode, ContractDao, MerkleTreeId, PublicKey, StateInfoProvider } from '@aztec/circuit-types';
 
 /**
  * The ContractTree class represents a Merkle tree of functions for a particular contract.

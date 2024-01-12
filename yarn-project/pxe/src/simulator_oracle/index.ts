@@ -17,7 +17,7 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   StateInfoProvider,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';

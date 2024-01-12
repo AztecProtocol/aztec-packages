@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/types';
+import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 
 import {
   TypedOracle,

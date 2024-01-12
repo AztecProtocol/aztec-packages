@@ -18,7 +18,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { Wallet } from '../account/wallet.js';
 

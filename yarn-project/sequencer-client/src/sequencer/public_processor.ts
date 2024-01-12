@@ -45,7 +45,7 @@ import { arrayNonEmptyLength, isArrayEmpty, padArrayEnd } from '@aztec/foundatio
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
+import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/types/stats';
 import { MerkleTreeOperations } from '@aztec/world-state';
 

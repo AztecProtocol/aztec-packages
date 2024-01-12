@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { Note } from '@aztec/types';
+import { Note } from '@aztec/circuit-types';
 
 import { SortOrder, pickNotes } from './pick_notes.js';
 

@@ -47,7 +47,7 @@ import {
   SiblingPath,
   Tx,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,

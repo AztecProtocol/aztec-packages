@@ -24,7 +24,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 

@@ -19,7 +19,7 @@ import {
   PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { Database, RangeOptions, RootDatabase } from 'lmdb';
 

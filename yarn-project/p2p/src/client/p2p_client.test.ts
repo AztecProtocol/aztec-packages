@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/circuits.js';
 import { AztecKVStore, AztecLmdbStore } from '@aztec/kv-store';
-import { L2BlockSource, mockTx } from '@aztec/types';
+import { L2BlockSource, mockTx } from '@aztec/circuit-types';
 
 import { expect, jest } from '@jest/globals';
 

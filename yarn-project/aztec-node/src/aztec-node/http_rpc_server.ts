@@ -16,7 +16,7 @@ import {
   SiblingPath,
   Tx,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.

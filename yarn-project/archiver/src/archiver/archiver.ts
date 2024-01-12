@@ -22,7 +22,7 @@ import {
   LogFilter,
   LogType,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import omit from 'lodash.omit';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';

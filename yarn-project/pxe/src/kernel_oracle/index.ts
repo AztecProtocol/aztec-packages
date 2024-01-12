@@ -1,6 +1,6 @@
 import { AztecAddress, Fr, FunctionSelector, MembershipWitness, NOTE_HASH_TREE_HEIGHT } from '@aztec/circuits.js';
 import { Tuple } from '@aztec/foundation/serialize';
-import { AztecNode, MerkleTreeId } from '@aztec/types';
+import { AztecNode, MerkleTreeId } from '@aztec/circuit-types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';

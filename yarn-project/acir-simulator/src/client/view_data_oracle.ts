@@ -11,7 +11,7 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   PublicDataWitness,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';

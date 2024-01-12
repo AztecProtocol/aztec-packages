@@ -12,7 +12,7 @@ import {
   PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 import '@aztec/types/jest';
 
 import { ArchiverDataStore } from './archiver_store.js';

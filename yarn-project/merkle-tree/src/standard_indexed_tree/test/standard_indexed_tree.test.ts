@@ -6,7 +6,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Hasher, SiblingPath } from '@aztec/types';
+import { Hasher, SiblingPath } from '@aztec/circuit-types';
 
 import { default as levelup } from 'levelup';
 

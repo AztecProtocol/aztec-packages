@@ -6,7 +6,7 @@ import {
   PublicKernelPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/types';
+import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/circuit-types';
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,

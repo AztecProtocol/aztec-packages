@@ -1,7 +1,7 @@
 import { generatePublicKey } from '@aztec/aztec.js';
 import { AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { PXE } from '@aztec/types';
+import { PXE } from '@aztec/circuit-types';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
 

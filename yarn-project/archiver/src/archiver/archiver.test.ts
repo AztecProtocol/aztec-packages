@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
+import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';

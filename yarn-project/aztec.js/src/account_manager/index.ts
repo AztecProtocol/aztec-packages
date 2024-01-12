@@ -1,6 +1,6 @@
 import { EthAddress, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
+import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
 
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';

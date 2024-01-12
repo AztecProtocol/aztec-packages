@@ -1,7 +1,7 @@
 import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { DebugLogger } from '@aztec/foundation/log';
-import { ContractDao, ContractDatabase } from '@aztec/types';
+import { ContractDao, ContractDatabase } from '@aztec/circuit-types';
 
 /**
  * The MemoryContractDatabase class serves as an in-memory implementation of the ContractDatabase interface.

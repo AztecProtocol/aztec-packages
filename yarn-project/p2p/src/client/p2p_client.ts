@@ -8,7 +8,7 @@ import {
   L2BlockSource,
   Tx,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { getP2PConfigEnvVars } from '../config.js';
 import { P2PService } from '../service/service.js';

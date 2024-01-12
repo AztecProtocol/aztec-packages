@@ -7,7 +7,7 @@
 import { AccountManager, Salt } from '@aztec/aztec.js/account';
 import { AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { AztecAddress } from '@aztec/circuits.js';
-import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
+import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
 
 import { SingleKeyAccountContract } from './account_contract.js';
 

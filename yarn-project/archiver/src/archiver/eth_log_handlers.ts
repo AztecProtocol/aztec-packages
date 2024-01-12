@@ -13,7 +13,7 @@ import {
   L2Actor,
   L2Block,
   PendingL1ToL2Message,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 

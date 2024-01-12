@@ -17,7 +17,7 @@ import {
   L2BlockL2Logs,
   Note,
   TxL2Logs,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';

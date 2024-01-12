@@ -3,7 +3,7 @@ import { FunctionArtifact, FunctionDebugMetadata, FunctionSelector } from '@azte
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/types';
+import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
 
 import { NoteData } from '../acvm/index.js';
 import { CommitmentsDB } from '../public/db.js';

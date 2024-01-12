@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/types';
+import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 

@@ -16,7 +16,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { Pedersen, StandardTree } from '@aztec/merkle-tree';
-import { MerkleTreeId } from '@aztec/types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 
 import { default as levelup } from 'levelup';
 import memdown from 'memdown';

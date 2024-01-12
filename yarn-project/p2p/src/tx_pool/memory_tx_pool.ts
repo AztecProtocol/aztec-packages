@@ -1,5 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tx, TxHash } from '@aztec/types';
+import { Tx, TxHash } from '@aztec/circuit-types';
 import { TxAddedToPoolStats } from '@aztec/types/stats';
 
 import { TxPool } from './tx_pool.js';

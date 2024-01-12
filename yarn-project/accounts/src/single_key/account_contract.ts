@@ -4,7 +4,7 @@ import { PartialAddress } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { AuthWitness, CompleteAddress, GrumpkinPrivateKey } from '@aztec/types';
+import { AuthWitness, CompleteAddress, GrumpkinPrivateKey } from '@aztec/circuit-types';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
 import { SchnorrSingleKeyAccountContractArtifact } from './artifact.js';

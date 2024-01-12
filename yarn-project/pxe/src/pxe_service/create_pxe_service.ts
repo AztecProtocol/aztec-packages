@@ -1,7 +1,7 @@
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
-import { AztecNode } from '@aztec/types';
+import { AztecNode } from '@aztec/circuit-types';
 
 import { join } from 'path';
 

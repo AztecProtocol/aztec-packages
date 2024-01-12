@@ -21,7 +21,7 @@ import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
-import { FunctionL2Logs, Note } from '@aztec/types';
+import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 
 import { mock } from 'jest-mock-extended';
 

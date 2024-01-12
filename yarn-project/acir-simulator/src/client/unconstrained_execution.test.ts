@@ -3,7 +3,7 @@ import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts/StatefulTest';
-import { FunctionCall, Note } from '@aztec/types';
+import { FunctionCall, Note } from '@aztec/circuit-types';
 
 import { mock } from 'jest-mock-extended';
 
