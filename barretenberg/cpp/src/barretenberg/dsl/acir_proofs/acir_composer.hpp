@@ -1,7 +1,6 @@
 #pragma once
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
 #include <barretenberg/goblin/goblin.hpp>
-#include <barretenberg/proof_system/op_queue/ecc_op_queue.hpp>
 
 namespace acir_proofs {
 
