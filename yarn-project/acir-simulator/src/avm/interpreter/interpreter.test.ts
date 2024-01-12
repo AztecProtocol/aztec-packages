@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
-import { AvmContext } from '../avm_context.js';
+import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Add } from '../opcodes/arithmetic.js';
 import { Return } from '../opcodes/control_flow.js';
@@ -24,7 +24,7 @@ describe('interpreter', () => {
       new Return(2, 1), // [3]
     ];
 
-    const context = new AvmContext(calldata);
+    const context = new AvmMachineState(calldata);
     const interpreter = new AvmInterpreter(context, stateManager, instructions);
     const success = interpreter.run();
 

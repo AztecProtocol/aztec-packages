@@ -1,5 +1,5 @@
 import { Fr } from "@aztec/foundation/fields";
-import { AvmContext } from "../avm_context.js";
+import { AvmMachineState } from "../avm_machine_state.js";
 import { AvmStateManager } from "../avm_state_manager.js";
 import { Instruction } from "./instruction.js";
 
@@ -10,12 +10,12 @@ export class Eq implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a: Fr = context.readMemory(this.aOffset);
-    const b: Fr = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a: Fr = machineState.readMemory(this.aOffset);
+    const b: Fr = machineState.readMemory(this.bOffset);
 
     const dest = new Fr(a.toBigInt() == b.toBigInt());
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 /** -*/
@@ -25,12 +25,12 @@ export class Lt implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a: Fr = context.readMemory(this.aOffset);
-    const b: Fr = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a: Fr = machineState.readMemory(this.aOffset);
+    const b: Fr = machineState.readMemory(this.bOffset);
 
     const dest = new Fr(a.toBigInt() < b.toBigInt());
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
@@ -41,11 +41,11 @@ export class Lte implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a: Fr = context.readMemory(this.aOffset);
-    const b: Fr = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a: Fr = machineState.readMemory(this.aOffset);
+    const b: Fr = machineState.readMemory(this.bOffset);
 
     const dest = new Fr(a.toBigInt() < b.toBigInt());
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }

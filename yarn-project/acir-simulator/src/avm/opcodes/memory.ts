@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { AvmContext } from '../avm_context.js';
+import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
@@ -11,9 +11,9 @@ export class Set implements Instruction {
 
   constructor(private constt: bigint, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const dest = new Fr(this.constt);
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
@@ -25,10 +25,10 @@ export class Cast implements Instruction {
 
   constructor(private aOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a = context.readMemory(this.aOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a = machineState.readMemory(this.aOffset);
 
-    context.writeMemory(this.destOffset, a);
+    machineState.writeMemory(this.destOffset, a);
   }
 }
 
@@ -39,10 +39,10 @@ export class Mov implements Instruction {
 
   constructor(private aOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a = context.readMemory(this.aOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a = machineState.readMemory(this.aOffset);
 
-    context.writeMemory(this.destOffset, a);
+    machineState.writeMemory(this.destOffset, a);
   }
 }
 
@@ -53,8 +53,8 @@ export class CallDataCopy implements Instruction {
 
   constructor(private cdOffset: number, private copySize: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const calldata = context.calldata.slice(this.cdOffset, this.cdOffset + this.copySize);
-    context.writeMemoryChunk(this.destOffset, calldata);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const calldata = machineState.calldata.slice(this.cdOffset, this.cdOffset + this.copySize);
+    machineState.writeMemoryChunk(this.destOffset, calldata);
   }
 }

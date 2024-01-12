@@ -1,79 +1,44 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { AvmMachineState } from './avm_machine_state.js';
+import { AvmStateManager } from './avm_state_manager.js';
+import { AvmInterpreter } from './interpreter/index.js';
+import { interpretBytecode } from './opcodes/from_bytecode.js';
+import { Instruction } from './opcodes/index.js';
+import { AvmMessageCallResult } from './avm_message_call_result.js';
+
 /**
- * Store's data for an Avm execution frame
+ * Avm Executor manages the execution of the AVM
+ *
+ * It stores a state manager
  */
 export class AvmContext {
-  /** - */
-  public readonly calldata: Fr[];
-  private returnData: Fr[];
+  private stateManager: AvmStateManager;
 
-  // TODO: implement tagged memory
-  /** - */
-  public memory: Fr[];
-
-  /** - */
-  public pc: number;
-  /** - */
-  public callStack: number[];
+  constructor(stateManager: AvmStateManager) {
+    this.stateManager = stateManager;
+  }
 
   /**
-   * Create a new avm context
+   * Call a contract with the given calldata
+   *
+   * - We get the contract from storage
+   * - We interpret the bytecode
+   * - We run the interpreter
+   *
+   * @param contractAddress -
    * @param calldata -
    */
-  constructor(calldata: Fr[]) {
-    this.calldata = calldata;
-    this.returnData = [];
-    this.memory = [];
+  public call(contractAddress: Fr, calldata: Fr[]): AvmMessageCallResult {
+    // NOTE: the following is mocked as getPublicBytecode does not exist yet
+    // const bytecode = stateManager.journal.hostStorage.contractsDb.getBytecode(contractAddress);
+    const bytecode = Buffer.from('0x01000100020003');
 
-    this.pc = 0;
-    this.callStack = [];
-  }
+    const instructions: Instruction[] = interpretBytecode(bytecode);
 
-  /**
-   * Return data must NOT be modified once it is set
-   * @param returnData -
-   */
-  public setReturnData(returnData: Fr[]) {
-    this.returnData = returnData;
-    Object.freeze(returnData);
-  }
+    const context = new AvmMachineState(calldata);
+    const interpreter = new AvmInterpreter(context, this.stateManager, instructions);
 
-  /** - */
-  public getReturnData(): Fr[] {
-    return this.returnData;
-  }
-
-  /** -
-   * @param offset -
-   */
-  public readMemory(offset: number): Fr {
-    // TODO: check offset is within bounds
-    return this.memory[offset] ?? Fr.ZERO;
-  }
-
-  /** -
-   * @param offset -
-   * @param size -
-   */
-  public readMemoryChunk(offset: number, size: number): Fr[] {
-    // TODO: bounds -> initialise to 0
-    return this.memory.slice(offset, offset + size);
-  }
-
-  /** -
-   * @param offset -
-   * @param value -
-   */
-  public writeMemory(offset: number, value: Fr): void {
-    this.memory[offset] = value;
-  }
-
-  /** -
-   * @param offset -
-   * @param values -
-   */
-  public writeMemoryChunk(offset: number, values: Fr[]): void {
-    this.memory.splice(offset, values.length, ...values);
+    return interpreter.run();
   }
 }

@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { AvmContext } from '../avm_context.js';
+import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
@@ -11,12 +11,12 @@ export class Add implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a = context.readMemory(this.aOffset);
-    const b = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a = machineState.readMemory(this.aOffset);
+    const b = machineState.readMemory(this.bOffset);
 
     const dest = new Fr(a.toBigInt() + (b.toBigInt() % Fr.MODULUS));
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
@@ -27,12 +27,12 @@ export class Sub implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a = context.readMemory(this.aOffset);
-    const b = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a = machineState.readMemory(this.aOffset);
+    const b = machineState.readMemory(this.bOffset);
 
     const dest = new Fr(a.toBigInt() - (b.toBigInt() % Fr.MODULUS));
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
@@ -43,12 +43,12 @@ export class Mul implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a: Fr = context.readMemory(this.aOffset);
-    const b: Fr = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a: Fr = machineState.readMemory(this.aOffset);
+    const b: Fr = machineState.readMemory(this.bOffset);
 
     const dest = new Fr((a.toBigInt() * b.toBigInt()) % Fr.MODULUS);
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
@@ -59,13 +59,13 @@ export class Div implements Instruction {
 
   constructor(private aOffset: number, private bOffset: number, private destOffset: number) {}
 
-  execute(context: AvmContext, _stateManager: AvmStateManager): void {
-    const a: Fr = context.readMemory(this.aOffset);
-    const b: Fr = context.readMemory(this.bOffset);
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const a: Fr = machineState.readMemory(this.aOffset);
+    const b: Fr = machineState.readMemory(this.bOffset);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3993): proper field division
     const dest = new Fr(a.toBigInt() / b.toBigInt());
-    context.writeMemory(this.destOffset, dest);
+    machineState.writeMemory(this.destOffset, dest);
   }
 }
 
