@@ -94,8 +94,11 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
 
-    Timer proof_timer;
+    Timer pk_timer;
     acir_composer.init_proving_key();
+    write_benchmark("pk_construction_time", pk_timer.milliseconds(), "acir_test", current_dir);
+
+    Timer proof_timer;
     auto proof = acir_composer.create_proof(recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
