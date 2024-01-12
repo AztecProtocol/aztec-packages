@@ -21,7 +21,6 @@ import {
   L2Tx,
   LogFilter,
   MerkleTreeId,
-  NodeInfo,
   NoteFilter,
   PXE,
   SimulationError,
@@ -34,6 +33,7 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
+import { NodeInfo } from '@aztec/types/interfaces';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,

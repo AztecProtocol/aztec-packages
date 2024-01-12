@@ -9,7 +9,6 @@ import {
   L2Block,
   L2Tx,
   LogFilter,
-  NodeInfo,
   NoteFilter,
   PXE,
   SyncStatus,
@@ -18,6 +17,7 @@ import {
   TxHash,
   TxReceipt,
 } from '@aztec/circuit-types';
+import { NodeInfo } from '@aztec/types/interfaces';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 
 import { Wallet } from '../account/wallet.js';
