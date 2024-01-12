@@ -56,7 +56,7 @@ export enum Opcodes {
   NOTESROOT,
   PUBLICDATAROOT,
   GLOBALSHASH,
-  BLOCKSROOT, // TODO: are these the same
+  BLOCKSROOT,
   GRANDROOT,
 
   // Call context

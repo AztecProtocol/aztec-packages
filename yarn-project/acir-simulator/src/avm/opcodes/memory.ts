@@ -17,7 +17,7 @@ export class Set implements Opcode {
   }
 }
 
-// TODO: tags are not implemented yet - this will behave as a mov
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3987): tags are not implemented yet - this will behave as a mov
 /** - */
 export class Cast implements Opcode {
   static type: string = 'CAST';

@@ -63,7 +63,7 @@ export class Div implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: proper field division
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3993): proper field division
     const dest = new Fr(a.toBigInt() / b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }
@@ -80,7 +80,6 @@ export class Eq implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: floor div? - this will not perform field division
     const dest = new Fr(a.toBigInt() == b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }
@@ -96,7 +95,6 @@ export class Lt implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: floor div? - this will not perform field division
     const dest = new Fr(a.toBigInt() < b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }
@@ -113,7 +111,6 @@ export class Lte implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: floor div? - this will not perform field division
     const dest = new Fr(a.toBigInt() < b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }
@@ -130,7 +127,6 @@ export class Shl implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: floor div? - this will not perform field division
     const dest = new Fr(a.toBigInt() << b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }
@@ -147,7 +143,6 @@ export class Shr implements Opcode {
     const a: Fr = context.readMemory(this.aOffset);
     const b: Fr = context.readMemory(this.bOffset);
 
-    // TODO: floor div? - this will not perform field division
     const dest = new Fr(a.toBigInt() >> b.toBigInt());
     context.writeMemory(this.destOffset, dest);
   }

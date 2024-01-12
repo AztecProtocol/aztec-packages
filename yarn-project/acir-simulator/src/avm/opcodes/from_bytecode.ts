@@ -6,6 +6,8 @@ export const OPERAND_BTYE_LENGTH = 4;
 export const OPCODE_BIT_LENGTH = 8;
 export const OPCODE_BYTE_LENGTH = 1;
 
+
+
 const OPERANDS_LOOKUP: { [key: number]: number } = {
   0x1: Add.numberOfOperands,
   0x2: Sub.numberOfOperands,
