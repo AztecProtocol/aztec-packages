@@ -1,6 +1,5 @@
 #include "ec_operations.hpp"
 #include "acir_format.hpp"
-// #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -23,7 +22,6 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
     // Doubling
     cycle_group_ct result = input_point.dbl();
     // add: x,y,x2,y2
-    witness_values.push_back(0);
     witness_values.push_back(g1.x);
     witness_values.push_back(g1.y);
     witness_values.push_back(g1.x);
@@ -49,13 +47,18 @@ size_t generate_ec_double_constraint(EcDouble& ec_double_constraint, WitnessVect
     cycle_group_ct input_point(g1);
     // Doubling
     cycle_group_ct result = input_point.dbl();
+    // add: x,y,x2,y2
+    uint32_t result_x_witness_index = (uint32_t)witness_values.size() + 1;
     witness_values.push_back(result.x.get_value());
+    uint32_t result_y_witness_index = (uint32_t)witness_values.size() + 1;
     witness_values.push_back(result.y.get_value());
+    info("DOUBLE");
+    info(result.x.get_value());
     ec_double_constraint = EcDouble{
         .input_x = 1,
         .input_y = 2,
-        .result_x = 7,
-        .result_y = 8,
+        .result_x = result_x_witness_index,
+        .result_y = result_y_witness_index,
     };
     return witness_values.size();
 }
@@ -91,7 +94,7 @@ TEST_F(EcOperations, TestECOperations)
     };
 
     acir_format constraint_system{
-        .varnum = static_cast<uint32_t>(num_variables),
+        .varnum = static_cast<uint32_t>(num_variables + 1),
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
@@ -115,12 +118,15 @@ TEST_F(EcOperations, TestECOperations)
     };
 
     auto builder = create_circuit_with_witness(constraint_system, witness_values);
-
     auto composer = Composer();
     auto prover = composer.create_prover(builder);
 
     auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
+    EXPECT_TRUE(builder.check_circuit());
+    // We create another builder
+    auto builder2 = create_circuit(constraint_system);
+    auto composer2 = Composer();
+    auto verifier = composer2.create_verifier(builder2);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
