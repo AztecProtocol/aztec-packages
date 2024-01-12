@@ -66,6 +66,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -238,6 +239,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -351,6 +353,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@iarna/toml": ^2.2.5
     "@jest/globals": ^29.5.0
     "@libp2p/peer-id-factory": ^3.0.4
@@ -757,6 +760,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-protocol-circuits": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/lodash.omit": ^4.5.7
@@ -847,7 +851,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/types@workspace:types"
   dependencies:
-    "@aztec/foundation": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/debug": ^4.1.7
     "@types/detect-node": ^2.0.0
