@@ -186,7 +186,7 @@ namespace aluChip(256);
     //                                   b = b_l + b_h * 2^64
     // We show that c satisfies: a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 = R * 2^128 + c
     // for a R < 2^65. Equivalently:
-    // a * b_l + a_l * b_h * 2^64 = (CF * 2^65 + R') * 2^128 + c
+    // a * b_l + a_l * b_h * 2^64 = (CF * 2^64 + R') * 2^128 + c
     // for a bit carry flag CF and R' range constrained to 64 bits.
     // We use two lines in the execution trace. First line represents a 
     // as decomposed over 16-bit registers. Second line represents b.
@@ -209,6 +209,6 @@ namespace aluChip(256);
     alu_u128_tag * alu_op_mul * (
             alu_ia * sum_shifted_64
           + sum_64 * sum_high_shifted_64 * 2**64
-          - (alu_cf * 2**65 + alu_u64_r0) * 2**128
+          - (alu_cf * 2**64 + alu_u64_r0) * 2**128
           - alu_ic
         ) = 0;

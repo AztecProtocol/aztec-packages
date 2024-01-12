@@ -98,14 +98,14 @@ Row common_validate_sub(std::vector<Row> const& trace,
     return *alu_row;
 }
 
-Row common_validate_mul(std::vector<Row> const& trace,
-                        FF const& a,
-                        FF const& b,
-                        FF const& c,
-                        FF const& addr_a,
-                        FF const& addr_b,
-                        FF const& addr_c,
-                        avm_trace::AvmMemoryTag const tag)
+size_t common_validate_mul(std::vector<Row> const& trace,
+                           FF const& a,
+                           FF const& b,
+                           FF const& c,
+                           FF const& addr_a,
+                           FF const& addr_b,
+                           FF const& addr_c,
+                           avm_trace::AvmMemoryTag const tag)
 {
     // Find the first row enabling the multiplication selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avmMini_sel_op_mul == FF(1); });
@@ -124,7 +124,7 @@ Row common_validate_mul(std::vector<Row> const& trace,
     EXPECT_EQ(row->avmMini_sel_op_mul, FF(1));
     EXPECT_EQ(alu_row->aluChip_alu_op_mul, FF(1));
 
-    return *alu_row;
+    return static_cast<size_t>(alu_row - trace.begin());
 }
 
 } // anonymous namespace
@@ -231,7 +231,8 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplication)
     trace_builder.return_op(0, 3);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::ff);
+    auto alu_row_index = common_validate_mul(trace, FF(20), FF(5), FF(100), FF(2), FF(0), FF(1), AvmMemoryTag::ff);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
@@ -250,7 +251,8 @@ TEST_F(AvmMiniArithmeticTestsFF, multiplicationByZero)
     trace_builder.return_op(0, 3);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(127), FF(0), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::ff);
+    auto alu_row_index = common_validate_mul(trace, FF(127), FF(0), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::ff);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_ff_tag, FF(1));
     EXPECT_EQ(alu_row.aluChip_alu_cf, FF(0));
@@ -478,7 +480,8 @@ TEST_F(AvmMiniArithmeticTestsU8, multiplication)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(13), FF(15), FF(195), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+    auto alu_row_index = common_validate_mul(trace, FF(13), FF(15), FF(195), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
 
@@ -500,7 +503,8 @@ TEST_F(AvmMiniArithmeticTestsU8, multiplicationOverflow)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(200), FF(170), FF(208), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+    auto alu_row_index = common_validate_mul(trace, FF(200), FF(170), FF(208), FF(0), FF(1), FF(2), AvmMemoryTag::u8);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u8_tag, FF(1));
 
@@ -612,7 +616,9 @@ TEST_F(AvmMiniArithmeticTestsU16, multiplication)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(200), FF(245), FF(49000), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+    auto alu_row_index =
+        common_validate_mul(trace, FF(200), FF(245), FF(49000), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
 
@@ -634,7 +640,8 @@ TEST_F(AvmMiniArithmeticTestsU16, multiplicationOverflow)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(512), FF(1024), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+    auto alu_row_index = common_validate_mul(trace, FF(512), FF(1024), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::u16);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u16_tag, FF(1));
 
@@ -754,8 +761,9 @@ TEST_F(AvmMiniArithmeticTestsU32, multiplication)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row =
+    auto alu_row_index =
         common_validate_mul(trace, FF(11111), FF(11111), FF(123454321), FF(0), FF(1), FF(2), AvmMemoryTag::u32);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
 
@@ -780,8 +788,9 @@ TEST_F(AvmMiniArithmeticTestsU32, multiplicationOverflow)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row =
+    auto alu_row_index =
         common_validate_mul(trace, FF(11 << 25), FF(13 << 22), FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::u32);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u32_tag, FF(1));
 
@@ -923,8 +932,9 @@ TEST_F(AvmMiniArithmeticTestsU64, multiplication)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(
+    auto alu_row_index = common_validate_mul(
         trace, FF(999888777), FF(555444333), FF(555382554814950741LLU), FF(0), FF(1), FF(2), AvmMemoryTag::u64);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
 
@@ -953,7 +963,8 @@ TEST_F(AvmMiniArithmeticTestsU64, multiplicationOverflow)
     trace_builder.return_op(2, 1);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_mul(trace, FF(a), FF(b), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::u64);
+    auto alu_row_index = common_validate_mul(trace, FF(a), FF(b), FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::u64);
+    auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.aluChip_alu_u64_tag, FF(1));
 
@@ -978,9 +989,9 @@ TEST_F(AvmMiniArithmeticTestsU64, multiplicationOverflow)
 // Test on basic addition over u128 type.
 TEST_F(AvmMiniArithmeticTestsU128, addition)
 {
-    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
-    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
-    uint128_t const c = (uint128_t(0x8888444466665555LLU) << 64) + uint128_t(0xDDDDAAAAFFFFEEEELLU);
+    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    uint128_t const b = (uint128_t{ 0x3333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
+    uint128_t const c = (uint128_t{ 0x8888444466665555LLU } << 64) + uint128_t{ 0xDDDDAAAAFFFFEEEELLU };
 
     // trace_builder
     trace_builder.set(a, 8, AvmMemoryTag::u128);
@@ -1016,10 +1027,10 @@ TEST_F(AvmMiniArithmeticTestsU128, addition)
 // Test on basic addition over u128 type with carry.
 TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
 {
-    uint128_t const a = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(72948899);
-    uint128_t const b = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177344);
+    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 72948899 };
+    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177344 };
     uint128_t const c =
-        (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177345) - uint128_t(72948899);
+        (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177345 } - uint128_t{ 72948899 };
 
     // trace_builder
     trace_builder.set(a, 8, AvmMemoryTag::u128);
@@ -1055,8 +1066,8 @@ TEST_F(AvmMiniArithmeticTestsU128, additionCarry)
 // Test on basic subtraction over u128 type.
 TEST_F(AvmMiniArithmeticTestsU128, subtraction)
 {
-    uint128_t const a = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(36177344);
-    uint128_t const b = (uint128_t(UINT64_MAX) << 64) + uint128_t(UINT64_MAX) - uint128_t(72948899);
+    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177344 };
+    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 72948899 };
     uint128_t const c = 36771555; // 72948899 - 36177344
 
     // trace_builder
@@ -1096,9 +1107,9 @@ TEST_F(AvmMiniArithmeticTestsU128, subtraction)
 // Test on basic subtraction over u128 type with carry.
 TEST_F(AvmMiniArithmeticTestsU128, subtractionCarry)
 {
-    uint128_t const a = (uint128_t(0x5555222233334444LLU) << 64) + uint128_t(0x88889999AAAABBBBLLU);
-    uint128_t const b = (uint128_t(0x3333222233331111LLU) << 64) + uint128_t(0x5555111155553333LLU);
-    uint128_t const c = (uint128_t(0x2222000000003333LLU) << 64) + uint128_t(0x3333888855558888LLU);
+    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    uint128_t const b = (uint128_t{ 0x3333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
+    uint128_t const c = (uint128_t{ 0x2222000000003333LLU } << 64) + uint128_t{ 0x3333888855558888LLU };
 
     // trace_builder
     trace_builder.set(a, 8, AvmMemoryTag::u128);
@@ -1129,6 +1140,100 @@ TEST_F(AvmMiniArithmeticTestsU128, subtractionCarry)
     EXPECT_EQ(alu_row.aluChip_alu_u16_r5, FF(0x3333));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r6, FF(0x2222));
     EXPECT_EQ(alu_row.aluChip_alu_u16_r7, FF(0x5555));
+
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on basic multiplication over u128 type.
+TEST_F(AvmMiniArithmeticTestsU128, multiplication)
+{
+    // trace_builder
+    trace_builder.set(0x38D64BF685FFBLLU, 0, AvmMemoryTag::u128);
+    trace_builder.set(0x1F92C762C98DFLLU, 1, AvmMemoryTag::u128);
+    // Integer multiplication output in HEX: 70289AEB0A7DDA0BAE60CA3A5
+    FF c{ uint256_t{ 0xA7DDA0BAE60CA3A5, 0x70289AEB0, 0, 0 } };
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u128);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row_index = common_validate_mul(
+        trace, FF(0x38D64BF685FFBLLU), FF(555444333222111LLU), c, FF(0), FF(1), FF(2), AvmMemoryTag::u128);
+    auto alu_row_first = trace.at(alu_row_index);
+
+    EXPECT_EQ(alu_row_first.aluChip_alu_u128_tag, FF(1));
+
+    // Decomposition of the first operand in 16-bit registers
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r0, FF(0x5FFB));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r1, FF(0xBF68));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r2, FF(0x8D64));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r3, FF(0x3));
+
+    // Decomposition of the second operand in 16-bit registers
+    auto alu_row_second = trace.at(alu_row_index + 1);
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r0, FF(0x98DF));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r1, FF(0x762C));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r2, FF(0xF92C));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r3, FF(0x1));
+    validate_trace_proof(std::move(trace));
+}
+
+// Test on multiplication over u128 type with overflow.
+TEST_F(AvmMiniArithmeticTestsU128, multiplicationOverflow)
+{
+    // (2^128 - 2) * (2^128 - 4) = 2^256 - 2^130 - 2^129 + 2^3
+    // The above modulo 2^128 = 8
+    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX - 1 };
+    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX - 3 };
+
+    // trace_builder
+    trace_builder.set(a, 0, AvmMemoryTag::u128);
+    trace_builder.set(b, 1, AvmMemoryTag::u128);
+
+    trace_builder.mul(0, 1, 2, AvmMemoryTag::u128);
+    trace_builder.return_op(2, 1);
+    auto trace = trace_builder.finalize();
+
+    auto alu_row_index = common_validate_mul(trace,
+                                             FF{ uint256_t::from_uint128(a) },
+                                             FF{ uint256_t::from_uint128(b) },
+                                             FF{ 8 },
+                                             FF(0),
+                                             FF(1),
+                                             FF(2),
+                                             AvmMemoryTag::u128);
+    auto alu_row_first = trace.at(alu_row_index);
+
+    EXPECT_EQ(alu_row_first.aluChip_alu_u128_tag, FF(1));
+
+    // Decomposition of the first operand in 16-bit registers
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r0, FF(0xFFFE));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_first.aluChip_alu_u16_r7, FF(UINT16_MAX));
+
+    // Decomposition of the second operand in 16-bit registers
+    auto alu_row_second = trace.at(alu_row_index + 1);
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r0, FF(0xFFFC));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r1, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r2, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r3, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r4, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r5, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r6, FF(UINT16_MAX));
+    EXPECT_EQ(alu_row_second.aluChip_alu_u16_r7, FF(UINT16_MAX));
+
+    // Other registers involved in the relevant relations
+    // PIL relation (alu_chip.pil): a * b_l + a_l * b_h * 2^64 = (CF * 2^64 + R') * 2^128 + c
+    // (2^128 - 2) * (2^64 - 4) + (2^64 - 2) * (2^64 - 1) * 2^64 =
+    // 2 * 2^192 + (- 4 - 2 - 1) * 2^128 + (-2 + 2) * 2^64 + 8 = (2^65 - 7) * 2^128 + 8
+    // Therefore, CF = 1 and R' = 2^64 - 7
+    EXPECT_EQ(alu_row_first.aluChip_alu_u64_r0, FF{ UINT64_MAX - 6 }); // 2^64 - 7
+    EXPECT_EQ(alu_row_first.aluChip_alu_cf, FF(1));
 
     validate_trace_proof(std::move(trace));
 }

@@ -7,51 +7,51 @@
 namespace proof_system::AvmMini_vm {
 
 template <typename FF> struct Alu_chipRow {
-    FF aluChip_alu_op_sub{};
-    FF aluChip_alu_u8_r0{};
-    FF aluChip_alu_u16_r0_shift{};
-    FF aluChip_alu_cf{};
-    FF aluChip_alu_ic{};
-    FF aluChip_alu_u16_r7_shift{};
-    FF aluChip_alu_u128_tag{};
-    FF aluChip_alu_u16_r1{};
     FF aluChip_alu_u16_r4{};
+    FF aluChip_alu_u16_r1{};
+    FF aluChip_alu_u16_tag{};
+    FF aluChip_alu_u8_tag{};
+    FF aluChip_alu_u8_r0{};
     FF aluChip_alu_u16_r6{};
+    FF aluChip_alu_u8_r1{};
+    FF aluChip_alu_u16_r5{};
     FF aluChip_alu_u16_r6_shift{};
-    FF aluChip_alu_op_add{};
-    FF aluChip_alu_u64_tag{};
-    FF aluChip_alu_ff_tag{};
-    FF aluChip_alu_u16_r3{};
+    FF aluChip_alu_u16_r0{};
+    FF aluChip_alu_u16_r2_shift{};
+    FF aluChip_alu_ib{};
+    FF aluChip_alu_ic{};
     FF aluChip_alu_u16_r3_shift{};
     FF aluChip_alu_u16_r7{};
-    FF aluChip_alu_u16_tag{};
-    FF aluChip_alu_op_mul{};
-    FF aluChip_alu_u16_r5{};
-    FF aluChip_alu_u8_tag{};
+    FF aluChip_alu_op_sub{};
+    FF aluChip_alu_ff_tag{};
+    FF aluChip_alu_u16_r2{};
+    FF aluChip_alu_u16_r4_shift{};
+    FF aluChip_alu_u64_tag{};
     FF aluChip_alu_u32_tag{};
     FF aluChip_alu_ia{};
     FF aluChip_alu_u64_r0{};
-    FF aluChip_alu_u16_r4_shift{};
-    FF aluChip_alu_u16_r2_shift{};
-    FF aluChip_alu_u16_r2{};
-    FF aluChip_alu_ib{};
-    FF aluChip_alu_u8_r1{};
+    FF aluChip_alu_u16_r0_shift{};
+    FF aluChip_alu_u16_r3{};
+    FF aluChip_alu_op_mul{};
     FF aluChip_alu_u16_r1_shift{};
+    FF aluChip_alu_u128_tag{};
     FF aluChip_alu_u16_r5_shift{};
-    FF aluChip_alu_u16_r0{};
+    FF aluChip_alu_op_add{};
+    FF aluChip_alu_cf{};
+    FF aluChip_alu_u16_r7_shift{};
 };
 
 inline std::string get_relation_label_alu_chip(int index)
 {
     switch (index) {
+    case 6:
+        return "SUBOP_ADDITION_FF";
+
     case 17:
         return "SUBOP_SUBTRACTION_FF";
 
     case 28:
         return "SUBOP_MULTIPLICATION_FF";
-
-    case 6:
-        return "SUBOP_ADDITION_FF";
     }
     return std::to_string(index);
 }
@@ -507,7 +507,7 @@ template <typename FF_> class alu_chipImpl {
                                (aluChip_alu_u16_r6_shift * FF(4294967296UL))) +
                               (aluChip_alu_u16_r7_shift * FF(281474976710656UL)))) *
                             FF(uint256_t{ 0, 1, 0, 0 }))) -
-                          (((aluChip_alu_cf * FF(uint256_t{ 0, 2, 0, 0 })) + aluChip_alu_u64_r0) *
+                          (((aluChip_alu_cf * FF(uint256_t{ 0, 1, 0, 0 })) + aluChip_alu_u64_r0) *
                            FF(uint256_t{ 0, 0, 1, 0 }))) -
                          aluChip_alu_ic));
             tmp *= scaling_factor;

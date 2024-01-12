@@ -398,11 +398,11 @@ FF AvmMiniAluTraceBuilder::mul(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         uint256_t c_high = ((a_u256 >> 64) * (b_u256 >> 64)) << 128;
 
         // From PIL relation in alu_chip.pil, we need to determine the bit CF and 64-bit value R' in
-        // a * b_l + a_l * b_h * 2^64 = (CF * 2^65 + R') * 2^128 + c
+        // a * b_l + a_l * b_h * 2^64 = (CF * 2^64 + R') * 2^128 + c
         // LHS is c_u256 - c_high
 
         // CF bit
-        carry = ((c_u256 - c_high) >> 193) > 0;
+        carry = ((c_u256 - c_high) >> 192) > 0;
         // R' value
         uint64_t alu_u64_r0 = static_cast<uint64_t>(((c_u256 - c_high) >> 128) & uint256_t(UINT64_MAX));
 
