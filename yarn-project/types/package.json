@@ -29,7 +29,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/foundation": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

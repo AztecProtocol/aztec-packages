@@ -33,7 +33,6 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
-import { NodeInfo } from '@aztec/types/interfaces';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
@@ -54,6 +53,7 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

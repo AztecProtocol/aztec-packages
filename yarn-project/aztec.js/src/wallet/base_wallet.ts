@@ -17,8 +17,8 @@ import {
   TxHash,
   TxReceipt,
 } from '@aztec/circuit-types';
-import { NodeInfo } from '@aztec/types/interfaces';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { Wallet } from '../account/wallet.js';
 

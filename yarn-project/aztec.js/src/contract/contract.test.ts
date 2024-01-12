@@ -1,8 +1,8 @@
 import { ExtendedContractData, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
-import { NodeInfo } from '@aztec/types/interfaces';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
