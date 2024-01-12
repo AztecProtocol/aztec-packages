@@ -1,14 +1,15 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr } from './index.js';
 
 /**
  * Essential members and functions of all SideEffect variants
  */
-interface SideEffectType {
+export interface SideEffectType {
   /** The actual value associated with the SideEffect */
   value: Fr;
+  /** The counter associated with the SideEffect */
+  counter: Fr;
   /** Convert to a buffer */
   toBuffer(): Buffer;
   /** Convert to a field array */

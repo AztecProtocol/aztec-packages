@@ -50,9 +50,9 @@ authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
-easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/value-note"}
+easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/easy-private-state"}
 ```
 
 ## Define the functions
@@ -148,13 +148,19 @@ Now we've written a simple Aztec.nr smart contract, it's time to ensure everythi
 
 ### Compile the smart contract
 
-In the root of the `nargo` project, run this:
+In `./contracts/counter/` directory, run this:
 
 ```bash
-aztec-cli compile .
+aztec-nargo compile
 ```
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside.
+
+After compiling, you need to generate the ABI and typescript class. In the same directory, run this:
+
+```bash
+aztec-cli codegen target -o src/artifacts --ts
+```
 
 ### Deploy
 
@@ -192,7 +198,7 @@ Use one of these `address`es as the `owner`. You can either copy it or export.
 To deploy the counter contract, [ensure the sandbox is running](../cli/sandbox-reference.md) and run this in the root of your Noir project:
 
 ```bash
-aztec-cli deploy target/Counter.json --args 100 0x25048e8c1b7dea68053d597ac2d920637c99523651edfb123d0632da785970d0
+aztec-cli deploy contracts/counter/src/artifacts/Counter.json --args 100 0x2a0f32c34c5b948a7f9766f0c1aad70a86c0ee649f56208e936be4324d49b0b9
 ```
 
 You can also test the functions by applying what you learned in the [quickstart](./quickstart.md).
@@ -201,7 +207,7 @@ Congratulations, you have now written, compiled, and deployed your first Aztec.n
 
 ## Install `nargo` (recommended)
 
-The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/nargo/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
+The CLI comes with the Noir compiler, so installing `nargo` is not required, however it is recommended as it provides a better developer experience for writing contracts. You will need nargo installed to take advantage of the [Noir Language Server](https://noir-lang.org/docs/nargo/language_server), which provides syntax highlighting and formatting for your Aztec contracts.
 
 You will also need `nargo` if you want to run unit tests in Noir.
 

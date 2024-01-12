@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { keccak, pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { boolToBuffer, numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
@@ -35,7 +35,6 @@ import {
   VerificationKey,
 } from '../structs/index.js';
 import { PublicKey } from '../types/index.js';
-import { boolToBuffer } from '../utils/serialize.js';
 import { MerkleTreeCalculator } from './merkle_tree_calculator.js';
 
 /**
@@ -280,6 +279,7 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
+// TODO(#3941)
 export function computeBlockHashWithGlobals(
   globals: GlobalVariables,
   noteHashTreeRoot: Fr,
@@ -518,7 +518,7 @@ function computeCallContextHash(input: CallContext) {
       boolToBuffer(input.isDelegateCall, 32),
       boolToBuffer(input.isStaticCall, 32),
       boolToBuffer(input.isContractDeployment, 32),
-      input.startSideEffectCounter.toBuffer(),
+      numToUInt32BE(input.startSideEffectCounter, 32),
     ],
     GeneratorIndex.CALL_CONTEXT,
   );

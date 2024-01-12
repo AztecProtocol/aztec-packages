@@ -6,15 +6,14 @@ use crate::{
     Generics, Ident, NoirFunction, Type, TypeVariable, TypeVariableId,
 };
 use fm::FileId;
-use noirc_errors::Span;
+use noirc_errors::{Location, Span};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TraitFunction {
     pub name: Ident,
     pub typ: Type,
-    pub span: Span,
+    pub location: Location,
     pub default_impl: Option<Box<NoirFunction>>,
-    pub default_impl_file_id: fm::FileId,
     pub default_impl_module_id: crate::hir::def_map::LocalModuleId,
 }
 
@@ -56,7 +55,7 @@ pub struct Trait {
 
     pub name: Ident,
     pub generics: Generics,
-    pub span: Span,
+    pub location: Location,
 
     /// When resolving the types of Trait elements, all references to `Self` resolve
     /// to this TypeVariable. Then when we check if the types of trait impl elements
@@ -65,6 +64,7 @@ pub struct Trait {
     pub self_type_typevar_id: TypeVariableId,
     pub self_type_typevar: TypeVariable,
 }
+
 #[derive(Debug)]
 pub struct TraitImpl {
     pub ident: Ident,

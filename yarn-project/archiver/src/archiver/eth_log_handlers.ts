@@ -1,9 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
-  BufferReader,
   CancelledL1ToL2Message,
   ContractData,
   EncodedContractFunction,
@@ -13,7 +8,12 @@ import {
   L2Actor,
   L2Block,
   PendingL1ToL2Message,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 

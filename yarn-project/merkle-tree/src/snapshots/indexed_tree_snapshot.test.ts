@@ -1,5 +1,5 @@
 import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
-import { Hasher } from '@aztec/types';
+import { Hasher } from '@aztec/types/interfaces';
 
 import levelup, { LevelUp } from 'levelup';
 

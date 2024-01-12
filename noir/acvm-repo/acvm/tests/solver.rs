@@ -50,6 +50,24 @@ impl BlackBoxFunctionSolver for StubbedBackend {
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
         panic!("Path not trodden by this test")
     }
+
+    fn ec_add(
+        &self,
+        _input1_x: &FieldElement,
+        _input1_y: &FieldElement,
+        _input2_x: &FieldElement,
+        _input2_y: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        panic!("Path not trodden by this test")
+    }
+
+    fn ec_double(
+        &self,
+        _input_x: &FieldElement,
+        _input_y: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        panic!("Path not trodden by this test")
+    }
 }
 
 // Reenable these test cases once we move the brillig implementation of inversion down into the acvm stdlib.
@@ -111,18 +129,18 @@ fn inversion_brillig_oracle_equivalence() {
 
     let opcodes = vec![
         Opcode::Brillig(brillig_data),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![],
             linear_combinations: vec![(fe_1, w_x), (fe_1, w_y), (-fe_1, w_z)],
             q_c: fe_0,
         }),
         // Opcode::Directive(Directive::Invert { x: w_z, result: w_z_inverse }),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![(fe_1, w_z, w_z_inverse)],
             linear_combinations: vec![],
             q_c: -fe_1,
         }),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![],
             linear_combinations: vec![(-fe_1, w_oracle), (fe_1, w_z_inverse)],
             q_c: fe_0,
@@ -238,18 +256,18 @@ fn double_inversion_brillig_oracle() {
 
     let opcodes = vec![
         Opcode::Brillig(brillig_data),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![],
             linear_combinations: vec![(fe_1, w_x), (fe_1, w_y), (-fe_1, w_z)],
             q_c: fe_0,
         }),
         // Opcode::Directive(Directive::Invert { x: w_z, result: w_z_inverse }),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![(fe_1, w_z, w_z_inverse)],
             linear_combinations: vec![],
             q_c: -fe_1,
         }),
-        Opcode::Arithmetic(Expression {
+        Opcode::AssertZero(Expression {
             mul_terms: vec![],
             linear_combinations: vec![(-fe_1, w_oracle), (fe_1, w_z_inverse)],
             q_c: fe_0,
@@ -377,9 +395,9 @@ fn oracle_dependent_execution() {
     };
 
     let opcodes = vec![
-        Opcode::Arithmetic(equality_check),
+        Opcode::AssertZero(equality_check),
         Opcode::Brillig(brillig_data),
-        Opcode::Arithmetic(inverse_equality_check),
+        Opcode::AssertZero(inverse_equality_check),
     ];
 
     let witness_assignments =
@@ -516,7 +534,7 @@ fn unsatisfied_opcode_resolved() {
     values.insert(c, FieldElement::from(1_i128));
     values.insert(d, FieldElement::from(2_i128));
 
-    let opcodes = vec![Opcode::Arithmetic(opcode_a)];
+    let opcodes = vec![Opcode::AssertZero(opcode_a)];
     let mut acvm = ACVM::new(&StubbedBackend, &opcodes, values);
     let solver_status = acvm.solve();
     assert_eq!(
@@ -595,7 +613,7 @@ fn unsatisfied_opcode_resolved_brillig() {
     values.insert(w_y, FieldElement::from(1_i128));
     values.insert(w_result, FieldElement::from(0_i128));
 
-    let opcodes = vec![brillig_opcode, Opcode::Arithmetic(opcode_a)];
+    let opcodes = vec![brillig_opcode, Opcode::AssertZero(opcode_a)];
 
     let mut acvm = ACVM::new(&StubbedBackend, &opcodes, values);
     let solver_status = acvm.solve();
@@ -630,7 +648,7 @@ fn memory_operations() {
         predicate: None,
     };
 
-    let expression = Opcode::Arithmetic(Expression {
+    let expression = Opcode::AssertZero(Expression {
         mul_terms: Vec::new(),
         linear_combinations: vec![
             (FieldElement::one(), Witness(7)),

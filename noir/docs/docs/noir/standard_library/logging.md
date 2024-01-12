@@ -22,23 +22,24 @@ The standard library provides two familiar statements you can use: `println` and
 
 You can print the output of both statements in your Noir code by using the `nargo execute` command or the `--show-output` flag when using `nargo test` (provided there are print statements in your tests).
 
-It is recommended to use `nargo execute` if you want to debug failing constrains with `println` or `print` statements. This is due to every input in a test being a constant rather than a witness, so we issue an error during compilation while we only print during execution (which comes after compilation). Neither `println`, nor `print` are callable for failed constraints caught at compile time.
+It is recommended to use `nargo execute` if you want to debug failing constraints with `println` or `print` statements. This is due to every input in a test being a constant rather than a witness, so we issue an error during compilation while we only print during execution (which comes after compilation). Neither `println`, nor `print` are callable for failed constraints caught at compile time.
 
 Both `print` and `println` are generic functions which can work on integers, fields, strings, and even structs or expressions. Note however, that slices are currently unsupported. For example:
 
 ```rust
-use dep::std;
-
 struct Person {
-    age : Field,
-    height : Field,
+    age: Field,
+    height: Field,
 }
 
-fn main(age : Field, height : Field) {
-    let person = Person { age : age, height : height };
-    std::println(person);
-    std::println(age + height);
-    std::println("Hello world!");
+fn main(age: Field, height: Field) {
+    let person = Person {
+        age: age,
+        height: height,
+    };
+    println(person);
+    println(age + height);
+    println("Hello world!");
 }
 ```
 
@@ -46,22 +47,22 @@ You can print different types in the same statement (including strings) with a t
 
 ```rust
   let fmt_str = f"i: {i}, j: {j}";
-  std::println(fmt_str);
+  println(fmt_str);
 
   let s = myStruct { y: x, x: y };
-  std::println(s);
+  println(s);
 
-  std::println(f"i: {i}, s: {s}");
+  println(f"i: {i}, s: {s}");
 
-  std::println(x);
-  std::println([x, y]);
+  println(x);
+  println([x, y]);
 
   let foo = fooStruct { my_struct: s, foo: 15 };
-  std::println(f"s: {s}, foo: {foo}");
+  println(f"s: {s}, foo: {foo}");
 
-  std::println(15);       // prints 0x0f, implicit Field
-  std::println(-1 as u8); // prints 255
-  std::println(-1 as i8); // prints -1
+  println(15);       // prints 0x0f, implicit Field
+  println(-1 as u8); // prints 255
+  println(-1 as i8); // prints -1
 ```
 
 Examples shown above are interchangeable between the two `print` statements:
@@ -69,9 +70,9 @@ Examples shown above are interchangeable between the two `print` statements:
 ```rust
 let person = Person { age : age, height : height };
 
-std::println(person);
-std::print(person);
+println(person);
+print(person);
 
-std::println("Hello world!"); // Prints with a newline at the end of the input
-std::print("Hello world!");   // Prints the input and keeps cursor on the same line
+println("Hello world!"); // Prints with a newline at the end of the input
+print("Hello world!");   // Prints the input and keeps cursor on the same line
 ```

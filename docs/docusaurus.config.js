@@ -127,8 +127,8 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/types/tsconfig.json",
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
         out: "apis/pxe",
         disableSources: true,
@@ -223,6 +223,10 @@ const config = {
                 label: "Developer Quickstart",
                 to: "/dev_docs/getting_started/quickstart",
               },
+              {
+                label: "Aztec.nr",
+                to: "https://github.com/AztecProtocol/aztec-nr",
+              },
             ],
           },
           {
@@ -252,6 +256,10 @@ const config = {
               {
                 label: "GitHub",
                 href: "https://github.com/AztecProtocol",
+              },
+              {
+                label: "Awesome Aztec",
+                to: "https://github.com/AztecProtocol/awesome-aztec",
               },
               {
                 label: "Grants",

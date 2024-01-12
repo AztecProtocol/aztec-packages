@@ -1,11 +1,13 @@
+import { NoteData } from '@aztec/acir-simulator';
+import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader, Note, TxHash } from '@aztec/types';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
  * A note with contextual data.
  */
-export class NoteDao {
+export class NoteDao implements NoteData {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,

@@ -21,8 +21,8 @@ use crate::hir_def::{
 };
 use crate::token::{Attributes, SecondaryAttribute};
 use crate::{
-    ContractFunctionType, FunctionDefinition, FunctionVisibility, Generics, Shared, TypeAliasType,
-    TypeBindings, TypeVariable, TypeVariableId, TypeVariableKind,
+    BinaryOpKind, ContractFunctionType, FunctionDefinition, FunctionVisibility, Generics, Shared,
+    TypeAliasType, TypeBindings, TypeVariable, TypeVariableId, TypeVariableKind,
 };
 
 /// An arbitrary number to limit the recursion depth when searching for trait impls.
@@ -39,8 +39,8 @@ type StructAttributes = Vec<SecondaryAttribute>;
 /// monomorphization - and it is not useful afterward.
 #[derive(Debug)]
 pub struct NodeInterner {
-    nodes: Arena<Node>,
-    func_meta: HashMap<FuncId, FuncMeta>,
+    pub(crate) nodes: Arena<Node>,
+    pub(crate) func_meta: HashMap<FuncId, FuncMeta>,
     function_definition_ids: HashMap<FuncId, DefinitionId>,
 
     // For a given function ID, this gives the function's modifiers which includes
@@ -52,7 +52,7 @@ pub struct NodeInterner {
     function_modules: HashMap<FuncId, ModuleId>,
 
     // Map each `Index` to it's own location
-    id_to_location: HashMap<Index, Location>,
+    pub(crate) id_to_location: HashMap<Index, Location>,
 
     // Maps each DefinitionId to a DefinitionInfo.
     definitions: Vec<DefinitionInfo>,
@@ -85,14 +85,14 @@ pub struct NodeInterner {
     // Each trait definition is possibly shared across multiple type nodes.
     // It is also mutated through the RefCell during name resolution to append
     // methods from impls to the type.
-    traits: HashMap<TraitId, Trait>,
+    pub(crate) traits: HashMap<TraitId, Trait>,
 
     // Trait implementation map
     // For each type that implements a given Trait ( corresponding TraitId), there should be an entry here
     // The purpose for this hashmap is to detect duplication of trait implementations ( if any )
     //
     // Indexed by TraitImplIds
-    trait_implementations: Vec<Shared<TraitImpl>>,
+    pub(crate) trait_implementations: Vec<Shared<TraitImpl>>,
 
     /// Trait implementations on each type. This is expected to always have the same length as
     /// `self.trait_implementations`.
@@ -109,6 +109,12 @@ pub struct NodeInterner {
     /// an Assumed (but verified) impl. In this case the monomorphizer should have
     /// the context to get the concrete type of the object and select the correct impl itself.
     selected_trait_implementations: HashMap<ExprId, TraitImplKind>,
+
+    /// Holds the trait ids of the traits used for operator overloading
+    operator_traits: HashMap<BinaryOpKind, TraitId>,
+
+    /// The `Ordering` type is a semi-builtin type that is the result of the comparison traits.
+    ordering_type: Option<Type>,
 
     /// Map from ExprId (referring to a Function/Method call) to its corresponding TypeBindings,
     /// filled out during type checking from instantiated variables. Used during monomorphization
@@ -344,7 +350,7 @@ partialeq!(StmtId);
 /// This data structure is never accessed directly, so API wise there is no difference between using
 /// Multiple arenas and a single Arena
 #[derive(Debug, Clone)]
-enum Node {
+pub(crate) enum Node {
     Function(HirFunction),
     Statement(HirStatement),
     Expression(HirExpression),
@@ -423,6 +429,8 @@ impl Default for NodeInterner {
             trait_implementations: Vec::new(),
             trait_implementation_map: HashMap::new(),
             selected_trait_implementations: HashMap::new(),
+            operator_traits: HashMap::new(),
+            ordering_type: None,
             instantiation_bindings: HashMap::new(),
             field_indices: HashMap::new(),
             next_type_variable_id: std::cell::Cell::new(0),
@@ -455,30 +463,6 @@ impl NodeInterner {
         self.id_to_location.insert(expr_id.into(), Location::new(span, file));
     }
 
-    /// Scans the interner for the item which is located at that [Location]
-    ///
-    /// The [Location] may not necessarily point to the beginning of the item
-    /// so we check if the location's span is contained within the start or end
-    /// of each items [Span]
-    pub fn find_location_index(&self, location: Location) -> Option<impl Into<Index>> {
-        let mut location_candidate: Option<(&Index, &Location)> = None;
-
-        // Note: we can modify this in the future to not do a linear
-        // scan by storing a separate map of the spans or by sorting the locations.
-        for (index, interned_location) in self.id_to_location.iter() {
-            if interned_location.contains(&location) {
-                if let Some(current_location) = location_candidate {
-                    if interned_location.span.is_smaller(&current_location.1.span) {
-                        location_candidate = Some((index, interned_location));
-                    }
-                } else {
-                    location_candidate = Some((index, interned_location));
-                }
-            }
-        }
-        location_candidate.map(|(index, _location)| *index)
-    }
-
     /// Interns a HIR Function.
     pub fn push_fn(&mut self, func: HirFunction) -> FuncId {
         FuncId(self.nodes.insert(Node::Function(func)))
@@ -496,7 +480,7 @@ impl NodeInterner {
             id: type_id,
             name: unresolved_trait.trait_def.name.clone(),
             crate_id: unresolved_trait.crate_id,
-            span: unresolved_trait.trait_def.span,
+            location: Location::new(unresolved_trait.trait_def.span, unresolved_trait.file_id),
             generics: vecmap(&unresolved_trait.trait_def.generics, |_| {
                 // Temporary type variable ids before the trait is resolved to its actual ids.
                 // This lets us record how many arguments the type expects so that other types
@@ -759,12 +743,12 @@ impl NodeInterner {
     }
 
     /// Returns the interned meta data corresponding to `func_id`
-    pub fn function_meta(&self, func_id: &FuncId) -> FuncMeta {
-        self.func_meta.get(func_id).cloned().expect("ice: all function ids should have metadata")
+    pub fn function_meta(&self, func_id: &FuncId) -> &FuncMeta {
+        self.func_meta.get(func_id).expect("ice: all function ids should have metadata")
     }
 
-    pub fn try_function_meta(&self, func_id: &FuncId) -> Option<FuncMeta> {
-        self.func_meta.get(func_id).cloned()
+    pub fn try_function_meta(&self, func_id: &FuncId) -> Option<&FuncMeta> {
+        self.func_meta.get(func_id)
     }
 
     pub fn function_ident(&self, func_id: &FuncId) -> crate::Ident {
@@ -1095,7 +1079,10 @@ impl NodeInterner {
         recursion_limit: u32,
     ) -> Result<(), Vec<TraitConstraint>> {
         for constraint in where_clause {
-            let constraint_type = constraint.typ.substitute(instantiation_bindings);
+            // Instantiation bindings are generally safe to force substitute into the same type.
+            // This is needed here to undo any bindings done to trait methods by monomorphization.
+            // Otherwise, an impl for (A, B) could get narrowed to only an impl for e.g. (u8, u16).
+            let constraint_type = constraint.typ.force_substitute(instantiation_bindings);
             let constraint_type = constraint_type.substitute(type_bindings);
 
             self.lookup_trait_implementation_helper(
@@ -1134,6 +1121,7 @@ impl NodeInterner {
     }
 
     /// Adds a trait implementation to the list of known implementations.
+    #[tracing::instrument(skip(self))]
     pub fn add_trait_implementation(
         &mut self,
         object_type: Type,
@@ -1254,102 +1242,98 @@ impl NodeInterner {
     /// Tags the given identifier with the selected trait_impl so that monomorphization
     /// can later recover which impl was selected, or alternatively see if it needs to
     /// decide which impl to select (because the impl was Assumed).
-    pub fn select_impl_for_ident(&mut self, ident_id: ExprId, trait_impl: TraitImplKind) {
+    pub fn select_impl_for_expression(&mut self, ident_id: ExprId, trait_impl: TraitImplKind) {
         self.selected_trait_implementations.insert(ident_id, trait_impl);
     }
 
-    /// Retrieves the impl selected for a given IdentId during name resolution.
-    /// From type checking and on, the "ident" referred to is changed to a TraitMethodReference node.
-    pub fn get_selected_impl_for_ident(&self, ident_id: ExprId) -> Option<TraitImplKind> {
+    /// Retrieves the impl selected for a given ExprId during name resolution.
+    pub fn get_selected_impl_for_expression(&self, ident_id: ExprId) -> Option<TraitImplKind> {
         self.selected_trait_implementations.get(&ident_id).cloned()
     }
 
-    /// For a given [Index] we return [Location] to which we resolved to
-    /// We currently return None for features not yet implemented
-    /// TODO(#3659): LSP goto def should error when Ident at Location could not resolve
-    pub(crate) fn resolve_location(&self, index: impl Into<Index>) -> Option<Location> {
-        let node = self.nodes.get(index.into())?;
+    /// Retrieves the trait id for a given binary operator.
+    /// All binary operators correspond to a trait - although multiple may correspond
+    /// to the same trait (such as `==` and `!=`).
+    /// `self.operator_traits` is expected to be filled before name resolution,
+    /// during definition collection.
+    pub fn get_operator_trait_method(&self, operator: BinaryOpKind) -> TraitMethodId {
+        let trait_id = self.operator_traits[&operator];
 
-        match node {
-            Node::Function(func) => self.resolve_location(func.as_expr()),
-            Node::Expression(expression) => self.resolve_expression_location(expression),
-            _ => None,
+        // Assume that the operator's method to be overloaded is the first method of the trait.
+        TraitMethodId { trait_id, method_index: 0 }
+    }
+
+    /// Add the given trait as an operator trait if its name matches one of the
+    /// operator trait names (Add, Sub, ...).
+    pub fn try_add_operator_trait(&mut self, trait_id: TraitId) {
+        let the_trait = self.get_trait(trait_id);
+
+        let operator = match the_trait.name.0.contents.as_str() {
+            "Add" => BinaryOpKind::Add,
+            "Sub" => BinaryOpKind::Subtract,
+            "Mul" => BinaryOpKind::Multiply,
+            "Div" => BinaryOpKind::Divide,
+            "Rem" => BinaryOpKind::Modulo,
+            "Eq" => BinaryOpKind::Equal,
+            "Ord" => BinaryOpKind::Less,
+            "BitAnd" => BinaryOpKind::And,
+            "BitOr" => BinaryOpKind::Or,
+            "BitXor" => BinaryOpKind::Xor,
+            "Shl" => BinaryOpKind::ShiftLeft,
+            "Shr" => BinaryOpKind::ShiftRight,
+            _ => return,
+        };
+
+        self.operator_traits.insert(operator, trait_id);
+
+        // Some operators also require we insert a matching entry for related operators
+        match operator {
+            BinaryOpKind::Equal => {
+                self.operator_traits.insert(BinaryOpKind::NotEqual, trait_id);
+            }
+            BinaryOpKind::Less => {
+                self.operator_traits.insert(BinaryOpKind::LessEqual, trait_id);
+                self.operator_traits.insert(BinaryOpKind::Greater, trait_id);
+                self.operator_traits.insert(BinaryOpKind::GreaterEqual, trait_id);
+
+                let the_trait = self.get_trait(trait_id);
+                self.ordering_type = match &the_trait.methods[0].typ {
+                    Type::Forall(_, typ) => match typ.as_ref() {
+                        Type::Function(_, return_type, _) => Some(return_type.as_ref().clone()),
+                        other => unreachable!("Expected function type for `cmp`, found {}", other),
+                    },
+                    other => unreachable!("Expected Forall type for `cmp`, found {}", other),
+                };
+            }
+            _ => (),
         }
     }
 
-    /// Resolves the [Location] of the definition for a given [HirExpression]
-    ///
-    /// Note: current the code returns None because some expressions are not yet implemented.
-    fn resolve_expression_location(&self, expression: &HirExpression) -> Option<Location> {
-        match expression {
-            HirExpression::Ident(ident) => {
-                let definition_info = self.definition(ident.id);
-                match definition_info.kind {
-                    DefinitionKind::Function(func_id) => {
-                        Some(self.function_meta(&func_id).location)
-                    }
-                    DefinitionKind::Local(_local_id) => Some(definition_info.location),
-                    _ => None,
-                }
-            }
-            HirExpression::Constructor(expr) => {
-                let struct_type = &expr.r#type.borrow();
-
-                eprintln!("\n -> Resolve Constructor {struct_type:?}\n");
-
-                Some(struct_type.location)
-            }
-            HirExpression::MemberAccess(expr_member_access) => {
-                self.resolve_struct_member_access(expr_member_access)
-            }
-            HirExpression::Call(expr_call) => {
-                let func = expr_call.func;
-                self.resolve_location(func)
-            }
-
-            _ => None,
-        }
+    /// This function is needed when creating a NodeInterner for testing so that calls
+    /// to `get_operator_trait` do not panic when the stdlib isn't present.
+    #[cfg(test)]
+    pub fn populate_dummy_operator_traits(&mut self) {
+        let dummy_trait = TraitId(ModuleId::dummy_id());
+        self.operator_traits.insert(BinaryOpKind::Add, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Subtract, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Multiply, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Divide, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Modulo, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Equal, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::NotEqual, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Less, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::LessEqual, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Greater, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::GreaterEqual, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::And, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Or, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::Xor, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::ShiftLeft, dummy_trait);
+        self.operator_traits.insert(BinaryOpKind::ShiftRight, dummy_trait);
     }
 
-    /// Resolves the [Location] of the definition for a given [crate::hir_def::expr::HirMemberAccess]
-    /// This is used to resolve the location of a struct member access.
-    /// For example, in the expression `foo.bar` we want to resolve the location of `bar`
-    /// to the location of the definition of `bar` in the struct `foo`.
-    fn resolve_struct_member_access(
-        &self,
-        expr_member_access: &crate::hir_def::expr::HirMemberAccess,
-    ) -> Option<Location> {
-        let expr_lhs = &expr_member_access.lhs;
-        let expr_rhs = &expr_member_access.rhs;
-
-        let found_ident = self.nodes.get(expr_lhs.into())?;
-
-        let ident = match found_ident {
-            Node::Expression(HirExpression::Ident(ident)) => ident,
-            _ => return None,
-        };
-
-        let definition_info = self.definition(ident.id);
-
-        let local_id = match definition_info.kind {
-            DefinitionKind::Local(Some(local_id)) => local_id,
-            _ => return None,
-        };
-
-        let constructor_expression = match self.nodes.get(local_id.into()) {
-            Some(Node::Expression(HirExpression::Constructor(constructor_expression))) => {
-                constructor_expression
-            }
-            _ => return None,
-        };
-
-        let struct_type = constructor_expression.r#type.borrow();
-        let field_names = struct_type.field_names();
-
-        match field_names.iter().find(|field_name| field_name.0 == expr_rhs.0) {
-            Some(found) => Some(Location::new(found.span(), struct_type.location.file)),
-            None => None,
-        }
+    pub(crate) fn ordering_type(&self) -> Type {
+        self.ordering_type.clone().expect("Expected ordering_type to be set in the NodeInterner")
     }
 }
 

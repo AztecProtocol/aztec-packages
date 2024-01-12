@@ -97,20 +97,17 @@ Builder create_inner_circuit()
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = { expr_a, expr_b, expr_c, expr_d },
                                    .block_constraints = {} };
 
     uint256_t inverse_of_five = fr(5).invert();
-    auto builder = create_circuit_with_witness(constraint_system,
-                                               {
-                                                   5,
-                                                   10,
-                                                   15,
-                                                   5,
-                                                   inverse_of_five,
-                                                   1,
-                                               });
+    WitnessVector witness{
+        5, 10, 15, 5, inverse_of_five, 1,
+    };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     return builder;
 }
@@ -207,9 +204,6 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .input_aggregation_object = input_aggregation_object,
-            .output_aggregation_object = output_aggregation_object,
-            .nested_aggregation_object = nested_aggregation_object,
         };
         recursion_constraints.push_back(recursion_constraint);
 
@@ -256,11 +250,13 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = recursion_constraints,
                                    .constraints = {},
                                    .block_constraints = {} };
 
-    auto outer_circuit = create_circuit_with_witness(constraint_system, witness);
+    auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     return outer_circuit;
 }

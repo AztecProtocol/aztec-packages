@@ -10,6 +10,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "contract.hpp"
 
 namespace acir_proofs {
@@ -35,6 +36,9 @@ template <typename Builder> void AcirComposer::create_circuit(acir_format::acir_
     vinfo("gates: ", builder_.get_total_circuit_size());
 }
 
+template void AcirComposer::create_circuit<proof_system::UltraCircuitBuilder>(
+    acir_format::acir_format& constraint_system);
+
 std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
     acir_format::acir_format& constraint_system)
 {
@@ -50,8 +54,8 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
                                                 bool is_recursive)
 {
     vinfo("building circuit with witness...");
-    builder_ = acir_format::Builder(size_hint_);
-    create_circuit_with_witness(builder_, constraint_system, witness);
+    builder_ = acir_format::create_circuit(constraint_system, size_hint_, witness);
+
     vinfo("gates: ", builder_.get_total_circuit_size());
 
     auto composer = [&]() {
@@ -82,11 +86,11 @@ std::vector<uint8_t> AcirComposer::create_proof(acir_format::acir_format& constr
 void AcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
                                          acir_format::WitnessVector& witness)
 {
-    // The public inputs in constraint_system do not index into "witness" but rather into the future "variables" which
-    // it assumes will be equal to witness but with a prepended zero. We want to remove this +1 so that public_inputs
-    // properly indexes into witness because we're about to make calls like add_variable(witness[public_inputs[idx]]).
-    // Once the +1 is removed from noir, this correction can be removed entirely and we can use
-    // constraint_system.public_inputs directly.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The public inputs in constraint_system do not
+    // index into "witness" but rather into the future "variables" which it assumes will be equal to witness but with a
+    // prepended zero. We want to remove this +1 so that public_inputs properly indexes into witness because we're about
+    // to make calls like add_variable(witness[public_inputs[idx]]). Once the +1 is removed from noir, this correction
+    // can be removed entirely and we can use constraint_system.public_inputs directly.
     const uint32_t pre_applied_noir_offset = 1;
     std::vector<uint32_t> corrected_public_inputs;
     for (const auto& index : constraint_system.public_inputs) {

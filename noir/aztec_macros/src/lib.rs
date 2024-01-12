@@ -483,12 +483,11 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 
 /// Generates the impl for an event selector
 ///
-/// TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
 /// Inserts the following code:
 /// ```noir
 /// impl SomeStruct {
 ///    fn selector() -> FunctionSelector {
-///       protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
+///       aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature("SIGNATURE_PLACEHOLDER")
 ///    }
 /// }
 /// ```
@@ -499,8 +498,8 @@ const SIGNATURE_PLACEHOLDER: &str = "SIGNATURE_PLACEHOLDER";
 fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     let struct_type = make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![]));
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3590): Make this point to aztec-nr once the issue is fixed.
-    let selector_path = chained_path!("protocol_types", "abis", "function_selector", "FunctionSelector");
+    let selector_path =
+        chained_path!("aztec", "protocol_types", "abis", "function_selector", "FunctionSelector");
     let mut from_signature_path = selector_path.clone();
     from_signature_path.segments.push(ident("from_signature"));
 
@@ -510,7 +509,8 @@ fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     )))]);
 
     // Define `FunctionSelector` return type
-    let return_type = FunctionReturnType::Ty(make_type(UnresolvedTypeData::Named(selector_path, vec![])));
+    let return_type =
+        FunctionReturnType::Ty(make_type(UnresolvedTypeData::Named(selector_path, vec![])));
 
     let mut selector_fn_def = FunctionDefinition::normal(
         &ident("selector"),
@@ -618,7 +618,21 @@ fn create_context(ty: &str, params: &[Param]) -> Vec<Statement> {
                     UnresolvedTypeData::Integer(..) | UnresolvedTypeData::Bool => {
                         add_cast_to_hasher(identifier)
                     }
-                    _ => unreachable!("[Aztec Noir] Provided parameter type is not supported"),
+                    UnresolvedTypeData::String(..) => {
+                        let (var_bytes, id) = str_to_bytes(identifier);
+                        injected_expressions.push(var_bytes);
+                        add_array_to_hasher(
+                            &id,
+                            &UnresolvedType {
+                                typ: UnresolvedTypeData::Integer(Signedness::Unsigned, 32),
+                                span: None,
+                            },
+                        )
+                    }
+                    _ => panic!(
+                        "[Aztec Noir] Provided parameter type: {:?} is not supported",
+                        unresolved_type
+                    ),
                 };
                 injected_expressions.push(expression);
             }
@@ -907,6 +921,21 @@ fn add_struct_to_hasher(identifier: &Ident) -> Statement {
     )))
 }
 
+fn str_to_bytes(identifier: &Ident) -> (Statement, Ident) {
+    // let identifier_as_bytes = identifier.as_bytes();
+    let var = variable_ident(identifier.clone());
+    let contents = if let ExpressionKind::Variable(p) = &var.kind {
+        p.segments.first().cloned().unwrap_or_else(|| panic!("No segments")).0.contents
+    } else {
+        panic!("Unexpected identifier type")
+    };
+    let bytes_name = format!("{}_bytes", contents);
+    let var_bytes = assignment(&bytes_name, method_call(var, "as_bytes", vec![]));
+    let id = Ident::new(bytes_name, Span::default());
+
+    (var_bytes, id)
+}
+
 fn create_loop_over(var: Expression, loop_body: Vec<Statement>) -> Statement {
     // If this is an array of primitive types (integers / fields) we can add them each to the hasher
     // casted to a field
@@ -950,7 +979,7 @@ fn add_array_to_hasher(identifier: &Ident, arr_type: &UnresolvedType) -> Stateme
         UnresolvedTypeData::Named(..) => {
             let hasher_method_name = "add_multiple".to_owned();
             let call = method_call(
-                // All serialise on each element
+                // All serialize on each element
                 arr_index,   // variable
                 "serialize", // method name
                 vec![],      // args

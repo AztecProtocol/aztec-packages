@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * The string encoding used for serializing BlockHeader objects.
@@ -12,6 +10,7 @@ const STRING_ENCODING: BufferEncoding = 'hex';
 /**
  * Information about the tree roots used for both public and private kernels.
  */
+// TODO(#3937): Nuke this
 export class BlockHeader {
   constructor(
     /**

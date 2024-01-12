@@ -1,7 +1,8 @@
+import { ExtendedContractData, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { ExtendedContractData, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -28,7 +29,7 @@ describe('Contract Class', () => {
     decoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
-    sandboxVersion: 'vx.x.x',
+    nodeVersion: 'vx.x.x',
     compatibleNargoVersion: 'vx.x.x-aztec.x',
     chainId: 1,
     protocolVersion: 2,

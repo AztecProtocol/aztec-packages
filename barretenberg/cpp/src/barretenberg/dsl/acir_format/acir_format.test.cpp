@@ -44,12 +44,15 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = { constraint },
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, { 0, 0, 1 });
+    WitnessVector witness{ 0, 0, 1 };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -152,20 +155,17 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = { expr_a, expr_b, expr_c, expr_d },
                                    .block_constraints = {} };
 
     uint256_t inverse_of_five = fr(5).invert();
-    auto builder = create_circuit_with_witness(constraint_system,
-                                               {
-                                                   5,
-                                                   10,
-                                                   15,
-                                                   5,
-                                                   inverse_of_five,
-                                                   1,
-                                               });
+    WitnessVector witness{
+        5, 10, 15, 5, inverse_of_five, 1,
+    };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -218,6 +218,8 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = { poly_triple{
                                        .a = schnorr_constraint.result,
@@ -253,7 +255,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         witness[i] = message_string[i];
     }
 
-    auto builder = create_circuit_with_witness(constraint_system, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -307,6 +309,8 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = { poly_triple{
             .a = schnorr_constraint.result,
@@ -344,7 +348,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
     }
 
     // TODO: actually sign a schnorr signature!
-    auto builder = create_circuit_with_witness(constraint_system, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -415,12 +419,15 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = { dummy },
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, { 4, 2, 6, 2 });
+    WitnessVector witness{ 4, 2, 6, 2 };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -454,6 +461,8 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                    .pedersen_constraints = {},
                                    .pedersen_hash_constraints = {},
                                    .fixed_base_scalar_mul_constraints = {},
+                                   .ec_add_constraints = {},
+                                   .ec_double_constraints = {},
                                    .recursion_constraints = {},
                                    .constraints = {},
                                    .block_constraints = {} };
@@ -462,7 +471,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness);
+    auto builder = create_circuit(constraint_system, /*size_hint=*/0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);

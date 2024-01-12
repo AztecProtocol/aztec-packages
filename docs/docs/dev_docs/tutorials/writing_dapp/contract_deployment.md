@@ -1,18 +1,18 @@
 # Contract Deployment
 
-To add contracts to your application, we'll start by creating a new `nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
+To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
 
 :::info
 Follow the instructions [here](../../contracts/setup.md) to install `nargo` if you haven't done so already.
 :::
 
-## Initialize Noir project
+## Initialize Aztec project
 
 Create a new `contracts` folder, and from there, initialize a new project called `token`:
 
 ```sh
 mkdir contracts && cd contracts
-nargo new --contract token
+aztec-nargo new --contract token
 ```
 
 Then, open the `contracts/token/Nargo.toml` configuration file, and add the `aztec.nr` and `value_note` libraries as dependencies:
@@ -34,19 +34,21 @@ The `Token` contract also requires some helper files. You can view the files [he
 
 ## Compile your contract
 
-We'll now use the [Aztec CLI](../../cli/main.md) to [compile](../../contracts/compiling.md) our project. If you haven't installed the CLI already, it comes with the sandbox, so you can install it via the [Sandbox install command](../../cli/sandbox-reference.md#installation).
+We'll now use `aztec-nargo` to [compile](../../contracts/compiling.md) our project. If you haven't installed aztec-nargo and aztec-cli already, it comes with the sandbox, so you can install it via the [Sandbox install command](../../cli/sandbox-reference.md#installation).
 
-Now run the following from your project root:
+Now run the following from your contract folder (containing Nargo.toml):
 
 ```sh
-aztec-cli compile contracts/token
+aztec-nargo compile
 ```
 
-:::info
-If you are using Typescript, consider including the `--typescript` option to [generate type-safe wrappers](../../contracts/compiling.md#typescript-interfaces) for your contracts.
-:::
+Once you have compiled your contracts, you need to generate the ABIs:
 
-This should have created an artifact `contracts/token/target/Token.json` with the interface and bytecode for your contract.
+```sh
+aztec-cli codegen ./target/path -o src/artifacts --ts
+```
+
+This should have created an artifact `contracts/token/src/artifacts/Token.json` with the interface and bytecode for your contract.
 
 ## Deploy your contracts
 
@@ -57,8 +59,8 @@ Create a new file `src/deploy.mjs`:
 ```js
 // src/deploy.mjs
 import { writeFileSync } from 'fs';
-import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
-import { getSandboxAccountsWallets } from '@aztec/accounts/testing';
+import { Contract, ContractDeployer, createPXEClient } from '@aztec/aztec.js';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import TokenContractArtifact from "../contracts/token/target/Token.json" assert { type: "json" };
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw

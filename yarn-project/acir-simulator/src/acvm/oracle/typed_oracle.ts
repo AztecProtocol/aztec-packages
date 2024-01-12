@@ -1,8 +1,3 @@
-import { BlockHeader, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import {
   CompleteAddress,
   MerkleTreeId,
@@ -11,7 +6,12 @@ import {
   PublicDataWitness,
   PublicKey,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { BlockHeader, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 /**
  * Information about a note needed during execution.
@@ -181,6 +181,7 @@ export abstract class TypedOracle {
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
+    _sideffectCounter: number,
   ): Promise<PrivateCallStackItem> {
     throw new Error('Not available.');
   }
@@ -197,6 +198,7 @@ export abstract class TypedOracle {
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
+    _sideffectCounter: number,
   ): Promise<PublicCallRequest> {
     throw new Error('Not available.');
   }
