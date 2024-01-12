@@ -20,4 +20,11 @@ fn main(
     let res = std::scalar_mul::fixed_base_embedded_curve(priv_key, 0);
     assert(res[0] == pub_x);
     assert(res[1] == pub_y);
+
+    let g1_y = 17631683881184975370165255887551781615748388533673675138860;
+    let res = std::scalar_mul::embedded_curve_double(pub_x, pub_y);
+    let double = std::scalar_mul::embedded_curve_add(1, g1_y,1, g1_y );
+
+    assert(double[0] == res[0]);
+   
 }

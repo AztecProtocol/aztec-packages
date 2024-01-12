@@ -42,7 +42,13 @@ pub enum BlackBoxOp {
     /// Performs scalar multiplication over the embedded curve.
     FixedBaseScalarMul { low: RegisterIndex, high: RegisterIndex, result: HeapArray },
     /// Performs addtion over the embedded curve.
-    EmbeddedCurveAdd { input1_x: RegisterIndex, input1_y: RegisterIndex, input2_x: RegisterIndex, input2_y: RegisterIndex, result: HeapArray },
+    EmbeddedCurveAdd {
+        input1_x: RegisterIndex,
+        input1_y: RegisterIndex,
+        input2_x: RegisterIndex,
+        input2_y: RegisterIndex,
+        result: HeapArray,
+    },
     /// Performs point doubling over the embedded curve.
     EmbeddedCurveDouble { input1_x: RegisterIndex, input1_y: RegisterIndex, result: HeapArray },
 }

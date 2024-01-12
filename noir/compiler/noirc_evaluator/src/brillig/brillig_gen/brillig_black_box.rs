@@ -171,8 +171,7 @@ pub(crate) fn convert_black_box_call(
         }
         BlackBoxFunc::EmbeddedCurveAdd => {
             if let (
-                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y),
-                BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
+                [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y), BrilligVariable::Simple(input2_x), BrilligVariable::Simple(input2_y)],
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
@@ -188,7 +187,7 @@ pub(crate) fn convert_black_box_call(
                     "ICE: EmbeddedCurveAdd expects four register arguments and one array result"
                 )
             }
-        }       
+        }
         BlackBoxFunc::EmbeddedCurveDouble => {
             if let (
                 [BrilligVariable::Simple(input1_x), BrilligVariable::Simple(input1_y)],
