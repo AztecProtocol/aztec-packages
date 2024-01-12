@@ -57,12 +57,6 @@ template <UltraFlavor Flavor> void DeciderProver_<Flavor>::execute_preamble_roun
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
         transcript->send_to_verifier(witness_labels[idx], comm_view[idx]);
     }
-
-    auto vk_view = accumulator->verification_key->get_all();
-    auto vk_labels = accumulator->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        transcript->send_to_verifier(vk_labels[idx], vk_view[idx]);
-    }
 }
 
 /**

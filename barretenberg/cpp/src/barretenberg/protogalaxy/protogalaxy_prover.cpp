@@ -59,11 +59,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         instance->alphas[idx] = transcript->get_challenge(domain_separator + "_alpha_" + std::to_string(idx));
     }
-    auto vk_view = instance->verification_key->get_all();
-    auto labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + labels[idx], vk_view[idx]);
-    }
 }
 
 template <class ProverInstances>
@@ -102,12 +97,6 @@ void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Insta
     auto witness_labels = instance->commitment_labels.get_witness();
     for (size_t idx = 0; idx < witness_labels.size(); idx++) {
         transcript->send_to_verifier(domain_separator + "_" + witness_labels[idx], comm_view[idx]);
-    }
-
-    auto vk_view = instance->verification_key->get_all();
-    auto vk_labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + vk_labels[idx], vk_view[idx]);
     }
 }
 
@@ -250,22 +239,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
                                  folded_relation_parameters.lookup_grand_product_delta);
     next_accumulator->relation_parameters = folded_relation_parameters;
 
-    // Fold the verification key and send it to the verifier as this is part of ϕ as well
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-                                                    instances[0]->public_inputs.size());
-    auto labels = next_accumulator->commitment_labels.get_precomputed();
-    size_t vk_idx = 0;
-    for (auto& vk : acc_vk->get_all()) {
-        size_t inst = 0;
-        vk = Commitment::infinity();
-        for (auto& instance : instances) {
-            vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
-            inst++;
-        }
-        transcript->send_to_verifier("next_" + labels[vk_idx], vk);
-        vk_idx++;
-    }
-    next_accumulator->verification_key = acc_vk;
     return next_accumulator;
 }
 

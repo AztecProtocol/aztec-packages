@@ -25,7 +25,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using CombinedRelationSeparator = typename ProverInstances::RelationSeparator;
-    using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Commitment = typename Flavor::Commitment;

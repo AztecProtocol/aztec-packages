@@ -151,7 +151,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Compute native verification key
         InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
+        auto instance = inner_composer.create_prover_instance(inner_circuit);
         auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
 
         // Instantiate the recursive verifier using the native verification key
@@ -179,7 +179,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Generate a proof over the inner circuit
         InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
+        auto instance = inner_composer.create_prover_instance(inner_circuit);
         auto inner_prover = inner_composer.create_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 
@@ -211,7 +211,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
             auto composer = get_outer_composer<OuterBuilder>();
-            auto instance = composer.create_instance(outer_circuit);
+            auto instance = composer.create_prover_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
             auto verifier = composer.create_verifier(instance);
             auto proof = prover.construct_proof();
@@ -234,7 +234,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Generate a proof over the inner circuit
         InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
+        auto instance = inner_composer.create_prover_instance(inner_circuit);
         auto inner_prover = inner_composer.create_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 

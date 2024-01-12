@@ -145,7 +145,7 @@ TEST_F(GoblinUltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -172,7 +172,7 @@ TEST_F(GoblinUltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -223,7 +223,7 @@ TEST_F(GoblinUltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(instance);

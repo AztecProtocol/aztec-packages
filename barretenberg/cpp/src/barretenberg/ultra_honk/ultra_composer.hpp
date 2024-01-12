@@ -22,7 +22,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using ProverInstance = ProverInstance_<Flavor>;
-    using Instance = ProverInstance;
+    using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
@@ -59,25 +59,25 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         return commitment_key;
     };
 
-    std::shared_ptr<Instance> create_instance(CircuitBuilder& circuit);
+    std::shared_ptr<ProverInstance> create_prover_instance(CircuitBuilder& circuit);
 
-    UltraProver_<Flavor> create_prover(const std::shared_ptr<Instance>&,
+    UltraProver_<Flavor> create_prover(const std::shared_ptr<ProverInstance>&,
                                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     UltraVerifier_<Flavor> create_verifier(
-        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<VerifierInstance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderProver_<Flavor> create_decider_prover(
-        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<ProverInstance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     DeciderProver_<Flavor> create_decider_prover(
-        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<ProverInstance>&,
         const std::shared_ptr<CommitmentKey>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderVerifier_<Flavor> create_decider_verifier(
-        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<VerifierInstance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
 
@@ -110,8 +110,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      */
     MergeVerifier_<Flavor> create_merge_verifier() { return MergeVerifier_<Flavor>(); }
 
-    ProtoGalaxyProver_<ProverInstances> create_folding_prover(const std::vector<std::shared_ptr<Instance>>& instances,
-                                                              const std::shared_ptr<CommitmentKey>& commitment_key)
+    ProtoGalaxyProver_<ProverInstances> create_folding_prover(
+        const std::vector<std::shared_ptr<ProverInstance>>& instances,
+        const std::shared_ptr<CommitmentKey>& commitment_key)
     {
         ProtoGalaxyProver_<ProverInstances> output_state(instances, commitment_key);
 
@@ -131,7 +132,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      *
      * @param inst
      */
-    void compute_verification_key(const std::shared_ptr<Instance>&);
+    void compute_verification_key(std::shared_ptr<ProverInstance>&, std::shared_ptr<VerifierInstance>&);
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

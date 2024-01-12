@@ -105,7 +105,7 @@ TEST_F(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
     builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
 
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     instance->initialize_prover_polynomials();
 
     auto eta = FF::random_element();
@@ -266,12 +266,12 @@ TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
     auto builder_1 = typename Flavor::CircuitBuilder();
     builder_1.add_public_variable(FF(1));
 
-    auto instance_1 = composer.create_instance(builder_1);
+    auto instance_1 = composer.create_prover_instance(builder_1);
 
     auto builder_2 = typename Flavor::CircuitBuilder();
     builder_2.add_public_variable(FF(1));
 
-    auto instance_2 = composer.create_instance(builder_2);
+    auto instance_2 = composer.create_prover_instance(builder_2);
 
     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
@@ -279,7 +279,7 @@ TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
 
     auto builder_3 = typename Flavor::CircuitBuilder();
     builder_3.add_public_variable(FF(1));
-    auto instance_3 = composer.create_instance(builder_3);
+    auto instance_3 = composer.create_prover_instance(builder_3);
 
     instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
     auto second_accumulator = fold_and_verify(instances, composer, true);
@@ -295,12 +295,12 @@ TEST_F(ProtoGalaxyTests, TamperedCommitment)
     auto builder_1 = typename Flavor::CircuitBuilder();
     builder_1.add_public_variable(FF(1));
 
-    auto instance_1 = composer.create_instance(builder_1);
+    auto instance_1 = composer.create_prover_instance(builder_1);
 
     auto builder_2 = typename Flavor::CircuitBuilder();
     builder_2.add_public_variable(FF(1));
 
-    auto instance_2 = composer.create_instance(builder_2);
+    auto instance_2 = composer.create_prover_instance(builder_2);
 
     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
@@ -308,7 +308,7 @@ TEST_F(ProtoGalaxyTests, TamperedCommitment)
 
     auto builder_3 = typename Flavor::CircuitBuilder();
     builder_3.add_public_variable(FF(1));
-    auto instance_3 = composer.create_instance(builder_3);
+    auto instance_3 = composer.create_prover_instance(builder_3);
 
     // tampering with the commitment should cause the decider to fail
     first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
@@ -326,12 +326,12 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
     auto builder_1 = typename Flavor::CircuitBuilder();
     builder_1.add_public_variable(FF(1));
 
-    auto instance_1 = composer.create_instance(builder_1);
+    auto instance_1 = composer.create_prover_instance(builder_1);
 
     auto builder_2 = typename Flavor::CircuitBuilder();
     builder_2.add_public_variable(FF(1));
 
-    auto instance_2 = composer.create_instance(builder_2);
+    auto instance_2 = composer.create_prover_instance(builder_2);
 
     auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
@@ -339,7 +339,7 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 
     auto builder_3 = typename Flavor::CircuitBuilder();
     builder_3.add_public_variable(FF(1));
-    auto instance_3 = composer.create_instance(builder_3);
+    auto instance_3 = composer.create_prover_instance(builder_3);
 
     // tampering with accumulator's polynomial should cause both folding and deciding to fail
     instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };

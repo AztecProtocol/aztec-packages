@@ -19,7 +19,6 @@ namespace proof_system::honk {
 template <class Flavor> class ProverInstance_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -30,7 +29,6 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
-    std::shared_ptr<VerificationKey> verification_key;
 
     ProverPolynomials prover_polynomials;
     WitnessCommitments witness_commitments;

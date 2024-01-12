@@ -130,7 +130,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -157,7 +157,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -208,7 +208,7 @@ TEST_F(UltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(builder);
+    auto instance = composer.create_prover_instance(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(instance);
