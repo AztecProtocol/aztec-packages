@@ -107,7 +107,7 @@ export {
   merkleTreeIds,
   mockTx,
 } from '@aztec/circuit-types';
-export { NodeInfro } from '@aztec/types/interfaces';
+export { NodeInfo } from '@aztec/types/interfaces';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
