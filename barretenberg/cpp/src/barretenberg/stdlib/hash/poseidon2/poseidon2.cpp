@@ -8,15 +8,14 @@ using namespace proof_system;
 /**
  * @brief Hash a vector of field_ct.
  */
-template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_ct>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::span<field_ct>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
      * This should just call the sponge variable length hash function
      *
      */
-    auto input{ inputs };
-    return Sponge::hash_fixed_length(builder, input);
+    return Sponge::hash_fixed_length(builder, inputs);
 }
 
 /**
