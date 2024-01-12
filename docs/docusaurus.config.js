@@ -127,7 +127,7 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/types/tsconfig.json",
         entryPointStrategy: "expand",
         out: "apis/pxe",
