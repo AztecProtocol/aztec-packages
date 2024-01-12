@@ -49,6 +49,7 @@ import {
   computeGlobalsHash,
 } from '@aztec/circuits.js/abis';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -64,7 +65,6 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 

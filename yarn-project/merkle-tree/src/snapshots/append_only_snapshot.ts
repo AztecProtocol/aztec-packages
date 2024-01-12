@@ -1,10 +1,11 @@
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
+
 import { LevelUp } from 'levelup';
 
 import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { TreeBase } from '../tree_base.js';
 import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
-import { Hasher } from '@aztec/types/interfaces';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 // stores the last block that modified this node
 const nodeModifiedAtBlockKey = (treeName: string, level: number, index: bigint) =>

@@ -3,6 +3,7 @@ import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -12,7 +13,6 @@ import { default as memdown } from 'memdown';
 import { MerkleTreeDb, MerkleTrees, WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 import { WorldStateRunningState } from './world_state_synchronizer.js';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 const LATEST_BLOCK_NUMBER = 5;
 const getLatestBlockNumber = () => Promise.resolve(LATEST_BLOCK_NUMBER);

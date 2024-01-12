@@ -33,7 +33,9 @@ import {
   makePublicCallRequest,
   makeSelector,
 } from '@aztec/circuits.js/factories';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { SiblingPath } from '@aztec/types/membership';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -44,8 +46,6 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
-import { makeTuple } from '@aztec/foundation/array';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;

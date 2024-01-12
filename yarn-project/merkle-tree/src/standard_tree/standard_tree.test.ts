@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Hasher } from '@aztec/types/interfaces';
 
 import { default as levelup } from 'levelup';
 
@@ -10,7 +11,6 @@ import { createMemDown } from '../test/utils/create_mem_down.js';
 import { PedersenWithCounter } from '../test/utils/pedersen_with_counter.js';
 import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
-import { Hasher } from '@aztec/types/interfaces';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number) => {
   return await newTree(StandardTree, levelUp, hasher, name, depth);

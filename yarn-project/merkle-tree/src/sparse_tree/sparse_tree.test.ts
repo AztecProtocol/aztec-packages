@@ -1,4 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { randomBytes } from 'crypto';
 import { default as levelup } from 'levelup';
@@ -11,8 +13,6 @@ import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js
 import { treeTestSuite } from '../test/test_suite.js';
 import { createMemDown } from '../test/utils/create_mem_down.js';
 import { SparseTree } from './sparse_tree.js';
-import { Hasher } from '@aztec/types/interfaces';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 const log = createDebugLogger('aztec:sparse_tree_test');
 

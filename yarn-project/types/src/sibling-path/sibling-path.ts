@@ -1,4 +1,4 @@
-import { makeTuple } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import {
   Tuple,

@@ -1,6 +1,5 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader , serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
  * The Proof class is a wrapper around the circuits proof.

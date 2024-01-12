@@ -54,6 +54,7 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeCompleteAddress, computeFunctionLeaf, computeTxHash } from '@aztec/circuits.js/abis';
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -62,7 +63,6 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { executeInit, executeInner, executeOrdering } from './index.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 function _makeEmptyReadRequest() {
   return makeTuple(MAX_READ_REQUESTS_PER_TX, () => SideEffect.empty());

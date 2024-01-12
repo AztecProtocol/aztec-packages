@@ -47,6 +47,7 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
+import { SiblingPath } from '@aztec/types/membership';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -59,7 +60,6 @@ import { LevelUp } from 'levelup';
 
 import { AztecNodeConfig } from './config.js';
 import { openDb } from './db.js';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 /**
  * The aztec node.

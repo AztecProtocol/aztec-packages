@@ -45,6 +45,7 @@ import {
   makePublicCallRequest,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
+import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -66,7 +67,6 @@ import { getBlockHeader } from '../sequencer/utils.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
-import { makeTuple, range } from '@aztec/foundation/array';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

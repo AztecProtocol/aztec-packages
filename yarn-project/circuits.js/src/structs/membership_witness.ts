@@ -2,7 +2,6 @@ import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NOTE_HASH_TREE_HEIGHT } from '../constants.gen.js';
 import { assertMemberLength, range } from '@aztec/foundation/array';
 
 /**
@@ -30,13 +29,7 @@ export class MembershipWitness<N extends number> {
     return serializeToBuffer(toBufferBE(this.leafIndex, 32), ...this.siblingPath);
   }
 
-  static mock(size: number, start: number) {
-    return new MembershipWitness(
-      size,
-      BigInt(start),
-      range(size, start).map(x => new Fr(BigInt(x))) as Tuple<Fr, typeof NOTE_HASH_TREE_HEIGHT>,
-    );
-  }
+
 
   /**
    * Creates a random membership witness. Used for testing purposes.

@@ -32,6 +32,8 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { default as levelup } from 'levelup';
 
@@ -44,8 +46,6 @@ import {
   TreeInfo,
 } from './merkle_tree_operations.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
-import { Hasher } from '@aztec/types/interfaces';
-import { SiblingPath } from '@aztec/types/sibling-path';
 
 /**
  * Data necessary to reinitialize the merkle trees from Db.

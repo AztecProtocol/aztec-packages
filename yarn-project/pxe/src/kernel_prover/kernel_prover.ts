@@ -26,13 +26,13 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 /**
  * Represents an output note data object.

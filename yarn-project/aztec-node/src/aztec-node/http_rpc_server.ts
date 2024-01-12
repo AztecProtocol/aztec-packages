@@ -16,7 +16,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { SiblingPath } from '@aztec/types/sibling-path';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.

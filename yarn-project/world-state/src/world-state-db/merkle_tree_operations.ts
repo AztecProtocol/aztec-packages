@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
-import { SiblingPath } from '@aztec/types/sibling-path';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Type alias for the nullifier tree ID.
