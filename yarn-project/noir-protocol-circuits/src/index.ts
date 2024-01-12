@@ -40,15 +40,15 @@ import {
   rollup_merge_circuit as MergeRollupJson,
   BaseOrMergeRollupPublicInputs as MergeRollupReturnType,
   PrivateKernelInputsOrdering as OrderingInputType,
-  private_kernel_init_circuit as PrivateKernelInitJson,
+  private_kernel_init_circuit as PrivateKernelInitArtifact,
   private_kernel_init_simulated_circuit as PrivateKernelInitSimulatedJson,
-  private_kernel_inner_circuit as PrivateKernelInnerJson,
+  private_kernel_inner_circuit as PrivateKernelInnerArtifact,
   private_kernel_inner_simulated_circuit as PrivateKernelInnerSimulatedJson,
-  private_kernel_ordering_circuit as PrivateKernelOrderingJson,
+  private_kernel_ordering_circuit as PrivateKernelOrderingArtifact,
   private_kernel_ordering_simulated_circuit as PrivateKernelOrderingSimulatedJson,
-  public_kernel_private_previous_circuit as PublicKernelPrivatePreviousJson,
+  public_kernel_private_previous_circuit as PublicKernelPrivatePreviousArtifact,
   public_kernel_private_previous_simulated_circuit as PublicKernelPrivatePreviousSimulatedJson,
-  public_kernel_public_previous_circuit as PublicKernelPublicPreviousJson,
+  public_kernel_public_previous_circuit as PublicKernelPublicPreviousArtifact,
   public_kernel_public_previous_simulated_circuit as PublicKernelPublicPreviousSimulatedJson,
   PublicKernelPrivatePreviousInputs as PublicPrivatePreviousInputType,
   KernelCircuitPublicInputs as PublicPrivatePreviousReturnType,
@@ -59,6 +59,14 @@ import {
   rollup_root_circuit as RootRollupJson,
   RootRollupPublicInputs as RootRollupReturnType,
 } from './types/index.js';
+
+export {
+  PrivateKernelInitArtifact,
+  PrivateKernelInnerArtifact,
+  PrivateKernelOrderingArtifact,
+  PublicKernelPrivatePreviousArtifact,
+  PublicKernelPublicPreviousArtifact,
+};
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -74,16 +82,6 @@ export type DecodedInputs = {
    */
   return_value: any;
 };
-
-export const PrivateKernelInitArtifact = PrivateKernelInitJson as CompiledCircuit;
-
-export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as CompiledCircuit;
-
-export const PrivateKernelOrderingArtifact = PrivateKernelOrderingJson as CompiledCircuit;
-
-export const PublicKernelPrivatePreviousArtifact = PublicKernelPrivatePreviousJson as CompiledCircuit;
-
-export const PublicKernelPublicPreviousArtifact = PublicKernelPublicPreviousJson as CompiledCircuit;
 
 /**
  * Executes the init private kernel.
