@@ -37,9 +37,8 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
-noir-tests:
+noir-clippy:
   buildDir: noir
-  dockerfile: Dockerfile.ci
   dependencies:
     - noir
 

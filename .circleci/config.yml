@@ -92,6 +92,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir 32 arm64
 
+  noir-clippy:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "clippy"
+          command: cond_spot_run_test noir 32 ./scripts/clippy.sh
+
   noir-ecr-manifest:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -124,17 +135,6 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build noir-compile-acir-tests 32
-
-  noir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "test"
-          command: cond_spot_run_build noir-tests 32
 
   # Barretenberg
   barretenberg-wasm-linux-clang:
@@ -1118,7 +1118,7 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-packages: *defaults
-      - noir-tests: *defaults
+      - noir-clippy: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
