@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmMachineState } from './avm_machine_state.js';
+import { AvmMessageCallResult } from './avm_message_call_result.js';
 import { AvmStateManager } from './avm_state_manager.js';
 import { AvmInterpreter } from './interpreter/index.js';
 import { interpretBytecode } from './opcodes/from_bytecode.js';
 import { Instruction } from './opcodes/index.js';
-import { AvmMessageCallResult } from './avm_message_call_result.js';
 
 /**
  * Avm Executor manages the execution of the AVM

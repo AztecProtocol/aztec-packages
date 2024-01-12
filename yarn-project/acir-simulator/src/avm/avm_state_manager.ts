@@ -1,4 +1,5 @@
 import { BlockHeader } from '@aztec/circuits.js';
+
 import { AvmJournal, HostStorage } from './journal/index.js';
 
 /**

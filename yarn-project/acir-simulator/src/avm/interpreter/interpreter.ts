@@ -2,9 +2,9 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmMachineState } from '../avm_machine_state.js';
+import { AvmMessageCallResult } from '../avm_message_call_result.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from '../opcodes/index.js';
-import { AvmMessageCallResult } from '../avm_message_call_result.js';
 
 /**
  * Avm Interpreter

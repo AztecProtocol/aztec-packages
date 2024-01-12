@@ -6,8 +6,8 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Add } from '../opcodes/arithmetic.js';
 import { Return } from '../opcodes/control_flow.js';
-import { CallDataCopy } from '../opcodes/memory.js';
 import { Instruction } from '../opcodes/instruction.js';
+import { CallDataCopy } from '../opcodes/memory.js';
 import { AvmInterpreter } from './interpreter.js';
 
 describe('interpreter', () => {

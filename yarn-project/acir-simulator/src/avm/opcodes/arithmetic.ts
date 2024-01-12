@@ -68,4 +68,3 @@ export class Div implements Instruction {
     machineState.writeMemory(this.destOffset, dest);
   }
 }
-

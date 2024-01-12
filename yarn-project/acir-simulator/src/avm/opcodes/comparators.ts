@@ -1,7 +1,8 @@
-import { Fr } from "@aztec/foundation/fields";
-import { AvmMachineState } from "../avm_machine_state.js";
-import { AvmStateManager } from "../avm_state_manager.js";
-import { Instruction } from "./instruction.js";
+import { Fr } from '@aztec/foundation/fields';
+
+import { AvmMachineState } from '../avm_machine_state.js';
+import { AvmStateManager } from '../avm_state_manager.js';
+import { Instruction } from './instruction.js';
 
 /** -*/
 export class Eq implements Instruction {

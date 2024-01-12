@@ -4,7 +4,6 @@ import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
-
 /** - */
 export class And implements Instruction {
   static type: string = 'AND';
@@ -67,7 +66,6 @@ export class Not implements Instruction {
     machineState.writeMemory(this.destOffset, dest);
   }
 }
-
 
 /** -*/
 export class Shl implements Instruction {
