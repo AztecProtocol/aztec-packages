@@ -242,9 +242,6 @@ struct BlockId {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/825): This struct is more general than it needs / should be
 // allowed to be. We can only accommodate 1 quadratic term and 3 linear terms.
 struct Expression {
-    // WORKTODO: should be this:
-    // std::tuple<std::string, Circuit::Witness, Circuit::Witness> mul_term;
-    // WORKTODO: also, why is this string instead of uint256 or field or something
     std::vector<std::tuple<std::string, Circuit::Witness, Circuit::Witness>> mul_terms;
     std::vector<std::tuple<std::string, Circuit::Witness>> linear_combinations;
     std::string q_c;
