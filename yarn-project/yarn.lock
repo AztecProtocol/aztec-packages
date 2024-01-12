@@ -847,7 +847,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/types@workspace:types"
   dependencies:
+    "@aztec/foundation": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@types/debug": ^4.1.7
+    "@types/detect-node": ^2.0.0
+    "@types/jest": ^29.5.0
     "@types/supertest": ^2.0.12
     "@typescript-eslint/eslint-plugin": ^6.2.1
     "@typescript-eslint/parser": ^6.2.1
