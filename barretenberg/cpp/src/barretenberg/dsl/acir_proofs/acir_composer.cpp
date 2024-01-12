@@ -19,6 +19,13 @@ AcirComposer::AcirComposer(size_t size_hint, bool verbose)
     , verbose_(verbose)
 {}
 
+/**
+ * @brief Populate acir_composer-owned builder with circuit generated from constraint system and an optional witness
+ *
+ * @tparam Builder
+ * @param constraint_system
+ * @param witness
+ */
 template <typename Builder>
 void AcirComposer::create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness)
 {
@@ -37,21 +44,11 @@ std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key
 
 std::vector<uint8_t> AcirComposer::create_proof(bool is_recursive)
 {
-    vinfo("building circuit with witness...");
+    if (!proving_key_) {
+        throw_or_abort("Must compute proving key before constructing proof.");
+    }
 
-    vinfo("gates: ", builder_.get_total_circuit_size());
-
-    auto composer = [&]() {
-        if (proving_key_) {
-            return acir_format::Composer(proving_key_, nullptr);
-        }
-
-        acir_format::Composer composer;
-        vinfo("computing proving key...");
-        proving_key_ = composer.compute_proving_key(builder_);
-        vinfo("done.");
-        return composer;
-    }();
+    acir_format::Composer composer(proving_key_, nullptr);
 
     vinfo("creating proof...");
     std::vector<uint8_t> proof;

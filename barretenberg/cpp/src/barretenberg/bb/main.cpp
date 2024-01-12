@@ -96,6 +96,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
 
     Timer proof_timer;
+    acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof(recursive);
     write_benchmark("proof_construction_time", proof_timer.milliseconds(), "acir_test", current_dir);
 
@@ -169,6 +170,7 @@ void prove(const std::string& bytecodePath,
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
+    acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof(recursive);
 
     if (outputPath == "-") {

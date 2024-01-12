@@ -52,6 +52,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
 
     acir_composer->create_circuit(constraint_system, witness);
 
+    acir_composer->init_proving_key();
     auto proof_data = acir_composer->create_proof(*is_recursive);
     *out = to_heap_buffer(proof_data);
 }
