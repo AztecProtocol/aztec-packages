@@ -8,7 +8,7 @@ import { decodeFunctionSignature } from './decoder.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
-/** A selector is the first N bytes of the hash of a signature. */
+/** A selector is the first 4 bytes of the hash of a signature. */
 abstract class Selector {
   /** The size of the selector in bytes. */
   public static SIZE = 4;
