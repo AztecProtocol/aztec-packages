@@ -79,7 +79,7 @@ export function toHex(num: bigint, padTo32 = false): `0x${string}` {
  * @returns A buffer.
  */
 export function fromHex(value: string): Buffer {
-  const hexRegex = /^(0x)?[0-9a-fA-F]+$/;
+  const hexRegex = /^(0x)?[0-9a-fA-F]*$/;
   if (!hexRegex.test(value) || value.length % 2 !== 0) {
     throw new Error(`Invalid hex string: ${value}`);
   }
