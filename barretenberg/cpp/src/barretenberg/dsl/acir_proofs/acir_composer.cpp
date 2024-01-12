@@ -10,6 +10,7 @@
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "contract.hpp"
 
 namespace acir_proofs {
