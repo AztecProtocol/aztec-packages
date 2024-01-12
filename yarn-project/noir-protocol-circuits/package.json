@@ -33,7 +33,6 @@
     "@noir-lang/backend_barretenberg": "portal:../../noir/packages/backend_barretenberg",
     "@noir-lang/noir_js": "portal:../../noir/packages/noir_js",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
-    "@noir-lang/types": "portal:../../noir/packages/types",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

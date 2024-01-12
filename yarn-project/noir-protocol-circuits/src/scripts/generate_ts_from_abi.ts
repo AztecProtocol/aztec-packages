@@ -1,7 +1,6 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
 
-import { codegen } from '@noir-lang/noir_codegen';
-import { CompiledCircuit } from '@noir-lang/types';
+import { CompiledCircuit, codegen } from '@noir-lang/noir_codegen';
 import fs from 'fs/promises';
 
 const log = createConsoleLogger('aztec:noir-contracts');

@@ -2,6 +2,8 @@ import { AbiType } from '@noir-lang/noirc_abi';
 import { CompiledCircuit } from '@noir-lang/types';
 import { PrimitiveTypesUsed, generateTsInterface, codegenStructDefinitions } from './noir_types.js';
 
+export { CompiledCircuit };
+
 // TODO: reenable this. See `abiTypeToTs` for reasoning.
 // export type FixedLengthArray<T, L extends number> = L extends 0 ? never[]: T[] & { length: L };
 
