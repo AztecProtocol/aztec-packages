@@ -20,8 +20,8 @@ import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
 
 const {
-  AZTEC_NODE_PORT = '80',
-  PXE_PORT = '79',
+  AZTEC_NODE_PORT = '8079',
+  PXE_PORT = '8080',
   ARCHIVER_PORT = '80',
   AZTEC_NODE_URL,
   DEPLOY_AZTEC_CONTRACTS,
@@ -93,9 +93,9 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('sandbox')
     .description('Starts Aztec sandbox.')
-    .option('-p, --port <port>', 'Port to run sandbox on.', AZTEC_NODE_PORT)
-    .option('-pp, --pxe-port <port>', 'Port to run PXE on (optional).')
-    .option('-s, --skip-test-accounts', 'DO NOT deploy test accounts.', true)
+    .option('-np, --node-port <port>', 'Port to run Aztec Node on.', AZTEC_NODE_PORT)
+    .option('-pp, --pxe-port <port>', 'Port to run PXE on (optional).', PXE_PORT)
+    .option('-s, --skip-test-accounts', 'DO NOT deploy test accounts.', false)
     // .option()
     .action(async options => {
       userLog(`${splash}\n${github}\n\n`);
@@ -116,12 +116,10 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       }
 
       // Start Node and PXE JSON-RPC servers
-      startHttpRpcServer(node, createAztecNodeRpcServer, options.port);
-      userLog(`Aztec Node JSON-RPC Server listening on port ${options.port}`);
-      if (options.pxePort) {
-        startHttpRpcServer(pxe, createPXERpcServer, PXE_PORT);
-        userLog(`PXE JSON-RPC Server listening on port ${PXE_PORT}`);
-      }
+      startHttpRpcServer(node, createAztecNodeRpcServer, options.nodePort);
+      userLog(`Aztec Node JSON-RPC Server listening on nodePort ${options.nodePort}`);
+      startHttpRpcServer(pxe, createPXERpcServer, options.pxePort);
+      userLog(`PXE JSON-RPC Server listening on port ${options.pxePort}`);
     });
 
   // Start Aztec modules with options
