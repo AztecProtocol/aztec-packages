@@ -1061,10 +1061,12 @@ defaults: &defaults
       # do nothing if tagged other than:
       only: /^aztec-packages-v.*/
     branches:
+      # do nothing on release please branches
+      # unless they are tagged
       ignore:
-        # do nothing on release please branches
-        # unless they are tagged
         - /^release-please--.*/
+      only:
+        - /.*/
   context:
     - build
     - slack
