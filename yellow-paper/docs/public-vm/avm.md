@@ -6,18 +6,21 @@ Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](ht
 
 ## Introduction
 
-An Aztec transaction may include one or more **public execution requests**. A public execution request represents an initial **contract call** to a contract, providing input data and triggering the execution of that contract's public code in the Aztec Virtual Machine. Given a contract call to a contract, the AVM executes the corresponding code one instruction at a time, treating each instruction as a transition function on its state.
+An Aztec transaction may include one or more **public execution requests**. A public execution request is a request to execute a specified contract's public bytecode given some arguments. Execution of a contract's public bytecode is performed by the **Aztec Virtual Machine (AVM)**.
 
-> Public execution requests may originate as [`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md) triggered during the transaction's private execution.
+In order to execute public contract bytecode, the AVM requires some context. An **execution context** includes all information necessary to initiate AVM execution along with all state maintained by the AVM. The execution context structure is fully specified in ["Execution Context"](#execution-context). A **contract call** initializes a new context and triggers AVM execution within that context.
+
+Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set).
+
+During execution, additional contract calls may be made. While an **initial contract call** initializes a new execution context directly from a public execution request, a **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set/#isa-section-call), [`STATICCALL`](./instruction-set/#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (the **calling context**) along with the call instruction's arguments. A nested contract call triggers AVM execution in that new context, and returns execution to the calling context upon completion.
 
 This document contains the following sections:
 
 - [**Public contract bytecode**](#public-contract-bytecode) (aka AVM bytecode)
 - [**Execution context**](#execution-context), outlining the AVM's environment and state
 - [**Execution**](#execution), outlining control flow, gas tracking, halting, and reverting
-- [**Nested calls**](#nested-calls), outlining the initiation of contract calls, processing of sub-context results, gas refunds, and world state reverts
-
-Refer to the **["AVM Instruction Set"](./instruction-set)** for the list of all supported instructions and their associated state transition functions.
+- [**Initial contract calls**](#initial-contract-calls), outlining the initiation of a contract call from a public execution request
+- [**Nested contract calls**](#nested-contract-calls), outlining the initiation of a contract call from an instruction as well as the processing of nested execution results, gas refunds, and state reverts
 
 For details on the AVM's "tagged" memory model, refer to the **["AVM Memory Model"](./state-model.md)**.
 
@@ -25,9 +28,9 @@ For details on the AVM's "tagged" memory model, refer to the **["AVM Memory Mode
 
 ## Public contract bytecode
 
-A contract's public bytecode is a series of execution instructions for the AVM. When a contract call is made to a contract, the AVM retrieves the corresponding bytecode from the world state (`worldState.contracts[address].bytecode`) and triggers execution of the first instruction (`bytecode[0]`). The world state is described in more detail later.
+A contract's public bytecode is a series of execution instructions for the AVM. When a call is made to a contract, the AVM retrieves the corresponding bytecode and triggers execution of the first instruction.
 
-> Note: While a Noir contract may have multiple public functions, they are inlined so that the **entirety of a contract's public code exists in a single bytecode**. Internal calls to Noir functions within the same contract are compiled to simple program-counter changes, as are internal returns. In a manner similar to the Ethereum Virtual Machine, the AVM is not itself aware of function selectors and internal function calls. The Noir compiler may implement these constructs by treating the first word in a contract call's calldata as a function selector, and beginning a contract's bytecode with a series of conditional jumps.
+The entirety of a contract's public code is represented as a single block of bytecode with a maximum of `MAX_PUBLIC_INSTRUCTIONS_PER_CONTRACT` ($2^15 = 32768$) instructions. The mechanism used to distinguish between different functions in an AVM bytecode program is left as a higher-level abstraction (_e.g._ similar to Solidity's concept of a function selector).
 
 > Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
 
@@ -46,6 +49,7 @@ AvmContext {
     environment: ExecutionEnvironment,
     machineState: MachineState,
     worldState: WorldState,
+    journal: Journal,
     accruedSubstate: AccruedSubstate,
     results: ContractCallResults,
 }
@@ -85,33 +89,46 @@ MachineState {
     l2GasLeft,
     daGasLeft,
     pc,
-    internalCallStack,
+    internalCallStack: [],
     memory: offset => value // all entries are zero at start
 }
 ```
 
-**World state** contains persistable VM state. If a contract call succeeds, its world state updates are applied to the calling context (whether that be a parent call's context or the transaction context). If a contract call fails, its world state updates are rejected by its caller. When a _transaction_ succeeds, its world state updates persist into future transactions.
+**World state** contains persistable VM state. If a contract call succeeds, its world state updates are applied to the calling context (whether that be a parent call's context or the transaction context). If a contract call reverts, its world state updates are rejected by its caller. When a _transaction_ succeeds, its world state updates persist into future transactions.
 
 ```
 WorldState {
-    publicStorage: (address, slot) => value,            // read/write
-    contracts: (address) => {bytecode, portalAddress},  // read-only
-    newNoteHashes: [],                                  // append-only
-    newNullifiers: [],                                  // append-only
-    l1l2messageHashes: (address, key) => messageHash,   // read-only
+    contracts: (address) => {bytecode, portalAddress}, // read-only from within AVM
+    blockHeaders: (blockNumber) => BlockHeader,        // read-only from within AVM
+    publicStorage: (address, slot) => value,           // read/write
+    l1ToL2Messages: (address, key) => message,         // read-only from within AVM
+    l2ToL1Messages: [],                                // append-only (no reads) from within AVM
+    noteHashes: [],                                    // append-only (no reads) from within AVM
+    nullifiers: [],                                    // append-only (no reads) from within AVM
 }
 ```
-
 > Note: the notation `key => value` describes a mapping from `key` to `value`.
 
 > Note: `contracts` is read-only because contract deployments are not handled by the AVM
+
+**Journal** tracks all world state accesses (reads and writes) that have taken place thus far during a contract call's execution.
+```
+Journal {
+    calledContracts: [],
+    blockHeaderReads: [],
+    publicStorageAccesses: [],
+    l1ToL2MessageReads: [],
+    newL2ToL1Messages: [],
+    newNoteHashes: [],
+    newNullifiers: [],
+}
+```
 
 The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls or transactions. Similar to world state, if a contract call succeeds, its substate is appended to its calling context, but if it fails its substate is dropped by its caller.
 
 ```
 AccruedSubstate {
     unencryptedLogs: [],
-    l2ToL1Messages: [],
 }
 ```
 
@@ -121,59 +138,6 @@ Finally, when a contract call halts, it sets the context's **contract call resul
 ContractCallResults {
     reverted: boolean,
     output: [] | undefined,
-}
-```
-
-### Context initialization for initial call
-
-This section outlines AVM context initialization specifically for a **public execution request's initial contract call** (_i.e._ not a nested contract call). Context initialization for nested contract calls will be explained [in a later section](#context-initialization-for-a-nested-call).
-When AVM execution is initiated for a public execution request, the AVM context is initialized as follows:
-
-```
-context = AvmContext {
-    environment: INITIAL_EXECUTION_ENVIRONMENT,
-    machineState: INITIAL_MACHINE_STATE,
-    accruedSubstate: empty,
-    worldState: <latest world state>,
-    results: INITIAL_MESSAGE_CALL_RESULTS,
-}
-```
-
-> Note: Since world state persists between transactions, the latest state is injected into a new AVM context.
-
-Given a `PublicCallRequest` and its parent `TxRequest`, these above-listed "`INITIAL_*`" entries are defined as follows:
-
-```
-INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
-    address: PublicCallRequest.contractAddress,
-    storageAddress: PublicCallRequest.CallContext.storageContractAddress,
-    origin: TxRequest.origin,
-    l1GasPrice: TxRequest.l1GasPrice,
-    l2GasPrice: TxRequest.l2GasPrice,
-    daGasPrice: TxRequest.daGasPrice,
-    sender: PublicCallRequest.CallContext.msgSender,
-    portal: PublicCallRequest.CallContext.portalContractAddress,
-    blockHeader: <latest block header>,
-    globalVariables: <latest global variable values>
-    contractCallDepth: 0,
-    isStaticCall: PublicCallRequest.CallContext.isStaticCall,
-    isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
-    calldata: PublicCallRequest.args,
-    bytecode: worldState.contracts[PublicCallRequest.contractAddress],
-}
-
-INITIAL_MACHINE_STATE = MachineState {
-    l1GasLeft: TxRequest.l1GasLimit,
-    l2GasLeft: TxRequest.l2GasLimit,
-    daGasLeft: TxRequest.daGasLimit,
-    pc: 0,
-    internalCallStack: empty,
-    memory: empty,
-}
-
-INITIAL_MESSAGE_CALL_RESULTS = ContractCallResults {
-    reverted: false,
-    output: undefined,
 }
 ```
 
@@ -187,9 +151,9 @@ The program counter (machine state's `pc`) determines which instruction to execu
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), `INTERNALCALL`) modify the program counter based on inputs.
 
-The `INTERNALCALL` instruction jumps to the destination specified by its input (sets `pc` to that destination), but first it pushes the current `pc+1` to `machineState.internalCallStack`. The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and jumps there.
+The `INTERNALCALL` pushes `pc+1` to `machineState.internalCallStack` and then updates `pc` to the instruction's destination argument (`instr.args.loc`). The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and assigns the result to `pc`.
 
-> Jump destinations can only be constants from the contract bytecode, or destinations popped from `machineState.internalCallStack`. A jump destination will never originate from main memory.
+> An instruction will never assign program counter a value from memory (`machineState.memory`). A `JUMP`, `JUMPI`, or `INTERNALCALL` instruction's destination is a constant from the program bytecode. This property allows for easier static program analysis.
 
 ### Gas limits and tracking
 > Note: see ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
@@ -219,11 +183,11 @@ machineState.l2GasLeft = 0
 machineState.daGasLeft = 0
 ```
 
-> Reverting and exceptional halts will be covered in more detail [in a later section](#halting).
+> Reverting and exceptional halts are covered in more detail in the ["Halting" section](#halting).
 
 ### Gas cost notes and examples
 
-A instruction's gas cost is loosely derived from its complexity. Execution complexity of some instructions changes based on inputs. Here are some examples and important notes:
+An instruction's gas cost is meant to reflect the computational cost of generating a proof of its correct execution. For some instructions, this computational cost changes based on inputs. Here are some examples and important notes:
 - [`JUMP`](./instruction-set/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost`, `l2GasCost`, and `daGasCost`.
 - The [`SET`](./instruction-set/#isa-section-set) instruction operates on a different sized constant (based on its `dst-type`). Therefore, this instruction's gas cost increases with the size of its input.
 - Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./instruction-set/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to `machineState.memory`.
@@ -232,7 +196,7 @@ A instruction's gas cost is loosely derived from its complexity. Execution compl
 
 > Implementation detail: an instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
 
-> Implementation detail: an instruction's gas cost takes into account the costs of associated downstream computations. So, an instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). An instruction that triggers a nested contract call (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's execution and an added execution of the public kernel circuit.
+> Implementation detail: an instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). An instruction that triggers a nested contract call (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the contract call's complete execution as well as any work required by the public kernel circuit for this additional call.
 
 ## Halting
 
@@ -272,12 +236,59 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     - Defined per-instruction in the [Instruction Set](./instruction-set)
 1. **Jump destination past end of bytecode**
     ```
-    assert machineState.pc >= environment.bytecode.length
+    assert environment.bytecode[machineState.pc].opcode not in {JUMP, JUMPI, INTERNALCALL}
+        OR instr.args.loc < environment.bytecode.length
     ```
 1. **World state modification attempt during a static call**
     ```
     assert !environment.isStaticCall
         OR environment.bytecode[machineState.pc].opcode not in WS_MODIFYING_OPS
+    ```
+    > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
+1. **Maximum contract call depth (1024) exceeded**
+    ```
+    assert environment.contractCallDepth <= 1024
+    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+        OR environment.contractCallDepth < 1024
+    ```
+1. **Maximum internal call depth (1024) exceeded**
+    ```
+    assert machineState.internalCallStack.length <= 1024
+    assert environment.bytecode[machineState.pc].opcode != INTERNALCALL
+        OR environment.contractCallDepth < 1024
+    ```
+1. **Maximum memory index ($2^32$) exceeded**
+    ```
+    for offset in instr.args.*Offset:
+        assert offset < 2^32
+    ```
+1. **Maximum world state updates (1024) exceeded**
+    ```
+    assert publicStorageAccesses.length <= 1024
+        AND l1ToL2MessagesReads.length <= 1024
+        AND newNoteHashes.length <= 1024
+        AND newNullifiers.length <= 1024
+        AND l2ToL1Messages.length <= 1024
+
+    // Storage
+    assert environment.bytecode[machineState.pc].opcode not in {SLOAD, SSTORE}
+        OR publicStorageAccesses.length < 1024
+
+    // L1 to L2 messages
+    assert environment.bytecode[machineState.pc].opcode != GETL1TOL2MSG
+        OR l1ToL2MessagesReads.length < 1024
+
+    // Note hashes
+    assert environment.bytecode[machineState.pc].opcode != EMITNOTEHASH
+        OR newNoteHashes.length < 1024
+
+    // Nullifiers
+    assert environment.bytecode[machineState.pc].opcode != EMITNULLIFIER
+        OR newNullifiers.length < 1024
+
+    // L2 to L1 messages
+    assert environment.bytecode[machineState.pc].opcode != SENDL2TOL1MSG
+        OR l2ToL1Messages.length < 1024
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 
@@ -291,9 +302,70 @@ results.reverted = true
 // results.output remains undefined
 ```
 
-## Nested calls
+## Initial contract calls
 
-During a contract call's execution, an instruction may be encountered that triggers another contract call. A contract call triggered in this way may be referred to as a **nested call**. The purpose of the [`CALL`](./instruction-set/#isa-section-call), [`STATICCALL`](./instruction-set/#isa-section-staticcall), and `DELEGATECALL` instructions is to initiate nested calls.
+An **initial contract call** initializes a new execution context from a public execution request.
+
+> A public execution request may originate from one of the following:
+>   - a public call enqueued by a transaction's private segment ([`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md))
+>   - a [public fee preparation or fee distribution](../gas-and-fees) call
+
+### Context initialization for initial call
+
+This section outlines AVM context initialization specifically for a **public execution request's initial contract call** (_i.e._ not a nested contract call). Context initialization for nested contract calls is explained [in a later section](#context-initialization-for-a-nested-call).
+When AVM execution is initiated for a public execution request, the AVM context is initialized as follows:
+
+```
+context = AvmContext {
+    environment = INITIAL_EXECUTION_ENVIRONMENT,
+    machineState = INITIAL_MACHINE_STATE,
+    accruedSubstate = empty,
+    worldState = <latest world state>,
+    results = INITIAL_MESSAGE_CALL_RESULTS,
+}
+```
+
+> Note: Since world state persists between transactions, the latest state is injected into a new AVM context.
+
+Given a `PublicCallRequest` and its parent `TxRequest`, these above-listed "`INITIAL_*`" entries are defined as follows:
+
+```
+INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
+    address = PublicCallRequest.contractAddress,
+    storageAddress = PublicCallRequest.CallContext.storageContractAddress,
+    origin = TxRequest.origin,
+    l1GasPrice = TxRequest.l1GasPrice,
+    l2GasPrice = TxRequest.l2GasPrice,
+    daGasPrice = TxRequest.daGasPrice,
+    sender = PublicCallRequest.CallContext.msgSender,
+    portal = PublicCallRequest.CallContext.portalContractAddress,
+    blockHeader = <latest block header>,
+    globalVariables = <latest global variable values>
+    contractCallDepth = 0,
+    isStaticCall = PublicCallRequest.CallContext.isStaticCall,
+    isDelegateCall = PublicCallRequest.CallContext.isDelegateCall,
+    calldata = PublicCallRequest.args,
+    bytecode = worldState.contracts[PublicCallRequest.contractAddress],
+}
+
+INITIAL_MACHINE_STATE = MachineState {
+    l1GasLeft = TxRequest.l1GasLimit,
+    l2GasLeft = TxRequest.l2GasLimit,
+    daGasLeft = TxRequest.daGasLimit,
+    pc = 0,
+    internalCallStack = [],
+    memory = <all entries are zero>,
+}
+
+INITIAL_MESSAGE_CALL_RESULTS = ContractCallResults {
+    reverted = false,
+    output = undefined,
+}
+```
+
+## Nested contract calls
+
+To review, a **nested contract call** occurs _during_ AVM execution and is triggered by a contract call instruction ([`CALL`](./instruction-set/#isa-section-call), [`STATICCALL`](./instruction-set/#isa-section-call), or `DELEGATECALL`). It initializes a new execution context from the current one (the **calling context**) along with the call instruction's arguments. A nested contract call triggers AVM execution in that new context, and returns execution to the calling context upon completion.
 
 ### Context initialization for a nested call
 
