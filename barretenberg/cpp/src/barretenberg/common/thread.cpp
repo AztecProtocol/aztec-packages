@@ -136,8 +136,8 @@ void run_loop_in_parallel(size_t num_points,
  * @param num_points Total number of elements
  * @param func A function or lambda expression with a for loop inside, for example:
  * [](size_t start, size_t end){for (size_t i=start; i<end; i++){(void)i;}}
- * @param finite_field_additions_per_iteration
- * @param finite_field_multiplications_per_iteration
+ * @param finite_field_additions_per_iteration The number of additions/subtractions/negations
+ * @param finite_field_multiplications_per_iteration The number of finite field multiplications and squarings
  * @param finite_field_inversions_per_iteration
  * @param group_element_additions_per_iteration Projective addition number
  * @param group_element_doublings_per_iteration Projective doubling number
@@ -154,7 +154,7 @@ void run_loop_in_parallel_if_effective(size_t num_points,
                                        size_t scalar_multiplications_per_iteration,
                                        size_t sequential_copy_ops_per_iteration)
 {
-    // Rough cost of operations:
+    // Rough cost of operations (the operation costs are derives in basics_bench and the units are nanoseconds):
     constexpr size_t FF_ADDITION_COST = 4;
     constexpr size_t FF_MULTIPLICATION_COST = 21;
     constexpr size_t FF_INVERSION_COST = 7000;
@@ -162,7 +162,11 @@ void run_loop_in_parallel_if_effective(size_t num_points,
     constexpr size_t GE_DOUBLING_COST = 194;
     constexpr size_t SM_COST = 50000;
     constexpr size_t SEQ_COPY_COST = 3;
-    constexpr size_t PARALLEL_FOR_COST = 376000;
+    // We take the maximum observed parallel_for cost (388 us) and round it up.
+    // The goals of these checks is to evade significantly (10x) increasing processing time for small workloads. So we
+    // can accept not triggering parallel_for if the workload would become faster by half a millisecond for medium
+    // workloads
+    constexpr size_t PARALLEL_FOR_COST = 400000;
     // Get number of cpus we can split into
     const size_t num_cpus = get_num_cpus();
 

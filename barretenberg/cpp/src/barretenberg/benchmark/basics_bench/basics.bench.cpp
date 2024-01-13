@@ -11,7 +11,8 @@
  *      ff_reduce:                              5.1
  *      ff_sqr:                                 17.9
  *      ff_to_montgomery:                       39.1
- *      parallel_for_field_element_addition:    376060.9
+ *      parallel_for_field_element_addition:    198000~388000 (The number is somewhat dependent on the number of cores
+ * used)
  *      projective_point_accidental_doubling:   347.6
  *      projective_point_addition:              348.6
  *      projective_point_doubling:              194.2
@@ -33,7 +34,8 @@ using Fr = Curve::ScalarField;
 /**
  * @brief Benchmark for evaluating the cost of starting parallel_for
  *
- * @details It seems parallel_for takes ~400 microseconds to start
+ * @details It seems parallel_for takes ~400 microseconds to start when we use all the cores. When it's just 1 it's 200
+ * microseconds. The dependency is not exactly linear, so in code we use the largest value for convenience
  * @param state
  */
 void parallel_for_field_element_addition(State& state)

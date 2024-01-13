@@ -1,8 +1,16 @@
+#!/usr/bin/python3
+"""
+Tool for analysing several benchmarks from basics_bench to calculate operation timings
+For example, in src directory:
+python3 ../src/barretenberg/benchmark/basics_bench/analyse_all_benchmarks.py -f bin/basics_bench
+"""
 import argparse
 import subprocess
 import tempfile
 from single_benchmark_analysis import evaluate_benchmark_from_file
 import os
+
+# Some of the benchmarks use other operations to randomise the procedure, so we need to subtract the results
 filter_rules={
     "sequential_copy":"cycle_waste",
     "cycle_waste":None,
@@ -20,6 +28,9 @@ filter_rules={
     "scalar_multiplication":"ff_addition",
 }
 def get_benchmarks(filename):
+    """
+    Get a list of benchmarks from the binary
+    """
     result=subprocess.run([filename,"--benchmark_list_tests"],capture_output=True)
     result.check_returncode()
     output_lines=result.stdout.splitlines()
@@ -27,6 +38,9 @@ def get_benchmarks(filename):
     return sorted(list(benchmark_names))
 
 def run_benchmarks(filename,bnames):
+    """
+    Run benchmarks for each type and collect results
+    """
     benchmark_results=dict()
     for bname in bnames:
         output_file=tempfile.mktemp()
@@ -40,6 +54,9 @@ def run_benchmarks(filename,bnames):
     return benchmark_results
 
 def filter_benchmarks(benchmark_results):
+    """
+    Apply filtering rules and print the benchmarks
+    """
     global filter_rules
     print ("Filtered benchmark results:")
     max_len=0
