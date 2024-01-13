@@ -245,12 +245,17 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     ```
     assert environment.bytecode[machineState.pc].opcode <= MAX_AVM_OPCODE
     ```
-1. **Failed memory tag check**
-    - Defined per-instruction in the [Instruction Set](./instruction-set)
 1. **Jump destination past end of bytecode**
     ```
     assert environment.bytecode[machineState.pc].opcode not in {JUMP, JUMPI, INTERNALCALL}
         OR instr.args.loc < environment.bytecode.length
+    ```
+1. **Failed memory tag check**
+    - Defined per-instruction in the [Instruction Set](./instruction-set)
+1. **Maximum memory index ($2^{32}$) exceeded**
+    ```
+    for offset in instr.args.*Offset:
+        assert offset < 2^32
     ```
 1. **World state modification attempt during a static call**
     ```
@@ -259,6 +264,12 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 1. **Maximum contract call depth (1024) exceeded**
+    ```
+    assert environment.contractCallDepth <= 1024
+    assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+        OR environment.contractCallDepth < 1024
+    ```
+1. **Maximum contract call calls per execution request (1024) exceeded**
     ```
     assert journal.contractCalls.length <= 1024
     assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
@@ -269,11 +280,6 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     assert machineState.internalCallStack.length <= 1024
     assert environment.bytecode[machineState.pc].opcode != INTERNALCALL
         OR environment.contractCallDepth < 1024
-    ```
-1. **Maximum memory index ($2^{32}$) exceeded**
-    ```
-    for offset in instr.args.*Offset:
-        assert offset < 2^32
     ```
 1. **Maximum world state accesses (1024-per-type) exceeded**
     ```
