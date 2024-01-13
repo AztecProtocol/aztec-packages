@@ -48,6 +48,15 @@ import {Hash} from "../Hash.sol";
  *  | ---                                                                              | ---          | ---
  */
 library HeaderDecoder {
+  // TODO: This is only partial
+  struct Header {
+    uint256 chainId;
+    uint256 version;
+    uint256 blockNumber;
+    uint256 timestamp;
+    bytes32 lastArchive;
+  }
+
   // DECODING OFFSET CONSTANTS
   // Where the start of trees metadata begins in the block
   uint256 private constant START_TREES_BLOCK_HEADER_OFFSET = 0x80;
@@ -65,21 +74,21 @@ library HeaderDecoder {
 
   /**
    * @notice Decodes the header
-   * @param _header - The L2 block calldata.
-   * @return l2BlockNumber - The L2 block number
-   * @return startStateHash - The start state hash
-   * @return endStateHash - The end state hash
+   * @param _header - The header calldata.
    */
-  function decode(bytes calldata _header)
-    internal
-    pure
-    returns (uint256 l2BlockNumber, bytes32 startStateHash, bytes32 endStateHash)
-  {
-    l2BlockNumber = uint256(bytes32(_header[0x40:0x60]));
-    // Note, for startStateHash to match the storage, the l2 block number must be new - 1.
-    // Only jumping 1 block at a time.
-    startStateHash = computeStateHash(l2BlockNumber - 1, START_TREES_BLOCK_HEADER_OFFSET, _header);
-    endStateHash = computeStateHash(l2BlockNumber, END_TREES_BLOCK_HEADER_OFFSET, _header);
+  function decode(bytes calldata _header) internal pure returns (Header memory) {
+    Header memory header;
+
+    header.chainId = uint256(bytes32(_header[:0x20]));
+    header.version = uint256(bytes32(_header[0x20:0x40]));
+    header.blockNumber = uint256(bytes32(_header[0x40:0x60]));
+    header.timestamp = uint256(bytes32(_header[0x60:0x80]));
+
+    // The rest is needed only by verifier and hence not decoded here.
+
+    header.lastArchive = bytes32(_header[0x134:0x154]);
+
+    return header;
   }
 
   /**
