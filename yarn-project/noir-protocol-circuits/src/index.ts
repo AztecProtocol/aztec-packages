@@ -342,8 +342,8 @@ async function executePublicKernelPublicPreviousWithACVM(
 /**
  * Executes the root rollup with the given inputs using the acvm.
  */
-async function executeRootRollupWithACVM(input: RootRollupInputType): Promise<RootRollupReturnType> {
-  const initialWitnessMap = abiEncode(RootRollupJson.abi, { inputs: input });
+async function executeRootRollupWithACVM(inputs: RootRollupInputType): Promise<RootRollupReturnType> {
+  const initialWitnessMap = abiEncode(RootRollupJson.abi, { inputs });
 
   // Execute the circuit on those initial witness values
   //
@@ -369,8 +369,8 @@ async function executeRootRollupWithACVM(input: RootRollupInputType): Promise<Ro
 /**
  * Executes the merge rollup with the given inputs using the acvm.
  */
-async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<MergeRollupReturnType> {
-  const initialWitnessMap = abiEncode(MergeRollupJson.abi, { inputs: input });
+async function executeMergeRollupWithACVM(inputs: MergeRollupInputType): Promise<MergeRollupReturnType> {
+  const initialWitnessMap = abiEncode(MergeRollupJson.abi, { inputs });
 
   // Execute the circuit on those initial witness values
   //
@@ -396,8 +396,8 @@ async function executeMergeRollupWithACVM(input: MergeRollupInputType): Promise<
 /**
  * Executes the base rollup with the given inputs using the acvm.
  */
-async function executeBaseRollupWithACVM(input: BaseRollupInputType): Promise<BaseRollupReturnType> {
-  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi, { inputs: input });
+async function executeBaseRollupWithACVM(inputs: BaseRollupInputType): Promise<BaseRollupReturnType> {
+  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi, { inputs });
 
   // Execute the circuit on those initial witness values
   //
