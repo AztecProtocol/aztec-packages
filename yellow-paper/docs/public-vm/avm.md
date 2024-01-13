@@ -327,7 +327,7 @@ An **initial contract call** initializes a new execution context from a public e
 
 > A public execution request may originate from one of the following:
 >   - a public call enqueued by a transaction's private segment ([`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md))
->   - a public [fee preparation](./gas-and-fees#fee-preparation) or [fee distribution](./gas-and-fees#fee-distribution) call
+>   - a public [fee preparation](../gas-and-fees#fee-preparation) or [fee distribution](../gas-and-fees#fee-distribution) call
 
 ### Context initialization for initial contract calls
 
