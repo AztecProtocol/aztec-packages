@@ -12,9 +12,11 @@ In order to execute public contract bytecode, the AVM requires some context. An 
 
 Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context finishes when the AVM encounters a [**halt**](#halting).
 
-During execution, additional contract calls may be made. While an **initial contract call** initializes a new execution context directly from a public execution request, a **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set/#isa-section-call), [`STATICCALL`](./instruction-set/#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (the **calling context**) along with the call instruction's arguments. A nested contract call triggers AVM execution in the nested context, and returns execution to the calling context upon completion.
+During execution, additional contract calls may be made. While an **initial contract call** initializes a new execution context directly from a public execution request, a **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (the **calling context**) along with the call instruction's arguments. A nested contract call triggers AVM execution in the nested context, and returns execution to the calling context upon completion.
 
-This document contains the following sections:
+A **caller** is a contract call's initiator. The caller of an initial contract call is an Aztec sequencer. The caller of a nested contract call is the AVM itself executing in the calling context.
+
+## Outline
 
 - [**Public contract bytecode**](#public-contract-bytecode) (aka AVM bytecode)
 - [**Execution context**](#execution-context), outlining the AVM's environment and state
@@ -24,7 +26,7 @@ This document contains the following sections:
 
 For details on the AVM's "tagged" memory model, refer to the **["AVM Memory Model"](./state-model.md)**.
 
-> Note: The Aztec Virtual Machine, while designed with a SNARK implementation in mind, is not strictly tied to any particular implementation and therefore is defined without SNARK or circuit-centric verbiage. That being said, considerations for a SNARK implementation are raised or linked when particularly relevant or helpful.
+> The Aztec Virtual Machine, while designed with a SNARK implementation in mind, is not strictly tied to any particular implementation and therefore is defined without SNARK or circuit-centric verbiage. That being said, considerations for a SNARK implementation are raised or linked when particularly relevant or helpful.
 
 ## Public contract bytecode
 
@@ -32,7 +34,7 @@ A contract's public bytecode is a series of execution instructions for the AVM. 
 
 The entirety of a contract's public code is represented as a single block of bytecode with a maximum of `MAX_PUBLIC_INSTRUCTIONS_PER_CONTRACT` ($2^{15} = 32768$) instructions. The mechanism used to distinguish between different functions in an AVM bytecode program is left as a higher-level abstraction (_e.g._ similar to Solidity's concept of a function selector).
 
-> Note: See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
+> See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
 
 Refer to ["Bytecode"](/docs/bytecode) for more information.
 
@@ -104,39 +106,49 @@ The machine state's fields are defined as follows:
 
 ### World State
 
-**World state** contains persistable VM state. If a contract call succeeds, its world state updates are applied to the calling context (whether that be a parent call's context or the transaction context). If a contract call reverts, its world state updates are rejected by its caller. When a _transaction_ succeeds, its world state updates persist into future transactions.
+The AVM has access to a subset of [Aztec's persistent global state](../state), and an AVM execution context exposes a limited interface to that state. In particular, while much of Aztec's state is implemented as readable/writeable merkle trees, these structures are exposed in the AVM as simple mappings or vectors with access-limitations.
 
+An execution context's **world state** is its interface to Aztec's global state. When an [_initial_ contract call](#initial-contract-calls) is made, its context is initialized with a snapshot of Aztec's latest global state. When a [_nested_ contract call](#nested-contract-calls) is made, its context is initialized with a snapshot of the calling context's current world state.
+
+When a context's execution [halts](#halting), the caller accepts or rejects its world state modifications. If execution [returned](./instruction-set#isa-section-return) without reverting, the caller accepts its world state modifications and updates its world state accordingly. If execution reverted ([normally](./instruction-set#isa-section-revert) or [exceptionally](#exceptional-halting)), the caller rejects its world state modifications.
+
+A context's world state interface is defined as follows:
 ```
 WorldState {
-    contracts: address => {bytecode, portalAddress}, // read-only from within AVM
-    blockHeaders: Vector<BlockHeader>,               // read-only from within AVM
-    publicStorage: (address, slot) => value,         // read/write
-    l1ToL2Messages: (address, key) => message,       // read-only from within AVM
-    l2ToL1Messages: Vector<[field; <msg-length>]>,   // append-only (no reads) from within AVM
-    noteHashes: Vector<field>,                       // append-only (no reads) from within AVM
-    nullifiers: Vector<field>,                       // append-only (no reads) from within AVM
+    contracts: AztecAddress => {bytecode, portalAddress}, // read-only from within AVM
+    blockHeaders: Vector<BlockHeader>,                    // read-only from within AVM
+    publicStorage: (AztecAddress, field) => value,        // read/write
+    l1ToL2Messages: (AztecAddress, field) => message,     // read-only from within AVM
+    l2ToL1Messages: Vector<[field; <msg-length>]>,        // append-only (no reads) from within AVM
+    noteHashes: Vector<field>,                            // append-only (no reads) from within AVM
+    nullifiers: Vector<field>,                            // append-only (no reads) from within AVM
 }
 ```
-> Note: the notation `key => value` describes a mapping from `key` to `value`.
+> The notation `key => value` describes a mapping from `key` to `value`.
 
-> Note: `contracts` is read-only because contract deployments are not handled by the AVM
+> Read-only or append-only structures in the world state may have more open access-limitations outside of the AVM, but the AVM's interface imposes the above-listed access-limitations. As an example, private execution can deploy new contracts, but contract deployments are not supported by the AVM. Thus `contracts` is read-only here.
+
 
 ### Journal
 
-**Journal** tracks all world state accesses (reads and writes) that have taken place thus far during a contract call's execution.
+**Journal** tracks all world state accesses (reads and writes) that have taken place thus far during a contract call's execution. Unlike world state, a context's journal is accepted by its caller regardless of whether execution reverts.
 ```
 Journal {
     contractCalls: Vector<AztecAddress>,
     blockHeaderReads: Vector<(field, BlockHeader)>,
-    publicStorageAccesses: Vector<StorageAccess>,
+    publicStorageAccesses: Vector<StorageReadContext | StorageWriteContext>,
     l1ToL2MessageReads: Vector<(L1toL2MessageContext, [field; <msg-length>])>,
     newL2ToL1Messages: Vector<(L2toL1MessageContext, [field; <msg-length>])>,
     newNoteHashes: Vector<NoteHashContext>,
     newNullifiers: Vector<NullifierContext>,
 }
 ```
+> The types tracked in the journal vectors are listed in Aztec's [private function types specification](../circuits/private-function#types) and Aztec's [public kernel types specification](../circuits/public-kernel-tail#types).
+
+> This journal structure is important for imposing limitations on the maximum number of allowable world state accesses, and for communicating the list of state accesses to the public kernel circuit.
+
 ### Accrued Substate
-The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls or transactions. Similar to world state, if a contract call succeeds, its substate is appended to its calling context, but if it fails its substate is dropped by its caller.
+The **accrued substate**, as coined in the [Ethereum Yellow Paper](https://ethereum.github.io/yellowpaper/paper), contains information that is accrued throughout transaction execution to be "acted upon immediately following the transaction." These are append-only arrays containing state that is not relevant to other calls. Similar to world state, if a contract call returns normally, its substate is appended to its calling context, but if it reverts its substate is rejected by its caller.
 
 ```
 AccruedSubstate {
@@ -169,7 +181,7 @@ The `INTERNALCALL` pushes `machineState.pc+1` to `machineState.internalCallStack
 > An instruction will never assign program counter a value from memory (`machineState.memory`). A `JUMP`, `JUMPI`, or `INTERNALCALL` instruction's destination is a constant from the program bytecode. This property allows for easier static program analysis.
 
 ### Gas limits and tracking
-> Note: see ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
+> See ["Gas and Fees"](../gas-and-fees) for a deeper dive into Aztec's gas model and for definitions of each type of gas.
 
 Each instruction has an associated `l1GasCost`, `l2GasCost`, and `daGasCost`. Before an instruction is executed, the VM enforces that there is sufficient gas remaining via the following assertions:
 ```
@@ -178,7 +190,7 @@ assert machineState.l2GasLeft - instr.l2GasCost > 0
 assert machineState.daGasLeft - instr.daGasCost > 0
 ```
 
-> Note: many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the world state, journal, or accrued substate.
+> Many instructions (like arithmetic operations) have 0 `l1GasCost` and `daGasCost`. Instructions only incur an L1 or DA cost if they modify the world state, journal, or accrued substate.
 
 If these assertions pass, the machine state's gas left is decreased prior to the instruction's core execution:
 
@@ -207,9 +219,9 @@ An instruction's gas cost is meant to reflect the computational cost of generati
 - The [`CALL`](./instruction-set/#isa-section-call)/[`STATICCALL`](./instruction-set/#isa-section-call)/`DELEGATECALL` instruction's gas cost is determined by its `*Gas` arguments, but any gas unused by the nested contract call's execution is refunded after its completion ([more on this later](#updating-the-calling-context-after-nested-call-halts)).
 - An instruction with "offset" arguments (like [`ADD`](./instruction-set/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
 
-> Implementation detail: an instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
+> An instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
 
-> Implementation detail: an instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
+> An instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
 
 ## Halting
 
@@ -217,7 +229,7 @@ A context's execution can end with a **normal halt** or **exceptional halt**. A 
 
 ### Normal halting
 
-A normal halt occurs when the VM encounters an explicit halting instruction ([`RETURN`](./instruction-set/#isa-section-return) or [`REVERT`](./instruction-set/#isa-section-revert)). Such instructions consume gas normally and optionally initialize some output data before finally halting the current context's execution.
+A normal halt occurs when the VM encounters an explicit halting instruction ([`RETURN`](./instruction-set#isa-section-return) or [`REVERT`](./instruction-set#isa-section-revert)). Such instructions consume gas normally and optionally initialize some output data before finally halting the current context's execution.
 
 ```
 machineState.l1GasLeft -= instr.l1GasCost
@@ -227,9 +239,9 @@ machineState.daGasLeft -= instr.daGasCost
 results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
 ```
 
-> Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./instruction-set/#isa-section-return) and [`REVERT`](./instruction-set/#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
+> Definitions: `retOffset` and `retSize` here are arguments to the [`RETURN`](./instruction-set/#isa-section-return) and [`REVERT`](./instruction-set#isa-section-revert) instructions. If `retSize` is 0, the context will have no output. Otherwise, these arguments point to a region of memory to output.
 
-> Note: `results.output` is only relevant when the caller is a contract call itself. In other words, it is only relevant for [nested contract calls](#nested-contract-calls). When an [initial contract call](#initial-contract-calls) (initiated by a public execution request) halts normally, its `results.output` is ignored.
+> `results.output` is only relevant when the caller is a contract call itself. In other words, it is only relevant for [nested contract calls](#nested-contract-calls). When an [initial contract call](#initial-contract-calls) (initiated by a public execution request) halts normally, its `results.output` is ignored.
 
 ### Exceptional halting
 
@@ -343,7 +355,7 @@ context = AvmContext {
 }
 ```
 
-> Note: Since world state persists between transactions, the latest state is injected into a new AVM context.
+> Since world state persists between transactions, the latest state is injected into a new AVM context.
 
 Given a [`PublicCallRequest`](../transactions/tx-object#public-call-request) and its parent [`TxRequest`](../transactions/local-execution#execution-request), these above-listed "`INITIAL_*`" entries are defined as follows:
 
@@ -455,9 +467,9 @@ nestedMachineState = MachineState {
     memory = [0, ..., 0],   // all 32768 (2^32) entries are initialized to zero
 }
 ```
-> Note: the nested context's machine state's `*GasLeft` is initialized based on the call instruction's `gasOffset` argument. The caller allocates some amount of L1, L2, and DA gas to the nested call. It does so using the instruction's `gasOffset` argument. In particular, prior to the contract call instruction, the caller populates `M[gasOffset]` with the nested context's initial `l1GasLeft`. Likewise it populates `M[gasOffset+1]` with `l2GasLeft` and `M[gasOffset+2]` with `daGasLeft`.
+> The nested context's machine state's `*GasLeft` is initialized based on the call instruction's `gasOffset` argument. The caller allocates some amount of L1, L2, and DA gas to the nested call. It does so using the instruction's `gasOffset` argument. In particular, prior to the contract call instruction, the caller populates `M[gasOffset]` with the nested context's initial `l1GasLeft`. Likewise it populates `M[gasOffset+1]` with `l2GasLeft` and `M[gasOffset+2]` with `daGasLeft`.
 
-> Note: recall that initial values named as `INITIAL_*` are the same ones used during [context initialization for an initial contract call](#context-initialization-for-initial-contract-calls).
+> Recall that initial values named as `INITIAL_*` are the same ones used during [context initialization for an initial contract call](#context-initialization-for-initial-contract-calls).
 
 > `STATICCALL_OP` and `DELEGATECALL_OP` refer to the 8-bit opcode values for the `STATICCALL` and `DELEGATECALL` instructions respectively.
 
@@ -483,7 +495,7 @@ context.l2GasLeft += nestedContext.machineState.l2GasLeft
 context.daGasLeft += nestedContext.machineState.daGasLeft
 ```
 
-If a nested context halts normally with a [`RETURN`](./instruction-set/#isa-section-return) or [`REVERT`](./instruction-set/#isa-section-revert), it may have some output data (`nestedContext.results.output`). The nested call instruction's `retOffset` and `retSize` arguments specify a region in the calling context's memory to place output data when the nested context halts.
+If a nested context halts normally with a [`RETURN`](./instruction-set#isa-section-return) or [`REVERT`](./instruction-set#isa-section-revert), it may have some output data (`nestedContext.results.output`). The nested call instruction's `retOffset` and `retSize` arguments specify a region in the calling context's memory to place output data when the nested context halts.
 
 ```
 if instr.args.retSize > 0:
