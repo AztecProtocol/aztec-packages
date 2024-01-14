@@ -63,7 +63,7 @@ class TranscriptManifest {
  */
 class BaseTranscript {
   public:
-    using FF = barretenberg::fr;
+    using Fr = barretenberg::fr;
     using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Proof = honk::proof;
 
@@ -87,8 +87,8 @@ class BaseTranscript {
   private:
     static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
-    FF previous_challenge{};        // default-initialized to zeros
-    std::vector<FF> current_round_data;
+    Fr previous_challenge{};        // default-initialized to zeros
+    std::vector<Fr> current_round_data;
 
     // "Manifest" object that records a summary of the transcript interactions
     TranscriptManifest manifest;
@@ -99,9 +99,9 @@ class BaseTranscript {
      * and the current round data, if they are exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<FF, HASH_OUTPUT_SIZE>
+     * @return std::array<Fr, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] FF get_next_challenge_buffer()
+    [[nodiscard]] Fr get_next_challenge_buffer()
     {
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
@@ -113,7 +113,7 @@ class BaseTranscript {
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from having
         // to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<FF> full_buffer;
+        std::vector<Fr> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
             full_buffer.emplace_back(previous_challenge);
@@ -129,9 +129,9 @@ class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a random
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
-        FF base_hash = crypto::Poseidon2<Poseidon2Params>::hash(full_buffer);
+        Fr base_hash = crypto::Poseidon2<Poseidon2Params>::hash(full_buffer);
 
-        FF new_challenge = base_hash;
+        Fr new_challenge = base_hash;
         // std::copy_n(base_hash.begin(), HASH_OUTPUT_SIZE, new_challenge_buffer.begin());
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
@@ -145,7 +145,7 @@ class BaseTranscript {
      * @param label of the element sent
      * @param element_bytes serialized
      */
-    void consume_prover_element_bytes(const std::string& label, std::span<const FF> element_bytes)
+    void consume_prover_element_bytes(const std::string& label, std::span<const Fr> element_bytes)
     {
         // Add an entry to the current round of the manifest
         manifest.add_entry(round_number, label, element_bytes.size());
@@ -198,16 +198,16 @@ class BaseTranscript {
      * @brief Return the proof data starting at proof_start
      * @details This is useful for when two different provers share a transcript.
      */
-    std::vector<FF> export_proof()
+    std::vector<Fr> export_proof()
     {
-        std::vector<FF> result(num_bytes_written);
+        std::vector<Fr> result(num_bytes_written);
         std::copy_n(proof_data.begin() + proof_start, num_bytes_written, result.begin());
         proof_start += static_cast<std::ptrdiff_t>(num_bytes_written);
         num_bytes_written = 0;
         return result;
     };
 
-    void load_proof(const std::vector<FF>& proof)
+    void load_proof(const std::vector<Fr>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
@@ -221,7 +221,7 @@ class BaseTranscript {
      * multiple challenges.
      *
      * @param labels human-readable names for the challenges for the manifest
-     * @return std::array<FF, num_challenges> challenges for this round.
+     * @return std::array<Fr, num_challenges> challenges for this round.
      */
     template <typename... Strings> std::array<uint256_t, sizeof...(Strings)> get_challenges(const Strings&... labels)
     {
@@ -238,7 +238,7 @@ class BaseTranscript {
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges; i++) {
             auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
-            FF field_element_buffer = next_challenge_buffer;
+            Fr field_element_buffer = next_challenge_buffer;
             // copy half of the hash to lower 128 bits of challenge
             // Note: because of how read() from buffers to fields works (in field_declarations.hpp),
             // we use the later half of the buffer
@@ -357,12 +357,12 @@ class BaseTranscript {
 // might be useless now
 /**
  * @brief Convert an array of uint256_t's to an array of field elements
- * @details The syntax `std::array<FF, 2> [a, b] = transcript.get_challenges("a", "b")` is unfortunately not allowed
+ * @details The syntax `std::array<Fr, 2> [a, b] = transcript.get_challenges("a", "b")` is unfortunately not allowed
  * (structured bindings must be defined with auto return type), so we need a workaround.
  */
-template <typename FF, typename T, size_t N> std::array<FF, N> challenges_to_field_elements(std::array<T, N>&& arr)
+template <typename Fr, typename T, size_t N> std::array<Fr, N> challenges_to_field_elements(std::array<T, N>&& arr)
 {
-    std::array<FF, N> result;
+    std::array<Fr, N> result;
     std::move(arr.begin(), arr.end(), result.begin());
     return result;
 }

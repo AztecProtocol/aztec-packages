@@ -52,20 +52,20 @@ class Goblin {
         HonkProof eccvm_proof;
         HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
-        std::vector<uint8_t> to_buffer()
+        std::vector<Fr> to_buffer()
         {
             // ACIRHACK: so much copying and duplication added here and elsewhere
-            std::vector<uint8_t> translation_evaluations_buf = translation_evaluations.to_buffer();
-            size_t proof_size = merge_proof.proof_data.size() + eccvm_proof.proof_data.size() +
-                                translator_proof.proof_data.size() + translation_evaluations_buf.size();
+            std::vector<Fr> translation_evaluations_buf; // = translation_evaluations.to_buffer();
+            size_t proof_size =
+                merge_proof.size() + eccvm_proof.size() + translator_proof.size() + translation_evaluations_buf.size();
 
-            std::vector<uint8_t> result(proof_size);
-            const auto insert = [&result](const std::vector<uint8_t>& buf) {
+            std::vector<Fr> result(proof_size);
+            const auto insert = [&result](const std::vector<Fr>& buf) {
                 result.insert(result.end(), buf.begin(), buf.end());
             };
-            insert(merge_proof.proof_data);
-            insert(eccvm_proof.proof_data);
-            insert(translator_proof.proof_data);
+            insert(merge_proof);
+            insert(eccvm_proof);
+            insert(translator_proof);
             insert(translation_evaluations_buf);
             return result;
         }
@@ -237,28 +237,28 @@ class Goblin {
     };
 
     // ACIRHACK
-    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
+    std::vector<Fr> construct_proof(GoblinUltraCircuitBuilder& builder)
     {
         // Construct a GUH proof
         accumulate_for_acir(builder);
 
-        std::vector<uint8_t> result(accumulator.proof.proof_data.size());
+        std::vector<Fr> result(accumulator.proof.size());
 
-        const auto insert = [&result](const std::vector<uint8_t>& buf) {
+        const auto insert = [&result](const std::vector<Fr>& buf) {
             result.insert(result.end(), buf.begin(), buf.end());
         };
 
-        insert(accumulator.proof.proof_data);
+        insert(accumulator.proof);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator proof for now
-        // std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
+        // std::vector<Fr> goblin_proof = prove_for_acir().to_buffer();
         // insert(goblin_proof);
 
         return result;
     }
 
     // ACIRHACK
-    bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
+    bool verify_proof([[maybe_unused]] const proof_system::honk::proof& proof) const
     {
         // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.
         const auto extract_final_kernel_proof = [&]([[maybe_unused]] auto& input_proof) { return accumulator.proof; };

@@ -41,8 +41,8 @@ class AcirComposer {
 
     // Goblin specific methods
     void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
-    std::vector<uint8_t> create_goblin_proof();
-    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
+    std::vector<barretenberg::fr> create_goblin_proof();
+    bool verify_goblin_proof(std::vector<barretenberg::fr> const& proof);
 
   private:
     acir_format::Builder builder_;

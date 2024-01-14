@@ -286,7 +286,7 @@ class ToyFlavor {
 
         Transcript() = default;
 
-        Transcript(const std::vector<uint8_t>& proof)
+        Transcript(const std::vector<FF>& proof)
             : BaseTranscript(proof)
         {}
 
