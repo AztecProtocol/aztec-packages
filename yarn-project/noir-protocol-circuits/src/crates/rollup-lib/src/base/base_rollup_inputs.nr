@@ -177,8 +177,8 @@ impl BaseRollupInputs {
             |nullifier: Field| {nullifier == 0}, // Nullifier is zero
             |leaf: NullifierLeafPreimage| {leaf.hash()}, // Hash leaf
             |low_leaf: NullifierLeafPreimage, nullifier: Field| { // Is valid low leaf
-                let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
-                let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
+                let is_less_than_nullifier = dep::types::utils::field::lt(low_leaf.nullifier, nullifier);
+                let is_next_greater_than = dep::types::utils::field::lt(nullifier, low_leaf.next_nullifier);
 
                 (!low_leaf.is_empty()) & is_less_than_nullifier & (
                     is_next_greater_than | 
@@ -398,8 +398,8 @@ fn insert_public_data_update_requests(
             let is_update = low_preimage.slot == write.slot;
             let is_low_empty = low_preimage.is_empty();
 
-            let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
-            let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
+            let is_less_than_slot = dep::types::utils::field::lt(low_preimage.slot, write.slot);
+            let is_next_greater_than = dep::types::utils::field::lt(write.slot, low_preimage.next_slot);
             let is_in_range = is_less_than_slot & (
                 is_next_greater_than | 
                 ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
@@ -456,8 +456,8 @@ fn validate_public_data_reads(
         let is_low_empty = low_preimage.is_empty();
         let is_exact = low_preimage.slot == read.leaf_slot;
 
-        let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
-        let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
+        let is_less_than_slot = dep::types::utils::field::lt(low_preimage.slot, read.leaf_slot);
+        let is_next_greater_than = dep::types::utils::field::lt(read.leaf_slot, low_preimage.next_slot);
         let is_in_range = is_less_than_slot
             & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
@@ -519,33 +519,6 @@ fn consistent_call_data_hash_full_fields() {
     );
 }
 
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
-}
-
-pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(rhs, lhs)
-}
-
-#[test]
-fn test_u256_less_than() {
-    assert(full_field_less_than(1, 1000));
-    assert(!full_field_less_than(1000, 1000));
-    assert(!full_field_less_than(1000, 1));
-    assert(full_field_less_than(0, 0 - 1));
-    assert(!full_field_less_than(0 - 1, 0));
-}
-
-#[test]
-fn test_u256_greater_than() {
-    assert(full_field_greater_than(1000, 1));
-    assert(!full_field_greater_than(1000, 1000));
-    assert(!full_field_greater_than(1, 1000));
-    assert(!full_field_greater_than(0, 0 - 1));
-    assert(full_field_greater_than(0 - 1, 0));
-}
-
 mod tests {
     use crate::{
         base::{
@@ -553,7 +526,6 @@ mod tests {
                 CALL_DATA_HASH_FULL_FIELDS,
                 CALL_DATA_HASH_LOG_FIELDS,
                 BaseRollupInputs,
-                full_field_less_than,
             },
             state_diff_hints::StateDiffHints,
         },
@@ -602,6 +574,15 @@ mod tests {
         partial_state_reference::PartialStateReference,
     };
     use dep::std::option::Option;
+
+    // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
+    fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
+        dep::std::eddsa::lt_bytes32(lhs, rhs)
+    }
+
+    fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
+        dep::std::eddsa::lt_bytes32(rhs, lhs)
+    }
 
     struct NullifierInsertion {
         existing_index: u64,

@@ -10,9 +10,6 @@ use crate::{
         get_public_data_witness,
         PublicDataWitness,
     },
-    utils::{
-        full_field_less_than,
-    },
 };
 
 pub fn prove_public_value_inclusion(
@@ -39,8 +36,8 @@ pub fn prove_public_value_inclusion(
         assert_eq(preimage.value, value, "Public value does not match value in witness");
     } else {
         assert_eq(value, 0, "Got non-zero public value for non-existing slot");
-        assert(full_field_less_than(preimage.slot, public_value_leaf_slot), "Invalid witness range");
-        assert(full_field_less_than(public_value_leaf_slot, preimage.next_slot), "Invalid witness range");
+        dep::protocol_types::utils::field::assert_lt(preimage.slot, public_value_leaf_slot);
+        dep::protocol_types::utils::field::assert_lt(public_value_leaf_slot, preimage.next_slot);
     }
 
     // 5) Prove that the leaf we validated is in the public data tree
