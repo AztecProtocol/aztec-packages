@@ -180,6 +180,7 @@ pub(crate) fn solve(
         }
         BlackBoxFuncCall::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, outputs } => {
             embedded_curve_add(
+                backend,
                 initial_witness,
                 *input1_x,
                 *input1_y,
@@ -189,7 +190,7 @@ pub(crate) fn solve(
             )
         }
         BlackBoxFuncCall::EmbeddedCurveDouble { input_x, input_y, outputs } => {
-            embedded_curve_double(initial_witness, *input_x, *input_y, *outputs)
+            embedded_curve_double(backend, initial_witness, *input_x, *input_y, *outputs)
         }
         // Recursive aggregation will be entirely handled by the backend and is not solved by the ACVM
         BlackBoxFuncCall::RecursiveAggregation { .. } => Ok(()),

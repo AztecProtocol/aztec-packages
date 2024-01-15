@@ -27,15 +27,17 @@ pub(super) fn fixed_base_scalar_mul(
 }
 
 pub(super) fn embedded_curve_double(
+    backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,
     input_x: FunctionInput,
     input_y: FunctionInput,
     outputs: (Witness, Witness),
 ) -> Result<(), OpcodeResolutionError> {
-    embedded_curve_add(initial_witness, input_x, input_y, input_x, input_y, outputs)
+    embedded_curve_add(backend, initial_witness, input_x, input_y, input_x, input_y, outputs)
 }
 
 pub(super) fn embedded_curve_add(
+    backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,
     input1_x: FunctionInput,
     input1_y: FunctionInput,
@@ -47,17 +49,10 @@ pub(super) fn embedded_curve_add(
     let input1_y = witness_to_value(initial_witness, input1_y.witness)?;
     let input2_x = witness_to_value(initial_witness, input2_x.witness)?;
     let input2_y = witness_to_value(initial_witness, input2_y.witness)?;
-    let mut point1 = grumpkin::SWAffine::new(input1_x.into_repr(), input1_y.into_repr());
-    let point2 = grumpkin::SWAffine::new(input2_x.into_repr(), input2_y.into_repr());
-    let res = point1 + point2;
-    point1 = res.into();
-    if let Some((res_x, res_y)) = point1.xy() {
-        insert_value(&outputs.0, FieldElement::from_repr(*res_x), initial_witness)?;
-        insert_value(&outputs.1, FieldElement::from_repr(*res_y), initial_witness)?;
-        Ok(())
-    } else {
-        Err(OpcodeResolutionError::UnsatisfiedConstrain {
-            opcode_location: ErrorLocation::Unresolved,
-        })
-    }
+    let (res_x, res_y) = backend.ec_add(input1_x, input1_y, input2_x, input2_y)?;
+
+    insert_value(&outputs.0, res_x, initial_witness)?;
+    insert_value(&outputs.1, res_y, initial_witness)?;
+
+    Ok(())
 }
