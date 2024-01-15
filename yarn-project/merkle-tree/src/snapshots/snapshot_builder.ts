@@ -1,5 +1,5 @@
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * An interface for a tree that can record snapshots of its contents.

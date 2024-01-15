@@ -245,7 +245,7 @@ jobs:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
       image: ubuntu-2204:2023.07.2
-    resource_class: medium 
+    resource_class: medium
     steps:
       - *checkout
       - *setup_env
@@ -256,17 +256,6 @@ jobs:
           name: "Upload"
           command: |
             barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
-
-  barretenberg-honk-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 honk_tests
 
   barretenberg-proof-system-tests:
     docker:
@@ -1070,6 +1059,9 @@ defaults: &defaults
   filters:
     tags:
       only: /^aztec-packages-v.*/
+    branches:
+      ignore:
+        - /^release-please--.*/
   context:
     - build
     - slack
@@ -1135,7 +1127,6 @@ workflows:
             - barretenberg-x86_64-linux-clang
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
-      - barretenberg-honk-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
       - barretenberg-tests: *bb_test
       - barretenberg-stdlib-tests: *bb_test
@@ -1284,6 +1275,9 @@ workflows:
             - e2e-browser
             - e2e-card-game
             - pxe
+            - boxes-blank
+            - boxes-blank-react
+            - boxes-token
             - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing

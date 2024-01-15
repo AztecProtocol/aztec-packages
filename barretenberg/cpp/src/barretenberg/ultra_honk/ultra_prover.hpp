@@ -20,6 +20,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Curve = typename Flavor::Curve;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit UltraProver_(const std::shared_ptr<Instance>&,
@@ -56,9 +57,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
   private:
     plonk::proof proof;
 };
-
-extern template class UltraProver_<honk::flavor::Ultra>;
-extern template class UltraProver_<honk::flavor::GoblinUltra>;
 
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
 using GoblinUltraProver = UltraProver_<honk::flavor::GoblinUltra>;

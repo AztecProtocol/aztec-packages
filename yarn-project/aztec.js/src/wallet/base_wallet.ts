@@ -1,4 +1,3 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
   ContractData,
@@ -10,7 +9,6 @@ import {
   L2Block,
   L2Tx,
   LogFilter,
-  NodeInfo,
   NoteFilter,
   PXE,
   SyncStatus,
@@ -18,7 +16,9 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { Wallet } from '../account/wallet.js';
 

@@ -1,3 +1,5 @@
+use dep::std::cmp::Eq;
+
 // Trait: is_empty
 //
 // The general is_empty trait checks if a data type is is empty,
@@ -31,4 +33,14 @@ pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty + Eq {
 
 trait Hash {
     fn hash(self) -> Field;
+}
+
+trait ToField {
+    fn to_field(self) -> Field;
+}
+
+impl ToField for Field {
+    fn to_field(self) -> Field {
+        self
+    }
 }
