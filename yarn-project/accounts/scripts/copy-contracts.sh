@@ -8,4 +8,4 @@ for contract in "${contracts[@]}"; do
   cp "../noir-contracts/target/$contract.json" ./src/artifacts/${contract#*-}.json
 done
 
-yarn formatting:fix
+yarn run -T prettier -w ./src/artifacts
