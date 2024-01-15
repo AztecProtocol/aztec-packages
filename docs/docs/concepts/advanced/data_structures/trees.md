@@ -211,7 +211,7 @@ HistoricalAccessTree --- Header
 
 ```
 
-It can also be used to find information about notes, public state, and contracts that were included in a certain block using [inclusion and non-inclusion proofs](../../../dev_docs/contracts/syntax/how_to_access_history).
+It can also be used to find information about notes, public state, and contracts that were included in a certain block using [inclusion and non-inclusion proofs](../../../dev_docs/contracts/syntax/historical_access/how_to_access_history).
 
 ## Trees of valid Kernel/Rollup circuit Verification Keys
 

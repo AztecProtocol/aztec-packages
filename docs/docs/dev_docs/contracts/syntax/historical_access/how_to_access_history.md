@@ -19,6 +19,8 @@ Using this library, you can check that specific notes or nullifiers happened at 
 * Verifying a timestamp that was created in a private context
 * Checking eligibility based on historical events (eg for an airdrop) 
 * Verifying historic ownership / relinquishing of assets
+* Proving existence of a value in public data tree at a given contract slot
+* Proving that a contract was deployed in a given block with some parameters
 
 **In this guide you will learn how to**
 * Prove a note was included in a specified block
