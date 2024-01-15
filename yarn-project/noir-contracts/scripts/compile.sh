@@ -3,4 +3,4 @@
 set -euo pipefail
 
 echo "Compiling contracts..."
-nargo compile --silence-warnings
+../../noir/target/release/nargo compile --silence-warnings
