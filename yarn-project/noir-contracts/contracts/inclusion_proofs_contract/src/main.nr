@@ -95,7 +95,6 @@ contract InclusionProofs {
     }
     // docs:end:create_note
 
-
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
     fn test_note_inclusion_proof(
