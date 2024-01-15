@@ -72,7 +72,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
 
 import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -666,6 +666,15 @@ export function mapTupleFromNoir<T, N extends number, M>(
     throw new Error(`Expected ${length} items, got ${noirArray.length}`);
   }
   return Array.from({ length }, (_, idx) => mapper(noirArray[idx])) as Tuple<M, N>;
+}
+
+/**
+ * Maps a SHA256 hash from noir to the parsed type.
+ * @param hash - The hash as it is represented in Noir (2 fields).
+ * @returns The hash represented as a 32 bytes long buffer.
+ */
+export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
+  return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
 }
 
 /**
@@ -1308,7 +1317,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapHeaderFromNoir(header: HeaderNoir): Header {
   return new Header(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapTupleFromNoir(header.body_hash, 2, mapFieldFromNoir),
+    mapSha256HashFromNoir(header.body_hash),
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
   );
