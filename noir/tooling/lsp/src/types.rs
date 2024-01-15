@@ -1,5 +1,5 @@
 use fm::FileId;
-use lsp_types::{DefinitionOptions, OneOf};
+use lsp_types::{DeclarationCapability, DefinitionOptions, OneOf};
 use noirc_driver::DebugFile;
 use noirc_errors::{debug_info::OpCodesCount, Location};
 use noirc_frontend::graph::CrateName;
@@ -9,10 +9,10 @@ use std::collections::{BTreeMap, HashMap};
 
 // Re-providing lsp_types that we don't need to override
 pub(crate) use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeConfigurationParams, DidChangeTextDocumentParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
-    InitializeParams, InitializedParams, LogMessageParams, MessageType, Position,
-    PublishDiagnosticsParams, Range, ServerInfo, TextDocumentSyncCapability, Url,
+    CodeLens, CodeLensOptions, CodeLensParams, Command, Diagnostic, DiagnosticSeverity,
+    DidChangeConfigurationParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, InitializeParams, InitializedParams,
+    Position, PublishDiagnosticsParams, Range, ServerInfo, TextDocumentSyncCapability, Url,
 };
 
 pub(crate) mod request {
@@ -24,7 +24,9 @@ pub(crate) mod request {
     };
 
     // Re-providing lsp_types that we don't need to override
-    pub(crate) use lsp_types::request::{Formatting, GotoDefinition, Shutdown};
+    pub(crate) use lsp_types::request::{
+        CodeLensRequest as CodeLens, Formatting, GotoDeclaration, GotoDefinition, Shutdown,
+    };
 
     #[derive(Debug)]
     pub(crate) struct Initialize;
@@ -108,9 +110,17 @@ pub(crate) struct ServerCapabilities {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) text_document_sync: Option<TextDocumentSyncCapability>,
 
+    /// The server provides go to declaration support.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) declaration_provider: Option<DeclarationCapability>,
+
     /// The server provides goto definition support.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) definition_provider: Option<OneOf<bool, DefinitionOptions>>,
+
+    /// The server provides code lens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) code_lens_provider: Option<CodeLensOptions>,
 
     /// The server provides document formatting.
     pub(crate) document_formatting_provider: bool,
@@ -214,4 +224,6 @@ pub(crate) struct NargoProfileRunResult {
     pub(crate) opcodes_counts: HashMap<Location, OpCodesCount>,
 }
 
+pub(crate) type CodeLensResult = Option<Vec<CodeLens>>;
 pub(crate) type GotoDefinitionResult = Option<lsp_types::GotoDefinitionResponse>;
+pub(crate) type GotoDeclarationResult = Option<lsp_types::request::GotoDeclarationResponse>;

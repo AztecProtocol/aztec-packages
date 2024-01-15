@@ -1,15 +1,24 @@
-import { MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, PublicKey } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
+import { ContractNotFoundError } from '@aztec/acir-simulator';
+import {
+  AztecNode,
+  INITIAL_L2_BLOCK_NUM,
+  KeyStore,
+  L1NotePayload,
+  L2BlockContext,
+  L2BlockL2Logs,
+} from '@aztec/circuit-types';
+import { NoteProcessorStats } from '@aztec/circuit-types/stats';
+import { MAX_NEW_COMMITMENTS_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs } from '@aztec/types';
-import { NoteProcessorStats } from '@aztec/types/stats';
 
+import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { produceNoteDao } from './produce_note_dao.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -34,7 +43,7 @@ export class NoteProcessor {
   public readonly timer: Timer = new Timer();
 
   /** Stats accumulated for this processor. */
-  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, failed: 0, blocks: 0, txs: 0 };
+  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, deferred: 0, failed: 0, blocks: 0, txs: 0 };
 
   constructor(
     /**
@@ -92,8 +101,10 @@ export class NoteProcessor {
       return;
     }
 
-    const blocksAndNotes: ProcessedData[] = [];
     const curve = new Grumpkin();
+    const blocksAndNotes: ProcessedData[] = [];
+    // Keep track of notes that we couldn't process because the contract was not found.
+    const deferredNoteDaos: DeferredNoteDao[] = [];
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
@@ -101,7 +112,7 @@ export class NoteProcessor {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const blockContext = l2BlockContexts[blockIndex];
       const block = blockContext.block;
-      const dataStartIndexForBlock = block.startNoteHashTreeSnapshot.nextAvailableLeafIndex;
+      const dataEndIndexForBlock = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
@@ -111,14 +122,11 @@ export class NoteProcessor {
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
-        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
+        const dataStartIndexForTx =
+          dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
         const newCommitments = block.newCommitments.slice(
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
           (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
-        );
-        const newNullifiers = block.newNullifiers.slice(
-          indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
-          (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
         );
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
@@ -130,32 +138,37 @@ export class NoteProcessor {
             const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
             if (payload) {
               // We have successfully decrypted the data.
+              const txHash = blockContext.getTxHash(indexOfTxInABlock);
               try {
-                const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
-                  newCommitments,
-                  newNullifiers[0],
+                const noteDao = await produceNoteDao(
+                  this.simulator,
+                  this.publicKey,
                   payload,
+                  txHash,
+                  newCommitments,
+                  dataStartIndexForTx,
                   excludedIndices,
                 );
-                const index = BigInt(dataStartIndexForTx + commitmentIndex);
-                excludedIndices.add(commitmentIndex);
-                noteDaos.push(
-                  new NoteDao(
+                noteDaos.push(noteDao);
+                this.stats.decrypted++;
+              } catch (e) {
+                if (e instanceof ContractNotFoundError) {
+                  this.stats.deferred++;
+                  this.log.warn(e.message);
+                  const deferredNoteDao = new DeferredNoteDao(
+                    this.publicKey,
                     payload.note,
                     payload.contractAddress,
                     payload.storageSlot,
-                    blockContext.getTxHash(indexOfTxInABlock),
-                    nonce,
-                    innerNoteHash,
-                    siloedNullifier,
-                    index,
-                    this.publicKey,
-                  ),
-                );
-                this.stats.decrypted++;
-              } catch (e) {
-                this.stats.failed++;
-                this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+                    txHash,
+                    newCommitments,
+                    dataStartIndexForTx,
+                  );
+                  deferredNoteDaos.push(deferredNoteDao);
+                } else {
+                  this.stats.failed++;
+                  this.log.warn(`Could not process note because of "${e}". Discarding note...`);
+                }
               }
             }
           }
@@ -169,87 +182,12 @@ export class NoteProcessor {
     }
 
     await this.processBlocksAndNotes(blocksAndNotes);
+    await this.processDeferredNotes(deferredNoteDaos);
 
     const syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     await this.db.setSynchedBlockNumberForPublicKey(this.publicKey, syncedToBlock);
 
     this.log(`Synched block ${syncedToBlock}`);
-  }
-
-  /**
-   * Find the index of the note in the note hash tree by computing the note hash with different nonce and see which
-   * commitment for the current tx matches this value.
-   * Compute a nullifier for a given l1NotePayload.
-   * The nullifier is calculated using the private key of the account,
-   * contract address, and the note associated with the l1NotePayload.
-   * This method assists in identifying spent commitments in the private state.
-   * @param commitments - Commitments in the tx. One of them should be the note's commitment.
-   * @param firstNullifier - First nullifier in the tx.
-   * @param l1NotePayload - An instance of l1NotePayload.
-   * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same
-   * l1NotePayload. We need to find a different index for each replicate.
-   * @returns Information for a decrypted note, including the index of its commitment, nonce, inner note
-   * hash, and the siloed nullifier. Throw if cannot find the nonce for the note.
-   */
-  private async findNoteIndexAndNullifier(
-    commitments: Fr[],
-    firstNullifier: Fr,
-    { contractAddress, storageSlot, note }: L1NotePayload,
-    excludedIndices: Set<number>,
-  ) {
-    let commitmentIndex = 0;
-    let nonce: Fr | undefined;
-    let innerNoteHash: Fr | undefined;
-    let siloedNoteHash: Fr | undefined;
-    let uniqueSiloedNoteHash: Fr | undefined;
-    let innerNullifier: Fr | undefined;
-    for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      if (excludedIndices.has(commitmentIndex)) {
-        continue;
-      }
-
-      const commitment = commitments[commitmentIndex];
-      if (commitment.equals(Fr.ZERO)) {
-        break;
-      }
-
-      const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
-      ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, note));
-      if (commitment.equals(uniqueSiloedNoteHash)) {
-        nonce = expectedNonce;
-        break;
-      }
-    }
-
-    if (!nonce) {
-      let errorString;
-      if (siloedNoteHash == undefined) {
-        errorString = 'Cannot find a matching commitment for the note.';
-      } else {
-        errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
-This might be because the note was nullified in the same tx which created it.
-In that case, everything is fine. To check whether this is the case, look back through
-the logs for a notification
-'important: chopped commitment for siloed inner hash note
-${siloedNoteHash.toString()}'.
-If you can see that notification. Everything's fine.
-If that's not the case, and you can't find such a notification, something has gone wrong.
-There could be a problem with the way you've defined a custom note, or with the way you're
-serializing / deserializing / hashing / encrypting / decrypting that note.
-Please see the following github issue to track an improvement that we're working on:
-https://github.com/AztecProtocol/aztec-packages/issues/1641`;
-      }
-
-      throw new Error(errorString);
-    }
-
-    return {
-      commitmentIndex,
-      nonce,
-      innerNoteHash: innerNoteHash!,
-      siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
-    };
   }
 
   /**
@@ -283,5 +221,60 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
         } with nullifier ${noteDao.siloedNullifier.toString()}`,
       );
     });
+  }
+
+  /**
+   * Store the given deferred notes in the database for later decoding.
+   *
+   * @param deferredNoteDaos - notes that are intended for us but we couldn't process because the contract was not found.
+   */
+  private async processDeferredNotes(deferredNoteDaos: DeferredNoteDao[]) {
+    if (deferredNoteDaos.length) {
+      await this.db.addDeferredNotes(deferredNoteDaos);
+      deferredNoteDaos.forEach(noteDao => {
+        this.log(
+          `Deferred note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+    }
+  }
+
+  /**
+   * Retry decoding the given deferred notes because we now have the contract code.
+   *
+   * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
+   * @returns An array of NoteDaos that were successfully decoded.
+   *
+   * @remarks Caller is responsible for making sure that we have the contract for the
+   * deferred notes provided: we will not retry notes that fail again.
+   */
+  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<NoteDao[]> {
+    const excludedIndices: Set<number> = new Set();
+    const noteDaos: NoteDao[] = [];
+    for (const deferredNote of deferredNoteDaos) {
+      const { note, contractAddress, storageSlot, txHash, newCommitments, dataStartIndexForTx } = deferredNote;
+      const payload = new L1NotePayload(note, contractAddress, storageSlot);
+
+      try {
+        const noteDao = await produceNoteDao(
+          this.simulator,
+          this.publicKey,
+          payload,
+          txHash,
+          newCommitments,
+          dataStartIndexForTx,
+          excludedIndices,
+        );
+        noteDaos.push(noteDao);
+        this.stats.decrypted++;
+      } catch (e) {
+        this.stats.failed++;
+        this.log.warn(`Could not process deferred note because of "${e}". Discarding note...`);
+      }
+    }
+
+    return noteDaos;
   }
 }

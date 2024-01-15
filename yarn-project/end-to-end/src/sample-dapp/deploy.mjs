@@ -1,4 +1,5 @@
-import { Contract, ContractDeployer, createPXEClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { Contract, createPXEClient } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
 import { writeFileSync } from 'fs';
@@ -9,17 +10,16 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
   const pxe = createPXEClient(PXE_URL);
-  const [ownerWallet] = await getSandboxAccountsWallets(pxe);
+  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
+  const ownerAddress = ownerWallet.getCompleteAddress();
 
-  const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [ownerWallet.getCompleteAddress()])
+  const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [ownerAddress, 'TokenName', 'TKN', 18])
     .send()
     .deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);
 
-  const addresses = {
-    token: token.address.toString(),
-  };
+  const addresses = { token: token.address.toString() };
   writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
 }
 // docs:end:dapp-deploy

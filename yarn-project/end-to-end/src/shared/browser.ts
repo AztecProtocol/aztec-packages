@@ -1,4 +1,7 @@
 /* eslint-disable no-console */
+import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
+import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
+import * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -16,22 +19,37 @@ declare global {
     /**
      * The aztec.js library.
      */
-    AztecJs: typeof AztecJs;
+    AztecJs: typeof AztecJs & typeof AztecAccountsSingleKey & typeof AztecAccountsTesting & typeof AztecAccountsSchnorr;
   }
 }
 
 const __filename = AztecJs.fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 3000;
-
-const { PXE_URL } = process.env;
-
-const conditionalDescribe = () => (PXE_URL ? describe : describe.skip);
 const privKey = AztecJs.GrumpkinScalar.random();
 
-export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugLogger) =>
-  conditionalDescribe()('e2e_aztec.js_browser', () => {
+export const browserTestSuite = (
+  setup: () => Promise<{
+    /**
+     *  The webserver instance.
+     */
+    server: Server;
+    /**
+     * The webserver URL.
+     */
+    webServerURL: string;
+    /**
+     *  The PXE webserver instance.
+     */
+    pxeServer: Server | undefined;
+    /**
+     * The url of the PXE
+     */
+    pxeURL: string;
+  }>,
+  pageLogger: AztecJs.DebugLogger,
+) =>
+  describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
     const transferAmount = 3n;
 
@@ -40,14 +58,17 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     let app: Koa;
     let testClient: AztecJs.PXE;
     let server: Server;
+    let webServerURL: string;
+    let pxeServer: Server | undefined;
+    let pxeURL: string;
 
     let browser: Browser;
     let page: Page;
 
     beforeAll(async () => {
-      server = setup();
-      testClient = AztecJs.createPXEClient(PXE_URL!);
-      await AztecJs.waitForSandbox(testClient);
+      ({ server, pxeURL, pxeServer, webServerURL } = await setup());
+      testClient = AztecJs.createPXEClient(pxeURL);
+      await AztecJs.waitForPXE(testClient);
 
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
@@ -71,7 +92,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       page.on('pageerror', err => {
         pageLogger.error(err.toString());
       });
-      await page.goto(`http://localhost:${PORT}/index.html`);
+      await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
         pageLogger('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
@@ -81,6 +102,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     afterAll(async () => {
       await browser.close();
       server.close();
+      pxeServer?.close();
     });
 
     it('Loads Aztec.js in the browser', async () => {
@@ -104,7 +126,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
           console.log(`Created Account: ${addressString}`);
           return addressString;
         },
-        PXE_URL,
+        pxeURL,
         privKey.toString(),
       );
       const accounts = await testClient.getRegisteredAccounts();
@@ -132,15 +154,20 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
     it("Gets the owner's balance", async () => {
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, TokenContractArtifact) => {
-          const { Contract, AztecAddress, createPXEClient: createPXEClient } = window.AztecJs;
+          const {
+            Contract,
+            AztecAddress,
+            createPXEClient: createPXEClient,
+            getDeployedTestAccountsWallets,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const owner = (await pxe.getRegisteredAccounts())[0].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
+          const [wallet] = await getDeployedTestAccountsWallets(pxe);
+          const owner = wallet.getCompleteAddress().address;
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
           const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
           return balance;
         },
-        PXE_URL,
+        pxeURL,
         (await getTokenAddress()).toString(),
         TokenContractArtifact,
       );
@@ -151,17 +178,26 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
       const result = await page.evaluate(
         async (rpcUrl, contractAddress, transferAmount, TokenContractArtifact) => {
           console.log(`Starting transfer tx`);
-          const { AztecAddress, Contract, createPXEClient: createPXEClient } = window.AztecJs;
+          const {
+            AztecAddress,
+            Contract,
+            createPXEClient: createPXEClient,
+            getDeployedTestAccountsWallets,
+            getUnsafeSchnorrAccount,
+          } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const accounts = await pxe.getRegisteredAccounts();
-          const receiver = accounts[1].address;
-          const [wallet] = await AztecJs.getSandboxAccountsWallets(pxe);
+          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.GrumpkinScalar.random()).waitDeploy();
+          const receiverAddress = newReceiverAccount.getCompleteAddress().address;
+          const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
-          await contract.methods.transfer(accounts[0].address, receiver, transferAmount, 0).send().wait();
+          await contract.methods
+            .transfer(wallet.getCompleteAddress().address, receiverAddress, transferAmount, 0)
+            .send()
+            .wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
-          return await contract.methods.balance_of_private(receiver).view({ from: receiver });
+          return await contract.methods.balance_of_private(receiverAddress).view({ from: receiverAddress });
         },
-        PXE_URL,
+        pxeURL,
         (await getTokenAddress()).toString(),
         transferAmount,
         TokenContractArtifact,
@@ -171,35 +207,42 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
     const deployTokenContract = async () => {
       const txHash = await page.evaluate(
-        async (rpcUrl, privateKeyString, initialBalance, TokenContractArtifact) => {
+        async (rpcUrl, initialBalance, TokenContractArtifact) => {
           const {
-            GrumpkinScalar,
             DeployMethod,
             createPXEClient,
-            getUnsafeSchnorrAccount,
+            getSchnorrAccount,
             Contract,
             Fr,
             ExtendedNote,
             Note,
             computeMessageSecretHash,
-            getSandboxAccountsWallets,
+            getDeployedTestAccountsWallets,
+            INITIAL_TEST_ENCRYPTION_KEYS,
+            INITIAL_TEST_SIGNING_KEYS,
+            INITIAL_TEST_ACCOUNT_SALTS,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          let accounts = await pxe.getRegisteredAccounts();
-          if (accounts.length === 0) {
-            // This test needs an account for deployment. We create one in case there is none available in the PXE.
-            const privateKey = GrumpkinScalar.fromString(privateKeyString);
-            await getUnsafeSchnorrAccount(pxe, privateKey).waitDeploy();
-            accounts = await pxe.getRegisteredAccounts();
+
+          // we need to ensure that a known account is present in order to create a wallet
+          const knownAccounts = await getDeployedTestAccountsWallets(pxe);
+          if (!knownAccounts.length) {
+            const newAccount = await getSchnorrAccount(
+              pxe,
+              INITIAL_TEST_ENCRYPTION_KEYS[0],
+              INITIAL_TEST_SIGNING_KEYS[0],
+              INITIAL_TEST_ACCOUNT_SALTS[0],
+            ).waitDeploy();
+            knownAccounts.push(newAccount);
           }
-          const [owner] = await getSandboxAccountsWallets(pxe);
+          const owner = knownAccounts[0];
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
-            accounts[0].publicKey,
+            owner.getCompleteAddress().publicKey,
             pxe,
             TokenContractArtifact,
-            a => Contract.at(a, TokenContractArtifact, owner),
-            [owner.getCompleteAddress()],
+            (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
+            [owner.getCompleteAddress(), 'TokenName', 'TKN', 18],
           ).send();
           const { contract: token, txHash } = await tx.wait();
 
@@ -223,8 +266,7 @@ export const browserTestSuite = (setup: () => Server, pageLogger: AztecJs.DebugL
 
           return txHash.toString();
         },
-        PXE_URL,
-        privKey.toString(),
+        pxeURL,
         initialBalance,
         TokenContractArtifact,
       );

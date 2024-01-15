@@ -118,17 +118,21 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
+        .blake3_constraints = {},
         .keccak_constraints = {},
         .keccak_var_constraints = {},
+        .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = { block },
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     auto composer = Composer();
     auto prover = composer.create_prover(builder);

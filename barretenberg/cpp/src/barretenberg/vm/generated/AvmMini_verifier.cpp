@@ -2,7 +2,6 @@
 
 #include "./AvmMini_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -60,11 +59,43 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_sub_clk);
     commitments.memTrace_m_addr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_addr);
+    commitments.memTrace_m_tag = transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_tag);
     commitments.memTrace_m_val = transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_val);
     commitments.memTrace_m_lastAccess =
         transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_lastAccess);
+    commitments.memTrace_m_last =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_last);
     commitments.memTrace_m_rw = transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_rw);
-    commitments.avmMini_subop = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_subop);
+    commitments.memTrace_m_in_tag =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_in_tag);
+    commitments.memTrace_m_tag_err =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_tag_err);
+    commitments.memTrace_m_one_min_inv =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.memTrace_m_one_min_inv);
+    commitments.avmMini_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_pc);
+    commitments.avmMini_internal_return_ptr =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_internal_return_ptr);
+    commitments.avmMini_sel_internal_call =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_internal_call);
+    commitments.avmMini_sel_internal_return =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_internal_return);
+    commitments.avmMini_sel_jump =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_jump);
+    commitments.avmMini_sel_halt =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_halt);
+    commitments.avmMini_sel_op_add =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_op_add);
+    commitments.avmMini_sel_op_sub =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_op_sub);
+    commitments.avmMini_sel_op_mul =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_op_mul);
+    commitments.avmMini_sel_op_div =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_sel_op_div);
+    commitments.avmMini_in_tag = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_in_tag);
+    commitments.avmMini_op_err = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_op_err);
+    commitments.avmMini_tag_err =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_tag_err);
+    commitments.avmMini_inv = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_inv);
     commitments.avmMini_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_ia);
     commitments.avmMini_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_ib);
     commitments.avmMini_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_ic);
@@ -86,11 +117,15 @@ bool AvmMiniVerifier::verify_proof(const plonk::proof& proof)
     commitments.avmMini_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avmMini_last);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-
-    auto alpha = transcript->get_challenge("alpha");
+    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    auto gate_challenges = std::vector<FF>(log_circuit_size);
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, transcript);
+        sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {

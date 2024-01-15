@@ -12,7 +12,7 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
-    "codegen": "${AZTEC_CLI:-aztec-cli} generate-typescript src/contracts/target --outdir src/artifacts",
+    "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o src/artifacts --ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {
@@ -32,6 +32,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/accounts": "^0.16.9",
     "@aztec/aztec-ui": "^0.1.14",
     "@aztec/aztec.js": "^0.16.9",
     "classnames": "^2.3.2",

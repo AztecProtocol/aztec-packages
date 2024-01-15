@@ -1,4 +1,16 @@
 import {
+  ContractData,
+  ExtendedContractData,
+  L2Block,
+  L2BlockL2Logs,
+  MerkleTreeId,
+  PublicDataWrite,
+  Tx,
+  TxL2Logs,
+  makeEmptyLogs,
+  mockTx,
+} from '@aztec/circuit-types';
+import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   Fr,
@@ -12,14 +24,14 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
+  PartialStateReference,
   Proof,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  makeTuple,
-  range,
+  StateReference,
 } from '@aztec/circuits.js';
 import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -33,25 +45,13 @@ import {
   makePublicCallRequest,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
+import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { to2Fields } from '@aztec/foundation/serialize';
-import {
-  ContractData,
-  ExtendedContractData,
-  L2Block,
-  L2BlockL2Logs,
-  MerkleTreeId,
-  PublicDataWrite,
-  Tx,
-  TxL2Logs,
-  makeEmptyLogs,
-  mockTx,
-} from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
-import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { type MemDown, default as memdown } from 'memdown';
 
@@ -127,16 +127,16 @@ describe('sequencer/solo_block_builder', () => {
 
   // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
+    const newContracts = txs.flatMap(tx => tx.data.end.newContracts.map(n => computeContractLeaf(n)));
     for (const [tree, leaves] of [
-      [MerkleTreeId.NOTE_HASH_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.value.toBuffer()))],
+      [MerkleTreeId.NOTE_HASH_TREE, txs.flatMap(tx => tx.data.end.newCommitments.map(l => l.value.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
-      flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.value.toBuffer())),
+      txs.flatMap(tx => tx.data.end.newNullifiers.map(x => x.value.toBuffer())),
       NULLIFIER_SUBTREE_HEIGHT,
     );
     for (const tx of txs) {
@@ -158,11 +158,11 @@ describe('sequencer/solo_block_builder', () => {
   const updateArchive = async () => {
     const blockHash = computeBlockHashWithGlobals(
       globalVariables,
-      rootRollupOutput.endNoteHashTreeSnapshot.root,
-      rootRollupOutput.endNullifierTreeSnapshot.root,
-      rootRollupOutput.endContractTreeSnapshot.root,
-      rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
-      rootRollupOutput.endPublicDataTreeSnapshot.root,
+      rootRollupOutput.header.state.partial.noteHashTree.root,
+      rootRollupOutput.header.state.partial.nullifierTree.root,
+      rootRollupOutput.header.state.partial.contractTree.root,
+      rootRollupOutput.header.state.l1ToL2MessageTree.root,
+      rootRollupOutput.header.state.partial.publicDataTree.root,
     );
     await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
   };
@@ -170,6 +170,22 @@ describe('sequencer/solo_block_builder', () => {
   const getTreeSnapshot = async (tree: MerkleTreeId) => {
     const treeInfo = await expectsDb.getTreeInfo(tree);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
+  };
+
+  const getPartialStateReference = async () => {
+    return new PartialStateReference(
+      await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+      await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+      await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
+      await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
+    );
+  };
+
+  const getStateReference = async () => {
+    return new StateReference(
+      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      await getPartialStateReference(),
+    );
   };
 
   const buildMockSimulatorInputs = async () => {
@@ -191,63 +207,40 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate what would be the tree roots after the first tx and update mock circuit output
     await updateExpectedTreesFromTxs([txs[0]]);
-    baseRollupOutputLeft.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    baseRollupOutputLeft.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    baseRollupOutputLeft.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    baseRollupOutputLeft.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    baseRollupOutputLeft.end = await getPartialStateReference();
 
     // Same for the tx on the right
     await updateExpectedTreesFromTxs([txs[1]]);
-    baseRollupOutputRight.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    baseRollupOutputRight.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    baseRollupOutputRight.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    baseRollupOutputRight.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    baseRollupOutputRight.end = await getPartialStateReference();
 
     // Update l1 to l2 data tree
     // And update the root trees now to create proper output to the root rollup circuit
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
-    rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    rootRollupOutput.endNoteHashTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    rootRollupOutput.endPublicDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-
-    rootRollupOutput.endL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    rootRollupOutput.header.state = await getStateReference();
 
     // Calculate block hash
-    rootRollupOutput.globalVariables = globalVariables;
+    rootRollupOutput.header.globalVariables = globalVariables;
     await updateArchive();
-    rootRollupOutput.endArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
+    rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
 
-    const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
-    const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
-    const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
-      n => new ContractData(n.contractAddress, n.portalContractAddress),
-    );
-    const newPublicDataWrites = flatMap(txs, tx =>
+    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
+    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
+    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
+    const newContractData = txs
+      .flatMap(tx => tx.data.end.newContracts)
+      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
+    const newPublicDataWrites = txs.flatMap(tx =>
       tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
-    const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
+    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
     const newEncryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.encryptedLogs || new TxL2Logs([])));
     const newUnencryptedLogs = new L2BlockL2Logs(txs.map(tx => tx.unencryptedLogs || new TxL2Logs([])));
 
     const l2Block = L2Block.fromFields({
-      number: blockNumber,
-      globalVariables,
-      startNoteHashTreeSnapshot: rootRollupOutput.startNoteHashTreeSnapshot,
-      endNoteHashTreeSnapshot: rootRollupOutput.endNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot: rootRollupOutput.startNullifierTreeSnapshot,
-      endNullifierTreeSnapshot: rootRollupOutput.endNullifierTreeSnapshot,
-      startContractTreeSnapshot: rootRollupOutput.startContractTreeSnapshot,
-      endContractTreeSnapshot: rootRollupOutput.endContractTreeSnapshot,
-      startPublicDataTreeSnapshot: rootRollupOutput.startPublicDataTreeSnapshot,
-      endPublicDataTreeSnapshot: rootRollupOutput.endPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot: rootRollupOutput.startL1ToL2MessageTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot: rootRollupOutput.endL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot: rootRollupOutput.startArchiveSnapshot,
-      endArchiveSnapshot: rootRollupOutput.endArchiveSnapshot,
-      newCommitments: newCommitments.map((sideeffect: SideEffect) => sideeffect.value),
-      newNullifiers: newNullifiers.map((sideeffect: SideEffectLinkedToNoteHash) => sideeffect.value),
+      archive: rootRollupOutput.archive,
+      header: rootRollupOutput.header,
+      newCommitments: newCommitments.map((sideEffect: SideEffect) => sideEffect.value),
+      newNullifiers: newNullifiers.map((sideEffect: SideEffectLinkedToNoteHash) => sideEffect.value),
       newContracts,
       newContractData,
       newPublicDataWrites,
@@ -257,11 +250,7 @@ describe('sequencer/solo_block_builder', () => {
       newUnencryptedLogs,
     });
 
-    const callDataHash = l2Block.getCalldataHash();
-    const high = Fr.fromBuffer(callDataHash.slice(0, 16));
-    const low = Fr.fromBuffer(callDataHash.slice(16, 32));
-
-    rootRollupOutput.calldataHash = [high, low];
+    rootRollupOutput.header.bodyHash = l2Block.getCalldataHash();
 
     return txs;
   };

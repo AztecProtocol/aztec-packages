@@ -1,7 +1,10 @@
+import { TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { Hasher, SiblingPath } from '@aztec/types';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { LevelUp } from 'levelup';
 
@@ -511,6 +514,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    const timer = new Timer();
     const insertedKeys = new Map<bigint, boolean>();
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
@@ -606,6 +610,15 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     // Note: In this case we set `hash0Leaf` param to false because batch insertion algorithm use forced null leaf
     // inclusion. See {@link encodeLeaf} for  a more through param explanation.
     await this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
+
+    this.log(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
+      eventName: 'tree-insertion',
+      duration: timer.ms(),
+      batchSize: leaves.length,
+      treeName: this.getName(),
+      treeDepth: this.getDepth(),
+      treeType: 'indexed',
+    } satisfies TreeInsertionStats);
 
     return {
       lowLeavesWitnessData: lowLeavesWitnesses,

@@ -37,13 +37,12 @@ pub fn transform(
 /// Applies [`ProofSystemCompiler`][crate::ProofSystemCompiler] specific optimizations to a [`Circuit`].
 ///
 /// Accepts an injected `acir_opcode_positions` to allow transformations to be applied directly after optimizations.
+#[tracing::instrument(level = "trace", name = "transform_acir", skip(acir, acir_opcode_positions))]
 pub(super) fn transform_internal(
     acir: Circuit,
     expression_width: ExpressionWidth,
     acir_opcode_positions: Vec<usize>,
 ) -> (Circuit, Vec<usize>) {
-    log::trace!("Start circuit transformation");
-
     let mut transformer = match &expression_width {
         crate::ExpressionWidth::Unbounded => {
             let transformer = R1CSTransformer::new(acir);
@@ -63,7 +62,7 @@ pub(super) fn transform_internal(
     // TODO or at the very least, we could put all of it inside of CSatOptimizer pass
 
     let mut new_acir_opcode_positions: Vec<usize> = Vec::with_capacity(acir_opcode_positions.len());
-    // Optimize the arithmetic gates by reducing them into the correct width and
+    // Optimize the assert-zero gates by reducing them into the correct width and
     // creating intermediate variables when necessary
     let mut transformed_opcodes = Vec::new();
 
@@ -73,7 +72,7 @@ pub(super) fn transform_internal(
     let mut intermediate_variables: IndexMap<Expression, (FieldElement, Witness)> = IndexMap::new();
     for (index, opcode) in acir.opcodes.into_iter().enumerate() {
         match opcode {
-            Opcode::Arithmetic(arith_expr) => {
+            Opcode::AssertZero(arith_expr) => {
                 let len = intermediate_variables.len();
 
                 let arith_expr = transformer.transform(
@@ -96,7 +95,7 @@ pub(super) fn transform_internal(
                 new_opcodes.push(arith_expr);
                 for opcode in new_opcodes {
                     new_acir_opcode_positions.push(acir_opcode_positions[index]);
-                    transformed_opcodes.push(Opcode::Arithmetic(opcode));
+                    transformed_opcodes.push(Opcode::AssertZero(opcode));
                 }
             }
             Opcode::BlackBoxFuncCall(ref func) => {
@@ -105,23 +104,29 @@ pub(super) fn transform_internal(
                     | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. } => {
                         transformer.mark_solvable(*output);
                     }
-                    acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. } => (),
+                    acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation { .. } => (),
                     acir::circuit::opcodes::BlackBoxFuncCall::SHA256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccak256VariableLength {
                         outputs,
                         ..
                     }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::RecursiveAggregation {
-                        output_aggregation_object: outputs,
-                        ..
-                    }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake2s { outputs, .. } => {
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Keccakf1600 { outputs, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake2s { outputs, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. } => {
                         for witness in outputs {
                             transformer.mark_solvable(*witness);
                         }
                     }
                     acir::circuit::opcodes::BlackBoxFuncCall::FixedBaseScalarMul {
+                        outputs,
+                        ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveAdd {
+                        outputs, ..
+                    }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::EmbeddedCurveDouble {
                         outputs,
                         ..
                     }
@@ -145,10 +150,6 @@ pub(super) fn transform_internal(
             }
             Opcode::Directive(ref directive) => {
                 match directive {
-                    Directive::Quotient(quotient_directive) => {
-                        transformer.mark_solvable(quotient_directive.q);
-                        transformer.mark_solvable(quotient_directive.r);
-                    }
                     Directive::ToLeRadix { b, .. } => {
                         for witness in b {
                             transformer.mark_solvable(*witness);
@@ -204,8 +205,6 @@ pub(super) fn transform_internal(
         // The transformer does not add new public inputs
         ..acir
     };
-
-    log::trace!("Finish circuit transformation");
 
     (acir, new_acir_opcode_positions)
 }

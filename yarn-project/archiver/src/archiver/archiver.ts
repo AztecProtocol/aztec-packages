@@ -1,11 +1,3 @@
-import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 import {
   ContractData,
   ContractDataSource,
@@ -22,7 +14,15 @@ import {
   LogFilter,
   LogType,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { FunctionSelector, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { createEthereumChain } from '@aztec/ethereum';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import omit from 'lodash.omit';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
@@ -59,7 +59,6 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * @param inboxAddress - Ethereum address of the inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
    * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
-   * @param searchStartBlock - The L1 block from which to start searching for new blocks.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param log - A logger.

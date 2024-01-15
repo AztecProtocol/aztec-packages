@@ -131,11 +131,15 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
+        .blake3_constraints = {},
         .keccak_constraints = {},
         .keccak_var_constraints = {},
+        .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
@@ -146,7 +150,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
         message, pub_key, signature);
     EXPECT_EQ(we_ballin, true);
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     auto composer = Composer();
@@ -172,17 +176,21 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
+        .blake3_constraints = {},
         .keccak_constraints = {},
         .keccak_var_constraints = {},
+        .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     auto composer = Composer();
@@ -211,11 +219,15 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
+        .blake3_constraints = {},
         .keccak_constraints = {},
         .keccak_var_constraints = {},
+        .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
@@ -245,17 +257,21 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .blake2s_constraints = {},
+        .blake3_constraints = {},
         .keccak_constraints = {},
         .keccak_var_constraints = {},
+        .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .ec_double_constraints = {},
         .recursion_constraints = {},
         .constraints = {},
         .block_constraints = {},
     };
 
-    auto builder = create_circuit_with_witness(constraint_system, witness_values);
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 0);
     auto composer = Composer();

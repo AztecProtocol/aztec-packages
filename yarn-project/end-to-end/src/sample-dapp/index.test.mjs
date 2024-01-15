@@ -1,13 +1,12 @@
-import { createSandbox } from '@aztec/aztec-sandbox';
+import { createAccount } from '@aztec/accounts/testing';
 import {
   Contract,
   ExtendedNote,
   Fr,
   Note,
   computeMessageSecretHash,
-  createAccount,
   createPXEClient,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
 
@@ -15,14 +14,16 @@ const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:854
 
 describe('token', () => {
   // docs:start:setup
-  let pxe, stop, owner, recipient, token;
+  let owner, recipient, token;
   beforeAll(async () => {
     const pxe = createPXEClient(PXE_URL);
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe);
     owner = await createAccount(pxe);
     recipient = await createAccount(pxe);
 
-    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress()]).send().deployed();
+    token = await Contract.deploy(owner, TokenContractArtifact, [owner.getCompleteAddress(), 'TokenName', 'TKN', 18])
+      .send()
+      .deployed();
 
     const initialBalance = 20n;
     const secret = Fr.random();

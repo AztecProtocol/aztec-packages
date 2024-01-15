@@ -1,3 +1,4 @@
+import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -24,6 +25,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  PartialStateReference,
   PreviousKernelData,
   PreviousRollupData,
   Proof,
@@ -35,9 +37,10 @@ import {
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
+  StateDiffHints,
+  StateReference,
   VK_TREE_HEIGHT,
   VerificationKey,
-  makeTuple,
 } from '@aztec/circuits.js';
 import {
   computeBlockHash,
@@ -45,24 +48,22 @@ import {
   computeContractLeaf,
   computeGlobalsHash,
 } from '@aztec/circuits.js/abis';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
+import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength } from '@aztec/foundation/serialize';
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/types';
+import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';
-import flatMap from 'lodash.flatmap';
 
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
-import { AllowedTreeNames, OutputWithTreeSnapshot, TreeNames } from './types.js';
+import { TreeNames } from './types.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 
@@ -99,50 +100,23 @@ export class SoloBlockBuilder implements BlockBuilder {
     txs: ProcessedTx[],
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
-    const [
-      startNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot,
-    ] = await Promise.all(
-      [
-        MerkleTreeId.NOTE_HASH_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-        MerkleTreeId.ARCHIVE,
-      ].map(tree => this.getTreeSnapshot(tree)),
-    );
-
     // Check txs are good for processing
     this.validateTxs(txs);
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
-    const {
-      endNoteHashTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
-      endArchiveSnapshot,
-    } = circuitsOutput;
-
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
-    const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
-    const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
-    const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
-      n => new ContractData(n.contractAddress, n.portalContractAddress),
-    );
-    const newPublicDataWrites = flatMap(txs, tx =>
+    const newNullifiers = txs.flatMap(tx => tx.data.end.newNullifiers);
+    const newCommitments = txs.flatMap(tx => tx.data.end.newCommitments);
+    const newContracts = txs.flatMap(tx => tx.data.end.newContracts).map(cd => computeContractLeaf(cd));
+    const newContractData = txs
+      .flatMap(tx => tx.data.end.newContracts)
+      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
+    const newPublicDataWrites = txs.flatMap(tx =>
       tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
     );
-    const newL2ToL1Msgs = flatMap(txs, tx => tx.data.end.newL2ToL1Msgs);
+    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.end.newL2ToL1Msgs);
 
     // Consolidate logs data from all txs
     const encryptedLogsArr: TxL2Logs[] = [];
@@ -157,20 +131,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newUnencryptedLogs = new L2BlockL2Logs(unencryptedLogsArr);
 
     const l2Block = L2Block.fromFields({
-      number: Number(globalVariables.blockNumber.value),
-      globalVariables,
-      startNoteHashTreeSnapshot,
-      endNoteHashTreeSnapshot,
-      startNullifierTreeSnapshot,
-      endNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      endContractTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      endPublicDataTreeSnapshot,
-      startL1ToL2MessageTreeSnapshot: startL1ToL2MessageTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
-      startArchiveSnapshot,
-      endArchiveSnapshot,
+      archive: circuitsOutput.archive,
+      header: circuitsOutput.header,
       newCommitments: newCommitments.map((c: SideEffect) => c.value),
       newNullifiers: newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
       newL2ToL1Msgs,
@@ -182,11 +144,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       newUnencryptedLogs,
     });
 
-    if (!l2Block.getCalldataHash().equals(circuitsOutput.sha256CalldataHash())) {
+    if (!l2Block.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
       throw new Error(
-        `Calldata hash mismatch, ${l2Block.getCalldataHash().toString('hex')} == ${circuitsOutput
-          .sha256CalldataHash()
-          .toString('hex')} `,
+        `Calldata hash mismatch, ${l2Block
+          .getCalldataHash()
+          .toString('hex')} == ${circuitsOutput.header.bodyHash.toString('hex')} `,
       );
     }
 
@@ -257,7 +219,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     this.debug(`Running base rollup for ${tx.hash}`);
     const rollupInput = await this.buildBaseRollupInput(tx, globalVariables);
     const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
-    await this.validateTrees(rollupOutput);
+    await this.validatePartialState(rollupOutput.end);
     const proof = await this.prover.getBaseRollupProof(rollupInput, rollupOutput);
     return [rollupOutput, proof];
   }
@@ -350,38 +312,48 @@ export class SoloBlockBuilder implements BlockBuilder {
     return blockHash;
   }
 
-  // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
-  protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
+  protected async validatePartialState(partialState: PartialStateReference) {
     await Promise.all([
-      this.validateTree(rollupOutput, MerkleTreeId.CONTRACT_TREE, 'ContractTree'),
-      this.validateTree(rollupOutput, MerkleTreeId.NOTE_HASH_TREE, 'NoteHashTree'),
-      this.validateTree(rollupOutput, MerkleTreeId.NULLIFIER_TREE, 'NullifierTree'),
-      this.validateTree(rollupOutput, MerkleTreeId.PUBLIC_DATA_TREE, 'PublicDataTree'),
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+        partialState.noteHashTree,
+        'NoteHashTree',
+      ),
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+        partialState.nullifierTree,
+        'NullifierTree',
+      ),
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
+        partialState.contractTree,
+        'ContractTree',
+      ),
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
+        partialState.publicDataTree,
+        'PublicDataTree',
+      ),
+    ]);
+  }
+
+  protected async validateState(state: StateReference) {
+    await Promise.all([
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+        state.l1ToL2MessageTree,
+        'L1ToL2MessageTree',
+      ),
+      this.validatePartialState(state.partial),
     ]);
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
   protected async validateRootOutput(rootOutput: RootRollupPublicInputs) {
     await Promise.all([
-      this.validateTrees(rootOutput),
-      this.validateTree(rootOutput, MerkleTreeId.ARCHIVE, 'Archive'),
-      this.validateTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGE_TREE, 'L1ToL2MessageTree'),
+      this.validateState(rootOutput.header.state),
+      this.validateSimulatedTree(await this.getTreeSnapshot(MerkleTreeId.ARCHIVE), rootOutput.archive, 'Archive'),
     ]);
-  }
-
-  // Helper for validating a non-roots tree against a circuit simulation output
-  protected async validateTree<T extends BaseOrMergeRollupPublicInputs | RootRollupPublicInputs>(
-    output: T,
-    treeId: MerkleTreeId,
-    name: AllowedTreeNames<T>,
-  ) {
-    if ('endL1ToL2MessageTreeSnapshot' in output && !(output instanceof RootRollupPublicInputs)) {
-      throw new Error(`The name 'L1ToL2Message' can only be used when output is of type RootRollupPublicInputs`);
-    }
-
-    const localTree = await this.getTreeSnapshot(treeId);
-    const simulatedTree = (output as OutputWithTreeSnapshot<T>)[`end${name}Snapshot`];
-    this.validateSimulatedTree(localTree, simulatedTree, name);
   }
 
   // Helper for comparing two trees snapshots
@@ -534,7 +506,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       mergeRollupVkHash: DELETE_FR,
       privateKernelVkTreeRoot: FUTURE_FR,
       publicKernelVkTreeRoot: FUTURE_FR,
-      archiveSnapshot: await this.getTreeSnapshot(MerkleTreeId.ARCHIVE),
+      lastArchive: await this.getTreeSnapshot(MerkleTreeId.ARCHIVE),
       globalVariables,
     });
   }
@@ -665,29 +637,30 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async buildBaseRollupInput(tx: ProcessedTx, globalVariables: GlobalVariables) {
     // Get trees info before any changes hit
     const constants = await this.getConstantRollupData(globalVariables);
-    const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
-    const startNoteHashTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    const startPublicDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-    const startArchiveSnapshot = await this.getTreeSnapshot(MerkleTreeId.ARCHIVE);
+    const start = new PartialStateReference(
+      await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+      await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+      await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
+      await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
+    );
 
     // Get the subtree sibling paths for the circuit
-    const newCommitmentsSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
+    const noteHashSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
       MerkleTreeId.NOTE_HASH_TREE,
       NOTE_HASH_SUBTREE_HEIGHT,
     );
 
-    const newCommitmentsSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < newCommitmentsSubtreeSiblingPathArray.length ? newCommitmentsSubtreeSiblingPathArray[i] : Fr.ZERO,
+    const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, i =>
+      i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
-    const newContractsSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
+    const contractSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
       MerkleTreeId.CONTRACT_TREE,
       CONTRACT_SUBTREE_HEIGHT,
     );
 
-    const newContractsSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < newContractsSubtreeSiblingPathArray.length ? newContractsSubtreeSiblingPathArray[i] : Fr.ZERO,
+    const contractSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, i =>
+      i < contractSubtreeSiblingPathArray.length ? contractSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
     // Update the contract and note hash trees with the new items being inserted to get the new roots
@@ -713,7 +686,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       lowLeavesWitnessData: nullifierWitnessLeaves,
       newSubtreeSiblingPath: newNullifiersSubtreeSiblingPath,
       sortedNewLeaves: sortedNewNullifiers,
-      sortedNewLeavesIndexes: sortednewNullifiersIndexes,
+      sortedNewLeavesIndexes,
     } = await this.db.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       newNullifiers.map(sideEffectLinkedToNoteHash => sideEffectLinkedToNoteHash.value.toBuffer()),
@@ -724,51 +697,53 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // Extract witness objects from returned data
-    const lowNullifierMembershipWitnesses: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+    const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
       nullifierWitnessLeaves.map(l =>
         MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
       );
 
-    const newNullifiersSubtreeSiblingPathArray = newNullifiersSubtreeSiblingPath.toFieldArray();
+    const nullifierSubtreeSiblingPathArray = newNullifiersSubtreeSiblingPath.toFieldArray();
 
-    return BaseRollupInputs.from({
-      constants,
-      startNullifierTreeSnapshot,
-      startContractTreeSnapshot,
-      startNoteHashTreeSnapshot,
-      startPublicDataTreeSnapshot,
-      archiveSnapshot: startArchiveSnapshot,
-      sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
-      sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
-      lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
-      lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-      publicDataWritesSubtreeSiblingPath: txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath,
+    const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
+      i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
+    );
 
-      sortedNewNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
-      sortednewNullifiersIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortednewNullifiersIndexes[i]),
-      newCommitmentsSubtreeSiblingPath,
-      newContractsSubtreeSiblingPath,
+    const publicDataSiblingPath = txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath;
 
-      newNullifiersSubtreeSiblingPath: makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
-        i < newNullifiersSubtreeSiblingPathArray.length ? newNullifiersSubtreeSiblingPathArray[i] : Fr.ZERO,
-      ),
-
-      publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
-
-      publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
-
-      lowNullifierLeafPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+    const stateDiffHints = StateDiffHints.from({
+      nullifierPredecessorPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
         i < nullifierWitnessLeaves.length
           ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
           : NullifierLeafPreimage.empty(),
       ),
-      lowNullifierMembershipWitness: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
-        i < lowNullifierMembershipWitnesses.length
-          ? lowNullifierMembershipWitnesses[i]
+      nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+        i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
+          ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
           : this.makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
       ),
+      sortedNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
+      sortedNullifierIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
+      noteHashSubtreeSiblingPath,
+      nullifierSubtreeSiblingPath,
+      contractSubtreeSiblingPath,
+      publicDataSiblingPath,
+    });
+
+    return BaseRollupInputs.from({
       kernelData: this.getKernelDataFor(tx),
+      start,
+      stateDiffHints,
+
+      sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
+      sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
+      lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
+      lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
+      publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
+      publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
+
       archiveRootMembershipWitness: await this.getHistoricalTreesMembershipWitnessFor(tx),
+
+      constants,
     });
   }
 

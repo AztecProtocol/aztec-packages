@@ -127,8 +127,8 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "apis/pxe",
-        entryPoints: ["../yarn-project/types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/types/tsconfig.json",
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
         out: "apis/pxe",
         disableSources: true,
@@ -146,6 +146,23 @@ const config = {
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
         out: "apis/aztec-js",
+        disableSources: true,
+      },
+    ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "apis/accounts",
+        entryPoints: [
+          "../yarn-project/accounts/src/defaults/index.ts",
+          "../yarn-project/accounts/src/ecdsa/index.ts",
+          "../yarn-project/accounts/src/schnorr/index.ts",
+          "../yarn-project/accounts/src/single_key/index.ts",
+          "../yarn-project/accounts/src/testing/index.ts",
+        ],
+        tsconfig: "../yarn-project/accounts/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "apis/accounts",
         disableSources: true,
       },
     ],
@@ -206,6 +223,10 @@ const config = {
                 label: "Developer Quickstart",
                 to: "/dev_docs/getting_started/quickstart",
               },
+              {
+                label: "Aztec.nr",
+                to: "https://github.com/AztecProtocol/aztec-nr",
+              },
             ],
           },
           {
@@ -235,6 +256,10 @@ const config = {
               {
                 label: "GitHub",
                 href: "https://github.com/AztecProtocol",
+              },
+              {
+                label: "Awesome Aztec",
+                to: "https://github.com/AztecProtocol/awesome-aztec",
               },
               {
                 label: "Grants",

@@ -34,7 +34,9 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
@@ -43,7 +45,6 @@
     "@aztec/types": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
-    "@ltd/j-toml": "^1.38.0",
     "commander": "^9.0.0",
     "jszip": "^3.10.1",
     "lodash.startcase": "^4.4.0",

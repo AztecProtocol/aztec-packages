@@ -16,6 +16,7 @@
     "clean": "yarn workspaces foreach -p -v run clean"
   },
   "workspaces": [
+    "accounts",
     "acir-simulator",
     "archiver",
     "aztec-faucet",
@@ -24,6 +25,7 @@
     "aztec-sandbox",
     "aztec.js",
     "circuits.js",
+    "circuit-types",
     "cli",
     "docs",
     "end-to-end",

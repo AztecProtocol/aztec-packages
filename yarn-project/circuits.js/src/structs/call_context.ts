@@ -1,9 +1,8 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr, FunctionSelector } from './index.js';
 
 /**
@@ -50,7 +49,7 @@ export class CallContext {
     /**
      * The start side effect counter for this call context.
      */
-    public startSideEffectCounter: Fr,
+    public startSideEffectCounter: number,
   ) {
     this.portalContractAddress =
       portalContractAddress instanceof EthAddress ? portalContractAddress : EthAddress.fromField(portalContractAddress);
@@ -69,7 +68,7 @@ export class CallContext {
       false,
       false,
       false,
-      Fr.ZERO,
+      0,
     );
   }
 
@@ -79,7 +78,7 @@ export class CallContext {
       this.storageContractAddress.isZero() &&
       this.portalContractAddress.isZero() &&
       this.functionSelector.isEmpty() &&
-      this.startSideEffectCounter.isZero()
+      Fr.ZERO
     );
   }
 
@@ -123,7 +122,7 @@ export class CallContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readObject(Fr),
+      reader.readNumber(),
     );
   }
 
