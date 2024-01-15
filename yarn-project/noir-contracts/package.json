@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/src/index.js",
+    "./target/*": "./dest/target/*.json",
     "./*": "./dest/src/*.js"
   },
   "scripts": {
