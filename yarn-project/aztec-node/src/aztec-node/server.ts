@@ -1,7 +1,6 @@
-import { Archiver, LMDBArchiverStore } from '@aztec/archiver';
+import { ArchiveSource, Archiver, ArchiverDataStore, LMDBArchiverStore } from '@aztec/archiver';
 import { createArchiverClient } from '@aztec/aztec.js';
 import {
-  ArchiveSource,
   AztecNode,
   ContractData,
   ContractDataSource,

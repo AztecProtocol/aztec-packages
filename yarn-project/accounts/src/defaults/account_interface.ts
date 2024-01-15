@@ -1,4 +1,3 @@
-import { NodeInfo } from '@aztec/aztec.js';
 import { AccountInterface, AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
 import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import { CompleteAddress, Fr } from '@aztec/circuits.js';
