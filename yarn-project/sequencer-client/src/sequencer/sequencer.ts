@@ -1,11 +1,11 @@
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
-import { L2BlockBuiltStats } from '@aztec/types/stats';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -164,7 +164,8 @@ export class Sequencer {
       this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const prevGlobalVariables = (await this.l2BlockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
+      const prevGlobalVariables =
+        (await this.l2BlockSource.getBlock(-1))?.header.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)

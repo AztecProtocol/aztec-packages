@@ -1,8 +1,7 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import { computeVarArgsHash } from '../abis/abis.js';
-import { FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { CallerContext } from './call_request.js';
 import {
   AztecAddress,
@@ -39,10 +38,6 @@ export class PublicCallRequest {
      * Function arguments.
      */
     public args: Fr[],
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public sideEffectCounter: number,
   ) {}
 
   /**
@@ -50,13 +45,7 @@ export class PublicCallRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.contractAddress,
-      this.functionData,
-      this.callContext,
-      new Vector(this.args),
-      this.sideEffectCounter,
-    );
+    return serializeToBuffer(this.contractAddress, this.functionData, this.callContext, new Vector(this.args));
   }
 
   /**
@@ -71,7 +60,6 @@ export class PublicCallRequest {
       FunctionData.fromBuffer(reader),
       CallContext.fromBuffer(reader),
       reader.readVector(Fr),
-      reader.readNumber(),
     );
   }
 
@@ -90,13 +78,7 @@ export class PublicCallRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<PublicCallRequest>) {
-    return [
-      fields.contractAddress,
-      fields.functionData,
-      fields.callContext,
-      fields.args,
-      fields.sideEffectCounter,
-    ] as const;
+    return [fields.contractAddress, fields.functionData, fields.callContext, fields.args] as const;
   }
 
   /**

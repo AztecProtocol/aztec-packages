@@ -131,7 +131,7 @@ Inside the `packages` directory, run
 
 ```bash
 mkdir src && cd src && yarn init -yp
-yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts @aztec/types @aztec/foundation @aztec/l1-artifacts viem@1.21.4 "@types/node@^20.8.2"
+yarn add typescript @aztec/aztec.js @aztec/accounts @aztec/noir-contracts @aztec/types @aztec/foundation @aztec/l1-artifacts viem@1.21.4 "@types/node@^20.8.2"
 yarn add -D jest @jest/globals ts-jest
 ```
 
@@ -156,7 +156,7 @@ Your `package.json` should look something like this (do not copy and paste):
   "license": "MIT",
   "private": true,
   "type": "module",
-  "dependencies": {
+  "dependencies": {    
     "dep": "version",
   },
   "devDependencies": {

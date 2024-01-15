@@ -1,22 +1,23 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { CallRequest } from '../call_request.js';
 import { PrivateCallStackItem } from '../call_stack_item.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
 import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';
+import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
@@ -191,9 +192,25 @@ export class PrivateKernelInputsOrdering {
      */
     public previousKernel: PreviousKernelData,
     /**
+     * The sorted new commitments.
+     */
+    public sortedNewCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    /**
+     * The sorted new commitments indexes. Maps original to sorted.
+     */
+    public sortedNewCommitmentsIndexes: Tuple<number, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
     public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    /**
+     * The sorted new nullifiers. Maps original to sorted.
+     */
+    public sortedNewNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * The sorted new nullifiers indexes.
+     */
+    public sortedNewNullifiersIndexes: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Contains hints for the transient nullifiers to localize corresponding commitments.
      */
@@ -205,6 +222,14 @@ export class PrivateKernelInputsOrdering {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.readCommitmentHints);
+    return serializeToBuffer(
+      this.previousKernel,
+      this.sortedNewCommitments,
+      this.sortedNewCommitmentsIndexes,
+      this.readCommitmentHints,
+      this.sortedNewNullifiers,
+      this.sortedNewNullifiersIndexes,
+      this.nullifierCommitmentHints,
+    );
   }
 }

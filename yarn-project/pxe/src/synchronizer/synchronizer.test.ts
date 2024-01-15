@@ -1,9 +1,9 @@
+import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { BlockHeader, CompleteAddress, EthAddress, Fr, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Block, MerkleTreeId } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
@@ -54,7 +54,7 @@ describe('Synchronizer', () => {
     await synchronizer.work();
 
     const roots = database.getTreeRoots();
-    expect(roots[MerkleTreeId.CONTRACT_TREE]).toEqual(block.endContractTreeSnapshot.root);
+    expect(roots[MerkleTreeId.CONTRACT_TREE]).toEqual(block.header.state.partial.contractTree.root);
   });
 
   it('overrides tree roots from initial sync once current block number is larger', async () => {
@@ -76,7 +76,7 @@ describe('Synchronizer', () => {
     await synchronizer.work();
     const roots1 = database.getTreeRoots();
     expect(roots1[MerkleTreeId.CONTRACT_TREE]).toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots1[MerkleTreeId.CONTRACT_TREE]).not.toEqual(block1.endContractTreeSnapshot.root);
+    expect(roots1[MerkleTreeId.CONTRACT_TREE]).not.toEqual(block1.header.state.partial.contractTree.root);
 
     // But they should change when we process block with height 5
     const block5 = L2Block.random(5, 4);
@@ -87,7 +87,7 @@ describe('Synchronizer', () => {
     await synchronizer.work();
     const roots5 = database.getTreeRoots();
     expect(roots5[MerkleTreeId.CONTRACT_TREE]).not.toEqual(roots[MerkleTreeId.CONTRACT_TREE]);
-    expect(roots5[MerkleTreeId.CONTRACT_TREE]).toEqual(block5.endContractTreeSnapshot.root);
+    expect(roots5[MerkleTreeId.CONTRACT_TREE]).toEqual(block5.header.state.partial.contractTree.root);
   });
 
   it('note processor successfully catches up', async () => {

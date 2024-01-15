@@ -1,5 +1,6 @@
+import { CompleteAddress } from '@aztec/circuit-types';
 import { ContractArtifact } from '@aztec/foundation/abi';
-import { CompleteAddress, NodeInfo } from '@aztec/types';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { AccountInterface } from './interface.js';
 

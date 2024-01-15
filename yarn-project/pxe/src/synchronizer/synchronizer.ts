@@ -1,8 +1,3 @@
-import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
-import { SerialQueue } from '@aztec/foundation/fifo';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 import {
   AztecNode,
   INITIAL_L2_BLOCK_NUM,
@@ -12,8 +7,13 @@ import {
   LogType,
   MerkleTreeId,
   TxHash,
-} from '@aztec/types';
-import { NoteProcessorCaughtUpStats } from '@aztec/types/stats';
+} from '@aztec/circuit-types';
+import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
+import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { SerialQueue } from '@aztec/foundation/fifo';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
@@ -276,15 +276,15 @@ export class Synchronizer {
       return;
     }
 
-    const globalsHash = computeGlobalsHash(latestBlock.block.globalVariables);
+    const globalsHash = computeGlobalsHash(latestBlock.block.header.globalVariables);
     const blockHeader = new BlockHeader(
-      block.endNoteHashTreeSnapshot.root,
-      block.endNullifierTreeSnapshot.root,
-      block.endContractTreeSnapshot.root,
-      block.endL1ToL2MessageTreeSnapshot.root,
-      block.endArchiveSnapshot.root,
+      block.header.state.partial.noteHashTree.root,
+      block.header.state.partial.nullifierTree.root,
+      block.header.state.partial.contractTree.root,
+      block.header.state.l1ToL2MessageTree.root,
+      block.archive.root,
       Fr.ZERO, // todo: private kernel vk tree root
-      block.endPublicDataTreeSnapshot.root,
+      block.header.state.partial.publicDataTree.root,
       globalsHash,
     );
 
