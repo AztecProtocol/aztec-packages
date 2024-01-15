@@ -264,14 +264,21 @@ describe('L1Publisher integration', () => {
         l2ToL1Messages: block.newL2ToL1Msgs.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
+        // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values bellow.
+        // This should not be a problem for testing as long as the values are not larger than u32.
+        chainId: Number(block.header.globalVariables.chainId.toBigInt()),
+        version: Number(block.header.globalVariables.version.toBigInt()),
         blockNumber: block.number,
-        startStateHash: `0x${block.getStartStateHash().toString('hex').padStart(64, '0')}`,
-        endStateHash: `0x${block.getEndStateHash().toString('hex').padStart(64, '0')}`,
-        publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
-        calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
-        l1ToL2MessagesHash: `0x${block.getL1ToL2MessagesHash().toString('hex').padStart(64, '0')}`,
+        timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
+        lastArchive: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        header: `0x${block.bodyToBuffer().toString('hex')}`,
         body: `0x${block.toBufferWithLogs().toString('hex')}`,
-        timestamp: Number(block.header.globalVariables.timestamp.toBigInt()), // The json formatting in forge is a bit brittle, so we convert to a number here. This should not be a problem for testing as longs as the timestamp is not larger than u32.
+
+        // startStateHash: `0x${block.getStartStateHash().toString('hex').padStart(64, '0')}`,
+        // endStateHash: `0x${block.getEndStateHash().toString('hex').padStart(64, '0')}`,
+        // publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        // calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        // l1ToL2MessagesHash: `0x${block.getL1ToL2MessagesHash().toString('hex').padStart(64, '0')}`,
       },
     };
 

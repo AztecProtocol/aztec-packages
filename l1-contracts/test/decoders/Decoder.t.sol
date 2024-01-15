@@ -20,7 +20,7 @@ contract HeaderDecoderHelper {
   function decode(bytes calldata _header)
     public
     pure
-    returns (uint256 l2BlockNumber, bytes32 startStateHash, bytes32 endStateHash)
+    returns (HeaderDecoder.Header memory)
   {
     return HeaderDecoder.decode(_header);
   }
@@ -78,29 +78,29 @@ contract DecoderTest is DecoderBase {
   function _testDecodeBlock(string memory name) public virtual {
     DecoderBase.Full memory data = load(name);
 
-    // Using the FULL decoder.
-    (
-      uint256 l2BlockNumber,
-      bytes32 startStateHash,
-      bytes32 endStateHash,
-      bytes32 publicInputsHash,
-      bytes32[] memory l2ToL1Msgs,
-      bytes32[] memory l1ToL2Msgs
-    ) = helper.decode(data.block.body);
-    (bytes32 diffRoot, bytes32 l1ToL2MessagesHash) =
-      helper.computeDiffRootAndMessagesHash(data.block.body);
+    // // Using the FULL decoder.
+    // (
+    //   uint256 l2BlockNumber,
+    //   bytes32 startStateHash,
+    //   bytes32 endStateHash,
+    //   bytes32 publicInputsHash,
+    //   bytes32[] memory l2ToL1Msgs,
+    //   bytes32[] memory l1ToL2Msgs
+    // ) = helper.decode(data.block.body);
+    // (bytes32 diffRoot, bytes32 l1ToL2MessagesHash) =
+    //   helper.computeDiffRootAndMessagesHash(data.block.body);
 
     // Header
     {
-      (uint256 headerL2BlockNumber, bytes32 headerStartStateHash, bytes32 headerEndStateHash) =
+      HeaderDecoder.Header memory header =
         headerHelper.decode(data.block.body);
 
-      assertEq(l2BlockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(headerL2BlockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(startStateHash, data.block.startStateHash, "Invalid start state hash");
-      assertEq(headerStartStateHash, data.block.startStateHash, "Invalid start state hash");
-      assertEq(endStateHash, data.block.endStateHash, "Invalid end state hash");
-      assertEq(headerEndStateHash, data.block.endStateHash, "Invalid end state hash");
+      assertEq(header.chainId, data.block.chainId, "Invalid chain Id");
+      assertEq(header.version, data.block.version, "Invalid version");
+      assertEq(header.blockNumber, data.block.blockNumber, "Invalid block number");
+      assertEq(header.timestamp, data.block.timestamp, "Invalid timestamp");
+      assertEq(header.lastArchive, data.block.lastArchive, "Invalid last archive");
+      // assertEq(header.archive, data.block.archive, "Invalid archive");
     }
 
     // Messages

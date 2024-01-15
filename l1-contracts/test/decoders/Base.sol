@@ -24,14 +24,15 @@ contract DecoderBase is Test {
   }
 
   struct Data {
+    // TODO(benejsan): Use HeaderDecoder.Header here?
+    uint256 chainId;
+    uint256 version;
     uint256 blockNumber;
-    bytes body;
-    bytes32 calldataHash;
-    bytes32 endStateHash;
-    bytes32 l1ToL2MessagesHash;
-    bytes32 publicInputsHash;
-    bytes32 startStateHash;
     uint256 timestamp;
+    bytes32 lastArchive;
+    bytes32 archive;
+    bytes header;
+    bytes body;
   }
 
   function load(string memory name) public view returns (Full memory) {
