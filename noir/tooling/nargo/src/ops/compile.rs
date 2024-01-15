@@ -1,4 +1,4 @@
-use acvm::ExpressionWidth;
+use acvm::acir::circuit::ExpressionWidth;
 use fm::FileManager;
 use noirc_driver::{CompilationResult, CompileOptions, CompiledContract, CompiledProgram};
 

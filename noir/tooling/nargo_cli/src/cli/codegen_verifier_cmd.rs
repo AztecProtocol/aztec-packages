@@ -6,7 +6,7 @@ use super::{
 use crate::backends::Backend;
 use crate::errors::CliError;
 
-use acvm::ExpressionWidth;
+use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::FileManager;
 use nargo::insert_all_files_for_workspace_into_file_manager;

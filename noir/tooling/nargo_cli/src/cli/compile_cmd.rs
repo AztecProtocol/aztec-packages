@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use acvm::ExpressionWidth;
+use acvm::acir::circuit::ExpressionWidth;
 use fm::FileManager;
 use iter_extended::vecmap;
 use nargo::artifacts::contract::{ContractArtifact, ContractFunctionArtifact};
