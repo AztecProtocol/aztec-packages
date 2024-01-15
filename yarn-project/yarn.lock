@@ -873,10 +873,7 @@ __metadata:
   resolution: "@aztec/types@workspace:types"
   dependencies:
     "@aztec/ethereum": "workspace:^"
-<<<<<<< HEAD
-=======
     "@aztec/foundation": "workspace:^"
->>>>>>> master
     "@jest/globals": ^29.5.0
     "@types/debug": ^4.1.7
     "@types/detect-node": ^2.0.0

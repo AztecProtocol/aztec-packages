@@ -8,7 +8,6 @@ import {
   L2BlockL2Logs,
   L2Tx,
   LogId,
-  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
@@ -17,6 +16,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.
