@@ -1,5 +1,5 @@
 ---
-title: Historical Access Tree
+title: Accessing History
 ---
 
 The Aztec Protocol uses an append-only Merkle tree to store the headers of all previous blocks in the chain as its leaves. You can learn more about how it works in the [concepts section](../../../concepts/advanced/data_structures/trees.md#historical-access-tree).
@@ -8,7 +8,7 @@ On this page you will learn how you can integrate inclusion and non-inclusion pr
 
 # Historical tree library
 
-The historical tree library allows you to access:
+The historical tree library allows you to access any of the following at a given block height before the current height:
 
 * [Private notes](#note-inclusion)
 * [Notes that have been nullified](#nullifier-inclusion)
@@ -20,6 +20,7 @@ Using the historical access tree, you can check that specific notes or nullifier
 
 * Verifying a timestamp that was created in a private context
 * Checking eligibility based on historical events (eg for an airdrop) 
+* Verifying historic ownership / relinquishing of assets
 
 # How to integrate historical access and inclusion proofs into your smart contract
 
@@ -37,7 +38,7 @@ Note inclusion proves that someone owned a note at a specific block number.
 aztec::{
 history::{
     #include_code import_note_inclusion yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
-}
+      }
 }
 ```
 ### 2. Call prove_note_inclusion
@@ -63,7 +64,7 @@ history::{
 |-----------------|------------------------|-----------------------------------------------------|
 | commitment  | Field | Note commitment we are checking inclusion of |   
 | block_number    | u32                    | Block number for proving note's existence           |
-| context| PrivateContexr                   | Private Context |    
+| context| PrivateContext                   | Private Context |    
 
 #### Example
 
@@ -79,7 +80,7 @@ This proves that a note exists and has not been nullified at a specified block.
 aztec::{
 history::{
     #include_code import_note_validity yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
-}
+      }
 }
 ```
 ### 2. Call prove_note_validity
@@ -107,7 +108,7 @@ This proves that a nullifier was included, ie a note had been nullified, in a ce
 aztec::{
 history::{
     #include_code import_nullifier_inclusion yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
-}
+      }
 }
 ```
 
@@ -135,7 +136,7 @@ This proves that a nullifier was not included, ie a note had not been nullified,
 aztec::{
 history::{
     #include_code import_nullifier_non_inclusion yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
-}
+      }
 }
 ```
 
@@ -198,7 +199,7 @@ This proves that a contract exists in, ie had been deployed before or in, a cert
 aztec::{
 history::{
     #include_code import_contract_inclusion yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr raw
-}
+      }
 }
 ```
 
