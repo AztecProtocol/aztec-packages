@@ -73,6 +73,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -182,6 +183,7 @@ __metadata:
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -364,6 +366,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@iarna/toml": ^2.2.5
     "@jest/globals": ^29.5.0
     "@libp2p/peer-id-factory": ^3.0.4
@@ -418,6 +421,7 @@ __metadata:
     "@aztec/p2p": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noble/curves": ^1.0.0
@@ -596,6 +600,7 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.2
@@ -775,6 +780,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-protocol-circuits": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/lodash.omit": ^4.5.7
@@ -834,6 +840,7 @@ __metadata:
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-protocol-circuits": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -866,6 +873,10 @@ __metadata:
   resolution: "@aztec/types@workspace:types"
   dependencies:
     "@aztec/ethereum": "workspace:^"
+<<<<<<< HEAD
+=======
+    "@aztec/foundation": "workspace:^"
+>>>>>>> master
     "@jest/globals": ^29.5.0
     "@types/debug": ^4.1.7
     "@types/detect-node": ^2.0.0
@@ -896,6 +907,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.2

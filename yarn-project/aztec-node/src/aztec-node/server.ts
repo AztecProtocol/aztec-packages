@@ -21,7 +21,6 @@ import {
   NullifierMembershipWitness,
   PublicDataWitness,
   SequencerConfig,
-  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
@@ -50,6 +49,7 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
+import { SiblingPath } from '@aztec/types/membership';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,

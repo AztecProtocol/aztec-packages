@@ -80,6 +80,7 @@ function deploy_package() {
 
 # New packages here should be added after the last package that they depend on
 deploy_package foundation
+deploy_package types
 deploy_package circuits.js
 deploy_package circuit-types
 deploy_package aztec.js
@@ -88,7 +89,6 @@ deploy_package l1-artifacts
 deploy_package ethereum
 deploy_package noir-compiler
 deploy_package noir-contracts
-deploy_package cli
 deploy_package merkle-tree
 deploy_package noir-protocol-circuits
 deploy_package acir-simulator

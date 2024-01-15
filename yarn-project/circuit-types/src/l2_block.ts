@@ -13,10 +13,10 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables, makeHeader } from '@aztec/circuits.js/factories';
-import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import times from 'lodash.times';
 
@@ -321,9 +321,10 @@ export class L2Block {
   /**
    * Deserializes L2 block without logs from a buffer.
    * @param buf - A serialized L2 block.
+   * @param blockHash - The hash of the block.
    * @returns Deserialized L2 block.
    */
-  static fromBuffer(buf: Buffer | BufferReader) {
+  static fromBuffer(buf: Buffer | BufferReader, blockHash?: Buffer) {
     const reader = BufferReader.asReader(buf);
     const globalVariables = reader.readObject(GlobalVariables);
     // TODO(#3938): update the encoding here
@@ -358,17 +359,20 @@ export class L2Block {
     // TODO(#3938): populate bodyHash
     const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables);
 
-    return L2Block.fromFields({
-      archive: endArchiveSnapshot,
-      header,
-      newCommitments,
-      newNullifiers,
-      newPublicDataWrites,
-      newL2ToL1Msgs,
-      newContracts,
-      newContractData,
-      newL1ToL2Messages,
-    });
+    return L2Block.fromFields(
+      {
+        archive: endArchiveSnapshot,
+        header,
+        newCommitments,
+        newNullifiers,
+        newPublicDataWrites,
+        newL2ToL1Msgs,
+        newContracts,
+        newContractData,
+        newL1ToL2Messages,
+      },
+      blockHash,
+    );
   }
 
   /**
