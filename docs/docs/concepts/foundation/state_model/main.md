@@ -20,7 +20,7 @@ Private state is represented in an append-only database since updating a record 
 
 The act of "deleting" a private state variable can be represented by adding an associated nullifier to a nullifier set. The nullifier is generated such that, without knowing the decryption key of the owner, an observer cannot link a state record with a nullifier.
 
-Modification of state variables can be emulated by nullifying the a state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure and this must be represented in the language semantics of manipulating private state.
+Modification of state variables can be emulated by nullifying the state record and creating a new record to represent the variable. Private state has an intrinsic UTXO structure and this must be represented in the language semantics of manipulating private state.
 
 ### Abstracting UTXO's from App's / Users
 
