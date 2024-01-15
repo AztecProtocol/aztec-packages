@@ -235,21 +235,18 @@ export class Sequencer {
   protected async publishExtendedContractData(validTxs: ProcessedTx[], block: L2Block) {
     // Publishes contract data for txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContractData = validTxs
-      .map(tx => {
-        // Currently can only have 1 new contract per tx
-        return tx.newContracts[0];
-      })
-      .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
+    const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
 
-    const blockHash = block.getCalldataHash();
-    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
+    if (newContracts.length > 0) {
+      const blockHash = block.getCalldataHash();
+      this.log.info(`Publishing ${newContracts.length} contracts in block hash ${blockHash.toString('hex')}`);
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
-    if (publishedContractData) {
-      this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContractData.length) {
-      this.log(`Failed to publish new contract data for block ${block.number}`);
+      const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContracts);
+      if (publishedContractData) {
+        this.log(`Successfully published new contract data for block ${block.number}`);
+      } else if (!publishedContractData && newContracts.length) {
+        this.log(`Failed to publish new contract data for block ${block.number}`);
+      }
     }
   }
 
