@@ -43,14 +43,11 @@ function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts: Gene
   }
 
   if (ts) {
-    console.log('OUT', outputPath);
     let relativeArtifactPath = path.relative(outputPath, noirAbiPath);
     if (relativeArtifactPath === path.basename(noirAbiPath)) {
       // Prepend ./ for local import if the folder is the same
       relativeArtifactPath = `./${relativeArtifactPath}`;
     }
-
-    console.log(`PATHS`, path.dirname(outputPath), noirAbiPath, relativeArtifactPath);
 
     const tsWrapper = generateTypescriptContractInterface(aztecAbi, relativeArtifactPath);
     writeFileSync(`${outputPath}/${aztecAbi.name}.ts`, tsWrapper);

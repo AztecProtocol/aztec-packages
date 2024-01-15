@@ -7,3 +7,5 @@ contracts=(schnorr_account_contract-SchnorrAccount ecdsa_account_contract-EcdsaA
 for contract in "${contracts[@]}"; do
   cp "../noir-contracts/target/$contract.json" ./src/artifacts/${contract#*-}.json
 done
+
+yarn formatting:fix
