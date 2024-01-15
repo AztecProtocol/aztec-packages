@@ -3,11 +3,10 @@
 
 set -eux
 
-# The following accounts and pks must match the ones exposed by the sandbox.
-
 # docs:start:declare-accounts
-ALICE="0x04dbef85279f36ac8b9627a3ff4f03fbaa2697a2855d6337d6ab2213d0781c41"
-BOB="0x0ef67d2de19479fa81380723850b347e46b790d5528ee387fecdc312ce691dc4"
+ACCOUNTS=$(aztec-cli get-accounts --json | jq -r '.[].address')
+ALICE=$(echo "$ACCOUNTS" | sed -n 1p)
+BOB=$(echo "$ACCOUNTS" | sed -n 2p)
 ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281"
 # docs:end:declare-accounts
 
