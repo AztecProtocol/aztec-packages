@@ -114,6 +114,8 @@ It verifies that each value listed below is associated with a legitimate counter
    - _note_hashes_
    - _nullifiers_
    - _read_requests_
+   - _encrypted_log_hashes_
+   - _unencrypted_log_hashes_
 
 3. For the last _N_ non-empty items in the _private_call_requests_ in the _[transient_accumulated_data](#transientaccumulateddata)_:
 
@@ -138,10 +140,6 @@ It verifies that each value listed below is associated with a legitimate counter
 
 ### Validating Public Inputs
 
-#### Verifying the accumulated data.
-
-It verifies that all the values in the _[accumulated_data](#accumulateddata)_ align with the corresponding values in _[private_call](#privatecall).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_.
-
 #### Verifying the transient accumulated data.
 
 Within the _[public_inputs](#public-inputs)_, the _[transient_accumulated_data](#transientaccumulateddata)_ encapsulates values reflecting the operations conducted by the _private_call_.
@@ -159,7 +157,11 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
    - _read_request_contexts_
      - _note_hash_, _counter_
    - _public_call_requests_
-     - _hash_
+     - _hash_, _counter_
+   - _unencrypted_log_hash_contexts_
+     - _hash_, _length_, _counter_
+   - _encrypted_log_hash_contexts_
+     - _hash_, _length_, _randomness_, _counter_
 
 2. Check that the hashes in the _private_call_requests_ align with the values in the _private_call_stack_item_hashes_ in the _private_function_public_inputs_, but in **reverse** order.
 
@@ -178,6 +180,8 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
    - _nullifier_contexts_
    - _l2_to_l1_message_contexts_
    - _read_request_contexts_
+   - _encrypted_log_hash_contexts_
+   - _unencrypted_log_hash_contexts_
 
    > Ensuring the alignment of the contract addresses is crucial, as it is later used to [silo the values](./private-kernel-tail.md#siloing-values) and to establish associations with values within the same contract.
 
@@ -241,23 +245,21 @@ Data that remains the same throughout the entire transaction.
 
 ### _AccumulatedData_
 
-| Field                              | Type    | Description                                          |
-| ---------------------------------- | ------- | ---------------------------------------------------- |
-| _encrypted_logs_hash_              | _field_ | Hash of the accumulated encrypted logs.              |
-| _unencrypted_logs_hash_            | _field_ | Hash of the accumulated unencrypted logs.            |
-| _encrypted_log_preimages_length_   | _field_ | Length of the accumulated encrypted log preimages.   |
-| _unencrypted_log_preimages_length_ | _field_ | Length of the accumulated unencrypted log preimages. |
+| Field | Type | Description |
+| ----- | ---- | ----------- |
 
 ### _TransientAccumulatedData_
 
-| Field                       | Type                                                   | Description                                            |
-| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-| _note_hash_contexts_        | [_[NoteHashContext](#notehashcontext)_; _C_]           | Note hashes with extra data aiding verification.       |
-| _nullifier_contexts_        | [_[NullifierContext](#nullifiercontext)_; _C_]         | Nullifiers with extra data aiding verification.        |
-| _l2_to_l1_message_contexts_ | [_[L2toL1MessageContext](#l2tol1messagecontext)_; _C_] | L2-to-l1 messages with extra data aiding verification. |
-| _read_request_contexts_     | [_[ReadRequestContext](#readrequestcontext)_; _C_]     | Requests to read notes in the note hash tree.          |
-| _private_call_requests_     | [_[CallRequest](#callrequest)_; _C_]                   | Requests to call private functions.                    |
-| _public_call_requests_      | [_[CallRequest](#callrequest)_; _C_]                   | Requests to call publics functions.                    |
+| Field                           | Type                                                             | Description                                                         |
+| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| _note_hash_contexts_            | [_[NoteHashContext](#notehashcontext)_; _C_]                     | Note hashes with extra data aiding verification.                    |
+| _nullifier_contexts_            | [_[NullifierContext](#nullifiercontext)_; _C_]                   | Nullifiers with extra data aiding verification.                     |
+| _l2_to_l1_message_contexts_     | [_[L2toL1MessageContext](#l2tol1messagecontext)_; _C_]           | L2-to-l1 messages with extra data aiding verification.              |
+| _read_request_contexts_         | [_[ReadRequestContext](#readrequestcontext)_; _C_]               | Requests to read notes in the note hash tree.                       |
+| _encrypted_log_hash_contexts_   | [_[UnencryptedLogHashContext](#unencryptedloghashcontext)_; _C_] | Hashes of the encrypted logs with extra data aiding verification.   |
+| _unencrypted_log_hash_contexts_ | [_[EncryptedLogHashContext](#encryptedloghashcontext)_; _C_]     | Hashes of the unencrypted logs with extra data aiding verification. |
+| _private_call_requests_         | [_[CallRequest](#callrequest)_; _C_]                             | Requests to call private functions.                                 |
+| _public_call_requests_          | [_[CallRequest](#callrequest)_; _C_]                             | Requests to call publics functions.                                 |
 
 > The above **C**s represent constants defined by the protocol. Each **C** might have a different value from the others.
 
@@ -350,6 +352,25 @@ Data that remains the same throughout the entire transaction.
 | _note_hash_        | _field_        | Hash of the note to be read.                  |
 | _contract_address_ | _AztecAddress_ | Address of the contract the request was made. |
 | _counter_          | _field_        | Counter at which the request was made.        |
+
+#### _UnencryptedLogHashContext_
+
+| Field              | Type           | Description                                  |
+| ------------------ | -------------- | -------------------------------------------- |
+| _hash_             | _field_        | Hash of the log.                             |
+| _length_           | _field_        | Number of fields of the log preimage.        |
+| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
+| _counter_          | _field_        | Counter at which the log was emitted.        |
+
+#### _EncryptedLogHashContext_
+
+| Field              | Type           | Description                                  |
+| ------------------ | -------------- | -------------------------------------------- |
+| _hash_             | _field_        | Hash of the log.                             |
+| _length_           | _field_        | Number of fields of the log preimage.        |
+| _randomness_       | _field_        | A random value to hide the contract address. |
+| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
+| _counter_          | _field_        | Counter at which the log was emitted.        |
 
 #### _MembershipWitness_
 
