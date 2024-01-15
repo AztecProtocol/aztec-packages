@@ -103,27 +103,32 @@ namespace aluChip(256);
     // ========= ADDITION Operation Constraints ===============================
 
     // ff addition
-    #[SUBOP_ADDITION_FF]
+    #[ALU_ADDITION_FF]
     alu_ff_tag * alu_op_add * (alu_ia + alu_ib - alu_ic) = 0;
 
     // u8 addition
     alu_u8_tag * alu_op_add * (alu_u8_r0 + alu_cf * 2**8 - alu_ia - alu_ib) = 0;
+    #[ALU_ADDITION_OUT_U8]
     alu_u8_tag * alu_op_add * (alu_u8_r0 - alu_ic) = 0;
 
     // u16 addition
     alu_u16_tag * alu_op_add * (sum_16 + alu_cf * 2**16  - alu_ia - alu_ib) = 0;
+    #[ALU_ADDITION_OUT_U16]
     alu_u16_tag * alu_op_add * (sum_16 - alu_ic) = 0;
 
     // u32 addition
     alu_u32_tag * alu_op_add * (sum_32 + alu_cf * 2**32 - alu_ia - alu_ib) = 0;
+    #[ALU_ADDITION_OUT_U32]
     alu_u32_tag * alu_op_add * (sum_32 - alu_ic) = 0;
 
     // u64 addition
     alu_u64_tag * alu_op_add * (sum_64 + alu_cf * 2**64 - alu_ia - alu_ib) = 0;
+    #[ALU_ADDITION_OUT_U64]
     alu_u64_tag * alu_op_add * (sum_64 - alu_ic) = 0;
 
     // u128 addition
     alu_u128_tag * alu_op_add * (sum_128 + alu_cf * 2**128 - alu_ia - alu_ib) = 0;
+    #[ALU_ADDITION_OUT_U128]
     alu_u128_tag * alu_op_add * (sum_128 - alu_ic) = 0;
 
     // ========= SUBTRACTION Operation Constraints ===============================
@@ -132,33 +137,38 @@ namespace aluChip(256);
     // Same constraints as for addition but we swap alu_ia with alu_ic
 
     // ff subtraction
-    #[SUBOP_SUBTRACTION_FF]
+    #[ALU_SUBTRACTION_FF]
     alu_ff_tag * alu_op_sub * (alu_ia - alu_ib - alu_ic) = 0;
 
     // u8 subtraction
+    #[ALU_SUBTRACTION_OUT_U8]
     alu_u8_tag * alu_op_sub * (alu_u8_r0 + alu_cf * 2**8 - alu_ic - alu_ib) = 0;
     alu_u8_tag * alu_op_sub * (alu_u8_r0 - alu_ia) = 0;
 
     // u16 subtraction
+    #[ALU_SUBTRACTION_OUT_U16]
     alu_u16_tag * alu_op_sub * (sum_16 + alu_cf * 2**16 - alu_ic - alu_ib) = 0;
     alu_u16_tag * alu_op_sub * (sum_16 - alu_ia) = 0;
 
     // u32 subtraction
+    #[ALU_SUBTRACTION_OUT_U32]
     alu_u32_tag * alu_op_sub * (sum_32 + alu_cf * 2**32 - alu_ic - alu_ib) = 0;
     alu_u32_tag * alu_op_sub * (sum_32 - alu_ia) = 0;
 
     // u64 subtraction
+    #[ALU_SUBTRACTION_OUT_U64]
     alu_u64_tag * alu_op_sub * (sum_64 + alu_cf * 2**64 - alu_ic - alu_ib) = 0;
     alu_u64_tag * alu_op_sub * (sum_64 - alu_ia) = 0;
 
     // u128 subtraction
+    #[ALU_SUBTRACTION_OUT_U128]
     alu_u128_tag * alu_op_sub * (sum_128 + alu_cf * 2**128 - alu_ic - alu_ib) = 0;
     alu_u128_tag * alu_op_sub * (sum_128 - alu_ia) = 0;
 
     // ========= MULTIPLICATION Operation Constraints ===============================
 
     // ff multiplication
-    #[SUBOP_MULTIPLICATION_FF]
+    #[ALU_MULTIPLICATION_FF]
     alu_ff_tag * alu_op_mul * (alu_ia * alu_ib - alu_ic) = 0;
 
     // We need 2k bits to express the product (a*b) over the integer, i.e., for type uk
@@ -166,18 +176,22 @@ namespace aluChip(256);
 
     // u8 multiplication
     alu_u8_tag * alu_op_mul * (alu_u8_r0 + alu_u8_r1 * 2**8 - alu_ia * alu_ib) = 0;
+    #[ALU_MULTIPLICATION_OUT_U8]
     alu_u8_tag * alu_op_mul * (alu_u8_r0 - alu_ic) = 0;
 
     // u16 multiplication
     alu_u16_tag * alu_op_mul * (sum_32 - alu_ia * alu_ib) = 0;
+    #[ALU_MULTIPLICATION_OUT_U16]
     alu_u16_tag * alu_op_mul * (sum_16 - alu_ic) = 0;
 
     // u32 multiplication
     alu_u32_tag * alu_op_mul * (sum_64 - alu_ia * alu_ib) = 0;
+    #[ALU_MULTIPLICATION_OUT_U32]
     alu_u32_tag * alu_op_mul * (sum_32 - alu_ic) = 0;
 
     // u64 multiplication
     alu_u64_tag * alu_op_mul * (sum_128 - alu_ia * alu_ib) = 0;
+    #[ALU_MULTIPLICATION_OUT_U64]
     alu_u64_tag * alu_op_mul * (sum_64 - alu_ic) = 0;
 
     // ========= u128 MULTIPLICATION Operation Constraints ===============================
@@ -206,6 +220,7 @@ namespace aluChip(256);
     // Arithmetic relations
     alu_u128_tag * alu_op_mul * (sum_64 + sum_high_64 * 2**64 - alu_ia) = 0;
     alu_u128_tag * alu_op_mul * (sum_shifted_64 + sum_high_shifted_64 * 2**64 - alu_ib) = 0;
+    #[ALU_MULTIPLICATION_OUT_U128]
     alu_u128_tag * alu_op_mul * (
             alu_ia * sum_shifted_64
           + sum_64 * sum_high_shifted_64 * 2**64

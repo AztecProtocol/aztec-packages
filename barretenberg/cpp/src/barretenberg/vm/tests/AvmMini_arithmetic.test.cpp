@@ -127,6 +127,60 @@ size_t common_validate_mul(std::vector<Row> const& trace,
     return static_cast<size_t>(alu_row - trace.begin());
 }
 
+// This function generates a mutated trace of an addition where a and b are the passed inputs.
+// a and b are stored in memory indices 0 and 1. c_mutated is the wrong result of the addition
+// and the memory and alu trace are created consistently with the wrong value c_mutated.
+std::vector<Row> gen_mutated_trace_add(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
+{
+    auto trace_builder = avm_trace::AvmMiniTraceBuilder();
+    trace_builder.set(uint128_t{ a }, 0, tag);
+    trace_builder.set(uint128_t{ b }, 1, tag);
+    trace_builder.add(0, 1, 2, tag);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    auto select_row = [](Row r) { return r.avmMini_sel_op_add == FF(1); };
+    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+
+    return trace;
+}
+
+// This function generates a mutated trace of a subtraction where a and b are the passed inputs.
+// a and b are stored in memory indices 0 and 1. c_mutated is the wrong result of the subtraction
+// and the memory and alu trace are created consistently with the wrong value c_mutated.
+std::vector<Row> gen_mutated_trace_sub(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
+{
+    auto trace_builder = avm_trace::AvmMiniTraceBuilder();
+    trace_builder.set(uint128_t{ a }, 0, tag);
+    trace_builder.set(uint128_t{ b }, 1, tag);
+    trace_builder.sub(0, 1, 2, tag);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    auto select_row = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
+    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+
+    return trace;
+}
+
+// This function generates a mutated trace of a multiplication where a and b are the passed inputs.
+// a and b are stored in memory indices 0 and 1. c_mutated is the wrong result of the multiplication
+// and the memory and alu trace are created consistently with the wrong value c_mutated.
+std::vector<Row> gen_mutated_trace_mul(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
+{
+    auto trace_builder = avm_trace::AvmMiniTraceBuilder();
+    trace_builder.set(uint128_t{ a }, 0, tag);
+    trace_builder.set(uint128_t{ b }, 1, tag);
+    trace_builder.mul(0, 1, 2, tag);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    auto select_row = [](Row r) { return r.avmMini_sel_op_mul == FF(1); };
+    tests_avm::mutate_ic_in_trace(trace, select_row, c_mutated, true);
+
+    return trace;
+}
+
 } // anonymous namespace
 
 namespace tests_avm {
@@ -153,6 +207,11 @@ class AvmMiniArithmeticTestsU64 : public AvmMiniArithmeticTests {};
 class AvmMiniArithmeticTestsU128 : public AvmMiniArithmeticTests {};
 
 class AvmMiniArithmeticNegativeTestsFF : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsU8 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsU16 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsU32 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsU64 : public AvmMiniArithmeticTests {};
+class AvmMiniArithmeticNegativeTestsU128 : public AvmMiniArithmeticTests {};
 
 /******************************************************************************
  *
@@ -1251,7 +1310,7 @@ TEST_F(AvmMiniArithmeticTestsU128, multiplicationOverflow)
  * and division by having dedicated unit test for each of them.
  * A typical pattern is to wrongly mutate the result of the operation. The memory trace
  * is consistently adapted so that the negative test is applying to the relation
- * if the arithmetic operation and not the layout of the memory trace.
+ * of the arithmetic operation and not the layout of the memory trace.
  *
  * Finding the row pertaining to the arithmetic operation is done through
  * a scan of all rows and stopping at the first one with the corresponding
@@ -1259,52 +1318,29 @@ TEST_F(AvmMiniArithmeticTestsU128, multiplicationOverflow)
  * will still correctly work along the development of the AVM.
  ******************************************************************************/
 
+/******************************************************************************
+ * Negative Tests - FF
+ ******************************************************************************/
+
 // Test on basic incorrect addition over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, addition)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 37, 4, 11 });
-
-    //                             Memory layout:    [37,4,11,0,0,0,....]
-    trace_builder.add(0, 1, 4, AvmMemoryTag::ff); // [37,4,11,0,41,0,....]
-    trace_builder.halt();
-    auto trace = trace_builder.finalize();
-
-    auto select_row = [](Row r) { return r.avmMini_sel_op_add == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(40), true);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_ADDITION_FF");
+    auto trace = gen_mutated_trace_add(FF(37), FF(4), FF(40), AvmMemoryTag::ff);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_FF");
 }
 
 // Test on basic incorrect subtraction over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, subtraction)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 8, 4, 17 });
-
-    //                             Memory layout:    [8,4,17,0,0,0,....]
-    trace_builder.sub(2, 0, 1, AvmMemoryTag::ff); // [8,9,17,0,0,0....]
-    trace_builder.halt();
-
-    auto trace = trace_builder.finalize();
-
-    auto select_row = [](Row r) { return r.avmMini_sel_op_sub == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(-9), true);
-
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_SUBTRACTION_FF");
+    auto trace = gen_mutated_trace_sub(FF(17), FF(8), FF(-9), AvmMemoryTag::ff);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_FF");
 }
 
 // Test on basic incorrect multiplication over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, multiplication)
 {
-    trace_builder.call_data_copy(0, 3, 0, std::vector<FF>{ 5, 0, 20 });
-
-    //                             Memory layout:    [5,0,20,0,0,0,....]
-    trace_builder.mul(2, 0, 1, AvmMemoryTag::ff); // [5,100,20,0,0,0....]
-    trace_builder.halt();
-    auto trace = trace_builder.finalize();
-
-    auto select_row = [](Row r) { return r.avmMini_sel_op_mul == FF(1); };
-    mutate_ic_in_trace(trace, std::move(select_row), FF(1000), true);
-
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_MULTIPLICATION_FF");
+    auto trace = gen_mutated_trace_mul(FF(9), FF(100), FF(9000000), AvmMemoryTag::ff);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_FF");
 }
 
 // Test on basic incorrect division over finite field type.
@@ -1439,6 +1475,155 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
     row->avmMini_op_err = FF(1);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "SUBOP_ERROR_RELEVANT_OP");
+}
+
+/******************************************************************************
+ * Negative Tests - U8
+ ******************************************************************************/
+
+// Test on basic incorrect addition over U8.
+TEST_F(AvmMiniArithmeticNegativeTestsU8, addition)
+{
+    auto trace = gen_mutated_trace_add(FF(234), FF(22), FF(1), AvmMemoryTag::u8);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_OUT_U8");
+}
+
+// Test on basic incorrect subtraction over U8.
+TEST_F(AvmMiniArithmeticNegativeTestsU8, subtraction)
+{
+    auto trace = gen_mutated_trace_sub(FF(100), FF(104), FF(253), AvmMemoryTag::u8);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_OUT_U8");
+}
+
+// Test on basic incorrect multiplication over U8.
+TEST_F(AvmMiniArithmeticNegativeTestsU8, multiplication)
+{
+    auto trace = gen_mutated_trace_mul(FF(9), FF(100), FF(55), AvmMemoryTag::u8);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U8");
+}
+
+/******************************************************************************
+ * Negative Tests - U16
+ ******************************************************************************/
+
+// Test on basic incorrect addition over U16.
+TEST_F(AvmMiniArithmeticNegativeTestsU16, addition)
+{
+    auto trace = gen_mutated_trace_add(FF(8234), FF(7428), FF(653), AvmMemoryTag::u16);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_OUT_U16");
+}
+
+// Test on basic incorrect subtraction over U16.
+TEST_F(AvmMiniArithmeticNegativeTestsU16, subtraction)
+{
+    auto trace = gen_mutated_trace_sub(FF(100), FF(932), FF(25373), AvmMemoryTag::u16);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_OUT_U16");
+}
+
+// Test on basic incorrect multiplication over U16.
+TEST_F(AvmMiniArithmeticNegativeTestsU16, multiplication)
+{
+    auto trace = gen_mutated_trace_mul(FF(8096), FF(1024), FF(1), AvmMemoryTag::u16);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U16");
+}
+
+/******************************************************************************
+ * Negative Tests - U32
+ ******************************************************************************/
+
+// Test on basic incorrect addition over U32.
+TEST_F(AvmMiniArithmeticNegativeTestsU32, addition)
+{
+    auto trace = gen_mutated_trace_add(FF(1972382341), FF(1111133221), FF(1222222222), AvmMemoryTag::u32);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_OUT_U32");
+}
+
+// Test on basic incorrect subtraction over U32.
+TEST_F(AvmMiniArithmeticNegativeTestsU32, subtraction)
+{
+    auto trace = gen_mutated_trace_sub(FF(3999888777LLU), FF(UINT32_MAX), FF(2537332433LLU), AvmMemoryTag::u32);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_OUT_U32");
+}
+
+// Test on basic incorrect multiplication over U32.
+TEST_F(AvmMiniArithmeticNegativeTestsU32, multiplication)
+{
+    auto trace = gen_mutated_trace_mul(FF(UINT32_MAX), FF(UINT32_MAX), FF(0), AvmMemoryTag::u32);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U32");
+}
+
+/******************************************************************************
+ * Negative Tests - U64
+ ******************************************************************************/
+
+// Test on basic incorrect addition over U64.
+TEST_F(AvmMiniArithmeticNegativeTestsU64, addition)
+{
+    auto trace = gen_mutated_trace_add(
+        FF(3324236423198282341LLU), FF(999999991111133221LLU), FF(1222222222236LLU), AvmMemoryTag::u64);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_OUT_U64");
+}
+
+// Test on basic incorrect subtraction over U64.
+TEST_F(AvmMiniArithmeticNegativeTestsU64, subtraction)
+{
+    auto trace =
+        gen_mutated_trace_sub(FF(399988877723434LLU), FF(UINT64_MAX), FF(25373324332342LLU), AvmMemoryTag::u64);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_OUT_U64");
+}
+
+// Test on basic incorrect multiplication over U64.
+TEST_F(AvmMiniArithmeticNegativeTestsU64, multiplication)
+{
+    auto trace =
+        gen_mutated_trace_mul(FF(399988877723434LLU), FF(9998887772343LLU), FF(9283674827534LLU), AvmMemoryTag::u64);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U64");
+}
+
+/******************************************************************************
+ * Negative Tests - U128
+ ******************************************************************************/
+
+// Test on basic incorrect addition over U128.
+TEST_F(AvmMiniArithmeticNegativeTestsU128, addition)
+{
+    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    uint128_t const b = (uint128_t{ 0x3333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
+    uint128_t const c = (uint128_t{ 0x8888444466665555LLU } << 64) + uint128_t{ 0xDDDDAAAAFFFFEEEFLLU };
+
+    auto trace = gen_mutated_trace_add(FF{ uint256_t::from_uint128(a) },
+                                       FF{ uint256_t::from_uint128(b) },
+                                       FF{ uint256_t::from_uint128(c) },
+                                       AvmMemoryTag::u128);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADDITION_OUT_U128");
+}
+
+// Test on basic incorrect subtraction over U128.
+TEST_F(AvmMiniArithmeticNegativeTestsU128, subtraction)
+{
+    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    uint128_t const b = (uint128_t{ 0x7333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
+    uint128_t const c = (uint128_t{ 0x8888444466665555LLU } << 64) + uint128_t{ 0xDDDDALLU };
+
+    auto trace = gen_mutated_trace_sub(FF{ uint256_t::from_uint128(a) },
+                                       FF{ uint256_t::from_uint128(b) },
+                                       FF{ uint256_t::from_uint128(c) },
+                                       AvmMemoryTag::u128);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_SUBTRACTION_OUT_U128");
+}
+
+// Test on basic incorrect multiplication over U128.
+TEST_F(AvmMiniArithmeticNegativeTestsU128, multiplication)
+{
+    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    uint128_t const b = (uint128_t{ 0x7333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
+    uint128_t const c = (uint128_t{ 0x8888444466665555LLU } << 64) + uint128_t{ 0xDDDDALLU };
+
+    auto trace = gen_mutated_trace_mul(FF{ uint256_t::from_uint128(a) },
+                                       FF{ uint256_t::from_uint128(b) },
+                                       FF{ uint256_t::from_uint128(c) },
+                                       AvmMemoryTag::u128);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_MULTIPLICATION_OUT_U128");
 }
 
 } // namespace tests_avm
