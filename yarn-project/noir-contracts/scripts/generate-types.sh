@@ -20,4 +20,5 @@ for ABI in $(find target -maxdepth 1 -type f ! -name 'debug_*' -name '*.json'); 
 done
 
 echo "Formatting..."
+yarn formatting:fix
 
