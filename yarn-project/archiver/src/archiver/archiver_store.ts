@@ -1,5 +1,4 @@
 import {
-  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
@@ -9,7 +8,6 @@ import {
   L2Tx,
   LogFilter,
   LogType,
-  PendingL1ToL2Message,
   TxHash,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
@@ -58,16 +56,18 @@ export interface ArchiverDataStore {
   /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The block number of the L1 block that added the messages.
    * @returns True if the operation is successful.
    */
-  addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean>;
+  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
    * @param message - The message keys to be removed from the store.
+   * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
    * @returns True if the operation is successful.
    */
-  cancelPendingL1ToL2Messages(message: CancelledL1ToL2Message[]): Promise<boolean>;
+  cancelPendingL1ToL2Messages(message: Fr[], l1BlockNumber: bigint): Promise<boolean>;
 
   /**
    * Messages that have been published in an L2 block are confirmed.
@@ -154,5 +154,12 @@ export interface ArchiverDataStore {
   /**
    * Gets the number of the latest L1 block processed.
    */
-  getL1BlockNumber(): Promise<bigint>;
+  getL1BlockNumber(): Promise<{
+    /** The last L1 block that added a new L2 block.  */
+    addedBlock: bigint;
+    /** The last L1 block that added pending messages */
+    addedMessages: bigint;
+    /** The last L1 block that cancelled messages */
+    cancelledMessages: bigint;
+  }>;
 }
