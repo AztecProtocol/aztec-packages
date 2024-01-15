@@ -13,7 +13,7 @@ import {
 } from '@aztec/circuits.js';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
-import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
