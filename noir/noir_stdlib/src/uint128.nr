@@ -126,9 +126,6 @@ impl U128 {
     }
 
     pub fn from_integer<T>(i: T) -> U128 {
-        // TODO(Kev): Apply 128 bit range constraint and fail if this is not the case.
-        // We can expose a `apply_range_constraint` method from Noir which can take a field 
-        // and return a Field.
         let f = crate::as_field(i);
         // Reject values which would overflow a u128
         f.assert_max_bit_size(128);
