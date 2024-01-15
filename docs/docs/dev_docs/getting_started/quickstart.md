@@ -53,7 +53,7 @@ Once these have been installed, to start the sandbox, run:
 aztec-sandbox
 ```
 
-This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the command again will overwrite any changes made to the `docker-compose.yml`.
+This will attempt to run the Sandbox on ` localhost:8080`, so you will have to make sure nothing else is running on that port or change the port defined in `./.aztec/docker-compose.yml`. Running the installation again will overwrite any changes made to the `docker-compose.yml`.
 
 This command will also install the CLI if a node package version of the CLI isn't found locally.
 
