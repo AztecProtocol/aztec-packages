@@ -235,6 +235,7 @@ describe('Private Execution test suite', () => {
 
     it('should have a constructor with arguments that inserts notes', async () => {
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
+      console.log('ARTIFACT BYTECODE', artifact.bytecode);
 
       const result = await runSimulator({ args: [owner, 140], artifact });
 
