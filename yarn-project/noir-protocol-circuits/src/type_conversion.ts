@@ -1318,7 +1318,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapHeaderFromNoir(header: HeaderNoir): Header {
   return new Header(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapSha256HashFromNoir(header.body_hash),
+    mapSha256HashFromNoir([header.body_hash[0], header.body_hash[1]]),
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
   );
