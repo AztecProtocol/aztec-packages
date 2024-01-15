@@ -65,9 +65,9 @@ For private and public kernel circuits, beyond aggregating logs from a function 
 
 1. The encoded logs data of a transaction is a flatten array of all logs data within the transaction:
 
-   _`tx_logs_data = [count, ...logs_data_0, ...logs_data_1, ...]`_
+   _`tx_logs_data = [number_of_logs, ...log_data_0, ...log_data_1, ...]`_
 
-   The format of _logs_data_ varies based on the log type. For specifics, see the "Encoding" sections in [Unencrypted Log](#encoding-1), [Encrypted Log](#encoding-2), and [Encrypted Note Preimage](#encoding-3).
+   The format of _log_data_ varies based on the log type. For specifics, see the "Encoding" sections in [Unencrypted Log](#encoding-1), [Encrypted Log](#encoding-2), and [Encrypted Note Preimage](#encoding-3).
 
 2. The encoded logs data of a block is a flatten array of a collection of the above _tx_logs_data_, with hints facilitating hashing replay in a binary tree structure:
 
@@ -175,9 +175,9 @@ function compute_accumulated_logs_hash(logs_data) {
   const number_of_branches = logs_data.read_u32();
 
   const number_of_transactions = logs_data.read_u32();
-  let res = hash_transaction_logs_data(logs_data);
+  let res = hash_tx_logs_data(logs_data);
   if number_of_transactions == 2 {
-    res = hash(res, hash_transaction_logs_data(logs_data));
+    res = hash(res, hash_tx_logs_data(logs_data));
   }
 
   for (let i = 0; i < number_of_branches; ++i) {
@@ -187,9 +187,19 @@ function compute_accumulated_logs_hash(logs_data) {
 
   return res;
 }
+
+function hash_tx_logs_data(logs_data) {
+  const number_of_logs = logs_data.read_u32();
+  let res = hash_log_data(logs_data);
+  for (let i = 1; i < number_of_logs; ++i) {
+    const log_hash = hash_log_data(logs_data);
+    res = hash(res, log_hash);
+  }
+  return res;
+}
 ```
 
-The _accumulated_logs_length_ in _block_logs_data_ is computed during the processing of each _logs_data_ within _hash_transaction_logs_data()_. The implementation of _hash_transaction_logs_data_ varies depending on the type of the logs being processed. Refer to the "Verification" sections in [Unencrypted Log](#verification-1), [Encrypted Log](#verification-2), and [Encrypted Note Preimage](#verification-3) for details.
+The _accumulated_logs_length_ in _block_logs_data_ is computed during the processing of each _logs_data_ within _hash_log_data()_. The implementation of _hash_log_data_ varies depending on the type of the logs being processed. Refer to the "Verification" sections in [Unencrypted Log](#verification-1), [Encrypted Log](#verification-2), and [Encrypted Note Preimage](#verification-3) for details.
 
 ## Unencrypted Log
 
@@ -221,25 +231,12 @@ The following represents the encoded data for an unencrypted log:
 
 _`log_data = [log_preimage_length, contract_address, ...log_preimage]`_
 
-The following represents the encoded data for all unencrypted logs in a transaction:
-
-_`transaction_logs_data = [number_of_logs, ...log_data_0, ...log_data_1, ...]`_
-
 ### Verification
 
 ```js
-function hash_transaction_logs_data(logs_data) {
-  const number_of_logs = logs_data.read_u32();
-  let res = hash_log_data(logs_data);
-  for (let i = 1; i < number_of_logs; ++i) {
-    const log_hash = hash_log_data(logs_data);
-    res = hash(res, log_hash);
-  }
-  return res;
-}
-
 function hash_log_data(logs_data) {
   const log_preimage_length = logs_data.read_u32();
+  logs_data.accumulated_logs_length += log_preimage_length;
   const contract_address = logs_data.read_field();
   const log_preimage = logs_data.read_fields(log_preimage_length);
   const log_hash = hash(...log_preimage);
@@ -281,25 +278,12 @@ The following represents the encoded data for an unencrypted log:
 
 _`log_data = [log_preimage_length, contract_address_tag, ...log_preimage]`_
 
-The following represents the encoded data for all encrypted logs in a transaction:
-
-_`transaction_logs_data = [number_of_logs, ...log_data_0, ...log_data_1, ...]`_
-
 ### Verification
 
 ```js
-function hash_transaction_logs_data(logs_data) {
-  const number_of_logs = logs_data.read_u32();
-  let res = hash_log_data(logs_data);
-  for (let i = 1; i < number_of_logs; ++i) {
-    const log_hash = hash_log_data(logs_data);
-    res = hash(res, log_hash);
-  }
-  return res;
-}
-
 function hash_log_data(logs_data) {
   const log_preimage_length = logs_data.read_u32();
+  logs_data.accumulated_logs_length += log_preimage_length;
   const contract_address_tag = logs_data.read_field();
   const log_preimage = logs_data.read_fields(log_preimage_length);
   const log_hash = hash(...log_preimage);
@@ -329,25 +313,12 @@ The following represents the encoded data for an unencrypted note preimage:
 
 _`log_data = [log_preimage_length, ...log_preimage]`_
 
-The following represents the encoded data for all encrypted note preimages in a transaction:
-
-_`transaction_logs_data = [number_of_logs, ...log_data_0, ...log_data_1, ...]`_
-
 ### Verification
 
 ```js
-function hash_transaction_logs_data(logs_data) {
-  const number_of_logs = logs_data.read_u32();
-  let res = hash_log_data(logs_data);
-  for (let i = 1; i < number_of_logs; ++i) {
-    const log_hash = hash_log_data(logs_data);
-    res = hash(res, log_hash);
-  }
-  return res;
-}
-
 function hash_log_data(logs_data) {
   const log_preimage_length = logs_data.read_u32();
+  logs_data.accumulated_logs_length += log_preimage_length;
   const log_preimage = logs_data.read_fields(log_preimage_length);
   return hash(...log_preimage);
 }

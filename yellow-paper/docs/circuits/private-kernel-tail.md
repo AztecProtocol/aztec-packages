@@ -98,11 +98,12 @@ This circuit ensures the correct ordering of the following arrays:
 - _public_call_requests_
 - _ordered_unencrypted_log_hashes_
 - _ordered_encrypted_log_hashes_
+- _ordered_encrypted_note_preimage_hashes_
 
 Where:
 
-- _note_hashes_, _nullifiers_ and _public_call_requests_ are within _[public_inputs](#public-inputs).[accumulated_data](./public-kernel-tail.md#accumulateddata)_.
-- _ordered_unencrypted_log_hashes_ and _ordered_encrypted_log_hashes_ are provided as hints through _private_inputs_.
+- _note_hashes_, _nullifiers_, and _public_call_requests_ are within _[public_inputs](#public-inputs).[accumulated_data](./public-kernel-tail.md#accumulateddata)_.
+- _ordered_unencrypted_log_hashes_, _ordered_encrypted_log_hashes_, and _ordered_encrypted_note_preimage_hashes_ are provided as hints through _private_inputs_.
 - Every corresponding unordered array for each of the ordered array is sourced from _[private_inputs](#private-inputs).[previous_kernel](#previouskernel).[public_inputs](./private-kernel-initial.md#public-inputs).[transient_accumulated_data](./private-kernel-initial.md#transientaccumulateddata)_.
 
 1. Verify ordered _public_call_requests_:
@@ -131,7 +132,7 @@ Where:
    - Else:
      - All the subsequent items in both _note_hashes_ and _note_hash_contexts_ must be empty.
 
-   Repeat the same process for _nullifiers_, _ordered_unencrypted_log_hashes_ and _ordered_encrypted_log_hashes_.
+   Repeat the same process for _nullifiers_, _ordered_unencrypted_log_hashes_, _ordered_encrypted_log_hashes_, and _ordered_encrypted_note_preimage_hashes_.
 
 > While ordering could occur gradually in each kernel iteration, the implementation is much simpler and **typically** more efficient to be done once in the tail circuit.
 
@@ -175,7 +176,7 @@ The _counter_start_ in the _public_call_requests_ within _public_inputs_ should 
    - _`unencrypted_logs_hash == accumulated_logs_hash`_
    - _`unencrypted_log_preimages_length == accumulated_logs_length`_
 
-   Repeat the same process for _encrypted_logs_hash_ and _encrypted_log_preimages_length_.
+   Repeat the same process for _encrypted_logs_hash_, _encrypted_log_preimages_length_, _encrypted_note_preimages_hash_ and _encrypted_note_preimages_length_.
 
 4. The following must be empty:
 
@@ -202,15 +203,17 @@ The format aligns with the _[PreviousKernel](./private-kernel-inner.md#previousk
 
 Data that aids in the verifications carried out in this circuit:
 
-| Field                            | Type           | Description                                                                                                                  |
-| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| _note_hash_hints_                | [_field_; _C_] | Indices of ordered _note_hashes_ for _note_hash_contexts_. _C_ equals the length of _note_hash_contexts_.                    |
-| _nullifier_hints_                | [_field_; _C_] | Indices of ordered _nullifiers_ for _nullifier_contexts_. _C_ equals the length of _nullifier_contexts_.                     |
-| _public_call_request_hints_      | [_field_; _C_] | Indices of ordered _public_call_requests_ for _public_call_requests_. _C_ equals the length of _public_call_requests_.       |
-| _ordered_unencrypted_log_hashes_ | [_field_; _C_] | Ordered _unencrypted_log_hashes_. _C_ equals the length of _unencrypted_log_hashes_.                                         |
-| _unencrypted_log_hash_hints_     | [_field_; _C_] | Indices of _ordered_unencrypted_log_hashes_ for _unencrypted_log_hashes_. _C_ equals the length of _unencrypted_log_hashes_. |
-| _ordered_encrypted_log_hashes_   | [_field_; _C_] | Ordered _encrypted_log_hashes_. _C_ equals the length of _encrypted_log_hashes_.                                             |
-| _encrypted_log_hash_hints_       | [_field_; _C_] | Indices of _ordered_encrypted_log_hashes_ for _encrypted_log_hashes_. _C_ equals the length of _encrypted_log_hashes_.       |
+| Field                                    | Type           | Description                                                                                                                                                        |
+| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| _note_hash_hints_                        | [_field_; _C_] | Indices of ordered _note_hashes_ for _note_hash_contexts_. _C_ equals the length of _note_hash_contexts_.                                                          |
+| _nullifier_hints_                        | [_field_; _C_] | Indices of ordered _nullifiers_ for _nullifier_contexts_. _C_ equals the length of _nullifier_contexts_.                                                           |
+| _public_call_request_hints_              | [_field_; _C_] | Indices of ordered _public_call_requests_ for _public_call_requests_. _C_ equals the length of _public_call_requests_.                                             |
+| _ordered_unencrypted_log_hashes_         | [_field_; _C_] | Ordered _unencrypted_log_hashes_. _C_ equals the length of _unencrypted_log_hash_contexts_.                                                                        |
+| _unencrypted_log_hash_hints_             | [_field_; _C_] | Indices of _ordered_unencrypted_log_hashes_ for _unencrypted_log_hash_contexts_. _C_ equals the length of _unencrypted_log_hash_contexts_.                         |
+| _ordered_encrypted_log_hashes_           | [_field_; _C_] | Ordered _encrypted_log_hashes_. _C_ equals the length of _encrypted_log_hash_contexts_.                                                                            |
+| _encrypted_log_hash_hints_               | [_field_; _C_] | Indices of _ordered_encrypted_log_hashes_ for _encrypted_log_hash_contexts_. _C_ equals the length of _encrypted_log_hash_contexts_.                               |
+| _ordered_encrypted_note_preimage_hashes_ | [_field_; _C_] | Ordered _encrypted_note_preimage_hashes_. _C_ equals the length of _encrypted_note_preimage_hash_contexts_.                                                        |
+| _encrypted_note_preimage_hints_          | [_field_; _C_] | Indices of _ordered_encrypted_note_preimage_hashes_ for _encrypted_note_preimage_hash_contexts_. _C_ equals the length of _encrypted_note_preimage_hash_contexts_. |
 
 ## Public Inputs
 

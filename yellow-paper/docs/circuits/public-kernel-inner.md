@@ -114,6 +114,8 @@ It verifies that each value listed below is associated with a legitimate counter
    - _l2_to_l1_messages_
    - _encrypted_logs_hash_
    - _encrypted_log_preimages_length_
+   - _encrypted_note_preimages_hash_
+   - _encrypted_note_preimages_length_
    - _old_public_data_tree_snapshot_
    - _new_public_data_tree_snapshot_
 

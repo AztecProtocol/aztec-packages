@@ -91,8 +91,9 @@ It ensures the private function circuit's intention by checking the following in
   - _note_hashes_
   - _nullifiers_
   - _l2_to_l1_messages_
-  - _encrypted_log_hash_contexts_
-  - _unencrypted_log_hash_contexts_
+  - _unencrypted_log_hashes_
+  - _encrypted_log_hashes_
+  - _encrypted_note_preimage_hashes_
 
 #### Verifying the counters.
 
