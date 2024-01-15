@@ -375,6 +375,7 @@ const sidebars = {
             },
           ],
         },
+       
         // {
         //   label: "Security Considerations",
         //   type: "category",
@@ -449,9 +450,59 @@ const sidebars = {
     "dev_docs/limitations/main",
 
     {
-      label: "API Reference",
+      label: "Reference",
       type: "category",
       items: [
+        {
+          label: "Aztec.nr Reference",
+          type: "category",
+          
+          items: [
+            "dev_docs/contracts/syntax/aztecnr-reference/address_note",
+            {
+              label: "Authwit",
+              type: "category",
+              items: [
+                "dev_docs/contracts/syntax/aztecnr-reference/authwit/account",
+                "dev_docs/contracts/syntax/aztecnr-reference/authwit/auth_witness",
+                "dev_docs/contracts/syntax/aztecnr-reference/authwit/auth",
+                "dev_docs/contracts/syntax/aztecnr-reference/authwit/entrypoint",
+              ],
+            },
+            {
+              label: "Aztec",
+              type: "category",
+              items: [
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/abi",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/address",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/context",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/hash",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/log",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/messaging",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/note",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/oracle",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/selector",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/state_vars",
+                "dev_docs/contracts/syntax/aztecnr-reference/aztec/types",
+              ],
+            },
+            "dev_docs/contracts/syntax/aztecnr-reference/easy_private_state",
+            "dev_docs/contracts/syntax/aztecnr-reference/field_note",
+            "dev_docs/contracts/syntax/aztecnr-reference/safe_math",
+            "dev_docs/contracts/syntax/aztecnr-reference/slow_updates_tree",
+            {
+              label: "Value Note",
+              type: "category",
+              items: [
+                "dev_docs/contracts/syntax/aztecnr-reference/value_note/balance_utils",
+                "dev_docs/contracts/syntax/aztecnr-reference/value_note/filter",
+                "dev_docs/contracts/syntax/aztecnr-reference/value_note/value_note",
+              ],
+            },
+               
+
+          ],
+        },
         {
           label: "Private Execution Environment (PXE)",
           type: "doc",
