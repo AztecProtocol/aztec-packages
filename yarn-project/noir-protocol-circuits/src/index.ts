@@ -31,14 +31,14 @@ import {
   private_kernel_ordering_circuit as PrivateKernelOrderingArtifact,
   public_kernel_private_previous_circuit as PublicKernelPrivatePreviousArtifact,
   public_kernel_public_previous_circuit as PublicKernelPublicPreviousArtifact,
-  private_kernel_init,
-  private_kernel_inner,
-  private_kernel_ordering,
-  public_kernel_private_previous,
-  public_kernel_public_previous,
-  rollup_base,
-  rollup_merge,
-  rollup_root,
+  rollup_base as _executeBaseRollup,
+  private_kernel_init as _executeInit,
+  private_kernel_inner as _executeInner,
+  rollup_merge as _executeMergeRollup,
+  private_kernel_ordering as _executeOrdering,
+  public_kernel_private_previous as _executePublicKernelPrivatePrevious,
+  public_kernel_public_previous as _executePublicKernelPublicPrevious,
+  rollup_root as _executeRootRollup,
 } from './types/index.js';
 
 export {
@@ -59,7 +59,7 @@ export async function executeInit(
 ): Promise<KernelCircuitPublicInputs> {
   const params = mapPrivateKernelInputsInitToNoir(privateKernelInputsInit);
 
-  const returnType = await private_kernel_init(params);
+  const returnType = await _executeInit(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -74,7 +74,7 @@ export async function executeInner(
 ): Promise<KernelCircuitPublicInputs> {
   const params = mapPrivateKernelInputsInnerToNoir(privateKernelInputsInner);
 
-  const returnType = await private_kernel_inner(params);
+  const returnType = await _executeInner(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -89,7 +89,7 @@ export async function executeOrdering(
 ): Promise<KernelCircuitPublicInputsFinal> {
   const params = mapPrivateKernelInputsOrderingToNoir(privateKernelInputsOrdering);
 
-  const returnType = await private_kernel_ordering(params);
+  const returnType = await _executeOrdering(params);
 
   return mapKernelCircuitPublicInputsFinalFromNoir(returnType);
 }
@@ -104,7 +104,7 @@ export async function executePublicKernelPrivatePrevious(
 ): Promise<KernelCircuitPublicInputs> {
   const params = mapPublicKernelInputs(publicKernelPrivateInputs);
 
-  const returnType = await public_kernel_private_previous(params);
+  const returnType = await _executePublicKernelPrivatePrevious(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -119,7 +119,7 @@ export async function executePublicKernelPublicPrevious(
 ): Promise<KernelCircuitPublicInputs> {
   const params = mapPublicKernelInputs(publicKernelPrivateInputs);
 
-  const returnType = await public_kernel_public_previous(params);
+  const returnType = await _executePublicKernelPublicPrevious(params);
 
   return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -132,7 +132,7 @@ export async function executePublicKernelPublicPrevious(
 export async function executeRootRollup(rootRollupInputs: RootRollupInputs): Promise<RootRollupPublicInputs> {
   const params = mapRootRollupInputsToNoir(rootRollupInputs);
 
-  const returnType = await rollup_root(params);
+  const returnType = await _executeRootRollup(params);
 
   return mapRootRollupPublicInputsFromNoir(returnType);
 }
@@ -145,7 +145,7 @@ export async function executeRootRollup(rootRollupInputs: RootRollupInputs): Pro
 export async function executeMergeRollup(mergeRollupInputs: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
   const params = mapMergeRollupInputsToNoir(mergeRollupInputs);
 
-  const returnType = await rollup_merge(params);
+  const returnType = await _executeMergeRollup(params);
 
   return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
 }
@@ -158,7 +158,7 @@ export async function executeMergeRollup(mergeRollupInputs: MergeRollupInputs): 
 export async function executeBaseRollup(baseRollupInputs: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
   const params = mapBaseRollupInputsToNoir(baseRollupInputs);
 
-  const returnType = await rollup_base(params);
+  const returnType = await _executeBaseRollup(params);
 
   return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
 }
