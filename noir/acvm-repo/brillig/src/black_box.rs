@@ -13,6 +13,8 @@ pub enum BlackBoxOp {
     Blake3 { message: HeapVector, output: HeapArray },
     /// Calculates the Keccak256 hash of the inputs.
     Keccak256 { message: HeapVector, output: HeapArray },
+    /// Keccak Permutation function of 1600 width
+    Keccakf1600 { message: HeapVector, output: HeapArray },
     /// Verifies a ECDSA signature over the secp256k1 curve.
     EcdsaSecp256k1 {
         hashed_msg: HeapVector,
@@ -43,7 +45,7 @@ pub enum BlackBoxOp {
     PedersenHash { inputs: HeapVector, domain_separator: RegisterIndex, output: RegisterIndex },
     /// Performs scalar multiplication over the embedded curve.
     FixedBaseScalarMul { low: RegisterIndex, high: RegisterIndex, result: HeapArray },
-    /// Performs addtion over the embedded curve.
+    /// Performs addition over the embedded curve.
     EmbeddedCurveAdd {
         input1_x: RegisterIndex,
         input1_y: RegisterIndex,

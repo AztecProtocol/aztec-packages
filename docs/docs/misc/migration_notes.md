@@ -6,6 +6,38 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.18.0
+
+### [Aztec.nr] Remove `protocol_types` from Nargo.toml
+
+The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
+
+```toml
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+```
+
+### [Aztec.nr] key type definition in Map
+
+The `Map` class now requires defining the key type in its declaration which *must* implement the `ToField` trait.
+
+Before:
+```rust
+struct Storage {
+    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>
+}
+
+let user_balance = balances.at(owner.to_field())
+```
+
+Now:
+```rust
+struct Storage {
+    balances: Map<AztecAddress, PublicState<Field, FIELD_SERIALIZED_LEN>>
+}
+
+let user_balance = balances.at(owner)
+```
+
 ## 0.17.0
 
 ### [js] New `@aztec/accounts` package
@@ -112,4 +144,3 @@ Now, just remove the `src` folder,:
 ```rust
 easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
 ```
-

@@ -1,7 +1,7 @@
+import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { L1PublishStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
-import { ExtendedContractData, L2Block } from '@aztec/types';
-import { L1PublishStats } from '@aztec/types/stats';
 
 import pick from 'lodash.pick';
 
@@ -135,10 +135,11 @@ export class L1Publisher implements L2BlockReceiver {
 
     while (!this.interrupted) {
       // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
-      if (l2BlockData.number != 1 && !(await this.checkStartStateHash(startStateHash))) {
-        this.log(`Detected different state hash prior to publishing rollup, aborting publish...`);
-        break;
-      }
+      // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
+      // if (l2BlockData.number != 1 && !(await this.checkStartStateHash(startStateHash))) {
+      //   this.log(`Detected different state hash prior to publishing rollup, aborting publish...`);
+      //   break;
+      // }
 
       const txHash = await this.sendProcessTx(txData);
       if (!txHash) {

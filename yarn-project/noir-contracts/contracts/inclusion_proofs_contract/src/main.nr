@@ -1,6 +1,6 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::protocol_types::{
+    use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::{
             AztecAddress,
@@ -51,7 +51,7 @@ contract InclusionProofs {
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
 
     struct Storage {
-        private_values: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        private_values: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
         public_value: PublicState<Field, 1>,
     }
 
@@ -89,7 +89,7 @@ contract InclusionProofs {
     // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
-        let owner_private_values = storage.private_values.at(owner.to_field());
+        let owner_private_values = storage.private_values.at(owner);
         let mut note = ValueNote::new(value, owner);
         owner_private_values.insert(&mut note, true);
     }
@@ -108,7 +108,7 @@ contract InclusionProofs {
     ) {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
-        let private_values = storage.private_values.at(owner.to_field());
+        let private_values = storage.private_values.at(owner);
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
@@ -141,7 +141,7 @@ contract InclusionProofs {
         spare_nullifier: Field
     ) {
         // 2) Get the note from PXE
-        let private_values = storage.private_values.at(owner.to_field());
+        let private_values = storage.private_values.at(owner);
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
@@ -170,7 +170,7 @@ contract InclusionProofs {
         block_number: u32 // The block at which we'll prove that the note exists and is not nullified
     ) {
         // 1) Get the note from PXE.
-        let private_values = storage.private_values.at(owner.to_field());
+        let private_values = storage.private_values.at(owner);
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
@@ -184,7 +184,7 @@ contract InclusionProofs {
     // docs:start:nullify_note
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
-        let private_values = storage.private_values.at(owner.to_field());
+        let private_values = storage.private_values.at(owner);
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();

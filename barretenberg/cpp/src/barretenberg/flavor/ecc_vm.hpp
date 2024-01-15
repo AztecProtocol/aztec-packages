@@ -16,7 +16,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
-#include "relation_definitions_fwd.hpp"
+#include "relation_definitions.hpp"
 #include <array>
 #include <concepts>
 #include <span>
@@ -45,6 +45,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
     using CommitmentHandle = typename G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using RelationSeparator = FF;
 
     static constexpr size_t NUM_WIRES = 74;
 
@@ -929,22 +930,4 @@ class ECCVM : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA<
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 } // namespace flavor
-namespace sumcheck {
-
-extern template class ECCVMTranscriptRelationImpl<grumpkin::fr>;
-extern template class ECCVMWnafRelationImpl<grumpkin::fr>;
-extern template class ECCVMPointTableRelationImpl<grumpkin::fr>;
-extern template class ECCVMMSMRelationImpl<grumpkin::fr>;
-extern template class ECCVMSetRelationImpl<grumpkin::fr>;
-extern template class ECCVMLookupRelationImpl<grumpkin::fr>;
-
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMTranscriptRelationImpl, flavor::ECCVM);
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationImpl, flavor::ECCVM);
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMPointTableRelationImpl, flavor::ECCVM);
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMMSMRelationImpl, flavor::ECCVM);
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
-DECLARE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, flavor::ECCVM);
-
-DECLARE_SUMCHECK_PERMUTATION_CLASS(ECCVMSetRelationImpl, flavor::ECCVM);
-} // namespace sumcheck
 } // namespace proof_system::honk

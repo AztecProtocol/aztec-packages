@@ -7,6 +7,34 @@ import {
   resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
+  AuthWitness,
+  AztecNode,
+  ContractDao,
+  ContractData,
+  DeployedContract,
+  ExtendedContractData,
+  ExtendedNote,
+  FunctionCall,
+  GetUnencryptedLogsResponse,
+  KeyStore,
+  L2Block,
+  L2Tx,
+  LogFilter,
+  MerkleTreeId,
+  NoteFilter,
+  PXE,
+  SimulationError,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxL2Logs,
+  TxReceipt,
+  TxStatus,
+  getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
+} from '@aztec/circuit-types';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
@@ -25,35 +53,7 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
-import {
-  AuthWitness,
-  AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  MerkleTreeId,
-  NodeInfo,
-  NoteFilter,
-  PXE,
-  SimulationError,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxL2Logs,
-  TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-} from '@aztec/types';
-import { TxPXEProcessingStats } from '@aztec/types/stats';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -76,7 +76,6 @@ export class PXEService implements PXE {
   // serialize synchronizer and calls to simulateTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
-  private running = false;
 
   constructor(
     private keyStore: KeyStore,
@@ -105,7 +104,6 @@ export class PXEService implements PXE {
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
     this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
-    this.running = true;
   }
 
   private async restoreNoteProcessors() {
@@ -355,9 +353,6 @@ export class PXEService implements PXE {
     if (txRequest.functionData.isInternal === undefined) {
       throw new Error(`Unspecified internal are not allowed`);
     }
-    if (!this.running) {
-      throw new Error('PXE Service is not running');
-    }
 
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
@@ -398,10 +393,6 @@ export class PXEService implements PXE {
     to: AztecAddress,
     _from?: AztecAddress,
   ): Promise<DecodedReturn> {
-    if (!this.running) {
-      throw new Error('PXE Service is not running');
-    }
-
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.

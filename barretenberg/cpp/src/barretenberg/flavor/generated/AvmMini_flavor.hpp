@@ -1,7 +1,7 @@
 
 
 #pragma once
-#include "../relation_definitions_fwd.hpp"
+#include "../relation_definitions.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -17,8 +17,7 @@
 #include "barretenberg/relations/generated/AvmMini/mem_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
-namespace flavor {
+namespace proof_system::honk::flavor {
 
 class AvmMiniFlavor {
   public:
@@ -34,6 +33,7 @@ class AvmMiniFlavor {
     using CommitmentHandle = G1::affine_element;
     using CommitmentKey = pcs::CommitmentKey<Curve>;
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 38;
@@ -636,5 +636,4 @@ class AvmMiniFlavor {
     };
 };
 
-} // namespace flavor
-} // namespace proof_system::honk
+} // namespace proof_system::honk::flavor
