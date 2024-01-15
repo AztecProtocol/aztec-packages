@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./*": "./dest/*.js"
+    ".": "./dest/src/index.js",
+    "./*": "./dest/src/*.js"
   },
   "scripts": {
     "build": "yarn clean && yarn build:contracts && tsc -b",
