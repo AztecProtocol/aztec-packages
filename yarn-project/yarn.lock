@@ -2817,6 +2817,8 @@ __metadata:
 "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_wasm@portal:../noir/packages/noir_wasm::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    pako: ^2.1.0
   languageName: node
   linkType: soft
 
