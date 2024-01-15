@@ -88,6 +88,7 @@ import {
   ConstantRollupData as ConstantRollupDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
   ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
+  Field,
   FinalAccumulatedData as FinalAccumulatedDataNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
@@ -673,7 +674,7 @@ export function mapTupleFromNoir<T, N extends number, M>(
  * @param hash - The hash as it is represented in Noir (2 fields).
  * @returns The hash represented as a 32 bytes long buffer.
  */
-export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
+export function mapSha256HashFromNoir(hash: [Field, Field]): Buffer {
   return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
 }
 
