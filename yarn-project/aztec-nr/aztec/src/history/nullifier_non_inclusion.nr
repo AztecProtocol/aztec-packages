@@ -31,7 +31,9 @@ pub fn prove_nullifier_non_inclusion(
     );
 
     // 3.b) Prove that the low nullifier is smaller than the nullifier
-    dep::protocol_types::utils::field::assert_lt(witness.leaf_preimage.nullifier, nullifier);
+    assert(
+        dep::protocol_types::utils::field::lt(witness.leaf_preimage.nullifier, nullifier), "Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed"
+    );
 
     // 3.c) Prove that the low nullifier is pointing "over" the nullifier to prove that the nullifier is not
     // included in the nullifier tree (or to 0 if the to-be-inserted nullifier is the largest of all)

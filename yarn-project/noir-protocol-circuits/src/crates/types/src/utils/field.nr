@@ -21,6 +21,18 @@ global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 #[test]
 fn check_plo_phi() {
     assert_eq(PLO + PHI * TWO_POW_128, 0);
+    let p_bytes = dep::std::field::modulus_le_bytes();
+    let mut p_low: Field = 0;
+    let mut p_high: Field = 0;
+
+    let mut offset = 1;
+    for i in 0..16 {
+        p_low += (p_bytes[i] as Field) * offset;
+        p_high += (p_bytes[i + 16] as Field) * offset;
+        offset *= 256;
+    }
+    assert_eq(p_low, PLO);
+    assert_eq(p_high, PHI);
 }
 
 unconstrained fn decompose_unsafe(x: Field) -> (Field, Field) {
