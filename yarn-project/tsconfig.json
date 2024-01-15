@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "lib": [
-      "dom",
-      "esnext",
-      "es2017.object"
-    ],
+    "lib": ["dom", "esnext", "es2017.object"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -49,7 +45,5 @@
     { "path": "world-state/tsconfig.json" },
     { "path": "scripts/tsconfig.json" }
   ],
-  "files": [
-    "./@types/jest/index.d.ts"
-  ]
+  "files": ["./@types/jest/index.d.ts"]
 }
