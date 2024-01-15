@@ -82,17 +82,17 @@ export interface L1PublisherTxSender {
 }
 
 /**
- * Encoded block data and proof ready to be pushed to the L1 contract.
+ * Encoded block and proof ready to be pushed to the L1 contract.
  */
 export type L1ProcessArgs = {
-  /**
-   * Root rollup proof for an L1 block.
-   */
+  /** The L2 block header. */
+  header: Buffer;
+  /** A snapshot (root and next available leaf index) of the archive tree after the L2 block is applied. */
+  archive: Buffer;
+  /** L2 block body. */
+  body: Buffer;
+  /** Root rollup proof of the L2 block. */
   proof: Buffer;
-  /**
-   * Serialized L2Block data.
-   */
-  inputs: Buffer;
 };
 
 /**
@@ -124,14 +124,18 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Processes incoming L2 block data by publishing it to the L1 rollup contract.
-   * @param l2BlockData - L2 block data to publish.
+   * Publishes L2 block on L1.
+   * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(l2BlockData: L2Block): Promise<boolean> {
-    const proof = Buffer.alloc(0);
-    const txData = { proof, inputs: l2BlockData.toBufferWithLogs() };
-    const startStateHash = l2BlockData.getStartStateHash();
+  public async publishL2Block(block: L2Block): Promise<boolean> {
+    const txData = {
+      header: block.header.toBuffer(),
+      archive: block.archive.toBuffer(),
+      body: block.bodyToBuffer(),
+      proof: Buffer.alloc(0),
+    };
+    const startStateHash = block.getStartStateHash();
 
     while (!this.interrupted) {
       // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
@@ -157,7 +161,7 @@ export class L1Publisher implements L2BlockReceiver {
         const stats: L1PublishStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
-          ...l2BlockData.getStats(),
+          ...block.getStats(),
           eventName: 'rollup-published-to-l1',
         };
         this.log.info(`Published L2 block to L1 rollup contract`, stats);
@@ -242,6 +246,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param startStateHash - The start state hash of the block we wish to publish.
    * @returns Boolean indicating if the hashes are equal.
    */
+  // TODO(benesjan): rename this
   private async checkStartStateHash(startStateHash: Buffer): Promise<boolean> {
     const fromChain = await this.txSender.getCurrentStateHash();
     const areSame = startStateHash.equals(fromChain);

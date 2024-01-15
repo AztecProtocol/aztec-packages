@@ -76,7 +76,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   async getCurrentStateHash(): Promise<Buffer> {
-    const stateHash = await this.rollupContract.read.rollupStateHash();
+    const stateHash = await this.rollupContract.read.archive();
     return Buffer.from(stateHash.replace('0x', ''), 'hex');
   }
 
@@ -122,7 +122,12 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [`0x${encodedData.proof.toString('hex')}`, `0x${encodedData.inputs.toString('hex')}`] as const;
+    const args = [
+      `0x${encodedData.header.toString('hex')}`,
+      `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.body.toString('hex')}`,
+      `0x${encodedData.proof.toString('hex')}`,
+    ] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args, {
       account: this.account,

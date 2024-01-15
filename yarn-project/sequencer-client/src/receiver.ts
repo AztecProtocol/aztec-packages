@@ -9,5 +9,5 @@ export interface L2BlockReceiver {
    * Receive and L2 block and process it, returns true if successful.
    * @param l2BlockData - L2 block to process.
    */
-  processL2Block(l2BlockData: L2Block): Promise<boolean>;
+  publishL2Block(l2BlockData: L2Block): Promise<boolean>;
 }

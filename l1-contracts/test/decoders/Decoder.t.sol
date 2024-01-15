@@ -17,18 +17,14 @@ import {AvailabilityOracle} from "../../src/core/availability_oracle/Availabilit
 
 contract HeaderDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _header)
-    public
-    pure
-    returns (uint256 l2BlockNumber, bytes32 startStateHash, bytes32 endStateHash)
-  {
+  function decode(bytes calldata _header) public pure returns (HeaderDecoder.Header memory) {
     return HeaderDecoder.decode(_header);
   }
 }
 
 contract MessagesDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _header)
+  function decode(bytes calldata _body)
     public
     pure
     returns (
@@ -38,14 +34,14 @@ contract MessagesDecoderHelper {
       bytes32[] memory l2ToL1Msgs
     )
   {
-    return MessagesDecoder.decode(_header[HeaderDecoder.BLOCK_HEADER_SIZE:]);
+    return MessagesDecoder.decode(_body);
   }
 }
 
 contract TxsDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _header) public pure returns (bytes32 txsHash) {
-    return TxsDecoder.decode(_header[HeaderDecoder.BLOCK_HEADER_SIZE:]);
+  function decode(bytes calldata _body) public pure returns (bytes32 txsHash) {
+    return TxsDecoder.decode(_body);
   }
 }
 
@@ -80,27 +76,21 @@ contract DecoderTest is DecoderBase {
 
     // Using the FULL decoder.
     (
-      uint256 l2BlockNumber,
-      bytes32 startStateHash,
-      bytes32 endStateHash,
-      bytes32 publicInputsHash,
+      bytes32 diffRoot,
+      bytes32 l1ToL2MessagesHash,
       bytes32[] memory l2ToL1Msgs,
       bytes32[] memory l1ToL2Msgs
-    ) = helper.decode(data.block.body);
-    (bytes32 diffRoot, bytes32 l1ToL2MessagesHash) =
-      helper.computeDiffRootAndMessagesHash(data.block.body);
+    ) = helper.computeConsumables(data.block.body);
 
     // Header
     {
-      (uint256 headerL2BlockNumber, bytes32 headerStartStateHash, bytes32 headerEndStateHash) =
-        headerHelper.decode(data.block.body);
+      HeaderDecoder.Header memory header = headerHelper.decode(data.block.header);
 
-      assertEq(l2BlockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(headerL2BlockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(startStateHash, data.block.startStateHash, "Invalid start state hash");
-      assertEq(headerStartStateHash, data.block.startStateHash, "Invalid start state hash");
-      assertEq(endStateHash, data.block.endStateHash, "Invalid end state hash");
-      assertEq(headerEndStateHash, data.block.endStateHash, "Invalid end state hash");
+      assertEq(header.blockNumber, data.block.blockNumber, "Invalid block number");
+      assertEq(header.chainId, data.block.chainId, "Invalid chain Id");
+      assertEq(header.lastArchive, data.block.lastArchive, "Invalid last archive");
+      assertEq(header.timestamp, data.block.timestamp, "Invalid timestamp");
+      assertEq(header.version, data.block.version, "Invalid version");
     }
 
     // Messages

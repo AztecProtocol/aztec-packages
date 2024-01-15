@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 
 contract DecoderBase is Test {
   // When I had data and messages as one combined struct it failed, but I can have this top-layer and it works :shrug:
+  // Note: Members of the struct (and substructs) have to be in ALPHABETICAL order!
   struct Full {
     Data block;
     Messages messages;
@@ -24,14 +25,17 @@ contract DecoderBase is Test {
   }
 
   struct Data {
+    // TODO(benejsan): Use HeaderDecoder.Header here?
+    bytes archive;
     uint256 blockNumber;
     bytes body;
     bytes32 calldataHash;
-    bytes32 endStateHash;
+    uint256 chainId;
+    bytes header;
     bytes32 l1ToL2MessagesHash;
-    bytes32 publicInputsHash;
-    bytes32 startStateHash;
+    bytes32 lastArchive;
     uint256 timestamp;
+    uint256 version;
   }
 
   function load(string memory name) public view returns (Full memory) {
