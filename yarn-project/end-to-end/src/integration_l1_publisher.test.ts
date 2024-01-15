@@ -280,7 +280,7 @@ describe('L1Publisher integration', () => {
   };
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
-    const stateInRollup_ = await rollup.read.rollupStateHash();
+    const stateInRollup_ = await rollup.read.archive();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
@@ -362,7 +362,7 @@ describe('L1Publisher integration', () => {
         fromBlock: blockNumber + 1n,
       });
       expect(logs).toHaveLength(i + 1);
-      expect(logs[i].args.blockNum).toEqual(BigInt(i + 1));
+      expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
 
       const ethTx = await publicClient.getTransaction({
         hash: logs[i].transactionHash!,
@@ -371,14 +371,19 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.toBufferWithLogs().toString('hex')}`],
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.toBuffer().toString('hex')}`,
+          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${l2Proof.toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
 
       const decoderArgs = [`0x${block.toBufferWithLogs().toString('hex')}`] as const;
       const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
       const decodedRes = await decoderHelper.read.decode(decoderArgs);
-      const stateInRollup = await rollup.read.rollupStateHash();
+      const stateInRollup = await rollup.read.archive();
 
       expect(block.number).toEqual(Number(decodedRes[0]));
       expect(block.getStartStateHash()).toEqual(hexStringToBuffer(decodedRes[1].toString()));
@@ -403,7 +408,7 @@ describe('L1Publisher integration', () => {
   }, 360_000);
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 empty txs building on each other`, async () => {
-    const stateInRollup_ = await rollup.read.rollupStateHash();
+    const stateInRollup_ = await rollup.read.archive();
     expect(hexStringToBuffer(stateInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
     const blockNumber = await publicClient.getBlockNumber();
@@ -438,7 +443,7 @@ describe('L1Publisher integration', () => {
         fromBlock: blockNumber + 1n,
       });
       expect(logs).toHaveLength(i + 1);
-      expect(logs[i].args.blockNum).toEqual(BigInt(i + 1));
+      expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
 
       const ethTx = await publicClient.getTransaction({
         hash: logs[i].transactionHash!,
@@ -447,14 +452,19 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [`0x${l2Proof.toString('hex')}`, `0x${block.toBufferWithLogs().toString('hex')}`],
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.toBuffer().toString('hex')}`,
+          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${l2Proof.toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
 
       const decoderArgs = [`0x${block.toBufferWithLogs().toString('hex')}`] as const;
       const decodedHashes = await decoderHelper.read.computeDiffRootAndMessagesHash(decoderArgs);
       const decodedRes = await decoderHelper.read.decode(decoderArgs);
-      const stateInRollup = await rollup.read.rollupStateHash();
+      const stateInRollup = await rollup.read.archive();
 
       expect(block.number).toEqual(Number(decodedRes[0]));
       expect(block.getStartStateHash()).toEqual(hexStringToBuffer(decodedRes[1].toString()));

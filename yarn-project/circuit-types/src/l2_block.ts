@@ -263,19 +263,7 @@ export class L2Block {
    */
   toBuffer() {
     return serializeToBuffer(
-      this.header.globalVariables,
-      // TODO(#3868)
-      AppendOnlyTreeSnapshot.empty(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startContractTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.empty(), // this.startL1ToL2MessageTreeSnapshot,
-      this.header.lastArchive,
-      this.header.state.partial.noteHashTree,
-      this.header.state.partial.nullifierTree,
-      this.header.state.partial.contractTree,
-      this.header.state.partial.publicDataTree,
-      this.header.state.l1ToL2MessageTree,
+      this.header,
       this.archive,
       this.newCommitments.length,
       this.newCommitments,
@@ -308,13 +296,6 @@ export class L2Block {
     return serializeToBuffer(this.toBuffer(), this.newEncryptedLogs, this.newUnencryptedLogs);
   }
 
-  headerAndArchiveToBuffer() {
-    return serializeToBuffer(
-      this.header,
-      this.archive,
-    );
-  }
-
   bodyToBuffer(): Buffer {
     if (this.newEncryptedLogs === undefined || this.newUnencryptedLogs === undefined) {
       throw new Error(
@@ -335,7 +316,7 @@ export class L2Block {
       this.newContracts,
       this.newContractData,
       this.newL1ToL2Messages.length,
-      this.newL1ToL2Messages,
+      this.newL1ToL2Messages, this.newEncryptedLogs, this.newUnencryptedLogs
     );
   }
 
@@ -357,20 +338,8 @@ export class L2Block {
    */
   static fromBuffer(buf: Buffer | BufferReader, blockHash?: Buffer) {
     const reader = BufferReader.asReader(buf);
-    const globalVariables = reader.readObject(GlobalVariables);
-    // TODO(#3938): update the encoding here
-    reader.readObject(AppendOnlyTreeSnapshot); // startNoteHashTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startNullifierTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startContractTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startPublicDataTreeSnapshot
-    reader.readObject(AppendOnlyTreeSnapshot); // startL1ToL2MessageTreeSnapshot
-    const startArchiveSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endNoteHashTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endNullifierTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endContractTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endPublicDataTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endL1ToL2MessageTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const endArchiveSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const header = reader.readObject(Header);
+    const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
@@ -380,19 +349,9 @@ export class L2Block {
     // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
     const newL1ToL2Messages = reader.readVector(Fr);
 
-    const partial = new PartialStateReference(
-      endNoteHashTreeSnapshot,
-      endNullifierTreeSnapshot,
-      endContractTreeSnapshot,
-      endPublicDataTreeSnapshot,
-    );
-    const state = new StateReference(endL1ToL2MessageTreeSnapshot, partial);
-    // TODO(#3938): populate bodyHash
-    const header = new Header(startArchiveSnapshot, [Fr.ZERO, Fr.ZERO], state, globalVariables);
-
     return L2Block.fromFields(
       {
-        archive: endArchiveSnapshot,
+        archive,
         header,
         newCommitments,
         newNullifiers,
@@ -565,6 +524,7 @@ export class L2Block {
    * and inside the circuit, it is part of the public inputs.
    * @returns The calldata hash.
    */
+  // TODO(benesjan): Update to getBodyHash
   getCalldataHash() {
     if (this.newEncryptedLogs === undefined) {
       throw new Error('Encrypted logs has to be attached before calling "getCalldataHash"');

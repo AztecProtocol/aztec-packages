@@ -76,12 +76,12 @@ export async function processBlockLogs(
 ): Promise<L2Block[]> {
   const retrievedBlocks: L2Block[] = [];
   for (const log of logs) {
-    const blockNum = log.args.blockNum;
+    const blockNum = log.args.blockNumber;
     if (blockNum !== expectedL2BlockNumber) {
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNum);
+    const newBlock = await getBlockFromCallData(publicClient, log.transactionHash!, log.args.blockNumber);
     newBlock.setL1BlockNumber(log.blockNumber!);
     retrievedBlocks.push(newBlock);
     expectedL2BlockNumber++;
@@ -112,8 +112,14 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [, l2BlockHex] = args! as [Hex, Hex];
-  const block = L2Block.fromBufferWithLogs(Buffer.from(hexToBytes(l2BlockHex)));
+  // TODO(benesjan): This is brittle and should be handled inside the L2 Block.
+  const [headerHex, archiveHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
+  const blockBuffer = Buffer.concat([
+    Buffer.from(hexToBytes(headerHex)),
+    Buffer.from(hexToBytes(archiveHex)),
+    Buffer.from(hexToBytes(bodyHex)),
+  ]);
+  const block = L2Block.fromBufferWithLogs(blockBuffer);
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
   }

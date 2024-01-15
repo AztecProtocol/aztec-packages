@@ -144,11 +144,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       newUnencryptedLogs,
     });
 
+    // TODO: update naming here
     if (!l2Block.getCalldataHash().equals(circuitsOutput.header.bodyHash)) {
       throw new Error(
-        `Calldata hash mismatch, ${l2Block.getCalldataHash().toString('hex')} == ${circuitsOutput
-          .sha256CalldataHash()
-          .toString('hex')} `,
+        `Calldata hash mismatch, ${l2Block
+          .getCalldataHash()
+          .toString('hex')} == ${circuitsOutput.header.bodyHash.toString('hex')} `,
       );
     }
 

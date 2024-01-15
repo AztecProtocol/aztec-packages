@@ -82,17 +82,17 @@ export interface L1PublisherTxSender {
 }
 
 /**
- * Encoded block data and proof ready to be pushed to the L1 contract.
+ * Encoded block and proof ready to be pushed to the L1 contract.
  */
 export type L1ProcessArgs = {
-  /**
-   * Root rollup proof for an L1 block.
-   */
+  /** The L2 block header. */
+  header: Buffer;
+  /** A snapshot (root and next available leaf index) of the archive tree after the L2 block is applied. */
+  archive: Buffer;
+  /** L2 block body. */
+  body: Buffer;
+  /** Root rollup proof of the L2 block. */
   proof: Buffer;
-  /**
-   * Serialized L2Block data.
-   */
-  inputs: Buffer;
 };
 
 /**
@@ -129,9 +129,12 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async publishL2Block(block: L2Block): Promise<boolean> {
-    const proof = Buffer.alloc(0);
-
-    const txData = { proof, inputs: block.toBufferWithLogs() };
+    const txData = {
+      header: block.header.toBuffer(),
+      archive: block.archive.toBuffer(),
+      body: block.bodyToBuffer(),
+      proof: Buffer.alloc(0),
+    };
     const startStateHash = block.getStartStateHash();
 
     while (!this.interrupted) {
@@ -243,6 +246,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param startStateHash - The start state hash of the block we wish to publish.
    * @returns Boolean indicating if the hashes are equal.
    */
+  // TODO(benesjan): rename this
   private async checkStartStateHash(startStateHash: Buffer): Promise<boolean> {
     const fromChain = await this.txSender.getCurrentStateHash();
     const areSame = startStateHash.equals(fromChain);
