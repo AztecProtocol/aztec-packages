@@ -1,12 +1,10 @@
 use acir::{
     circuit::opcodes::FunctionInput,
     native_types::{Witness, WitnessMap},
-    FieldElement,
 };
 use acvm_blackbox_solver::BlackBoxFunctionSolver;
-use ark_ec::AffineRepr;
 
-use crate::pwg::{insert_value, witness_to_value, ErrorLocation, OpcodeResolutionError};
+use crate::pwg::{insert_value, witness_to_value, OpcodeResolutionError};
 
 pub(super) fn fixed_base_scalar_mul(
     backend: &impl BlackBoxFunctionSolver,
