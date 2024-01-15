@@ -8,11 +8,13 @@ Many terms and definitions here are borrowed from the [Ethereum Yellow Paper](ht
 
 An Aztec transaction may include one or more **public execution requests**. A public execution request is a request to execute a specified contract's public bytecode given some arguments. Execution of a contract's public bytecode is performed by the **Aztec Virtual Machine (AVM)**.
 
-In order to execute public contract bytecode, the AVM requires some context. An **execution context** includes all information necessary to initiate AVM execution along with all state maintained by the AVM. The execution context structure is fully specified in ["Execution Context"](#execution-context). A **contract call** initializes a new context and triggers AVM execution within that context.
+> A public execution request may originate from a public call enqueued by a transaction's private segment ([`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md)), or from a public [fee preparation](../gas-and-fees#fee-preparation) or [fee distribution](../gas-and-fees#fee-distribution) call.
 
-Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context finishes when the AVM encounters a [**halt**](#halting).
+In order to execute public contract bytecode, the AVM requires some context. An [**execution context**](#execution-context) all information necessary to initiate AVM execution, including the relevant contract's bytecode and all state maintained by the AVM. A **contract call** initializes an execution context and triggers AVM execution within that context.
 
-During execution, additional contract calls may be made. While an **initial contract call** initializes a new execution context directly from a public execution request, a **nested contract call** occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (the **calling context**) along with the call instruction's arguments. A nested contract call triggers AVM execution in the nested context, and returns execution to the calling context upon completion.
+Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context ends when the AVM encounters a [**halt**](#halting).
+
+During execution, additional contract calls may be made. While an [**initial contract call**](#initial-contract-calls) initializes a new execution context directly from a public execution request, a [**nested contract call**](#nested-contract-calls) occurs _during_ AVM execution and is triggered by a **contract call instruction** ([`CALL`](./instruction-set#isa-section-call), [`STATICCALL`](./instruction-set#isa-section-call), or `DELEGATECALL`). It initializes a new execution context (**nested context**) from the current one (**calling context**) and triggers execution within it. When nested call's execution completes, execution proceeds in the calling context.
 
 A **caller** is a contract call's initiator. The caller of an initial contract call is an Aztec sequencer. The caller of a nested contract call is the AVM itself executing in the calling context.
 
@@ -24,19 +26,20 @@ A **caller** is a contract call's initiator. The caller of an initial contract c
 - [**Initial contract calls**](#initial-contract-calls), outlining the initiation of a contract call from a public execution request
 - [**Nested contract calls**](#nested-contract-calls), outlining the initiation of a contract call from an instruction as well as the processing of nested execution results, gas refunds, and state reverts
 
-For details on the AVM's "tagged" memory model, refer to the **["AVM Memory Model"](./state-model.md)**.
+> This document is meant to provide a high-level definition of the Aztec Virtual Machine as opposed to a specification of its SNARK implementation. The document therefore mostly omits SNARK or circuit-centric verbiage except when particularly relevant to high-level design decisions.
 
-> The Aztec Virtual Machine, while designed with a SNARK implementation in mind, is not strictly tied to any particular implementation and therefore is defined without SNARK or circuit-centric verbiage. That being said, considerations for a SNARK implementation are raised or linked when particularly relevant or helpful.
+This document is supplemented by the following resources:
+- **[AVM Instruction Set](./instruction-set)**
+- **[AVM Memory Model](./state-model.md)**
+- **[AVM Circuit](./avm-circuit.md)**
 
 ## Public contract bytecode
 
-A contract's public bytecode is a series of execution instructions for the AVM. When a call is made to a contract, the AVM retrieves the corresponding bytecode and triggers execution of the first instruction.
+A contract's public bytecode is a series of execution instructions for the AVM. Refer to the ["AVM Instruction Set"](./instruction-set) for the details of all supported instructions along with how they modify AVM state.
 
-The entirety of a contract's public code is represented as a single block of bytecode with a maximum of `MAX_PUBLIC_INSTRUCTIONS_PER_CONTRACT` ($2^{15} = 32768$) instructions. The mechanism used to distinguish between different functions in an AVM bytecode program is left as a higher-level abstraction (_e.g._ similar to Solidity's concept of a function selector).
+The entirety of a contract's public code is represented as a single block of bytecode with a maximum of `MAX_PUBLIC_INSTRUCTIONS_PER_CONTRACT` ($2^{15} = 32768$) instructions. The mechanism used to distinguish between different "functions" in an AVM bytecode program is left as a higher-level abstraction (_e.g._ similar to Solidity's concept of a function selector).
 
 > See the [Bytecode Validation Circuit](./bytecode-validation-circuit.md) to see how a contract's bytecode can be validated and committed to.
-
-Refer to ["Bytecode"](/docs/bytecode) for more information.
 
 ## Execution Context
 
@@ -96,7 +99,7 @@ MachineState {
 }
 ```
 
-The machine state's fields are defined as follows:
+The machine state's entries are defined as follows:
 - `l1GasLeft`: how much L1 gas remains
 - `l2GasLeft`: how much L2 gas remains
 - `daGasLeft`: how much DA (data availability) gas remains
@@ -134,7 +137,7 @@ WorldState {
 **Journal** tracks all world state accesses (reads and writes) that have taken place thus far during a contract call's execution. Unlike world state, a context's journal is accepted by its caller regardless of whether execution reverts.
 ```
 Journal {
-    contractCalls: Vector<AztecAddress>,
+    nestedCalls: Vector<(AztecAddress, boolean)>,
     blockHeaderReads: Vector<(field, BlockHeader)>,
     publicStorageAccesses: Vector<StorageReadContext | StorageWriteContext>,
     l1ToL2MessageReads: Vector<(L1toL2MessageContext, [field; <msg-length>])>,
@@ -168,7 +171,7 @@ ContractCallResults {
 
 ## Execution
 
-Once an execution context has been initialized for a contract call, the machine state's program counter determines which instruction the AVM executes next. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in the contract's bytecode.
+Once an execution context has been initialized for a contract call, the machine state's program counter determines which instruction the AVM executes. For any contract call, the program counter starts at zero, and so instruction execution begins with the very first entry in a contract's bytecode.
 
 ### Program Counter and Control Flow
 
@@ -176,7 +179,7 @@ The program counter (`machineState.pc`) determines which instruction the AVM exe
 
 Most instructions simply increment the program counter by 1. This allows VM execution to flow naturally from instruction to instruction. Some instructions ([`JUMP`](./instruction-set#isa-section-jump), [`JUMPI`](./instruction-set#isa-section-jumpi), `INTERNALCALL`) modify the program counter based on arguments.
 
-The `INTERNALCALL` pushes `machineState.pc+1` to `machineState.internalCallStack` and then updates `pc` to the instruction's destination argument (`instr.args.loc`). The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and assigns the result to `pc`.
+The `INTERNALCALL` instruction pushes `machineState.pc+1` to `machineState.internalCallStack` and then updates `pc` to the instruction's destination argument (`instr.args.loc`). The `INTERNALRETURN` instruction pops a destination from `machineState.internalCallStack` and assigns the result to `pc`.
 
 > An instruction will never assign program counter a value from memory (`machineState.memory`). A `JUMP`, `JUMPI`, or `INTERNALCALL` instruction's destination is a constant from the program bytecode. This property allows for easier static program analysis.
 
@@ -235,7 +238,7 @@ A normal halt occurs when the VM encounters an explicit halting instruction ([`R
 machineState.l1GasLeft -= instr.l1GasCost
 machineState.l2GasLeft -= instr.l2GasCost
 machineState.daGasLeft -= instr.daGasCost
-// results.reverted remains false
+results.reverted = instr.opcode == REVERT
 results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+instr.args.retSize]
 ```
 
@@ -245,7 +248,19 @@ results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+i
 
 ### Exceptional halting
 
-An exceptional halt is not explicitly triggered by an instruction but instead occurs when one of the following halting conditions is met:
+An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
+
+When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
+
+```
+machineState.l1GasLeft = 0
+machineState.l2GasLeft = 0
+machineState.daGasLeft = 0
+results.reverted = true
+// results.output remains empty
+```
+
+The AVM's exceptional halting conditions area listed below:
 
 1. **Insufficient gas**
     ```
@@ -283,9 +298,9 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     ```
 1. **Maximum contract call calls per execution request (1024) exceeded**
     ```
-    assert journal.contractCalls.length <= 1024
+    assert journal.nestedCalls.length <= 1024
     assert environment.bytecode[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
-        OR journal.contractCalls.length < 1024
+        OR journal.nestedCalls.length < 1024
     ```
 1. **Maximum internal call depth (1024) exceeded**
     ```
@@ -323,23 +338,9 @@ An exceptional halt is not explicitly triggered by an instruction but instead oc
     ```
     > Definition: `WS_MODIFYING_OPS` represents the list of all opcodes corresponding to instructions that modify world state.
 
-When an exceptional halt occurs, the context is flagged as consuming all off its allocated gas and is marked as `reverted` with no output data, and then execution within the current context ends.
-
-```
-machineState.l1GasLeft = 0
-machineState.l2GasLeft = 0
-machineState.daGasLeft = 0
-results.reverted = true
-// results.output remains undefined
-```
-
 ## Initial contract calls
 
 An **initial contract call** initializes a new execution context from a public execution request.
-
-> A public execution request may originate from one of the following:
->   - a public call enqueued by a transaction's private segment ([`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md))
->   - a public [fee preparation](../gas-and-fees#fee-preparation) or [fee distribution](../gas-and-fees#fee-distribution) call
 
 ### Context initialization for initial contract calls
 
@@ -388,7 +389,7 @@ INITIAL_MACHINE_STATE = MachineState {
 }
 
 INITIAL_JOURNAL = Journal {
-    contractCalls = [PublicCallRequest], // first entry appended
+    nestedCalls = [],           // initialized as empty
     blockHeaderReads = [],      // initialized as empty
     publicStorageAccesses = [], // initialized as empty
     l1ToL2MessageReads = [],    // initialized as empty
@@ -510,9 +511,10 @@ if !nestedContext.results.reverted AND instr.opcode != STATICCALL_OP:
     context.accruedSubstate.append(nestedContext.accruedSubstate)
 ```
 
-Regardless of whether a nested context has reverted, its journal updates are absorbed into the calling context.
+Regardless of whether a nested context has reverted, its journal updates are absorbed into the calling context along with a new `nestedCalls` entry.
 ```
 context.journal = nestedContext.journal
+context.journal.append(nestedContext.address, nestedContext.machineState.reverted)
 ```
 
 > Reminder: a nested call cannot make updates to the world state, journal, or accrued substate if it is a [`STATICCALL`](./instruction-set/#isa-section-staticcall).
