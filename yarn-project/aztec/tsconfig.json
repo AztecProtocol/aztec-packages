@@ -31,9 +31,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../kv-store"
-    },
-    {
       "path": "../l1-artifacts"
     },
     {

@@ -26,10 +26,7 @@
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "leveldown": "^6.1.1",
-    "levelup": "^5.1.1",
-    "lmdb": "^2.9.1",
-    "memdown": "^6.1.1"
+    "lmdb": "^2.9.1"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

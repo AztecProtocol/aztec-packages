@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { ArchiverConfig } from '@aztec/archiver';
 import { LogFn } from '@aztec/foundation/log';
 
 import { LevelDown, default as leveldown } from 'leveldown';
@@ -31,18 +31,7 @@ type NodeMetadata = {
  * @throws If `config.dataDirectory` is set and the directory cannot be created.
  * @returns The database for the aztec node.
  */
-export async function openDb(
-  config: {
-    /** The directory to store the database in. If not specified, a temporary database is used. */
-    dataDirectory?: string;
-    /** The addresses of the Aztec contracts on L1. */
-    l1Contracts: {
-      /** The address of the Aztec rollup contract on L1. */
-      rollupAddress: EthAddress;
-    };
-  },
-  log: LogFn,
-): Promise<[nodeDb: RootDatabase, worldStateDb: LevelUp]> {
+export async function openDb(config: ArchiverConfig, log: LogFn): Promise<RootDatabase> {
   const nodeMetadata: NodeMetadata = {
     rollupContractAddress: config.l1Contracts.rollupAddress.toString(),
   };
@@ -52,16 +41,11 @@ export async function openDb(
 
   if (config.dataDirectory) {
     const nodeDir = join(config.dataDirectory, DB_SUBDIR);
-    const worldStateDir = join(config.dataDirectory, WORLD_STATE_SUBDIR);
     // this throws if we don't have permissions to create the directory
     await mkdir(nodeDir, { recursive: true });
-    await mkdir(worldStateDir, { recursive: true });
 
     log(`Opening aztec-node database at ${nodeDir}`);
     nodeDb = open(nodeDir, {});
-
-    log(`Opening world-state database at ${worldStateDir}`);
-    worldStateDb = levelup(createLevelDown(worldStateDir));
   } else {
     log('Opening temporary databases');
     // not passing a path will use a temp file that gets deleted when the process exits
@@ -69,8 +53,8 @@ export async function openDb(
     worldStateDb = levelup(createMemDown());
   }
 
-  await checkNodeMetadataAndClear(nodeDb, worldStateDb, nodeMetadata, log);
-  return [nodeDb, worldStateDb];
+  await checkNodeMetadataAndClear(nodeDb, nodeMetadata, log);
+  return nodeDb;
 }
 
 /**
@@ -78,19 +62,14 @@ export async function openDb(
  * @param nodeDb - The database for the aztec node.
  * @param nodeMetadata - The metadata for the aztec node.
  */
-async function checkNodeMetadataAndClear(
-  nodeDb: RootDatabase,
-  worldStateDb: LevelUp,
-  nodeMetadata: NodeMetadata,
-  log: LogFn,
-): Promise<void> {
+async function checkNodeMetadataAndClear(nodeDb: RootDatabase, nodeMetadata: NodeMetadata, log: LogFn): Promise<void> {
   const metadataDB = nodeDb.openDB<NodeMetadata, string>('metadata', {});
   try {
     const existing = metadataDB.get(NODE_METADATA_KEY);
     // if the rollup addresses are different, wipe the local database and start over
     if (!existing || existing.rollupContractAddress !== nodeMetadata.rollupContractAddress) {
       log('Rollup contract address has changed, clearing databases');
-      await Promise.all([nodeDb.clearAsync(), worldStateDb.clear()]);
+      await nodeDb.clearAsync();
     }
     await metadataDB.put(NODE_METADATA_KEY, nodeMetadata);
   } finally {

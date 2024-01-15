@@ -5,7 +5,6 @@ import { AccountManager, GrumpkinScalar, createAztecNodeClient, fileURLToPath } 
 import { NULL_KEY } from '@aztec/ethereum';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { openDb } from '@aztec/kv-store';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
@@ -18,6 +17,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { MNEMONIC, createAztecNode, createAztecPXE, createSandbox, deployContractsToL1 } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
+import { openDb } from './util.js';
 
 const {
   AZTEC_NODE_PORT = '8079',
@@ -231,7 +231,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         // merge env vars and cli options
         const archiverConfig = pick({ ...archiverConfigEnvVars, ...archiverCliOptions });
 
-        const [nodeDb] = await openDb(archiverConfig, debugLogger);
+        const nodeDb = await openDb(archiverConfig, debugLogger);
         const archiverStore = new LMDBArchiverStore(nodeDb, archiverConfig.maxLogs);
 
         const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);

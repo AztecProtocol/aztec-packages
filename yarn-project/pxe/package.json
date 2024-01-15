@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "@aztec/acir-simulator": "workspace:^",
-    "@aztec/aztec.js": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
