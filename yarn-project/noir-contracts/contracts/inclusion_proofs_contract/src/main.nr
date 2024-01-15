@@ -23,41 +23,30 @@ contract InclusionProofs {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        
+       // docs:start:imports
         history::{
-            // docs:start:import_contract_inclusion
             contract_inclusion::{
                 prove_contract_inclusion,
-            },
-            // docs:end:import_contract_inclusion
-            // docs:start:import_note_inclusion    
+            },  
             note_inclusion::{
                 prove_note_commitment_inclusion,
                 prove_note_inclusion,
             },
-            // docs:end:import_note_inclusion
-            // docs:start:import_note_validity
             note_validity::{
                 prove_note_validity,
             },
-            // docs:end:import_note_validity
-            // docs:start:import_nullifier_inclusion
             nullifier_inclusion::{
                 prove_nullifier_inclusion,
             },
-            // docs:end:import_nullifier_inclusion
-            // docs:start:import_nullifier_non_inclusion
             nullifier_non_inclusion::{
                 prove_nullifier_non_inclusion,
                 prove_note_not_nullified,
             },
-            // docs:end:import_nullifier_non_inclusion
-            // docs:start:import_public_value_inclusion
             public_value_inclusion::{
                 prove_public_value_inclusion,
             },
-            // docs:end:import_public_value_inclusion
         },
+         // docs:end:imports
     };
     use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
 
@@ -96,6 +85,7 @@ contract InclusionProofs {
         storage.public_value.write(value);
     }
 
+    // docs:start:create_note
     // Creates a value note owned by `owner`.
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
@@ -103,6 +93,8 @@ contract InclusionProofs {
         let mut note = ValueNote::new(value, owner);
         owner_private_values.insert(&mut note, true);
     }
+    // docs:end:create_note
+
 
     // Proves that the owner owned a ValueNote at block `block_number`.
     #[aztec(private)]
@@ -114,11 +106,13 @@ contract InclusionProofs {
         // PXE performs note commitment inclusion check when you add a new note).
         spare_commitment: Field
     ) {
+        // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner.to_field());
         let options = NoteGetterOptions::new().select(1, owner.to_field()).set_limit(1);
         let notes = private_values.get_notes(options);
         let maybe_note = notes[0];
+        // docs:end:get_note_from_pxe
 
         // 2) Prove the note inclusion
         if maybe_note.is_some() {
@@ -132,9 +126,7 @@ contract InclusionProofs {
             // docs:end:prove_note_inclusion
         } else {
             // Note was not found so we will prove inclusion of the spare commitment
-            // docs:start:prove_note_commitment_inclusion
             prove_note_commitment_inclusion(spare_commitment, block_number, context);
-            // docs:end:prove_note_commitment_inclusion
         };
     }
 
@@ -189,6 +181,7 @@ contract InclusionProofs {
         // docs:end:prove_note_validity
     }
 
+    // docs:start:nullify_note
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner.to_field());
@@ -198,6 +191,7 @@ contract InclusionProofs {
 
         private_values.remove(note);
     }
+    // docs:end:nullify_note
 
     // Proves nullifier existed at block `block_number`.
     // Note: I am not getting a nullifier of the note that was created in this contract in this function because it is
@@ -217,14 +211,12 @@ contract InclusionProofs {
         public_value: Field,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        // docs:start:prove_public_value_inclusion
         prove_public_value_inclusion(
             public_value,
             storage.public_value.storage_slot,
             block_number,
             context
         );
-        // docs:end:prove_public_value_inclusion
     }
 
     // Proves that a contract exists at block `block_number`.
@@ -244,7 +236,6 @@ contract InclusionProofs {
         portal_contract_address: EthAddress,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        // docs:start:prove_contract_inclusion
         let proven_contract_address = prove_contract_inclusion(
             deployer_public_key,
             contract_address_salt,
@@ -254,7 +245,6 @@ contract InclusionProofs {
             block_number,
             context
         );
-        // docs:end:prove_contract_inclusion
         // Here typically the factory would add the contract address to its internal map of deployed contracts.
     }
 
