@@ -1,7 +1,8 @@
 import { deployInitialTestAccounts } from '@aztec/accounts/testing';
 import { Archiver, LMDBArchiverStore, createArchiverRpcServer, getConfigEnvVars } from '@aztec/archiver';
 import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AccountManager, GrumpkinScalar, createAztecNodeClient, fileURLToPath } from '@aztec/aztec.js';
+import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';

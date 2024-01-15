@@ -36,6 +36,9 @@ import {
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
 
+/**
+ * Helper interface to combine all sources this archiver implementation provides.
+ */
 export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
 
 /**

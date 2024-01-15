@@ -48,7 +48,7 @@ export {
   waitForAccountSynch,
 } from './utils/index.js';
 
-export { createPXEClient, createAztecNodeClient, createArchiverClient } from './rpc_clients/index.js';
+export { createPXEClient } from './rpc_clients/index.js';
 
 export { AuthWitnessProvider } from './account/index.js';
 
@@ -103,6 +103,7 @@ export {
   TxReceipt,
   TxStatus,
   UnencryptedL2Log,
+  createAztecNodeClient,
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
