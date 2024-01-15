@@ -188,6 +188,7 @@ const sidebars = {
         },
         "concepts/advanced/public_vm",
         "concepts/advanced/contract_creation",
+        "concepts/advanced/private_execution_environment",
         "concepts/advanced/sequencer_selection",
         "concepts/advanced/acir_simulator",
       ],
@@ -421,7 +422,14 @@ const sidebars = {
       },
       items: ["dev_docs/testing/cheat_codes"],
     },
-
+    {
+      label: "Private Execution Environment (PXE)",
+      type: "category",
+      items: [
+        "dev_docs/pxe/custom_oracles",
+        "dev_docs/pxe/run_more_than_one_pxe_sandbox",
+      ],
+    },
     {
       label: "Wallets",
       type: "category",
