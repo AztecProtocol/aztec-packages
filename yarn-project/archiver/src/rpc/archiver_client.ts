@@ -1,24 +1,19 @@
 import {
   ContractData,
-  ContractDataSource,
   EncodedContractFunction,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   L1ToL2Message,
-  L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
-  L2BlockSource,
-  L2LogsSource,
 } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
-export const createArchiverClient = (
-  url: string,
-  fetch = makeFetch([1, 2, 3], true),
-): L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource =>
-  createJsonRpcClient<L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource>(
+import { ArchiveSource } from '../index.js';
+
+export const createArchiverClient = (url: string, fetch = makeFetch([1, 2, 3], true)): ArchiveSource =>
+  createJsonRpcClient<ArchiveSource>(
     url,
     {
       ContractData,
@@ -32,6 +27,7 @@ export const createArchiverClient = (
       L2BlockL2Logs,
     },
     {},
+    false,
     false,
     fetch,
   );

@@ -8,7 +8,7 @@ import Router from 'koa-router';
 import { createDebugLogger } from '../../log/index.js';
 import { JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
-import { JsonProxy } from './json_proxy.js';
+import { ClassMaps, JsonProxy } from './json_proxy.js';
 
 /**
  * JsonRpcServer.
@@ -21,7 +21,8 @@ export class JsonRpcServer {
     stringClassMap: StringClassConverterInput,
     objectClassMap: JsonClassConverterInput,
     private createApi: boolean,
-    private disallowedMethods: string[] = [],
+    /** List of methods to disallow from calling remotely */
+    public readonly disallowedMethods: string[] = [],
     private log = createDebugLogger('aztec:foundation:json-rpc:server'),
   ) {
     this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
@@ -222,4 +223,48 @@ export function startHttpRpcServer<T>(
   httpServer.listen(port);
 
   return httpServer;
+}
+/**
+ * List of namespace to server instance.
+ */
+type ServerList = {
+  /** name of the service to be used for namespacing */
+  name: string;
+  /** server instance */
+  server: JsonRpcServer;
+}[];
+
+/**
+ * Creates a single JsonRpcServer from multiple servers.
+ * @param servers - List of servers to be combined into a single server, passed as ServerList.
+ * @returns A single JsonRpcServer with namespaced methods.
+ */
+export function createMultiJsonRpcServer(
+  servers: ServerList,
+  log = createDebugLogger('aztec:foundation:json-rpc:multi-server'),
+): JsonRpcServer {
+  const handler = {} as any;
+  const disallowedMethods: string[] = [];
+
+  for (const { name: namespace, server } of servers) {
+    const serverMethods = server.proxy.getMethods();
+
+    for (const method of serverMethods) {
+      const namespacedMethod = `${namespace}_${method}`;
+
+      handler[namespacedMethod] = (...args: any[]) => {
+        return server.proxy.call(method, ...args);
+      };
+    }
+
+    // get the combined disallowed methods from all servers.
+    disallowedMethods.push(...server.disallowedMethods.map(method => `${namespace}_${method}`));
+  }
+
+  // Get the combined stringClassMap & objectClassMap from all servers
+  const classMaps = servers.reduce((acc, { server }) => {
+    return { ...acc, ...server.proxy.getClassMaps() };
+  }, {} as ClassMaps);
+
+  return new JsonRpcServer(handler, classMaps.stringClassMap, classMaps.objectClassMap, false, [], log);
 }

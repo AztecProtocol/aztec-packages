@@ -88,12 +88,18 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
 /**
  * Creates a Proxy object that delegates over RPC and satisfies RemoteObject<T>.
  * The server should have ran new JsonRpcServer().
+ * @param host - The host URL.
+ * @param stringClassMap - A map of class names to string representations.
+ * @param objectClassMap - A map of class names to class constructors.
+ * @param useApiEndpoints - Whether to use the API endpoints or the default RPC endpoint.
+ * @param fetch - The fetch implementation to use.
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
   stringClassMap: StringClassConverterInput,
   objectClassMap: JsonClassConverterInput,
   useApiEndpoints: boolean,
+  namespaceMethods?: string | false,
   fetch = defaultFetch,
 ) {
   const classConverter = new ClassConverter(stringClassMap, objectClassMap);
@@ -122,7 +128,11 @@ export function createJsonRpcClient<T extends object>(
   return new Proxy(
     {},
     {
-      get: (target, rpcMethod: string) => {
+      get: (target, method: string) => {
+        let rpcMethod = method;
+        if (namespaceMethods) {
+          rpcMethod = `${namespaceMethods}_${method}`;
+        }
         if (['then', 'catch'].includes(rpcMethod)) {
           return Reflect.get(target, rpcMethod);
         }

@@ -7,6 +7,13 @@ import { assert, hasOwnProperty } from '../js_utils.js';
 
 const debug = createDebugLogger('json-rpc:json_proxy');
 
+export type ClassMaps = {
+  /** The String class map */
+  stringClassMap: StringClassConverterInput;
+  /** The object class map */
+  objectClassMap: JsonClassConverterInput;
+};
+
 /**
  * Handles conversion of objects over the write.
  * Delegates to a ClassConverter object.
@@ -15,8 +22,8 @@ export class JsonProxy {
   classConverter: ClassConverter;
   constructor(
     private handler: object,
-    stringClassMap: StringClassConverterInput,
-    objectClassMap: JsonClassConverterInput,
+    private stringClassMap: StringClassConverterInput,
+    private objectClassMap: JsonClassConverterInput,
   ) {
     this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
   }
@@ -39,5 +46,21 @@ export class JsonProxy {
     const ret = convertToJsonObj(this.classConverter, rawRet);
     debug(format('JsonProxy:call', methodName, '->', ret));
     return ret;
+  }
+
+  /**
+   * Get a list of methods.
+   * @returns A list of methods.
+   */
+  public getMethods(): string[] {
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
+  }
+
+  /**
+   * Gets the class maps that were used to create the proxy.
+   * @returns The string & object class maps.
+   */
+  public getClassMaps(): ClassMaps {
+    return { stringClassMap: this.stringClassMap, objectClassMap: this.objectClassMap };
   }
 }

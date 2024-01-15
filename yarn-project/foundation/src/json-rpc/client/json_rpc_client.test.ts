@@ -10,7 +10,7 @@ it('test an RPC function over client', async () => {
     const result = await request(server.getApp().callback()).post(`/${method}`).send(body);
     return JSON.parse(result.text);
   };
-  const client = createJsonRpcClient<TestState>('', { TestNote }, {}, true, mockFetch);
+  const client = createJsonRpcClient<TestState>('', { TestNote }, {}, true, false, mockFetch);
   const result = await client.addNotes([new TestNote('c')]);
   expect(result[0]).toBeInstanceOf(TestNote);
   expect(result[1]).toBeInstanceOf(TestNote);
