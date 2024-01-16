@@ -30,7 +30,7 @@ It checks the data within _[private_inputs](#private-inputs).[previous_kernel](#
 
    - _read_requests_
    - The _nullifier_counter_ associated with each note hash in _note_hash_contexts_.
-   - The _nullified_note_hash_ associated with each nullifier in _nullifier_contexts_.
+   - The _note_hash_counter_ associated with each nullifier in _nullifier_contexts_.
 
    > A [reset iteration](./private-kernel-reset.md) should ideally precede this step. Although it doesn't have to be executed immediately before the tail circuit, as long as it effectively clears the specified values.
 

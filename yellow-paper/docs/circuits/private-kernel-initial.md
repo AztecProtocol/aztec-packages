@@ -164,7 +164,7 @@ This circuit verifies that the values in _[private_inputs](#private-inputs).[pri
    - _encrypted_log_hash_contexts_
      - _hash_, _length_, _randomness_, _counter_
    - _encrypted_note_preimage_hash_contexts_
-     - _hash_, _length_, _note_hash_, _counter_
+     - _hash_, _length_, _counter_, _note_hash_counter_
 
 2. Check that the hashes in the _private_call_requests_ align with the values in the _private_call_stack_item_hashes_ in the _private_function_public_inputs_, but in **reverse** order.
 
@@ -324,34 +324,34 @@ Data that remains the same throughout the entire transaction.
 | Field               | Type           | Description                                              |
 | ------------------- | -------------- | -------------------------------------------------------- |
 | _value_             | _field_        | Hash of the note.                                        |
-| _contract_address_  | _AztecAddress_ | Address of the contract the note was created.            |
 | _counter_           | _field_        | Counter at which the note hash was created.              |
 | _nullifier_counter_ | _field_        | Counter at which the nullifier for the note was created. |
+| _contract_address_  | _AztecAddress_ | Address of the contract the note was created.            |
 
 #### _NullifierContext_
 
-| Field                 | Type           | Description                                                                                                                |
-| --------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| _value_               | _field_        | Value of the nullifier.                                                                                                    |
-| _contract_address_    | _AztecAddress_ | Address of the contract the nullifier was created.                                                                         |
-| _counter_             | _field_        | Counter at which the nullifier was created.                                                                                |
-| _nullified_note_hash_ | _field_        | The hash of the transient note the nullifier is created for. 0 if the nullifier does not associated with a transient note. |
+| Field               | Type           | Description                                                                                                              |
+| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| _value_             | _field_        | Value of the nullifier.                                                                                                  |
+| _counter_           | _field_        | Counter at which the nullifier was created.                                                                              |
+| _note_hash_counter_ | _field_        | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
+| _contract_address_  | _AztecAddress_ | Address of the contract the nullifier was created.                                                                       |
 
 #### _L2toL1MessageContext_
 
 | Field                     | Type           | Description                                      |
 | ------------------------- | -------------- | ------------------------------------------------ |
 | _value_                   | _field_        | L2-to-l2 message.                                |
-| _contract_address_        | _AztecAddress_ | Address of the contract the message was created. |
 | _portal_contract_address_ | _AztecAddress_ | Address of the portal contract to the contract.  |
+| _contract_address_        | _AztecAddress_ | Address of the contract the message was created. |
 
 #### _ReadRequestContext_
 
 | Field              | Type           | Description                                   |
 | ------------------ | -------------- | --------------------------------------------- |
 | _note_hash_        | _field_        | Hash of the note to be read.                  |
-| _contract_address_ | _AztecAddress_ | Address of the contract the request was made. |
 | _counter_          | _field_        | Counter at which the request was made.        |
+| _contract_address_ | _AztecAddress_ | Address of the contract the request was made. |
 
 #### _UnencryptedLogHashContext_
 
@@ -359,8 +359,8 @@ Data that remains the same throughout the entire transaction.
 | ------------------ | -------------- | -------------------------------------------- |
 | _hash_             | _field_        | Hash of the unencrypted log.                 |
 | _length_           | _field_        | Number of fields of the log preimage.        |
-| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
 | _counter_          | _field_        | Counter at which the hash was emitted.       |
+| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
 
 #### _EncryptedLogHashContext_
 
@@ -369,18 +369,18 @@ Data that remains the same throughout the entire transaction.
 | _hash_             | _field_        | Hash of the encrypted log.                   |
 | _length_           | _field_        | Number of fields of the log preimage.        |
 | _randomness_       | _field_        | A random value to hide the contract address. |
-| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
 | _counter_          | _field_        | Counter at which the hash was emitted.       |
+| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
 
 #### _EncryptedNotePreimageHashContext_
 
-| Field              | Type           | Description                                  |
-| ------------------ | -------------- | -------------------------------------------- |
-| _hash_             | _field_        | Hash of the encrypted note preimage.         |
-| _length_           | _field_        | Number of fields of the note preimage.       |
-| _note_hash_        | _field_        | Hash of the corresponding note.              |
-| _contract_address_ | _AztecAddress_ | Address of the contract the log was emitted. |
-| _counter_          | _field_        | Counter at which the hash was emitted.       |
+| Field               | Type           | Description                                  |
+| ------------------- | -------------- | -------------------------------------------- |
+| _hash_              | _field_        | Hash of the encrypted note preimage.         |
+| _length_            | _field_        | Number of fields of the note preimage.       |
+| _note_hash_counter_ | _field_        | Counter of the corresponding note hash.      |
+| _counter_           | _field_        | Counter at which the hash was emitted.       |
+| _contract_address_  | _AztecAddress_ | Address of the contract the log was emitted. |
 
 #### _MembershipWitness_
 

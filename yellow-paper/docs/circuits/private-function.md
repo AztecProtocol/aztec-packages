@@ -64,10 +64,11 @@ The following format defines the ABI that is used by the private kernel circuit 
 
 #### _Nullifier_
 
-| Field     | Type    | Description                                 |
-| --------- | ------- | ------------------------------------------- |
-| _value_   | _field_ | Value of the nullifier.                     |
-| _counter_ | _field_ | Counter at which the nullifier was created. |
+| Field               | Type    | Description                                                                                                              |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| _value_             | _field_ | Value of the nullifier.                                                                                                  |
+| _counter_           | _field_ | Counter at which the nullifier was created.                                                                              |
+| _note_hash_counter_ | _field_ | Counter of the transient note the nullifier is created for. 0 if the nullifier does not associate with a transient note. |
 
 #### _UnencryptedLogHash_
 
@@ -88,12 +89,12 @@ The following format defines the ABI that is used by the private kernel circuit 
 
 #### _EncryptedNotePreimageHash_
 
-| Field       | Type    | Description                            |
-| ----------- | ------- | -------------------------------------- |
-| _hash_      | _field_ | Hash of the encrypted note preimage.   |
-| _length_    | _field_ | Number of fields of the note preimage. |
-| _note_hash_ | _field_ | Hash of the corresponding note.        |
-| _counter_   | _field_ | Counter at which the hash was emitted. |
+| Field               | Type    | Description                             |
+| ------------------- | ------- | --------------------------------------- |
+| _hash_              | _field_ | Hash of the encrypted note preimage.    |
+| _length_            | _field_ | Number of fields of the note preimage.  |
+| _counter_           | _field_ | Counter at which the hash was emitted.  |
+| _note_hash_counter_ | _field_ | Counter of the corresponding note hash. |
 
 #### _BlockHeader_
 
