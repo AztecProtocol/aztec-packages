@@ -75,10 +75,10 @@ export interface L1PublisherTxSender {
   getTransactionStats(txHash: string): Promise<TransactionStats | undefined>;
 
   /**
-   * Returns the current state hash.
-   * @returns The current state hash of the rollup contract.
+   * Returns the current archive root.
+   * @returns The current archive root of the rollup contract.
    */
-  getCurrentStateHash(): Promise<Buffer>;
+  getCurrentArchive(): Promise<Buffer>;
 }
 
 /**
@@ -135,15 +135,14 @@ export class L1Publisher implements L2BlockReceiver {
       body: block.bodyToBuffer(),
       proof: Buffer.alloc(0),
     };
-    const startStateHash = block.getStartStateHash();
+    const lastArchive = block.header.lastArchive.root.toBuffer();
 
     while (!this.interrupted) {
       // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
-      // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
-      // if (l2BlockData.number != 1 && !(await this.checkStartStateHash(startStateHash))) {
-      //   this.log(`Detected different state hash prior to publishing rollup, aborting publish...`);
-      //   break;
-      // }
+      if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
+        this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+        break;
+      }
 
       const txHash = await this.sendProcessTx(txData);
       if (!txHash) {
@@ -169,7 +168,7 @@ export class L1Publisher implements L2BlockReceiver {
       }
 
       // Check if someone else incremented the block number
-      if (!(await this.checkStartStateHash(startStateHash))) {
+      if (!(await this.checkLastArchiveHash(lastArchive))) {
         this.log('Publish failed. Detected different state hash.');
         break;
       }
@@ -242,17 +241,16 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   /**
-   * Verifies that the given value of start state hash equals that on the rollup contract
-   * @param startStateHash - The start state hash of the block we wish to publish.
+   * Verifies that the given value of last archive in a block header equals current archive of the rollup contract
+   * @param lastArchive - The last archive of the block we wish to publish.
    * @returns Boolean indicating if the hashes are equal.
    */
-  // TODO(benesjan): rename this
-  private async checkStartStateHash(startStateHash: Buffer): Promise<boolean> {
-    const fromChain = await this.txSender.getCurrentStateHash();
-    const areSame = startStateHash.equals(fromChain);
+  private async checkLastArchiveHash(lastArchive: Buffer): Promise<boolean> {
+    const fromChain = await this.txSender.getCurrentArchive();
+    const areSame = lastArchive.equals(fromChain);
     if (!areSame) {
-      this.log(`CONTRACT STATE HASH: ${fromChain.toString('hex')}`);
-      this.log(`NEW BLOCK STATE HASH: ${startStateHash.toString('hex')}`);
+      this.log(`CONTRACT ARCHIVE: ${fromChain.toString('hex')}`);
+      this.log(`NEW BLOCK LAST ARCHIVE: ${lastArchive.toString('hex')}`);
     }
     return areSame;
   }

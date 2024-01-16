@@ -75,9 +75,9 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
   }
 
-  async getCurrentStateHash(): Promise<Buffer> {
-    const stateHash = await this.rollupContract.read.archive();
-    return Buffer.from(stateHash.replace('0x', ''), 'hex');
+  async getCurrentArchive(): Promise<Buffer> {
+    const archive = await this.rollupContract.read.archive();
+    return Buffer.from(archive.replace('0x', ''), 'hex');
   }
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {

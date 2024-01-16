@@ -31,7 +31,7 @@ describe('L1Publisher', () => {
     txReceipt = { transactionHash: txHash, status: true } as MinimalTransactionReceipt;
     txSender.sendProcessTx.mockResolvedValueOnce(txHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(txReceipt);
-    txSender.getCurrentStateHash.mockResolvedValue(l2Block.getStartStateHash());
+    txSender.getCurrentArchive.mockResolvedValue(l2Block.header.lastArchive.root.toBuffer());
 
     publisher = new L1Publisher(txSender, { l1BlockPublishRetryIntervalMS: 1 });
   });
@@ -44,13 +44,12 @@ describe('L1Publisher', () => {
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(txHash);
   });
 
-  // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
-  // it('does not publish if start hash is different to expected', async () => {
-  //   txSender.getCurrentStateHash.mockResolvedValueOnce(L2Block.random(43).getStartStateHash());
-  //   const result = await publisher.processL2Block(l2Block);
-  //   expect(result).toBe(false);
-  //   expect(txSender.sendProcessTx).not.toHaveBeenCalled();
-  // });
+  it('does not publish if last archive root is different to expected', async () => {
+    txSender.getCurrentArchive.mockResolvedValueOnce(L2Block.random(43).archive.root.toBuffer());
+    const result = await publisher.publishL2Block(l2Block);
+    expect(result).toBe(false);
+    expect(txSender.sendProcessTx).not.toHaveBeenCalled();
+  });
 
   it('does not retry if sending a tx fails', async () => {
     txSender.sendProcessTx.mockReset().mockRejectedValueOnce(new Error()).mockResolvedValueOnce(txHash);
