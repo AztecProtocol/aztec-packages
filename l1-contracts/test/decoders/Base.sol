@@ -25,7 +25,6 @@ contract DecoderBase is Test {
   }
 
   struct Data {
-    // TODO(benejsan): Use HeaderDecoder.Header here?
     bytes archive;
     uint256 blockNumber;
     bytes body;

@@ -30,7 +30,7 @@ export class Header {
 
   static fromBuffer(buffer: Buffer | BufferReader): Header {
     const reader = BufferReader.asReader(buffer);
-    // TODO(benesjan): unify ordering here with ordering in constructor.
+    // TODO(#4045): unify ordering here with ordering in constructor.
     const globalVariables = reader.readObject(GlobalVariables);
     const state = reader.readObject(StateReference);
     const lastArchive = reader.readObject(AppendOnlyTreeSnapshot);

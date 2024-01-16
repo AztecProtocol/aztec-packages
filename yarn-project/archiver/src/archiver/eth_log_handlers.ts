@@ -107,7 +107,6 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  // TODO(benesjan): This is brittle and should be handled inside the L2 Block.
   const [headerHex, archiveHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
   const blockBuffer = Buffer.concat([
     Buffer.from(hexToBytes(headerHex)),

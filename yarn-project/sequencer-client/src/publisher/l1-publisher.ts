@@ -128,7 +128,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async publishL2Block(block: L2Block): Promise<boolean> {
+  public async processL2Block(block: L2Block): Promise<boolean> {
     const txData = {
       header: block.header.toBuffer(),
       archive: block.archive.toBuffer(),
