@@ -65,6 +65,10 @@ This function takes in 4 arguments:
 3. The block number
 4. Private context
 
+Note: for this to work, you will need to import `ValueNoteMethods` at the beginning of the contract:
+
+#include_code value_note_imports yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
+
 This will only prove the note existed, not whether or not the note has been nullified. You can prove that a note existed and had not been nullified in a specified block by using `prove_note_validity` which takes the same arguments:
 
 #include_code prove_note_validity yarn-project/noir-contracts/contracts/inclusion_proofs_contract/src/main.nr rust
