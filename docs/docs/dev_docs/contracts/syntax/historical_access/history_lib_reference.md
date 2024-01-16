@@ -85,7 +85,7 @@ This proves that a public value exists at a certain block.
 
 ### prove_public_value_inclusion
 
-`prove_public_value_inclusion` takes 3 parameters:
+`prove_public_value_inclusion` takes 4 parameters:
 
 | Name            | Type                   | Description                                         |
 |-----------------|------------------------|-----------------------------------------------------|
