@@ -10,14 +10,21 @@ describe('L1Publisher', () => {
   let txHash: string;
   let txReceipt: MinimalTransactionReceipt;
   let l2Block: L2Block;
-  let l2Inputs: Buffer;
-  let l2Proof: Buffer;
+
+  let header: Buffer;
+  let archive: Buffer;
+  let body: Buffer;
+  let proof: Buffer;
+
   let publisher: L1Publisher;
 
   beforeEach(() => {
     l2Block = L2Block.random(42);
-    l2Inputs = l2Block.toBufferWithLogs();
-    l2Proof = Buffer.alloc(0);
+
+    header = l2Block.header.toBuffer();
+    archive = l2Block.archive.toBuffer();
+    body = l2Block.bodyToBuffer();
+    proof = Buffer.alloc(0);
 
     txSender = mock<L1PublisherTxSender>();
     txHash = `0x${Buffer.from('txHash').toString('hex')}`; // random tx hash
@@ -33,7 +40,7 @@ describe('L1Publisher', () => {
     const result = await publisher.publishL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ proof: l2Proof, inputs: l2Inputs });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, proof });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(txHash);
   });
 
