@@ -92,7 +92,7 @@ contract Rollup is IRollup {
     }
 
     // TODO: @benejsan Manually extracting the root here is ugly. TODO: Re-think how to represent archive snap.
-    archive = bytes32(_header[:0x20]);
+    archive = bytes32(_archive[:0x20]);
     lastBlockTs = block.timestamp;
 
     // @todo (issue #605) handle fee collector
