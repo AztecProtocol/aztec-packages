@@ -237,16 +237,24 @@ export class Sequencer {
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
     const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
 
-    if (newContracts.length > 0) {
-      const blockHash = block.getCalldataHash();
-      this.log.info(`Publishing ${newContracts.length} contracts in block hash ${blockHash.toString('hex')}`);
+    if (newContracts.length === 0) {
+      this.log.debug(`No new contracts to publish in block ${block.number}`);
+      return;
+    }
 
-      const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContracts);
-      if (publishedContractData) {
-        this.log(`Successfully published new contract data for block ${block.number}`);
-      } else if (!publishedContractData && newContracts.length) {
-        this.log(`Failed to publish new contract data for block ${block.number}`);
-      }
+    const blockCalldataHash = block.getCalldataHash();
+    this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
+
+    const publishedContractData = await this.publisher.processNewContractData(
+      block.number,
+      blockCalldataHash,
+      newContracts,
+    );
+
+    if (publishedContractData) {
+      this.log(`Successfully published new contract data for block ${block.number}`);
+    } else if (!publishedContractData && newContracts.length) {
+      this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
 
