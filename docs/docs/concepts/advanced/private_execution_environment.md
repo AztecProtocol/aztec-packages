@@ -33,17 +33,25 @@ graph TD;
 
 The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more. For a more extensive list of operations, refer to the [PXE reference](../../apis/pxe/index.md).
 
-
 ## Components
 
 ### ACIR simulator
+
 
 ### Database
 
 ### Note discovery
 
+
+
 ### Key store
+
+The key store is a secure storage for your private and public keys. 
+
 
 ## Oracles
 
-
+To learn how to develop on top of the PXE, refer to these guides:
+* [Run more than one PXE on your local machine](../../dev_docs/pxe/run_more_than_one_pxe_sandbox.md)
+* [Write a custom oracle](../../dev_docs/pxe/custom_oracles.md)
+* [Use in-built oracles including oracles for arbitrary data](../../dev_docs/contracts/syntax/oracles.md)
