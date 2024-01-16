@@ -116,14 +116,20 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
 
       const node = (await this.tree.getNode(level, i))!;
 
-      if (snapshotNode.equals(node)) {
+      if ((snapshotNode === undefined && node !== undefined) || 
+        (snapshotNode === this.tree.getZeroHash(level))) {
+        batch.del(`${treeName}:${level}:${i}`);
+      } else if (snapshotNode === undefined && node === undefined) {
         continue;
+      } else if (snapshotNode !== undefined) {
+        if (node !== undefined && snapshotNode.equals(node)) {
+          continue;
+        }
+        batch.put(`${treeName}:${level}:${i}`, snapshotNode);
       }
 
-      batch.put(`${treeName}:${level}:${i}`, snapshotNode);
-
       if (level + 1 > depth) {
-        await this.handleLeafRestore(i, node, batch);
+        await this.handleLeafRestore(i, node, snapshotNode, batch);
         continue;
       }
 
@@ -142,9 +148,13 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     return;
   }
 
-  protected abstract handleLeaf(_index: bigint, _node: Buffer, _batch: LevelUpChain): Promise<void>;
+  protected handleLeaf(_index: bigint, _node: Buffer, _batch: LevelUpChain) {
+    return Promise.resolve();
+  }
 
-  protected abstract handleLeafRestore(_index: bigint, _node: Buffer, _batch: LevelUpChain): Promise<void>;
+  protected handleLeafRestore(_index: bigint, _node: Buffer, _snapshotNode: Buffer, _batch: LevelUpChain): Promise<void> {
+    return Promise.resolve();
+  }
 
   async getSnapshot(version: number): Promise<S> {
     const snapshotMetadata = await this.#getSnapshotMeta(version);

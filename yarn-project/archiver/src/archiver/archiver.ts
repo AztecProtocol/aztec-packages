@@ -128,6 +128,10 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * Fetches `L2BlockProcessed` and `ContractDeployment` logs from `nextL2BlockFromBlock` and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
+  // current 5
+  // lastProcessed 4 // last l1 block from l2 source
+  // lastLogged 5
+
   private async sync(blockUntilSynced: boolean) {
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
     // this makes the archiver more resilient to eventually-consistent eth providers like Infura
@@ -135,6 +139,12 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     // one thing to handle now is that we will process the same L1 to L2 messages over and over again
     // so the store needs to account for that.
     const lastProcessedL1BlockNumber = await this.store.getL1BlockNumber();
+
+    if (currentL1BlockNumber < this.lastLoggedL1BlockNumber) {
+      // if you end up in this case without something having reverted, we need to address this
+      this.lastLoggedL1BlockNumber = currentL1BlockNumber;
+    }
+
     if (currentL1BlockNumber <= lastProcessedL1BlockNumber) {
       // reducing logs, otherwise this gets triggered on every loop (1s)
       if (currentL1BlockNumber !== this.lastLoggedL1BlockNumber) {

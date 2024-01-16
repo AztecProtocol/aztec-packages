@@ -7,6 +7,25 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import fs from 'fs';
 
 /**
+ * evmSnapshotId - SnapshotId
+ * blockNumber - number
+ */
+export type SnapshotMetadata = {
+  /**
+   * snapshoid
+   */
+  evmSnapshotId: `0x${string}`,
+  /**
+   * blocknumber
+   */
+  aztecBlockNumber: number,
+  /**
+   * blocknumber
+   */
+  ethBlockNumber: number,
+}
+
+/**
  * A class that provides utility functions for interacting with the chain.
  */
 export class CheatCodes {
@@ -297,27 +316,32 @@ export class AztecCheatCodes {
 
   /**
   * Takes a snap shot in the underlying Anvil instance using Ganache supplied snap shot function
-  * @returns The ID of the snapshot
+  * @returns SnapshotMetadata
   */
-  public async snapShot(): Promise<`0x${string}`> {
+  public async snapShot(): Promise<SnapshotMetadata> {
     const rpcResult = await this.eth.rpcCall('evm_snapshot', []);
-    return rpcResult.result;
+    const ethBlockNumber = await this.eth.blockNumber();
+    const aztecBlockNumber = await this.pxe.getBlockNumber();
+    return {
+      evmSnapshotId: rpcResult.result,
+      aztecBlockNumber,
+      ethBlockNumber,
+    }
   }
 
   /**
-  * Takes a snap shot in the underlying Anvil instance using Ganache supplied snap shot function
-  * @param snapshotID - The snapshot ID that will be restored
+  * Restores a snap shot in the underlying Anvil instance using Ganache supplied snap shot function
+  * @param snapshotMetadata - The snapshot metaData that will be restored
   * @returns The ID of the snapshot
   */
-  public async restore(snapshotID: `0x${string}`): Promise<boolean> {
-    const rpcResult = await this.eth.rpcCall('evm_revert', [snapshotID]);
+  public async restore(snapshotMetadata: SnapshotMetadata): Promise<boolean> {
+    const rpcResult = await this.eth.rpcCall('evm_revert', [snapshotMetadata.evmSnapshotId]);
 
     if (rpcResult.result !== true) {
       throw new Error('Failed')
     }
-    
-    const node = await this.pxe.();
-    const merkleTreeD
+
+    await this.pxe.restoreSnapshot(snapshotMetadata.aztecBlockNumber);
     return true;
   }
 }

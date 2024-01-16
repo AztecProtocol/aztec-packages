@@ -104,6 +104,10 @@ export abstract class BaseWallet implements Wallet {
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
   }
+  //This entire file seems weird including this inclusion
+  restoreSnapshot(block: number): Promise<boolean> {
+    return this.pxe.restoreSnapshot(block)
+  }
   isGlobalStateSynchronized() {
     return this.pxe.isGlobalStateSynchronized();
   }

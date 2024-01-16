@@ -35,11 +35,19 @@ export class IndexedTreeSnapshotBuilder
     }
   }
 
-  protected async handleLeafRestore(index: bigint, node: Buffer, batch: LevelUpChain) {
-    const snapshotPreimage = await this.db.get(snapshotLeafValue(node, index));
+  // needs to be the snapshot node
+  // delete original node preimage
+  // set normal preimage to snapshot
+  protected async handleLeafRestore(
+    index: bigint,
+    node: Buffer,
+    snapshotNode: Buffer,
+    batch: LevelUpChain,
+  ) {
+    const snapshotPreimage = await this.db.get(snapshotLeafValue(snapshotNode, index));
+    const leafPreimage = await this.tree.getLatestLeafPreimageCopy(index, false);
 
     if (snapshotPreimage === undefined) {
-      const leafPreimage = (await this.tree.getLatestLeafPreimageCopy(index, false))!;
       batch.del(buildDbKeyForLeafIndex(this.tree.getName(), leafPreimage.getKey()));
       batch.del(buildDbKeyForPreimage(this.tree.getName(), index));
     }

@@ -250,7 +250,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     }
   }
 
-  public restoreSnapshot() {
-    this.merkleTreeDb.restoreSnapshot();
+  public async restoreSnapshot(block: number) {
+    await this.merkleTreeDb.restoreSnapshot(block);
   }
 }

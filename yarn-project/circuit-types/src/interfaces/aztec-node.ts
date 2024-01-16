@@ -148,5 +148,5 @@ export interface AztecNode extends StateInfoProvider {
    * Updates the configuration of this node.
    * @param block - Updated configuration to be merged with the current one.
    */
-  restoreSnapshot(block: number): Promise<boolean>;
+  restoreSnapshot(block: number): Promise<void>;
 }

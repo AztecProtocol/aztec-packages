@@ -70,4 +70,10 @@ export interface WorldStateSynchronizer {
    * @returns An instance of MerkleTreeOperations
    */
   getSnapshot(block: number): MerkleTreeOperations;
+
+  /**
+   * Returns an instance of MerkleTreeOperations that will include uncommitted data.
+   * @param block - The block number to restore
+   */
+  restoreSnapshot(block: number): Promise<void>;
 }

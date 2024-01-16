@@ -153,7 +153,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
       }
     }
 
-    await batch.write();
+    // await batch.write();
 
     let index = numLeaves - 1n;
     let level = depth;
@@ -161,7 +161,7 @@ export class AppendOnlySnapshotBuilder implements TreeSnapshotBuilder {
 
     while (level > 0) {
       const isRight = index & 0x01n;
-      const sibling = (await this.tree.getNode(level, isRight ? index - 1n : index + 1n)) ?? this.tree.getZeroHash(level - 1);
+      const sibling = (await this.tree.getNode(level, isRight ? index - 1n : index + 1n)) ?? this.tree.getZeroHash(level);
       const lhs = isRight ? sibling : current;
       const rhs = isRight ? current : sibling;
       current = this.hasher.hash(lhs, rhs);

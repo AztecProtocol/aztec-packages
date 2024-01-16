@@ -17,7 +17,6 @@ export interface TreeSnapshotBuilder<S extends TreeSnapshot = TreeSnapshot> {
    */
   restore(block: number): Promise<void>;
 
-
   /**
    * Returns a snapshot of the tree at the given version.
    * @param block - The version of the snapshot to return.
