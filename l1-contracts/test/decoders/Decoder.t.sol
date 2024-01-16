@@ -6,7 +6,11 @@ import {DecoderBase} from "./Base.sol";
 
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {DecoderHelper} from "../DecoderHelper.sol";
+
+import {DecoderHelper} from "./helpers/DecoderHelper.sol";
+import {HeaderDecoderHelper} from "./helpers/HeaderDecoderHelper.sol";
+import {MessagesDecoderHelper} from "./helpers/MessagesDecoderHelper.sol";
+import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
 
 import {Decoder} from "../../src/core/libraries/decoders/Decoder.sol";
 import {HeaderDecoder} from "../../src/core/libraries/decoders/HeaderDecoder.sol";
@@ -14,36 +18,6 @@ import {MessagesDecoder} from "../../src/core/libraries/decoders/MessagesDecoder
 import {TxsDecoder} from "../../src/core/libraries/decoders/TxsDecoder.sol";
 
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
-
-contract HeaderDecoderHelper {
-  // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _header) public pure returns (HeaderDecoder.Header memory) {
-    return HeaderDecoder.decode(_header);
-  }
-}
-
-contract MessagesDecoderHelper {
-  // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _body)
-    public
-    pure
-    returns (
-      bytes32 l1ToL2MsgsHash,
-      bytes32 l2ToL1MsgsHash,
-      bytes32[] memory l1ToL2Msgs,
-      bytes32[] memory l2ToL1Msgs
-    )
-  {
-    return MessagesDecoder.decode(_body);
-  }
-}
-
-contract TxsDecoderHelper {
-  // A wrapper used such that we get "calldata" and not memory
-  function decode(bytes calldata _body) public pure returns (bytes32 txsHash) {
-    return TxsDecoder.decode(_body);
-  }
-}
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.

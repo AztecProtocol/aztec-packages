@@ -11,6 +11,9 @@ target_dir=./generated
 
 CONTRACTS=(
   "l1-contracts:DecoderHelper"
+  "l1-contracts:HeaderDecoderHelper"
+  "l1-contracts:TxsDecoderHelper"
+  "l1-contracts:MessagesDecoderHelper"
   "l1-contracts:Registry"
   "l1-contracts:Inbox"
   "l1-contracts:Outbox"

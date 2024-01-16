@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 import {Test} from "forge-std/Test.sol";
 
 import {DecoderTest} from "./decoders/Decoder.t.sol";
-import {DecoderHelper} from "./DecoderHelper.sol";
+import {DecoderHelper} from "./decoders/helpers/DecoderHelper.sol";
 
 import {DecoderBase} from "./decoders/Base.sol";
 
