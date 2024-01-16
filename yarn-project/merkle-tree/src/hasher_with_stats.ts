@@ -35,9 +35,9 @@ export class HasherWithStats implements Hasher {
     return {
       hashCount: this.hashCount,
       // timerify records in ns, convert to ms
-      hashDuration: this.hashHistogram.mean / 10e6,
+      hashDuration: this.hashHistogram.mean / 1e6,
       hashInputsCount: this.hashInputsCount,
-      hashInputsDuration: this.hashInputsHistogram.mean / 10e6,
+      hashInputsDuration: this.hashInputsHistogram.mean / 1e6,
     };
   }
 
