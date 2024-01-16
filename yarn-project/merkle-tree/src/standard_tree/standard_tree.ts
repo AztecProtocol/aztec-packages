@@ -27,8 +27,7 @@ export class StandardTree extends TreeBase implements AppendOnlyTree {
       treeName: this.getName(),
       treeDepth: this.getDepth(),
       treeType: 'append-only',
-      hashCount: this.hasher.stats().count,
-      hashDuration: this.hasher.stats().averageDuration,
+      ...this.hasher.stats(),
     } satisfies TreeInsertionStats);
   }
 

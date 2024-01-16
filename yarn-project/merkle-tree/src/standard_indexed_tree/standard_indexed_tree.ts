@@ -615,8 +615,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       treeName: this.getName(),
       treeDepth: this.getDepth(),
       treeType: 'indexed',
-      hashCount: this.hasher.stats().count,
-      hashDuration: this.hasher.stats().averageDuration,
+      ...this.hasher.stats(),
     } satisfies TreeInsertionStats);
 
     return {

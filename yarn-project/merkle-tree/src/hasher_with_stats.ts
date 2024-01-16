@@ -7,31 +7,45 @@ import { createHistogram, performance } from 'perf_hooks';
  */
 export class HasherWithStats implements Hasher {
   hashCount = 0;
+  hashInputsCount = 0;
   hashHistogram = createHistogram();
+  hashInputsHistogram = createHistogram();
 
   hash: Hasher['hash'];
   hashInputs: Hasher['hashInputs'];
 
   constructor(hasher: Hasher) {
-    this.hash = performance.timerify((lhs, rhs) => {
-      this.hashCount++;
-      return hasher.hash(lhs, rhs);
-    });
-    this.hashInputs = performance.timerify((inputs: Buffer[]) => {
-      this.hashCount++;
-      return hasher.hashInputs(inputs);
-    });
+    this.hash = performance.timerify(
+      (lhs, rhs) => {
+        this.hashCount++;
+        return hasher.hash(lhs, rhs);
+      },
+      { histogram: this.hashHistogram },
+    );
+    this.hashInputs = performance.timerify(
+      (inputs: Buffer[]) => {
+        this.hashInputsCount++;
+        return hasher.hashInputs(inputs);
+      },
+      { histogram: this.hashInputsHistogram },
+    );
   }
 
   stats() {
     return {
-      count: this.hashCount,
-      averageDuration: this.hashHistogram.mean,
+      hashCount: this.hashCount,
+      // timerify records in ns, convert to ms
+      hashDuration: this.hashHistogram.mean / 10e6,
+      hashInputsCount: this.hashInputsCount,
+      hashInputsDuration: this.hashInputsHistogram.mean / 10e6,
     };
   }
 
   reset() {
     this.hashCount = 0;
     this.hashHistogram.reset();
+
+    this.hashInputsCount = 0;
+    this.hashInputsHistogram.reset();
   }
 }
