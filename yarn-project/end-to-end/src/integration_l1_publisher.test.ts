@@ -407,13 +407,19 @@ describe('L1Publisher integration', () => {
       const headerDecoderArgs = [`0x${block.header.toBuffer().toString('hex')}`] as const;
       const decodedHeader = await headerDecoderHelper.read.decode(headerDecoderArgs);
 
-      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(Number(decodedHeader.chainId));
-      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(Number(decodedHeader.version));
-      expect(block.number).toEqual(Number(decodedHeader.blockNumber));
-      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(Number(decodedHeader.timestamp));
+      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.chainId),
+      );
+      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.version),
+      );
+      expect(block.number).toEqual(Number(decodedHeader.globalVariables.blockNumber));
+      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.timestamp),
+      );
 
       // TODO(benesjan): this ugly. Unify how the archive value is represented.
-      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchive);
+      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
       const expectedLastArchiveRoot = block.header.lastArchive.root;
       expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
 
@@ -499,13 +505,19 @@ describe('L1Publisher integration', () => {
       const headerDecoderArgs = [`0x${block.header.toBuffer().toString('hex')}`] as const;
       const decodedHeader = await headerDecoderHelper.read.decode(headerDecoderArgs);
 
-      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(Number(decodedHeader.chainId));
-      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(Number(decodedHeader.version));
-      expect(block.number).toEqual(Number(decodedHeader.blockNumber));
-      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(Number(decodedHeader.timestamp));
+      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.chainId),
+      );
+      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.version),
+      );
+      expect(block.number).toEqual(Number(decodedHeader.globalVariables.blockNumber));
+      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(
+        Number(decodedHeader.globalVariables.timestamp),
+      );
 
       // TODO(benesjan): this ugly. Unify how the archive value is represented.
-      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchive);
+      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
       const expectedLastArchiveRoot = block.header.lastArchive.root;
       expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
 
