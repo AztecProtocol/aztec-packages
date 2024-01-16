@@ -60,11 +60,11 @@ contract DecoderTest is DecoderBase {
     {
       HeaderDecoder.Header memory header = headerHelper.decode(data.block.header);
 
-      assertEq(header.blockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(header.chainId, data.block.chainId, "Invalid chain Id");
-      assertEq(header.lastArchive, data.block.lastArchive, "Invalid last archive");
-      assertEq(header.timestamp, data.block.timestamp, "Invalid timestamp");
-      assertEq(header.version, data.block.version, "Invalid version");
+      assertEq(header.globalVariables.blockNumber, data.block.blockNumber, "Invalid block number");
+      assertEq(header.globalVariables.chainId, data.block.chainId, "Invalid chain Id");
+      assertEq(header.globalVariables.timestamp, data.block.timestamp, "Invalid timestamp");
+      assertEq(header.globalVariables.version, data.block.version, "Invalid version");
+      assertEq(header.lastArchiveRoot, data.block.lastArchive, "Invalid last archive");
     }
 
     // Messages
