@@ -39,7 +39,7 @@ These nodes are the sequencer and prover nodes. To function they must be connect
    - Assists in proving zero-knowledge (zk) proofs for block validation.
 
 ### Aztec Data Retrieval Capabilities:
-An Aztec node needs to be connected to an Ethereum L1 node to learn about the state of the system. Initially synching can be done this way, but due to the validity proofs, it will also support to download the state from a third party and then match it against the L1 state transitioner to validate that the state is correct. 
+An Aztec node needs to be connected to an Ethereum L1 node to learn about the state of the system. Initially synching can be done this way, but due to the validity proofs, it will also support to download the state from a third party and then match it against the L1 state transitioner to validate that the state is correct.
 
 As the Aztec node can be connected to different types of underlying network nodes, its ability to retrieve data will vary. Below we outline briefly what the capabilities are for each type of node:
 1. **Ethereum Light Node**:
@@ -56,12 +56,12 @@ As the Aztec node can be connected to different types of underlying network node
 
 ### Actor Types
 
-1. **Retail**:
+1. **Mainstream User**:
    - Least knowledgeable and least interested in technical details.
    - Prefers simplicity and ease of use.
    - Likely to avoid running any node software or only running if bundled
 2. **Enthusiast**: 
-   - More knowledgeable and interested in technology than retail.
+   - More knowledgeable and interested in technology than the mainstream user.
    - Willing to invest time and resources but not at a professional level.
 3. **Power Users**: 
    - Technically proficient and deeply engaged.
@@ -111,12 +111,12 @@ The type of node the PXE is connected to depends on the actor type.
 For a mobile application to work nicely for the users the PXE will most likely be bundled with a light node on device. This will allow the user to interact with the system without wider knowledge. Settings might allow you to connect the PXE directly to an endpoint for a node for advanced users.
 :::
 
-1. **Retail**: 
+1. **Mainstream User**: 
    - Running the bare minimum. PXE bundled with a light node.
    - Likely using low-power devices like mobile phones or old laptops.
    - Relies heavily on third-party services (Infura for L1 and some form of private information retrieval service (e.g. Oblivious Message Retrieval service) for L2 state)
 2. **Enthusiast**:
-   - While not fully retail, they are still not interested in running a full node. Essentially the same as retail from end-user perspective.
+   - While not fully a mainstream user, they are still not interested in running a full node. Essentially the same as mainstream users from end-user perspective.
 3. **Power Users**:
    - Will likely run a (pruned) full node, with their PXE connected to it.
    - Relies on third-party services for historical L1 data, but not for L2 data.
