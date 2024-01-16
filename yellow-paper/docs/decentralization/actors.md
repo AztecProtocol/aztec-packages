@@ -2,7 +2,7 @@
 title: Nodes and Actors
 ---
 
-To analyze the suitability of different node types for various actor types in your system, let's break down the node types and actor types, considering the characteristics, preferences, abilities, and potential motivations of each actor. This will help determine which actors are likely to run which nodes and how they might interact with the Private Execution Environment (PXE).
+To analyze the suitability of different node types for various actor types in your system, let's break down the node types and actor types, considering the characteristics, preferences, abilities, and potential motivations of each actor. This will help determine which actors are likely to run which nodes and how they might interact with the Private eXecution Environment (PXE).
 
 ## Node Types
 
@@ -78,10 +78,10 @@ As the Aztec node can be connected to different types of underlying network node
    - Interested in robust participation, potentially running Sequencer or Provers for financial gain.
 
 :::info State-Snapshots
-State snapshots is likely made and published by actors in the **Self-validator** or **Institution** category. These are actors that have the resources to run Archive Nodes and are interested in the historical data.
+State snapshots are likely made and published by actors in the **Self-validator** or **Institution** category. These are actors that have the resources to run Archive Nodes and are interested in the historical data.
 :::
 
-### Private Execution Environment (PXE)
+### Private eXecution Environment (PXE)
 
 The Aztec PXE is required to do anything meaningful for an end-user. It is the interface between the user and the Aztec node. The PXE is a private enclave that runs on the end-user's machine.
 
@@ -91,7 +91,7 @@ It is responsible for execution contracts and building proofs for the user's tra
 Note, that as the node will not store secrets for the user. The user relies on some mechanism to figure out "what to lookup", this is what is sometimes referred to as note-discovery: discovering what notes belong to the user.
 :::
 
-As the PXE learns of the users notes, it is stored in the PXE's storage for later usage. Beware that the PXE need to revalidate the membership paths of the notes when they are to be spent which will connect to the node.
+As the PXE learns of the users' notes, it stores them in a database for later usage. Beware that the PXE needs to revalidate the membership paths of the notes when they are to be spent. These paths will be obtained from an Aztec node.
 
 
 ### Users
@@ -114,20 +114,20 @@ For a mobile application to work nicely for the users the PXE will most likely b
 1. **Retail**: 
    - Running the bare minimum. PXE bundled with a light node.
    - Likely using low-power devices like mobile phones or old laptops.
-   - Relies heavily on third-party services (Infura for L1 and "OMR" for L2 state)
+   - Relies heavily on third-party services (Infura for L1 and some form of private information retrieval service (e.g. Oblivious Message Retrieval service) for L2 state)
 2. **Enthusiast**:
    - While not fully retail, they are still not interested in running a full node. Essentially the same as retail from end-user perspective.
 3. **Power Users**:
-   - Will likely run a (pruned) full node and connect the PXE to that.
+   - Will likely run a (pruned) full node, with their PXE connected to it.
    - Relies on third-party services for historical L1 data, but not for L2 data.
 4. **Developers**:
-   - Similar to power user, but more likely to run non-pruned node and connect PXE to that.
+   - Similar to power user, but more likely to run non-pruned node with their PXE connected to it.
    - Non-pruned used for other data access
 5. **Self-Validators**:
-   - Likely to run a full node or archive node and connect PXE to that.
+   - Likely to run a full node or archive node with their PXE connected to it..
 6. **Institutions**:
-   - Likely to use a managed service for running multiple nodes for better P2P connectivity for improved propagation.
-   - Connecting the PXE to this managed service.
+   - Likely to use a managed service for running multiple nodes, for better P2P connectivity, and as a result, improved data propagation.
+   - Connecting their PXE to this managed service.
 
 ---
 
