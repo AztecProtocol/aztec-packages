@@ -14,6 +14,18 @@ import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 /**
+ * Represents the latest L1 block processed by the archiver for various objects in L2.
+ */
+export type ArchiverL1SynchPoint = {
+  /** The last L1 block that added a new L2 block.  */
+  addedBlock: bigint;
+  /** The last L1 block that added pending messages */
+  addedMessages: bigint;
+  /** The last L1 block that cancelled messages */
+  cancelledMessages: bigint;
+};
+
+/**
  * Interface describing a data store to be used by the archiver to store all its relevant data
  * (blocks, encrypted logs, aztec contract data extended contract data).
  */
@@ -152,14 +164,7 @@ export interface ArchiverDataStore {
   getBlockNumber(): Promise<number>;
 
   /**
-   * Gets the number of the latest L1 block processed.
+   * Gets the last L1 block number processed by the archiver
    */
-  getL1BlockNumber(): Promise<{
-    /** The last L1 block that added a new L2 block.  */
-    addedBlock: bigint;
-    /** The last L1 block that added pending messages */
-    addedMessages: bigint;
-    /** The last L1 block that cancelled messages */
-    cancelledMessages: bigint;
-  }>;
+  getL1BlockNumber(): Promise<ArchiverL1SynchPoint>;
 }

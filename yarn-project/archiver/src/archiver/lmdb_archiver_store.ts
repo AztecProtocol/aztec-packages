@@ -16,12 +16,11 @@ import {
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Database, RangeOptions, RootDatabase } from 'lmdb';
 
-import { ArchiverDataStore } from './archiver_store.js';
+import { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 
 /* eslint-disable */
 type L1ToL2MessageAndCount = {
@@ -29,16 +28,6 @@ type L1ToL2MessageAndCount = {
   pendingCount: number;
   confirmedCount: number;
 };
-
-type L1ToL2MessageBlockKey = `${string}:${'newMessage' | 'cancelledMessage'}:${number}`;
-
-function l1ToL2MessageBlockKey(
-  l1BlockNumber: bigint,
-  key: 'newMessage' | 'cancelledMessage',
-  indexInBlock: number,
-): L1ToL2MessageBlockKey {
-  return `${toBufferBE(l1BlockNumber, 32).toString('hex')}:${key}:${indexInBlock}`;
-}
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -223,6 +212,12 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     });
   }
 
+  /**
+   * Append new pending L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * @returns True if the operation is successful.
+   */
   addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
       if ((this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_ADDED_PENDING_MESSAGE) ?? 0n) >= l1BlockNumber) {
@@ -254,6 +249,12 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     });
   }
 
+  /**
+   * Remove pending L1 to L2 messages from the store (if they were cancelled).
+   * @param cancelledMessages - The message keys to be removed from the store.
+   * @param l1BlockNumber - The L1 block number for which to remove the messages.
+   * @returns True if the operation is successful.
+   */
   cancelPendingL1ToL2Messages(cancelledMessages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
     return this.#tables.l1ToL2Messages.transaction(() => {
       if ((this.#tables.l1ToL2MessagesByBlock.get(L1_BLOCK_CANCELLED_MESSAGE) ?? 0n) >= l1BlockNumber) {
@@ -574,7 +575,10 @@ export class LMDBArchiverStore implements ArchiverDataStore {
     return Promise.resolve(typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1);
   }
 
-  getL1BlockNumber() {
+  /**
+   * Gets the last L1 block number processed by the archiver
+   */
+  getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
     // inverse range with no start/end will return the last value
     const [lastL2Block] = this.#tables.blocks.getRange({ reverse: true, limit: 1 }).asArray;
     const addedBlock = lastL2Block?.value?.l1BlockNumber ?? 0n;
