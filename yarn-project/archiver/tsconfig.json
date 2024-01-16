@@ -20,6 +20,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../kv-store"
     }
   ],
   "include": ["src"]

@@ -1,7 +1,9 @@
+import { Key, Range } from './common.js';
+
 /**
  * A map backed by a persistent store.
  */
-export interface AztecMap<K extends string | number, V> {
+export interface AztecMap<K extends Key, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from
@@ -23,6 +25,13 @@ export interface AztecMap<K extends string | number, V> {
   set(key: K, val: V): Promise<boolean>;
 
   /**
+   * Atomically swap the value at the given key
+   * @param key - The key to swap the value at
+   * @param fn - The function to swap the value with
+   */
+  swap(key: K, fn: (val: V | undefined) => V): Promise<boolean>;
+
+  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set
@@ -37,18 +46,21 @@ export interface AztecMap<K extends string | number, V> {
 
   /**
    * Iterates over the map's key-value entries
+   * @param range - The range of keys to iterate over
    */
-  entries(): IterableIterator<[K, V]>;
+  entries(range?: Range<K>): IterableIterator<[K, V]>;
 
   /**
    * Iterates over the map's values
+   * @param range - The range of keys to iterate over
    */
-  values(): IterableIterator<V>;
+  values(range?: Range<K>): IterableIterator<V>;
 
   /**
    * Iterates over the map's keys
+   * @param range - The range of keys to iterate over
    */
-  keys(): IterableIterator<K>;
+  keys(range?: Range<K>): IterableIterator<K>;
 }
 
 /**
