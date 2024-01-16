@@ -21,6 +21,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
+    using Polynomial = typename Flavor::Polynomial;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -31,9 +32,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     Builder* builder;
     std::shared_ptr<Transcript<Builder>> transcript;
 
-    ProtoGalaxyRecursiveVerifier_(VerifierInstances insts)
-        : instances(insts){};
-    ~ProtoGalaxyRecursiveVerifier_() = default;
+    explicit ProtoGalaxyRecursiveVerifier_(Builder* builder)
+        : instances(VerifierInstances())
+        , builder(builder){};
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
      * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
@@ -87,7 +88,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * accumulator, received from the prover is the same as that produced by the verifier.
      *
      */
-    bool verify_folding_proof(const plonk::proof& proof);
+    bool verify_folding_proof(std::vector<uint8_t> proof);
 };
 
 extern template class ProtoGalaxyRecursiveVerifier_<

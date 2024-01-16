@@ -1,4 +1,5 @@
 #include "protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
 namespace proof_system::plonk::stdlib::recursion::honk {
 
@@ -148,13 +149,13 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(const plonk::proof& proof)
+bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std::vector<uint8_t> proof)
 {
     using Transcript = typename Flavor::Transcript;
     using ElementNative = typename Flavor::Curve::ElementNative;
     using AffineElementNative = typename Flavor::Curve::AffineElementNative;
 
-    transcript = std::make_shared<Transcript>(builder, proof.proof_data);
+    transcript = std::make_shared<Transcript>(builder, proof);
     prepare_for_folding();
 
     auto delta = transcript->get_challenge("delta");
@@ -168,9 +169,9 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
 
     perturbator_coeffs[0].assert_equal(accumulator->target_sum, "F(0) != e");
 
-    auto perturbator = Polynomial<FF>(perturbator_coeffs);
+    auto perturbator = Polynomial(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
-    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
+    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge.get_value());
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
@@ -180,8 +181,8 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(cons
     }
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
-    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge").get_value();
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+    FF combiner_challenge = transcript->get_challenge("combiner_quotient_challenge");
+    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // fine recursive i think
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };

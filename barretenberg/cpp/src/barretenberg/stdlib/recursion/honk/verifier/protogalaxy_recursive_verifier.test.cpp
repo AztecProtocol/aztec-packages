@@ -8,15 +8,16 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
-template <typename BuilderType> class ProtogalaxyRecursiveVerifierTest : public testing::Test {
+template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing::Test {
     // Define types relevant for testing
     using UltraFlavor = ::proof_system::honk::flavor::Ultra;
     using GoblinUltraFlavor = ::proof_system::honk::flavor::GoblinUltra;
     using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
     using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
 
-    using InnerFlavor = UltraFlavor;
+    using InnerFlavor = UltraFlavor; // type this
     using InnerComposer = UltraComposer;
+    using Instance = ::proof_system::honk::ProverInstance_<InnerFlavor>;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
@@ -24,10 +25,12 @@ template <typename BuilderType> class ProtogalaxyRecursiveVerifierTest : public 
 
     // Types for recursive verifier circuit
     using RecursiveFlavor = ::proof_system::honk::flavor::UltraRecursive_<BuilderType>;
-    using VerifierInstances = ::proof_system::honk::VerifierInstances_<RecursiveFlavor, 2>;
-    using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<VerifierInstances>;
+    using RecursiveVerifierInstances = ::proof_system::honk::VerifierInstances_<RecursiveFlavor, 2>;
+    using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using OuterBuilder = BuilderType;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
+    using NativeVerifierInstances = ::proof_system::honk::VerifierInstances_<InnerFlavor, 2>;
+    using NativeFoldingVerifier = proof_system::honk::ProtoGalaxyVerifier_<NativeVerifierInstances>;
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -100,5 +103,46 @@ template <typename BuilderType> class ProtogalaxyRecursiveVerifierTest : public 
         bool result = builder.check_circuit();
         EXPECT_EQ(result, true);
     }
+
+    static void test_recursive_folding()
+    {
+        InnerBuilder builder1;
+        create_inner_circuit(builder1);
+        InnerBuilder builder2;
+        create_inner_circuit(builder2);
+        InnerComposer inner_composer = InnerComposer();
+        auto instance1 = inner_composer.create_instance(builder1);
+        auto instance2 = inner_composer.create_instance(builder2);
+        auto instances = std::vector<std::shared_ptr<Instance>>{ instance1, instance2 };
+        // commitment key accessible
+        auto inner_folding_prover = inner_composer.create_folding_prover(instances, inner_composer.commitment_key);
+        auto inner_folding_proof = inner_folding_prover.fold_instances();
+        // auto native_folding_verifier = inner_composer.create_folding_verifier();
+        // auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        // EXPECT_EQ(res, true);
+
+        OuterBuilder outer_circuit;
+        FoldingRecursiveVerifier verifier{ &outer_circuit };
+        auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        EXPECT_EQ(res, true);
+        info("Recursive Verifier Ultra: num gates = ", outer_circuit.num_gates);
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+    }
 };
+
+using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+TYPED_TEST_SUITE(ProtogalaxyRecursiveTest, BuilderTypes);
+
+TYPED_TEST(ProtogalaxyRecursiveTest, InnerCircuit)
+{
+    TestFixture::test_inner_circuit();
+}
+
+TYPED_TEST(ProtogalaxyRecursiveTest, FirstRound)
+{
+    TestFixture::test_recursive_folding();
+}
+
 } // namespace proof_system::plonk::stdlib::recursion::honk
