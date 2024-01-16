@@ -6,7 +6,7 @@ title: History Reference
 
 ## Note inclusion 
 
-Note inclusion proves that someone owned a note at a specific block number.
+Note inclusion proves that a note existed (its hash was included in a note hash tree) at a specific block number.
 
 ## prove_note_inclusion
 
@@ -48,7 +48,7 @@ This proves that a note exists and has not been nullified at a specified block.
 
 ## Nullifier inclusion
 
-This proves that a nullifier was included, ie a note had been nullified, in a certain block. 
+This proves that a nullifier was included in a certain block (can be used to prove that a note had been nullified). 
 
 ### prove_nullifier_inclusion
 
@@ -62,7 +62,7 @@ This proves that a nullifier was included, ie a note had been nullified, in a ce
 
 ## Nullifier non inclusion
 
-This proves that a nullifier was not included, ie a note had not been nullified, in a certain block.
+This proves that a nullifier was not included in a certain block (can be used to prove that a note had not yet been nullified in a given block).
 
 ### prove_nullifier_non_inclusion
 
