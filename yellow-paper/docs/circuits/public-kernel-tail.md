@@ -49,14 +49,18 @@ This circuit ensures the correct ordering of the following:
 
 2. For _storage_reads_, an _ordered_storage_reads_ and _storage_read_hints_ are provided as [hints](#hints) through _private_inputs_. This circuit checks that:
 
-   For each _read_ at index _i_ in _ordered_storage_reads_, the associated _mapped_read_ is at _`storage_reads[storage_read_hints[i]]`_.
+   For each _read_ at index _i_ in _`storage_reads[i]`_, the associated _mapped_read_ is at _`ordered_storage_reads[storage_read_hints[i]]`_.
 
    - If _`read.is_empty() == false`_, verify that:
-     - All values in _mapped_read_ align with those in _read_.
+     - All values in _read_ align with those in _mapped_read_:
+       - _`read.contract_address == mapped_read.contract_address`_
+       - _`read.storage_slot == mapped_read.storage_slot`_
+       - _`read.value == mapped_read.value`_
+       - _`read.counter == mapped_read.counter`_
      - If _i > 0_, verify that:
-       - _`read.counter > read[storage_read_hints[i - 1]].counter`_
+       - _`mapped_read[i].counter > mapped_read[i - 1].counter`_
    - Else:
-     - All the subsequent reads in both _storage_reads_ and _ordered_storage_reads_ must be empty.
+     - All the subsequent reads (_index >= i_) in both _storage_reads_ and _ordered_storage_reads_ must be empty.
 
 3. For _storage_writes_, an _ordered_storage_writes_ and _storage_write_hints_ are provided as [hints](#hints) through _private_inputs_. The verification is the same as the process for _storage_reads_.
 

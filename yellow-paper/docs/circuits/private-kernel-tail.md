@@ -117,7 +117,7 @@ Where:
      - If _i > 0_, verify that:
        - _`mapped_request[i].counter < mapped_request[i - 1].counter`_
    - Else:
-     - All the subsequent requests in both _public_call_requests_ and _unordered_requests_ must be empty.
+     - All the subsequent requests (_index >= i_) in both _public_call_requests_ and _unordered_requests_ must be empty.
 
    > Note that _public_call_requests_ must be arranged in descending order to ensure the calls are executed in chronological order.
 
@@ -130,7 +130,7 @@ Where:
      - If _i > 0_, verify that:
        - _`note_hashes[i].counter > note_hashes[i - 1].counter`_
    - Else:
-     - All the subsequent items in both _note_hashes_ and _note_hash_contexts_ must be empty.
+     - All the subsequent items (_index >= i_) in both _note_hashes_ and _note_hash_contexts_ must be empty.
 
    Repeat the same process for _nullifiers_, _ordered_unencrypted_log_hashes_, _ordered_encrypted_log_hashes_, and _ordered_encrypted_note_preimage_hashes_.
 
