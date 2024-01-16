@@ -127,7 +127,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       const app = rpcServer.getApp();
       const httpServer = http.createServer(app.callback());
       httpServer.listen(options.port);
-      userLog(`Aztec Server listening on port ${options.pxePort}`);
+      userLog(`Aztec Server listening on port ${options.port}`);
 
       // startHttpRpcServer(node, createAztecNodeRpcServer, options.nodePort);
       // userLog(`Aztec Node JSON-RPC Server listening on nodePort ${options.nodePort}`);

@@ -148,7 +148,9 @@ export class Synchronizer {
 
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
       this.log(`Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`);
+      let i = 1;
       for (const noteProcessor of this.noteProcessors) {
+        console.log('processing note processor', i++);
         await noteProcessor.process(blockContexts, encryptedLogs);
       }
       return true;

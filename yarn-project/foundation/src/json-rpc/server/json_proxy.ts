@@ -47,20 +47,4 @@ export class JsonProxy {
     debug(format('JsonProxy:call', methodName, '->', ret));
     return ret;
   }
-
-  /**
-   * Get a list of methods.
-   * @returns A list of methods.
-   */
-  public getMethods(): string[] {
-    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
-  }
-
-  /**
-   * Gets the class maps that were used to create the proxy.
-   * @returns The string & object class maps.
-   */
-  public getClassMaps(): ClassMaps {
-    return { stringClassMap: this.stringClassMap, objectClassMap: this.objectClassMap };
-  }
 }

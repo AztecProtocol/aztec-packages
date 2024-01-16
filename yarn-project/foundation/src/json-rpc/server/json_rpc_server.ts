@@ -15,11 +15,14 @@ import { ClassMaps, JsonProxy } from './json_proxy.js';
  * Minimal, dev-friendly mechanism to create a server from an object.
  */
 export class JsonRpcServer {
-  proxy: JsonProxy;
+  /**
+   * The proxy object.
+   */
+  public proxy: JsonProxy;
   constructor(
     private handler: object,
-    stringClassMap: StringClassConverterInput,
-    objectClassMap: JsonClassConverterInput,
+    private stringClassMap: StringClassConverterInput,
+    private objectClassMap: JsonClassConverterInput,
     private createApi: boolean,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
@@ -188,6 +191,32 @@ export class JsonRpcServer {
     const httpServer = http.createServer(this.getApp(prefix).callback());
     httpServer.listen(port);
   }
+
+  /**
+   * Get a list of methods.
+   * @returns A list of methods.
+   */
+  public getMethods(): string[] {
+    return Object.getOwnPropertyNames(Object.getPrototypeOf(this.handler));
+  }
+
+  /**
+   * Gets the class maps that were used to create the proxy.
+   * @returns The string & object class maps.
+   */
+  public getClassMaps(): ClassMaps {
+    return { stringClassMap: this.stringClassMap, objectClassMap: this.objectClassMap };
+  }
+
+  /**
+   * Call an RPC method.
+   * @param methodName - The RPC method.
+   * @param jsonParams - The RPG parameters.
+   * @returns The remote result.
+   */
+  public async call(methodName: string, jsonParams: any[] = []) {
+    return await this.proxy.call(methodName, jsonParams);
+  }
 }
 
 /**
@@ -229,9 +258,7 @@ export function startHttpRpcServer<T>(
  */
 type ServerList = {
   /** name of the service to be used for namespacing */
-  name: string;
-  /** server instance */
-  server: JsonRpcServer;
+  [name: string]: JsonRpcServer;
 }[];
 
 /**
@@ -245,26 +272,41 @@ export function createMultiJsonRpcServer(
 ): JsonRpcServer {
   const handler = {} as any;
   const disallowedMethods: string[] = [];
+  const classMapsArr: ClassMaps[] = [];
 
-  for (const { name: namespace, server } of servers) {
-    const serverMethods = server.proxy.getMethods();
+  for (const serverEntry of servers) {
+    const [namespace, server] = Object.entries(serverEntry)[0];
+    console.log('namespace', namespace, 'server', server);
+    const serverMethods = server.getMethods();
 
     for (const method of serverMethods) {
       const namespacedMethod = `${namespace}_${method}`;
 
       handler[namespacedMethod] = (...args: any[]) => {
-        return server.proxy.call(method, ...args);
+        return server.call(method, ...args);
       };
     }
 
     // get the combined disallowed methods from all servers.
     disallowedMethods.push(...server.disallowedMethods.map(method => `${namespace}_${method}`));
+    // get the combined classmaps from all servers.
+    const classMap = server.getClassMaps();
+    classMapsArr.push({
+      stringClassMap: classMap.stringClassMap,
+      objectClassMap: classMap.objectClassMap,
+    });
   }
 
   // Get the combined stringClassMap & objectClassMap from all servers
-  const classMaps = servers.reduce((acc, { server }) => {
-    return { ...acc, ...server.proxy.getClassMaps() };
-  }, {} as ClassMaps);
+  const classMaps = classMapsArr.reduce(
+    (acc, curr) => {
+      return {
+        stringClassMap: { ...acc.stringClassMap, ...curr.stringClassMap },
+        objectClassMap: { ...acc.objectClassMap, ...curr.objectClassMap },
+      };
+    },
+    { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
+  );
 
   return new JsonRpcServer(handler, classMaps.stringClassMap, classMaps.objectClassMap, false, [], log);
 }
