@@ -8,7 +8,6 @@
 //
 // And then run this script from the yarn-project/scripts folder
 // LOG_FOLDER=../end-to-end/log yarn bench-aggregate
-import { createConsoleLogger } from '@aztec/foundation/log';
 import {
   BENCHMARK_BLOCK_SIZES,
   BENCHMARK_HISTORY_BLOCK_SIZE,
@@ -28,7 +27,8 @@ import {
   TxAddedToPoolStats,
   TxPXEProcessingStats,
   TxSequencerProcessingStats,
-} from '@aztec/types/stats';
+} from '@aztec/circuit-types/stats';
+import { createConsoleLogger } from '@aztec/foundation/log';
 
 import * as fs from 'fs';
 import { mkdirpSync } from 'fs-extra';
@@ -167,10 +167,19 @@ function processTxSequencerProcessingStats(entry: TxSequencerProcessingStats, re
 /** Process a tree insertion event and updates results */
 function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkCollectedResults) {
   const bucket = entry.batchSize;
+  const depth = entry.treeDepth;
   if (entry.treeType === 'append-only') {
-    append(results, 'batch_insert_into_append_only_tree_ms', bucket, entry.duration);
+    if (depth === 16) {
+      append(results, 'batch_insert_into_append_only_tree_16_depth_ms', bucket, entry.duration);
+    } else if (depth === 32) {
+      append(results, 'batch_insert_into_append_only_tree_32_depth_ms', bucket, entry.duration);
+    }
   } else if (entry.treeType === 'indexed') {
-    append(results, 'batch_insert_into_indexed_tree_ms', bucket, entry.duration);
+    if (depth === 20) {
+      append(results, 'batch_insert_into_indexed_tree_20_depth_ms', bucket, entry.duration);
+    } else if (depth === 40) {
+      append(results, 'batch_insert_into_indexed_tree_40_depth_ms', bucket, entry.duration);
+    }
   }
 }
 

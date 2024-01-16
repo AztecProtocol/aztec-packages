@@ -1,16 +1,16 @@
-import { PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
+import { EthAddress, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/types';
 
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';
 import { AccountInterface } from '../account/interface.js';
 import { DefaultWaitOpts, DeployMethod, WaitOpts } from '../contract/index.js';
 import { ContractDeployer } from '../contract_deployer/index.js';
+import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
 import { AccountWalletWithPrivateKey } from '../wallet/index.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
-import { waitForAccountSynch } from './util.js';
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
@@ -92,6 +92,15 @@ export class AccountManager {
    */
   public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
     const address = await this.#register();
+
+    await this.pxe.addContracts([
+      {
+        artifact: this.accountContract.getContractArtifact(),
+        completeAddress: address,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+
     await waitForAccountSynch(this.pxe, address, opts);
     return this.getWallet();
   }

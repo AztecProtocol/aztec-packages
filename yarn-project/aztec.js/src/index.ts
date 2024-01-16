@@ -45,6 +45,7 @@ export {
   EthCheatCodes,
   computeAuthWitMessageHash,
   waitForPXE,
+  waitForAccountSynch,
 } from './utils/index.js';
 
 export { createPXEClient } from './pxe_client.js';
@@ -90,7 +91,6 @@ export {
   LogId,
   LogType,
   MerkleTreeId,
-  NodeInfo,
   Note,
   PXE,
   PackedArguments,
@@ -107,7 +107,9 @@ export {
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+
+export { NodeInfo } from '@aztec/types/interfaces';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.

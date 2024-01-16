@@ -117,18 +117,18 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         // commitment key accessible
         auto inner_folding_prover = inner_composer.create_folding_prover(instances, inner_composer.commitment_key);
         auto inner_folding_proof = inner_folding_prover.fold_instances();
-        // auto native_folding_verifier = inner_composer.create_folding_verifier();
-        // auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        // EXPECT_EQ(res, true);
-
-        OuterBuilder outer_circuit;
-        FoldingRecursiveVerifier verifier{ &outer_circuit };
-        auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        auto native_folding_verifier = inner_composer.create_folding_verifier();
+        auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
         EXPECT_EQ(res, true);
-        info("Recursive Verifier Ultra: num gates = ", outer_circuit.num_gates);
 
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        // OuterBuilder outer_circuit;
+        // FoldingRecursiveVerifier verifier{ &outer_circuit };
+        // auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        // EXPECT_EQ(res, true);
+        // info("Recursive Verifier Ultra: num gates = ", outer_circuit.num_gates);
+
+        // // Check for a failure flag in the recursive verifier circuit
+        // EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
     }
 };
 

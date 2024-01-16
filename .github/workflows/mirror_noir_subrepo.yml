@@ -41,6 +41,9 @@ jobs:
           if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=$BRANCH; then
             git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
             git push
+          else
+            echo "Problems syncing noir. We may need to pull the subrepo."
+            exit 1
           fi
 
       - name: Checkout
@@ -54,7 +57,7 @@ jobs:
         uses: repo-sync/pull-request@v2
         with:
           github_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          pr_title: 'feat: aztec-packages'
-          pr_body: 'Development from Aztec.'
+          pr_title: 'feat: Sync commits from `aztec-packages`'
+          pr_body: 'Development from [aztec-packages](https://github.com/AztecProtocol/aztec-packages).'
           destination_branch: 'master'
           source_branch: 'aztec-packages'

@@ -7,6 +7,34 @@ import {
   resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
+  AuthWitness,
+  AztecNode,
+  ContractDao,
+  ContractData,
+  DeployedContract,
+  ExtendedContractData,
+  ExtendedNote,
+  FunctionCall,
+  GetUnencryptedLogsResponse,
+  KeyStore,
+  L2Block,
+  L2Tx,
+  LogFilter,
+  MerkleTreeId,
+  NoteFilter,
+  PXE,
+  SimulationError,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxL2Logs,
+  TxReceipt,
+  TxStatus,
+  getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
+} from '@aztec/circuit-types';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
@@ -25,35 +53,7 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { NoirWasmVersion } from '@aztec/noir-compiler/versions';
-import {
-  AuthWitness,
-  AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  MerkleTreeId,
-  NodeInfo,
-  NoteFilter,
-  PXE,
-  SimulationError,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxL2Logs,
-  TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-} from '@aztec/types';
-import { TxPXEProcessingStats } from '@aztec/types/stats';
+import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -112,11 +112,18 @@ export class PXEService implements PXE {
 
     const registeredAddresses = await this.db.getCompleteAddresses();
 
+    let count = 0;
     for (const address of registeredAddresses) {
       if (!publicKeysSet.has(address.publicKey.toString())) {
         continue;
       }
+
+      count++;
       this.synchronizer.addAccount(address.publicKey, this.keyStore, this.config.l2StartingBlock);
+    }
+
+    if (count > 0) {
+      this.log(`Restored ${count} accounts`);
     }
   }
 

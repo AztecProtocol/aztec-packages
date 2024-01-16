@@ -1,7 +1,7 @@
+import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness } from '@aztec/circuits.js';
 import { DecodedReturn } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionL2Logs, Note } from '@aztec/types';
 
 import { ACVMField } from '../acvm/index.js';
 
@@ -83,5 +83,5 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   return [
     ...execResult.enqueuedPublicFunctionCalls,
     ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
-  ].sort((a, b) => b.sideEffectCounter! - a.sideEffectCounter!); // REVERSE SORT!
+  ].sort((a, b) => b.callContext.startSideEffectCounter - a.callContext.startSideEffectCounter);
 }

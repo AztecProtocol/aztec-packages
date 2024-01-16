@@ -25,6 +25,7 @@
     "aztec-sandbox",
     "aztec.js",
     "circuits.js",
+    "circuit-types",
     "cli",
     "docs",
     "end-to-end",
