@@ -27,6 +27,7 @@ describe('Contract Class', () => {
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
     decoderHelperAddress: EthAddress.random(),
+    headerDecoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',

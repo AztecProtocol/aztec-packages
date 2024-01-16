@@ -28,4 +28,8 @@ export interface L1ContractAddresses {
    * Decoder Helper Address.
    */
   decoderHelperAddress: EthAddress;
+  /**
+   * Header Decoder Helper Address.
+   */
+  headerDecoderHelperAddress: EthAddress;
 }

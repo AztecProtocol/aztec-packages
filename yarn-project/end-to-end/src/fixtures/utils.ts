@@ -24,6 +24,8 @@ import {
   ContractDeploymentEmitterBytecode,
   DecoderHelperAbi,
   DecoderHelperBytecode,
+  HeaderDecoderHelperAbi,
+  HeaderDecoderHelperBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -71,7 +73,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  deployDecoderHelper = false,
+  deployDecoderHelpers = false,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractDeploymentEmitter: {
@@ -95,10 +97,14 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
   };
-  if (deployDecoderHelper) {
+  if (deployDecoderHelpers) {
     l1Artifacts.decoderHelper = {
       contractAbi: DecoderHelperAbi,
       contractBytecode: DecoderHelperBytecode,
+    };
+    l1Artifacts.headerDecoderHelper = {
+      contractAbi: HeaderDecoderHelperAbi,
+      contractBytecode: HeaderDecoderHelperBytecode,
     };
   }
   return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);

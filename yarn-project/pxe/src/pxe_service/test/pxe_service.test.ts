@@ -31,6 +31,7 @@ async function createPXEService(): Promise<PXE> {
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
     decoderHelperAddress: EthAddress.random(),
+    headerDecoderHelperAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 

@@ -59,6 +59,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
     decoderHelperAddress: EthAddress.ZERO,
+    headerDecoderHelperAddress: EthAddress.ZERO,
   };
 
   return {
