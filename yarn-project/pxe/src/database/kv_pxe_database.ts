@@ -36,7 +36,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHash: AztecMultiMap<string, string>;
   #notesByOwner: AztecMultiMap<string, string>;
 
-  #deferredNotes: AztecArray<Buffer>;
+  #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
 
@@ -137,11 +137,6 @@ export class KVPxeDatabase implements PxeDatabase {
    * Removes all deferred notes for a given contract address.
    * @param contractAddress - the contract address to remove deferred notes for
    * @returns an array of the removed deferred notes
-   *
-   * @remarks We only remove indices from the deferred notes by contract map, but not the actual deferred notes.
-   * This is safe because our only getter for deferred notes is by contract address.
-   * If we should add a more general getter, we will need a delete vector for deferred notes as well,
-   * analogous to this.#nullifiedNotes.
    */
   removeDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]> {
     return this.#db.transaction(() => {
@@ -157,6 +152,7 @@ export class KVPxeDatabase implements PxeDatabase {
         }
 
         void this.#deferredNotesByContract.deleteValue(contractAddress.toString(), index);
+        void this.#deferredNotes.setAt(index, null);
       }
 
       return deferredNotes;
