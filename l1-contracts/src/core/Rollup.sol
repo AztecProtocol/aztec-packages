@@ -108,6 +108,8 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidVersion(header.version, VERSION);
     }
 
+    // block number already constrained by archive hash check
+
     if (header.timestamp > block.timestamp) {
       revert Errors.Rollup__TimestampInFuture();
     }
