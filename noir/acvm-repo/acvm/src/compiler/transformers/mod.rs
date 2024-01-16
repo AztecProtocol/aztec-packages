@@ -101,7 +101,14 @@ pub(super) fn transform_internal(
             Opcode::BlackBoxFuncCall(ref func) => {
                 match func {
                     acir::circuit::opcodes::BlackBoxFuncCall::AND { output, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. } => {
+                    | acir::circuit::opcodes::BlackBoxFuncCall::XOR { output, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntAdd { output, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntNeg { output, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntMul { output, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntDiv { output, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntFromLeBytes {
+                        output, ..
+                    } => {
                         transformer.mark_solvable(*output);
                     }
                     acir::circuit::opcodes::BlackBoxFuncCall::RANGE { .. }
@@ -114,7 +121,10 @@ pub(super) fn transform_internal(
                     }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Keccakf1600 { outputs, .. }
                     | acir::circuit::opcodes::BlackBoxFuncCall::Blake2s { outputs, .. }
-                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. } => {
+                    | acir::circuit::opcodes::BlackBoxFuncCall::Blake3 { outputs, .. }
+                    | acir::circuit::opcodes::BlackBoxFuncCall::BigIntToLeBytes {
+                        outputs, ..
+                    } => {
                         for witness in outputs {
                             transformer.mark_solvable(*witness);
                         }
