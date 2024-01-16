@@ -10,7 +10,7 @@ An Aztec transaction may include one or more **public execution requests**. A pu
 
 > A public execution request may originate from a public call enqueued by a transaction's private segment ([`enqueuedPublicFunctionCalls`](../calls/enqueued-calls.md)), or from a public [fee preparation](../gas-and-fees#fee-preparation) or [fee distribution](../gas-and-fees#fee-distribution) call.
 
-In order to execute public contract bytecode, the AVM requires some context. An [**execution context**](#execution-context) all information necessary to initiate AVM execution, including the relevant contract's bytecode and all state maintained by the AVM. A **contract call** initializes an execution context and triggers AVM execution within that context.
+In order to execute public contract bytecode, the AVM requires some context. An [**execution context**](#execution-context) contains all information necessary to initiate AVM execution, including the relevant contract's bytecode and all state maintained by the AVM. A **contract call** initializes an execution context and triggers AVM execution within that context.
 
 Instruction-by-instruction, the AVM [executes](#execution) the bytecode specified in its context. An **instruction** is a bytecode entry that, when executed, modifies the AVM's execution context according to the instruction's definition in the ["AVM Instruction Set"](./instruction-set). Execution within a context ends when the AVM encounters a [**halt**](#halting).
 
