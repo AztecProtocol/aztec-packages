@@ -16,8 +16,8 @@ TEST(BaseTranscript, TwoProversTwoFields)
 {
     const auto EXPECT_STATE = [](const Transcript& transcript, size_t start, size_t written, size_t read) {
         EXPECT_EQ(transcript.proof_start, static_cast<std::ptrdiff_t>(start));
-        EXPECT_EQ(transcript.num_bytes_written, written);
-        EXPECT_EQ(transcript.num_bytes_read, read);
+        EXPECT_EQ(transcript.num_frs_written, written);
+        EXPECT_EQ(transcript.num_frs_read, read);
     };
 
     Transcript prover_transcript;

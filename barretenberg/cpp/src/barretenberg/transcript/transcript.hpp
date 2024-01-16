@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/fields/field_conversion_utils.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 
 // #define LOG_CHALLENGES
@@ -80,12 +81,11 @@ class BaseTranscript {
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
-    size_t num_bytes_written = 0; // the number of bytes written to proof_data by the prover or the verifier
-    size_t num_bytes_read = 0;    // the number of bytes read from proof_data by the verifier
-    size_t round_number = 0;      // current round for manifest
+    size_t num_frs_written = 0; // the number of barretenberg::frs written to proof_data by the prover or the verifier
+    size_t num_frs_read = 0;    // the number of barretenberg::frs read from proof_data by the verifier
+    size_t round_number = 0;    // current round for manifest
 
   private:
-    static constexpr size_t MIN_BYTES_PER_CHALLENGE = 128 / 8; // 128 bit challenges
     bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
     Fr previous_challenge{};        // default-initialized to zeros
     std::vector<Fr> current_round_data;
@@ -143,16 +143,16 @@ class BaseTranscript {
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
      * @param label of the element sent
-     * @param element_bytes serialized
+     * @param element_frs serialized
      */
-    void consume_prover_element_bytes(const std::string& label, std::span<const Fr> element_bytes)
+    void consume_prover_element_frs(const std::string& label, std::span<const Fr> element_frs)
     {
         // Add an entry to the current round of the manifest
-        manifest.add_entry(round_number, label, element_bytes.size());
+        manifest.add_entry(round_number, label, element_frs.size());
 
-        current_round_data.insert(current_round_data.end(), element_bytes.begin(), element_bytes.end());
+        current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
 
-        num_bytes_written += element_bytes.size();
+        num_frs_written += element_frs.size();
     }
 
     /**
@@ -200,10 +200,10 @@ class BaseTranscript {
      */
     std::vector<Fr> export_proof()
     {
-        std::vector<Fr> result(num_bytes_written);
-        std::copy_n(proof_data.begin() + proof_start, num_bytes_written, result.begin());
-        proof_start += static_cast<std::ptrdiff_t>(num_bytes_written);
-        num_bytes_written = 0;
+        std::vector<Fr> result(num_frs_written);
+        std::copy_n(proof_data.begin() + proof_start, num_frs_written, result.begin());
+        proof_start += static_cast<std::ptrdiff_t>(num_frs_written);
+        num_frs_written = 0;
         return result;
     };
 
@@ -232,7 +232,7 @@ class BaseTranscript {
 
         // Compute the new challenge buffer from which we derive the challenges.
 
-        // Create challenges from bytes.
+        // Create challenges from Frs.
         std::array<uint256_t, num_challenges> challenges{};
 
         // Generate the challenges by iteratively hashing over the previous challenge.
@@ -258,7 +258,7 @@ class BaseTranscript {
      * @brief Adds a prover message to the transcript, only intended to be used by the prover.
      *
      * @details Serializes the provided object into `proof_data`, and updates the current round state in
-     * consume_prover_element_bytes.
+     * consume_prover_element_frs.
      *
      * @param label Description/name of the object being added.
      * @param element Serializable object that will be added to the transcript
@@ -283,7 +283,7 @@ class BaseTranscript {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        // BaseTranscript::consume_prover_element_field_elements(label, element_field_elements);
+        // BaseTranscript::consume_prover_element_frs(label, element_field_elements);
     }
 
     /**
@@ -294,15 +294,15 @@ class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        constexpr size_t element_size = sizeof(T);
-        ASSERT(num_bytes_read + element_size <= proof_data.size());
+        constexpr size_t element_size = barretenberg::calc_num_frs<T>(); // TODO: need to change calculation
+        ASSERT(num_frs_read + element_size <= proof_data.size());
 
-        auto element_bytes = std::span{ proof_data }.subspan(num_bytes_read, element_size);
-        num_bytes_read += element_size;
+        auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
+        num_frs_read += element_size;
 
-        BaseTranscript::consume_prover_element_bytes(label, element_bytes);
+        BaseTranscript::consume_prover_element_frs(label, element_frs);
 
-        T element = from_buffer<T>(element_bytes);
+        T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
