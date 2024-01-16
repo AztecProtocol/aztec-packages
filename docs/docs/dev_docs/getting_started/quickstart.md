@@ -71,6 +71,10 @@ Start by deploying a token contract. After it is deployed, we check that the dep
 
 #include_code deploy yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
+:::note
+If you're not using the default port for the Sandbox, make sure to pass the `--rpc-url` parameter, e.g.: `--rpc-url http://localhost:8000`.
+:::
+
 Note that the deployed contract address is exported, so we can use it as `$CONTRACT` later on.
 
 ## Call a contract with the CLI
