@@ -10,11 +10,11 @@ import {
   Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
+import { AztecLmdbStore } from '@aztec/kv-store';
 import { TokenContract } from '@aztec/noir-contracts/Token';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
 
-import { AztecLmdbStore } from '../../kv-store/src/lmdb/store.js';
 import { delay, deployAndInitializeTokenAndBridgeContracts, setNextBlockTimestamp, setup } from './fixtures/utils.js';
 
 // TODO (#2291) - Replace with token bridge standard
