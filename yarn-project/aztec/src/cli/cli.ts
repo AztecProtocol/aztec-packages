@@ -22,7 +22,7 @@ import { cliTexts } from './texts.js';
 import { openDb } from './util.js';
 
 const {
-  AZTEC_PORT = '80',
+  AZTEC_PORT = '8080',
   AZTEC_NODE_PORT = '8079',
   PXE_PORT = '8080',
   ARCHIVER_PORT = '8080',

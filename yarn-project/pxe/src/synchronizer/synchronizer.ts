@@ -155,6 +155,7 @@ export class Synchronizer {
       }
       return true;
     } catch (err) {
+      console.log(err);
       this.log.error(`Error in synchronizer work`, err);
       return false;
     }

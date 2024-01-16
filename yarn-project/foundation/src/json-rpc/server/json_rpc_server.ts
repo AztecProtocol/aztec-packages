@@ -276,7 +276,6 @@ export function createMultiJsonRpcServer(
 
   for (const serverEntry of servers) {
     const [namespace, server] = Object.entries(serverEntry)[0];
-    console.log('namespace', namespace, 'server', server);
     const serverMethods = server.getMethods();
 
     for (const method of serverMethods) {
