@@ -169,6 +169,54 @@ export const Metrics = [
     description: 'Time to insert a batch of leaves into an indexed tree',
     events: ['tree-insertion'],
   },
+  {
+    name: 'hash_append_only_tree_16_depth_count',
+    groupBy: 'leaf-count',
+    description: 'The number of hashes necessary to insert a batch of leaves into',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_append_only_tree_32_depth_count',
+    groupBy: 'leaf-count',
+    description: 'The number of hashes necessary to insert a batch of leaves into',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_duration_append_only_tree_16_depth_ms',
+    groupBy: 'leaf-count',
+    description: 'Average duration for a hash operation',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_duration_append_only_tree_32_depth_ms',
+    groupBy: 'leaf-count',
+    description: 'Average duration for a hash operation',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_indexed_tree_20_depth_count',
+    groupBy: 'leaf-count',
+    description: 'The number of hashes necessary to insert a batch of leaves into',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_indexed_tree_40_depth_count',
+    groupBy: 'leaf-count',
+    description: 'The number of hashes necessary to insert a batch of leaves into',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_duration_indexed_tree_20_depth_ms',
+    groupBy: 'leaf-count',
+    description: 'Average duration for a hash operation',
+    events: ['tree-insertion'],
+  },
+  {
+    name: 'hash_duration_indexed_tree_40_depth_ms',
+    groupBy: 'leaf-count',
+    description: 'Average duration for a hash operation',
+    events: ['tree-insertion'],
+  },
 ] as const satisfies readonly Metric[];
 
 /** Metric definitions to track from benchmarks. */

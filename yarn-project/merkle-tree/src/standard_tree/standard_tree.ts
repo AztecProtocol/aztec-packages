@@ -17,6 +17,7 @@ export class StandardTree extends TreeBase implements AppendOnlyTree {
    * @returns Empty promise.
    */
   public async appendLeaves(leaves: Buffer[]): Promise<void> {
+    this.hasher.reset();
     const timer = new Timer();
     await super.appendLeaves(leaves);
     this.log(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
@@ -26,6 +27,8 @@ export class StandardTree extends TreeBase implements AppendOnlyTree {
       treeName: this.getName(),
       treeDepth: this.getDepth(),
       treeType: 'append-only',
+      hashCount: this.hasher.stats().count,
+      hashDuration: this.hasher.stats().averageDuration,
     } satisfies TreeInsertionStats);
   }
 

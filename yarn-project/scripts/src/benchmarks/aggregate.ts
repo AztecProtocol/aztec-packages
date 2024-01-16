@@ -171,14 +171,22 @@ function processTreeInsertion(entry: TreeInsertionStats, results: BenchmarkColle
   if (entry.treeType === 'append-only') {
     if (depth === 16) {
       append(results, 'batch_insert_into_append_only_tree_16_depth_ms', bucket, entry.duration);
+      append(results, 'hash_append_only_tree_16_depth_count', bucket, entry.hashCount);
+      append(results, 'hash_duration_append_only_tree_16_depth_ms', bucket, entry.hashDuration);
     } else if (depth === 32) {
       append(results, 'batch_insert_into_append_only_tree_32_depth_ms', bucket, entry.duration);
+      append(results, 'hash_append_only_tree_32_depth_count', bucket, entry.hashCount);
+      append(results, 'hash_duration_append_only_tree_32_depth_ms', bucket, entry.hashDuration);
     }
   } else if (entry.treeType === 'indexed') {
     if (depth === 20) {
       append(results, 'batch_insert_into_indexed_tree_20_depth_ms', bucket, entry.duration);
+      append(results, 'hash_indexed_tree_20_depth_count', bucket, entry.hashCount);
+      append(results, 'hash_duration_indexed_tree_20_depth_ms', bucket, entry.hashDuration);
     } else if (depth === 40) {
       append(results, 'batch_insert_into_indexed_tree_40_depth_ms', bucket, entry.duration);
+      append(results, 'hash_indexed_tree_40_depth_count', bucket, entry.hashCount);
+      append(results, 'hash_duration_indexed_tree_40_depth_ms', bucket, entry.hashDuration);
     }
   }
 }
