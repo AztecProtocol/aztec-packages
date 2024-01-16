@@ -16,7 +16,7 @@ s
 
 Using this library, you can check that specific notes or nullifiers were part of Aztec network state at specific blocks. This can be useful for things such as:
 
-* Verifying a timestamp that was created in a private context
+* Verifying a minimum timestamp from a private context
 * Checking eligibility based on historical events (e.g. for an airdrop by proving that you owned a note) 
 * Verifying historic ownership / relinquishing of assets
 * Proving existence of a value in public data tree at a given contract slot
