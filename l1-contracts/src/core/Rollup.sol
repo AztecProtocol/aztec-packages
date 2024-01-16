@@ -21,7 +21,7 @@ import {AvailabilityOracle} from "./availability_oracle/AvailabilityOracle.sol";
 /**
  * @title Rollup
  * @author Aztec Labs
- * @notice Rollup contract that are concerned about readability and velocity of development
+ * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
 contract Rollup is IRollup {
@@ -77,12 +77,6 @@ contract Rollup is IRollup {
     // Decode the cross-chain messages
     (bytes32 inHash,, bytes32[] memory l1ToL2Msgs, bytes32[] memory l2ToL1Msgs) =
       MessagesDecoder.decode(_body);
-
-    // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    // TODO(#3936): Temporarily disabling this because L2Block encoding has not yet been updated.
-    // if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
-    //   revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
-    // }
 
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = _computePublicInputHash(_header, txsHash, inHash);
