@@ -75,78 +75,67 @@ import {
 import { Tuple, from2Fields, mapTuple } from '@aztec/foundation/serialize';
 
 import {
+  AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
+  ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
+  BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
+  BaseRollupInputs as BaseRollupInputsNoir,
   BlockHeader as BlockHeaderNoir,
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
+  ConstantRollupData as ConstantRollupDataNoir,
   ContractDeploymentData as ContractDeploymentDataNoir,
   ContractLeafMembershipWitness as ContractLeafMembershipWitnessNoir,
+  Field,
+  FinalAccumulatedData as FinalAccumulatedDataNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
+  GlobalVariables as GlobalVariablesNoir,
+  Header as HeaderNoir,
+  KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
+  MergeRollupInputs as MergeRollupInputsNoir,
   NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
+  NullifierLeafPreimage as NullifierLeafPreimageNoir,
+  NullifierMembershipWitness as NullifierMembershipWitnessNoir,
   OptionallyRevealedData as OptionallyRevealedDataNoir,
+  PartialStateReference as PartialStateReferenceNoir,
+  PreviousKernelData as PreviousKernelDataNoir,
+  PreviousRollupData as PreviousRollupDataNoir,
   PrivateCallData as PrivateCallDataNoir,
   PrivateCallStackItem as PrivateCallStackItemNoir,
   PrivateCircuitPublicInputs as PrivateCircuitPublicInputsNoir,
   PrivateKernelInputsInit as PrivateKernelInputsInitNoir,
-  PublicDataRead as PublicDataReadNoir,
-  PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
-  ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
-  SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
-  SideEffect as SideEffectNoir,
-  TxContext as TxContextNoir,
-  TxRequest as TxRequestNoir,
-} from './types/private_kernel_init_types.js';
-import {
-  PreviousKernelData as PreviousKernelDataNoir,
   PrivateKernelInputsInner as PrivateKernelInputsInnerNoir,
-} from './types/private_kernel_inner_types.js';
-import {
-  FinalAccumulatedData as FinalAccumulatedDataNoir,
-  KernelCircuitPublicInputsFinal as KernelCircuitPublicInputsFinalNoir,
   PrivateKernelInputsOrdering as PrivateKernelInputsOrderingNoir,
-} from './types/private_kernel_ordering_types.js';
-import {
   PublicCallData as PublicCallDataNoir,
   PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
-  PublicKernelPrivatePreviousInputs as PublicKernelInputsNoir,
-  StorageRead as StorageReadNoir,
-  StorageUpdateRequest as StorageUpdateRequestNoir,
-} from './types/public_kernel_private_previous_types.js';
-import {
-  ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
-  BaseRollupInputs as BaseRollupInputsNoir,
-  NullifierLeafPreimage as NullifierLeafPreimageNoir,
-  NullifierMembershipWitness as NullifierMembershipWitnessNoir,
   PublicDataMembershipWitness as PublicDataMembershipWitnessNoir,
+  PublicDataRead as PublicDataReadNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
-  StateDiffHints as StateDiffHintsNoir,
-} from './types/rollup_base_types.js';
-import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
-import {
-  AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
-  BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
-  ConstantRollupData as ConstantRollupDataNoir,
-  Field,
-  FixedLengthArray,
-  GlobalVariables as GlobalVariablesNoir,
-  Header as HeaderNoir,
-  PartialStateReference as PartialStateReferenceNoir,
-  PreviousRollupData as PreviousRollupDataNoir,
+  PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
+  PublicKernelPrivatePreviousInputs as PublicKernelInputsNoir,
+  ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
+  SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
+  SideEffect as SideEffectNoir,
+  StateDiffHints as StateDiffHintsNoir,
   StateReference as StateReferenceNoir,
-} from './types/rollup_root_types.js';
+  StorageRead as StorageReadNoir,
+  StorageUpdateRequest as StorageUpdateRequestNoir,
+  TxContext as TxContextNoir,
+  TxRequest as TxRequestNoir,
+} from './types/index.js';
 
 /* eslint-disable camelcase */
 
@@ -324,7 +313,7 @@ export function mapFunctionSelectorToNoir(functionSelector: FunctionSelector): F
  * @returns The function selector.
  */
 export function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNoir): FunctionSelector {
-  return FunctionSelector.fromField(mapFieldFromNoir(functionSelector.inner));
+  return FunctionSelector.fromField(mapFieldFromNoir(functionSelector.inner.toString()));
 }
 
 /**
@@ -383,7 +372,7 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     callContext.is_delegate_call,
     callContext.is_static_call,
     callContext.is_contract_deployment,
-    mapNumberFromNoir(callContext.start_side_effect_counter),
+    mapNumberFromNoir(callContext.start_side_effect_counter.toString()),
   );
 }
 
@@ -477,7 +466,7 @@ export function mapSideEffectToNoir(sideEffect: SideEffect): SideEffectNoir {
  * @returns The TS sideeffect.
  */
 export function mapSideEffectFromNoir(sideEffect: SideEffectNoir): SideEffect {
-  return new SideEffect(mapFieldFromNoir(sideEffect.value), mapFieldFromNoir(sideEffect.counter));
+  return new SideEffect(mapFieldFromNoir(sideEffect.value), mapFieldFromNoir(sideEffect.counter.toString()));
 }
 
 /**
@@ -506,7 +495,7 @@ export function mapSideEffectLinkedFromNoir(
   return new SideEffectLinkedToNoteHash(
     mapFieldFromNoir(sideEffectLinked.value),
     mapFieldFromNoir(sideEffectLinked.note_hash),
-    mapFieldFromNoir(sideEffectLinked.counter),
+    mapFieldFromNoir(sideEffectLinked.counter.toString()),
   );
 }
 
@@ -685,7 +674,7 @@ export function mapTupleFromNoir<T, N extends number, M>(
  * @param hash - The hash as it is represented in Noir (2 fields).
  * @returns The hash represented as a 32 bytes long buffer.
  */
-export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
+export function mapSha256HashFromNoir(hash: [Field, Field]): Buffer {
   return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
 }
 
@@ -1219,7 +1208,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
+    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type.toString()),
     mapFieldFromNoir(baseOrMergeRollupPublicInputs.rollup_subtree_height),
     AggregationObject.makeFake(),
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
@@ -1268,7 +1257,7 @@ export function mapPublicKernelInputs(inputs: PublicKernelInputs): PublicKernelI
 export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapshotNoir): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(
     mapFieldFromNoir(snapshot.root),
-    mapNumberFromNoir(snapshot.next_available_leaf_index),
+    mapNumberFromNoir(snapshot.next_available_leaf_index.toString()),
   );
 }
 
@@ -1329,7 +1318,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapHeaderFromNoir(header: HeaderNoir): Header {
   return new Header(
     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
-    mapSha256HashFromNoir(header.body_hash),
+    mapSha256HashFromNoir([header.body_hash[0], header.body_hash[1]]),
     mapStateReferenceFromNoir(header.state),
     mapGlobalVariablesFromNoir(header.global_variables),
   );

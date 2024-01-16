@@ -29,7 +29,6 @@
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/noir-compiler": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/backend_barretenberg": "portal:../../noir/packages/backend_barretenberg",
     "@noir-lang/noir_js": "portal:../../noir/packages/noir_js",
@@ -40,6 +39,7 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@jest/globals": "^29.5.0",
+    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
