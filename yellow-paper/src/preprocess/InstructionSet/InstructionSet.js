@@ -18,10 +18,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Arithmetic",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -30,8 +28,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] + M[bOffset] mod 2^k`",
         "Summary": "Addition (a + b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "sub",
@@ -39,10 +37,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Arithmetic",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -51,8 +47,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`",
         "Summary": "Subtraction (a - b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "mul",
@@ -60,10 +56,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Arithmetic",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -72,8 +66,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] * M[bOffset] mod 2^k`",
         "Summary": "Multiplication (a * b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "div",
@@ -81,10 +75,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Arithmetic",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -93,8 +85,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] / M[bOffset]`",
         "Summary": "Unsigned division (a / b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "eq",
@@ -102,10 +94,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Conditionals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -114,8 +104,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] == M[bOffset] ? 1 : 0`",
         "Summary": "Equality check (a == b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "lt",
@@ -123,10 +113,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Conditionals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -135,8 +123,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] < M[bOffset] ? 1 : 0`",
         "Summary": "Less-than check (a < b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "lte",
@@ -144,10 +132,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Conditionals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -156,8 +142,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] <= M[bOffset] ? 1 : 0`",
         "Summary": "Less-than-or-equals check (a <= b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "and",
@@ -165,10 +151,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -177,8 +161,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] AND M[bOffset]`",
         "Summary": "Bitwise AND (a & b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "or",
@@ -186,10 +170,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -198,8 +180,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] OR M[bOffset]`",
         "Summary": "Bitwise OR (a | b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "xor",
@@ -207,10 +189,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -219,8 +199,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] XOR M[bOffset]`",
         "Summary": "Bitwise XOR (a ^ b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "not",
@@ -228,10 +208,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's input"},
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
@@ -239,8 +217,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = NOT M[aOffset]`",
         "Summary": "Bitwise NOT (inversion)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "shl",
@@ -248,10 +226,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -260,8 +236,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] << M[bOffset]`",
         "Summary": "Bitwise leftward shift (a << b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "shr",
@@ -269,10 +245,8 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Bitwise",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": IN_TAG_DESCRIPTION},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
             {"name": "bOffset", "description": "memory offset of the operation's right input"},
@@ -281,8 +255,8 @@ const INSTRUCTION_SET_RAW = [
         "Expression": "`M[dstOffset] = M[aOffset] >> M[bOffset]`",
         "Summary": "Bitwise rightward shift (a >> b)",
         "Details": "",
-        "Tag checks": "`T[aOffset] == T[bOffset] == in-tag`",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "cast",
@@ -290,19 +264,17 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Type Conversions",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "dst-tag", "description": DST_TAG_DESCRIPTION},
+            {"name": "dstTag", "description": DST_TAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of word to cast"},
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
-        "Expression": "`M[dstOffset] = cast<dst-tag>(M[aOffset])`",
+        "Expression": "`M[dstOffset] = cast<dstTag>(M[aOffset])`",
         "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dst-tag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./state-model#cast-and-tag-conversions) for more details.",
+        "Details": "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./state-model#cast-and-tag-conversions) for more details.",
         "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = dst-tag`",
+        "Tag updates": "`T[dstOffset] = dstTag`",
     },
     {
         "id": "address",
@@ -311,8 +283,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -329,8 +299,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -347,8 +315,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -365,8 +331,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -383,8 +347,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -401,13 +363,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.environment.feePerL1Gas`",
-        "Summary": "The fee to be paid per \"L1 gas\" - constant for entire transaction",
+        "Summary": "Get the fee to be paid per \"L1 gas\" - constant for entire transaction",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -419,13 +379,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.environment.feePerL2Gas`",
-        "Summary": "The fee to be paid per \"L2 gas\" - constant for entire transaction",
+        "Summary": "Get the fee to be paid per \"L2 gas\" - constant for entire transaction",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -437,13 +395,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.environment.feePerDaGas`",
-        "Summary": "The fee to be paid per \"DA gas\" - constant for entire transaction",
+        "Summary": "Get the fee to be paid per \"DA gas\" - constant for entire transaction",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -455,8 +411,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -473,8 +427,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -491,8 +443,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -509,8 +459,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -527,8 +475,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -545,8 +491,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -563,8 +507,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -581,8 +523,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -599,8 +539,6 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
@@ -617,15 +555,13 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "`s1`",
-        "#memwrites": "`s1`",
         "Args": [
             {"name": "cdOffset", "description": "offset into calldata to copy from"},
             {"name": "copySize", "description": "number of words to copy", "mode": "immediate", "type": "u32"},
             {"name": "dstOffset", "description": "memory offset specifying where to copy the first word to"},
         ],
         "Expression": "`M[dstOffset:dstOffset+copySize] = context.environment.calldata[cdOffset:cdOffset+copySize]`",
-        "Summary": "Copy calldata into memory.",
+        "Summary": "Copy calldata into memory",
         "Details": "Calldata is read-only and cannot be directly operated on by other instructions. This instruction moves words from calldata into memory so they can be operated on normally.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset:dstOffset+copySize] = field`",
@@ -637,13 +573,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.machineState.l1GasLeft`",
-        "Summary": "Remaining \"L1 gas\" for this call (after this instruction).",
+        "Summary": "Remaining \"L1 gas\" for this call (after this instruction)",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -655,13 +589,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.MachineState.l2GasLeft`",
-        "Summary": "Remaining \"L2 gas\" for this call (after this instruction).",
+        "Summary": "Remaining \"L2 gas\" for this call (after this instruction)",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -673,13 +605,11 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.machineState.daGasLeft`",
-        "Summary": "Remaining \"DA gas\" for this call (after this instruction).",
+        "Summary": "Remaining \"DA gas\" for this call (after this instruction)",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -689,13 +619,11 @@ const INSTRUCTION_SET_RAW = [
         "Name": "`JUMP`",
         "Category": "Control Flow - Internal",
         "Flags": [],
-        "#memreads": "0",
-        "#memwrites": "0",
         "Args": [
             {"name": "loc", "description": "target location to jump to", "mode": "immediate", "type": "u32"},
         ],
         "Expression": "`context.machineState.pc = loc`",
-        "Summary": "Jump to a location in the bytecode.",
+        "Summary": "Jump to a location in the bytecode",
         "Details": "Target location is an immediate value (a constant in the bytecode).",
         "Tag checks": "",
         "Tag updates": "",
@@ -707,14 +635,12 @@ const INSTRUCTION_SET_RAW = [
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "3",
-        "#memwrites": "0",
         "Args": [
             {"name": "loc", "description": "target location conditionally jump to", "mode": "immediate", "type": "u32"},
             {"name": "condOffset", "description": "memory offset of the operations 'conditional' input"},
         ],
         "Expression": "`context.machineState.pc = M[condOffset] > 0 ? loc : context.machineState.pc`",
-        "Summary": "Conditionally jump to a location in the bytecode.",
+        "Summary": "Conditionally jump to a location in the bytecode",
         "Details": "Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
         "Tag checks": "",
         "Tag updates": "",
@@ -724,8 +650,6 @@ const INSTRUCTION_SET_RAW = [
         "Name": "`internalcall`",
         "Category": "Control Flow - Internal",
         "Flags": [],
-        "#memreads": "3",
-        "#memwrites": "0",
         "Args": [
             {"name": "loc", "description": "target location to jump/call to", "mode": "immediate", "type": "u32"},
         ],
@@ -733,21 +657,19 @@ const INSTRUCTION_SET_RAW = [
 context.machineState.internalCallStack.push(context.machineState.pc)
 context.machineState.pc = loc
 `,
-        "Summary": "Make an internal call. Pushes the current PC to the internal call stack and jumps to the target location.",
+        "Summary": "Make an internal call. Push the current PC to the internal call stack and jump to the target location.",
         "Details": "Target location is an immediate value (a constant in the bytecode).",
         "Tag checks": "",
         "Tag updates": "",
     },
     {
         "id": "internalreturn",
-        "Name": "`internalreturn`",
+        "Name": "`INTERNALRETURN`",
         "Category": "Control Flow - Internal",
         "Flags": [],
-        "#memreads": "3",
-        "#memwrites": "0",
         "Args": [],
         "Expression": "`context.machineState.pc = context.machineState.internalCallStack.pop()`",
-        "Summary": "Return from an internal call. Pops from the internal call stack and jumps there.",
+        "Summary": "Return from an internal call. Pop from the internal call stack and jump to the popped location.",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "",
@@ -759,13 +681,11 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = context.machineState.internalCallStack.length`",
-        "Summary": "Depth of the current context's internal call stack",
+        "Summary": "Get the depth of the current context's internal call stack",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = u32`",
@@ -776,19 +696,17 @@ context.machineState.pc = loc
         "Category": "Machine State - Memory",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "in-tag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
+            {"name": "inTag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
         ],
-        "#memreads": "0",
-        "#memwrites": "1",
         "Args": [
             {"name": "const", "description": "an N-bit constant value from the bytecode to store in memory (any type except `field`)", "mode": "immediate"},
             {"name": "dstOffset", "description": "memory offset specifying where to store the constant"},
         ],
         "Expression": "`M[dstOffset] = const`",
-        "Summary": "Set a memory word from a constant in the bytecode.",
-        "Details": "Set memory word at `dstOffset` to `const`'s immediate value. `const`'s bit-size (N) can be 8, 16, 32, 64, or 128 based on `in-tag`. It _cannot be 254 (`field` type)_!",
+        "Summary": "Set a memory word from a constant in the bytecode",
+        "Details": "Set memory word at `dstOffset` to `const`'s immediate value. `const`'s bit-size (N) can be 8, 16, 32, 64, or 128 based on `inTag`. It _cannot be 254 (`field` type)_!",
         "Tag checks": "",
-        "Tag updates": "`T[dstOffset] = in-tag`",
+        "Tag updates": "`T[dstOffset] = inTag`",
     },
     {
         "id": "mov",
@@ -797,14 +715,12 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "1",
         "Args": [
             {"name": "srcOffset", "description": "memory offset of word to move"},
             {"name": "dstOffset", "description": "memory offset specifying where to store that word"},
         ],
         "Expression": "`M[dstOffset] = M[srcOffset]`",
-        "Summary": "Move a word from source memory location to destination`.",
+        "Summary": "Move a word from source memory location to destination",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = T[srcOffset]`",
@@ -816,8 +732,6 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "3",
-        "#memwrites": "1",
         "Args": [
             {"name": "aOffset", "description": "memory offset of word 'a' to conditionally move"},
             {"name": "bOffset", "description": "memory offset of word 'b' to conditionally move"},
@@ -825,7 +739,7 @@ context.machineState.pc = loc
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
         "Expression": "`M[dstOffset] = M[condOffset] > 0 ? M[aOffset] : M[bOffset]`",
-        "Summary": "Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`).",
+        "Summary": "Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`)",
         "Details": "One of two source memory locations is chosen based on the condition. `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
@@ -837,14 +751,12 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "1",
         "Args": [
             {"name": "blockNumOffset", "description": "memory offset of the block number input"},
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result's 0th word"},
         ],
         "Expression": "`M[dstOffset:dstOffset+BLOCK_HEADER_LENGTH] = context.worldState.blockHeader[M[blockNumOffset]]`",
-        "Summary": "Get the block header as of the specified block number.",
+        "Summary": "Get the block header as of the specified block number",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset:dstOffset+BLOCK_HEADER_LENGTh] = field`",
@@ -856,14 +768,12 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "1",
         "Args": [
             {"name": "slotOffset", "description": "memory offset of the storage slot to load from"},
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
-        "Expression": "`M[dstOffset] = context.worldState.publicStorage[M[slotOffset]]`",
-        "Summary": "Load a word from storage.",
+        "Expression": "`M[dstOffset] = context.worldState.publicStorage[context.environment.storageAddress, M[slotOffset]]`",
+        "Summary": "Load a word from storage",
         "Details": "Load a word from this contract's persistent public storage into memory.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = field`",
@@ -875,14 +785,12 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "2",
-        "#memwrites": "0",
         "Args": [
             {"name": "srcOffset", "description": "memory offset of the word to store"},
             {"name": "slotOffset", "description": "memory offset containing the storage slot to store to"},
         ],
-        "Expression": "`context.worldState.publicStorage[M[slotOffset]] = M[srcOffset]`",
-        "Summary": "Write a word to storage.",
+        "Expression": "`context.worldState.publicStorage[context.environment.storageAddress, M[slotOffset]] = M[srcOffset]`",
+        "Summary": "Write a word to storage",
         "Details": "Store a word from memory into this contract's persistent public storage.",
         "Tag checks": "",
         "Tag updates": "",
@@ -894,14 +802,12 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "0",
         "Args": [
             {"name": "msgKeyOffset", "description": "memory offset of the message's key"},
             {"name": "dstOffset", "description": "memory offset to place the 0th word of the message content"},
             {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": `M[dstOffset:dstOffset+msgSize] = l1ToL2Messages(M[msgKeyOffset])`,
+        "Expression": "`M[dstOffset:dstOffset+msgSize] = context.worldState.l1ToL2Messages(M[msgKeyOffset])`",
         "Summary": "Reads an L1-to-L2 message",
         "Details": "",
         "Tag checks": "",
@@ -914,13 +820,11 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "0",
         "Args": [
             {"name": "msgOffset", "description": "memory offset of the message content"},
             {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": `l2ToL1Messages.append(M[msgOffset:msgOffset+msgSize])`,
+        "Expression": "`context.worldState.l2ToL1Messages.append(M[msgOffset:msgOffset+msgSize])`",
         "Summary": "Send an L2-to-L1 message",
         "Details": "",
         "Tag checks": "",
@@ -933,12 +837,10 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "0",
         "Args": [
             {"name": "noteHashOffset", "description": "memory offset of the note hash"},
         ],
-        "Expression": `newHashes.append(M[noteHashOffset])`,
+        "Expression": "`context.worldState.newHashes.append(M[noteHashOffset])`",
         "Summary": "Emit a new note hash to be inserted into the notes tree",
         "Details": "",
         "Tag checks": "",
@@ -951,32 +853,28 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "1",
-        "#memwrites": "0",
         "Args": [
             {"name": "nullifierOffset", "description": "memory offset of nullifier"},
         ],
-        "Expression": `nullifiers.append(M[nullifierOffset])`,
+        "Expression": "`context.worldState.nullifiers.append(M[nullifierOffset])`",
         "Summary": "Emit a new nullifier to be inserted into the nullifier tree",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "",
     },
     {
-        "id": "ulog",
-        "Name": "`ULOG`",
+        "id": "emitunencryptedlog",
+        "Name": "`EMITUNENCRYPTEDLOG`",
         "Category": "Accrued Substate - Logging",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "`s1`",
-        "#memwrites": "0",
         "Args": [
             {"name": "logOffset", "description": "memory offset of the data to log"},
             {"name": "logSize", "description": "number of words to log", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`ulog(M[logOffset:logOffset+logSize])`",
-        "Summary": "Emit an unencrypted log with data from the `field` memory page",
+        "Expression": "`context.accruedSubstate.unencryptedLogs.append(M[logOffset:logOffset+logSize])`",
+        "Summary": "Emit an unencrypted log",
         "Details": "",
         "Tag checks": "",
         "Tag updates": "",
@@ -988,8 +886,6 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "7",
-        "#memwrites": "`1+retSize`",
         "Args": [
             {"name": "gasOffset", "description": "offset to three words containing `{l1GasLeft, l2GasLeft, daGasLeft}`: amount of gas to provide to the callee"},
             {"name": "addrOffset", "description": "address of the contract to call"},
@@ -1006,10 +902,10 @@ M[successOffset] = call(
     M[argsOffset], M[argsSize],
     M[retOffset], M[retSize])
 `,
-        "Summary": "Call into another contract.",
-        "Details": `Creates a new execution context, triggers execution within it,
-                    and then resumes execution in the current/calling context. A non-existent contract or one
-                    with no code will return success. Nested call has an incremented \`context.environment.contractCallDepth\`.`,
+        "Summary": "Call into another contract",
+        "Details": `Creates a new (nested) execution context and triggers execution within it until the nested context halts.
+                    Then resumes execution in the current/calling context. A non-existent contract or one
+                    with no code will return success. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.`,
         "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
         "Tag updates": `
 T[successOffset] = u8
@@ -1023,8 +919,6 @@ T[retOffset:retOffset+retSize] = field
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "7",
-        "#memwrites": "`1+retSize`",
         "Args": [
             {"name": "gasOffset", "description": "offset to three words containing `{l1GasLeft, l2GasLeft, daGasLeft}`: amount of gas to provide to the callee"},
             {"name": "addrOffset", "description": "address of the contract to call"},
@@ -1041,8 +935,8 @@ M[successOffset] = staticcall(
     M[argsOffset], M[argsSize],
     M[retOffset], M[retSize])
 `,
-        "Summary": "Call into another contract, disallowing World State modifications.",
-        "Details": "Same as `CALL`, but the callee is cannot modify World State.",
+        "Summary": "Call into another contract, disallowing World State and Accrued Substate modifications",
+        "Details": "Same as `CALL`, but disallows World State and Accrued Substate modifications. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
         "Tag updates": `
 T[successOffset] = u8
@@ -1056,15 +950,16 @@ T[retOffset:retOffset+retSize] = field
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "`s1`",
-        "#memwrites": "0",
         "Args": [
             {"name": "retOffset", "description": "memory offset of first word to return"},
             {"name": "retSize", "description": "number of words to return", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`return(M[retOffset:retOffset+retSize])`",
-        "Summary": "Halt execution with `success`, optionally returning some data.",
-        "Details": "Return control flow to the calling context/contract.",
+        "Expression": `
+context.contractCallResults.output = M[retOffset:retOffset+retSize]
+halt
+`,
+        "Summary": "Halt execution within this context (without revert), optionally returning some data",
+        "Details": "Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },
@@ -1075,15 +970,17 @@ T[retOffset:retOffset+retSize] = field
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "#memreads": "`s1`",
-        "#memwrites": "0",
         "Args": [
             {"name": "retOffset", "description": "memory offset of first word to return"},
             {"name": "retSize", "description": "number of words to return", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`revert(M[retOffset:retOffset+retSize])`",
-        "Summary": "Halt execution with `failure`, reverting state changes and optionally returning some data.",
-        "Details": "Return control flow to the calling context/contract.",
+        "Expression": `
+context.contractCallResults.output = M[retOffset:retOffset+retSize]
+context.contractCallResults.reverted = true
+halt
+`,
+        "Summary": "Halt execution within this context as `reverted`, optionally returning some data",
+        "Details": "Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },

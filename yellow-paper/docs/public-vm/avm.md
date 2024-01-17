@@ -22,7 +22,7 @@ A **caller** is a contract call's initiator. The caller of an initial contract c
 
 - [**Public contract bytecode**](#public-contract-bytecode) (aka AVM bytecode)
 - [**Execution context**](#execution-context), outlining the AVM's environment and state
-- [**Execution**](#execution), outlining control flow, gas tracking, halting, and reverting
+- [**Execution**](#execution), outlining control flow, gas tracking, normal halting, and exceptional halting
 - [**Initial contract calls**](#initial-contract-calls), outlining the initiation of a contract call from a public execution request
 - [**Nested contract calls**](#nested-contract-calls), outlining the initiation of a contract call from an instruction as well as the processing of nested execution results, gas refunds, and state reverts
 
@@ -120,7 +120,7 @@ WorldState {
     contracts: AztecAddress => {bytecode, portalAddress}, // read-only from within AVM
     blockHeaders: Vector<BlockHeader>,                    // read-only from within AVM
     publicStorage: (AztecAddress, field) => value,        // read/write
-    l1ToL2Messages: (AztecAddress, field) => message,     // read-only from within AVM
+    l1ToL2Messages: field => message,                     // read-only from within AVM
     l2ToL1Messages: Vector<[field; <msg-length>]>,        // append-only (no reads) from within AVM
     noteHashes: Vector<field>,                            // append-only (no reads) from within AVM
     nullifiers: Vector<field>,                            // append-only (no reads) from within AVM
@@ -216,7 +216,7 @@ machineState.daGasLeft = 0
 
 An instruction's gas cost is meant to reflect the computational cost of generating a proof of its correct execution. For some instructions, this computational cost changes based on inputs. Here are some examples and important notes:
 - [`JUMP`](./instruction-set/#isa-section-jump) is an example of an instruction with constant gas cost. Regardless of its inputs, the instruction always incurs the same `l1GasCost`, `l2GasCost`, and `daGasCost`.
-- The [`SET`](./instruction-set/#isa-section-set) instruction operates on a different sized constant (based on its `dst-type`). Therefore, this instruction's gas cost increases with the size of its input.
+- The [`SET`](./instruction-set/#isa-section-set) instruction operates on a different sized constant (based on its `dstTag`). Therefore, this instruction's gas cost increases with the size of its input.
 - Instructions that operate on a data range of a specified "size" scale in cost with that size. An example of this is the [`CALLDATACOPY`](./instruction-set/#isa-section-calldatacopy) argument which copies `copySize` words from `environment.calldata` to `machineState.memory`.
 - The [`CALL`](./instruction-set/#isa-section-call)/[`STATICCALL`](./instruction-set/#isa-section-call)/`DELEGATECALL` instruction's gas cost is determined by its `*Gas` arguments, but any gas unused by the nested contract call's execution is refunded after its completion ([more on this later](#updating-the-calling-context-after-nested-call-halts)).
 - An instruction with "offset" arguments (like [`ADD`](./instruction-set/#isa-section-add) and many others), has increased cost for each offset argument that is flagged as "indirect".
@@ -225,11 +225,11 @@ An instruction's gas cost is meant to reflect the computational cost of generati
 
 > An instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
 
-## Halting
+### Halting
 
 A context's execution can end with a **normal halt** or **exceptional halt**. A halt ends execution within the current context and returns control flow to the calling context.
 
-### Normal halting
+#### Normal halting
 
 A normal halt occurs when the VM encounters an explicit halting instruction ([`RETURN`](./instruction-set#isa-section-return) or [`REVERT`](./instruction-set#isa-section-revert)). Such instructions consume gas normally and optionally initialize some output data before finally halting the current context's execution.
 
@@ -245,7 +245,7 @@ results.output = machineState.memory[instr.args.retOffset:instr.args.retOffset+i
 
 > `results.output` is only relevant when the caller is a contract call itself. In other words, it is only relevant for [nested contract calls](#nested-contract-calls). When an [initial contract call](#initial-contract-calls) (initiated by a public execution request) halts normally, its `results.output` is ignored.
 
-### Exceptional halting
+#### Exceptional halting
 
 An exceptional halt is not explicitly triggered by an instruction but instead occurs when an exceptional condition is met.
 
@@ -351,7 +351,7 @@ context = AvmContext {
     worldState = <latest world state>,
     journal = INITIAL_JOURNAL,
     accruedSubstate = INITIAL_ACCRUED_SUBSTATE,
-    results = INITIAL_MESSAGE_CALL_RESULTS,
+    results = INITIAL_CONTRACT_CALL_RESULTS,
 }
 ```
 
@@ -400,7 +400,7 @@ INITIAL_ACCRUED_SUBSTATE = AccruedSubstate {
     unencryptedLogs = [], // initialized as empty
 }
 
-INITIAL_MESSAGE_CALL_RESULTS = ContractCallResults {
+INITIAL_CONTRACT_CALL_RESULTS = ContractCallResults {
     reverted = false,
     output = [], // initialized as empty
 }
@@ -421,7 +421,7 @@ nestedContext = AvmContext {
     worldState: callingContext.worldState,
     journal: callingContext.journal,
     accruedSubstate: INITIAL_ACCRUED_SUBSTATE,
-    results: INITIAL_MESSAGE_CALL_RESULTS,
+    results: INITIAL_CONTRACT_CALL_RESULTS,
 }
 ```
 
