@@ -310,7 +310,7 @@ Click on an instruction name to jump to its section.
 	}</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x25</td>	<td style={{'text-align': 'center'}}><a id='isa-table-internalcall'/><Markdown>[`internalcall`](#isa-section-internalcall)</Markdown></td>
+	<td style={{'text-align': 'center'}}>0x25</td>	<td style={{'text-align': 'center'}}><a id='isa-table-internalcall'/><Markdown>[`INTERNALCALL`](#isa-section-internalcall)</Markdown></td>
 	<td><Markdown>Make an internal call. Push the current PC to the internal call stack and jump to the target location.</Markdown></td>
 	<td><Markdown>48</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -531,6 +531,7 @@ Multiplication (a * b)
 - **Tag updates**: `T[dstOffset] = inTag`
 - **Bit-size**: 128
 
+[![](./images/bit-formats/MUL.png)](./images/bit-formats/MUL.png)
 
 ### <a id='isa-section-div'/>`DIV`
 Unsigned division (a / b)
@@ -794,6 +795,7 @@ Get the _storage_ address of the currently executing context
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/STORAGEADDRESS.png)](./images/bit-formats/STORAGEADDRESS.png)
 
 ### <a id='isa-section-origin'/>`ORIGIN`
 Get the transaction's origination address
@@ -827,6 +829,7 @@ Get the address of the sender (caller of the current context)
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/SENDER.png)](./images/bit-formats/SENDER.png)
 
 ### <a id='isa-section-portal'/>`PORTAL`
 Get the address of the l1 portal contract
@@ -894,6 +897,7 @@ Get the fee to be paid per "DA gas" - constant for entire transaction
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/FEEPERDAGAS.png)](./images/bit-formats/FEEPERDAGAS.png)
 
 ### <a id='isa-section-contractcalldepth'/>`CONTRACTCALLDEPTH`
 Get how many contract calls deep the current call context is
@@ -911,6 +915,7 @@ Get how many contract calls deep the current call context is
 - **Tag updates**: `T[dstOffset] = u8`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/CONTRACTCALLDEPTH.png)](./images/bit-formats/CONTRACTCALLDEPTH.png)
 
 ### <a id='isa-section-chainid'/>`CHAINID`
 Get this rollup's L1 chain ID
@@ -1046,6 +1051,7 @@ Total amount of "DA gas" that a block can consume
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/BLOCKDAGASLIMIT.png)](./images/bit-formats/BLOCKDAGASLIMIT.png)
 
 ### <a id='isa-section-calldatacopy'/>`CALLDATACOPY`
 Copy calldata into memory
@@ -1082,6 +1088,7 @@ Remaining "L1 gas" for this call (after this instruction)
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/L1GASLEFT.png)](./images/bit-formats/L1GASLEFT.png)
 
 ### <a id='isa-section-l2gasleft'/>`L2GASLEFT`
 Remaining "L2 gas" for this call (after this instruction)
@@ -1098,6 +1105,7 @@ Remaining "L2 gas" for this call (after this instruction)
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/L2GASLEFT.png)](./images/bit-formats/L2GASLEFT.png)
 
 ### <a id='isa-section-dagasleft'/>`DAGASLEFT`
 Remaining "DA gas" for this call (after this instruction)
@@ -1114,6 +1122,7 @@ Remaining "DA gas" for this call (after this instruction)
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/DAGASLEFT.png)](./images/bit-formats/DAGASLEFT.png)
 
 ### <a id='isa-section-jump'/>`JUMP`
 Jump to a location in the bytecode
@@ -1121,7 +1130,7 @@ Jump to a location in the bytecode
 [See in table.](#isa-table-jump)
 
 - **Opcode**: 0x23
-- **Category**: Control Flow - Internal
+- **Category**: Machine State - Control Flow
 - **Args**: 
 	- **loc**: target location to jump to
 - **Expression**: `context.machineState.pc = loc`
@@ -1136,7 +1145,7 @@ Conditionally jump to a location in the bytecode
 [See in table.](#isa-table-jumpi)
 
 - **Opcode**: 0x24
-- **Category**: Control Flow - Internal
+- **Category**: Machine State - Control Flow
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -1148,13 +1157,13 @@ Conditionally jump to a location in the bytecode
 
 [![](./images/bit-formats/JUMPI.png)](./images/bit-formats/JUMPI.png)
 
-### <a id='isa-section-internalcall'/>`internalcall`
+### <a id='isa-section-internalcall'/>`INTERNALCALL`
 Make an internal call. Push the current PC to the internal call stack and jump to the target location.
 
 [See in table.](#isa-table-internalcall)
 
 - **Opcode**: 0x25
-- **Category**: Control Flow - Internal
+- **Category**: Machine State - Control Flow
 - **Args**: 
 	- **loc**: target location to jump/call to
 - **Expression**: 
@@ -1172,10 +1181,11 @@ Return from an internal call. Pop from the internal call stack and jump to the p
 [See in table.](#isa-table-internalreturn)
 
 - **Opcode**: 0x26
-- **Category**: Control Flow - Internal
+- **Category**: Machine State - Control Flow
 - **Expression**: `context.machineState.pc = context.machineState.internalCallStack.pop()`
 - **Bit-size**: 16
 
+[![](./images/bit-formats/INTERNALRETURN.png)](./images/bit-formats/INTERNALRETURN.png)
 
 ### <a id='isa-section-internalcalldepth'/>`INTERNALCALLDEPTH`
 Get the depth of the current context's internal call stack
@@ -1192,6 +1202,7 @@ Get the depth of the current context's internal call stack
 - **Tag updates**: `T[dstOffset] = u32`
 - **Bit-size**: 56
 
+[![](./images/bit-formats/INTERNALCALLDEPTH.png)](./images/bit-formats/INTERNALCALLDEPTH.png)
 
 ### <a id='isa-section-set'/>`SET`
 Set a memory word from a constant in the bytecode
@@ -1268,6 +1279,7 @@ Get the block header as of the specified block number
 - **Tag updates**: `T[dstOffset:dstOffset+BLOCK_HEADER_LENGTh] = field`
 - **Bit-size**: 88
 
+[![](./images/bit-formats/BLOCKHEADERBYNUM.png)](./images/bit-formats/BLOCKHEADERBYNUM.png)
 
 ### <a id='isa-section-sload'/>`SLOAD`
 Load a word from storage
@@ -1323,6 +1335,7 @@ Reads an L1-to-L2 message
 - **Tag updates**: `T[dstOffset:dstOffset+msgSize] = field`
 - **Bit-size**: 120
 
+[![](./images/bit-formats/READL1TOL2MSG.png)](./images/bit-formats/READL1TOL2MSG.png)
 
 ### <a id='isa-section-sendl2tol1msg'/>`SENDL2TOL1MSG`
 Send an L2-to-L1 message
@@ -1388,6 +1401,7 @@ Emit an unencrypted log
 - **Expression**: `context.accruedSubstate.unencryptedLogs.append(M[logOffset:logOffset+logSize])`
 - **Bit-size**: 88
 
+[![](./images/bit-formats/EMITUNENCRYPTEDLOG.png)](./images/bit-formats/EMITUNENCRYPTEDLOG.png)
 
 ### <a id='isa-section-call'/>`CALL`
 Call into another contract

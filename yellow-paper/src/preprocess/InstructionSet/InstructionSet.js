@@ -617,7 +617,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "jump",
         "Name": "`JUMP`",
-        "Category": "Control Flow - Internal",
+        "Category": "Machine State - Control Flow",
         "Flags": [],
         "Args": [
             {"name": "loc", "description": "target location to jump to", "mode": "immediate", "type": "u32"},
@@ -631,7 +631,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "jumpi",
         "Name": "`JUMPI`",
-        "Category": "Control Flow - Internal",
+        "Category": "Machine State - Control Flow",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -648,7 +648,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "internalcall",
         "Name": "`INTERNALCALL`",
-        "Category": "Control Flow - Internal",
+        "Category": "Machine State - Control Flow",
         "Flags": [],
         "Args": [
             {"name": "loc", "description": "target location to jump/call to", "mode": "immediate", "type": "u32"},
@@ -665,7 +665,7 @@ context.machineState.pc = loc
     {
         "id": "internalreturn",
         "Name": "`INTERNALRETURN`",
-        "Category": "Control Flow - Internal",
+        "Category": "Machine State - Control Flow",
         "Flags": [],
         "Args": [],
         "Expression": "`context.machineState.pc = context.machineState.internalCallStack.pop()`",
