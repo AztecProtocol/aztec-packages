@@ -19,8 +19,8 @@ class HonkAcirComposer {
 
     // Goblin specific methods
     void create_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
-    std::vector<uint8_t> create_proof();
-    bool verify_proof(std::vector<uint8_t> const& proof);
+    std::vector<uint8_t> accumulate();
+    bool verify_accumulator(std::vector<uint8_t> const& proof);
 
   private:
     acir_format::GoblinBuilder goblin_builder_;

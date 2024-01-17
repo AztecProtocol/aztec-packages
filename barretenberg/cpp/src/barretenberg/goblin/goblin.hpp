@@ -236,27 +236,6 @@ class Goblin {
     };
 
     // ACIRHACK
-    std::vector<uint8_t> construct_proof(GoblinUltraCircuitBuilder& builder)
-    {
-        // Construct a GUH proof
-        accumulate_for_acir(builder);
-
-        std::vector<uint8_t> result(accumulator.proof.proof_data.size());
-
-        const auto insert = [&result](const std::vector<uint8_t>& buf) {
-            result.insert(result.end(), buf.begin(), buf.end());
-        };
-
-        insert(accumulator.proof.proof_data);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/819): Skip ECCVM/Translator proof for now
-        // std::vector<uint8_t> goblin_proof = prove_for_acir().to_buffer();
-        // insert(goblin_proof);
-
-        return result;
-    }
-
-    // ACIRHACK
     bool verify_proof([[maybe_unused]] const proof_system::plonk::proof& proof) const
     {
         // ACIRHACK: to do this properly, extract the proof correctly or maybe share transcripts.

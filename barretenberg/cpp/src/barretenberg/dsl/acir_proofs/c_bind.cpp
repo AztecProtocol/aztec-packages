@@ -68,7 +68,7 @@ WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     acir_composer->create_circuit(constraint_system, witness);
-    auto proof_data = acir_composer->create_proof();
+    auto proof_data = acir_composer->accumulate();
     *out = to_heap_buffer(proof_data);
 }
 
@@ -107,7 +107,7 @@ WASM_EXPORT void acir_verify_goblin_proof(in_ptr acir_composer_ptr, uint8_t cons
 {
     auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
-    *result = acir_composer->verify_proof(proof);
+    *result = acir_composer->verify_accumulator(proof);
 }
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
