@@ -302,8 +302,8 @@ class BaseTranscript {
 
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
-        T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
-                                                 // T element = barretenberg::convert_from_bn254_fr(element_frs);
+        // T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
+        auto element = barretenberg::convert_from_bn254_frs<T>(element_frs);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {

@@ -247,10 +247,12 @@ template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254
     return fr_vec;
 }
 
-template <typename T> T inline convert_from_bn254_frs(const std::vector<barretenberg::fr>& fr_vec)
+template <typename T> T inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
 {
     // TODO: merge this with calc_num_frs()
-    if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
+    if constexpr (std::is_same_v<T, unsigned int>) {
+        return uint32_t(fr_vec[0]);
+    } else if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
         T val = fr_vec[0];
         return val;
     } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
@@ -264,13 +266,11 @@ template <typename T> T inline convert_from_bn254_frs(const std::vector<barreten
         curve::Grumpkin::AffineElement val;
         val.x = fr_vec[0];
         val.y = fr_vec[1];
-    } else {
-        return static_cast<size_t>(-1);
     }
 }
 
 template <template <class U, size_t TT> class T, class U, size_t TT>
-constexpr T<U, TT> convert_from_bn254_frs(const std::vector<barretenberg::fr>& fr_vec)
+constexpr T<U, TT> convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
 {
     if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
         barretenberg::Univariate<barretenberg::fr, TT> val;
@@ -281,7 +281,8 @@ constexpr T<U, TT> convert_from_bn254_frs(const std::vector<barretenberg::fr>& f
     } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
         barretenberg::Univariate<grumpkin::fr, TT> val;
         for (size_t i = 0; i < TT; ++i) {
-            val.data[i] = convert_from_bn254_frs<grumpkin::fr>({ fr_vec[2 * i], fr_vec[2 * i + 1] });
+            std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+            val.data[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
         }
         return val;
     } else if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
@@ -293,7 +294,8 @@ constexpr T<U, TT> convert_from_bn254_frs(const std::vector<barretenberg::fr>& f
     } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
         std::array<grumpkin::fr, TT> val;
         for (size_t i = 0; i < TT; ++i) {
-            val[i] = convert_from_bn254_frs<grumpkin::fr>({ fr_vec[2 * i], fr_vec[2 * i + 1] });
+            std::vector<barretenberg::fr> fr_vec_tmp{ fr_vec[2 * i], fr_vec[2 * i + 1] };
+            val[i] = convert_from_bn254_frs<grumpkin::fr>(fr_vec_tmp);
         }
         return val;
     } else {
