@@ -6,6 +6,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_acir_composer.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -62,7 +63,7 @@ WASM_EXPORT void acir_create_goblin_proof(in_ptr acir_composer_ptr,
                                           uint8_t const* witness_vec,
                                           uint8_t** out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
@@ -104,7 +105,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 
 WASM_EXPORT void acir_verify_goblin_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
     *result = acir_composer->verify_goblin_proof(proof);
 }
