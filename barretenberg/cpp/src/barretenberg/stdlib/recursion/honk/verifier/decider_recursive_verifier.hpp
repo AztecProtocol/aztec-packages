@@ -12,18 +12,15 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using GroupElement = typename Flavor::GroupElement;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder,
-                                       const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
+    explicit DeciderRecursiveVerifier_(Builder* builder);
 
     PairingPoints verify_proof(const plonk::proof& proof);
 
-    std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;

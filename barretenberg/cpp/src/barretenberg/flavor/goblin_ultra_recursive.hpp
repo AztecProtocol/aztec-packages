@@ -47,8 +47,6 @@ class GoblinUltraRecursive {
     using Commitment = Curve::Element;
     using CommitmentHandle = Curve::Element;
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
-    using Polynomial = barretenberg::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;

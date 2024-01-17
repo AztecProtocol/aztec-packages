@@ -21,7 +21,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Polynomial = typename Flavor::Polynomial;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -89,6 +88,17 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      *
      */
     bool verify_folding_proof(std::vector<uint8_t> proof);
+
+    static FF evaluate_perturbator(std::vector<FF> coeffs, FF z)
+    {
+        FF z_acc = FF(1);
+        FF result = FF(0);
+        for (size_t i = 0; i < coeffs.size(); i++) {
+            result += coeffs[i] * z_acc;
+            z_acc *= z;
+        }
+        return result;
+    };
 };
 
 extern template class ProtoGalaxyRecursiveVerifier_<

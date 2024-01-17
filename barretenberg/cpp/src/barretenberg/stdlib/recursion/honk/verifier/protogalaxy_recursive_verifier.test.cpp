@@ -104,12 +104,36 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         EXPECT_EQ(result, true);
     }
 
+    static void test_evaluate_perturbator()
+    {
+        OuterBuilder builder;
+        using fr_ct = bn254<OuterBuilder>::ScalarField;
+        using fr = bn254<OuterBuilder>::ScalarFieldNative;
+
+        std::vector<fr> coeffs;
+        std::vector<fr_ct> coeffs_ct;
+        for (size_t idx = 0; idx < 8; idx++) {
+            auto el = fr::random_element();
+            coeffs.emplace_back(el);
+            coeffs_ct.emplace_back(fr_ct(&builder, el));
+        }
+        Polynomial<fr> poly(coeffs);
+        fr point = fr::random_element();
+        fr_ct point_ct(fr_ct(&builder, point));
+        auto res1 = poly.evaluate(point);
+
+        auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
+        EXPECT_EQ(res1, res2.get_value());
+    }
+
     static void test_recursive_folding()
     {
         InnerBuilder builder1;
-        create_inner_circuit(builder1);
+        // create_inner_circuit(builder1);
+        builder1.add_public_variable(FF(1));
         InnerBuilder builder2;
-        create_inner_circuit(builder2);
+        builder2.add_public_variable(FF(1));
+        // create_inner_circuit(builder2);
         InnerComposer inner_composer = InnerComposer();
         auto instance1 = inner_composer.create_instance(builder1);
         auto instance2 = inner_composer.create_instance(builder2);
@@ -117,18 +141,32 @@ template <typename BuilderType> class ProtogalaxyRecursiveTest : public testing:
         // commitment key accessible
         auto inner_folding_prover = inner_composer.create_folding_prover(instances, inner_composer.commitment_key);
         auto inner_folding_proof = inner_folding_prover.fold_instances();
-        auto native_folding_verifier = inner_composer.create_folding_verifier();
-        auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
-        EXPECT_EQ(res, true);
-
-        // OuterBuilder outer_circuit;
-        // FoldingRecursiveVerifier verifier{ &outer_circuit };
-        // auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        // auto native_folding_verifier = inner_composer.create_folding_verifier();
+        // auto res = native_folding_verifier.verify_folding_proof(inner_folding_proof.folding_data);
         // EXPECT_EQ(res, true);
-        // info("Recursive Verifier Ultra: num gates = ", outer_circuit.num_gates);
 
-        // // Check for a failure flag in the recursive verifier circuit
-        // EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        OuterBuilder outer_folding_circuit;
+        FoldingRecursiveVerifier verifier{ &outer_folding_circuit };
+        auto res = verifier.verify_folding_proof(inner_folding_proof.folding_data);
+        EXPECT_EQ(res, true);
+        info("Recursive Verifier with Ultra instances: num gates = ", outer_folding_circuit.num_gates);
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_folding_circuit.failed(), false) << outer_folding_circuit.err();
+
+        // TODO: construct and verify a proof for the recursive folding verifier
+
+        auto inner_decider_prover =
+            inner_composer.create_decider_prover(inner_folding_proof.accumulator, inner_composer.commitment_key);
+        auto inner_decider_proof = inner_decider_prover.construct_proof();
+        OuterBuilder outer_decider_circuit;
+        DeciderRecursiveVerifier decider_verifier{ &outer_decider_circuit };
+        auto pairing_points = decider_verifier.verify_proof(inner_decider_proof);
+        static_cast<void>(pairing_points);
+        // need to check these pairing points
+        info("Decider Recursive Verifier: num gates = ", outer_decider_circuit.num_gates);
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_decider_circuit.failed(), false) << outer_decider_circuit.err();
     }
 };
 
@@ -138,6 +176,11 @@ TYPED_TEST_SUITE(ProtogalaxyRecursiveTest, BuilderTypes);
 TYPED_TEST(ProtogalaxyRecursiveTest, InnerCircuit)
 {
     TestFixture::test_inner_circuit();
+}
+
+TYPED_TEST(ProtogalaxyRecursiveTest, NewEvaluate)
+{
+    TestFixture::test_evaluate_perturbator();
 }
 
 TYPED_TEST(ProtogalaxyRecursiveTest, FirstRound)

@@ -7,10 +7,8 @@
 namespace proof_system::plonk::stdlib::recursion::honk {
 
 template <typename Flavor>
-DeciderRecursiveVerifier_<Flavor>::DeciderRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
-    : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-    , builder(builder)
+DeciderRecursiveVerifier_<Flavor>::DeciderRecursiveVerifier_(Builder* builder)
+    : builder(builder)
 {}
 
 /**

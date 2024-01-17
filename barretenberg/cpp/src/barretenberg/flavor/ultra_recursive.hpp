@@ -55,8 +55,6 @@ template <typename BuilderType> class UltraRecursive_ {
     using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
     using NativeVerificationKey = flavor::Ultra::VerificationKey;
-    using Polynomial = barretenberg::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;

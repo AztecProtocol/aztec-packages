@@ -169,10 +169,9 @@ bool ProtoGalaxyRecursiveVerifier_<VerifierInstances>::verify_folding_proof(std:
 
     perturbator_coeffs[0].assert_equal(accumulator->target_sum, "F(0) != e");
 
-    auto perturbator = Polynomial(perturbator_coeffs);
+    // auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->get_challenge("perturbator_challenge");
-    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge.get_value());
-
+    auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
     for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
