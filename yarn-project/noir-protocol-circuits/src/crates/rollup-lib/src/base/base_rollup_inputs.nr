@@ -204,7 +204,7 @@ impl BaseRollupInputs {
         )
     }
 
-    fn create_nullifier_subtree<N>(self, leaves: [NullifierLeafPreimage; N]) -> Field {
+    fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
         calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
@@ -359,7 +359,7 @@ impl BaseRollupInputs {
     }
 }
 
-fn verify_kernel_proof(proof: Proof) -> bool {
+fn verify_kernel_proof(_proof: Proof) -> bool {
     // TODO: Just return true as we are mocking out the proof verification
     // and aggregation.
     // TODO(Kev): It may make sense to move all of these methods into a 
@@ -521,11 +521,11 @@ fn consistent_call_data_hash_full_fields() {
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(lhs, rhs)
+    lhs.lt(rhs)
 }
 
 pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    dep::std::eddsa::lt_bytes32(rhs, lhs)
+    rhs.lt(lhs)
 }
 
 #[test]

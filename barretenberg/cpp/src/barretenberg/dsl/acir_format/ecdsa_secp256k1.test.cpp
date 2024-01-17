@@ -12,7 +12,7 @@ using curve_ct = proof_system::plonk::stdlib::secp256k1<Builder>;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, WitnessVector& witness_values)
@@ -40,7 +40,7 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     std::vector<uint32_t> pub_x_indices_in;
     std::vector<uint32_t> pub_y_indices_in;
     std::vector<uint32_t> signature_in;
-    size_t offset = 1;
+    size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
         message_in.emplace_back(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);
