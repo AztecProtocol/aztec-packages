@@ -9,7 +9,7 @@ import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
-import {HeaderDecoder} from "./libraries/decoders/HeaderDecoder.sol";
+import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
@@ -56,9 +56,9 @@ contract Rollup is IRollup {
     bytes calldata _body, // TODO(#3944): this will be replaced with _txsHash once the separation is finished.
     bytes memory _proof
   ) external override(IRollup) {
-    HeaderDecoder.Header memory header = HeaderDecoder.decode(_header);
-
-    _validateHeader(header);
+    // Decode and validate header
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
     bytes32 txsHash;
@@ -97,35 +97,6 @@ contract Rollup is IRollup {
     outbox.sendL1Messages(l2ToL1Msgs);
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);
-  }
-
-  function _validateHeader(HeaderDecoder.Header memory header) internal view {
-    if (block.chainid != header.globalVariables.chainId) {
-      revert Errors.Rollup__InvalidChainId(header.globalVariables.chainId, block.chainid);
-    }
-
-    if (header.globalVariables.version != VERSION) {
-      revert Errors.Rollup__InvalidVersion(header.globalVariables.version, VERSION);
-    }
-
-    // block number already constrained by archive root check
-
-    if (header.globalVariables.timestamp > block.timestamp) {
-      revert Errors.Rollup__TimestampInFuture();
-    }
-
-    // @todo @LHerskind consider if this is too strict
-    // This will make multiple l2 blocks in the same l1 block impractical.
-    // e.g., the first block will update timestamp which will make the second fail.
-    // Could possibly allow multiple blocks if in same l1 block
-    if (header.globalVariables.timestamp < lastBlockTs) {
-      revert Errors.Rollup__TimestampTooOld();
-    }
-
-    // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    if (archive != bytes32(0) && archive != header.lastArchive.root) {
-      revert Errors.Rollup__InvalidArchive(archive, header.lastArchive.root);
-    }
   }
 
   function _computePublicInputHash(bytes calldata _header, bytes32 _txsHash, bytes32 _inHash)

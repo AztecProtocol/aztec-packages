@@ -3,13 +3,14 @@
 pragma solidity >=0.8.18;
 
 // Libraries
-import {Constants} from "../ConstantsGen.sol";
-import {Hash} from "../Hash.sol";
+import {Errors} from "./Errors.sol";
+import {Constants} from "./ConstantsGen.sol";
+import {Hash} from "./Hash.sol";
 
 /**
- * @title Header Decoder Library
+ * @title Header Library
  * @author Aztec Labs
- * @notice Decoding a L2 header
+ * @notice Decoding and validating an L2 block header
  * Concerned with readability and velocity of development not giving a damn about gas costs.
  *
  * -------------------
@@ -47,7 +48,7 @@ import {Hash} from "../Hash.sol";
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
  */
-library HeaderDecoder {
+library HeaderLib {
   struct AppendOnlyTreeSnapshot {
     bytes32 root;
     uint32 nextAvailableLeafIndex;
@@ -82,7 +83,8 @@ library HeaderDecoder {
 
   /**
    * @notice Decodes the header
-   * @param _header - The header calldata.
+   * @param _header - The header calldata
+   * @return The decoded header
    */
   function decode(bytes calldata _header) internal pure returns (Header memory) {
     require(_header.length == 376, "Invalid header length");
@@ -109,5 +111,44 @@ library HeaderDecoder {
     header.bodyHash = bytes32(_header[0x158:0x178]);
 
     return header;
+  }
+
+  /**
+   * @notice Validates the header
+   * @param _header - The decoded header
+   * @param _version - The expected version
+   * @param _lastBlockTs - The timestamp of the last block
+   * @param _archive - The expected archive root
+   */
+  function validate(Header memory _header, uint256 _version, uint256 _lastBlockTs, bytes32 _archive)
+    internal
+    view
+  {
+    if (block.chainid != _header.globalVariables.chainId) {
+      revert Errors.Rollup__InvalidChainId(_header.globalVariables.chainId, block.chainid);
+    }
+
+    if (_header.globalVariables.version != _version) {
+      revert Errors.Rollup__InvalidVersion(_header.globalVariables.version, _version);
+    }
+
+    // block number already constrained by archive root check
+
+    if (_header.globalVariables.timestamp > block.timestamp) {
+      revert Errors.Rollup__TimestampInFuture();
+    }
+
+    // @todo @LHerskind consider if this is too strict
+    // This will make multiple l2 blocks in the same l1 block impractical.
+    // e.g., the first block will update timestamp which will make the second fail.
+    // Could possibly allow multiple blocks if in same l1 block
+    if (_header.globalVariables.timestamp < _lastBlockTs) {
+      revert Errors.Rollup__TimestampTooOld();
+    }
+
+    // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
+    if (_archive != bytes32(0) && _archive != _header.lastArchive.root) {
+      revert Errors.Rollup__InvalidArchive(_archive, _header.lastArchive.root);
+    }
   }
 }

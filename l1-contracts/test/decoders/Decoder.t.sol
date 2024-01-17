@@ -11,9 +11,9 @@ import {DecoderHelper} from "./helpers/DecoderHelper.sol";
 import {HeaderDecoderHelper} from "./helpers/HeaderDecoderHelper.sol";
 import {MessagesDecoderHelper} from "./helpers/MessagesDecoderHelper.sol";
 import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
+import {HeaderLib} from "../../src/core/libraries/HeaderLib.sol";
 
 import {Decoder} from "../../src/core/libraries/decoders/Decoder.sol";
-import {HeaderDecoder} from "../../src/core/libraries/decoders/HeaderDecoder.sol";
 import {MessagesDecoder} from "../../src/core/libraries/decoders/MessagesDecoder.sol";
 import {TxsDecoder} from "../../src/core/libraries/decoders/TxsDecoder.sol";
 
@@ -59,7 +59,7 @@ contract DecoderTest is DecoderBase {
     // Header
     {
       DecoderBase.DecodedHeader memory referenceHeader = data.block.decodedHeader;
-      HeaderDecoder.Header memory header = headerHelper.decode(data.block.header);
+      HeaderLib.Header memory header = headerHelper.decode(data.block.header);
 
       // GlobalVariables
       {
