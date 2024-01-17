@@ -56,13 +56,11 @@ export interface NoirFunctionEntry {
 /**
  * The compilation result of an Noir contract.
  */
-export interface CompiledContract {
+export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
   /** Version of noir used for the build. */
   noir_version: string;
-  /** Compilation backend. */
-  backend: string;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */
@@ -74,11 +72,9 @@ export interface CompiledContract {
 /**
  * The compilation result of an Noir contract.
  */
-export interface CompiledCircuit {
+export interface ProgramArtifact {
   /** The hash of the circuit. */
   hash?: number;
-  /** Compilation backend. */
-  backend: string;
   /** * The ABI of the function. */
   abi: Abi;
   /** The bytecode of the circuit in base64. */
@@ -160,7 +156,7 @@ export interface ContractCompilationArtifacts {
   /**
    * The compiled contract.
    */
-  contract: CompiledContract;
+  contract: ContractArtifact;
 
   /** Compilation warnings. */
   warnings: Warning[];
@@ -177,7 +173,7 @@ export interface ProgramCompilationArtifacts {
   /**
    * The compiled contract.
    */
-  program: CompiledCircuit;
+  program: ProgramArtifact;
 
   /** Compilation warnings. */
   warnings: Warning[];

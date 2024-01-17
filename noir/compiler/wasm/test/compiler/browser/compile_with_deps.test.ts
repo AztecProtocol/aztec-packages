@@ -2,7 +2,7 @@
 import { getPaths } from '../../shared';
 import { expect } from '@esm-bundle/chai';
 import { compile, createFileManager } from '@noir-lang/noir_wasm';
-import { CompiledContract } from '../../../src/types/noir_artifact';
+import { ContractArtifact } from '../../../src/types/noir_artifact';
 import { shouldCompileIdentically } from '../shared/compile_with_deps.test';
 
 const paths = getPaths('.');
@@ -32,7 +32,7 @@ describe('noir-compiler/browser', () => {
         console.log(path);
         await fm.writeFile(path, (await getFile(path)).body as ReadableStream<Uint8Array>);
       }
-      const nargoArtifact = (await getPrecompiledSource(contractExpectedArtifact)) as CompiledContract;
+      const nargoArtifact = (await getPrecompiledSource(contractExpectedArtifact)) as ContractArtifact;
       const noirWasmArtifact = await compile(fm, '/fixtures/noir-contract');
 
       return { nargoArtifact, noirWasmArtifact };

@@ -1,7 +1,7 @@
 import { CompilationResult, inflateDebugSymbols } from '@noir-lang/noir_wasm';
 import { type expect as Expect } from 'chai';
 import {
-  CompiledContract,
+  ContractArtifact,
   ContractCompilationArtifacts,
   DebugFileMap,
   DebugInfo,
@@ -9,7 +9,7 @@ import {
 } from '../../../src/types/noir_artifact';
 
 export function shouldCompileIdentically(
-  compileFn: () => Promise<{ nargoArtifact: CompiledContract; noirWasmArtifact: CompilationResult }>,
+  compileFn: () => Promise<{ nargoArtifact: ContractArtifact; noirWasmArtifact: CompilationResult }>,
   expect: typeof Expect,
   timeout = 5000,
 ) {
@@ -43,7 +43,7 @@ export function shouldCompileIdentically(
 }
 
 /** Remove commit identifier from version, which may not match depending on cached nargo and noir-wasm */
-function normalizeVersion(contract: CompiledContract) {
+function normalizeVersion(contract: ContractArtifact) {
   contract.noir_version = contract.noir_version.replace(/\+.+$/, '');
 }
 
@@ -58,10 +58,10 @@ function extractDebugInfos(fns: NoirFunctionEntry[]) {
 }
 
 /** Deletes all debug info from a contract and returns it. */
-function deleteDebugMetadata(contract: CompiledContract) {
+function deleteDebugMetadata(contract: ContractArtifact) {
   contract.functions.sort((a, b) => a.name.localeCompare(b.name));
   const fileMap = contract.file_map;
-  delete (contract as Partial<CompiledContract>).file_map;
+  delete (contract as Partial<ContractArtifact>).file_map;
   return [extractDebugInfos(contract.functions), fileMap];
 }
 
