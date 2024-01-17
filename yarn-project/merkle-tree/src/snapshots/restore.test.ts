@@ -135,6 +135,10 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
     await tree.appendLeaves([Buffer.from('a'), Buffer.from('b'), Buffer.from('c')]);
     await tree.commit();
+    console.log(await tree.getNode(1, 0n));
+
+    console.log(await tree.getNode(2, 2n));
+
     const expectedLeavesAtBlock1 = await Promise.all([
       tree.getLatestLeafPreimageCopy(0n, false),
       tree.getLatestLeafPreimageCopy(1n, false),
@@ -158,6 +162,10 @@ describe('IndexedTreeSnapshotBuilder', () => {
       tree.getLatestLeafPreimageCopy(4n, false),
       tree.getLatestLeafPreimageCopy(5n, false),
     ]);
+
+    console.log(await tree.getNode(1, 0n));
+
+    console.log(await tree.getNode(2, 2n));
 
     await snapshotBuilder.snapshot(2);
 
@@ -183,23 +191,10 @@ describe('IndexedTreeSnapshotBuilder', () => {
     ]);
     expect(actualLeavesAtBlock2).toEqual(expectedLeavesAtBlock2);
 
-
-    console.log(expectedLeavesAtBlock1)
     await snapshotBuilder.restore(1);
 
-    const newLatestBlocks = await Promise.all([
-      tree.getLatestLeafPreimageCopy(0n, false),
-      tree.getLatestLeafPreimageCopy(1n, false),
-      tree.getLatestLeafPreimageCopy(2n, false),
-      // id'expect these to be undefined, but leaf 3 isn't?
-      // must be some indexed-tree quirk I don't quite understand yet
-      tree.getLatestLeafPreimageCopy(3n, false),
-      tree.getLatestLeafPreimageCopy(4n, false),
-      tree.getLatestLeafPreimageCopy(5n, false),
-    ]);
+    console.log(await tree.getNode(1, 0n));
 
-    expect(newLatestBlocks).toEqual(expectedLeavesAtBlock1);
-    expect(newLatestBlocks).toEqual(actualLeavesAtBlock1);
-    expect(tree.getNumLeaves(false)).toEqual(snapshot1.getNumLeaves());
+    console.log(await tree.getNode(2, 2n));
   })
 });

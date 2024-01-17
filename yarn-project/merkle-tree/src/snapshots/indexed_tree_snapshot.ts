@@ -1,4 +1,5 @@
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 import { LevelUp, LevelUpChain } from 'levelup';
 
@@ -41,19 +42,21 @@ export class IndexedTreeSnapshotBuilder
   protected async handleLeafRestore(
     index: bigint,
     node: Buffer,
-    snapshotNode: Buffer,
+    snapshotNode: Buffer | undefined,
     batch: LevelUpChain,
   ) {
-    const snapshotPreimage = await this.db.get(snapshotLeafValue(snapshotNode, index));
-    const leafPreimage = await this.tree.getLatestLeafPreimageCopy(index, false);
-
-    if (snapshotPreimage === undefined) {
-      batch.del(buildDbKeyForLeafIndex(this.tree.getName(), leafPreimage.getKey()));
+    if (snapshotNode === undefined) {
+      const leafPreimage = await this.tree.getLatestLeafPreimageCopy(index, false);
+      batch.del(buildDbKeyForLeafIndex(this.tree.getName(), leafPreimage!.getKey()));
       batch.del(buildDbKeyForPreimage(this.tree.getName(), index));
+      return;
     }
 
+    //node undef or node !== snap
+
+    const snapshotPreimage = await this.db.get(snapshotLeafValue(snapshotNode, index));
     batch.put(buildDbKeyForPreimage(this.tree.getName(), index), snapshotPreimage);
-    await batch.write();
+    batch.put(buildDbKeyForLeafIndex(this.tree.getName(), this.leafPreimageBuilder.fromBuffer(snapshotPreimage).getKey()), toBufferBE(index, 32));
   }
 }
 

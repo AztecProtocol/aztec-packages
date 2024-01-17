@@ -47,7 +47,7 @@ describe('e2e_deploy_contract', () => {
     } = await setup());
 
     const snap = await cheatCodes.aztec.snapShot();
-    console.log(hello);
+    // console.log(hello);
 
     console.log(await cheatCodes.eth.blockNumber());
     console.log(await cheatCodes.aztec.blockNumber());

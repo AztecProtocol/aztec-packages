@@ -637,14 +637,19 @@ export class MerkleTrees implements MerkleTreeDb {
     await this.synchronize(this.restoreNoteHashTree.bind(this, block));
     await this.synchronize(this.restoreL1ToL2MessageTree.bind(this, block));
     await this.synchronize(this.restoreArchive.bind(this, block));
+    await this.synchronize(this.restoreNullifierTree.bind(this, block));
+    await this.synchronize(this.restorePublicDataTree.bind(this, block));
   }
 
-  //append only: contractTree: StandardTree
-  //indexed: nullifierTree: NullifierTree,
-  //append only: noteHashTree: AppendOnlyTree
-  //indexed: publicDataTree = Indexed
-  //append only: l1Tol2MessageTreeStandardTree,
-  //append only: archive: AppendOnlyTree = StandardTree,
+  private async restoreNullifierTree (block: number) {
+    const nullifierTree = this.trees[MerkleTreeId.NULLIFIER_TREE];
+    await nullifierTree.restore(block);
+  }
+
+  private async restorePublicDataTree (block: number) {
+    const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE];
+    await publicDataTree.restore(block);
+  }
 
   private async restoreContractTree (block: number) {
     const contractTree = this.trees[MerkleTreeId.CONTRACT_TREE];
@@ -665,8 +670,4 @@ export class MerkleTrees implements MerkleTreeDb {
     const archiveTree = this.trees[MerkleTreeId.ARCHIVE];
     await archiveTree.restore(block);
   }
-
-  // private async restoreNullifierTree (block: number) {
-  //   const nullifierTree = this.trees[MerkleTreeId.NULLIFIER_TREE];
-  // }
 }

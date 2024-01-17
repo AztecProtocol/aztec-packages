@@ -109,15 +109,17 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
 
     const { root: snapshotRoot, numLeaves } = snapshotMetadata;
     const depth = this.tree.getDepth();
-    const queue: [Buffer, number, bigint][] = [[snapshotRoot, 0, 0n]];
+    const queue: [Buffer | undefined, number, bigint][] = [[snapshotRoot, 0, 0n]];
 
     while (queue.length > 0) {
       const [snapshotNode, level, i] = queue.shift()!;
 
       const node = (await this.tree.getNode(level, i))!;
 
+      // assumes zero hash should be deleted, as it didn't exist before snapshot
+      // was created, as currently undefined children get saved as zero hash
       if ((snapshotNode === undefined && node !== undefined) || 
-        (snapshotNode === this.tree.getZeroHash(level))) {
+        (level !== 0 && snapshotNode === this.tree.getZeroHash(level))) {
         batch.del(`${treeName}:${level}:${i}`);
       } else if (snapshotNode === undefined && node === undefined) {
         continue;
@@ -133,10 +135,17 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
         continue;
       }
 
-      const [lhs, rhs] = await Promise.all([
-        this.db.get(snapshotChildKey(snapshotNode!, 0)),
-        this.db.get(snapshotChildKey(snapshotNode!, 1)),
-      ]);
+      let lhs: Buffer | undefined;
+      let rhs: Buffer | undefined;
+
+      if (snapshotNode === undefined) {
+        [lhs, rhs] = [undefined, undefined];
+      } else {
+        [{value: lhs}, {value: rhs}] = await Promise.allSettled([
+          this.db.get(snapshotChildKey(snapshotNode, 0)),
+          this.db.get(snapshotChildKey(snapshotNode, 1)),
+        ]) as { status: 'fulfilled' | 'rejected', value: Buffer}[];;
+      }
 
       queue.push([lhs, level + 1, 2n * i]);
       queue.push([rhs, level + 1, 2n * i + 1n]);
@@ -152,7 +161,7 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase, S extends 
     return Promise.resolve();
   }
 
-  protected handleLeafRestore(_index: bigint, _node: Buffer, _snapshotNode: Buffer, _batch: LevelUpChain): Promise<void> {
+  protected handleLeafRestore(_index: bigint, _node: Buffer, _snapshotNode: Buffer | undefined, _batch: LevelUpChain): Promise<void> {
     return Promise.resolve();
   }
 
