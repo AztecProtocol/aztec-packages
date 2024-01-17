@@ -1,5 +1,5 @@
 import { FunctionData } from '@aztec/circuits.js';
-import { DecodedReturn, decodeReturnValues } from '@aztec/foundation/abi';
+import { DecodedReturn, FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -8,7 +8,6 @@ import { extractReturnWitness } from '../acvm/deserialize.js';
 import { ACVMField, Oracle, acvm, extractCallStack, fromACVMField, toACVMWitness } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { AcirSimulator } from '../index.js';
-import { FunctionArtifactWithDebugMetadata } from './db_oracle.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
 /**
@@ -26,7 +25,7 @@ export async function executeUnconstrainedFunction(
   log(`Executing unconstrained function ${contractAddress}:${functionSelector}`);
 
   const acir = Buffer.from(artifact.bytecode, 'base64');
-  const initialWitness = toACVMWitness(1, args);
+  const initialWitness = toACVMWitness(0, args);
   const { partialWitness } = await acvm(
     await AcirSimulator.getSolver(),
     acir,
