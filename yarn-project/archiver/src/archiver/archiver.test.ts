@@ -350,7 +350,7 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
  */
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
-  const archive = toHex(l2Block.archive.toBuffer());
+  const archive = toHex(l2Block.archive.root.toBuffer());
   const body = toHex(l2Block.bodyToBuffer());
   const proof = `0x`;
   const input = encodeFunctionData({ abi: RollupAbi, functionName: 'process', args: [header, archive, body, proof] });

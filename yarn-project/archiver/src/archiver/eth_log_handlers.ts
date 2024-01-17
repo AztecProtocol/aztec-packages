@@ -10,7 +10,7 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
@@ -107,10 +107,11 @@ async function getBlockFromCallData(
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
+  const [headerHex, archiveRootHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
   const blockBuffer = Buffer.concat([
     Buffer.from(hexToBytes(headerHex)),
-    Buffer.from(hexToBytes(archiveHex)),
+    Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+    numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
     Buffer.from(hexToBytes(bodyHex)),
   ]);
   const block = L2Block.fromBufferWithLogs(blockBuffer);
