@@ -48,6 +48,11 @@ import {Hash} from "../Hash.sol";
  *  | ---                                                                              | ---          | ---
  */
 library HeaderDecoder {
+  struct AppendOnlyTreeSnapshot {
+    bytes32 root;
+    uint32 nextAvailableLeafIndex;
+  }
+
   struct GlobalVariables {
     uint256 chainId;
     uint256 version;
@@ -56,19 +61,14 @@ library HeaderDecoder {
   }
 
   struct PartialStateReference {
-    bytes32 noteHashTreeRoot;
-    uint32 noteHashTreeNextAvailableLeafIndex;
-    bytes32 nullifierTreeRoot;
-    uint32 nullifierTreeNextAvailableLeafIndex;
-    bytes32 contractTreeRoot;
-    uint32 contractTreeNextAvailableLeafIndex;
-    bytes32 publicDataTreeRoot;
-    uint32 publicDataTreeNextAvailableLeafIndex;
+    AppendOnlyTreeSnapshot noteHashTree;
+    AppendOnlyTreeSnapshot nullifierTree;
+    AppendOnlyTreeSnapshot contractTree;
+    AppendOnlyTreeSnapshot publicDataTree;
   }
 
   struct StateReference {
-    bytes32 l1ToL2MessageTreeRoot;
-    uint32 l1ToL2MessageTreeNextAvailableLeafIndex;
+    AppendOnlyTreeSnapshot l1ToL2MessageTree;
     // Note: Can't use "partial" name here as in yellow paper because it is a reserved solidity keyword
     PartialStateReference partialStateReference;
   }
@@ -76,8 +76,7 @@ library HeaderDecoder {
   struct Header {
     GlobalVariables globalVariables;
     StateReference stateReference;
-    bytes32 lastArchiveRoot;
-    uint32 lastArchiveNextAvailableLeafIndex;
+    AppendOnlyTreeSnapshot lastArchive;
     bytes32 bodyHash;
   }
 
@@ -94,23 +93,19 @@ library HeaderDecoder {
     header.globalVariables.version = uint256(bytes32(_header[0x20:0x40]));
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x40:0x60]));
     header.globalVariables.timestamp = uint256(bytes32(_header[0x60:0x80]));
-    header.stateReference.l1ToL2MessageTreeRoot = bytes32(_header[0x80:0xa0]);
-    header.stateReference.l1ToL2MessageTreeNextAvailableLeafIndex =
-      uint32(bytes4(_header[0xa0:0xa4]));
-    header.stateReference.partialStateReference.noteHashTreeRoot = bytes32(_header[0xa4:0xc4]);
-    header.stateReference.partialStateReference.noteHashTreeNextAvailableLeafIndex =
-      uint32(bytes4(_header[0xc4:0xc8]));
-    header.stateReference.partialStateReference.nullifierTreeRoot = bytes32(_header[0xc8:0xe8]);
-    header.stateReference.partialStateReference.nullifierTreeNextAvailableLeafIndex =
-      uint32(bytes4(_header[0xe8:0xec]));
-    header.stateReference.partialStateReference.contractTreeRoot = bytes32(_header[0xec:0x10c]);
-    header.stateReference.partialStateReference.contractTreeNextAvailableLeafIndex =
-      uint32(bytes4(_header[0x10c:0x110]));
-    header.stateReference.partialStateReference.publicDataTreeRoot = bytes32(_header[0x110:0x130]);
-    header.stateReference.partialStateReference.publicDataTreeNextAvailableLeafIndex =
-      uint32(bytes4(_header[0x130:0x134]));
-    header.lastArchiveRoot = bytes32(_header[0x134:0x154]);
-    header.lastArchiveNextAvailableLeafIndex = uint32(bytes4(_header[0x154:0x158]));
+    header.stateReference.l1ToL2MessageTree =
+      AppendOnlyTreeSnapshot(bytes32(_header[0x80:0xa0]), uint32(bytes4(_header[0xa0:0xa4])));
+    header.stateReference.partialStateReference.noteHashTree =
+      AppendOnlyTreeSnapshot(bytes32(_header[0xa4:0xc4]), uint32(bytes4(_header[0xc4:0xc8])));
+    header.stateReference.partialStateReference.nullifierTree =
+      AppendOnlyTreeSnapshot(bytes32(_header[0xc8:0xe8]), uint32(bytes4(_header[0xe8:0xec])));
+    header.stateReference.partialStateReference.contractTree =
+      AppendOnlyTreeSnapshot(bytes32(_header[0xec:0x10c]), uint32(bytes4(_header[0x10c:0x110])));
+    header.stateReference.partialStateReference.publicDataTree =
+      AppendOnlyTreeSnapshot(bytes32(_header[0x110:0x130]), uint32(bytes4(_header[0x130:0x134])));
+    header.lastArchive =
+      AppendOnlyTreeSnapshot(bytes32(_header[0x134:0x154]), uint32(bytes4(_header[0x154:0x158])));
+
     header.bodyHash = bytes32(_header[0x158:0x178]);
 
     return header;

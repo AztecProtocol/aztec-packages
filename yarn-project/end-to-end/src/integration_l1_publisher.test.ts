@@ -104,7 +104,7 @@ describe('L1Publisher integration', () => {
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = true;
+  const OVERWRITE_TEST_DATA = false;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -286,35 +286,35 @@ describe('L1Publisher integration', () => {
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
           },
-          lastArchiveNextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
-          lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+          lastArchive: {
+            nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
+            root: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+          },
           stateReference: {
-            l1ToL2MessageTreeNextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
-            l1ToL2MessageTreeRoot: `0x${block.header.state.l1ToL2MessageTree.root
-              .toBuffer()
-              .toString('hex')
-              .padStart(64, '0')}`,
+            l1ToL2MessageTree: {
+              nextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
+              root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+            },
             partialStateReference: {
-              contractTreeNextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
-              contractTreeRoot: `0x${block.header.state.partial.contractTree.root
-                .toBuffer()
-                .toString('hex')
-                .padStart(64, '0')}`,
-              noteHashTreeNextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
-              noteHashTreeRoot: `0x${block.header.state.partial.noteHashTree.root
-                .toBuffer()
-                .toString('hex')
-                .padStart(64, '0')}`,
-              nullifierTreeNextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
-              nullifierTreeRoot: `0x${block.header.state.partial.nullifierTree.root
-                .toBuffer()
-                .toString('hex')
-                .padStart(64, '0')}`,
-              publicDataTreeNextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
-              publicDataTreeRoot: `0x${block.header.state.partial.publicDataTree.root
-                .toBuffer()
-                .toString('hex')
-                .padStart(64, '0')}`,
+              contractTree: {
+                nextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              noteHashTree: {
+                nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              nullifierTree: {
+                nextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.nullifierTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              },
+              publicDataTree: {
+                nextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
+                root: `0x${block.header.state.partial.publicDataTree.root
+                  .toBuffer()
+                  .toString('hex')
+                  .padStart(64, '0')}`,
+              },
             },
           },
         },

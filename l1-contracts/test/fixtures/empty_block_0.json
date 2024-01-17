@@ -46,20 +46,32 @@
         "timestamp": 0,
         "version": 1
       },
-      "lastArchiveNextAvailableLeafIndex": 1,
-      "lastArchiveRoot": "0x1a005071a487e4891787073a91504fe6ea55280bc6f65a021fd6f7ca1f10aa02",
+      "lastArchive": {
+        "nextAvailableLeafIndex": 1,
+        "root": "0x1a005071a487e4891787073a91504fe6ea55280bc6f65a021fd6f7ca1f10aa02"
+      },
       "stateReference": {
-        "l1ToL2MessageTreeNextAvailableLeafIndex": 16,
-        "l1ToL2MessageTreeRoot": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80",
+        "l1ToL2MessageTree": {
+          "nextAvailableLeafIndex": 16,
+          "root": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80"
+        },
         "partialStateReference": {
-          "contractTreeNextAvailableLeafIndex": 4,
-          "contractTreeRoot": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80",
-          "noteHashTreeNextAvailableLeafIndex": 256,
-          "noteHashTreeRoot": "0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb",
-          "nullifierTreeNextAvailableLeafIndex": 384,
-          "nullifierTreeRoot": "0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278",
-          "publicDataTreeNextAvailableLeafIndex": 96,
-          "publicDataTreeRoot": "0x1ed250ed73db6e70805c4efcf0056e8695b79cd3ba418e827c184dee6c6fb0e0"
+          "contractTree": {
+            "nextAvailableLeafIndex": 4,
+            "root": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80"
+          },
+          "noteHashTree": {
+            "nextAvailableLeafIndex": 256,
+            "root": "0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb"
+          },
+          "nullifierTree": {
+            "nextAvailableLeafIndex": 384,
+            "root": "0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278"
+          },
+          "publicDataTree": {
+            "nextAvailableLeafIndex": 96,
+            "root": "0x1ed250ed73db6e70805c4efcf0056e8695b79cd3ba418e827c184dee6c6fb0e0"
+          }
         }
       }
     },

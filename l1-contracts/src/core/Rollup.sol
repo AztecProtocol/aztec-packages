@@ -123,8 +123,8 @@ contract Rollup is IRollup {
     }
 
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    if (archive != bytes32(0) && archive != header.lastArchiveRoot) {
-      revert Errors.Rollup__InvalidArchive(archive, header.lastArchiveRoot);
+    if (archive != bytes32(0) && archive != header.lastArchive.root) {
+      revert Errors.Rollup__InvalidArchive(archive, header.lastArchive.root);
     }
   }
 

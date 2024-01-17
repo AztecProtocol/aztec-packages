@@ -79,14 +79,14 @@ contract DecoderTest is DecoderBase {
 
         // L1 -> L2 messages
         assertEq(
-          header.stateReference.l1ToL2MessageTreeNextAvailableLeafIndex,
-          stateReference.l1ToL2MessageTreeNextAvailableLeafIndex,
-          "Invalid l1ToL2MessageTreeNextAvailableLeafIndex"
+          header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex,
+          stateReference.l1ToL2MessageTree.nextAvailableLeafIndex,
+          "Invalid l1ToL2MessageTree.nextAvailableLeafIndex"
         );
         assertEq(
-          header.stateReference.l1ToL2MessageTreeRoot,
-          stateReference.l1ToL2MessageTreeRoot,
-          "Invalid l1ToL2MessageTreeRoot"
+          header.stateReference.l1ToL2MessageTree.root,
+          stateReference.l1ToL2MessageTree.root,
+          "Invalid l1ToL2MessageTree.root"
         );
 
         // PartialStateReference
@@ -96,55 +96,60 @@ contract DecoderTest is DecoderBase {
 
           // NoteHashTree
           assertEq(
-            header.stateReference.partialStateReference.noteHashTreeNextAvailableLeafIndex,
-            partialStateReference.noteHashTreeNextAvailableLeafIndex,
-            "Invalid noteHashTreeNextAvailableLeafIndex"
+            header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex,
+            partialStateReference.noteHashTree.nextAvailableLeafIndex,
+            "Invalid noteHashTree.nextAvailableLeafIndex"
           );
           assertEq(
-            header.stateReference.partialStateReference.noteHashTreeRoot,
-            partialStateReference.noteHashTreeRoot,
-            "Invalid noteHashTreeRoot"
+            header.stateReference.partialStateReference.noteHashTree.root,
+            partialStateReference.noteHashTree.root,
+            "Invalid noteHashTree.root"
           );
 
           // NullifierTree
           assertEq(
-            header.stateReference.partialStateReference.nullifierTreeNextAvailableLeafIndex,
-            partialStateReference.nullifierTreeNextAvailableLeafIndex,
-            "Invalid nullifierTreeNextAvailableLeafIndex"
+            header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex,
+            partialStateReference.nullifierTree.nextAvailableLeafIndex,
+            "Invalid nullifierTree.nextAvailableLeafIndex"
           );
           assertEq(
-            header.stateReference.partialStateReference.nullifierTreeRoot,
-            partialStateReference.nullifierTreeRoot,
-            "Invalid nullifierTreeRoot"
+            header.stateReference.partialStateReference.nullifierTree.root,
+            partialStateReference.nullifierTree.root,
+            "Invalid nullifierTree.root"
           );
 
           // ContractTree
           assertEq(
-            header.stateReference.partialStateReference.contractTreeNextAvailableLeafIndex,
-            partialStateReference.contractTreeNextAvailableLeafIndex,
-            "Invalid contractTreeNextAvailableLeafIndex"
+            header.stateReference.partialStateReference.contractTree.nextAvailableLeafIndex,
+            partialStateReference.contractTree.nextAvailableLeafIndex,
+            "Invalid contractTree.nextAvailableLeafIndex"
           );
           assertEq(
-            header.stateReference.partialStateReference.contractTreeRoot,
-            partialStateReference.contractTreeRoot,
-            "Invalid contractTreeRoot"
+            header.stateReference.partialStateReference.contractTree.root,
+            partialStateReference.contractTree.root,
+            "Invalid contractTree.root"
           );
 
           // PublicDataTree
           assertEq(
-            header.stateReference.partialStateReference.publicDataTreeNextAvailableLeafIndex,
-            partialStateReference.publicDataTreeNextAvailableLeafIndex,
-            "Invalid publicDataTreeNextAvailableLeafIndex"
+            header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex,
+            partialStateReference.publicDataTree.nextAvailableLeafIndex,
+            "Invalid publicDataTree.nextAvailableLeafIndex"
           );
           assertEq(
-            header.stateReference.partialStateReference.publicDataTreeRoot,
-            partialStateReference.publicDataTreeRoot,
-            "Invalid publicDataTreeRoot"
+            header.stateReference.partialStateReference.publicDataTree.root,
+            partialStateReference.publicDataTree.root,
+            "Invalid publicDataTree.root"
           );
         }
       }
 
-      assertEq(header.lastArchiveRoot, referenceHeader.lastArchiveRoot, "Invalid last archive");
+      assertEq(
+        header.lastArchive.nextAvailableLeafIndex,
+        referenceHeader.lastArchive.nextAvailableLeafIndex,
+        "Invalid lastArchive.nextAvailableLeafIndex"
+      );
+      assertEq(header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root");
       assertEq(header.bodyHash, referenceHeader.bodyHash, "Invalid body hash");
     }
 
