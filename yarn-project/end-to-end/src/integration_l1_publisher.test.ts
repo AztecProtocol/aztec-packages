@@ -104,7 +104,7 @@ describe('L1Publisher integration', () => {
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = false;
+  const OVERWRITE_TEST_DATA = true;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -277,20 +277,36 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values bellow.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        blockNumber: block.number,
         body: `0x${block.bodyToBuffer().toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
-        chainId: Number(block.header.globalVariables.chainId.toBigInt()),
+        decodedHeader: {
+          bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
+          globalVariables: {
+            blockNumber: block.number,
+            chainId: Number(block.header.globalVariables.chainId.toBigInt()),
+            timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
+            version: Number(block.header.globalVariables.version.toBigInt()),
+          },
+          lastArchiveNextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
+          lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+          stateReference: {
+            l1ToL2MessageTreeNextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
+            l1ToL2MessageTreeRoot: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+            partialStateReference: {
+              contractTreeNextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
+              contractTreeRoot: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              noteHashTreeNextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
+              noteHashTreeRoot: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              nullifierTreeNextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
+              nullifierTreeRoot: `0x${block.header.state.partial.nullifierTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              publicDataTreeNextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
+              publicDataTreeRoot: `0x${block.header.state.partial.publicDataTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+            },
+          },
+        },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         l1ToL2MessagesHash: `0x${block.getL1ToL2MessagesHash().toString('hex').padStart(64, '0')}`,
-        lastArchive: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-        version: Number(block.header.globalVariables.version.toBigInt()),
-
-        // TODO(#4031): Extract these again once the solidity contract is updated.
-        // startStateHash: `0x${block.getStartStateHash().toString('hex').padStart(64, '0')}`,
-        // endStateHash: `0x${block.getEndStateHash().toString('hex').padStart(64, '0')}`,
-        // publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
       },
     };
 
@@ -542,3 +558,4 @@ function hexStringToBuffer(hex: string): Buffer {
   }
   return Buffer.from(hex.replace(/^0x/, ''), 'hex');
 }
+

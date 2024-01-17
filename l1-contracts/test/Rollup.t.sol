@@ -120,7 +120,7 @@ contract RollupTest is DecoderBase {
     bytes memory body = full.block.body;
 
     // We jump to the time of the block.
-    vm.warp(full.block.timestamp);
+    vm.warp(full.block.decodedHeader.globalVariables.timestamp);
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 

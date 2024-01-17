@@ -58,13 +58,94 @@ contract DecoderTest is DecoderBase {
 
     // Header
     {
+      DecoderBase.DecodedHeader memory referenceHeader = data.block.decodedHeader;
       HeaderDecoder.Header memory header = headerHelper.decode(data.block.header);
 
-      assertEq(header.globalVariables.blockNumber, data.block.blockNumber, "Invalid block number");
-      assertEq(header.globalVariables.chainId, data.block.chainId, "Invalid chain Id");
-      assertEq(header.globalVariables.timestamp, data.block.timestamp, "Invalid timestamp");
-      assertEq(header.globalVariables.version, data.block.version, "Invalid version");
-      assertEq(header.lastArchiveRoot, data.block.lastArchive, "Invalid last archive");
+      // GlobalVariables
+      {
+        DecoderBase.GlobalVariables memory globalVariables = referenceHeader.globalVariables;
+
+        assertEq(
+          header.globalVariables.blockNumber, globalVariables.blockNumber, "Invalid block number"
+        );
+        assertEq(header.globalVariables.chainId, globalVariables.chainId, "Invalid chain Id");
+        assertEq(header.globalVariables.timestamp, globalVariables.timestamp, "Invalid timestamp");
+        assertEq(header.globalVariables.version, globalVariables.version, "Invalid version");
+      }
+
+      // StateReference
+      {
+        DecoderBase.StateReference memory stateReference = referenceHeader.stateReference;
+
+        // L1 -> L2 messages
+        assertEq(
+          header.stateReference.l1ToL2MessageTreeNextAvailableLeafIndex,
+          stateReference.l1ToL2MessageTreeNextAvailableLeafIndex,
+          "Invalid l1ToL2MessageTreeNextAvailableLeafIndex"
+        );
+        assertEq(
+          header.stateReference.l1ToL2MessageTreeRoot,
+          stateReference.l1ToL2MessageTreeRoot,
+          "Invalid l1ToL2MessageTreeRoot"
+        );
+
+        // PartialStateReference
+        {
+          DecoderBase.PartialStateReference memory partialStateReference =
+            referenceHeader.stateReference.partialStateReference;
+
+          // NoteHashTree
+          assertEq(
+            header.stateReference.partialStateReference.noteHashTreeNextAvailableLeafIndex,
+            partialStateReference.noteHashTreeNextAvailableLeafIndex,
+            "Invalid noteHashTreeNextAvailableLeafIndex"
+          );
+          assertEq(
+            header.stateReference.partialStateReference.noteHashTreeRoot,
+            partialStateReference.noteHashTreeRoot,
+            "Invalid noteHashTreeRoot"
+          );
+
+          // NullifierTree
+          assertEq(
+            header.stateReference.partialStateReference.nullifierTreeNextAvailableLeafIndex,
+            partialStateReference.nullifierTreeNextAvailableLeafIndex,
+            "Invalid nullifierTreeNextAvailableLeafIndex"
+          );
+          assertEq(
+            header.stateReference.partialStateReference.nullifierTreeRoot,
+            partialStateReference.nullifierTreeRoot,
+            "Invalid nullifierTreeRoot"
+          );
+
+          // ContractTree
+          assertEq(
+            header.stateReference.partialStateReference.contractTreeNextAvailableLeafIndex,
+            partialStateReference.contractTreeNextAvailableLeafIndex,
+            "Invalid contractTreeNextAvailableLeafIndex"
+          );
+          assertEq(
+            header.stateReference.partialStateReference.contractTreeRoot,
+            partialStateReference.contractTreeRoot,
+            "Invalid contractTreeRoot"
+          );
+
+          // PublicDataTree
+          assertEq(
+            header.stateReference.partialStateReference.publicDataTreeNextAvailableLeafIndex,
+            partialStateReference.publicDataTreeNextAvailableLeafIndex,
+            "Invalid publicDataTreeNextAvailableLeafIndex"
+          );
+          assertEq(
+            header.stateReference.partialStateReference.publicDataTreeRoot,
+            partialStateReference.publicDataTreeRoot,
+            "Invalid publicDataTreeRoot"
+          );
+        }
+      }
+
+      assertEq(header.lastArchiveRoot, referenceHeader.lastArchiveRoot, "Invalid last archive");
+      assertEq(header.bodyHash, referenceHeader.bodyHash, "Invalid body hash");
     }
 
     // Messages

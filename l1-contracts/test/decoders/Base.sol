@@ -26,15 +26,44 @@ contract DecoderBase is Test {
 
   struct Data {
     bytes32 archive;
-    uint256 blockNumber;
     bytes body;
     bytes32 calldataHash;
-    uint256 chainId;
+    DecodedHeader decodedHeader;
     bytes header;
     bytes32 l1ToL2MessagesHash;
-    bytes32 lastArchive;
+    bytes32 publicInputsHash;
+  }
+
+  struct DecodedHeader {
+    bytes32 bodyHash;
+    GlobalVariables globalVariables;
+    uint256 lastArchiveNextAvailableLeafIndex;
+    bytes32 lastArchiveRoot;
+    StateReference stateReference;
+  }
+
+  struct GlobalVariables {
+    uint256 blockNumber;
+    uint256 chainId;
     uint256 timestamp;
     uint256 version;
+  }
+
+  struct StateReference {
+    uint256 l1ToL2MessageTreeNextAvailableLeafIndex;
+    bytes32 l1ToL2MessageTreeRoot;
+    PartialStateReference partialStateReference;
+  }
+
+  struct PartialStateReference {
+    uint256 contractTreeNextAvailableLeafIndex;
+    bytes32 contractTreeRoot;
+    uint256 noteHashTreeNextAvailableLeafIndex;
+    bytes32 noteHashTreeRoot;
+    uint256 nullifierTreeNextAvailableLeafIndex;
+    bytes32 nullifierTreeRoot;
+    uint256 publicDataTreeNextAvailableLeafIndex;
+    bytes32 publicDataTreeRoot;
   }
 
   function load(string memory name) public view returns (Full memory) {
