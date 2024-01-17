@@ -107,7 +107,7 @@ impl EntrypointPayload {
           );
         } else {
           let _result = context.call_private_function_with_packed_args(
-            call.target_address, call.function_selector, call.args_hash
+            call.target_address, call.function_selector, call.args_hash, false
           );
         }
       }

@@ -300,6 +300,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The packed arguments to pass to the function.
    * @param sideffectCounter - The side effect counter at the start of the call.
+   * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
   async callPrivateFunction(
@@ -307,6 +308,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     functionSelector: FunctionSelector,
     argsHash: Fr,
     sideffectCounter: number,
+    isStaticCall: boolean,
   ) {
     this.log(
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
@@ -329,7 +331,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetArtifact,
       sideffectCounter,
       false,
-      false,
+      isStaticCall,
     );
 
     const context = new ClientExecutionContext(
@@ -351,6 +353,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetContractAddress,
       targetFunctionData,
     );
+
+    if (childExecutionResult.newNotes.length > 0 && isStaticCall) {
+      throw new Error('Static call cannot create new notes');
+    }
 
     this.nestedExecutions.push(childExecutionResult);
 

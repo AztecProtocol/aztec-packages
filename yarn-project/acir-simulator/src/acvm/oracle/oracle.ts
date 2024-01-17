@@ -7,7 +7,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
-import { frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import {
   toACVMField,
   toAcvmCallPrivateStackItem,
@@ -292,12 +292,14 @@ export class Oracle {
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideffectCounter]: ACVMField[],
+    [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
     const callStackItem = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideffectCounter)),
+      frToBoolean(fromACVMField(isStaticCall)),
     );
     return toAcvmCallPrivateStackItem(callStackItem);
   }

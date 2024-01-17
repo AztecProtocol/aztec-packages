@@ -138,4 +138,17 @@ contract Parent {
             [targetContract.to_field(), targetSelector.to_field(), targetValue + 1]
         );
     }
+
+    // Private function to call another private function in the targetContract using the provided selector
+    #[aztec(private)]
+    fn privateStaticCall(
+        targetContract: AztecAddress,
+        targetSelector: FunctionSelector
+    ) -> Field {
+        // Call the target private function
+        let return_values = context.call_private_function_static(targetContract, targetSelector, [0]);
+
+        // Copy the return value from the call to this function's return values
+        return_values[0]
+    }
 }
