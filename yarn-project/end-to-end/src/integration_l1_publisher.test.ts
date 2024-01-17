@@ -262,7 +262,6 @@ describe('L1Publisher integration', () => {
     // Path relative to the package.json in the end-to-end folder
     const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
 
-    // NOTE: Members of the struct (and substructs) have to be in ALPHABETICAL order!
     const jsonObject = {
       populate: {
         l1ToL2Content: l1ToL2Content.map(c => `0x${c.toBuffer().toString('hex').padStart(64, '0')}`),
