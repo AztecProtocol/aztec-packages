@@ -923,7 +923,7 @@ Get this rollup's L1 chain ID
 [See in table.](#isa-table-chainid)
 
 - **Opcode**: 0x17
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -940,7 +940,7 @@ Get this rollup's L2 version ID
 [See in table.](#isa-table-version)
 
 - **Opcode**: 0x18
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -957,7 +957,7 @@ Get this L2 block's number
 [See in table.](#isa-table-blocknumber)
 
 - **Opcode**: 0x19
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -974,7 +974,7 @@ Get this L2 block's timestamp
 [See in table.](#isa-table-timestamp)
 
 - **Opcode**: 0x1a
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -991,7 +991,7 @@ Get the block's beneficiary address
 [See in table.](#isa-table-coinbase)
 
 - **Opcode**: 0x1b
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -1008,7 +1008,7 @@ Total amount of "L1 gas" that a block can consume
 [See in table.](#isa-table-blockl1gaslimit)
 
 - **Opcode**: 0x1c
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -1025,7 +1025,7 @@ Total amount of "L2 gas" that a block can consume
 [See in table.](#isa-table-blockl2gaslimit)
 
 - **Opcode**: 0x1d
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
@@ -1042,7 +1042,7 @@ Total amount of "DA gas" that a block can consume
 [See in table.](#isa-table-blockdagaslimit)
 
 - **Opcode**: 0x1e
-- **Category**: Environment - Globals
+- **Category**: Execution Environment - Globals
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 

@@ -423,7 +423,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "chainid",
         "Name": "`CHAINID`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -439,7 +439,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "version",
         "Name": "`VERSION`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -455,7 +455,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "blocknumber",
         "Name": "`BLOCKNUMBER`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -471,7 +471,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "timestamp",
         "Name": "`TIMESTAMP`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -487,7 +487,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "coinbase",
         "Name": "`COINBASE`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -503,7 +503,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "blockl1gaslimit",
         "Name": "`BLOCKL1GASLIMIT`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -519,7 +519,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "blockl2gaslimit",
         "Name": "`BLOCKL2GASLIMIT`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
@@ -535,7 +535,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "blockdagaslimit",
         "Name": "`BLOCKDAGASLIMIT`",
-        "Category": "Environment - Globals",
+        "Category": "Execution Environment - Globals",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
