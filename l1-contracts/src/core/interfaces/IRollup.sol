@@ -7,7 +7,7 @@ interface IRollup {
 
   function process(
     bytes calldata _header,
-    bytes calldata _archive,
+    bytes32 _archive,
     bytes calldata _body,
     bytes memory _proof
   ) external;

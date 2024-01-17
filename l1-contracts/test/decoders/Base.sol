@@ -25,7 +25,7 @@ contract DecoderBase is Test {
   }
 
   struct Data {
-    bytes archive;
+    bytes32 archive;
     uint256 blockNumber;
     bytes body;
     bytes32 calldataHash;

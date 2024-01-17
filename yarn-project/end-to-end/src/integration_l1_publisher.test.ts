@@ -277,11 +277,7 @@ describe('L1Publisher integration', () => {
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values bellow.
         // This should not be a problem for testing as long as the values are not larger than u32.
-        archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}${numToUInt32BE(
-          block.archive.nextAvailableLeafIndex,
-        )
-          .toString('hex')
-          .padStart(4, '0')}`,
+        archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         blockNumber: block.number,
         body: `0x${block.bodyToBuffer().toString('hex')}`,
         calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,

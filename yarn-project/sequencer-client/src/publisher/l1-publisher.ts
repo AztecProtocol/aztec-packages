@@ -87,7 +87,7 @@ export interface L1PublisherTxSender {
 export type L1ProcessArgs = {
   /** The L2 block header. */
   header: Buffer;
-  /** A snapshot (root and next available leaf index) of the archive tree after the L2 block is applied. */
+  /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** L2 block body. */
   body: Buffer;
@@ -131,7 +131,7 @@ export class L1Publisher implements L2BlockReceiver {
   public async processL2Block(block: L2Block): Promise<boolean> {
     const txData = {
       header: block.header.toBuffer(),
-      archive: block.archive.toBuffer(),
+      archive: block.archive.root.toBuffer(),
       body: block.bodyToBuffer(),
       proof: Buffer.alloc(0),
     };

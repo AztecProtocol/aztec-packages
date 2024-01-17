@@ -45,14 +45,14 @@ contract Rollup is IRollup {
 
   /**
    * @notice Process an incoming L2 block and progress the state
-   * @param _header - The L2 block header.
-   * @param _archive - A snapshot (root and next available leaf index) of the archive tree after the L2 block is applied
-   * @param _body - The L2 block body.
-   * @param _proof - The proof of correct execution.
+   * @param _header - The L2 block header
+   * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _body - The L2 block body
+   * @param _proof - The proof of correct execution
    */
   function process(
     bytes calldata _header,
-    bytes calldata _archive,
+    bytes32 _archive,
     bytes calldata _body, // TODO(#3944): this will be replaced with _txsHash once the separation is finished.
     bytes memory _proof
   ) external override(IRollup) {
@@ -80,12 +80,13 @@ contract Rollup is IRollup {
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = _computePublicInputHash(_header, txsHash, inHash);
 
+    // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
+    // current block number which is stored in the header (header.globalVariables.blockNumber).
     if (!VERIFIER.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
-    // TODO: @benejsan Manually extracting the root here is ugly. TODO: Re-think how to represent archive snap.
-    archive = bytes32(_archive[:0x20]);
+    archive = _archive;
     lastBlockTs = block.timestamp;
 
     // @todo (issue #605) handle fee collector
@@ -107,7 +108,7 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidVersion(header.globalVariables.version, VERSION);
     }
 
-    // block number already constrained by archive hash check
+    // block number already constrained by archive root check
 
     if (header.globalVariables.timestamp > block.timestamp) {
       revert Errors.Rollup__TimestampInFuture();

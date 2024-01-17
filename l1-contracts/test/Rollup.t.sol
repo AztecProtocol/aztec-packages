@@ -60,7 +60,7 @@ contract RollupTest is DecoderBase {
   function testRevertInvalidChainId() public {
     DecoderBase.Data memory data = load("empty_block_0").block;
     bytes memory header = data.header;
-    bytes memory archive = data.archive;
+    bytes32 archive = data.archive;
     bytes memory body = data.body;
 
     assembly {
@@ -74,7 +74,7 @@ contract RollupTest is DecoderBase {
   function testRevertInvalidVersion() public {
     DecoderBase.Data memory data = load("empty_block_0").block;
     bytes memory header = data.header;
-    bytes memory archive = data.archive;
+    bytes32 archive = data.archive;
     bytes memory body = data.body;
 
     assembly {
@@ -88,7 +88,7 @@ contract RollupTest is DecoderBase {
   function testRevertTimestampInFuture() public {
     DecoderBase.Data memory data = load("empty_block_0").block;
     bytes memory header = data.header;
-    bytes memory archive = data.archive;
+    bytes32 archive = data.archive;
     bytes memory body = data.body;
 
     uint256 ts = block.timestamp + 1;
@@ -103,7 +103,7 @@ contract RollupTest is DecoderBase {
   function testRevertTimestampTooOld() public {
     DecoderBase.Data memory data = load("empty_block_0").block;
     bytes memory header = data.header;
-    bytes memory archive = data.archive;
+    bytes32 archive = data.archive;
     bytes memory body = data.body;
 
     // Overwrite in the rollup contract
@@ -116,7 +116,7 @@ contract RollupTest is DecoderBase {
   function _testBlock(string memory name) public {
     DecoderBase.Full memory full = load(name);
     bytes memory header = full.block.header;
-    bytes memory archive = full.block.archive;
+    bytes32 archive = full.block.archive;
     bytes memory body = full.block.body;
 
     // We jump to the time of the block.
@@ -161,13 +161,7 @@ contract RollupTest is DecoderBase {
       assertEq(inboxWrites.length, count, "Invalid inbox writes");
     }
 
-    bytes32 archiveRoot;
-
-    assembly {
-      archiveRoot := mload(add(archive, 32))
-    }
-
-    assertEq(rollup.archive(), archiveRoot, "Invalid archive");
+    assertEq(rollup.archive(), archive, "Invalid archive");
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

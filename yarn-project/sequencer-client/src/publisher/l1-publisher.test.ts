@@ -22,7 +22,7 @@ describe('L1Publisher', () => {
     l2Block = L2Block.random(42);
 
     header = l2Block.header.toBuffer();
-    archive = l2Block.archive.toBuffer();
+    archive = l2Block.archive.root.toBuffer();
     body = l2Block.bodyToBuffer();
     proof = Buffer.alloc(0);
 
