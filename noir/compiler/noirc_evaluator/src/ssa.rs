@@ -45,7 +45,7 @@ pub(crate) fn optimize_into_acir(
 
     let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
     let ssa_gen_span_guard = ssa_gen_span.enter();
-    let ssa_builder = SsaBuilder::new(program, print_ssa_passes)?
+    let mut ssa_builder = SsaBuilder::new(program, print_ssa_passes)?
         .run_pass(Ssa::defunctionalize, "After Defunctionalization:")
         .run_pass(Ssa::inline_functions, "After Inlining:")
         // Run mem2reg with the CFG separated into blocks
@@ -60,9 +60,24 @@ pub(crate) fn optimize_into_acir(
         .run_pass(Ssa::mem2reg, "After Mem2Reg:")
         .run_pass(Ssa::flatten_cfg, "After Flattening:")
         // Run mem2reg once more with the flattened CFG to catch any remaining loads/stores
-        .run_pass(Ssa::mem2reg, "After Mem2Reg:")
-        .run_pass(Ssa::fold_constants, "After Constant Folding:")
-        .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:");
+        .run_pass(Ssa::mem2reg, "After Mem2Reg:");
+
+    let entry_block = ssa_builder.ssa.main().entry_block();
+    let mut num_instructions = ssa_builder.ssa.main().dfg[entry_block].instructions().len();
+    loop {
+        ssa_builder = ssa_builder
+            .run_pass(Ssa::bubble_up_constrains, "After Constraint Bubbling:")
+            .run_pass(Ssa::fold_constants, "After Constant Folding:")
+            .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:");
+
+        let new_num_instructions = ssa_builder.ssa.main().dfg[entry_block].instructions().len();
+
+        if new_num_instructions == num_instructions {
+            break;
+        } else {
+            num_instructions = new_num_instructions;
+        }
+    }
 
     let brillig = ssa_builder.to_brillig(print_brillig_trace);
 

@@ -30,7 +30,7 @@ use crate::ssa::{
         dfg::{DataFlowGraph, InsertInstructionResult},
         function::Function,
         instruction::{Instruction, InstructionId},
-        value::ValueId,
+        value::{Value, ValueId},
     },
     ssa_gen::Ssa,
 };
@@ -78,6 +78,7 @@ impl Context {
 
         // Cache of instructions without any side-effects along with their outputs.
         let mut cached_instruction_results: HashMap<Instruction, Vec<ValueId>> = HashMap::default();
+        let mut constrained_values: HashMap<ValueId, ValueId> = HashMap::default();
 
         for instruction_id in instructions {
             Self::fold_constants_into_instruction(
@@ -85,6 +86,7 @@ impl Context {
                 block,
                 instruction_id,
                 &mut cached_instruction_results,
+                &mut constrained_values,
             );
         }
         self.block_queue.extend(function.dfg[block].successors());
@@ -95,8 +97,23 @@ impl Context {
         block: BasicBlockId,
         id: InstructionId,
         instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
+        constrained_values: &mut HashMap<ValueId, ValueId>,
     ) {
-        let instruction = Self::resolve_instruction(id, dfg);
+        let instruction = Self::resolve_instruction(id, dfg, constrained_values);
+        match instruction {
+            Instruction::EnableSideEffects { condition }
+                if dfg.get_numeric_constant(condition).map_or(false, |value| value.is_one()) => {}
+
+            Instruction::EnableSideEffects { .. } => {
+                // Clear the cache of constrained values whenever we encounter an `Instruction::EnableSideEffects`
+                // instruction. This prevents a constraint which is only applied within an if-block from affecting values
+                // outside of it in the situation where we do not enter it.
+                *constrained_values = HashMap::default();
+            }
+
+            _ => (),
+        };
+
         let old_results = dfg.instruction_results(id).to_vec();
 
         // If a copy of this instruction exists earlier in the block, then reuse the previous results.
@@ -110,15 +127,42 @@ impl Context {
 
         Self::replace_result_ids(dfg, &old_results, &new_results);
 
-        Self::cache_instruction(instruction, new_results, dfg, instruction_result_cache);
+        Self::cache_instruction(
+            instruction,
+            new_results,
+            dfg,
+            instruction_result_cache,
+            constrained_values,
+        );
     }
 
     /// Fetches an [`Instruction`] by its [`InstructionId`] and fully resolves its inputs.
-    fn resolve_instruction(instruction_id: InstructionId, dfg: &DataFlowGraph) -> Instruction {
+    fn resolve_instruction(
+        instruction_id: InstructionId,
+        dfg: &DataFlowGraph,
+        constrained_values: &HashMap<ValueId, ValueId>,
+    ) -> Instruction {
         let instruction = dfg[instruction_id].clone();
 
+        // Alternate between resolving `value_id` in the `dfg` and checking to see if the resolved value
+        // has been constrained to be equal to some simpler value in the current block.
+        //
+        // This allows us to reach a stable final `ValueId` for each instruction input as we add more
+        // constraints to the cache.
+        fn resolve_cache(
+            dfg: &DataFlowGraph,
+            cache: &HashMap<ValueId, ValueId>,
+            value_id: ValueId,
+        ) -> ValueId {
+            let resolved_id = dfg.resolve(value_id);
+            match cache.get(&resolved_id) {
+                Some(cached_value) => resolve_cache(dfg, cache, *cached_value),
+                None => resolved_id,
+            }
+        }
+
         // Resolve any inputs to ensure that we're comparing like-for-like instructions.
-        instruction.map_values(|value_id| dfg.resolve(value_id))
+        instruction.map_values(|value_id| resolve_cache(dfg, constrained_values, value_id))
     }
 
     /// Pushes a new [`Instruction`] into the [`DataFlowGraph`] which applies any optimizations
@@ -156,7 +200,35 @@ impl Context {
         instruction_results: Vec<ValueId>,
         dfg: &DataFlowGraph,
         instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
+        constraint_cache: &mut HashMap<ValueId, ValueId>,
     ) {
+        // If the instruction was a constraint, then create a link between the two `ValueId`s
+        // to map from the more complex to the simpler value.
+        if let Instruction::Constrain(lhs, rhs, _) = instruction {
+            // These `ValueId`s should be fully resolved now.
+            match (&dfg[lhs], &dfg[rhs]) {
+                // Ignore trivial constraints
+                (Value::NumericConstant { .. }, Value::NumericConstant { .. }) => (),
+
+                // Prefer replacing with constants where possible.
+                (Value::NumericConstant { .. }, _) => {
+                    constraint_cache.insert(rhs, lhs);
+                }
+                (_, Value::NumericConstant { .. }) => {
+                    constraint_cache.insert(lhs, rhs);
+                }
+                // Otherwise prefer block parameters over instruction results.
+                // This is as block parameters are more likely to be a single witness rather than a full expression.
+                (Value::Param { .. }, Value::Instruction { .. }) => {
+                    constraint_cache.insert(rhs, lhs);
+                }
+                (Value::Instruction { .. }, Value::Param { .. }) => {
+                    constraint_cache.insert(lhs, rhs);
+                }
+                (_, _) => (),
+            }
+        }
+
         // If the instruction doesn't have side-effects, cache the results so we can reuse them if
         // the same instruction appears again later in the block.
         if instruction.is_pure(dfg) {
