@@ -62,11 +62,11 @@ export enum Opcodes {
 
   // World State
   BLOCKHEADERBYNUMBER,
-  SLOAD,  // Public Storage
+  SLOAD, // Public Storage
   SSTORE, // Public Storage
   READL1TOL2MSG, // Messages
   SENDL2TOL1MSG, // Messages
-  EMITNOTEHASH,  // Notes & Nullifiers
+  EMITNOTEHASH, // Notes & Nullifiers
   EMITNULLIFIER, // Notes & Nullifiers
 
   // Accrued Substate
