@@ -19,8 +19,12 @@ export function interpretBytecode(bytecode: Buffer): Instruction[] {
   const instructions: Instruction[] = [];
 
   while (readPtr < bytecodeLength) {
-    const opcode = bytecode[readPtr] as Opcode;
+    const opcodeByte = bytecode[readPtr];
     readPtr += 1;
+    if (!(opcodeByte in Opcode)) {
+      throw new Error(`Opcode ${opcodeByte} not implemented`);
+    }
+    const opcode = opcodeByte as Opcode;
 
     const instructionType = INSTRUCTION_SET.get(opcode);
     if (instructionType === undefined) {
