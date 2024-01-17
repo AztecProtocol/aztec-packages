@@ -275,15 +275,15 @@ class BaseTranscript {
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
         // convert element to field elements
-        // auto element_frs = convert_to_bn254_frs(element);
-        // proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        auto element_frs = barretenberg::convert_to_bn254_frs(element);
+        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        // BaseTranscript::consume_prover_element_frs(label, element_frs);
+        BaseTranscript::consume_prover_element_frs(label, element_frs);
     }
 
     /**
@@ -303,7 +303,7 @@ class BaseTranscript {
         BaseTranscript::consume_prover_element_frs(label, element_frs);
 
         T element = from_buffer<T>(element_frs); // TODO: update this conversion to be correct
-                                                 // T element = convert_from_bn254_fr(element_frs);
+                                                 // T element = barretenberg::convert_from_bn254_fr(element_frs);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
