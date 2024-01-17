@@ -42,10 +42,10 @@ template <typename BuilderType> class GoblinUltraRecursive_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = plonk::stdlib::bn254<CircuitBuilder>;
-    using GroupElement = Curve::Element;
-    using FF = Curve::ScalarField;
-    using Commitment = Curve::Element;
-    using CommitmentHandle = Curve::Element;
+    using GroupElement = typename Curve::Element;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::Element;
+    using CommitmentHandle = typename Curve::Element;
     using NativeVerificationKey = flavor::GoblinUltra::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
