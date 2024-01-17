@@ -191,7 +191,7 @@ uint64_t
 barretenberg::fr
 grumpkin::fr
 curve::BN254::AffineElement
-curve::Grumpkin::Curve::G1::AffineElement
+curve::Grumpkin::AffineElement
 barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>
 std::array<FF, NUM_ALL_ENTITIES>, depends on num_all_entities
 
@@ -211,8 +211,9 @@ template <typename T> constexpr size_t calc_num_frs()
                          std::is_same_v<T, uint64_t> || std::is_same_v<T, size_t>) {
         return 1;
     } else {
-        return 0; // TODO: address this case somehow, should never happen
+        return static_cast<size_t>(-1);
     }
+    // TODO: address the else
 }
 /**
  * @brief Calculates the size of a templated types in terms of barretenberg::frs
@@ -236,8 +237,70 @@ template <template <class U, size_t TT> class T, class U, size_t TT> constexpr s
     } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
         return TT * calc_num_frs<grumpkin::fr, TT>();
     } else {
-        return 0; // TODO: address this case somehow, should never happen
+        return static_cast<size_t>(-1);
     }
+}
+
+template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const T& val)
+{
+    std::vector<barretenberg::fr> fr_vec{ val };
+    return fr_vec;
+}
+
+template <typename T> T inline convert_from_bn254_frs(const std::vector<barretenberg::fr>& fr_vec)
+{
+    // TODO: merge this with calc_num_frs()
+    if constexpr (std::is_integral_v<T> || std::is_same_v<T, barretenberg::fr>) {
+        T val = fr_vec[0];
+        return val;
+    } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
+        return convert_barretenberg_fr_to_grumpkin_fr(fr_vec[0], fr_vec[1]);
+    } else if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
+        curve::BN254::AffineElement val;
+        val.x = convert_from_bn254_frs<grumpkin::fr>(fr_vec);
+        val.y = convert_from_bn254_frs<grumpkin::fr>(fr_vec);
+        return val;
+    } else if constexpr (std::is_same_v<T, curve::Grumpkin::AffineElement>) {
+        curve::Grumpkin::AffineElement val;
+        val.x = fr_vec[0];
+        val.y = fr_vec[1];
+    } else {
+        return static_cast<size_t>(-1);
+    }
+}
+
+template <template <class U, size_t TT> class T, class U, size_t TT>
+constexpr T<U, TT> convert_from_bn254_frs(const std::vector<barretenberg::fr>& fr_vec)
+{
+    if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
+        barretenberg::Univariate<barretenberg::fr, TT> val;
+        for (size_t i = 0; i < TT; ++i) {
+            val.data[i] = fr_vec[i];
+        }
+        return val;
+    } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
+        barretenberg::Univariate<grumpkin::fr, TT> val;
+        for (size_t i = 0; i < TT; ++i) {
+            val.data[i] = convert_from_bn254_frs<grumpkin::fr>({ fr_vec[2 * i], fr_vec[2 * i + 1] });
+        }
+        return val;
+    } else if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
+        std::array<barretenberg::fr, TT> val;
+        for (size_t i = 0; i < TT; ++i) {
+            val[i] = fr_vec[i];
+        }
+        return val;
+    } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
+        std::array<grumpkin::fr, TT> val;
+        for (size_t i = 0; i < TT; ++i) {
+            val[i] = convert_from_bn254_frs<grumpkin::fr>({ fr_vec[2 * i], fr_vec[2 * i + 1] });
+        }
+        return val;
+    } else {
+        return static_cast<size_t>(-1);
+    }
+
+    return 0; // TODO: address this case somehow, should never happen
 }
 
 std::vector<barretenberg::fr> inline convert_to_bn254_frs(const grumpkin::fr& val)
@@ -248,12 +311,6 @@ std::vector<barretenberg::fr> inline convert_to_bn254_frs(const grumpkin::fr& va
 }
 
 std::vector<barretenberg::fr> inline convert_to_bn254_frs(const barretenberg::fr& val)
-{
-    std::vector<barretenberg::fr> fr_vec{ val };
-    return fr_vec;
-}
-
-template <std::integral T> std::vector<barretenberg::fr> inline convert_to_bn254_frs(const T& val)
 {
     std::vector<barretenberg::fr> fr_vec{ val };
     return fr_vec;
@@ -326,5 +383,7 @@ template <typename AllValues> std::vector<barretenberg::fr> inline convert_to_bn
     }
     return fr_vec;
 }
+
+// now convert_from_bn254_frs
 
 } // namespace barretenberg
