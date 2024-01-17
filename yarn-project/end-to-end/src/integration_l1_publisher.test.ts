@@ -290,16 +290,31 @@ describe('L1Publisher integration', () => {
           lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
           stateReference: {
             l1ToL2MessageTreeNextAvailableLeafIndex: block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
-            l1ToL2MessageTreeRoot: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+            l1ToL2MessageTreeRoot: `0x${block.header.state.l1ToL2MessageTree.root
+              .toBuffer()
+              .toString('hex')
+              .padStart(64, '0')}`,
             partialStateReference: {
               contractTreeNextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
-              contractTreeRoot: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              contractTreeRoot: `0x${block.header.state.partial.contractTree.root
+                .toBuffer()
+                .toString('hex')
+                .padStart(64, '0')}`,
               noteHashTreeNextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
-              noteHashTreeRoot: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              noteHashTreeRoot: `0x${block.header.state.partial.noteHashTree.root
+                .toBuffer()
+                .toString('hex')
+                .padStart(64, '0')}`,
               nullifierTreeNextAvailableLeafIndex: block.header.state.partial.nullifierTree.nextAvailableLeafIndex,
-              nullifierTreeRoot: `0x${block.header.state.partial.nullifierTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              nullifierTreeRoot: `0x${block.header.state.partial.nullifierTree.root
+                .toBuffer()
+                .toString('hex')
+                .padStart(64, '0')}`,
               publicDataTreeNextAvailableLeafIndex: block.header.state.partial.publicDataTree.nextAvailableLeafIndex,
-              publicDataTreeRoot: `0x${block.header.state.partial.publicDataTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
+              publicDataTreeRoot: `0x${block.header.state.partial.publicDataTree.root
+                .toBuffer()
+                .toString('hex')
+                .padStart(64, '0')}`,
             },
           },
         },
@@ -428,7 +443,6 @@ describe('L1Publisher integration', () => {
         Number(decodedHeader.globalVariables.timestamp),
       );
 
-      // TODO(benesjan): this ugly. Unify how the archive value is represented.
       const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
       const expectedLastArchiveRoot = block.header.lastArchive.root;
       expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
@@ -526,7 +540,6 @@ describe('L1Publisher integration', () => {
         Number(decodedHeader.globalVariables.timestamp),
       );
 
-      // TODO(benesjan): this ugly. Unify how the archive value is represented.
       const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
       const expectedLastArchiveRoot = block.header.lastArchive.root;
       expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
@@ -557,4 +570,3 @@ function hexStringToBuffer(hex: string): Buffer {
   }
   return Buffer.from(hex.replace(/^0x/, ''), 'hex');
 }
-
