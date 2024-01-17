@@ -46,7 +46,7 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
-import { DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -208,13 +208,6 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    contracts.forEach(c =>
-      console.log(
-        `Adding contract ${c.artifact.name} and selectors ${c.artifact.functions.map(f =>
-          FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-        )}`,
-      ),
-    );
     const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {

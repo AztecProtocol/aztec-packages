@@ -131,12 +131,23 @@ describe('e2e_nested_contract', () => {
       expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));
     });
 
-    // eslint-disable-next-line no-only-tests/no-only-tests
-    it.only('performs static calls', async () => {
+    it('performs legal private static calls', async () => {
       await parentContract.methods
-        .privateStaticCall(childContract.address, childContract.methods.value.selector)
+        .privateNoArgsStaticCall(childContract.address, childContract.methods.value.selector)
         .send()
         .wait();
+    }, 100_000);
+
+    it('fails when performing illegal static calls', async () => {
+      await expect(
+        parentContract.methods
+          .privateStaticCall(childContract.address, childContract.methods.privateSetValue.selector, [
+            42n,
+            wallet.getCompleteAddress().address,
+          ])
+          .send()
+          .wait(),
+      ).rejects.toThrowError('Static call cannot create new notes');
     }, 100_000);
   });
 
