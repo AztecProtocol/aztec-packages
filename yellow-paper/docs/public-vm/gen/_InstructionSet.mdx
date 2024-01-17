@@ -560,7 +560,7 @@ Equality check (a == b)
 [See in table.](#isa-table-eq)
 
 - **Opcode**: 0x04
-- **Category**: Compute - Conditionals
+- **Category**: Compute - Comparators
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 	- **inTag**: The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.
@@ -581,7 +581,7 @@ Less-than check (a < b)
 [See in table.](#isa-table-lt)
 
 - **Opcode**: 0x05
-- **Category**: Compute - Conditionals
+- **Category**: Compute - Comparators
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 	- **inTag**: The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.
@@ -602,7 +602,7 @@ Less-than-or-equals check (a <= b)
 [See in table.](#isa-table-lte)
 
 - **Opcode**: 0x06
-- **Category**: Compute - Conditionals
+- **Category**: Compute - Comparators
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. 0th bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 	- **inTag**: The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.

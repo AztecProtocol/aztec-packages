@@ -91,7 +91,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "eq",
         "Name": "`EQ`",
-        "Category": "Compute - Conditionals",
+        "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
             {"name": "inTag", "description": IN_TAG_DESCRIPTION},
@@ -110,7 +110,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "lt",
         "Name": "`LT`",
-        "Category": "Compute - Conditionals",
+        "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
             {"name": "inTag", "description": IN_TAG_DESCRIPTION},
@@ -129,7 +129,7 @@ const INSTRUCTION_SET_RAW = [
     {
         "id": "lte",
         "Name": "`LTE`",
-        "Category": "Compute - Conditionals",
+        "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
             {"name": "inTag", "description": IN_TAG_DESCRIPTION},

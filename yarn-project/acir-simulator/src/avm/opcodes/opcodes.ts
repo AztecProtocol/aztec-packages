@@ -8,7 +8,7 @@ export enum Opcodes {
   SUB,
   MUL,
   DIV,
-  // Compute - Conditionals
+  // Compute - Comparators
   EQ,
   LT,
   LTE,
