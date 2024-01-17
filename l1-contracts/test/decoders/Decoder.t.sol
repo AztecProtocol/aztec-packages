@@ -149,7 +149,9 @@ contract DecoderTest is DecoderBase {
         referenceHeader.lastArchive.nextAvailableLeafIndex,
         "Invalid lastArchive.nextAvailableLeafIndex"
       );
-      assertEq(header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root");
+      assertEq(
+        header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root"
+      );
       assertEq(header.bodyHash, referenceHeader.bodyHash, "Invalid body hash");
     }
 
