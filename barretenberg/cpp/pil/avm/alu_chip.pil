@@ -63,6 +63,7 @@ namespace aluChip(256);
     // Operation selectors are copied from main table and do not need to be constrained here.
     // TODO: Ensure mutual exclusion of alu_op_add and alu_op_sub as some relations below
     //       requires it.
+    // TODO: Similarly, ensure the mutual exclusion of instruction tags
 
     // ========= Inter-table Constraints ======================================
     // TODO: Equivalence between intermediate registers, clk, type flag, operation
@@ -134,33 +135,17 @@ namespace aluChip(256);
     // For this, we add c in the relation conditoned by the ff type selector alu_ff_tag. We emphasize
     // that this relation alone for FF will not imply correctness of the FF addition. We only want
     // it to be satisfied. A separate relation will ensure correctness of it.
+    //
+    // The second relation will consist in showing that sum_N - c = 0 for N = 8, 16, 32, 64, 128.
 
-    #[ALU_ADD_SUB_COMMON]
+    #[ALU_ADD_SUB_1]
     (alu_op_add + alu_op_sub) * (sum_128 - alu_ia + alu_ff_tag * alu_ic) + (alu_op_add - alu_op_sub) * (alu_cf * 2**128 - alu_ib) = 0;
 
-    // ff addition/subtraction
-    #[ALU_ADD_SUB_FF]
-    alu_ff_tag * (alu_op_add + alu_op_sub) * (alu_ia - alu_ic + (alu_op_add - alu_op_sub) * alu_ib) = 0;
+    // Helper polynomial
+    pol sum_tag = alu_u8_tag * sum_8 + alu_u16_tag * sum_16 + alu_u32_tag * sum_32 + alu_u64_tag * sum_64 + alu_u128_tag * sum_128;
 
-    // u8 addition/subtraction
-    #[ALU_ADD_SUB_U8]
-    alu_u8_tag * (alu_op_add + alu_op_sub) * (sum_8 - alu_ic) = 0;
-
-    // u16 addition/subtraction
-    #[ALU_ADD_SUB_U16]
-    alu_u16_tag * (alu_op_add + alu_op_sub) * (sum_16 - alu_ic) = 0;
-
-    // u32 addition/subtraction
-    #[ALU_ADD_SUB_U32]
-    alu_u32_tag * (alu_op_add + alu_op_sub) * (sum_32 - alu_ic) = 0;
-
-    // u64 addition/subtraction
-    #[ALU_ADD_SUB_U64]
-    alu_u64_tag * (alu_op_add + alu_op_sub) * (sum_64 - alu_ic) = 0;
-
-    // u128 addition/subtraction
-    #[ALU_ADD_SUB_U128]
-    alu_u128_tag * (alu_op_add + alu_op_sub) * (sum_128 - alu_ic) = 0;
+    #[ALU_ADD_SUB_2]
+    (alu_op_add + alu_op_sub) * (sum_tag + alu_ff_tag * alu_ia - alu_ic) + alu_ff_tag * (alu_op_add - alu_op_sub) * alu_ib = 0;
 
     // ========= MULTIPLICATION Operation Constraints ===============================
 

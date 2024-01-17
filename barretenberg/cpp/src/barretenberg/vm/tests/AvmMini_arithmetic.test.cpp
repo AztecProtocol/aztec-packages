@@ -1368,14 +1368,14 @@ TEST_F(AvmMiniArithmeticTestsU128, multiplicationOverflow)
 TEST_F(AvmMiniArithmeticNegativeTestsFF, addition)
 {
     auto trace = gen_mutated_trace_add(FF(37), FF(4), FF(40), AvmMemoryTag::ff);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_COMMON");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_1");
 }
 
 // Test on basic incorrect subtraction over finite field type.
 TEST_F(AvmMiniArithmeticNegativeTestsFF, subtraction)
 {
     auto trace = gen_mutated_trace_sub(FF(17), FF(8), FF(-9), AvmMemoryTag::ff);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_COMMON");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_1");
 }
 
 // Test on basic incorrect multiplication over finite field type.
@@ -1527,14 +1527,14 @@ TEST_F(AvmMiniArithmeticNegativeTestsFF, operationWithErrorFlag)
 TEST_F(AvmMiniArithmeticNegativeTestsU8, addition)
 {
     auto trace = gen_mutated_trace_add(FF(234), FF(22), FF(1), AvmMemoryTag::u8);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U8");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect subtraction over U8.
 TEST_F(AvmMiniArithmeticNegativeTestsU8, subtraction)
 {
     auto trace = gen_mutated_trace_sub(FF(100), FF(104), FF(253), AvmMemoryTag::u8);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U8");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect multiplication over U8.
@@ -1552,14 +1552,14 @@ TEST_F(AvmMiniArithmeticNegativeTestsU8, multiplication)
 TEST_F(AvmMiniArithmeticNegativeTestsU16, addition)
 {
     auto trace = gen_mutated_trace_add(FF(8234), FF(7428), FF(653), AvmMemoryTag::u16);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U16");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect subtraction over U16.
 TEST_F(AvmMiniArithmeticNegativeTestsU16, subtraction)
 {
     auto trace = gen_mutated_trace_sub(FF(100), FF(932), FF(25373), AvmMemoryTag::u16);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U16");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect multiplication over U16.
@@ -1577,14 +1577,14 @@ TEST_F(AvmMiniArithmeticNegativeTestsU16, multiplication)
 TEST_F(AvmMiniArithmeticNegativeTestsU32, addition)
 {
     auto trace = gen_mutated_trace_add(FF(1972382341), FF(1111133221), FF(1222222222), AvmMemoryTag::u32);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U32");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect subtraction over U32.
 TEST_F(AvmMiniArithmeticNegativeTestsU32, subtraction)
 {
     auto trace = gen_mutated_trace_sub(FF(3999888777LLU), FF(UINT32_MAX), FF(2537332433LLU), AvmMemoryTag::u32);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U32");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect multiplication over U32.
@@ -1603,7 +1603,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU64, addition)
 {
     auto trace = gen_mutated_trace_add(
         FF(3324236423198282341LLU), FF(999999991111133221LLU), FF(1222222222236LLU), AvmMemoryTag::u64);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U64");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect subtraction over U64.
@@ -1611,7 +1611,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU64, subtraction)
 {
     auto trace =
         gen_mutated_trace_sub(FF(399988877723434LLU), FF(UINT64_MAX), FF(25373324332342LLU), AvmMemoryTag::u64);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U64");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect multiplication over U64.
@@ -1637,7 +1637,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU128, addition)
                                        FF{ uint256_t::from_uint128(b) },
                                        FF{ uint256_t::from_uint128(c) },
                                        AvmMemoryTag::u128);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U128");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect subtraction over U128.
@@ -1651,7 +1651,7 @@ TEST_F(AvmMiniArithmeticNegativeTestsU128, subtraction)
                                        FF{ uint256_t::from_uint128(b) },
                                        FF{ uint256_t::from_uint128(c) },
                                        AvmMemoryTag::u128);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_U128");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_ADD_SUB_2");
 }
 
 // Test on basic incorrect multiplication over U128.
