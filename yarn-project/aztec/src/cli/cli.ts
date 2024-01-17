@@ -4,7 +4,7 @@ import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeC
 import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { createMultiJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { ServerList, createMultiJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -23,7 +23,6 @@ import { openDb } from './util.js';
 
 const {
   AZTEC_PORT = '8080',
-  AZTEC_NODE_PORT = '8079',
   PXE_PORT = '8080',
   ARCHIVER_PORT = '8080',
   AZTEC_NODE_URL,
@@ -128,11 +127,6 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
       const httpServer = http.createServer(app.callback());
       httpServer.listen(options.port);
       userLog(`Aztec Server listening on port ${options.port}`);
-
-      // startHttpRpcServer(node, createAztecNodeRpcServer, options.nodePort);
-      // userLog(`Aztec Node JSON-RPC Server listening on nodePort ${options.nodePort}`);
-      // startHttpRpcServer(pxe, createPXERpcServer, options.pxePort);
-      // userLog(`PXE JSON-RPC Server listening on port ${options.pxePort}`);
     });
 
   // Start Aztec modules with options
@@ -152,6 +146,8 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
 
       // Start Aztec Node
       if (options.node) {
+        // Services that will be started in a single multi-rpc server
+        const services: ServerList = [];
         // get env vars first
         const aztecNodeConfigEnvVars = getNodeConfigEnvVars();
         // get config from options
@@ -194,20 +190,27 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
 
         // Create and start Aztec Node.
         const node = await createAztecNode(nodeConfig);
-        startHttpRpcServer(node, createAztecNodeRpcServer, nodeCliOptions.port || AZTEC_NODE_PORT);
-        userLog(`Aztec Node JSON-RPC Server listening on port ${nodeCliOptions.port || AZTEC_NODE_PORT}`);
+        const nodeServer = createAztecNodeRpcServer(node);
+
+        // Add node to services list
+        services.push({ node: nodeServer });
+
+        // Add node stop function to signal handlers
+        signalHandlers.push(node.stop);
 
         // Create a PXE client that connects to the node.
         if (options.pxe) {
           const pxeCliOptions = parseModuleOptions(options.pxe);
-          const pxe = await createAztecPXE(node);
+          const pxeConfig = mergeEnvVarsAndCliOptions<PXEServiceConfig>(getPXEServiceConfig(), pxeCliOptions);
+          const pxe = await createAztecPXE(node, pxeConfig);
+          const pxeServer = createPXERpcServer(pxe);
+
+          // Add PXE to services list
+          services.push({ pxe: pxeServer });
+
+          // Add PXE stop function to signal handlers
           signalHandlers.push(pxe.stop);
-
-          // Start PXE JSON-RPC server.
-          startHttpRpcServer(pxe, createPXERpcServer, pxeCliOptions.port || PXE_PORT);
         }
-
-        signalHandlers.push(node.stop);
       } else if (options.pxe) {
         // Starting a PXE with a remote node.
         // get env vars first

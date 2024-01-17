@@ -92,6 +92,7 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
  * @param stringClassMap - A map of class names to string representations.
  * @param objectClassMap - A map of class names to class constructors.
  * @param useApiEndpoints - Whether to use the API endpoints or the default RPC endpoint.
+ * @param namespaceMethods - String value (or false/empty) to namespace all methods sent to the server. e.g. 'getInfo' -\> 'pxe_getInfo'
  * @param fetch - The fetch implementation to use.
  */
 export function createJsonRpcClient<T extends object>(

@@ -257,7 +257,7 @@ export function startHttpRpcServer<T>(
 /**
  * List of namespace to server instance.
  */
-type ServerList = {
+export type ServerList = {
   /** name of the service to be used for namespacing */
   [name: string]: JsonRpcServer;
 }[];
