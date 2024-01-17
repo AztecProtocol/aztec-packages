@@ -32,7 +32,7 @@ describe('Synchronizer', () => {
     };
 
     aztecNode = mock<AztecNode>();
-    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
+    database = new KVPxeDatabase(await AztecLmdbStore.openTmp());
     jobQueue = new SerialQueue();
     synchronizer = new TestSynchronizer(aztecNode, database, jobQueue);
   });
@@ -121,7 +121,7 @@ describe('Synchronizer', () => {
     expect(await synchronizer.isGlobalStateSynchronized()).toBe(true);
 
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
-    const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.create(EthAddress.random()));
+    const keyStore = new TestKeyStore(new Grumpkin(), await AztecLmdbStore.openTmp());
     const addAddress = async (startingBlockNum: number) => {
       const privateKey = GrumpkinScalar.random();
       await keyStore.addAccount(privateKey);

@@ -42,7 +42,7 @@ describe('In-Memory P2P Client', () => {
 
     blockSource = new MockBlockSource();
 
-    kvStore = await AztecLmdbStore.create(EthAddress.random());
+    kvStore = await AztecLmdbStore.openTmp();
     client = new P2PClient(kvStore, blockSource, txPool, p2pService);
   });
 

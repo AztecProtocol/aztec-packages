@@ -119,7 +119,7 @@ describe('Note Processor', () => {
   });
 
   beforeEach(async () => {
-    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
+    database = new KVPxeDatabase(await AztecLmdbStore.openTmp());
     addNotesSpy = jest.spyOn(database, 'addNotes');
 
     aztecNode = mock<AztecNode>();

@@ -72,6 +72,10 @@ export class AztecLmdbStore implements AztecKVStore {
     return db;
   }
 
+  static openTmp(): Promise<AztecLmdbStore> {
+    return AztecLmdbStore.create(EthAddress.random());
+  }
+
   /**
    * Creates a new AztecMap in the store.
    * @param name - Name of the map

@@ -8,7 +8,7 @@ describe('KVPxeDatabase', () => {
   let database: KVPxeDatabase;
 
   beforeEach(async () => {
-    database = new KVPxeDatabase(await AztecLmdbStore.create(EthAddress.random()));
+    database = new KVPxeDatabase(await AztecLmdbStore.openTmp());
   });
 
   describePxeDatabase(() => database);
