@@ -28,7 +28,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { DecoderHelperAbi, HeaderDecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -79,8 +79,6 @@ describe('L1Publisher integration', () => {
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
-  let decoderHelperAddress: Address;
-  let headerDecoderHelperAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<
@@ -89,8 +87,6 @@ describe('L1Publisher integration', () => {
     WalletClient<HttpTransport, Chain>
   >;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
-  let decoderHelper: GetContractReturnType<typeof DecoderHelperAbi, PublicClient<HttpTransport, Chain>>;
-  let headerDecoderHelper: GetContractReturnType<typeof HeaderDecoderHelperAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
@@ -118,8 +114,6 @@ describe('L1Publisher integration', () => {
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
-    decoderHelperAddress = getAddress(l1ContractAddresses.decoderHelperAddress.toString());
-    headerDecoderHelperAddress = getAddress(l1ContractAddresses.headerDecoderHelperAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -136,16 +130,6 @@ describe('L1Publisher integration', () => {
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      publicClient,
-    });
-    decoderHelper = getContract({
-      address: decoderHelperAddress!,
-      abi: DecoderHelperAbi,
-      publicClient,
-    });
-    headerDecoderHelper = getContract({
-      address: headerDecoderHelperAddress!,
-      abi: HeaderDecoderHelperAbi,
       publicClient,
     });
 
@@ -429,35 +413,6 @@ describe('L1Publisher integration', () => {
       });
       expect(ethTx.input).toEqual(expectedData);
 
-      const headerDecoderArgs = [`0x${block.header.toBuffer().toString('hex')}`] as const;
-      const decodedHeader = await headerDecoderHelper.read.decode(headerDecoderArgs);
-
-      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.chainId),
-      );
-      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.version),
-      );
-      expect(block.number).toEqual(Number(decodedHeader.globalVariables.blockNumber));
-      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.timestamp),
-      );
-
-      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
-      const expectedLastArchiveRoot = block.header.lastArchive.root;
-      expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
-
-      const archiveInRollup = Fr.fromString(await rollup.read.archive());
-      expect(block.archive.root).toEqual(archiveInRollup);
-
-      const decoderArgs = [`0x${block.bodyToBuffer().toString('hex')}`] as const;
-      const decodedConsumables = await decoderHelper.read.computeConsumables(decoderArgs);
-
-      // TODO(#4031): Re-enable these checks
-      // expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
-      // expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
-      expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedConsumables[1].toString()));
-
       // check that values have been consumed from the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
         if (l1ToL2Messages[j].isZero()) {
@@ -525,35 +480,6 @@ describe('L1Publisher integration', () => {
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
-
-      const headerDecoderArgs = [`0x${block.header.toBuffer().toString('hex')}`] as const;
-      const decodedHeader = await headerDecoderHelper.read.decode(headerDecoderArgs);
-
-      expect(Number(block.header.globalVariables.chainId.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.chainId),
-      );
-      expect(Number(block.header.globalVariables.version.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.version),
-      );
-      expect(block.number).toEqual(Number(decodedHeader.globalVariables.blockNumber));
-      expect(Number(block.header.globalVariables.timestamp.toBigInt())).toEqual(
-        Number(decodedHeader.globalVariables.timestamp),
-      );
-
-      const receivedLastArchiveRoot = Fr.fromString(decodedHeader.lastArchiveRoot);
-      const expectedLastArchiveRoot = block.header.lastArchive.root;
-      expect(expectedLastArchiveRoot).toEqual(receivedLastArchiveRoot);
-
-      const archiveInRollup = Fr.fromString(await rollup.read.archive());
-      expect(block.archive.root).toEqual(archiveInRollup);
-
-      const decoderArgs = [`0x${block.bodyToBuffer().toString('hex')}`] as const;
-      const decodedConsumables = await decoderHelper.read.computeConsumables(decoderArgs);
-
-      // TODO(#4031): Re-enable these checks
-      // expect(block.getPublicInputsHash().toBuffer()).toEqual(hexStringToBuffer(decodedRes[3].toString()));
-      // expect(block.getCalldataHash()).toEqual(hexStringToBuffer(decodedHashes[0].toString()));
-      expect(block.getL1ToL2MessagesHash()).toEqual(hexStringToBuffer(decodedConsumables[1].toString()));
     }
   }, 60_000);
 });

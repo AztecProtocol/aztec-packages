@@ -61,14 +61,6 @@ export interface L1ContractArtifactsForDeployment {
    */
   contractDeploymentEmitter: ContractArtifacts;
   /**
-   * Decoder contract artifacts
-   */
-  decoderHelper?: ContractArtifacts;
-  /**
-   * Header decoder contract artifacts
-   */
-  headerDecoderHelper?: ContractArtifacts;
-  /**
    * Inbox contract artifacts
    */
   inbox: ContractArtifacts;
@@ -169,36 +161,12 @@ export const deployL1Contracts = async (
   );
   logger(`Deployed contract deployment emitter at ${contractDeploymentEmitterAddress}`);
 
-  let decoderHelperAddress: EthAddress | undefined;
-  if (contractsToDeploy.decoderHelper) {
-    decoderHelperAddress = await deployL1Contract(
-      walletClient,
-      publicClient,
-      contractsToDeploy.decoderHelper.contractAbi,
-      contractsToDeploy.decoderHelper.contractBytecode,
-    );
-    logger(`Deployed DecoderHelper at ${decoderHelperAddress}`);
-  }
-
-  let headerDecoderHelperAddress: EthAddress | undefined;
-  if (contractsToDeploy.headerDecoderHelper) {
-    headerDecoderHelperAddress = await deployL1Contract(
-      walletClient,
-      publicClient,
-      contractsToDeploy.headerDecoderHelper.contractAbi,
-      contractsToDeploy.headerDecoderHelper.contractBytecode,
-    );
-    logger(`Deployed HeaderDecoderHelper at ${headerDecoderHelperAddress}`);
-  }
-
   const l1Contracts: L1ContractAddresses = {
     rollupAddress,
     registryAddress,
     inboxAddress,
     outboxAddress,
     contractDeploymentEmitterAddress,
-    decoderHelperAddress: decoderHelperAddress ?? EthAddress.ZERO,
-    headerDecoderHelperAddress: headerDecoderHelperAddress ?? EthAddress.ZERO,
   };
 
   return {

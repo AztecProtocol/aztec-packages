@@ -22,10 +22,6 @@ import {
 import {
   ContractDeploymentEmitterAbi,
   ContractDeploymentEmitterBytecode,
-  DecoderHelperAbi,
-  DecoderHelperBytecode,
-  HeaderDecoderHelperAbi,
-  HeaderDecoderHelperBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -33,7 +29,7 @@ import {
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
-  RollupBytecode,
+  RollupBytecode
 } from '@aztec/l1-artifacts';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -73,7 +69,6 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  deployDecoderHelpers = false,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     contractDeploymentEmitter: {
@@ -97,16 +92,6 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
   };
-  if (deployDecoderHelpers) {
-    l1Artifacts.decoderHelper = {
-      contractAbi: DecoderHelperAbi,
-      contractBytecode: DecoderHelperBytecode,
-    };
-    l1Artifacts.headerDecoderHelper = {
-      contractAbi: HeaderDecoderHelperAbi,
-      contractBytecode: HeaderDecoderHelperBytecode,
-    };
-  }
   return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
 };
 
