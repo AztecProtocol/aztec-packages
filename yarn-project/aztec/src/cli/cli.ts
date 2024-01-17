@@ -21,13 +21,7 @@ import { github, splash } from '../splash.js';
 import { cliTexts } from './texts.js';
 import { openDb } from './util.js';
 
-const {
-  AZTEC_PORT = '8080',
-  PXE_PORT = '8080',
-  ARCHIVER_PORT = '8080',
-  AZTEC_NODE_URL,
-  DEPLOY_AZTEC_CONTRACTS,
-} = process.env;
+const { AZTEC_PORT = '8080', AZTEC_NODE_URL, DEPLOY_AZTEC_CONTRACTS } = process.env;
 
 const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
   const shutdown = async () => {
@@ -96,10 +90,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
     .command('sandbox')
     .description('Starts Aztec sandbox.')
     .option('-p, --port <port>', 'Port to run Aztec on.', AZTEC_PORT)
-    // .option('-np, --node-port <port>', 'Port to run Aztec Node on.', AZTEC_NODE_PORT)
-    // .option('-pp, --pxe-port <port>', 'Port to run PXE on (optional).', PXE_PORT)
     .option('-s, --skip-test-accounts', 'DO NOT deploy test accounts.', false)
-    // .option()
     .action(async options => {
       userLog(`${splash}\n${github}\n\n`);
       userLog(`Setting up Aztec Sandbox v${cliVersion}, please stand by...`);
@@ -135,19 +126,20 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
     .description(
       'Starts Aztec modules. Options for each module can be set as key-value pairs (e.g. "option1=value1,option2=value2") or as environment variables.',
     )
+    .option('-p, --port <port>', 'Port to run Aztec on.', AZTEC_PORT)
     .option('-n, --node [options]', cliTexts.node)
-    .option('-p, --pxe [options]', cliTexts.pxe)
+    .option('-px, --pxe [options]', cliTexts.pxe)
     .option('-a, --archiver [options]', cliTexts.archiver)
     .option('-s, --sequencer [options]', cliTexts.sequencer)
-    .option('-p2p, --p2p-bootstrap', cliTexts.p2pBootstrap)
+    .option('-p2p, --p2p-bootstrap [options]', cliTexts.p2pBootstrap)
     .action(async options => {
+      // Services that will be started in a single multi-rpc server
+      const services: ServerList = [];
       // list of 'stop' functions to call when process ends
       const signalHandlers: Array<() => Promise<void>> = [];
 
       // Start Aztec Node
       if (options.node) {
-        // Services that will be started in a single multi-rpc server
-        const services: ServerList = [];
         // get env vars first
         const aztecNodeConfigEnvVars = getNodeConfigEnvVars();
         // get config from options
@@ -160,6 +152,7 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
           // expect archiver url in node config
           const archiverUrl = nodeCliOptions.archiverUrl;
           if (!archiverUrl) {
+            userLog('Archiver Service URL is required to start Aztec Node without --archiver option');
             throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
           }
           nodeConfig.archiverUrl = archiverUrl;
@@ -234,10 +227,9 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         const node = createAztecNodeClient(nodeUrl);
 
         const pxe = await createPXEService(node, pxeConfig);
+        const pxeServer = createPXERpcServer(pxe);
+        services.push({ pxe: pxeServer });
         signalHandlers.push(pxe.stop);
-        // Start PXE JSON-RPC server
-        startHttpRpcServer(pxe, createPXERpcServer, pxeCliOptions.port || PXE_PORT);
-        userLog(`PXE JSON-RPC Server listening on port ${pxeCliOptions.port || PXE_PORT}`);
       } else if (options.archiver) {
         // Start a standalone archiver.
         // get env vars first
@@ -251,7 +243,9 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         const archiverStore = new LMDBArchiverStore(nodeDb, archiverConfig.maxLogs);
 
         const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
-        startHttpRpcServer(archiver, createArchiverRpcServer, archiverCliOptions.port || ARCHIVER_PORT);
+        const archiverServer = createArchiverRpcServer(archiver);
+        services.push({ archiver: archiverServer });
+        signalHandlers.push(archiver.stop);
       } else if (options.p2pBootstrap) {
         // Start a P2P bootstrap node.
         const envVars = getP2PConfigEnvVars();
@@ -260,6 +254,14 @@ export function getProgram(userLog: LogFn, debugLogger: DebugLogger): Command {
         const config = mergeEnvVarsAndCliOptions<P2PConfig>(envVars, cliOptions);
         await bootstrapNode.start(config);
         signalHandlers.push(bootstrapNode.stop);
+      }
+      if (services.length) {
+        const rpcServer = createMultiJsonRpcServer(services, debugLogger);
+
+        const app = rpcServer.getApp();
+        const httpServer = http.createServer(app.callback());
+        httpServer.listen(options.port);
+        userLog(`Aztec Server listening on port ${options.port}`);
       }
       installSignalHandlers(debugLogger, signalHandlers);
     });

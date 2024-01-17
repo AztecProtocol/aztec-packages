@@ -16,8 +16,7 @@ services:
     image: aztecprotocol/aztec:latest
     command: sandbox
     environment:
-      DEBUG: 'aztec:*'
-      PXE_PORT: 8080
+      DEBUG: 'aztec:*,json-rpc:*'
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
@@ -29,7 +28,6 @@ services:
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
     ports:
       - '8080:8080'
-      - '8079:8079'
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest
@@ -39,6 +37,7 @@ services:
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
+      AZTEC_URL: http://sandbox:8080
       PXE_URL: http://sandbox:8080
     command: ${TEST:-./src/e2e_deploy_contract.test.ts}
     volumes:

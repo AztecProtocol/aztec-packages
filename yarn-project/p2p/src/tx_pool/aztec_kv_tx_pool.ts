@@ -49,7 +49,7 @@ export class AztecKVTxPool implements TxPool {
     return this.#store.transaction(() => {
       for (const [i, tx] of txs.entries()) {
         const txHash = txHashes[i];
-        this.#log.info(`Adding tx with id ${txHash.toString()}`, {
+        this.#log.info(`FOOBAR Adding tx with id ${txHash.toString()}`, {
           eventName: 'tx-added-to-pool',
           ...tx.getStats(),
         } satisfies TxAddedToPoolStats);
