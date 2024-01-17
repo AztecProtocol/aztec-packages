@@ -1,6 +1,6 @@
 import { Instruction } from './instruction.js';
-import { Opcode } from './opcodes.js';
 import { INSTRUCTION_SET } from './instruction_set.js';
+import { Opcode } from './opcodes.js';
 
 export const OPERAND_BIT_LENGTH = 32;
 export const OPERAND_BYTE_LENGTH = 4;
@@ -30,7 +30,7 @@ export function interpretBytecode(bytecode: Buffer): Instruction[] {
     if (instructionType === undefined) {
       throw new Error(`Opcode ${opcode} not implemented`);
     }
-    const numberOfOperands =  instructionType.numberOfOperands;
+    const numberOfOperands = instructionType.numberOfOperands;
     const operands: number[] = [];
     for (let i = 0; i < numberOfOperands; i++) {
       const operand = bytecode.readUInt32BE(readPtr);
@@ -38,7 +38,7 @@ export function interpretBytecode(bytecode: Buffer): Instruction[] {
       operands.push(operand);
     }
 
-    instructions.push(new instructionType(...operands))
+    instructions.push(new instructionType(...operands));
   }
 
   return instructions;
