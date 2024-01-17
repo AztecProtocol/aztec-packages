@@ -36,6 +36,7 @@ use dep::types::abis::membership_witness::ArchiveRootMembershipWitness;
 use dep::types::abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash};
 use dep::types::abis::nullifier_leaf_preimage::NullifierLeafPreimage;
 use dep::types::partial_state_reference::PartialStateReference;
+use dep::std::field::bn254::{lt as full_field_less_than};
 
 struct BaseRollupInputs {
     kernel_data: PreviousKernelData,
@@ -519,33 +520,6 @@ fn consistent_call_data_hash_full_fields() {
     );
 }
 
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    lhs.lt(rhs)
-}
-
-pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    rhs.lt(lhs)
-}
-
-#[test]
-fn test_u256_less_than() {
-    assert(full_field_less_than(1, 1000));
-    assert(!full_field_less_than(1000, 1000));
-    assert(!full_field_less_than(1000, 1));
-    assert(full_field_less_than(0, 0 - 1));
-    assert(!full_field_less_than(0 - 1, 0));
-}
-
-#[test]
-fn test_u256_greater_than() {
-    assert(full_field_greater_than(1000, 1));
-    assert(!full_field_greater_than(1000, 1000));
-    assert(!full_field_greater_than(1, 1000));
-    assert(!full_field_greater_than(0, 0 - 1));
-    assert(full_field_greater_than(0 - 1, 0));
-}
-
 mod tests {
     use crate::{
         base::{
@@ -553,7 +527,6 @@ mod tests {
                 CALL_DATA_HASH_FULL_FIELDS,
                 CALL_DATA_HASH_LOG_FIELDS,
                 BaseRollupInputs,
-                full_field_less_than,
             },
             state_diff_hints::StateDiffHints,
         },
@@ -602,6 +575,7 @@ mod tests {
         partial_state_reference::PartialStateReference,
     };
     use dep::std::option::Option;
+    use dep::std::field::bn254::{lt as full_field_less_than};
 
     struct NullifierInsertion {
         existing_index: u64,

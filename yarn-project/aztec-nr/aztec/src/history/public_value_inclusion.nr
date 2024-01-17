@@ -3,15 +3,13 @@ use dep::protocol_types::{
     hash::pedersen_hash,
 };
 use dep::std::merkle::compute_merkle_root;
+use dep::std::field::bn254::{lt as full_field_less_than};
 
 use crate::{
     context::PrivateContext,
     oracle::get_public_data_witness::{
         get_public_data_witness,
         PublicDataWitness,
-    },
-    utils::{
-        full_field_less_than,
     },
 };
 
