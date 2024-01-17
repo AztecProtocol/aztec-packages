@@ -647,7 +647,7 @@ const INSTRUCTION_SET_RAW = [
     },
     {
         "id": "internalcall",
-        "Name": "`internalcall`",
+        "Name": "`INTERNALCALL`",
         "Category": "Control Flow - Internal",
         "Flags": [],
         "Args": [
@@ -904,8 +904,8 @@ M[successOffset] = call(
 `,
         "Summary": "Call into another contract",
         "Details": `Creates a new (nested) execution context and triggers execution within it until the nested context halts.
-                    Then resumes execution in the current/calling context. A non-existent contract or one
-                    with no code will return success. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.`,
+                    Then resumes execution in the current/calling context. A non-existent contract or one with no code will return success.
+                    See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.`,
         "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
         "Tag updates": `
 T[successOffset] = u8
