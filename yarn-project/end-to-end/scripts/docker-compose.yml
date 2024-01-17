@@ -16,7 +16,7 @@ services:
     image: aztecprotocol/aztec:latest
     command: sandbox
     environment:
-      DEBUG: 'aztec:*,json-rpc:*'
+      DEBUG: 'aztec:*'
       DEBUG_COLORS: 1
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
