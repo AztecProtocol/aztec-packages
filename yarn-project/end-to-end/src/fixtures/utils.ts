@@ -29,7 +29,7 @@ import {
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
-  RollupBytecode
+  RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
