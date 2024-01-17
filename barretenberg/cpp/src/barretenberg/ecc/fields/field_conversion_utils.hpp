@@ -1,45 +1,15 @@
 #pragma once
 
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-
 #include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 
 namespace barretenberg {
 // convert bn254::frs to grumpkin::fr
 
 static constexpr uint64_t NUM_CONVERSION_LIMB_BITS = 64;
-
-template <typename T> constexpr size_t calc_num_frs()
-{
-    if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        return 2;
-    } else if constexpr (std::is_same_v<T, barretenberg::fr>) {
-        return 1;
-    } else if constexpr (std::is_same_v<T, uint32_t>) {
-        return 1;
-    } else if constexpr (std::is_same_v<T, size_t>) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-std::array<barretenberg::fr, 2> inline convert_to_bn254_fr(const grumpkin::fr& val)
-{
-    return convert_grumpkin_fr_to_barretenberg_frs(val);
-}
-
-template <typename T> constexpr barretenberg::fr convert_to_bn254_fr(T val)
-{
-    if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        return val;
-    } else if constexpr (std::is_same_v<T, barretenberg::fr>) {
-        return val;
-    } else {
-        return val;
-    }
-}
 
 std::array<uint64_t, 2> inline decompose_bn254_fr_to_two_limbs(const barretenberg::fr& field_val)
 {
@@ -58,8 +28,9 @@ std::array<uint64_t, 2> inline decompose_bn254_fr_to_two_limbs(const barretenber
     return std::array<uint64_t, 2>{ low, hi };
 }
 
+// circuit form
 // template <typename Arithmetization>
-// std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_native_field_double_width_limb(
+// std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_bn254_fr_to_two_limbs(
 //     const uint32_t limb_idx, const size_t num_limb_bits)
 // {
 //     ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
@@ -212,4 +183,64 @@ std::array<barretenberg::fr, 2> inline convert_grumpkin_fr_to_barretenberg_frs(c
 //     }
 //     prime_basis_limb = low_bits_in + (high_bits_in * shift_2);
 // }
+
+/* types are
+
+uint32_t
+uint64_t
+barretenberg::fr
+grumpkin::fr
+bn254
+curve::BN254::AffineElement
+curve::Grumpkin::Curve::G1::AffineElement
+barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>
+std::array<FF, NUM_ALL_ENTITIES>, depends on num_all_entities
+
+*/
+template <typename T> constexpr size_t calc_num_frs()
+{
+    if constexpr (std::is_same_v<T, grumpkin::fr>) {
+        return 2;
+    } else if constexpr (std::is_same_v<T, barretenberg::fr> || std::is_same_v<T, uint32_t> ||
+                         std::is_same_v<T, uint64_t> || std::is_same_v<T, size_t>) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+template <template <class U, size_t TT> class T, class U, size_t TT> constexpr size_t calc_num_frs()
+{
+    if constexpr (std::is_same_v<T<U, TT>, std::array<barretenberg::fr, TT>>) {
+        return TT * calc_num_frs<barretenberg::fr, TT>();
+    } else if constexpr (std::is_same_v<T<U, TT>, std::array<grumpkin::fr, TT>>) {
+        return TT * calc_num_frs<grumpkin::fr, TT>();
+    } else if constexpr (std::is_same_v<T<U, TT>, curve::Grumpkin::AffineElement>) {
+        return 2 * calc_num_frs<barretenberg::fr, TT>();
+    } else if constexpr (std::is_same_v<T<U, TT>, curve::BN254::AffineElement>) {
+        return 2 * calc_num_frs<grumpkin::fr, TT>();
+    } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
+        return TT * calc_num_frs<barretenberg::fr, TT>();
+    } else if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<grumpkin::fr, TT>>) {
+        return TT * calc_num_frs<grumpkin::fr, TT>();
+    } else {
+        return 0;
+    }
+}
+
+std::array<barretenberg::fr, 2> inline convert_to_bn254_fr(const grumpkin::fr& val)
+{
+    return convert_grumpkin_fr_to_barretenberg_frs(val);
+}
+
+template <typename T> constexpr barretenberg::fr convert_to_bn254_fr(T val)
+{
+    if constexpr (std::is_same_v<T, grumpkin::fr>) {
+        return val;
+    } else if constexpr (std::is_same_v<T, barretenberg::fr>) {
+        return val;
+    } else {
+        return val;
+    }
+}
 } // namespace barretenberg
