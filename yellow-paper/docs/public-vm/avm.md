@@ -94,7 +94,7 @@ MachineState {
     daGasLeft: field,
     pc: field = 0,
     internalCallStack: Vector<field> = [], // initialized as empty
-    memory: [field; 32768] = [0, ..., 0],  // all 32768 (2^32) entries are initialized to zero
+    memory: [field; 2^32] = [0, ..., 0],   // all 2^32 entries are initialized to zero
 }
 ```
 
@@ -383,7 +383,7 @@ INITIAL_MACHINE_STATE = MachineState {
     daGasLeft = TxRequest.daGasLimit,
     pc = 0,
     internalCallStack = [], // initialized as empty
-    memory = [0, ..., 0],   // all 32768 (2^32) entries are initialized to zero
+    memory = [0, ..., 0],   // all 2^32 entries are initialized to zero
 }
 
 INITIAL_JOURNAL = Journal {
@@ -462,7 +462,7 @@ nestedMachineState = MachineState {
     daGasLeft: callingContext.machineState.memory[instr.args.gasOffset+2],
     pc = 0,
     internalCallStack = [], // initialized as empty
-    memory = [0, ..., 0],   // all 32768 (2^32) entries are initialized to zero
+    memory = [0, ..., 0],   // all 2^32 entries are initialized to zero
 }
 ```
 > The nested context's machine state's `*GasLeft` is initialized based on the call instruction's `gasOffset` argument. The caller allocates some amount of L1, L2, and DA gas to the nested call. It does so using the instruction's `gasOffset` argument. In particular, prior to the contract call instruction, the caller populates `M[gasOffset]` with the nested context's initial `l1GasLeft`. Likewise it populates `M[gasOffset+1]` with `l2GasLeft` and `M[gasOffset+2]` with `daGasLeft`.
