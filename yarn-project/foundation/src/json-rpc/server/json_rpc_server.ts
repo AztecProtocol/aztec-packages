@@ -212,10 +212,11 @@ export class JsonRpcServer {
    * Call an RPC method.
    * @param methodName - The RPC method.
    * @param jsonParams - The RPG parameters.
+   * @param skipConversion - Whether to skip conversion of the parameters.
    * @returns The remote result.
    */
-  public async call(methodName: string, jsonParams: any[] = []) {
-    return await this.proxy.call(methodName, jsonParams);
+  public async call(methodName: string, jsonParams: any[] = [], skipConversion: boolean) {
+    return await this.proxy.call(methodName, jsonParams, skipConversion);
   }
 }
 
@@ -282,7 +283,7 @@ export function createMultiJsonRpcServer(
       const namespacedMethod = `${namespace}_${method}`;
 
       handler[namespacedMethod] = (...args: any[]) => {
-        return server.call(method, ...args);
+        return server.call(method, args, true);
       };
     }
 
@@ -307,5 +308,5 @@ export function createMultiJsonRpcServer(
     { stringClassMap: {}, objectClassMap: {} } as ClassMaps,
   );
 
-  return new JsonRpcServer(handler, classMaps.stringClassMap, classMaps.objectClassMap, false, [], log);
+  return new JsonRpcServer(Object.create(handler), classMaps.stringClassMap, classMaps.objectClassMap, false, [], log);
 }

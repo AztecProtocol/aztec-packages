@@ -133,8 +133,8 @@ export function createJsonRpcClient<T extends object>(
         if (namespaceMethods) {
           rpcMethod = `${namespaceMethods}_${method}`;
         }
-        if (['then', 'catch'].includes(rpcMethod)) {
-          return Reflect.get(target, rpcMethod);
+        if (['then', 'catch'].includes(method)) {
+          return Reflect.get(target, method);
         }
         return (...params: any[]) => {
           debug(format(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params));
