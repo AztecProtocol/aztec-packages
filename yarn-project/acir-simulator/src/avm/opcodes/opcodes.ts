@@ -70,7 +70,7 @@ export enum Opcodes {
   EMITNULLIFIER, // Notes & Nullifiers
 
   // Accrued Substate
-  EMITUNENCRYPTEDULOG,
+  EMITUNENCRYPTEDLOG,
 
   // Control Flow - Contract Calls
   CALL,
