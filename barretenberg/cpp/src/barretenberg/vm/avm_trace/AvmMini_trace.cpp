@@ -231,6 +231,7 @@ void AvmMiniTraceBuilder::div(uint32_t a_offset, uint32_t b_offset, uint32_t dst
 // facilitating testing of arithmetic operations over non finite field types.
 // We add an entry in the memory trace and a simplified one in the main trace
 // without operation selector.
+// TODO: PIL relations for the SET opcode need to be implemented.
 // No check is performed that val pertains to type defined by in_tag.
 /**
  * @brief Set a constant from bytecode with direct memory access.

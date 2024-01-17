@@ -32,6 +32,10 @@ std::vector<AvmMiniAluTraceBuilder::AluTraceEntry> AvmMiniAluTraceBuilder::final
 
 /**
  * @brief Build Alu trace and compute the result of an addition of type defined by in_tag.
+ *        Besides the addition calculation, for the types u8, u16, u32, u64, and u128, we
+ *        have to store the result of the addition modulo 2^128 decomposed into 8-bit and
+ *        16-bit registers, i.e.,
+ *        a+b mod. 2^128 =  alu_u8_r0 + alu_u8_r1 * 2^8 + alu_u16_r0 * 2^16 ... +  alu_u16_r6 * 2^112
  *
  * @param a Left operand of the addition
  * @param b Right operand of the addition
@@ -46,93 +50,52 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     FF c{};
     bool carry = false;
     uint8_t alu_u8_r0{};
+    uint8_t alu_u8_r1{};
     std::array<uint16_t, 8> alu_u16_reg{};
+
+    uint128_t a_u128{ a };
+    uint128_t b_u128{ b };
+    uint128_t c_u128 = a_u128 + b_u128;
 
     switch (in_tag) {
     case AvmMemoryTag::ff:
         c = a + b;
         break;
-    case AvmMemoryTag::u8: {
-        auto a_u8 = static_cast<uint8_t>(uint32_t{ a });
-        auto b_u8 = static_cast<uint8_t>(uint32_t{ b });
-        uint8_t c_u8 = a_u8 + b_u8;
-        c = FF{ uint256_t{ c_u8 } };
-
-        // a_u8 + b_u8 >= 2^8  <==> c_u8 < a_u8
-        if (c_u8 < a_u8) {
-            carry = true;
-        }
-
-        alu_u8_r0 = c_u8;
+    case AvmMemoryTag::u8:
+        c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u16: {
-        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
-        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
-        uint16_t c_u16 = a_u16 + b_u16;
-        c = FF{ uint256_t{ c_u16 } };
-
-        // a_u16 + b_u16 >= 2^16  <==> c_u16 < a_u16
-        if (c_u16 < a_u16) {
-            carry = true;
-        }
-
-        alu_u16_reg.at(0) = c_u16;
+    case AvmMemoryTag::u16:
+        c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u32: {
-        uint32_t a_u32{ a };
-        uint32_t b_u32{ b };
-        uint32_t c_u32 = a_u32 + b_u32;
-        c = FF{ uint256_t{ c_u32 } };
-
-        // a_u32 + b_u32 >= 2^32  <==> c_u32 < a_u32
-        if (c_u32 < a_u32) {
-            carry = true;
-        }
-
-        alu_u16_reg.at(0) = static_cast<uint16_t>(c_u32);
-        alu_u16_reg.at(1) = static_cast<uint16_t>(c_u32 >> 16);
+    case AvmMemoryTag::u32:
+        c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u64: {
-        uint64_t a_u64{ a };
-        uint64_t b_u64{ b };
-        uint64_t c_u64 = a_u64 + b_u64;
-        c = FF{ uint256_t{ c_u64 } };
-
-        // a_u64 + b_u64 >= 2^64  <==> c_u64 < a_u64
-        if (c_u64 < a_u64) {
-            carry = true;
-        }
-
-        uint64_t c_trunc_64 = c_u64;
-        for (size_t i = 0; i < 4; i++) {
-            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_64);
-            c_trunc_64 >>= 16;
-        }
+    case AvmMemoryTag::u64:
+        c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u128: {
-        uint128_t a_u128{ a };
-        uint128_t b_u128{ b };
-        uint128_t c_u128 = a_u128 + b_u128;
+    case AvmMemoryTag::u128:
         c = FF{ uint256_t::from_uint128(c_u128) };
+        break;
+    case AvmMemoryTag::u0: // Unsupported as instruction tag
+        return FF{ 0 };
+    }
 
+    if (in_tag != AvmMemoryTag::ff) {
         // a_u128 + b_u128 >= 2^128  <==> c_u128 < a_u128
         if (c_u128 < a_u128) {
             carry = true;
         }
 
         uint128_t c_trunc_128 = c_u128;
-        for (size_t i = 0; i < 8; i++) {
+        alu_u8_r0 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+        alu_u8_r1 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+
+        for (size_t i = 0; i < 7; i++) {
             alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_128);
             c_trunc_128 >>= 16;
         }
-        break;
-    }
-    case AvmMemoryTag::u0: // Unsupported as instruction tag
-        return FF{ 0 };
     }
 
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
@@ -149,6 +112,7 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         .alu_ic = c,
         .alu_cf = carry,
         .alu_u8_r0 = alu_u8_r0,
+        .alu_u8_r1 = alu_u8_r1,
         .alu_u16_reg = alu_u16_reg,
     });
 
@@ -157,6 +121,10 @@ FF AvmMiniAluTraceBuilder::add(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
 
 /**
  * @brief Build Alu trace and compute the result of a subtraction of type defined by in_tag.
+ *        Besides the subtraction calculation, for the types u8, u16, u32, u64, and u128, we
+ *        have to store the result of the subtraction modulo 2^128 decomposed into 8-bit and
+ *        16-bit registers, i.e.,
+ *        a-b mod. 2^128 = alu_u8_r0 + alu_u8_r1 * 2^8 + alu_u16_r0 * 2^16 ... +  alu_u16_r6 * 2^112
  *
  * @param a Left operand of the subtraction
  * @param b Right operand of the subtraction
@@ -171,103 +139,51 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
     FF c{};
     bool carry = false;
     uint8_t alu_u8_r0{};
+    uint8_t alu_u8_r1{};
     std::array<uint16_t, 8> alu_u16_reg{};
+    uint128_t a_u128{ a };
+    uint128_t b_u128{ b };
+    uint128_t c_u128 = a_u128 - b_u128;
 
     switch (in_tag) {
     case AvmMemoryTag::ff:
         c = a - b;
         break;
-    case AvmMemoryTag::u8: {
-        auto a_u8 = static_cast<uint8_t>(uint32_t{ a });
-        auto b_u8 = static_cast<uint8_t>(uint32_t{ b });
-        uint8_t c_u8 = a_u8 - b_u8;
-        c = FF{ uint256_t{ c_u8 } };
-
-        // We show that c_u8 + b_u8 == a_u8 and use "addition relation"
-        // where we swap a_u8 and c_u8.
-        // c_u8 + b_u8 >= 2^8 <==> a_u8 < c_u8
-        if (a_u8 < c_u8) {
-            carry = true;
-        }
-
-        alu_u8_r0 = a_u8;
+    case AvmMemoryTag::u8:
+        c = FF{ static_cast<uint8_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u16: {
-        auto a_u16 = static_cast<uint16_t>(uint32_t{ a });
-        auto b_u16 = static_cast<uint16_t>(uint32_t{ b });
-        uint16_t c_u16 = a_u16 - b_u16;
-        c = FF{ uint256_t{ c_u16 } };
-
-        // We show that c_u16 + b_u16 == a_u16 and use "addition relation"
-        // where we swap a_u16 and c_u16.
-        // c_u16 + b_u16 >= 2^16  <==> a_u16 < c_u16
-        if (a_u16 < c_u16) {
-            carry = true;
-        }
-
-        alu_u16_reg.at(0) = a_u16;
+    case AvmMemoryTag::u16:
+        c = FF{ static_cast<uint16_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u32: {
-        uint32_t a_u32{ a };
-        uint32_t b_u32{ b };
-        uint32_t c_u32 = a_u32 - b_u32;
-        c = FF{ uint256_t{ c_u32 } };
-
-        // We show that c_u32 + b_u32 == a_u32 and use "addition relation"
-        // where we swap a_u32 and c_u32.
-        // c_u32 + b_u32 >= 2^32  <==> a_u32 < c_u32
-        if (a_u32 < c_u32) {
-            carry = true;
-        }
-
-        alu_u16_reg.at(0) = static_cast<uint16_t>(a_u32);
-        alu_u16_reg.at(1) = static_cast<uint16_t>(a_u32 >> 16);
+    case AvmMemoryTag::u32:
+        c = FF{ static_cast<uint32_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u64: {
-        uint64_t a_u64{ a };
-        uint64_t b_u64{ b };
-        uint64_t c_u64 = a_u64 - b_u64;
-        c = FF{ uint256_t{ c_u64 } };
-
-        // We show that c_u64 + b_u64 == a_u64 and use "addition relation"
-        // where we swap a_u64 and c_u64.
-        // c_u64 + b_u64 >= 2^64  <==> a_u64 < c_u64
-        if (a_u64 < c_u64) {
-            carry = true;
-        }
-
-        uint64_t a_trunc_64 = a_u64;
-        for (size_t i = 0; i < 4; i++) {
-            alu_u16_reg.at(i) = static_cast<uint16_t>(a_trunc_64);
-            a_trunc_64 >>= 16;
-        }
+    case AvmMemoryTag::u64:
+        c = FF{ static_cast<uint64_t>(c_u128) };
         break;
-    }
-    case AvmMemoryTag::u128: {
-        uint128_t a_u128{ a };
-        uint128_t b_u128{ b };
-        uint128_t c_u128 = a_u128 - b_u128;
+    case AvmMemoryTag::u128:
         c = FF{ uint256_t::from_uint128(c_u128) };
-
-        // We show that c_u128 + b_u128 == a_u128 and use "addition relation"
-        // where we swap a_u128 and c_u128.
-        // c_u128 + b_u128 >= 2^128  <==> a_u128 < c_u128
-        if (a_u128 < c_u128) {
-            carry = true;
-        }
-
-        uint128_t a_trunc_128 = a_u128;
-        for (size_t i = 0; i < 8; i++) {
-            alu_u16_reg.at(i) = static_cast<uint16_t>(a_trunc_128);
-            a_trunc_128 >>= 16;
-        }
         break;
-    }
     case AvmMemoryTag::u0: // Unsupported as instruction tag
         return FF{ 0 };
+    }
+
+    if (in_tag != AvmMemoryTag::ff) {
+        // Underflow when a_u128 < b_u128
+        if (a_u128 < b_u128) {
+            carry = true;
+        }
+
+        uint128_t c_trunc_128 = c_u128;
+        alu_u8_r0 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+        alu_u8_r1 = static_cast<uint8_t>(c_trunc_128);
+        c_trunc_128 >>= 8;
+
+        for (size_t i = 0; i < 7; i++) {
+            alu_u16_reg.at(i) = static_cast<uint16_t>(c_trunc_128);
+            c_trunc_128 >>= 16;
+        }
     }
 
     alu_trace.push_back(AvmMiniAluTraceBuilder::AluTraceEntry{
@@ -284,6 +200,7 @@ FF AvmMiniAluTraceBuilder::sub(FF const& a, FF const& b, AvmMemoryTag in_tag, ui
         .alu_ic = c,
         .alu_cf = carry,
         .alu_u8_r0 = alu_u8_r0,
+        .alu_u8_r1 = alu_u8_r1,
         .alu_u16_reg = alu_u16_reg,
     });
 
