@@ -30,7 +30,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #contracts: AztecMap<string, Buffer>;
 
   #notes: AztecMap<string, Buffer>;
-  #notesByNullifier: AztecMap<string, string>;
+  #nullifierToNoteId: AztecMap<string, string>;
   #notesByContract: AztecMultiMap<string, string>;
   #notesByStorageSlot: AztecMultiMap<string, string>;
   #notesByTxHash: AztecMultiMap<string, string>;
@@ -56,7 +56,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#syncedBlockPerPublicKey = db.createMap('synced_block_per_public_key');
 
     this.#notes = db.createMap('notes');
-    this.#notesByNullifier = db.createMap('notes');
+    this.#nullifierToNoteId = db.createMap('nullifier_to_note');
     this.#notesByContract = db.createMultiMap('notes_by_contract');
     this.#notesByStorageSlot = db.createMultiMap('notes_by_storage_slot');
     this.#notesByTxHash = db.createMultiMap('notes_by_tx_hash');
@@ -98,9 +98,9 @@ export class KVPxeDatabase implements PxeDatabase {
         // this provides the uniqueness we need to store individual notes
         // and should also return notes in the order that they were created.
         // Had we stored them by their nullifier, they would be returned in random order
-        const noteIndex = toBufferBE(dao.index, 32).toString();
+        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         void this.#notes.set(noteIndex, dao.toBuffer());
-        void this.#notesByNullifier.set(dao.siloedNullifier.toString(), noteIndex);
+        void this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
         void this.#notesByContract.set(dao.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.set(dao.storageSlot.toString(), noteIndex);
         void this.#notesByTxHash.set(dao.txHash.toString(), noteIndex);
@@ -217,7 +217,7 @@ export class KVPxeDatabase implements PxeDatabase {
       const nullifiedNotes: NoteDao[] = [];
 
       for (const nullifier of nullifiers) {
-        const noteIndex = this.#notesByNullifier.get(nullifier.toString());
+        const noteIndex = this.#nullifierToNoteId.get(nullifier.toString());
         if (!noteIndex) {
           continue;
         }
@@ -237,10 +237,13 @@ export class KVPxeDatabase implements PxeDatabase {
 
         nullifiedNotes.push(note);
 
+        void this.#notes.delete(noteIndex);
         void this.#notesByOwner.deleteValue(account.toString(), noteIndex);
         void this.#notesByTxHash.deleteValue(note.txHash.toString(), noteIndex);
         void this.#notesByContract.deleteValue(note.contractAddress.toString(), noteIndex);
         void this.#notesByStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
+
+        void this.#nullifierToNoteId.delete(nullifier.toString());
       }
 
       return nullifiedNotes;
