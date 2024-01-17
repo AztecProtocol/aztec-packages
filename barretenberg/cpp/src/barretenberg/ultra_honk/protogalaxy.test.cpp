@@ -7,9 +7,9 @@ using namespace proof_system::honk;
 
 using Flavor = flavor::Ultra;
 using VerificationKey = Flavor::VerificationKey;
-using Instance = ProverInstance_<Flavor>;
-using Instances = ProverInstances_<Flavor, 2>;
-using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
+using ProverInstance = ProverInstance_<Flavor>;
+using ProverInstances = ProverInstances_<Flavor, 2>;
+using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 using FF = Flavor::FF;
 using Affine = Flavor::Commitment;
 using Projective = Flavor::GroupElement;
@@ -47,9 +47,9 @@ ProverPolynomials construct_ultra_full_polynomials(auto& input_polynomials)
     return full_polynomials;
 }
 
-std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Instance>>& instances,
-                                          UltraComposer& composer,
-                                          bool expected_result)
+std::shared_ptr<ProverInstance> fold_and_verify(const std::vector<std::shared_ptr<ProverInstance>>& instances,
+                                                UltraComposer& composer,
+                                                bool expected_result)
 {
     auto folding_prover = composer.create_folding_prover(instances, composer.commitment_key);
     auto folding_verifier = composer.create_folding_verifier();
@@ -61,7 +61,7 @@ std::shared_ptr<Instance> fold_and_verify(const std::vector<std::shared_ptr<Inst
     return next_accumulator;
 }
 
-void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator, bool expected_result)
+void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
 {
     auto instance_size = accumulator->instance_size;
     auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
@@ -78,7 +78,7 @@ void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator,
 
     EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
 }
-void decide_and_verify(std::shared_ptr<Instance>& accumulator, UltraComposer& composer, bool expected_result)
+void decide_and_verify(std::shared_ptr<ProverInstance>& accumulator, UltraComposer& composer, bool expected_result)
 {
     auto decider_prover = composer.create_decider_prover(accumulator, composer.commitment_key);
     auto decider_verifier = composer.create_decider_verifier(accumulator);
@@ -172,7 +172,7 @@ TEST_F(ProtoGalaxyTests, PerturbatorPolynomial)
         target_sum += full_honk_evals[i] * pow_beta[i];
     }
 
-    auto accumulator = std::make_shared<Instance>();
+    auto accumulator = std::make_shared<ProverInstance>();
     accumulator->prover_polynomials = std::move(full_polynomials);
     accumulator->gate_challenges = betas;
     accumulator->target_sum = target_sum;
@@ -272,7 +272,7 @@ TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
 
     auto instance_2 = composer.create_prover_instance(builder_2);
 
-    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto instances = std::vector<std::shared_ptr<ProverInstance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
     check_accumulator_target_sum_manual(first_accumulator, true);
 
@@ -280,7 +280,7 @@ TEST_F(ProtoGalaxyTests, FullProtogalaxyTest)
     builder_3.add_public_variable(FF(1));
     auto instance_3 = composer.create_prover_instance(builder_3);
 
-    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    instances = std::vector<std::shared_ptr<ProverInstance>>{ first_accumulator, instance_3 };
     auto second_accumulator = fold_and_verify(instances, composer, true);
     check_accumulator_target_sum_manual(second_accumulator, true);
 
@@ -301,7 +301,7 @@ TEST_F(ProtoGalaxyTests, TamperedCommitment)
 
     auto instance_2 = composer.create_prover_instance(builder_2);
 
-    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto instances = std::vector<std::shared_ptr<ProverInstance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
     check_accumulator_target_sum_manual(first_accumulator, true);
 
@@ -311,7 +311,7 @@ TEST_F(ProtoGalaxyTests, TamperedCommitment)
 
     // tampering with the commitment should cause the decider to fail
     first_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
-    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    instances = std::vector<std::shared_ptr<ProverInstance>>{ first_accumulator, instance_3 };
 
     auto second_accumulator = fold_and_verify(instances, composer, true);
 
@@ -332,7 +332,7 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 
     auto instance_2 = composer.create_prover_instance(builder_2);
 
-    auto instances = std::vector<std::shared_ptr<Instance>>{ instance_1, instance_2 };
+    auto instances = std::vector<std::shared_ptr<ProverInstance>>{ instance_1, instance_2 };
     auto first_accumulator = fold_and_verify(instances, composer, true);
     check_accumulator_target_sum_manual(first_accumulator, true);
 
@@ -341,7 +341,7 @@ TEST_F(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
     auto instance_3 = composer.create_prover_instance(builder_3);
 
     // tampering with accumulator's polynomial should cause both folding and deciding to fail
-    instances = std::vector<std::shared_ptr<Instance>>{ first_accumulator, instance_3 };
+    instances = std::vector<std::shared_ptr<ProverInstance>>{ first_accumulator, instance_3 };
     first_accumulator->prover_polynomials.w_l[1] = FF::random_element();
     auto second_accumulator = fold_and_verify(instances, composer, false);
 

@@ -60,9 +60,14 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     };
 
     std::shared_ptr<ProverInstance> create_prover_instance(CircuitBuilder& circuit);
+    std::shared_ptr<VerifierInstance> create_verifier_instance(std::shared_ptr<ProverInstance>& prover_instance);
 
     UltraProver_<Flavor> create_prover(const std::shared_ptr<ProverInstance>&,
                                        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    UltraVerifier_<Flavor> create_verifier(
+        std::shared_ptr<ProverInstance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     UltraVerifier_<Flavor> create_verifier(
         const std::shared_ptr<VerifierInstance>&,
@@ -71,15 +76,19 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     DeciderProver_<Flavor> create_decider_prover(
         const std::shared_ptr<ProverInstance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
     DeciderProver_<Flavor> create_decider_prover(
         const std::shared_ptr<ProverInstance>&,
         const std::shared_ptr<CommitmentKey>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderVerifier_<Flavor> create_decider_verifier(
+        std::shared_ptr<ProverInstance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    DeciderVerifier_<Flavor> create_decider_verifier(
         const std::shared_ptr<VerifierInstance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
 
     UltraVerifier_<Flavor> create_ultra_with_keccak_verifier(CircuitBuilder& circuit);
 
@@ -132,7 +141,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
      *
      * @param inst
      */
-    void compute_verification_key(std::shared_ptr<ProverInstance>&, std::shared_ptr<VerifierInstance>&);
+    std::shared_ptr<VerificationKey> compute_verification_key(std::shared_ptr<ProverInstance>&);
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

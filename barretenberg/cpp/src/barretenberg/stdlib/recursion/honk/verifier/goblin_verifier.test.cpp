@@ -155,17 +155,18 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
 
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        auto verification_key = inner_composer.compute_verification_key(instance);
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, instance->verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, instance->verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, instance->verification_key->num_public_inputs);
-        EXPECT_EQ(verifier.key->q_m.get_value(), instance->verification_key->q_m);
-        EXPECT_EQ(verifier.key->q_r.get_value(), instance->verification_key->q_r);
-        EXPECT_EQ(verifier.key->sigma_1.get_value(), instance->verification_key->sigma_1);
-        EXPECT_EQ(verifier.key->id_3.get_value(), instance->verification_key->id_3);
-        EXPECT_EQ(verifier.key->lagrange_ecc_op.get_value(), instance->verification_key->lagrange_ecc_op);
+        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
+        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
+        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
+        EXPECT_EQ(verifier.key->q_m.get_value(), verification_key->q_m);
+        EXPECT_EQ(verifier.key->q_r.get_value(), verification_key->q_r);
+        EXPECT_EQ(verifier.key->sigma_1.get_value(), verification_key->sigma_1);
+        EXPECT_EQ(verifier.key->id_3.get_value(), verification_key->id_3);
+        EXPECT_EQ(verifier.key->lagrange_ecc_op.get_value(), verification_key->lagrange_ecc_op);
     }
 
     /**
@@ -184,8 +185,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
+        auto verification_key = inner_composer.compute_verification_key(instance);
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
         auto pairing_points = verifier.verify_proof(inner_proof);
         info("Recursive Verifier Goblin: num gates = ", outer_circuit.num_gates);
 
@@ -245,8 +247,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         inner_proof = inner_prover.export_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
+        auto verification_key = inner_composer.compute_verification_key(instance);
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(inner_proof);
 
         // We expect the circuit check to fail due to the bad proof

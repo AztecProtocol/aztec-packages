@@ -26,6 +26,7 @@ class Goblin {
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
      */
+    // WORKTODO: this is being repurposed in the mock kernel circuit as KernelInput
     struct AccumulationOutput {
         HonkProof proof;
         std::shared_ptr<GUHVerificationKey> verification_key;
@@ -116,7 +117,10 @@ class Goblin {
             merge_proof_exists = true;
         }
 
-        return { ultra_proof, instance->verification_key };
+        // WORKTODO: proper handling
+        auto verifier_instance = composer.create_verifier_instance(instance);
+
+        return { ultra_proof, verifier_instance->verification_key };
     };
 
     void prove_eccvm()
@@ -188,7 +192,10 @@ class Goblin {
         //     merge_proof_exists = true;
         // }
 
-        accumulator = { ultra_proof, instance->verification_key };
+        // WORKTODO: proper handling
+        auto verifier_instance = composer.create_verifier_instance(instance);
+
+        accumulator = { ultra_proof, verifier_instance->verification_key };
         return accumulator;
     };
 

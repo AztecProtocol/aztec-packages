@@ -12,12 +12,9 @@ namespace proof_system::honk {
  * @return Pointer to the resulting verification key of the Instance.
  * */
 template <UltraFlavor Flavor>
-void UltraComposer_<Flavor>::compute_verification_key(std::shared_ptr<ProverInstance_<Flavor>>& prover_instance,
-                                                      std::shared_ptr<VerifierInstance_<Flavor>>& verifier_instance)
+std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::compute_verification_key(
+    std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
 {
-    if (verifier_instance->verification_key) {
-        return;
-    }
 
     auto& proving_key = prover_instance->proving_key;
 
@@ -62,7 +59,7 @@ void UltraComposer_<Flavor>::compute_verification_key(std::shared_ptr<ProverInst
         verification_key->q_poseidon2_internal = commitment_key->commit(proving_key->q_poseidon2_internal);
     }
 
-    verifier_instance->verification_key = std::move(verification_key);
+    return verification_key;
 }
 
 template <UltraFlavor Flavor>
@@ -77,6 +74,16 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_prover_i
 }
 
 template <UltraFlavor Flavor>
+std::shared_ptr<VerifierInstance_<Flavor>> UltraComposer_<Flavor>::create_verifier_instance(
+    std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
+{
+    auto verifier_instance = std::make_shared<VerifierInstance>(prover_instance);
+    verifier_instance->verification_key = compute_verification_key(prover_instance);
+
+    return verifier_instance;
+}
+
+template <UltraFlavor Flavor>
 UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<ProverInstance>& instance,
                                                            const std::shared_ptr<Transcript>& transcript)
 {
@@ -86,15 +93,23 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
 }
 
 template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<VerifierInstance>& instance,
-                                                               const std::shared_ptr<Transcript>& transcript)
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(
+    const std::shared_ptr<VerifierInstance>& verifier_instance, const std::shared_ptr<Transcript>& transcript)
 {
-    auto& verification_key = instance->verification_key;
+    auto& verification_key = verifier_instance->verification_key;
     UltraVerifier_<Flavor> output_state(transcript, verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     return output_state;
+}
+
+template <UltraFlavor Flavor>
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<ProverInstance>& prover_instance,
+                                                               const std::shared_ptr<Transcript>& transcript)
+{
+    std::shared_ptr<VerifierInstance_<Flavor>> verifier_instance = create_verifier_instance(prover_instance);
+    return create_verifier(verifier_instance, transcript);
 }
 
 template <UltraFlavor Flavor>
@@ -128,6 +143,14 @@ DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     return output_state;
+}
+
+template <UltraFlavor Flavor>
+DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(std::shared_ptr<ProverInstance>& accumulator,
+                                                                         const std::shared_ptr<Transcript>& transcript)
+{
+    std::shared_ptr<VerifierInstance_<Flavor>> verifier_instance = create_verifier_instance(accumulator);
+    return create_decider_verifier(verifier_instance, transcript);
 }
 
 template class UltraComposer_<honk::flavor::Ultra>;
