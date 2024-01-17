@@ -4,7 +4,7 @@ import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeC
 import { AccountManager, GrumpkinScalar, fileURLToPath } from '@aztec/aztec.js';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { ServerList, createMultiJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { ServerList, createMultiJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 import { BootstrapNode, P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { PXEService, PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';

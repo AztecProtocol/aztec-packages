@@ -55,10 +55,10 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { AZTEC_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 const getAztecUrl = () => {
-  return AZTEC_URL;
+  return PXE_URL;
 };
 
 export const setupL1Contracts = async (
@@ -164,11 +164,11 @@ async function setupWithRemoteEnvironment(
   const aztecNodeUrl = getAztecUrl();
   logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  logger(`Creating PXE client to remote host ${AZTEC_URL}`);
-  const pxeClient = createPXEClient(AZTEC_URL);
+  logger(`Creating PXE client to remote host ${PXE_URL}`);
+  const pxeClient = createPXEClient(PXE_URL);
   await waitForPXE(pxeClient, logger);
   logger('JSON RPC client connected to PXE');
-  logger(`Retrieving contract addresses from ${AZTEC_URL}`);
+  logger(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
   logger('PXE created, constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
@@ -273,7 +273,7 @@ export async function setup(
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
 
-  if (AZTEC_URL) {
+  if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
   }
