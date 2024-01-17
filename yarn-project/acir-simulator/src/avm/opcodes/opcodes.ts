@@ -1,7 +1,7 @@
 /**
  * All AVM opcodes
  */
-export enum Opcodes {
+export enum Opcode {
   // Compute
   // Compute - Arithmetic
   ADD,
