@@ -108,7 +108,7 @@ describe('L1Publisher integration', () => {
       l1ContractAddresses,
       walletClient,
       publicClient: publicClient_,
-    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger, true);
+    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
     publicClient = publicClient_;
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
