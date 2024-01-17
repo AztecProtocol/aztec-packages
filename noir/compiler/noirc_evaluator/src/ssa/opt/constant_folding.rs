@@ -22,6 +22,7 @@
 //! different blocks are merged, i.e. after the [`flatten_cfg`][super::flatten_cfg] pass.
 use std::collections::HashSet;
 
+use acvm::FieldElement;
 use iter_extended::vecmap;
 
 use crate::ssa::{
@@ -30,6 +31,7 @@ use crate::ssa::{
         dfg::{DataFlowGraph, InsertInstructionResult},
         function::Function,
         instruction::{Instruction, InstructionId},
+        types::Type,
         value::{Value, ValueId},
     },
     ssa_gen::Ssa,
@@ -78,7 +80,10 @@ impl Context {
 
         // Cache of instructions without any side-effects along with their outputs.
         let mut cached_instruction_results: HashMap<Instruction, Vec<ValueId>> = HashMap::default();
-        let mut constrained_values: HashMap<ValueId, ValueId> = HashMap::default();
+        let mut constrained_values: HashMap<ValueId, HashMap<ValueId, ValueId>> =
+            HashMap::default();
+        let mut side_effects_enabled_var =
+            function.dfg.make_constant(FieldElement::one(), Type::bool());
 
         for instruction_id in instructions {
             Self::fold_constants_into_instruction(
@@ -87,6 +92,7 @@ impl Context {
                 instruction_id,
                 &mut cached_instruction_results,
                 &mut constrained_values,
+                &mut side_effects_enabled_var,
             );
         }
         self.block_queue.extend(function.dfg[block].successors());
@@ -97,21 +103,13 @@ impl Context {
         block: BasicBlockId,
         id: InstructionId,
         instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
-        constrained_values: &mut HashMap<ValueId, ValueId>,
+        constrained_values: &mut HashMap<ValueId, HashMap<ValueId, ValueId>>,
+        side_effects_enabled_var: &mut ValueId,
     ) {
-        let instruction = Self::resolve_instruction(id, dfg, constrained_values);
-        match instruction {
-            Instruction::EnableSideEffects { condition }
-                if dfg.get_numeric_constant(condition).map_or(false, |value| value.is_one()) => {}
-
-            Instruction::EnableSideEffects { .. } => {
-                // Clear the cache of constrained values whenever we encounter an `Instruction::EnableSideEffects`
-                // instruction. This prevents a constraint which is only applied within an if-block from affecting values
-                // outside of it in the situation where we do not enter it.
-                *constrained_values = HashMap::default();
-            }
-
-            _ => (),
+        let instruction =
+            Self::resolve_instruction(id, dfg, constrained_values.get(side_effects_enabled_var));
+        if let Instruction::EnableSideEffects { condition } = instruction {
+            *side_effects_enabled_var = condition;
         };
 
         let old_results = dfg.instruction_results(id).to_vec();
@@ -133,6 +131,7 @@ impl Context {
             dfg,
             instruction_result_cache,
             constrained_values,
+            side_effects_enabled_var,
         );
     }
 
@@ -140,7 +139,7 @@ impl Context {
     fn resolve_instruction(
         instruction_id: InstructionId,
         dfg: &DataFlowGraph,
-        constrained_values: &HashMap<ValueId, ValueId>,
+        constrained_values: Option<&HashMap<ValueId, ValueId>>,
     ) -> Instruction {
         let instruction = dfg[instruction_id].clone();
 
@@ -151,11 +150,12 @@ impl Context {
         // constraints to the cache.
         fn resolve_cache(
             dfg: &DataFlowGraph,
-            cache: &HashMap<ValueId, ValueId>,
+            cache: Option<&HashMap<ValueId, ValueId>>,
             value_id: ValueId,
         ) -> ValueId {
             let resolved_id = dfg.resolve(value_id);
-            match cache.get(&resolved_id) {
+            let cached_id = cache.and_then(|cache| cache.get(&resolved_id));
+            match cached_id {
                 Some(cached_value) => resolve_cache(dfg, cache, *cached_value),
                 None => resolved_id,
             }
@@ -200,7 +200,8 @@ impl Context {
         instruction_results: Vec<ValueId>,
         dfg: &DataFlowGraph,
         instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
-        constraint_cache: &mut HashMap<ValueId, ValueId>,
+        constraint_cache: &mut HashMap<ValueId, HashMap<ValueId, ValueId>>,
+        side_effects_enabled_var: &mut ValueId,
     ) {
         // If the instruction was a constraint, then create a link between the two `ValueId`s
         // to map from the more complex to the simpler value.
@@ -212,18 +213,18 @@ impl Context {
 
                 // Prefer replacing with constants where possible.
                 (Value::NumericConstant { .. }, _) => {
-                    constraint_cache.insert(rhs, lhs);
+                    constraint_cache.entry(*side_effects_enabled_var).or_default().insert(rhs, lhs);
                 }
                 (_, Value::NumericConstant { .. }) => {
-                    constraint_cache.insert(lhs, rhs);
+                    constraint_cache.entry(*side_effects_enabled_var).or_default().insert(lhs, rhs);
                 }
                 // Otherwise prefer block parameters over instruction results.
                 // This is as block parameters are more likely to be a single witness rather than a full expression.
                 (Value::Param { .. }, Value::Instruction { .. }) => {
-                    constraint_cache.insert(rhs, lhs);
+                    constraint_cache.entry(*side_effects_enabled_var).or_default().insert(rhs, lhs);
                 }
                 (Value::Instruction { .. }, Value::Param { .. }) => {
-                    constraint_cache.insert(lhs, rhs);
+                    constraint_cache.entry(*side_effects_enabled_var).or_default().insert(lhs, rhs);
                 }
                 (_, _) => (),
             }
@@ -408,9 +409,9 @@ mod test {
         //
         // fn main f0 {
         //   b0(v0: u16, Field 255: Field):
-        //      v5 = div v0, Field 255
-        //      v6 = truncate v5 to 8 bits, max_bit_size: 16
-        //      return v6
+        //      v6 = div v0, Field 255
+        //      v7 = truncate v6 to 8 bits, max_bit_size: 16
+        //      return v7
         // }
         main.dfg.set_value_from_id(v1, constant);
 
@@ -426,7 +427,7 @@ mod test {
         );
         assert_eq!(
             &main.dfg[instructions[1]],
-            &Instruction::Truncate { value: ValueId::test_new(5), bit_size: 8, max_bit_size: 16 }
+            &Instruction::Truncate { value: ValueId::test_new(6), bit_size: 8, max_bit_size: 16 }
         );
     }
 
