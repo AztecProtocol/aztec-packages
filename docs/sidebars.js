@@ -217,8 +217,8 @@ const sidebars = {
       items: [
         "dev_docs/getting_started/quickstart",
         "dev_docs/getting_started/core-concepts",
-        "dev_docs/getting_started/aztecjs-getting-started",
         "dev_docs/getting_started/aztecnr-getting-started",
+        "dev_docs/getting_started/aztecjs-getting-started",
       ],
     },
 

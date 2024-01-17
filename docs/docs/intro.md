@@ -13,6 +13,20 @@ In the real world, people enjoy privacy.
 
 Aztec brings privacy to Ethereum.
 
+## Get started
+
+### Build
+
+Looking to get started developing on Aztec?
+
+Start [here](./dev_docs/getting_started/main.md).
+
+### Learn
+
+Looking to learn more about how Aztec works?
+
+Start on the [Foundational Concepts page](./concepts/foundation/main.md).
+
 ---
 
 ## Build with confidence.

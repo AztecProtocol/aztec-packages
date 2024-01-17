@@ -4,6 +4,27 @@ title: Foundational Concepts
 
 As a layer 2 rollup on Ethereum, the Aztec network includes components that look similar to other layer 2 networks, but since it handles private state it also includes many new components.
 
+Aztec offers developers the ability to create applications that give users:
+
+- Data privacy
+- Confidentiality
+- Trustlessness
+
+## Data privacy
+
+Data privacy refers to the ability of Aztec smart contract to have private state. Aztec abstracts many of the complexities associated with managing private state, providing developers with an interface that feels familiar, but is much more powerful.
+
+<!-- Discuss UTXOs, Notes, note tree, nullifier tree? -->
+
+Read more about private state in:
+
+- [The state model](./state_model/main.md)
+<!-- - TODO: link to contract storage? or too low level? -->
+
+## Confidentiality
+
+## Trustlessness
+
 On this page we will introduce the high level network architecture for Aztec with an emphasis on the concepts that are core to understanding Aztec, including:
 
 - [The state model](./state_model/main.md)
