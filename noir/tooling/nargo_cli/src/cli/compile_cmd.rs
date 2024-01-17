@@ -167,22 +167,13 @@ fn compile_program(
 
     let program_artifact_path = workspace.package_build_path(package);
     let cached_program: Option<CompiledProgram> =
-        read_program_from_file(program_artifact_path).map(|p| p.into()).ok();
+        read_program_from_file(program_artifact_path)
+        .ok()
+        .filter(|p| p.noir_version == NOIR_ARTIFACT_VERSION_STRING)
+        .map(|p| p.into());
 
-    let force_recompile =
-        cached_program.as_ref().map_or(false, |p| p.noir_version != NOIR_ARTIFACT_VERSION_STRING);
-    let (program, warnings) = match noirc_driver::compile_main(
-        &mut context,
-        crate_id,
-        compile_options,
-        cached_program,
-        force_recompile,
-    ) {
-        Ok(program_and_warnings) => program_and_warnings,
-        Err(errors) => {
-            return Err(errors);
-        }
-    };
+    let (program, warnings) =
+        noirc_driver::compile_main(&mut context, crate_id, compile_options, cached_program)?;
 
     // Apply backend specific optimizations.
     let optimized_program = nargo::ops::optimize_program(program, expression_width);
