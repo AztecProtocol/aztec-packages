@@ -6,13 +6,9 @@
 
 namespace acir_proofs {
 
-HonkAcirComposer::HonkAcirComposer(size_t size_hint, bool verbose)
-    : size_hint_(size_hint)
-    , verbose_(verbose)
-{}
+HonkAcirComposer::HonkAcirComposer() {}
 
-void HonkAcirComposer::create_goblin_circuit(acir_format::acir_format& constraint_system,
-                                             acir_format::WitnessVector& witness)
+void HonkAcirComposer::create_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness)
 {
     // Construct a builder using the witness and public input data from acir
     goblin_builder_ = acir_format::GoblinBuilder{
@@ -27,14 +23,14 @@ void HonkAcirComposer::create_goblin_circuit(acir_format::acir_format& constrain
     GoblinMockCircuits::construct_goblin_ecc_op_circuit(goblin_builder_);
 }
 
-std::vector<uint8_t> HonkAcirComposer::create_goblin_proof()
+std::vector<uint8_t> HonkAcirComposer::create_proof()
 {
-    return goblin.construct_proof(goblin_builder_);
+    return goblin.accumulate_for_acir(goblin_builder_);
 }
 
-bool HonkAcirComposer::verify_goblin_proof(std::vector<uint8_t> const& proof)
+bool HonkAcirComposer::verify_proof(std::vector<uint8_t> const& proof)
 {
-    return goblin.verify_proof({ proof });
+    return goblin.verify_accumulator(proof);
 }
 
 } // namespace acir_proofs

@@ -137,7 +137,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     auto witness = get_witness(witnessPath);
 
     acir_proofs::HonkAcirComposer acir_composer;
-    acir_composer.create_goblin_circuit(constraint_system, witness);
+    acir_composer.create_circuit(constraint_system, witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
@@ -146,9 +146,9 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath,
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
-    auto proof = acir_composer.create_goblin_proof();
+    auto proof = acir_composer.create_proof();
 
-    auto verified = acir_composer.verify_goblin_proof(proof);
+    auto verified = acir_composer.verify_proof(proof);
 
     return verified;
 }

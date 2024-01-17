@@ -15,17 +15,16 @@ class HonkAcirComposer {
     using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
 
   public:
-    HonkAcirComposer(size_t size_hint = 0, bool verbose = true);
+    HonkAcirComposer();
 
     // Goblin specific methods
-    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
-    std::vector<uint8_t> create_goblin_proof();
-    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
+    void create_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
+    std::vector<uint8_t> create_proof();
+    bool verify_proof(std::vector<uint8_t> const& proof);
 
   private:
     acir_format::GoblinBuilder goblin_builder_;
     Goblin goblin;
-    size_t size_hint_;
     bool verbose_ = true;
 
     template <typename... Args> inline void vinfo(Args... args)

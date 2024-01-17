@@ -164,7 +164,7 @@ class Goblin {
     };
 
     // ACIRHACK
-    AccumulationOutput accumulate_for_acir(GoblinUltraCircuitBuilder& circuit_builder)
+    std::vector<uint8_t> accumulate_for_acir(GoblinUltraCircuitBuilder& circuit_builder)
     {
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
@@ -178,6 +178,8 @@ class Goblin {
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
 
+        accumulator = { ultra_proof, instance->verification_key };
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): no merge prover for now since we're not
         // mocking the first set of ecc ops
         // // Construct and store the merge proof to be recursively verified on the next call to accumulate
@@ -188,8 +190,7 @@ class Goblin {
         //     merge_proof_exists = true;
         // }
 
-        accumulator = { ultra_proof, instance->verification_key };
-        return accumulator;
+        return accumulator.proof.proof_data;
     };
 
     // ACIRHACK
@@ -268,6 +269,16 @@ class Goblin {
         // const auto extract_goblin_proof = [&]([[maybe_unused]] auto& input_proof) { return proof_; };
         // auto goblin_proof = extract_goblin_proof(proof);
         // verified = verified && verify_for_acir(goblin_proof);
+
+        return verified;
+    }
+
+    // ACIRHACK
+    bool verify_accumulator(const std::vector<uint8_t>& proof_buf) const
+    {
+        GoblinUltraVerifier verifier{ accumulator.verification_key };
+        HonkProof proof{ proof_buf };
+        bool verified = verifier.verify_proof(proof);
 
         return verified;
     }
