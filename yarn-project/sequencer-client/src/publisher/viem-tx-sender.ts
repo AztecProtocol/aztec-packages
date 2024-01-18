@@ -1,7 +1,7 @@
 import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
   GetContractReturnType,
@@ -31,6 +31,11 @@ import {
  * Pushes transactions to the L1 rollup contract using viem.
  */
 export class ViemTxSender implements L1PublisherTxSender {
+  private availabilityOracleContract: GetContractReturnType<
+    typeof AvailabilityOracleAbi,
+    PublicClient<HttpTransport, chains.Chain>,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  >;
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
     PublicClient<HttpTransport, chains.Chain>,
@@ -61,6 +66,12 @@ export class ViemTxSender implements L1PublisherTxSender {
       transport: http(chain.rpcUrl),
     });
 
+    this.availabilityOracleContract = getContract({
+      address: getAddress(l1Contracts.availabilityOracleAddress.toString()),
+      abi: AvailabilityOracleAbi,
+      publicClient: this.publicClient,
+      walletClient,
+    });
     this.rollupContract = getContract({
       address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
@@ -114,6 +125,24 @@ export class ViemTxSender implements L1PublisherTxSender {
 
     this.log(`Receipt not found for tx hash ${txHash}`);
     return undefined;
+  }
+
+  /**
+   * Publishes block body to Data Availability Oracle.
+   * @param encodedBody - Encoded block body.
+   * @returns The hash of the mined tx.
+   */
+  async sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined> {
+    const args = [`0x${encodedBody.toString('hex')}`] as const;
+
+    const gas = await this.availabilityOracleContract.estimateGas.publish(args, {
+      account: this.account,
+    });
+    const hash = await this.availabilityOracleContract.write.publish(args, {
+      gas,
+      account: this.account,
+    });
+    return hash;
   }
 
   /**

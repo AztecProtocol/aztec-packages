@@ -39,6 +39,13 @@ export type MinimalTransactionReceipt = {
  */
 export interface L1PublisherTxSender {
   /**
+   * Publishes block body to Data Availability Oracle.
+   * @param encodedBody - Encoded block body.
+   * @returns The hash of the mined tx.
+   */
+  sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined>;
+
+  /**
    * Sends a tx to the L1 rollup contract with a new L2 block. Returns once the tx has been mined.
    * @param encodedData - Serialized data for processing the new L2 block.
    * @returns The hash of the mined tx.
@@ -79,6 +86,13 @@ export interface L1PublisherTxSender {
    * @returns The current archive root of the rollup contract.
    */
   getCurrentArchive(): Promise<Buffer>;
+
+  /**
+   * Checks if the body of the given block has been published to availability oracle..
+   * @param block - The block of which to check whether body has been published.
+   * @returns True if the body has been published, false otherwise.
+   */
+  checkIfBodyPublished(block: L2Block): Promise<boolean>;
 }
 
 /**
@@ -131,23 +145,50 @@ export class L1Publisher implements L2BlockReceiver {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processL2Block(block: L2Block): Promise<boolean> {
-    const txData = {
-      header: block.header.toBuffer(),
-      archive: block.archive.root.toBuffer(),
-      txsHash: block.getCalldataHash(),
-      body: block.bodyToBuffer(),
-      proof: Buffer.alloc(0),
-    };
+    // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
+    if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
+      this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+      return false;
+    }
+
+    const encodedBody = block.bodyToBuffer();
 
     while (!this.interrupted) {
-      // TODO: Remove this block number check, it's here because we don't currently have proper genesis state on the contract
-      if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
-        this.log(`Detected different last archive prior to publishing a block, aborting publish...`);
+      if (await this.txSender.checkIfBodyPublished(block)) {
+        this.log(`Body of a block ${block.number} already published.`);
         break;
       }
 
-      const txHash = await this.sendProcessTx(txData);
+      const txHash = await this.sendPublishBodyTx(encodedBody);
+      if (!txHash) {
+        return false;
+      }
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        return false;
+      }
+
+      if (receipt.status) {
+        this.log.info(`Block body published`);
+        break;
+      }
+
+      this.log(`AvailabilityOracle.publish tx status failed: ${receipt.transactionHash}`);
+      await this.sleepOrInterrupted();
+    }
+
+    const processTxArgs = {
+      header: block.header.toBuffer(),
+      archive: block.archive.root.toBuffer(),
+      txsHash: block.getCalldataHash(),
+      body: encodedBody,
+      proof: Buffer.alloc(0),
+    };
+
+    while (!this.interrupted) {
+      const txHash = await this.sendProcessTx(processTxArgs);
       if (!txHash) {
         break;
       }
@@ -172,11 +213,11 @@ export class L1Publisher implements L2BlockReceiver {
 
       // Check if someone else incremented the block number
       if (!(await this.checkLastArchiveHash(lastArchive))) {
-        this.log('Publish failed. Detected different state hash.');
+        this.log('Publish failed. Detected different last archive hash.');
         break;
       }
 
-      this.log(`Transaction status failed: ${receipt.transactionHash}`);
+      this.log(`Rollup.process tx status failed: ${receipt.transactionHash}`);
       await this.sleepOrInterrupted();
     }
 
@@ -256,6 +297,17 @@ export class L1Publisher implements L2BlockReceiver {
       this.log(`NEW BLOCK LAST ARCHIVE: ${lastArchive.toString('hex')}`);
     }
     return areSame;
+  }
+
+  private async sendPublishBodyTx(encodedBody: Buffer): Promise<string | undefined> {
+    while (!this.interrupted) {
+      try {
+        return await this.txSender.sendPublishBodyTx(encodedBody);
+      } catch (err) {
+        this.log.error(`Block body publish failed`, err);
+        return undefined;
+      }
+    }
   }
 
   private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
