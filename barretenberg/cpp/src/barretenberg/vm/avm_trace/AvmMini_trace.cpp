@@ -270,6 +270,9 @@ void AvmMiniTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag i
  *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of intermediate register values consistency and propagating their
  *        values to the next row when not overwritten.
+ *        TODO: error handling if dst_offset + copy_size > 2^32 which would lead to
+ *              out-of-bound memory write. Similarly, if cd_offset + copy_size is larger
+ *              than call_data_mem.size()
  *
  * @param cd_offset The starting index of the region in calldata to be copied.
  * @param copy_size The number of finite field elements to be copied into memory.
@@ -363,12 +366,13 @@ void AvmMiniTraceBuilder::call_data_copy(uint32_t cd_offset,
  *        intermediate registers and then values are copied to the returned vector.
  *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of flagging this row as the last one? Special STOP flag?
+ *        TODO: error handling if ret_offset + ret_size > 2^32 which would lead to
+ *              out-of-bound memory read.
  *
  * @param ret_offset The starting index of the memory region to be returned.
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-
 std::vector<FF> AvmMiniTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
 {
     // We parallelize loading memory operations in chunk of 3, i.e., 1 per intermediate register.
