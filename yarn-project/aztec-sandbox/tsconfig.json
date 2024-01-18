@@ -28,9 +28,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../noir-compiler"
     },
     {
