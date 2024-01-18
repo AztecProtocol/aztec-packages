@@ -13,6 +13,8 @@
 
 namespace bb::stdlib::recursion::utility {
 
+using namespace bb::stdlib;
+
 /**
  * @brief Utility class for converting native types to corresponding stdlib types
  *

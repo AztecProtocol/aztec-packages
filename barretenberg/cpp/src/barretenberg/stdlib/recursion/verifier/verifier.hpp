@@ -14,7 +14,7 @@
 #include "barretenberg/stdlib/recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/recursion/verifier/program_settings.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace recursion {
 
@@ -41,7 +41,7 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
         const std::string label(item.commitment_label);
         const std::string poly_label(item.polynomial_label);
         switch (item.source) {
-        case PolynomialSource::WITNESS: {
+        case plonk::PolynomialSource::WITNESS: {
             // get_circuit_group_element validates that the point produced lies on the curve
             const auto element = transcript.get_circuit_group_element(label);
             ASSERT(element.get_value().on_curve());
@@ -52,8 +52,8 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
             kate_g1_elements.insert({ label, element });
             break;
         }
-        case PolynomialSource::SELECTOR:
-        case PolynomialSource::PERMUTATION: {
+        case plonk::PolynomialSource::SELECTOR:
+        case plonk::PolynomialSource::PERMUTATION: {
             const auto element = key->commitments.at(label);
             // TODO: with user-defined circuits, we will need verify that the point
             // lies on the curve with constraints
@@ -67,7 +67,7 @@ void populate_kate_element_map(typename Curve::Builder* ctx,
             kate_g1_elements.insert({ label, element });
             break;
         }
-        case PolynomialSource::OTHER: {
+        case plonk::PolynomialSource::OTHER: {
             break;
         }
         }
@@ -431,4 +431,4 @@ aggregation_state<bn254<typename Flavor::CircuitBuilder>> verify_proof(
 
 } // namespace recursion
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

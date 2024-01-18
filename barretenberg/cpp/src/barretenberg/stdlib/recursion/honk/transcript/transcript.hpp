@@ -12,7 +12,6 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/utility/utility.hpp"
 
-// Note: this namespace will be sensible once stdlib is moved out of the plonk namespace
 namespace bb::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:

@@ -3,7 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace recursion {
 
@@ -41,4 +41,4 @@ inline std::ostream& operator<<(std::ostream& os, native_aggregation_state const
 
 } // namespace recursion
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb

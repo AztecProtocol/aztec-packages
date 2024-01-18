@@ -293,9 +293,9 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                     const uint256_t l2 = builder.get_variable(inputs[idx2]);
                     const uint256_t l3 = builder.get_variable(inputs[idx3]);
 
-                    const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                    const uint256_t limb = l0 + (l1 << plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                           (l2 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                           (l3 << (plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
                     return outer_scalar_field(limb);
                 };
 
@@ -580,7 +580,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition)
 
 HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_recursive_proof_composition_ultra_no_tables();
     } else {
         GTEST_SKIP();
@@ -589,7 +589,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
 
 HEAVY_TYPED_TEST(stdlib_verifier, double_verification)
 {
-    if constexpr (std::same_as<TypeParam, UltraComposer>) {
+    if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_double_verification();
     } else {
         // Test doesn't compile-.

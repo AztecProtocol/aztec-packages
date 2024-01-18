@@ -3,7 +3,7 @@
 #include "barretenberg/plonk/proof_system/types/program_settings.hpp"
 #include "barretenberg/stdlib/recursion/transcript/transcript.hpp"
 
-namespace bb::plonk {
+namespace bb {
 namespace stdlib {
 namespace recursion {
 
@@ -103,4 +103,4 @@ class recursive_ultra_to_standard_verifier_settings : public recursive_ultra_ver
 
 } // namespace recursion
 } // namespace stdlib
-} // namespace bb::plonk
+} // namespace bb
