@@ -125,6 +125,7 @@ export class ViemTxSender implements L1PublisherTxSender {
     const args = [
       `0x${encodedData.header.toString('hex')}`,
       `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.txsHash.toString('hex')}`,
       `0x${encodedData.body.toString('hex')}`,
       `0x${encodedData.proof.toString('hex')}`,
     ] as const;

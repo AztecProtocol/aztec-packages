@@ -47,14 +47,15 @@ contract Rollup is IRollup {
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _txsHash - The L2 block body
+   * @param _txsHash - Transactions hash.
+   * @param _body - The L2 block body
    * @param _proof - The proof of correct execution
    */
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes32 _txsHash, // @todo @benesjan Update this to be actual txs hash and not the old diff root.
-    bytes calldata _body, // @todo @benesjan Update this to pass in only th messages and not the whole body.
+    bytes32 _txsHash, // TODO(#3938) Update this to be actual txs hash and not the old diff root.
+    bytes calldata _body, // TODO(#3938) Update this to pass in only th messages and not the whole body.
     bytes memory _proof
   ) external override(IRollup) {
     // Decode and validate header
