@@ -34,13 +34,14 @@ export class AvmInterpreter {
         const instruction = this.instructions[this.machineState.pc];
 
         if (!instruction) {
-          this.failedAssertInstruction();
+          throw new InvalidInstructionError(this.machineState.pc);
         }
 
+        // TODO: do we want richer error messages here
         instruction.execute(this.machineState, this.stateManager);
 
         if (this.machineState.pc >= this.instructions.length) {
-          this.failedAssertProgramCounter();
+          throw new InvalidProgramCounterError(this.machineState.pc, this.instructions.length);
         }
       }
 
@@ -60,14 +61,6 @@ export class AvmInterpreter {
    */
   returnData(): Fr[] {
     return this.machineState.getReturnData();
-  }
-
-  private failedAssertProgramCounter(): void {
-    throw new InvalidProgramCounterError(this.machineState.pc, this.instructions.length);
-  }
-
-  private failedAssertInstruction(): void {
-    throw new InvalidInstructionError(this.machineState.pc);
   }
 }
 
