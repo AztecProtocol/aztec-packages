@@ -213,6 +213,8 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+  /** Whether to enable fees on the account contract and sequencer */
+  enableFees: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
