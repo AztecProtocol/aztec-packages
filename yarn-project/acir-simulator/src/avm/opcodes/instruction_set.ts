@@ -1,7 +1,6 @@
 import {
   Add,
   Div,
-  /*Div,*/
   Mul,
   Sub,
 } from './arithmetic.js';
