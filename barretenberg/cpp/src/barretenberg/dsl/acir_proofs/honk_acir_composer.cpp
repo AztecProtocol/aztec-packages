@@ -31,7 +31,7 @@ std::vector<uint8_t> HonkAcirComposer::accumulate()
 
 bool HonkAcirComposer::verify_accumulator(std::vector<uint8_t> const& proof)
 {
-    return goblin.verify_accumulator(proof);
+    return goblin.verify_accumulator_for_acir(proof);
 }
 
 std::vector<uint8_t> HonkAcirComposer::accumulate_and_prove()
@@ -48,7 +48,7 @@ std::vector<uint8_t> HonkAcirComposer::accumulate_and_prove()
 bool HonkAcirComposer::verify(std::vector<uint8_t> const& proof)
 {
     // Verify the final GUH proof
-    bool ultra_verified = goblin.verify_accumulator(proof);
+    bool ultra_verified = goblin.verify_accumulator_for_acir(proof);
 
     // Verify the Goblin proof (ECCVM, Translator, Merge)
     bool goblin_verified = goblin.verify_for_acir();
