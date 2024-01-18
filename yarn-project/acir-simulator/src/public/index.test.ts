@@ -371,7 +371,7 @@ describe('ACIR public execution simulator', () => {
       );
 
       // Stub message key
-      const messageKey = Fr.random();
+      const messageKey = preimage.hash();
       const args = encodeArguments(mintPublicArtifact, [
         recipient.toField(),
         bridgedAmount,
@@ -394,12 +394,18 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicArtifact.bytecode, 'base64'));
       publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
+      const siblingPath = Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random());
+      let root = messageKey;
+      for (const sibling of siblingPath) {
+        root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling.toBuffer()]));
+      }
+
       // Mock response
       commitmentsDb.getL1ToL2Message.mockImplementation(async () => {
         return await Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,
-          siblingPath: Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random()),
+          siblingPath,
         });
       });
 
@@ -411,6 +417,11 @@ describe('ACIR public execution simulator', () => {
         Fr.ZERO,
         Fr.ZERO,
       );
+
+      blockHeader = BlockHeader.empty();
+      blockHeader.l1ToL2MessageTreeRoot = root;
+      executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHeader);
+
       const result = await executor.simulate(execution, gv);
 
       expect(result.newNullifiers.length).toEqual(1);
