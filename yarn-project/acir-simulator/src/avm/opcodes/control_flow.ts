@@ -27,7 +27,6 @@ export class Jump extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    // TODO: this jump offset must be range constrained.
     machineState.pc = this.jumpOffset;
   }
 }
@@ -42,7 +41,6 @@ export class InternalCall extends Instruction {
   }
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
-    // TODO: this jump offset must be range constrained.
     machineState.internalCallStack.push(machineState.pc + 1);
     machineState.pc = this.jumpOffset;
   }
@@ -60,7 +58,6 @@ export class InternalReturn extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const jumpOffset = machineState.internalCallStack.pop();
     if (jumpOffset === undefined) {
-      // TODO: Add in an error if this pop is undefined
       throw new InternalCallStackEmptyError();
     }
     machineState.pc = jumpOffset;
