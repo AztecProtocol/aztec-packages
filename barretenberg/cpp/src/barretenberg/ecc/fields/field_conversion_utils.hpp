@@ -306,10 +306,10 @@ template <typename T> constexpr size_t calc_num_frs()
 //     }
 // }
 
-template <typename T> T inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec);
+template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec);
 
 template <template <class U, size_t TT> class T, class U, size_t TT>
-T<U, TT> inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
+T<U, TT> inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
 {
     if constexpr (std::is_same_v<T<U, TT>, barretenberg::Univariate<barretenberg::fr, TT>>) {
         barretenberg::Univariate<barretenberg::fr, TT> val;
@@ -343,7 +343,7 @@ T<U, TT> inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
     }
 }
 
-template <typename T> T inline convert_from_bn254_frs(const std::span<barretenberg::fr> fr_vec)
+template <typename T> T inline convert_from_bn254_frs(std::span<const barretenberg::fr> fr_vec)
 {
     // TODO: possibly merge this with calc_num_frs()
     if constexpr (std::is_same_v<T, bool>) { // TODO: add asserts for correct lengths

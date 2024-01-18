@@ -219,7 +219,6 @@ TEST_F(GoblinUltraTranscriptTests, ChallengeGenerationTest)
 
 TEST_F(GoblinUltraTranscriptTests, StructureTest)
 {
-    GTEST_SKIP() << "TODO: update and reinstate after structuring is fixed";
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename Flavor::CircuitBuilder();
     generate_test_circuit(builder);

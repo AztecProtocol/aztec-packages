@@ -158,20 +158,20 @@ class BaseTranscript {
     /**
      * @brief Serializes object and appends it to proof_data
      * @details Calls to_buffer on element to serialize, and modifies proof_data object by appending the serialized
-     * bytes to it.
+     * frs to it.
      * @tparam T
      * @param element
      * @param proof_data
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_bytes = to_buffer(element);
-        proof_data.insert(proof_data.end(), element_bytes.begin(), element_bytes.end());
+        auto element_frs = barretenberg::field_conversion_utils::convert_to_bn254_frs(element);
+        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
-     * @brief Deserializes the bytes starting at offset into the typed element and returns that element.
-     * @details Using the template parameter and the offset argument, this function deserializes the bytes with
-     * from_buffer and then increments the offset appropriately based on the number of bytes that were deserialized.
+     * @brief Deserializes the frs starting at offset into the typed element and returns that element.
+     * @details Using the template parameter and the offset argument, this function deserializes the frs with
+     * from_buffer and then increments the offset appropriately based on the number of frs that were deserialized.
      * @tparam T
      * @param proof_data
      * @param offset
@@ -179,13 +179,13 @@ class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_size = sizeof(T);
-        ASSERT(offset + element_size <= proof_data.size());
+        constexpr size_t element_fr_size = barretenberg::field_conversion_utils::calc_num_frs<T>();
+        ASSERT(offset + element_fr_size <= proof_data.size());
 
-        auto element_bytes = std::span{ proof_data }.subspan(offset, element_size);
-        offset += element_size;
+        auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
+        offset += element_fr_size;
 
-        T element = from_buffer<T>(element_bytes);
+        auto element = barretenberg::field_conversion_utils::convert_from_bn254_frs<T>(element_frs);
 
         return element;
     }
@@ -273,7 +273,7 @@ class BaseTranscript {
         static_cast<void>(element);
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
-        // returns the size of T in bytes. (E.g. this is true for std::array but not for std::vector).
+        // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
         // convert element to field elements
         auto element_frs = barretenberg::field_conversion_utils::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
