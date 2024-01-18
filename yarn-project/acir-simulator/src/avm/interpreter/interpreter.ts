@@ -37,7 +37,6 @@ export class AvmInterpreter {
           throw new InvalidInstructionError(this.machineState.pc);
         }
 
-        // TODO: do we want richer error messages here
         instruction.execute(this.machineState, this.stateManager);
 
         if (this.machineState.pc >= this.instructions.length) {
