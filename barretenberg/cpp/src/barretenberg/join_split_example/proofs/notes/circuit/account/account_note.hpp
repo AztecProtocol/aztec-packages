@@ -2,10 +2,7 @@
 #include "barretenberg/join_split_example/types.hpp"
 #include "commit.hpp"
 
-namespace join_split_example::proofs {
-namespace notes {
-namespace circuit {
-namespace account {
+namespace join_split_example::proofs::notes::circuit::account {
 
 struct account_note {
     field_ct account_alias_hash;
@@ -25,7 +22,4 @@ struct account_note {
     operator byte_array_ct() const { return byte_array_ct(commitment); }
 };
 
-} // namespace account
-} // namespace circuit
-} // namespace notes
-} // namespace join_split_example::proofs
+} // namespace join_split_example::proofs::notes::circuit::account
