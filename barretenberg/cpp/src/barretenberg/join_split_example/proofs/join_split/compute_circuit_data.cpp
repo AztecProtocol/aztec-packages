@@ -27,7 +27,7 @@ join_split_tx noop_tx()
     auto gibberish_path = fr_hash_path(DATA_TREE_DEPTH, std::make_pair(fr::random_element(), fr::random_element()));
 
     join_split_tx tx;
-    tx.proof_id = ProofIds::DEPOSIT;
+    tx.proof_id = proof_ids::DEPOSIT;
     tx.public_value = 1;
     tx.public_owner = fr::one();
     tx.asset_id = 0;
