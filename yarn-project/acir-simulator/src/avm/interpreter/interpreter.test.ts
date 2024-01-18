@@ -8,7 +8,7 @@ import { Add } from '../opcodes/arithmetic.js';
 import { Jump, Return } from '../opcodes/control_flow.js';
 import { Instruction } from '../opcodes/instruction.js';
 import { CalldataCopy } from '../opcodes/memory.js';
-import { AvmInterpreter, InvalidProgramCounterError } from './interpreter.js';
+import { AvmInterpreter } from './interpreter.js';
 
 describe('interpreter', () => {
   it('Should execute a series of instructions', () => {

@@ -67,7 +67,7 @@ export class AvmInterpreter {
  * Error is thrown when the program counter goes to an invalid location.
  * There is no instruction at the provided pc
  */
-export class InvalidProgramCounterError extends Error {
+class InvalidProgramCounterError extends Error {
   constructor(pc: number, max: number) {
     super(`Invalid program counter ${pc}, max is ${max}`);
   }
@@ -76,7 +76,7 @@ export class InvalidProgramCounterError extends Error {
 /**
  * This assertion should never be hit - there should always be a valid instruction
  */
-export class InvalidInstructionError extends Error {
+class InvalidInstructionError extends Error {
   constructor(pc: number) {
     super(`Invalid instruction at ${pc}`);
   }
