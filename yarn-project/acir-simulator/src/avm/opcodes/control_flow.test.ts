@@ -42,32 +42,33 @@ describe('Control Flow Opcodes', () => {
     expect(machineState.pc).toBe(1);
   });
 
-  it("Should chain series of control flow instructions", () => {
+  it('Should chain series of control flow instructions', () => {
     const jumpLocation0 = 22;
     const jumpLocation1 = 69;
     const jumpLocation2 = 1337;
 
     const aloneJumpLocation = 420;
 
-    const instructions = [                  // pc  |  internal call stack
-        new InternalCall(jumpLocation0),    // 22  | [1]
-        new InternalCall(jumpLocation1),    // 69  | [1, 23]
-        new InternalReturn(),               // 23  | [1]
-        new Jump(aloneJumpLocation),        // 420 | [1]
-        new InternalCall(jumpLocation2),    // 1337| [1, 421]
-        new InternalReturn(),               // 421 | [1]
-        new InternalReturn(),               // 1   | []
+    const instructions = [
+      // pc  |  internal call stack
+      new InternalCall(jumpLocation0), // 22  | [1]
+      new InternalCall(jumpLocation1), // 69  | [1, 23]
+      new InternalReturn(), // 23  | [1]
+      new Jump(aloneJumpLocation), // 420 | [1]
+      new InternalCall(jumpLocation2), // 1337| [1, 421]
+      new InternalReturn(), // 421 | [1]
+      new InternalReturn(), // 1   | []
     ];
 
     // The expected program counter after each instruction is invoked
     const expectedPcs = [
-        jumpLocation0,
-        jumpLocation1,
-        jumpLocation0 + 1,
-        aloneJumpLocation,
-        jumpLocation2,
-        aloneJumpLocation + 1,
-        1,
+      jumpLocation0,
+      jumpLocation1,
+      jumpLocation0 + 1,
+      aloneJumpLocation,
+      jumpLocation2,
+      aloneJumpLocation + 1,
+      1,
     ];
 
     for (let i = 0; i < instructions.length; i++) {
@@ -76,7 +77,7 @@ describe('Control Flow Opcodes', () => {
     }
   });
 
-  it("Should error if Internal Return is called without a corresponding Internal Call", () => {
+  it('Should error if Internal Return is called without a corresponding Internal Call', () => {
     const returnInstruction = new InternalReturn();
     expect(() => returnInstruction.execute(machineState, stateManager)).toThrow(InternalCallStackEmptyError);
   });

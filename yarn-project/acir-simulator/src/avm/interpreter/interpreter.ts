@@ -30,14 +30,20 @@ export class AvmInterpreter {
    */
   run(): AvmMessageCallResult {
     try {
-      while (this.machineState.pc < this.instructions.length) {
+      while (!this.machineState.halted && this.machineState.pc < this.instructions.length) {
         const instruction = this.instructions[this.machineState.pc];
 
         if (!instruction) {
-          this.invalidProgramCounter();
+          this.failedAssertInstruction();
         }
 
         instruction.execute(this.machineState, this.stateManager);
+
+        console.log(this.machineState.pc);
+        if (this.machineState.pc >= this.instructions.length) {
+          console.log('hit');
+          this.failedAssertProgramCounter();
+        }
       }
 
       const returnData = this.machineState.getReturnData();
@@ -58,18 +64,30 @@ export class AvmInterpreter {
     return this.machineState.getReturnData();
   }
 
-  private invalidProgramCounter(): void {
+  private failedAssertProgramCounter(): void {
     throw new InvalidProgramCounterError(this.machineState.pc, this.instructions.length);
+  }
+
+  private failedAssertInstruction(): void {
+    throw new InvalidInstructionError(this.machineState.pc);
   }
 }
 
-
-/** 
+/**
  * Error is thrown when the program counter goes to an invalid location.
  * There is no instruction at the provided pc
  */
 export class InvalidProgramCounterError extends Error {
   constructor(pc: number, max: number) {
     super(`Invalid program counter ${pc}, max is ${max}`);
+  }
+}
+
+/**
+ * This assertion should never be hit - there should always be a valid instruction
+ */
+export class InvalidInstructionError extends Error {
+  constructor(pc: number) {
+    super(`Invalid instruction at ${pc}`);
   }
 }

@@ -13,4 +13,8 @@ export abstract class Instruction {
   incrementPc(machineState: AvmMachineState): void {
     machineState.pc++;
   }
+
+  halt(machineState: AvmMachineState): void {
+    machineState.halted = true;
+  }
 }

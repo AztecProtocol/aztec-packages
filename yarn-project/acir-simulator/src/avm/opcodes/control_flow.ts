@@ -14,6 +14,8 @@ export class Return extends Instruction {
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.copySize);
     machineState.setReturnData(returnData);
+
+    this.halt(machineState);
   }
 }
 

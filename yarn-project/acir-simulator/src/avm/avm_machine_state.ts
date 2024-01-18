@@ -24,6 +24,11 @@ export class AvmMachineState {
   public callStack: number[];
 
   /**
+   * If an instruction triggers a halt, then it ends execution of the VM
+   */
+  public halted: boolean;
+
+  /**
    * Create a new avm context
    * @param calldata -
    */
@@ -35,6 +40,8 @@ export class AvmMachineState {
 
     this.pc = 0;
     this.callStack = [];
+
+    this.halted = false;
   }
 
   /**
