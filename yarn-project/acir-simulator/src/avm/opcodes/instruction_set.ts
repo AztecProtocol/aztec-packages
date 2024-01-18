@@ -76,7 +76,6 @@ export const INSTRUCTION_SET: Map<Opcode, InstructionConstructorAndMembers> = ne
     //[Opcode.JUMPI, Jumpi],
     //[Opcode.INTERNALCALL, Internalcall],
     //[Opcode.INTERNALRETURN, Internalreturn],
-    //[Opcode.INTERNALCALLDEPTH, Internalcalldepth],
     //// Machine State - Memory
     //[Opcode.SET, Set],
     //[Opcode.MOV, Mov],

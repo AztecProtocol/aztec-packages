@@ -54,7 +54,6 @@ export enum Opcode {
   JUMPI,
   INTERNALCALL,
   INTERNALRETURN,
-  INTERNALCALLDEPTH,
   // Machine State - Memory
   SET,
   MOV,
