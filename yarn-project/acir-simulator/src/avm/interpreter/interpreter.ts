@@ -39,9 +39,7 @@ export class AvmInterpreter {
 
         instruction.execute(this.machineState, this.stateManager);
 
-        console.log(this.machineState.pc);
         if (this.machineState.pc >= this.instructions.length) {
-          console.log('hit');
           this.failedAssertProgramCounter();
         }
       }
