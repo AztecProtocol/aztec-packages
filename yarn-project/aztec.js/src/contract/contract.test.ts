@@ -26,11 +26,9 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     contractDeploymentEmitterAddress: EthAddress.random(),
-    decoderHelperAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
-    compatibleNargoVersion: 'vx.x.x-aztec.x',
     chainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
