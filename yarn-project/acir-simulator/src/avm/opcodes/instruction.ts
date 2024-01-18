@@ -9,4 +9,8 @@ export const AVM_OPCODE_BYTE_LENGTH = 1;
  */
 export abstract class Instruction {
   abstract execute(machineState: AvmMachineState, stateManager: AvmStateManager): void;
+
+  incrementPc(machineState: AvmMachineState): void {
+    machineState.pc++;
+  }
 }

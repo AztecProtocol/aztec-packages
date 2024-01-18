@@ -30,7 +30,8 @@ export class AvmInterpreter {
    */
   run(): AvmMessageCallResult {
     try {
-      for (const instruction of this.instructions) {
+      while (this.machineState.pc < this.instructions.length) {
+        const instruction = this.instructions[this.machineState.pc];
         instruction.execute(this.machineState, this.stateManager);
       }
 

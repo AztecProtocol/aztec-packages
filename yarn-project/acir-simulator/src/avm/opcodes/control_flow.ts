@@ -1,16 +1,79 @@
+import { machine } from 'os';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
 import { Instruction } from './instruction.js';
 
 /** - */
-export class Return implements Instruction {
+export class Return extends Instruction {
   static type: string = 'RETURN';
   static numberOfOperands = 2;
 
-  constructor(private returnOffset: number, private copySize: number) {}
+  constructor(private returnOffset: number, private copySize: number) {
+super();
+}
 
   execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
     const returnData = machineState.readMemoryChunk(this.returnOffset, this.returnOffset + this.copySize);
     machineState.setReturnData(returnData);
+  }
+}
+
+/** -*/
+export class Jump extends Instruction {
+  static type: string = 'JUMP';
+  static numberOfOperands = 1;
+
+  constructor(private jumpOffset: number) {
+    super();
+  }
+
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    // TODO: this jump offset must be range constrained.
+    machineState.pc = this.jumpOffset;
+  }
+}
+
+/** -*/
+export class InternalCall extends Instruction {
+  static type: string = 'INTERNAL_CALL';
+  static numberOfOperands = 1;
+
+  constructor(private jumpOffset: number) {
+    super();
+  }
+
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    // TODO: this jump offset must be range constrained.
+    machineState.internalCallStack.push(machineState.pc + 1);
+    machineState.pc = this.jumpOffset;
+  }
+}
+
+/** -*/
+export class InternalReturn extends Instruction {
+  static type: string = 'INTERNAL_RETURN';
+  static numberOfOperands = 0;
+
+  constructor() {
+    super();
+  }
+
+  execute(machineState: AvmMachineState, _stateManager: AvmStateManager): void {
+    const jumpOffset = machineState.internalCallStack.pop();
+    if (jumpOffset === undefined) {
+      // TODO: Add in an error if this pop is undefined
+      throw new InternalCallStackEmptyError();
+    }
+    machineState.pc = jumpOffset;
+  }
+}
+
+
+/**
+ * Thrown if the internal call stack is popped when it is empty
+ */
+export class InternalCallStackEmptyError extends Error {
+  constructor() {
+    super('Internal call stack is empty');
   }
 }
