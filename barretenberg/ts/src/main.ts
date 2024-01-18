@@ -134,18 +134,21 @@ export async function accumulateAndVerifyGoblin(bytecodePath: string, witnessPat
 
   const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
   try {
-    debug(`creating proof...`);
+    debug(`In accumulateAndVerifyGoblin:`);
+    debug(`getBytecode()`);
     const bytecode = getBytecode(bytecodePath);
+    debug(`getWitness()`);
     const witness = getWitness(witnessPath);
 
     writeBenchmark('gate_count', circuitSize, { acir_test, threads });
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
+    debug(`acirGoblinAccumulate()`);
     const proofTimer = new Timer();
     const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
-    debug(`verifying...`);
+    debug(`acirVerifyGoblinProof()`);
     const verified = await api.acirVerifyGoblinProof(acirComposer, proof);
     debug(`verified: ${verified}`);
     console.log({ verified });
