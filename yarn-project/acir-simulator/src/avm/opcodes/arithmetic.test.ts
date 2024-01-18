@@ -1,17 +1,18 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmStateManager } from '../avm_state_manager.js';
+import { initExecutionEnvironmentEmpty } from '../fixtures/index.js';
 import { Add, Div, Mul, Sub } from './arithmetic.js';
 
 describe('Arithmetic Instructions', () => {
   let machineState: AvmMachineState;
-  let stateManager = mock<AvmStateManager>();
+  let stateManager: MockProxy<AvmStateManager>;
 
   beforeEach(() => {
-    machineState = new AvmMachineState([]);
+    machineState = new AvmMachineState([], initExecutionEnvironmentEmpty());
     stateManager = mock<AvmStateManager>();
   });
 
