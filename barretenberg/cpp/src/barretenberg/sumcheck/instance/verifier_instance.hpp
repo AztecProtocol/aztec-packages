@@ -34,7 +34,7 @@ template <class Flavor> class VerifierInstance_ {
     VerifierInstance_() = default;
 
     VerifierInstance_(const std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
-        : public_inputs(std::move(prover_instance->public_inputs))
+        : public_inputs(prover_instance->public_inputs)
         , pub_inputs_offset(prover_instance->pub_inputs_offset)
         , public_input_size(prover_instance->public_inputs.size())
         , instance_size(prover_instance->instance_size)
